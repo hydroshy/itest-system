@@ -75,7 +75,7 @@ export const LOGIN_HTML = `<!DOCTYPE html>
 
       <div class="flex items-center justify-between text-xs pt-1">
         <label class="flex items-center text-slate-400 cursor-pointer select-none">
-          <input type="checkbox" checked class="rounded border-slate-700 bg-slate-800 text-sky-500 focus:ring-sky-400 focus:ring-offset-slate-900 mr-2" />
+          <input type="checkbox" id="rememberMe" checked class="rounded border-slate-700 bg-slate-800 text-sky-500 focus:ring-sky-400 focus:ring-offset-slate-900 mr-2" />
           Remember session
         </label>
         <a href="/api/docs" target="_blank" class="text-sky-400 hover:text-sky-300 transition flex items-center gap-1 font-medium">
@@ -104,21 +104,19 @@ export const LOGIN_HTML = `<!DOCTYPE html>
   </div>
 
   <script>
-    function togglePasswordVisibility() {
+    window.togglePasswordVisibility = function() {
       var passInput = document.getElementById("passwordInput");
       var eyeIcon = document.getElementById("eyeIcon");
       if (passInput.type === "password") {
         passInput.type = "text";
-        eyeIcon.classList.remove("fa-eye");
-        eyeIcon.classList.add("fa-eye-slash");
+        eyeIcon.className = "fa-solid fa-eye-slash text-sm";
       } else {
         passInput.type = "password";
-        eyeIcon.classList.remove("fa-eye-slash");
-        eyeIcon.classList.add("fa-eye");
+        eyeIcon.className = "fa-solid fa-eye text-sm";
       }
-    }
+    };
 
-    function showAlert(msg, type) {
+    window.showAlert = function(msg, type) {
       var alertBox = document.getElementById("alertBox");
       alertBox.className = "mb-5 p-3.5 rounded-xl text-xs font-medium flex items-center gap-2";
       var icon = '<i class="fa-solid fa-circle-info"></i>';
@@ -132,7 +130,7 @@ export const LOGIN_HTML = `<!DOCTYPE html>
         alertBox.className += " bg-sky-500/10 border border-sky-500/30 text-sky-400";
       }
       alertBox.innerHTML = icon + " <span>" + msg + "</span>";
-    }
+    };
 
     document.getElementById("loginForm").addEventListener("submit", async function(e) {
       e.preventDefault();
@@ -156,13 +154,13 @@ export const LOGIN_HTML = `<!DOCTYPE html>
           throw new Error(data.message || "Authentication failed. Please verify credentials.");
         }
 
-        showAlert("Sign in successful. Redirecting to Control Panel...", "success");
+        showAlert("Sign in successful. Establishing session...", "success");
         localStorage.setItem("lorawan_token", data.access_token);
         localStorage.setItem("lorawan_user", JSON.stringify(data.user));
 
         setTimeout(function() {
           window.location.href = "/control-panel";
-        }, 400);
+        }, 300);
       } catch (err) {
         showAlert(err.message, "error");
         submitBtn.disabled = false;
@@ -170,19 +168,12 @@ export const LOGIN_HTML = `<!DOCTYPE html>
       }
     });
 
-    var token = localStorage.getItem("lorawan_token");
-    if (token) {
-      fetch("/auth/profile", {
-        headers: { "Authorization": "Bearer " + token }
-      }).then(function(res) {
-        if (res.ok) {
-          window.location.href = "/control-panel";
-        } else {
-          localStorage.removeItem("lorawan_token");
-          localStorage.removeItem("lorawan_user");
-        }
-      }).catch(function() {});
-    }
+    // Auto-check if session is already active
+    fetch("/auth/session").then(function(res) {
+      if (res.ok) {
+        window.location.href = "/control-panel";
+      }
+    }).catch(function() {});
   </script>
 </body>
 </html>

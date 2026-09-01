@@ -1,6 +1,6 @@
-import { Controller, Get, Redirect, Res } from '@nestjs/common';
+import { Controller, Get, Req, Res } from '@nestjs/common';
 import { ApiExcludeEndpoint } from '@nestjs/swagger';
-import { Response } from 'express';
+import { Request, Response } from 'express';
 import { LOGIN_HTML } from './views/login.view';
 import { CONTROL_PANEL_HTML } from './views/control-panel.view';
 
@@ -8,14 +8,21 @@ import { CONTROL_PANEL_HTML } from './views/control-panel.view';
 export class AppController {
   @Get()
   @ApiExcludeEndpoint()
-  @Redirect('/login', 302)
-  redirectToLogin() {
-    return { url: '/login' };
+  root(@Req() req: Request, @Res() res: Response) {
+    const token = req.cookies?.['access_token'] || req.cookies?.['lorawan_token'];
+    if (token) {
+      return res.redirect('/control-panel');
+    }
+    return res.redirect('/login');
   }
 
   @Get('login')
   @ApiExcludeEndpoint()
-  getLoginPage(@Res() res: Response) {
+  getLoginPage(@Req() req: Request, @Res() res: Response) {
+    const token = req.cookies?.['access_token'] || req.cookies?.['lorawan_token'];
+    if (token) {
+      return res.redirect('/control-panel');
+    }
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
     res.send(LOGIN_HTML);
   }

@@ -44,7 +44,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
       <!-- Center Status -->
       <div class="hidden md:flex items-center gap-2 px-3 py-1 rounded-lg bg-slate-950 border border-slate-800 text-xs">
         <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-        <span class="text-slate-400 text-[11px]">System Status: <strong class="text-emerald-400 font-semibold" id="sysStatusText">HEALTHY</strong></span>
+        <span class="text-slate-400 text-[11px]">Session: <strong class="text-emerald-400 font-semibold" id="sysStatusText">AUTHENTICATED</strong></span>
       </div>
 
       <!-- Right User Menu -->
@@ -90,7 +90,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
     </div>
 
     <!-- TAB 1: OVERVIEW -->
-    <div id="tabContent-overview" class="space-y-6">
+    <div id="tabContent-overview" class="space-y-6" style="display: block;">
       <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-4">
           <div class="flex items-center justify-between text-slate-400 text-xs">
@@ -174,7 +174,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
     </div>
 
     <!-- TAB 2: USERS -->
-    <div id="tabContent-users" class="hidden space-y-6">
+    <div id="tabContent-users" class="space-y-6" style="display: none;">
       <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 space-y-5">
         <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
@@ -210,7 +210,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
     </div>
 
     <!-- TAB 3: ROLE MATRIX -->
-    <div id="tabContent-roles" class="hidden space-y-6">
+    <div id="tabContent-roles" class="space-y-6" style="display: none;">
       <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 space-y-5">
         <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
@@ -250,7 +250,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
     </div>
 
     <!-- TAB 4: DATABASE HEALTH & ROUTING -->
-    <div id="tabContent-database" class="hidden space-y-6">
+    <div id="tabContent-database" class="space-y-6" style="display: none;">
       <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 space-y-4">
         <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
@@ -300,7 +300,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
     </div>
 
     <!-- TAB 5: WEBHOOKS -->
-    <div id="tabContent-webhooks" class="hidden space-y-6">
+    <div id="tabContent-webhooks" class="space-y-6" style="display: none;">
       <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 space-y-4">
         <h2 class="text-base font-bold text-white flex items-center gap-2">
           <i class="fa-solid fa-satellite-dish text-sky-400"></i> LoRaWAN Network Server Webhook Endpoints
@@ -336,7 +336,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
     </div>
 
     <!-- TAB 6: DECODER SANDBOX -->
-    <div id="tabContent-decoder" class="hidden space-y-6">
+    <div id="tabContent-decoder" class="space-y-6" style="display: none;">
       <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 space-y-4">
         <h2 class="text-base font-bold text-white flex items-center gap-2">
           <i class="fa-solid fa-code text-indigo-400"></i> Payload Formatter Sandbox
@@ -491,36 +491,42 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
   </div>
 
   <script>
-    var authToken = localStorage.getItem("lorawan_token");
-    var storedUser = JSON.parse(localStorage.getItem("lorawan_user") || "{}");
-
-    if (!authToken) {
-      window.location.href = "/login";
-    }
-
     var allAvailablePermissions = [];
     var allAvailableRoles = [];
 
-    if (storedUser) {
-      document.getElementById("navFullName").textContent = storedUser.fullName || storedUser.username || "Admin User";
-      var isSuperAdmin = storedUser.userType === "ADMIN" || (storedUser.roles && storedUser.roles.indexOf("SUPER_ADMIN") !== -1);
-      document.getElementById("navRoleBadge").textContent = isSuperAdmin ? "SUPER_ADMIN" : (storedUser.roles && storedUser.roles[0] ? storedUser.roles[0] : "USER");
+    function getAuthToken() {
+      var token = localStorage.getItem("lorawan_token");
+      if (!token) {
+        var match = document.cookie.match(new RegExp('(^| )access_token=([^;]+)'));
+        if (match) token = match[2];
+      }
+      return token;
     }
 
     function authHeaders() {
-      return {
-        "Content-Type": "application/json",
-        "Authorization": "Bearer " + authToken
+      var headers = {
+        "Content-Type": "application/json"
       };
+      var token = getAuthToken();
+      if (token) {
+        headers["Authorization"] = "Bearer " + token;
+      }
+      return headers;
     }
 
-    function handleLogout() {
-      localStorage.removeItem("lorawan_token");
-      localStorage.removeItem("lorawan_user");
-      window.location.href = "/login";
+    function updateUserNav(user) {
+      if (!user) return;
+      var nameEl = document.getElementById("navFullName");
+      if (nameEl) nameEl.textContent = user.fullName || user.username || "Admin User";
+      
+      var isSuper = user.userType === "ADMIN" || (user.roles && user.roles.some(function(r) { return r === "SUPER_ADMIN" || (r && r.code === "SUPER_ADMIN"); }));
+      var badgeEl = document.getElementById("navRoleBadge");
+      if (badgeEl) {
+        badgeEl.textContent = isSuper ? "SUPER_ADMIN" : (user.roles && user.roles[0] ? (user.roles[0].name || user.roles[0]) : (user.userType || "USER"));
+      }
     }
 
-    function switchTab(tabId) {
+    window.switchTab = function(tabId) {
       var tabs = ["overview", "users", "roles", "database", "webhooks", "decoder"];
       for (var i = 0; i < tabs.length; i++) {
         var t = tabs[i];
@@ -529,23 +535,35 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
         if (btn && content) {
           if (t === tabId) {
             btn.className = "tab-btn px-4 py-2 rounded-xl font-medium text-xs transition flex items-center gap-2 bg-sky-500/10 text-sky-400 border border-sky-500/30";
+            content.style.display = "block";
             content.classList.remove("hidden");
           } else {
             btn.className = "tab-btn px-4 py-2 rounded-xl font-medium text-xs transition flex items-center gap-2 text-slate-400 hover:text-slate-200 hover:bg-slate-800/50";
+            content.style.display = "none";
             content.classList.add("hidden");
           }
         }
       }
 
-      if (tabId === "users") loadUsers();
-      if (tabId === "roles") loadRoles();
-      if (tabId === "database") loadDatabaseHealth();
-    }
+      if (tabId === "users") window.loadUsers();
+      if (tabId === "roles") window.loadRoles();
+      if (tabId === "database") window.loadDatabaseHealth();
+    };
 
-    async function loadUsers() {
+    window.handleLogout = async function() {
+      try {
+        await fetch("/auth/logout", { method: "POST" });
+      } catch (e) {}
+      localStorage.removeItem("lorawan_token");
+      localStorage.removeItem("lorawan_user");
+      document.cookie = "access_token=; Path=/; Expires=Thu, 01 Jan 1970 00:00:01 GMT;";
+      window.location.href = "/login";
+    };
+
+    window.loadUsers = async function() {
       try {
         var res = await fetch("/users", { headers: authHeaders() });
-        if (!res.ok) throw new Error("Failed to load users");
+        if (!res.ok) throw new Error("Failed to load users (" + res.status + ")");
         var users = await res.json();
         
         var totalEl = document.getElementById("metricTotalUsers");
@@ -583,9 +601,9 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
       } catch (err) {
         console.error("loadUsers error:", err);
       }
-    }
+    };
 
-    async function loadRoles() {
+    window.loadRoles = async function() {
       try {
         var results = await Promise.all([
           fetch("/roles", { headers: authHeaders() }),
@@ -602,7 +620,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
       } catch (err) {
         console.error("loadRoles error:", err);
       }
-    }
+    };
 
     function renderRolesCards(roles) {
       var container = document.getElementById("rolesCardsContainer");
@@ -619,7 +637,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
         var card = document.createElement("div");
         card.className = "bg-slate-950/60 border border-slate-800 rounded-xl p-4 space-y-2";
         card.innerHTML = '<div class="flex items-center justify-between">' +
-          '<span class="font-bold ' + (isSuper ? "text-emerald-400" : "text-sky-400") + ' flex items-center gap-1.5"><i class="fa-solid ' + (isSuper ? "fa-crown" : "fa-user-shield") + '"></i> ' + r.name + '</span>' +
+          '<span class="font-bold ' + (isSuper ? "text-emerald-400" : "text-sky-400") + ' flex items-center gap-1.5"><i class="fa-solid ' + (isSuper ? "fa-crown" : "fa-user-shield") + '"></i> " + r.name + "</span>' +
           '<span class="px-2 py-0.5 rounded text-[10px] font-mono ' + (isSuper ? "bg-emerald-500/10 text-emerald-300 border border-emerald-500/20" : "bg-slate-800 text-slate-400") + '">' + r.code + '</span>' +
           '</div>' +
           '<p class="text-slate-400 text-[11px]">' + (r.description || "No description provided") + '</p>' +
@@ -658,10 +676,10 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
       }
     }
 
-    async function loadDatabaseHealth() {
+    window.loadDatabaseHealth = async function() {
       try {
         var res = await fetch("/database/health", { headers: authHeaders() });
-        if (!res.ok) throw new Error("Failed to fetch database health");
+        if (!res.ok) throw new Error("Failed to fetch database health (" + res.status + ")");
         var data = await res.json();
 
         var dbPoolsEl = document.getElementById("metricDbPools");
@@ -709,9 +727,9 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
       } catch (err) {
         console.error("loadDatabaseHealth error:", err);
       }
-    }
+    };
 
-    async function reloadDbConfig() {
+    window.reloadDbConfig = async function() {
       try {
         var res = await fetch("/database/reload", {
           method: "POST",
@@ -719,13 +737,13 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
         });
         var data = await res.json();
         alert(data.message || "Database configuration reloaded");
-        loadDatabaseHealth();
+        window.loadDatabaseHealth();
       } catch (err) {
         alert("Failed to reload database config: " + err.message);
       }
-    }
+    };
 
-    function openCreateUserModal() {
+    window.openCreateUserModal = function() {
       var select = document.getElementById("newUserRoleId");
       select.innerHTML = '<option value="">Select a role...</option>';
       for (var i = 0; i < allAvailableRoles.length; i++) {
@@ -733,11 +751,11 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
         select.innerHTML += '<option value="' + r.id + '">' + r.name + ' (' + r.code + ')</option>';
       }
       document.getElementById("createUserModal").classList.remove("hidden");
-    }
+    };
 
-    function closeCreateUserModal() {
+    window.closeCreateUserModal = function() {
       document.getElementById("createUserModal").classList.add("hidden");
-    }
+    };
 
     document.getElementById("createUserForm").addEventListener("submit", async function(e) {
       e.preventDefault();
@@ -763,14 +781,14 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
         });
         var data = await res.json();
         if (!res.ok) throw new Error(data.message || "Failed to create user");
-        closeCreateUserModal();
-        loadUsers();
+        window.closeCreateUserModal();
+        window.loadUsers();
       } catch (err) {
         alert(err.message);
       }
     });
 
-    async function deleteUser(id) {
+    window.deleteUser = async function(id) {
       if (!confirm("Are you sure you want to delete this user?")) return;
       try {
         var res = await fetch("/users/" + id, {
@@ -781,13 +799,13 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
           var data = await res.json();
           throw new Error(data.message || "Delete failed");
         }
-        loadUsers();
+        window.loadUsers();
       } catch (err) {
         alert(err.message);
       }
-    }
+    };
 
-    function openCreateRoleModal() {
+    window.openCreateRoleModal = function() {
       var container = document.getElementById("newRolePermissionsContainer");
       container.innerHTML = "";
       for (var i = 0; i < allAvailablePermissions.length; i++) {
@@ -799,11 +817,11 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
           '</label>';
       }
       document.getElementById("createRoleModal").classList.remove("hidden");
-    }
+    };
 
-    function closeCreateRoleModal() {
+    window.closeCreateRoleModal = function() {
       document.getElementById("createRoleModal").classList.add("hidden");
-    }
+    };
 
     document.getElementById("createRoleForm").addEventListener("submit", async function(e) {
       e.preventDefault();
@@ -824,14 +842,14 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
         });
         var data = await res.json();
         if (!res.ok) throw new Error(data.message || "Failed to create role");
-        closeCreateRoleModal();
-        loadRoles();
+        window.closeCreateRoleModal();
+        window.loadRoles();
       } catch (err) {
         alert(err.message);
       }
     });
 
-    function openEditRoleModal(roleId) {
+    window.openEditRoleModal = function(roleId) {
       var role = null;
       for (var i = 0; i < allAvailableRoles.length; i++) {
         if (allAvailableRoles[i].id === roleId) {
@@ -861,11 +879,11 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
       }
 
       document.getElementById("editRoleModal").classList.remove("hidden");
-    }
+    };
 
-    function closeEditRoleModal() {
+    window.closeEditRoleModal = function() {
       document.getElementById("editRoleModal").classList.add("hidden");
-    }
+    };
 
     document.getElementById("editRoleForm").addEventListener("submit", async function(e) {
       e.preventDefault();
@@ -886,14 +904,14 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
         });
         var data = await res.json();
         if (!res.ok) throw new Error(data.message || "Failed to update role");
-        closeEditRoleModal();
-        loadRoles();
+        window.closeEditRoleModal();
+        window.loadRoles();
       } catch (err) {
         alert(err.message);
       }
     });
 
-    async function deleteRole(id) {
+    window.deleteRole = async function(id) {
       if (!confirm("Are you sure you want to delete this role?")) return;
       try {
         var res = await fetch("/roles/" + id, {
@@ -904,13 +922,13 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
           var data = await res.json();
           throw new Error(data.message || "Delete role failed");
         }
-        loadRoles();
+        window.loadRoles();
       } catch (err) {
         alert(err.message);
       }
-    }
+    };
 
-    function runSandboxDecode() {
+    window.runSandboxDecode = function() {
       var code = document.getElementById("sandboxCode").value;
       var hex = document.getElementById("sandboxHex").value.trim().replace(/\\s+/g, "");
       var resultArea = document.getElementById("sandboxResult");
@@ -927,11 +945,36 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
       } catch (err) {
         resultArea.textContent = "Decoder Error: " + err.message;
       }
+    };
+
+    // Check active session on load
+    async function initPage() {
+      try {
+        var storedUser = JSON.parse(localStorage.getItem("lorawan_user") || "null");
+        if (storedUser) updateUserNav(storedUser);
+
+        var res = await fetch("/auth/session", { headers: authHeaders() });
+        if (res.ok) {
+          var user = await res.json();
+          localStorage.setItem("lorawan_user", JSON.stringify(user));
+          updateUserNav(user);
+        } else {
+          var token = getAuthToken();
+          if (!token) {
+            window.location.href = "/login";
+            return;
+          }
+        }
+      } catch (err) {
+        console.warn("Session check fallback:", err);
+      }
+
+      window.loadUsers();
+      window.loadRoles();
+      window.loadDatabaseHealth();
     }
 
-    loadUsers();
-    loadRoles();
-    loadDatabaseHealth();
+    initPage();
   </script>
 </body>
 </html>

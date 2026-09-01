@@ -1,5 +1,6 @@
-import { Controller, Post, Body, Get, UseGuards, HttpException, HttpStatus } from '@nestjs/common';
+import { Controller, Post, Body, Get, Res, UseGuards, HttpException, HttpStatus } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
+import { Response } from 'express';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
@@ -12,15 +13,36 @@ export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
   @Post('login')
-  @ApiOperation({ summary: 'Đăng nhập hệ thống (Lấy Bearer JWT Token)' })
-  async login(@Body() loginDto: LoginDto) {
-    return this.authService.login(loginDto);
+  @ApiOperation({ summary: 'Login and establish session (Sets auth cookie & returns JWT)' })
+  async login(
+    @Body() loginDto: LoginDto,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const result = await this.authService.login(loginDto);
+    // Set session cookie for seamless browser navigation
+    res.cookie('access_token', result.access_token, {
+      path: '/',
+      httpOnly: false,
+      sameSite: 'lax',
+      maxAge: 30 * 24 * 3600 * 1000,
+    });
+    return result;
   }
 
+  @Get('logout')
+  @Post('logout')
+  @ApiOperation({ summary: 'Logout and clear session cookie' })
+  async logout(@Res({ passthrough: true }) res: Response) {
+    res.clearCookie('access_token', { path: '/' });
+    res.clearCookie('lorawan_token', { path: '/' });
+    return { success: true, message: 'Logged out successfully' };
+  }
+
+  @Get('session')
   @Get('profile')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Xem thông tin tài khoản hiện tại & ma trận phân quyền' })
+  @ApiOperation({ summary: 'Get current user session and permissions' })
   async getProfile(@CurrentUser() user: User) {
     return {
       id: user.id,
