@@ -22,11 +22,23 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
       background: #334155;
       border-radius: 4px;
     }
+    .tab-btn {
+      cursor: pointer;
+      user-select: none;
+    }
+    .tab-btn.active {
+      background-color: rgba(14, 165, 233, 0.15);
+      color: #38bdf8;
+      border-color: rgba(56, 189, 248, 0.4);
+    }
+    .modal-backdrop {
+      display: none;
+    }
   </style>
 </head>
 <body class="min-h-screen text-slate-100 flex flex-col">
   <!-- Top Navigation Bar -->
-  <header class="bg-slate-900/90 border-b border-slate-800 sticky top-0 z-40 backdrop-blur-md">
+  <header class="bg-slate-900/95 border-b border-slate-800 sticky top-0 z-40 backdrop-blur-md">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
       <div class="flex items-center gap-3">
         <div class="w-9 h-9 rounded-xl bg-sky-500/10 border border-sky-500/30 flex items-center justify-center text-sky-400 text-base shadow-inner">
@@ -57,7 +69,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
             <div id="navFullName" class="text-xs font-semibold text-slate-200">Admin User</div>
             <div id="navRoleBadge" class="text-[10px] text-emerald-400 font-mono">SUPER_ADMIN</div>
           </div>
-          <button onclick="handleLogout()" title="Sign Out" class="w-8 h-8 rounded-lg bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-400 flex items-center justify-center text-xs transition">
+          <button onclick="handleLogout()" type="button" title="Sign Out" class="w-8 h-8 rounded-lg bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-400 flex items-center justify-center text-xs transition cursor-pointer">
             <i class="fa-solid fa-right-from-bracket"></i>
           </button>
         </div>
@@ -69,22 +81,22 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
   <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
     <!-- Navigation Tabs -->
     <div class="flex border-b border-slate-800 gap-2 overflow-x-auto custom-scroll pb-1">
-      <button onclick="switchTab('overview')" id="tabBtn-overview" class="tab-btn px-4 py-2 rounded-xl font-medium text-xs transition flex items-center gap-2 bg-sky-500/10 text-sky-400 border border-sky-500/30">
+      <button onclick="switchTab('overview')" type="button" id="tabBtn-overview" class="tab-btn active px-4 py-2 rounded-xl font-medium text-xs transition flex items-center gap-2 bg-sky-500/10 text-sky-400 border border-sky-500/30">
         <i class="fa-solid fa-chart-pie"></i> Overview
       </button>
-      <button onclick="switchTab('users')" id="tabBtn-users" class="tab-btn px-4 py-2 rounded-xl font-medium text-xs transition flex items-center gap-2 text-slate-400 hover:text-slate-200 hover:bg-slate-800/50">
+      <button onclick="switchTab('users')" type="button" id="tabBtn-users" class="tab-btn px-4 py-2 rounded-xl font-medium text-xs transition flex items-center gap-2 text-slate-400 hover:text-slate-200 hover:bg-slate-800/50 border border-transparent">
         <i class="fa-solid fa-users"></i> Users
       </button>
-      <button onclick="switchTab('roles')" id="tabBtn-roles" class="tab-btn px-4 py-2 rounded-xl font-medium text-xs transition flex items-center gap-2 text-slate-400 hover:text-slate-200 hover:bg-slate-800/50">
+      <button onclick="switchTab('roles')" type="button" id="tabBtn-roles" class="tab-btn px-4 py-2 rounded-xl font-medium text-xs transition flex items-center gap-2 text-slate-400 hover:text-slate-200 hover:bg-slate-800/50 border border-transparent">
         <i class="fa-solid fa-shield-halved"></i> Role Matrix
       </button>
-      <button onclick="switchTab('database')" id="tabBtn-database" class="tab-btn px-4 py-2 rounded-xl font-medium text-xs transition flex items-center gap-2 text-slate-400 hover:text-slate-200 hover:bg-slate-800/50">
+      <button onclick="switchTab('database')" type="button" id="tabBtn-database" class="tab-btn px-4 py-2 rounded-xl font-medium text-xs transition flex items-center gap-2 text-slate-400 hover:text-slate-200 hover:bg-slate-800/50 border border-transparent">
         <i class="fa-solid fa-database"></i> Database Health
       </button>
-      <button onclick="switchTab('webhooks')" id="tabBtn-webhooks" class="tab-btn px-4 py-2 rounded-xl font-medium text-xs transition flex items-center gap-2 text-slate-400 hover:text-slate-200 hover:bg-slate-800/50">
+      <button onclick="switchTab('webhooks')" type="button" id="tabBtn-webhooks" class="tab-btn px-4 py-2 rounded-xl font-medium text-xs transition flex items-center gap-2 text-slate-400 hover:text-slate-200 hover:bg-slate-800/50 border border-transparent">
         <i class="fa-solid fa-satellite-dish"></i> Webhooks & Ingestion
       </button>
-      <button onclick="switchTab('decoder')" id="tabBtn-decoder" class="tab-btn px-4 py-2 rounded-xl font-medium text-xs transition flex items-center gap-2 text-slate-400 hover:text-slate-200 hover:bg-slate-800/50">
+      <button onclick="switchTab('decoder')" type="button" id="tabBtn-decoder" class="tab-btn px-4 py-2 rounded-xl font-medium text-xs transition flex items-center gap-2 text-slate-400 hover:text-slate-200 hover:bg-slate-800/50 border border-transparent">
         <i class="fa-solid fa-code"></i> Payload Decoder Sandbox
       </button>
     </div>
@@ -160,11 +172,11 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
               <span class="flex items-center gap-2 text-slate-300 font-medium"><i class="fa-solid fa-book text-sky-400"></i> Swagger REST API Documentation</span>
               <i class="fa-solid fa-arrow-up-right-from-square text-slate-500 text-[10px]"></i>
             </a>
-            <button onclick="switchTab('webhooks')" class="w-full flex items-center justify-between p-2.5 rounded-xl bg-slate-950/60 border border-slate-800/80 hover:border-emerald-500/40 transition">
+            <button onclick="switchTab('webhooks')" type="button" class="w-full flex items-center justify-between p-2.5 rounded-xl bg-slate-950/60 border border-slate-800/80 hover:border-emerald-500/40 transition cursor-pointer">
               <span class="flex items-center gap-2 text-slate-300 font-medium"><i class="fa-solid fa-satellite-dish text-emerald-400"></i> Webhook Ingestion Configuration</span>
               <i class="fa-solid fa-arrow-right text-slate-500 text-[10px]"></i>
             </button>
-            <button onclick="switchTab('database')" class="w-full flex items-center justify-between p-2.5 rounded-xl bg-slate-950/60 border border-slate-800/80 hover:border-amber-500/40 transition">
+            <button onclick="switchTab('database')" type="button" class="w-full flex items-center justify-between p-2.5 rounded-xl bg-slate-950/60 border border-slate-800/80 hover:border-amber-500/40 transition cursor-pointer">
               <span class="flex items-center gap-2 text-slate-300 font-medium"><i class="fa-solid fa-heart-pulse text-amber-400"></i> Visual Database Health Monitor</span>
               <i class="fa-solid fa-arrow-right text-slate-500 text-[10px]"></i>
             </button>
@@ -183,7 +195,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
             </h2>
             <p class="text-xs text-slate-400 mt-0.5">Manage administrative and standard user accounts</p>
           </div>
-          <button onclick="openCreateUserModal()" class="px-3.5 py-2 rounded-xl text-xs font-semibold bg-sky-500 hover:bg-sky-400 text-white shadow-lg shadow-sky-500/20 transition flex items-center gap-1.5 self-start sm:self-auto">
+          <button onclick="openCreateUserModal()" type="button" class="px-3.5 py-2 rounded-xl text-xs font-semibold bg-sky-500 hover:bg-sky-400 text-white shadow-lg shadow-sky-500/20 transition flex items-center gap-1.5 self-start sm:self-auto cursor-pointer">
             <i class="fa-solid fa-user-plus"></i> Create User
           </button>
         </div>
@@ -219,7 +231,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
             </h2>
             <p class="text-xs text-slate-400 mt-0.5">Configure role definitions and granular permission assignments. Only Super Admin has modification rights.</p>
           </div>
-          <button onclick="openCreateRoleModal()" class="px-3.5 py-2 rounded-xl text-xs font-semibold bg-amber-500 hover:bg-amber-400 text-slate-950 shadow-lg shadow-amber-500/20 transition flex items-center gap-1.5 self-start sm:self-auto">
+          <button onclick="openCreateRoleModal()" type="button" class="px-3.5 py-2 rounded-xl text-xs font-semibold bg-amber-500 hover:bg-amber-400 text-slate-950 shadow-lg shadow-amber-500/20 transition flex items-center gap-1.5 self-start sm:self-auto cursor-pointer">
             <i class="fa-solid fa-plus"></i> Create New Role
           </button>
         </div>
@@ -260,10 +272,10 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
             <p class="text-xs text-slate-400 mt-0.5">Real-time status of multi-database connections, latency, and table routing</p>
           </div>
           <div class="flex items-center gap-2">
-            <button onclick="loadDatabaseHealth()" class="px-3 py-1.5 rounded-xl text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition flex items-center gap-1.5">
+            <button onclick="loadDatabaseHealth()" type="button" class="px-3 py-1.5 rounded-xl text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition flex items-center gap-1.5 cursor-pointer">
               <i class="fa-solid fa-arrows-rotate"></i> Refresh Health
             </button>
-            <button onclick="reloadDbConfig()" class="px-3 py-1.5 rounded-xl text-xs font-semibold bg-sky-500/10 text-sky-400 border border-sky-500/30 hover:bg-sky-500/20 transition flex items-center gap-1.5">
+            <button onclick="reloadDbConfig()" type="button" class="px-3 py-1.5 rounded-xl text-xs font-semibold bg-sky-500/10 text-sky-400 border border-sky-500/30 hover:bg-sky-500/20 transition flex items-center gap-1.5 cursor-pointer">
               <i class="fa-solid fa-gear"></i> Hot-Reload Config
             </button>
           </div>
@@ -360,7 +372,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
             <label class="block text-xs font-sans font-semibold text-slate-300">Test Hex Bytes & Output</label>
             <div class="flex gap-2">
               <input type="text" id="sandboxHex" value="09C441" placeholder="Hex string e.g. 09C441" class="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-slate-200" />
-              <button onclick="runSandboxDecode()" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-sans font-semibold rounded-xl transition">Decode</button>
+              <button onclick="runSandboxDecode()" type="button" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-sans font-semibold rounded-xl transition cursor-pointer">Decode</button>
             </div>
             <pre id="sandboxResult" class="w-full h-36 bg-slate-950 border border-slate-800 rounded-xl p-3 text-emerald-400 overflow-auto text-xs">{ "ready": true }</pre>
           </div>
@@ -370,13 +382,13 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
   </main>
 
   <!-- MODAL: CREATE USER -->
-  <div id="createUserModal" class="hidden fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
-    <div class="w-full max-w-md bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-4">
+  <div id="createUserModal" style="display: none;" class="modal-backdrop fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm items-center justify-center p-4">
+    <div class="w-full max-w-md bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-4 shadow-2xl">
       <div class="flex items-center justify-between">
         <h3 class="text-sm font-bold text-white flex items-center gap-2">
           <i class="fa-solid fa-user-plus text-sky-400"></i> Create User Account
         </h3>
-        <button onclick="closeCreateUserModal()" class="text-slate-500 hover:text-slate-300"><i class="fa-solid fa-xmark"></i></button>
+        <button onclick="closeCreateUserModal()" type="button" class="text-slate-500 hover:text-slate-300 cursor-pointer"><i class="fa-solid fa-xmark"></i></button>
       </div>
       <form id="createUserForm" class="space-y-3 text-xs">
         <div>
@@ -410,21 +422,21 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
           </select>
         </div>
         <div class="flex justify-end gap-2 pt-2">
-          <button type="button" onclick="closeCreateUserModal()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg font-medium">Cancel</button>
-          <button type="submit" class="px-4 py-2 bg-sky-500 hover:bg-sky-400 text-white rounded-lg font-semibold">Save User</button>
+          <button type="button" onclick="closeCreateUserModal()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg font-medium cursor-pointer">Cancel</button>
+          <button type="submit" class="px-4 py-2 bg-sky-500 hover:bg-sky-400 text-white rounded-lg font-semibold cursor-pointer">Save User</button>
         </div>
       </form>
     </div>
   </div>
 
   <!-- MODAL: CREATE ROLE -->
-  <div id="createRoleModal" class="hidden fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
-    <div class="w-full max-w-lg bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-4">
+  <div id="createRoleModal" style="display: none;" class="modal-backdrop fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm items-center justify-center p-4">
+    <div class="w-full max-w-lg bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-4 shadow-2xl">
       <div class="flex items-center justify-between">
         <h3 class="text-sm font-bold text-white flex items-center gap-2">
           <i class="fa-solid fa-shield-halved text-amber-400"></i> Create New Role
         </h3>
-        <button onclick="closeCreateRoleModal()" class="text-slate-500 hover:text-slate-300"><i class="fa-solid fa-xmark"></i></button>
+        <button onclick="closeCreateRoleModal()" type="button" class="text-slate-500 hover:text-slate-300 cursor-pointer"><i class="fa-solid fa-xmark"></i></button>
       </div>
       <form id="createRoleForm" class="space-y-3 text-xs">
         <div>
@@ -446,21 +458,21 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
           </div>
         </div>
         <div class="flex justify-end gap-2 pt-2">
-          <button type="button" onclick="closeCreateRoleModal()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg font-medium">Cancel</button>
-          <button type="submit" class="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 rounded-lg font-bold">Create Role</button>
+          <button type="button" onclick="closeCreateRoleModal()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg font-medium cursor-pointer">Cancel</button>
+          <button type="submit" class="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 rounded-lg font-bold cursor-pointer">Create Role</button>
         </div>
       </form>
     </div>
   </div>
 
   <!-- MODAL: EDIT ROLE -->
-  <div id="editRoleModal" class="hidden fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
-    <div class="w-full max-w-lg bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-4">
+  <div id="editRoleModal" style="display: none;" class="modal-backdrop fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm items-center justify-center p-4">
+    <div class="w-full max-w-lg bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-4 shadow-2xl">
       <div class="flex items-center justify-between">
         <h3 class="text-sm font-bold text-white flex items-center gap-2">
           <i class="fa-solid fa-pen-to-square text-sky-400"></i> Edit Role Definition
         </h3>
-        <button onclick="closeEditRoleModal()" class="text-slate-500 hover:text-slate-300"><i class="fa-solid fa-xmark"></i></button>
+        <button onclick="closeEditRoleModal()" type="button" class="text-slate-500 hover:text-slate-300 cursor-pointer"><i class="fa-solid fa-xmark"></i></button>
       </div>
       <form id="editRoleForm" class="space-y-3 text-xs">
         <input type="hidden" id="editRoleId" />
@@ -483,8 +495,8 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
           </div>
         </div>
         <div class="flex justify-end gap-2 pt-2">
-          <button type="button" onclick="closeEditRoleModal()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg font-medium">Cancel</button>
-          <button type="submit" class="px-4 py-2 bg-sky-500 hover:bg-sky-400 text-white rounded-lg font-bold">Update Role</button>
+          <button type="button" onclick="closeEditRoleModal()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg font-medium cursor-pointer">Cancel</button>
+          <button type="submit" class="px-4 py-2 bg-sky-500 hover:bg-sky-400 text-white rounded-lg font-bold cursor-pointer">Update Role</button>
         </div>
       </form>
     </div>
@@ -534,13 +546,11 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
         var content = document.getElementById("tabContent-" + t);
         if (btn && content) {
           if (t === tabId) {
-            btn.className = "tab-btn px-4 py-2 rounded-xl font-medium text-xs transition flex items-center gap-2 bg-sky-500/10 text-sky-400 border border-sky-500/30";
+            btn.className = "tab-btn active px-4 py-2 rounded-xl font-medium text-xs transition flex items-center gap-2 bg-sky-500/10 text-sky-400 border border-sky-500/30";
             content.style.display = "block";
-            content.classList.remove("hidden");
           } else {
-            btn.className = "tab-btn px-4 py-2 rounded-xl font-medium text-xs transition flex items-center gap-2 text-slate-400 hover:text-slate-200 hover:bg-slate-800/50";
+            btn.className = "tab-btn px-4 py-2 rounded-xl font-medium text-xs transition flex items-center gap-2 text-slate-400 hover:text-slate-200 hover:bg-slate-800/50 border border-transparent";
             content.style.display = "none";
-            content.classList.add("hidden");
           }
         }
       }
@@ -584,7 +594,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
             : '<span class="text-slate-500 text-[10px]">None</span>';
 
           var deleteBtn = !isSuper 
-            ? '<button onclick="deleteUser(\'' + u.id + '\')" class="text-red-400 hover:text-red-300 text-xs px-2 py-1 rounded bg-red-500/10 border border-red-500/20 transition"><i class="fa-solid fa-trash"></i></button>'
+            ? '<button onclick="deleteUser(\'' + u.id + '\')" type="button" class="text-red-400 hover:text-red-300 text-xs px-2 py-1 rounded bg-red-500/10 border border-red-500/20 transition cursor-pointer"><i class="fa-solid fa-trash"></i></button>'
             : '<span class="text-slate-600 text-[11px]"><i class="fa-solid fa-lock"></i> Protected</span>';
 
           var tr = document.createElement("tr");
@@ -632,12 +642,12 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
         var isSuper = r.code === "SUPER_ADMIN";
         var editBtn = isSuper 
           ? '<span class="text-emerald-400/80 font-mono text-[10px]"><i class="fa-solid fa-lock"></i> Core System Role</span>'
-          : '<button onclick="openEditRoleModal(\'' + r.id + '\')" class="text-sky-400 hover:text-sky-300 font-medium">Edit</button>';
+          : '<button onclick="openEditRoleModal(\'' + r.id + '\')" type="button" class="text-sky-400 hover:text-sky-300 font-medium cursor-pointer">Edit</button>';
 
         var card = document.createElement("div");
         card.className = "bg-slate-950/60 border border-slate-800 rounded-xl p-4 space-y-2";
         card.innerHTML = '<div class="flex items-center justify-between">' +
-          '<span class="font-bold ' + (isSuper ? "text-emerald-400" : "text-sky-400") + ' flex items-center gap-1.5"><i class="fa-solid ' + (isSuper ? "fa-crown" : "fa-user-shield") + '"></i> " + r.name + "</span>' +
+          '<span class="font-bold ' + (isSuper ? "text-emerald-400" : "text-sky-400") + ' flex items-center gap-1.5"><i class="fa-solid ' + (isSuper ? "fa-crown" : "fa-user-shield") + '"></i> ' + r.name + '</span>' +
           '<span class="px-2 py-0.5 rounded text-[10px] font-mono ' + (isSuper ? "bg-emerald-500/10 text-emerald-300 border border-emerald-500/20" : "bg-slate-800 text-slate-400") + '">' + r.code + '</span>' +
           '</div>' +
           '<p class="text-slate-400 text-[11px]">' + (r.description || "No description provided") + '</p>' +
@@ -663,7 +673,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
         
         var actions = isSuper 
           ? '<span class="text-slate-600 text-[11px]"><i class="fa-solid fa-lock"></i> Immutable</span>'
-          : '<div class="flex items-center justify-end gap-1.5"><button onclick="openEditRoleModal(\'' + r.id + '\')" class="text-sky-400 hover:text-sky-300 text-xs px-2.5 py-1 rounded bg-sky-500/10 border border-sky-500/20 transition">Edit</button><button onclick="deleteRole(\'' + r.id + '\')" class="text-red-400 hover:text-red-300 text-xs px-2.5 py-1 rounded bg-red-500/10 border border-red-500/20 transition"><i class="fa-solid fa-trash"></i></button></div>';
+          : '<div class="flex items-center justify-end gap-1.5"><button onclick="openEditRoleModal(\'' + r.id + '\')" type="button" class="text-sky-400 hover:text-sky-300 text-xs px-2.5 py-1 rounded bg-sky-500/10 border border-sky-500/20 transition cursor-pointer">Edit</button><button onclick="deleteRole(\'' + r.id + '\')" type="button" class="text-red-400 hover:text-red-300 text-xs px-2.5 py-1 rounded bg-red-500/10 border border-red-500/20 transition cursor-pointer"><i class="fa-solid fa-trash"></i></button></div>';
 
         var tr = document.createElement("tr");
         tr.className = "hover:bg-slate-950/40 transition";
@@ -750,11 +760,13 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
         var r = allAvailableRoles[i];
         select.innerHTML += '<option value="' + r.id + '">' + r.name + ' (' + r.code + ')</option>';
       }
-      document.getElementById("createUserModal").classList.remove("hidden");
+      var modal = document.getElementById("createUserModal");
+      modal.style.display = "flex";
     };
 
     window.closeCreateUserModal = function() {
-      document.getElementById("createUserModal").classList.add("hidden");
+      var modal = document.getElementById("createUserModal");
+      modal.style.display = "none";
     };
 
     document.getElementById("createUserForm").addEventListener("submit", async function(e) {
@@ -816,11 +828,13 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
           '<span class="text-slate-500 text-[10px]">(' + (p.description || p.module) + ')</span>' +
           '</label>';
       }
-      document.getElementById("createRoleModal").classList.remove("hidden");
+      var modal = document.getElementById("createRoleModal");
+      modal.style.display = "flex";
     };
 
     window.closeCreateRoleModal = function() {
-      document.getElementById("createRoleModal").classList.add("hidden");
+      var modal = document.getElementById("createRoleModal");
+      modal.style.display = "none";
     };
 
     document.getElementById("createRoleForm").addEventListener("submit", async function(e) {
@@ -878,11 +892,13 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
           '</label>';
       }
 
-      document.getElementById("editRoleModal").classList.remove("hidden");
+      var modal = document.getElementById("editRoleModal");
+      modal.style.display = "flex";
     };
 
     window.closeEditRoleModal = function() {
-      document.getElementById("editRoleModal").classList.add("hidden");
+      var modal = document.getElementById("editRoleModal");
+      modal.style.display = "none";
     };
 
     document.getElementById("editRoleForm").addEventListener("submit", async function(e) {
@@ -950,20 +966,20 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
     // Check active session on load
     async function initPage() {
       try {
-        var storedUser = JSON.parse(localStorage.getItem("lorawan_user") || "null");
-        if (storedUser) updateUserNav(storedUser);
+        var rawUser = localStorage.getItem("lorawan_user");
+        if (rawUser && rawUser.startsWith("{")) {
+          var storedUser = JSON.parse(rawUser);
+          if (storedUser) updateUserNav(storedUser);
+        }
 
         var res = await fetch("/auth/session", { headers: authHeaders() });
         if (res.ok) {
           var user = await res.json();
           localStorage.setItem("lorawan_user", JSON.stringify(user));
           updateUserNav(user);
-        } else {
-          var token = getAuthToken();
-          if (!token) {
-            window.location.href = "/login";
-            return;
-          }
+        } else if (!getAuthToken()) {
+          window.location.href = "/login";
+          return;
         }
       } catch (err) {
         console.warn("Session check fallback:", err);
