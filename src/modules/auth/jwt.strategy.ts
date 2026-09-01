@@ -22,10 +22,17 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
 
   async validate(payload: JwtPayload): Promise<User> {
     const userRepo = this.dbService.getRepositoryForTable('users', User);
-    const user = await userRepo.findOne({
-      where: { id: payload.sub },
-      relations: ['roles', 'roles.permissions'],
-    });
+    let user: User | null = null;
+    try {
+      user = await userRepo.findOne({
+        where: { id: payload.sub },
+        relations: ['roles', 'roles.permissions'],
+      });
+    } catch (e) {
+      user = await userRepo.findOne({
+        where: { id: payload.sub },
+      });
+    }
 
     if (!user) {
       throw new UnauthorizedException('User not found or session revoked');

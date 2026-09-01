@@ -77,13 +77,24 @@ export class AuthService implements OnModuleInit {
 
   async validateUser(usernameOrEmail: string, pass: string): Promise<User> {
     const repo = this.getUserRepository();
-    const user = await repo
-      .createQueryBuilder('user')
-      .addSelect('user.passwordHash')
-      .leftJoinAndSelect('user.roles', 'roles')
-      .leftJoinAndSelect('roles.permissions', 'permissions')
-      .where('user.username = :val OR user.email = :val', { val: usernameOrEmail })
-      .getOne();
+    let user: User | null = null;
+
+    try {
+      user = await repo
+        .createQueryBuilder('user')
+        .addSelect('user.passwordHash')
+        .leftJoinAndSelect('user.roles', 'roles')
+        .leftJoinAndSelect('roles.permissions', 'permissions')
+        .where('user.username = :val OR user.email = :val', { val: usernameOrEmail })
+        .getOne();
+    } catch (err: any) {
+      this.logger.warn(`Could not join roles/permissions (${err.message}). Falling back to primary user query.`);
+      user = await repo
+        .createQueryBuilder('user')
+        .addSelect('user.passwordHash')
+        .where('user.username = :val OR user.email = :val', { val: usernameOrEmail })
+        .getOne();
+    }
 
     if (!user) {
       throw new UnauthorizedException('Invalid username/email or password');

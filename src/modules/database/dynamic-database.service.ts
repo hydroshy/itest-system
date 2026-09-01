@@ -82,7 +82,7 @@ export class DynamicDatabaseService implements OnModuleInit, OnModuleDestroy {
     const username = process.env.DB_USERNAME || config.username;
     const password = process.env.DB_PASSWORD !== undefined ? process.env.DB_PASSWORD : config.password;
     const database = process.env.DB_NAME || config.database;
-    const shouldSynchronize = process.env.DB_SYNCHRONIZE === 'true';
+    const shouldSynchronize = process.env.DB_SYNCHRONIZE !== 'false';
 
     // Build fallback candidate hosts in case DNS (e.g. mas.local) cannot be resolved inside Docker
     const candidateHosts: string[] = [configuredHost];
@@ -120,7 +120,7 @@ export class DynamicDatabaseService implements OnModuleInit, OnModuleDestroy {
         if (shouldSynchronize) {
           try {
             await dataSource.synchronize();
-            this.logger.log(`Schema synchronized for database pool [${key}]`);
+            this.logger.log(`✅ Schema synchronized for database pool [${key}] -> all tables & relations verified/created`);
           } catch (syncErr: any) {
             this.logger.warn(`Schema sync warning for pool [${key}]: ${syncErr.message}`);
           }

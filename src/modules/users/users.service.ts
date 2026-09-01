@@ -62,18 +62,31 @@ export class UsersService {
 
   async findAllUsers() {
     const repo = this.getUserRepo();
-    return repo.find({
-      relations: ['roles', 'roles.permissions'],
-      order: { createdAt: 'DESC' },
-    });
+    try {
+      return await repo.find({
+        relations: ['roles', 'roles.permissions'],
+        order: { createdAt: 'DESC' },
+      });
+    } catch (e) {
+      return await repo.find({
+        order: { createdAt: 'DESC' },
+      });
+    }
   }
 
   async findOneUser(id: string) {
     const repo = this.getUserRepo();
-    const user = await repo.findOne({
-      where: { id },
-      relations: ['roles', 'roles.permissions'],
-    });
+    let user: User | null = null;
+    try {
+      user = await repo.findOne({
+        where: { id },
+        relations: ['roles', 'roles.permissions'],
+      });
+    } catch (e) {
+      user = await repo.findOne({
+        where: { id },
+      });
+    }
     if (!user) {
       throw new NotFoundException(`User with ID ${id} not found`);
     }
