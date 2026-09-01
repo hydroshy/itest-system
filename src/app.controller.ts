@@ -776,8 +776,8 @@ export class AppController {
       const map = {
         users: 'Quản lý tài khoản Admin & User',
         roles: 'Bảng vai trò phân quyền RBAC',
-        permissions: 'Bảng chi tiết các quyền hệ thống',
-        user_roles: 'Bảng liên kết quan hệ User - Role',
+        permission: 'Bảng chi tiết các quyền hệ thống',
+        user_role: 'Bảng liên kết quan hệ User - Role',
         role_permissions: 'Bảng liên kết quan hệ Role - Permission',
         applications: 'Quản lý Application LoRaWAN',
         devices: 'Danh mục thiết bị cảm biến & JS Decoder',
