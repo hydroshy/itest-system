@@ -77,45 +77,70 @@ export class DynamicDatabaseService implements OnModuleInit, OnModuleDestroy {
   }
 
   private async createAndRegisterDataSource(key: string, config: DbConnectionConfig): Promise<DataSource> {
-    const host = process.env.DB_HOST || config.host;
-    const port = process.env.DB_PORT ? parseInt(process.env.DB_PORT, 10) : config.port;
+    const configuredHost = process.env.DB_HOST || config.host || 'postgres_db';
+    const port = process.env.DB_PORT ? parseInt(process.env.DB_PORT, 10) : (config.port || 5432);
     const username = process.env.DB_USERNAME || config.username;
     const password = process.env.DB_PASSWORD !== undefined ? process.env.DB_PASSWORD : config.password;
     const database = process.env.DB_NAME || config.database;
-    const shouldSynchronize = process.env.DB_SYNCHRONIZE !== 'false';
+    const shouldSynchronize = process.env.DB_SYNCHRONIZE === 'true';
 
-    const options: DataSourceOptions = {
-      type: 'postgres',
-      host,
-      port,
-      username,
-      password,
-      database,
-      ssl: config.ssl ? { rejectUnauthorized: false } : false,
-      synchronize: shouldSynchronize,
-      logging: process.env.NODE_ENV === 'development' || process.env.DB_LOGGING === 'true',
-      entities: ALL_DATABASE_ENTITIES,
-      extra: {
-        max: config.poolSize || 10,
-      },
-    };
-
-    const dataSource = new DataSource(options);
-    try {
-      await dataSource.initialize();
-
-      if (shouldSynchronize) {
-        await dataSource.synchronize();
-        this.logger.log(`✅ Schema synchronized for database pool [${key}] -> all tables & relations verified`);
+    // Build fallback candidate hosts in case DNS (e.g. mas.local) cannot be resolved inside Docker
+    const candidateHosts: string[] = [configuredHost];
+    const standardFallbacks = ['postgres_db', 'host.docker.internal', 'localhost', '127.0.0.1'];
+    for (const fb of standardFallbacks) {
+      if (!candidateHosts.includes(fb)) {
+        candidateHosts.push(fb);
       }
-
-      this.dataSources.set(key, dataSource);
-      this.logger.log(`Successfully connected to database pool [${key}] -> ${host}:${port}/${database}`);
-      return dataSource;
-    } catch (error: any) {
-      this.logger.error(`Failed to initialize database pool [${key}] (${host}:${database}): ${error.message}`);
-      throw error;
     }
+
+    let lastError: any = null;
+
+    for (let i = 0; i < candidateHosts.length; i++) {
+      const targetHost = candidateHosts[i];
+      const options: DataSourceOptions = {
+        type: 'postgres',
+        host: targetHost,
+        port,
+        username,
+        password,
+        database,
+        ssl: config.ssl ? { rejectUnauthorized: false } : false,
+        synchronize: false,
+        logging: process.env.NODE_ENV === 'development' || process.env.DB_LOGGING === 'true',
+        entities: ALL_DATABASE_ENTITIES,
+        extra: {
+          max: config.poolSize || 10,
+        },
+      };
+
+      const dataSource = new DataSource(options);
+      try {
+        await dataSource.initialize();
+
+        if (shouldSynchronize) {
+          try {
+            await dataSource.synchronize();
+            this.logger.log(`Schema synchronized for database pool [${key}]`);
+          } catch (syncErr: any) {
+            this.logger.warn(`Schema sync warning for pool [${key}]: ${syncErr.message}`);
+          }
+        }
+
+        this.dataSources.set(key, dataSource);
+        this.logger.log(`✅ Successfully connected to database pool [${key}] -> ${targetHost}:${port}/${database}`);
+        return dataSource;
+      } catch (error: any) {
+        lastError = error;
+        if (error.code === 'ENOTFOUND' && i < candidateHosts.length - 1) {
+          this.logger.warn(`⚠️ Host [${targetHost}] not found via DNS in Docker. Trying fallback [${candidateHosts[i + 1]}]...`);
+        } else if (i < candidateHosts.length - 1) {
+          this.logger.warn(`⚠️ Connection to [${targetHost}:${port}/${database}] failed (${error.message}). Trying fallback [${candidateHosts[i + 1]}]...`);
+        }
+      }
+    }
+
+    this.logger.error(`❌ Failed to initialize database pool [${key}] after trying [${candidateHosts.join(', ')}]: ${lastError?.message}`);
+    throw lastError;
   }
 
   public getDataSourceForTable(tableName: string): DataSource {

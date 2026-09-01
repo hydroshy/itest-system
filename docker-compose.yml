@@ -19,6 +19,9 @@ services:
       - ./config:/app/config
     depends_on:
       - postgres_db
+    extra_hosts:
+      - "mas.local:host-gateway"
+      - "host.docker.internal:host-gateway"
     networks:
       - lorawan_net
 
