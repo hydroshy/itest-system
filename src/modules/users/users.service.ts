@@ -21,7 +21,7 @@ export class UsersService {
   }
 
   private getPermissionRepo() {
-    return this.dbService.getRepositoryForTable('permissions', Permission);
+    return this.dbService.getRepositoryForTable('permission', Permission);
   }
 
   async createUser(dto: CreateUserDto, creator: User) {
@@ -55,10 +55,6 @@ export class UsersService {
       user.roles = await this.getRoleRepo().findBy({ id: In(dto.roleIds) });
     }
 
-    if (dto.permissionIds && dto.permissionIds.length > 0) {
-      user.directPermissions = await this.getPermissionRepo().findBy({ id: In(dto.permissionIds) });
-    }
-
     const saved = await repo.save(user);
     delete saved.passwordHash;
     return saved;
@@ -67,7 +63,7 @@ export class UsersService {
   async findAllUsers() {
     const repo = this.getUserRepo();
     return repo.find({
-      relations: ['roles', 'directPermissions'],
+      relations: ['roles', 'roles.permissions'],
       order: { createdAt: 'DESC' },
     });
   }
@@ -76,7 +72,7 @@ export class UsersService {
     const repo = this.getUserRepo();
     const user = await repo.findOne({
       where: { id },
-      relations: ['roles', 'roles.permissions', 'directPermissions'],
+      relations: ['roles', 'roles.permissions'],
     });
     if (!user) {
       throw new NotFoundException(`User with ID ${id} not found`);
@@ -94,10 +90,6 @@ export class UsersService {
 
     if (dto.roleIds) {
       user.roles = await this.getRoleRepo().findBy({ id: In(dto.roleIds) });
-    }
-
-    if (dto.permissionIds) {
-      user.directPermissions = await this.getPermissionRepo().findBy({ id: In(dto.permissionIds) });
     }
 
     const saved = await repo.save(user);

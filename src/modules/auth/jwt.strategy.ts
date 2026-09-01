@@ -24,7 +24,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     const userRepo = this.dbService.getRepositoryForTable('users', User);
     const user = await userRepo.findOne({
       where: { id: payload.sub },
-      relations: ['roles', 'roles.permissions', 'directPermissions'],
+      relations: ['roles', 'roles.permissions'],
     });
 
     if (!user) {

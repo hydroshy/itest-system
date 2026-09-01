@@ -29,7 +29,6 @@ export class AuthController {
       fullName: user.fullName,
       userType: user.userType,
       roles: user.roles,
-      directPermissions: user.directPermissions,
     };
   }
 

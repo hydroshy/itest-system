@@ -52,9 +52,6 @@ export class PermissionsGuard implements CanActivate {
         role.permissions?.forEach((p) => userPermissions.add(p.name));
       });
 
-      // Collect direct permissions
-      user.directPermissions?.forEach((p) => userPermissions.add(p.name));
-
       const hasAllPermissions = requiredPermissions.every((perm) => userPermissions.has(perm));
       if (!hasAllPermissions) {
         throw new ForbiddenException(`Missing permission(s): ${requiredPermissions.join(', ')}`);

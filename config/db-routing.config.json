@@ -2,7 +2,25 @@
   "default_connection": "core_db",
   "connections": {
     "core_db": {
-      "host": "postgres_db",
+      "host": "mas.local",
+      "port": 5432,
+      "username": "admin",
+      "password": "mason",
+      "database": "dvt",
+      "ssl": false,
+      "poolSize": 10
+    },
+    "lorawan_telemetry_db": {
+      "host": "mas.local",
+      "port": 5432,
+      "username": "admin",
+      "password": "mason",
+      "database": "dvt",
+      "ssl": false,
+      "poolSize": 20
+    },
+    "gateway_db": {
+      "host": "mas.local",
       "port": 5432,
       "username": "admin",
       "password": "mason",
@@ -13,15 +31,14 @@
   },
   "table_routes": {
     "users": "core_db",
+    "user_role": "core_db",
     "roles": "core_db",
-    "permissions": "core_db",
-    "user_roles": "core_db",
-    "user_direct_permissions": "core_db",
     "role_permissions": "core_db",
+    "permission": "core_db",
+    "permissions": "core_db",
     "applications": "core_db",
     "devices": "core_db",
-    "gateways": "core_db",
-    "uplink_telemetry": "core_db",
-    "downlink_queue": "core_db"
+    "gateways": "gateway_db",
+    "uplink_telemetry": "lorawan_telemetry_db"
   }
 }

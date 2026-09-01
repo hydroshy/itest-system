@@ -48,7 +48,7 @@ async function runDatabaseDiagnostics() {
     password,
     database,
     entities: ALL_DATABASE_ENTITIES,
-    synchronize: true,
+    synchronize: false,
     logging: false,
   });
 
@@ -56,10 +56,6 @@ async function runDatabaseDiagnostics() {
     console.log('⏳ Connecting to PostgreSQL database...');
     await dataSource.initialize();
     console.log('✅ PostgreSQL connection initialized successfully!\n');
-
-    console.log('⏳ Synchronizing TypeORM schema & relations...');
-    await dataSource.synchronize();
-    console.log('✅ TypeORM Schema synchronization completed!\n');
 
     // 1. Inspect Tables in PostgreSQL public schema
     console.log('📋 [1/4] Checking PostgreSQL tables in database:');
@@ -76,33 +72,28 @@ async function runDatabaseDiagnostics() {
       console.log(`   ✓ ${t}`);
     });
 
-    const expectedTables = [
+    const expected5Tables = [
       'users',
+      'user_role',
       'roles',
-      'permissions',
-      'user_roles',
-      'user_direct_permissions',
       'role_permissions',
-      'applications',
-      'devices',
-      'gateways',
-      'uplink_telemetry',
+      'permission',
     ];
 
-    const missingTables = expectedTables.filter((t) => !existingTables.includes(t));
+    const missingTables = expected5Tables.filter((t) => !existingTables.includes(t));
     if (missingTables.length > 0) {
       console.warn(`\n⚠️  Missing tables: ${missingTables.join(', ')}`);
     } else {
-      console.log('\n✅ All required tables and join tables exist and are properly structured.');
+      console.log('\n✅ All 5 core tables exist: users, user_role, roles, role_permissions, permission.');
     }
 
-    // 2. Check Permissions & Seed if needed
-    console.log('\n📋 [2/4] Verifying default system permissions:');
+    // 2. Check Permissions
+    console.log('\n📋 [2/4] Verifying default system permissions in `permission` table:');
     const permRepo = dataSource.getRepository(Permission);
     let permCount = await permRepo.count();
 
     if (permCount === 0) {
-      console.log('⏳ Seeding default permissions...');
+      console.log('⏳ Seeding default permissions into `permission` table...');
       const defaultPerms = [
         { name: 'users:read', module: 'users', action: 'read', description: 'View user list' },
         { name: 'users:create', module: 'users', action: 'create', description: 'Create user or subadmin' },
@@ -120,11 +111,11 @@ async function runDatabaseDiagnostics() {
       permCount = await permRepo.count();
       console.log(`✅ Seeded ${permCount} permissions.`);
     } else {
-      console.log(`✅ Found ${permCount} permissions in database.`);
+      console.log(`✅ Found ${permCount} permissions in \`permission\` table.`);
     }
 
     // 3. Check Roles & Seed if needed
-    console.log('\n📋 [3/4] Verifying system roles:');
+    console.log('\n📋 [3/4] Verifying system roles in `roles` and `role_permissions` tables:');
     const roleRepo = dataSource.getRepository(Role);
     let roleCount = await roleRepo.count();
 
@@ -160,17 +151,16 @@ async function runDatabaseDiagnostics() {
       console.log(`✅ Found ${roleCount} roles in database.`);
     }
 
-    // 4. Check & Verify Super Admin Account
+    // 4. Check & Verify Super Admin Account in `users` and `user_role`
     console.log('\n📋 [4/4] Verifying default Super Admin account (admin / Dvt@123):');
     const userRepo = dataSource.getRepository(User);
     const superAdminRole = await roleRepo.findOne({ where: { code: 'SUPER_ADMIN' } });
-    const allPerms = await permRepo.find();
 
     let admin = await userRepo
       .createQueryBuilder('user')
       .addSelect('user.passwordHash')
       .leftJoinAndSelect('user.roles', 'roles')
-      .leftJoinAndSelect('user.directPermissions', 'directPermissions')
+      .leftJoinAndSelect('roles.permissions', 'permissions')
       .where('user.username = :val OR user.email = :val', { val: 'admin' })
       .getOne();
 
@@ -187,10 +177,9 @@ async function runDatabaseDiagnostics() {
         userType: UserType.ADMIN,
         isActive: true,
         roles: superAdminRole ? [superAdminRole] : [],
-        directPermissions: allPerms,
       });
       await userRepo.save(admin);
-      console.log('✅ Admin user created successfully!');
+      console.log('✅ Admin user created successfully in `users` & `user_role`!');
     } else {
       console.log(`Found existing user: ID=${admin.id}, username=${admin.username}, email=${admin.email}, type=${admin.userType}`);
       const isPasswordValid = await bcrypt.compare(targetPassword, admin.passwordHash);
@@ -203,11 +192,8 @@ async function runDatabaseDiagnostics() {
         if (superAdminRole && (!admin.roles || !admin.roles.some((r) => r.code === 'SUPER_ADMIN'))) {
           admin.roles = [superAdminRole];
         }
-        if (!admin.directPermissions || admin.directPermissions.length === 0) {
-          admin.directPermissions = allPerms;
-        }
         await userRepo.save(admin);
-        console.log('✅ Synced password hash to Dvt@123 and restored full SUPER_ADMIN roles/permissions.');
+        console.log('✅ Synced password hash to Dvt@123 and restored SUPER_ADMIN role.');
       }
     }
 
@@ -218,7 +204,6 @@ async function runDatabaseDiagnostics() {
     console.log(`   - Admin Password : ${targetPassword}`);
     console.log(`   - User Type      : ${admin.userType}`);
     console.log(`   - Assigned Roles : ${admin.roles?.map((r) => r.code).join(', ') || 'SUPER_ADMIN'}`);
-    console.log(`   - Direct Perms   : ${admin.directPermissions?.length || allPerms.length} permissions`);
     console.log('🎉 ========================================================\n');
 
     await dataSource.destroy();

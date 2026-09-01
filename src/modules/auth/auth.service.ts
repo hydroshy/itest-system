@@ -35,7 +35,6 @@ export class AuthService implements OnModuleInit {
     await this.rolesService.seedDefaults();
     const userRepo = this.getUserRepository();
     const roleRepo = this.dbService.getRepositoryForTable('roles', Role);
-    const permRepo = this.dbService.getRepositoryForTable('permissions', Permission);
 
     const defaultUsername = 'admin';
     const defaultPassword = 'Dvt@123';
@@ -43,11 +42,10 @@ export class AuthService implements OnModuleInit {
 
     const passwordHash = await bcrypt.hash(defaultPassword, 10);
     const superAdminRole = await roleRepo.findOne({ where: { code: 'SUPER_ADMIN' } });
-    const allPerms = await permRepo.find();
 
     const existingAdmin = await userRepo.findOne({
       where: [{ username: defaultUsername }, { email: defaultEmail }],
-      relations: ['roles', 'directPermissions'],
+      relations: ['roles'],
     });
 
     if (!existingAdmin) {
@@ -59,21 +57,17 @@ export class AuthService implements OnModuleInit {
         userType: UserType.ADMIN,
         isActive: true,
         roles: superAdminRole ? [superAdminRole] : [],
-        directPermissions: allPerms || [],
       });
       await userRepo.save(admin);
       this.logger.log(`✅ Default Super Admin account initialized: [${defaultUsername} / ${defaultPassword}]`);
       return admin;
     } else {
-      // Ensure password is Dvt@123 and superadmin role/permissions are present
+      // Ensure password is Dvt@123 and superadmin role is present
       existingAdmin.passwordHash = passwordHash;
       existingAdmin.userType = UserType.ADMIN;
       existingAdmin.isActive = true;
       if (superAdminRole && (!existingAdmin.roles || !existingAdmin.roles.some((r) => r.code === 'SUPER_ADMIN'))) {
         existingAdmin.roles = [superAdminRole];
-      }
-      if (!existingAdmin.directPermissions || existingAdmin.directPermissions.length === 0) {
-        existingAdmin.directPermissions = allPerms || [];
       }
       await userRepo.save(existingAdmin);
       this.logger.log(`✅ Verified and synced default Super Admin account: [${defaultUsername} / ${defaultPassword}]`);
@@ -88,7 +82,6 @@ export class AuthService implements OnModuleInit {
       .addSelect('user.passwordHash')
       .leftJoinAndSelect('user.roles', 'roles')
       .leftJoinAndSelect('roles.permissions', 'permissions')
-      .leftJoinAndSelect('user.directPermissions', 'directPermissions')
       .where('user.username = :val OR user.email = :val', { val: usernameOrEmail })
       .getOne();
 
@@ -135,10 +128,8 @@ export class AuthService implements OnModuleInit {
   async registerInitialAdmin(username: string = 'admin', email: string = 'admin@daviteq.com', pass: string = 'Dvt@123') {
     const repo = this.getUserRepository();
     const roleRepo = this.dbService.getRepositoryForTable('roles', Role);
-    const permRepo = this.dbService.getRepositoryForTable('permissions', Permission);
 
     const superAdminRole = await roleRepo.findOne({ where: { code: 'SUPER_ADMIN' } });
-    const allPerms = await permRepo.find();
 
     let admin = await repo.findOne({ where: [{ username }, { email }] });
     const passwordHash = await bcrypt.hash(pass, 10);
@@ -149,7 +140,6 @@ export class AuthService implements OnModuleInit {
       admin.userType = UserType.ADMIN;
       admin.isActive = true;
       if (superAdminRole) admin.roles = [superAdminRole];
-      if (allPerms) admin.directPermissions = allPerms;
       await repo.save(admin);
     } else {
       admin = repo.create({
@@ -160,7 +150,6 @@ export class AuthService implements OnModuleInit {
         userType: UserType.ADMIN,
         isActive: true,
         roles: superAdminRole ? [superAdminRole] : [],
-        directPermissions: allPerms || [],
       });
       await repo.save(admin);
     }

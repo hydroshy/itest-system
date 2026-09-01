@@ -36,19 +36,11 @@ export class User {
 
   @ManyToMany(() => Role, { eager: true })
   @JoinTable({
-    name: 'user_roles',
+    name: 'user_role',
     joinColumn: { name: 'user_id', referencedColumnName: 'id' },
     inverseJoinColumn: { name: 'role_id', referencedColumnName: 'id' },
   })
   roles: Role[];
-
-  @ManyToMany(() => Permission, { eager: true })
-  @JoinTable({
-    name: 'user_direct_permissions',
-    joinColumn: { name: 'user_id', referencedColumnName: 'id' },
-    inverseJoinColumn: { name: 'permission_id', referencedColumnName: 'id' },
-  })
-  directPermissions: Permission[];
 
   @CreateDateColumn()
   createdAt: Date;

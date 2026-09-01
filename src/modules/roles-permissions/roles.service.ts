@@ -13,7 +13,7 @@ export class RolesService implements OnModuleInit {
   }
 
   private getPermissionRepo() {
-    return this.dbService.getRepositoryForTable('permissions', Permission);
+    return this.dbService.getRepositoryForTable('permission', Permission);
   }
 
   async onModuleInit() {
