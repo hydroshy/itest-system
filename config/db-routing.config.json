@@ -2,29 +2,11 @@
   "default_connection": "core_db",
   "connections": {
     "core_db": {
-      "host": "localhost",
+      "host": "postgres_db",
       "port": 5432,
-      "username": "postgres",
-      "password": "postgres_password",
-      "database": "lorawan_core",
-      "ssl": false,
-      "poolSize": 10
-    },
-    "lorawan_telemetry_db": {
-      "host": "localhost",
-      "port": 5432,
-      "username": "postgres",
-      "password": "postgres_password",
-      "database": "lorawan_telemetry",
-      "ssl": false,
-      "poolSize": 20
-    },
-    "gateway_db": {
-      "host": "localhost",
-      "port": 5432,
-      "username": "postgres",
-      "password": "postgres_password",
-      "database": "lorawan_gateways",
+      "username": "admin",
+      "password": "mason",
+      "database": "dvt",
       "ssl": false,
       "poolSize": 10
     }
@@ -37,8 +19,8 @@
     "role_permissions": "core_db",
     "applications": "core_db",
     "devices": "core_db",
-    "gateways": "gateway_db",
-    "uplink_telemetry": "lorawan_telemetry_db",
-    "downlink_queue": "lorawan_telemetry_db"
+    "gateways": "core_db",
+    "uplink_telemetry": "core_db",
+    "downlink_queue": "core_db"
   }
 }
