@@ -86,7 +86,7 @@ export class DynamicDatabaseService implements OnModuleInit, OnModuleDestroy {
 
     // Build fallback candidate hosts in case DNS (e.g. mas.local) cannot be resolved inside Docker
     const candidateHosts: string[] = [configuredHost];
-    const standardFallbacks = ['postgres_db', 'host.docker.internal', 'localhost', '127.0.0.1'];
+    const standardFallbacks = ['postgres_db', 'postgres', 'postgresql', 'host.docker.internal', 'localhost', '127.0.0.1'];
     for (const fb of standardFallbacks) {
       if (!candidateHosts.includes(fb)) {
         candidateHosts.push(fb);
