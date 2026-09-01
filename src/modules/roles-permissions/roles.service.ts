@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, OnModuleInit } from '@nestjs/common';
+import { Injectable, NotFoundException, OnModuleInit, Logger } from '@nestjs/common';
 import { In } from 'typeorm';
 import { DynamicDatabaseService } from '../database/dynamic-database.service';
 import { Role } from './entities/role.entity';
@@ -6,6 +6,8 @@ import { Permission } from './entities/permission.entity';
 
 @Injectable()
 export class RolesService implements OnModuleInit {
+  private readonly logger = new Logger(RolesService.name);
+
   constructor(private readonly dbService: DynamicDatabaseService) {}
 
   private getRoleRepo() {
@@ -20,8 +22,8 @@ export class RolesService implements OnModuleInit {
     // Seed default permissions and roles if empty
     try {
       await this.seedDefaults();
-    } catch (e) {
-      // Ignore if database connections are not created yet during test
+    } catch (e: any) {
+      this.logger.warn(`Could not seed default roles/permissions: ${e.message}`);
     }
   }
 
@@ -49,6 +51,7 @@ export class RolesService implements OnModuleInit {
         { name: 'lorawan:telemetry:read', module: 'lorawan', action: 'read', description: 'View decoded telemetry' },
       ];
       await permRepo.save(permRepo.create(defaultPerms));
+      this.logger.log(`✅ Initialized ${defaultPerms.length} default system permissions into [permission] table.`);
     }
 
     const roleCount = await roleRepo.count();
@@ -77,6 +80,7 @@ export class RolesService implements OnModuleInit {
         },
       ];
       await roleRepo.save(roleRepo.create(defaultRoles));
+      this.logger.log(`✅ Initialized default roles (SUPER_ADMIN, SUB_ADMIN, LORAWAN_OPERATOR) into [roles] table.`);
     }
   }
 
