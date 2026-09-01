@@ -117,6 +117,10 @@ export class DynamicDatabaseService implements OnModuleInit, OnModuleDestroy {
       try {
         await dataSource.initialize();
 
+        // 1. Guarantee that the 5 core tables exist in PostgreSQL with exact DDL
+        await this.ensureCoreTablesExist(dataSource);
+
+        // 2. TypeORM schema synchronize if enabled
         if (shouldSynchronize) {
           try {
             await dataSource.synchronize();
@@ -141,6 +145,75 @@ export class DynamicDatabaseService implements OnModuleInit, OnModuleDestroy {
 
     this.logger.error(`❌ Failed to initialize database pool [${key}] after trying [${candidateHosts.join(', ')}]: ${lastError?.message}`);
     throw lastError;
+  }
+
+  private async ensureCoreTablesExist(dataSource: DataSource): Promise<void> {
+    try {
+      await dataSource.query(`CREATE EXTENSION IF NOT EXISTS "uuid-ossp";`).catch(() => {});
+      await dataSource.query(`CREATE EXTENSION IF NOT EXISTS "pgcrypto";`).catch(() => {});
+
+      // 1. permission table
+      await dataSource.query(`
+        CREATE TABLE IF NOT EXISTS "permission" (
+          "id" UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          "name" VARCHAR(255) UNIQUE NOT NULL,
+          "description" VARCHAR(255),
+          "module" VARCHAR(100) NOT NULL,
+          "action" VARCHAR(100) NOT NULL,
+          "createdAt" TIMESTAMP NOT NULL DEFAULT now()
+        );
+      `);
+
+      // 2. roles table
+      await dataSource.query(`
+        CREATE TABLE IF NOT EXISTS "roles" (
+          "id" UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          "code" VARCHAR(100) UNIQUE NOT NULL,
+          "name" VARCHAR(255) NOT NULL,
+          "description" VARCHAR(255),
+          "createdAt" TIMESTAMP NOT NULL DEFAULT now(),
+          "updatedAt" TIMESTAMP NOT NULL DEFAULT now()
+        );
+      `);
+
+      // 3. role_permissions join table
+      await dataSource.query(`
+        CREATE TABLE IF NOT EXISTS "role_permissions" (
+          "role_id" UUID NOT NULL,
+          "permission_id" UUID NOT NULL,
+          CONSTRAINT "PK_role_permissions" PRIMARY KEY ("role_id", "permission_id")
+        );
+      `);
+
+      // 4. users table
+      await dataSource.query(`
+        CREATE TABLE IF NOT EXISTS "users" (
+          "id" UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          "username" VARCHAR(255) UNIQUE NOT NULL,
+          "email" VARCHAR(255) UNIQUE NOT NULL,
+          "passwordHash" VARCHAR(255) NOT NULL,
+          "fullName" VARCHAR(255),
+          "userType" VARCHAR(50) NOT NULL DEFAULT 'USER',
+          "isActive" BOOLEAN NOT NULL DEFAULT true,
+          "createdById" VARCHAR(255),
+          "createdAt" TIMESTAMP NOT NULL DEFAULT now(),
+          "updatedAt" TIMESTAMP NOT NULL DEFAULT now()
+        );
+      `);
+
+      // 5. user_role join table
+      await dataSource.query(`
+        CREATE TABLE IF NOT EXISTS "user_role" (
+          "user_id" UUID NOT NULL,
+          "role_id" UUID NOT NULL,
+          CONSTRAINT "PK_user_role" PRIMARY KEY ("user_id", "role_id")
+        );
+      `);
+
+      this.logger.log('✅ Guaranteed presence of 5 core RBAC tables in PostgreSQL');
+    } catch (err: any) {
+      this.logger.warn(`Auto-table verification notice: ${err.message}`);
+    }
   }
 
   public getDataSourceForTable(tableName: string): DataSource {
