@@ -1,0 +1,82 @@
+version: '3.8'
+
+services:
+  # NestJS LoRaWAN Application Server
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: nest_lorawan_app
+    restart: always
+    ports:
+      - "3000:3000"
+    environment:
+      - PORT=3000
+      - NODE_ENV=production
+      - JWT_SECRET=Production_Super_Secret_Key_Change_Me_2025!
+      - DB_ROUTING_CONFIG_PATH=/app/config/db-routing.config.json
+    volumes:
+      - ./config:/app/config
+    depends_on:
+      - postgres_core
+      - postgres_telemetry
+      - postgres_gateway
+    networks:
+      - lorawan_net
+
+  # Database 1: Core DB (Users, Roles, Permissions, Applications, Devices)
+  postgres_core:
+    image: postgres:15-alpine
+    container_name: lorawan_postgres_core
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: core_password_123
+      POSTGRES_DB: lorawan_core
+    ports:
+      - "5432:5432"
+    volumes:
+      - core_db_data:/var/lib/postgresql/data
+    networks:
+      - lorawan_net
+
+  # Database 2: Telemetry DB (High-write sensor telemetry data)
+  postgres_telemetry:
+    image: postgres:15-alpine
+    container_name: lorawan_postgres_telemetry
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: telemetry_password_123
+      POSTGRES_DB: lorawan_telemetry
+    ports:
+      - "5433:5432"
+    volumes:
+      - telemetry_db_data:/var/lib/postgresql/data
+    networks:
+      - lorawan_net
+
+  # Database 3: Gateway DB (Gateway nodes management)
+  postgres_gateway:
+    image: postgres:15-alpine
+    container_name: lorawan_postgres_gateway
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: gateway_password_123
+      POSTGRES_DB: lorawan_gateways
+    ports:
+      - "5434:5432"
+    volumes:
+      - gateway_db_data:/var/lib/postgresql/data
+    networks:
+      - lorawan_net
+
+networks:
+  lorawan_net:
+    driver: bridge
+
+volumes:
+  core_db_data:
+  telemetry_db_data:
+  gateway_db_data:
