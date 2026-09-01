@@ -2,6 +2,23 @@ import { Injectable, OnModuleInit, OnModuleDestroy, Logger } from '@nestjs/commo
 import { DataSource, DataSourceOptions, EntityTarget, Repository } from 'typeorm';
 import * as fs from 'fs';
 import * as path from 'path';
+import { User } from '../users/entities/user.entity';
+import { Role } from '../roles-permissions/entities/role.entity';
+import { Permission } from '../roles-permissions/entities/permission.entity';
+import { ApplicationEntity } from '../lorawan/entities/application.entity';
+import { DeviceEntity } from '../lorawan/entities/device.entity';
+import { GatewayEntity } from '../lorawan/entities/gateway.entity';
+import { TelemetryEntity } from '../lorawan/entities/telemetry.entity';
+
+export const ALL_DATABASE_ENTITIES = [
+  User,
+  Role,
+  Permission,
+  ApplicationEntity,
+  DeviceEntity,
+  GatewayEntity,
+  TelemetryEntity,
+];
 
 export interface DbConnectionConfig {
   host: string;
@@ -60,17 +77,24 @@ export class DynamicDatabaseService implements OnModuleInit, OnModuleDestroy {
   }
 
   private async createAndRegisterDataSource(key: string, config: DbConnectionConfig): Promise<DataSource> {
+    const host = process.env.DB_HOST || config.host;
+    const port = process.env.DB_PORT ? parseInt(process.env.DB_PORT, 10) : config.port;
+    const username = process.env.DB_USERNAME || config.username;
+    const password = process.env.DB_PASSWORD !== undefined ? process.env.DB_PASSWORD : config.password;
+    const database = process.env.DB_NAME || config.database;
+    const shouldSynchronize = process.env.DB_SYNCHRONIZE !== 'false';
+
     const options: DataSourceOptions = {
       type: 'postgres',
-      host: config.host,
-      port: config.port,
-      username: config.username,
-      password: config.password,
-      database: config.database,
+      host,
+      port,
+      username,
+      password,
+      database,
       ssl: config.ssl ? { rejectUnauthorized: false } : false,
-      synchronize: process.env.NODE_ENV !== 'production', // Auto sync in dev mode
-      logging: process.env.NODE_ENV === 'development',
-      entities: [path.join(__dirname, '../../**/*.entity{.ts,.js}')],
+      synchronize: shouldSynchronize,
+      logging: process.env.NODE_ENV === 'development' || process.env.DB_LOGGING === 'true',
+      entities: ALL_DATABASE_ENTITIES,
       extra: {
         max: config.poolSize || 10,
       },
@@ -79,11 +103,17 @@ export class DynamicDatabaseService implements OnModuleInit, OnModuleDestroy {
     const dataSource = new DataSource(options);
     try {
       await dataSource.initialize();
+
+      if (shouldSynchronize) {
+        await dataSource.synchronize();
+        this.logger.log(`✅ Schema synchronized for database pool [${key}] -> all tables & relations verified`);
+      }
+
       this.dataSources.set(key, dataSource);
-      this.logger.log(`Successfully connected to database pool [${key}] -> ${config.host}:${config.port}/${config.database}`);
+      this.logger.log(`Successfully connected to database pool [${key}] -> ${host}:${port}/${database}`);
       return dataSource;
-    } catch (error) {
-      this.logger.error(`Failed to initialize database pool [${key}] (${config.host}:${config.database}): ${error.message}`);
+    } catch (error: any) {
+      this.logger.error(`Failed to initialize database pool [${key}] (${host}:${database}): ${error.message}`);
       throw error;
     }
   }
@@ -122,3 +152,4 @@ export class DynamicDatabaseService implements OnModuleInit, OnModuleDestroy {
     };
   }
 }
+

@@ -16,6 +16,7 @@
     "roles": "core_db",
     "permissions": "core_db",
     "user_roles": "core_db",
+    "user_direct_permissions": "core_db",
     "role_permissions": "core_db",
     "applications": "core_db",
     "devices": "core_db",
