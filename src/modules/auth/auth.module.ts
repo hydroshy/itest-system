@@ -4,10 +4,12 @@ import { PassportModule } from '@nestjs/passport';
 import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
 import { JwtStrategy } from './jwt.strategy';
+import { RolesModule } from '../roles-permissions/roles.module';
 
 @Module({
   imports: [
     PassportModule,
+    RolesModule,
     JwtModule.register({
       secret: process.env.JWT_SECRET || 'super_secret_lorawan_key_2025',
       signOptions: { expiresIn: '24h' },
@@ -18,3 +20,4 @@ import { JwtStrategy } from './jwt.strategy';
   exports: [AuthService],
 })
 export class AuthModule {}
+

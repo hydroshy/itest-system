@@ -7,6 +7,7 @@ import { RolesModule } from './modules/roles-permissions/roles.module';
 import { LorawanModule } from './modules/lorawan/lorawan.module';
 import { AdminPanelModule } from './modules/admin-panel/admin-panel.module';
 import { UserPanelModule } from './modules/user-panel/user-panel.module';
+import { AppController } from './app.controller';
 
 @Module({
   imports: [
@@ -21,5 +22,7 @@ import { UserPanelModule } from './modules/user-panel/user-panel.module';
     AdminPanelModule,
     UserPanelModule,
   ],
+  controllers: [AppController],
 })
 export class AppModule {}
+

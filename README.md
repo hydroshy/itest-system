@@ -134,33 +134,42 @@ Tạo các cơ sở dữ liệu tương ứng trong PostgreSQL (ví dụ `lorawa
 npm run start:dev
 ```
 
-### 4. Khởi tạo tài khoản Super Admin ban đầu
-Gửi request HTTP POST đến API `/auth/init-superadmin`:
-```bash
-curl -X POST http://localhost:3000/auth/init-superadmin \
-  -H "Content-Type: application/json" \
-  -d '{"username": "admin", "email": "admin@lora.com", "pass": "AdminSecret123!"}'
-```
+### 4. Tài khoản Quản trị viên Khởi tạo (Default Super Admin)
+Hệ thống tự động khởi tạo (auto-seed) tài khoản Super Admin với quyền hạn cao nhất:
+* **Tên đăng nhập (Username)**: `admin`
+* **Mật khẩu (Password)**: `Dvt@123`
+* **Email**: `admin@daviteq.com`
+* **Vai trò (Role)**: `SUPER_ADMIN` (đầy đủ toàn bộ permissions ma trận `users:*`, `lorawan:*`, `admin:*`)
 
-### 5. Truy cập Swagger UI Documents
-Mở trình duyệt: `http://localhost:3000/api/docs`
+### 5. Truy cập Web Control Panel & Swagger Docs
+* **Trang chủ (`http://localhost:3000/`)**: Tự động chuyển hướng (Redirect 302) về trang đăng nhập `/login`.
+* **Trang Đăng nhập Control Panel**: `http://localhost:3000/login`
+* **Trang Quản trị Control Panel**: `http://localhost:3000/control-panel`
+* **Swagger API UI**: `http://localhost:3000/api/docs`
 
 ---
 
-## 📌 Các Route API Quan Trọng (Primary API Endpoints)
+## 📌 Các Route API & Webhook Quan Trọng (Primary Endpoints)
 
 | Module | Method | Endpoint | Mô tả |
 |---|---|---|---|
+| **Web** | GET | `/` | Chuyển hướng (302) trực tiếp về `/login` |
+| **Web** | GET | `/login` | Giao diện Đăng nhập Control Panel (HTML) |
+| **Web** | GET | `/control-panel` | Giao diện Web Control Panel quản trị toàn diện |
 | **Auth** | POST | `/auth/login` | Đăng nhập lấy JWT Bearer Token |
 | **Auth** | GET | `/auth/profile` | Xem thông tin User đăng nhập & danh sách quyền |
+| **Auth** | POST | `/auth/init-superadmin` | Khởi tạo / cập nhật tài khoản Super Admin |
 | **Admin** | GET | `/admin-panel/dashboard` | Thống kê Admin & trạng thái kết nối các DB pool |
 | **Admin** | POST | `/admin-panel/reload-db-config` | Reload cấu hình DB động không cần restart server |
 | **Users** | POST | `/users` | Tạo mới User / Admin phụ (Sub-Admin) |
 | **Users** | PUT | `/users/:id/permissions` | Set vai trò (Roles) và cấp quyền riêng (Direct Permissions) |
 | **LoRaWAN** | POST | `/lorawan/devices` | Đăng ký thiết bị LoRaWAN (DevEUI, OTAA/ABP) |
 | **LoRaWAN** | PUT | `/lorawan/devices/:devEUI/payload-formatter` | Cập nhật script JS Decode payload cho thiết bị |
+| **Webhook** | POST | `/lorawan/webhook/chirpstack` | Webhook nhận gói tin từ ChirpStack v3/v4 và lưu DB |
+| **Webhook** | POST | `/lorawan/webhook/thingpark` | Webhook nhận gói tin từ ThingPark Wireless và lưu DB |
 | **LoRaWAN** | POST | `/lorawan/uplink` | Webhook nhận gói tin thô Uplink Hex & tự giải mã |
 | **LoRaWAN** | POST | `/lorawan/payload-formatter/test` | Test nhanh script Javascript Decoder (Datacake style) |
+| **LoRaWAN** | GET | `/lorawan/telemetry` | Xem danh sách dữ liệu Telemetry nhận từ Webhooks |
 
 ---
 
