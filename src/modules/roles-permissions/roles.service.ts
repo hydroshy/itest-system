@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, OnModuleInit, Logger } from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException, OnModuleInit, Logger } from '@nestjs/common';
 import { In } from 'typeorm';
 import { DynamicDatabaseService } from '../database/dynamic-database.service';
 import { Role } from './entities/role.entity';
@@ -85,19 +85,65 @@ export class RolesService implements OnModuleInit {
   }
 
   async findAllRoles() {
-    return this.getRoleRepo().find({ relations: ['permissions'] });
+    return this.getRoleRepo().find({ relations: ['permissions'], order: { createdAt: 'ASC' } });
+  }
+
+  async findOneRole(id: string) {
+    const role = await this.getRoleRepo().findOne({ where: { id }, relations: ['permissions'] });
+    if (!role) {
+      throw new NotFoundException(`Role with ID ${id} not found`);
+    }
+    return role;
   }
 
   async findAllPermissions() {
-    return this.getPermissionRepo().find();
+    return this.getPermissionRepo().find({ order: { module: 'ASC', name: 'ASC' } });
   }
 
   async createRole(code: string, name: string, description: string, permissionIds: string[]) {
     const roleRepo = this.getRoleRepo();
     const permRepo = this.getPermissionRepo();
 
+    const normalizedCode = (code || '').toUpperCase().trim();
+    if (normalizedCode === 'SUPER_ADMIN') {
+      throw new ForbiddenException('Cannot create another role with code SUPER_ADMIN');
+    }
+
     const permissions = permissionIds && permissionIds.length > 0 ? await permRepo.findBy({ id: In(permissionIds) }) : [];
-    const role = roleRepo.create({ code, name, description, permissions });
+    const role = roleRepo.create({ code: normalizedCode, name, description, permissions });
     return roleRepo.save(role);
+  }
+
+  async updateRole(id: string, name: string, description: string, permissionIds?: string[]) {
+    const roleRepo = this.getRoleRepo();
+    const permRepo = this.getPermissionRepo();
+    const role = await this.findOneRole(id);
+
+    if (name) role.name = name;
+    if (description !== undefined) role.description = description;
+
+    if (permissionIds) {
+      // If SUPER_ADMIN, ensure it retains all system permissions
+      if (role.code === 'SUPER_ADMIN') {
+        const allPerms = await permRepo.find();
+        role.permissions = allPerms;
+      } else {
+        role.permissions = permissionIds.length > 0 ? await permRepo.findBy({ id: In(permissionIds) }) : [];
+      }
+    }
+
+    return roleRepo.save(role);
+  }
+
+  async deleteRole(id: string) {
+    const roleRepo = this.getRoleRepo();
+    const role = await this.findOneRole(id);
+
+    if (role.code === 'SUPER_ADMIN') {
+      throw new ForbiddenException('The SUPER_ADMIN role is an essential system role and cannot be deleted.');
+    }
+
+    await roleRepo.remove(role);
+    return { success: true, message: `Role ${role.name} (${role.code}) deleted successfully` };
   }
 }

@@ -234,6 +234,90 @@ export class DynamicDatabaseService implements OnModuleInit, OnModuleDestroy {
     return this.routingConfig;
   }
 
+  public async getDatabaseHealth(): Promise<{
+    status: 'HEALTHY' | 'DEGRADED' | 'DOWN';
+    timestamp: string;
+    totalConnections: number;
+    connections: Record<string, any>;
+    tableStats: Record<string, { routedTo: string; recordCount: number; status: string }>;
+  }> {
+    const connections: Record<string, any> = {};
+    const tableStats: Record<string, any> = {};
+    let allHealthy = true;
+
+    for (const [key, ds] of this.dataSources.entries()) {
+      const startTime = Date.now();
+      let isAlive = false;
+      let latencyMs = 0;
+      let version = 'PostgreSQL';
+      let errorMsg: string | null = null;
+
+      try {
+        if (ds.isInitialized) {
+          const res = await ds.query('SELECT version();');
+          latencyMs = Date.now() - startTime;
+          isAlive = true;
+          if (res && res[0] && res[0].version) {
+            version = res[0].version.split(' ')[0] + ' ' + (res[0].version.split(' ')[1] || '');
+          }
+        }
+      } catch (err: any) {
+        isAlive = false;
+        allHealthy = false;
+        errorMsg = err.message;
+      }
+
+      connections[key] = {
+        name: key,
+        host: (ds.options as any).host || 'unknown',
+        port: (ds.options as any).port || 5432,
+        database: ds.options.database,
+        isInitialized: ds.isInitialized,
+        isAlive,
+        latencyMs: isAlive ? latencyMs : null,
+        version,
+        error: errorMsg,
+        poolSize: (ds.options as any).extra?.max || 10,
+        status: isAlive ? (latencyMs < 100 ? 'EXCELLENT' : 'GOOD') : 'UNREACHABLE',
+      };
+    }
+
+    // Measure table row counts
+    for (const [table, connKey] of Object.entries(this.routingConfig.table_routes)) {
+      try {
+        const ds = this.dataSources.get(connKey);
+        if (ds && ds.isInitialized) {
+          const countRes = await ds.query(`SELECT count(*)::int as count FROM "${table}"`).catch(() => null);
+          tableStats[table] = {
+            routedTo: connKey,
+            recordCount: countRes && countRes[0] ? countRes[0].count : 0,
+            status: 'ONLINE',
+          };
+        } else {
+          tableStats[table] = {
+            routedTo: connKey,
+            recordCount: 0,
+            status: 'OFFLINE',
+          };
+        }
+      } catch (e: any) {
+        tableStats[table] = {
+          routedTo: connKey,
+          recordCount: 0,
+          status: 'UNAVAILABLE',
+        };
+      }
+    }
+
+    return {
+      status: allHealthy ? 'HEALTHY' : 'DEGRADED',
+      timestamp: new Date().toISOString(),
+      totalConnections: this.dataSources.size,
+      connections,
+      tableStats,
+    };
+  }
+
   public getConnectionStatus() {
     const status: Record<string, any> = {};
     for (const [key, ds] of this.dataSources.entries()) {
