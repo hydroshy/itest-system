@@ -25,7 +25,7 @@ export class User {
   @Column({ nullable: true })
   fullName: string;
 
-  @Column({ type: 'enum', enum: UserType, default: UserType.USER })
+  @Column({ type: 'varchar', length: 50, default: UserType.USER })
   userType: UserType;
 
   @Column({ default: true })

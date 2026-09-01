@@ -137,25 +137,52 @@ export class AuthService implements OnModuleInit {
   }
 
   async registerInitialAdmin(username: string = 'admin', email: string = 'admin@daviteq.com', pass: string = 'Dvt@123') {
+    try {
+      await this.rolesService.seedDefaults();
+    } catch (err: any) {
+      this.logger.warn(`Could not seed default roles: ${err.message}`);
+    }
+
     const repo = this.getUserRepository();
     const roleRepo = this.dbService.getRepositoryForTable('roles', Role);
+    const defaultUsername = username || 'admin';
+    const defaultEmail = email || 'admin@daviteq.com';
+    const defaultPass = pass || 'Dvt@123';
 
-    const superAdminRole = await roleRepo.findOne({ where: { code: 'SUPER_ADMIN' } });
+    let superAdminRole: Role | null = null;
+    try {
+      superAdminRole = await roleRepo.findOne({ where: { code: 'SUPER_ADMIN' } });
+    } catch (e: any) {
+      this.logger.warn(`Role lookup warning: ${e.message}`);
+    }
 
-    let admin = await repo.findOne({ where: [{ username }, { email }] });
-    const passwordHash = await bcrypt.hash(pass, 10);
+    const passwordHash = await bcrypt.hash(defaultPass, 10);
+
+    let admin: User | null = null;
+    try {
+      admin = await repo.findOne({
+        where: [{ username: defaultUsername }, { email: defaultEmail }],
+        relations: ['roles'],
+      });
+    } catch (e) {
+      admin = await repo.findOne({
+        where: [{ username: defaultUsername }, { email: defaultEmail }],
+      });
+    }
 
     if (admin) {
       admin.passwordHash = passwordHash;
-      admin.email = email;
+      admin.email = defaultEmail;
       admin.userType = UserType.ADMIN;
       admin.isActive = true;
-      if (superAdminRole) admin.roles = [superAdminRole];
+      if (superAdminRole) {
+        admin.roles = [superAdminRole];
+      }
       await repo.save(admin);
     } else {
       admin = repo.create({
-        username,
-        email,
+        username: defaultUsername,
+        email: defaultEmail,
         passwordHash,
         fullName: 'Daviteq Super Administrator',
         userType: UserType.ADMIN,
@@ -165,12 +192,18 @@ export class AuthService implements OnModuleInit {
       await repo.save(admin);
     }
 
-    this.logger.log(`Super Admin account registered/updated: ${username} / ${pass}`);
-    delete admin.passwordHash;
+    this.logger.log(`✅ Super Admin account registered/updated: [${defaultUsername} / ${defaultPass}]`);
+
     return {
       success: true,
-      message: `Admin user '${username}' initialized successfully with default credentials`,
-      user: admin,
+      message: `Admin user '${defaultUsername}' initialized successfully with default credentials`,
+      user: {
+        id: admin.id,
+        username: admin.username,
+        email: admin.email,
+        userType: admin.userType,
+        roles: admin.roles?.map((r) => r.code) || (superAdminRole ? [superAdminRole.code] : ['SUPER_ADMIN']),
+      },
     };
   }
 }
