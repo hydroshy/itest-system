@@ -17,8 +17,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
       color: #e2e8f0;
       font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
       min-height: 100vh;
-      display: flex;
-      flex-direction: column;
+      overflow-x: hidden;
     }
     .custom-scroll::-webkit-scrollbar {
       width: 6px;
@@ -31,31 +30,38 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
       background: #334155;
       border-radius: 4px;
     }
-    .tab-btn {
+    .nav-item {
       cursor: pointer !important;
       user-select: none;
-      transition: all 0.15s ease;
-      display: inline-flex;
+      transition: all 0.15s ease-in-out;
+      display: flex;
       align-items: center;
-      gap: 0.5rem;
-      padding: 0.6rem 1.1rem;
+      gap: 0.75rem;
+      padding: 0.7rem 0.9rem;
       border-radius: 0.75rem;
       font-size: 0.8125rem;
-      font-weight: 600;
+      font-weight: 500;
       color: #94a3b8;
       border: 1px solid transparent;
       background: transparent;
       outline: none;
-      white-space: nowrap;
+      width: 100%;
+      text-align: left;
     }
-    .tab-btn:hover {
-      color: #f1f5f9;
-      background: rgba(30, 41, 59, 0.7);
+    .nav-item:hover {
+      color: #f8fafc;
+      background: rgba(30, 41, 59, 0.6);
+      border-color: rgba(51, 65, 85, 0.4);
     }
-    .tab-btn.active {
-      background: rgba(14, 165, 233, 0.18) !important;
+    .nav-item.active {
+      background: rgba(14, 165, 233, 0.15) !important;
       color: #38bdf8 !important;
-      border-color: rgba(56, 189, 248, 0.5) !important;
+      border-color: rgba(56, 189, 248, 0.4) !important;
+      font-weight: 600;
+      box-shadow: inset 0 0 12px rgba(56, 189, 248, 0.08);
+    }
+    .nav-item.active .nav-icon {
+      color: #38bdf8 !important;
     }
     .modal-overlay {
       display: none;
@@ -114,432 +120,406 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
     }
   </style>
 </head>
-<body class="min-h-screen text-slate-100 flex flex-col">
-  <!-- Toast Notification Container -->
+<body class="min-h-screen text-slate-100 flex flex-col antialiased">
+  <!-- Toast Container -->
   <div id="toastContainer"></div>
 
-  <!-- Top Navigation Bar -->
-  <header class="bg-slate-900/95 border-b border-slate-800 sticky top-0 z-40 backdrop-blur-md">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-      <div class="flex items-center gap-3">
-        <div class="w-9 h-9 rounded-xl bg-sky-500/10 border border-sky-500/30 flex items-center justify-center text-sky-400 text-base shadow-inner">
-          <i class="fa-solid fa-tower-broadcast"></i>
-        </div>
-        <div>
-          <div class="flex items-center gap-2">
-            <span class="font-bold text-white text-sm tracking-tight"><span class="text-sky-400">DAVITEQ</span> LoRaWAN</span>
-            <span class="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-sky-500/10 text-sky-300 border border-sky-500/20">Control Panel</span>
+  <!-- Mobile Overlay Backdrop -->
+  <div id="mobileSidebarBackdrop" onclick="toggleSidebar(false)" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-40 hidden lg:hidden"></div>
+
+  <div class="flex flex-1 min-h-screen">
+    <!-- Left Navigation Sidebar -->
+    <aside id="mainSidebar" class="fixed lg:static inset-y-0 left-0 z-50 w-64 bg-slate-900/95 border-r border-slate-800/80 flex flex-col justify-between transform -translate-x-full lg:translate-x-0 transition-transform duration-200 ease-in-out backdrop-blur-xl">
+      <!-- Sidebar Header / Brand -->
+      <div class="p-5 border-b border-slate-800/80 flex items-center justify-between">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl bg-sky-500/10 border border-sky-500/30 flex items-center justify-center text-sky-400 text-lg shadow-inner">
+            <i class="fa-solid fa-tower-broadcast"></i>
           </div>
-          <p class="text-[11px] text-slate-400">Network & Application Server Management</p>
+          <div>
+            <div class="flex items-center gap-1.5">
+              <span class="font-bold text-white text-sm tracking-tight"><span class="text-sky-400">DAVITEQ</span> IoT</span>
+              <span class="px-1.5 py-0.2 rounded text-[9px] font-bold bg-sky-500/15 text-sky-300 border border-sky-500/30">v1.0</span>
+            </div>
+            <p class="text-[11px] text-slate-400 font-medium">LoRaWAN Platform</p>
+          </div>
         </div>
+        <button onclick="toggleSidebar(false)" type="button" class="lg:hidden text-slate-400 hover:text-white p-1">
+          <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
       </div>
 
-      <!-- Center Status -->
-      <div class="hidden md:flex items-center gap-2 px-3 py-1 rounded-lg bg-slate-950 border border-slate-800 text-xs">
-        <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-        <span class="text-slate-400 text-[11px]">System: <strong class="text-emerald-400 font-semibold" id="sysStatusText">ONLINE &bull; HEALTHY</strong></span>
-      </div>
+      <!-- Navigation Links -->
+      <div class="flex-1 overflow-y-auto custom-scroll p-3.5 space-y-6">
+        <!-- Section 1: Dashboard -->
+        <div class="space-y-1">
+          <div class="px-3 text-[10px] font-bold uppercase tracking-wider text-slate-400 font-mono">Monitoring</div>
+          <button onclick="switchTab('overview')" type="button" id="navItem-overview" class="nav-item active">
+            <i class="fa-solid fa-chart-pie w-4 text-center nav-icon text-sky-400"></i>
+            <span>Overview</span>
+          </button>
+          <button onclick="switchTab('telemetry')" type="button" id="navItem-telemetry" class="nav-item">
+            <i class="fa-solid fa-wave-square w-4 text-center nav-icon text-indigo-400"></i>
+            <span>Live Telemetry</span>
+          </button>
+          <button onclick="switchTab('database')" type="button" id="navItem-database" class="nav-item">
+            <i class="fa-solid fa-database w-4 text-center nav-icon text-amber-400"></i>
+            <span>Database Health</span>
+          </button>
+        </div>
 
-      <!-- Right User Menu -->
-      <div class="flex items-center gap-3">
-        <a href="/api/docs" target="_blank" class="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-sky-400 bg-sky-950/50 border border-sky-500/30 hover:bg-sky-900/50 transition">
-          <i class="fa-solid fa-book"></i> Swagger Docs
-        </a>
-        <div class="flex items-center gap-2 pl-3 border-l border-slate-800">
-          <div class="text-right">
-            <div id="navFullName" class="text-xs font-semibold text-slate-200">Admin User</div>
-            <div id="navRoleBadge" class="text-[10px] text-emerald-400 font-mono font-bold">SUPER_ADMIN</div>
-          </div>
-          <button onclick="handleLogout()" id="btn-logout" type="button" title="Sign Out & Clear Session" class="btn px-3 py-1.5 rounded-lg bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-400 hover:text-red-300 text-xs cursor-pointer">
-            <i class="fa-solid fa-right-from-bracket"></i>
-            <span>Logout</span>
+        <!-- Section 2: LoRaWAN Network -->
+        <div class="space-y-1">
+          <div class="px-3 text-[10px] font-bold uppercase tracking-wider text-slate-400 font-mono">LoRaWAN Network</div>
+          <button onclick="switchTab('devices')" type="button" id="navItem-devices" class="nav-item">
+            <i class="fa-solid fa-microchip w-4 text-center nav-icon text-sky-400"></i>
+            <span>Device Fleet</span>
+          </button>
+          <button onclick="switchTab('webhooks')" type="button" id="navItem-webhooks" class="nav-item">
+            <i class="fa-solid fa-satellite-dish w-4 text-center nav-icon text-emerald-400"></i>
+            <span>Webhooks</span>
+          </button>
+          <button onclick="switchTab('decoder')" type="button" id="navItem-decoder" class="nav-item">
+            <i class="fa-solid fa-code w-4 text-center nav-icon text-purple-400"></i>
+            <span>Decoder Sandbox</span>
+          </button>
+        </div>
+
+        <!-- Section 3: Administration -->
+        <div class="space-y-1">
+          <div class="px-3 text-[10px] font-bold uppercase tracking-wider text-slate-400 font-mono">Access Control</div>
+          <button onclick="switchTab('users')" type="button" id="navItem-users" class="nav-item">
+            <i class="fa-solid fa-users w-4 text-center nav-icon text-cyan-400"></i>
+            <span>User Directory</span>
+          </button>
+          <button onclick="switchTab('roles')" type="button" id="navItem-roles" class="nav-item">
+            <i class="fa-solid fa-shield-halved w-4 text-center nav-icon text-yellow-400"></i>
+            <span>Role Matrix</span>
           </button>
         </div>
       </div>
-    </div>
-  </header>
 
-  <!-- Main Content Layout -->
-  <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
-    <!-- Navigation Tabs Bar -->
-    <div class="flex border-b border-slate-800 gap-2 overflow-x-auto custom-scroll pb-1" id="tabsBar">
-      <button onclick="switchTab('overview')" type="button" id="tabBtn-overview" class="tab-btn active">
-        <i class="fa-solid fa-chart-pie"></i> Overview
-      </button>
-      <button onclick="switchTab('users')" type="button" id="tabBtn-users" class="tab-btn">
-        <i class="fa-solid fa-users"></i> Users
-      </button>
-      <button onclick="switchTab('roles')" type="button" id="tabBtn-roles" class="tab-btn">
-        <i class="fa-solid fa-shield-halved"></i> Role Matrix
-      </button>
-      <button onclick="switchTab('database')" type="button" id="tabBtn-database" class="tab-btn">
-        <i class="fa-solid fa-database"></i> Database Health
-      </button>
-      <button onclick="switchTab('devices')" type="button" id="tabBtn-devices" class="tab-btn">
-        <i class="fa-solid fa-microchip"></i> LoRaWAN Devices
-      </button>
-      <button onclick="switchTab('telemetry')" type="button" id="tabBtn-telemetry" class="tab-btn">
-        <i class="fa-solid fa-wave-square"></i> Live Telemetry
-      </button>
-      <button onclick="switchTab('webhooks')" type="button" id="tabBtn-webhooks" class="tab-btn">
-        <i class="fa-solid fa-satellite-dish"></i> Webhooks & Ingestion
-      </button>
-      <button onclick="switchTab('decoder')" type="button" id="tabBtn-decoder" class="tab-btn">
-        <i class="fa-solid fa-code"></i> Payload Decoder Sandbox
-      </button>
-    </div>
-
-    <!-- TAB 1: OVERVIEW -->
-    <div id="tabContent-overview" class="space-y-6" style="display: block;">
-      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-4">
-          <div class="flex items-center justify-between text-slate-400 text-xs">
-            <span>Server Status</span>
-            <i class="fa-solid fa-server text-sky-400"></i>
-          </div>
-          <div class="text-xl font-bold text-white mt-2 flex items-center gap-2">
-            <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span> ONLINE
-          </div>
-          <div class="text-[11px] text-slate-500 mt-1">NestJS Core Runtime</div>
+      <!-- Sidebar Footer / Account Details -->
+      <div class="p-3.5 border-t border-slate-800/80 bg-slate-950/50 space-y-3">
+        <div class="flex items-center justify-between px-2 text-xs">
+          <span class="inline-flex items-center gap-1.5 text-slate-400 text-[11px]">
+            <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+            core_db &bull; ONLINE
+          </span>
+          <a href="/api/docs" target="_blank" class="text-sky-400 hover:text-sky-300 text-[11px] font-medium flex items-center gap-1">
+            <i class="fa-solid fa-book"></i> Swagger
+          </a>
         </div>
 
-        <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-4">
-          <div class="flex items-center justify-between text-slate-400 text-xs">
-            <span>Total Users</span>
-            <i class="fa-solid fa-users text-emerald-400"></i>
+        <div class="p-2.5 rounded-xl bg-slate-900 border border-slate-800 flex items-center justify-between">
+          <div class="min-w-0 pr-2">
+            <div id="navFullName" class="text-xs font-semibold text-white truncate">Admin User</div>
+            <div id="navRoleBadge" class="text-[10px] text-emerald-400 font-mono font-bold">SUPER_ADMIN</div>
           </div>
-          <div class="text-xl font-bold text-white mt-2" id="metricTotalUsers">--</div>
-          <div class="text-[11px] text-slate-500 mt-1">Super Admins & Operators</div>
-        </div>
-
-        <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-4">
-          <div class="flex items-center justify-between text-slate-400 text-xs">
-            <span>Configured Roles</span>
-            <i class="fa-solid fa-shield-halved text-amber-400"></i>
-          </div>
-          <div class="text-xl font-bold text-white mt-2" id="metricTotalRoles">--</div>
-          <div class="text-[11px] text-slate-500 mt-1">RBAC Role Definitions</div>
-        </div>
-
-        <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-4">
-          <div class="flex items-center justify-between text-slate-400 text-xs">
-            <span>Database Routing Pools</span>
-            <i class="fa-solid fa-database text-indigo-400"></i>
-          </div>
-          <div class="text-xl font-bold text-white mt-2" id="metricDbPools">--</div>
-          <div class="text-[11px] text-slate-500 mt-1">Dynamic Connections Active</div>
+          <button onclick="handleLogout()" type="button" title="Sign Out & Clear Session" class="btn px-2.5 py-1.5 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-400 hover:text-red-300 border border-red-500/20 text-xs cursor-pointer">
+            <i class="fa-solid fa-power-off"></i>
+          </button>
         </div>
       </div>
+    </aside>
 
-      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 space-y-3">
-          <h3 class="text-sm font-bold text-white flex items-center gap-2">
-            <i class="fa-solid fa-bolt text-sky-400"></i> Platform Architecture
-          </h3>
-          <p class="text-xs text-slate-400 leading-relaxed">
-            The platform functions as a scalable LoRaWAN Application Server providing webhook ingestion for ChirpStack and ThingPark Wireless, dynamic PostgreSQL table-to-database routing, and multi-tier RBAC access control.
-          </p>
-          <div class="grid grid-cols-2 gap-2 pt-2 text-xs">
-            <div class="p-3 bg-slate-950/60 rounded-xl border border-slate-800/80">
-              <span class="text-slate-400 text-[11px] block">Role-Based Access Control</span>
-              <span class="font-semibold text-emerald-400 mt-0.5 block">5-Table RBAC Model</span>
-            </div>
-            <div class="p-3 bg-slate-950/60 rounded-xl border border-slate-800/80">
-              <span class="text-slate-400 text-[11px] block">Database Routing</span>
-              <span class="font-semibold text-sky-400 mt-0.5 block">Multi-DB Pools Active</span>
-            </div>
-          </div>
-        </div>
-
-        <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 space-y-3">
-          <h3 class="text-sm font-bold text-white flex items-center gap-2">
-            <i class="fa-solid fa-link text-emerald-400"></i> Quick Integration Links
-          </h3>
-          <div class="space-y-2 text-xs">
-            <a href="/api/docs" target="_blank" class="flex items-center justify-between p-2.5 rounded-xl bg-slate-950/60 border border-slate-800/80 hover:border-sky-500/40 transition">
-              <span class="flex items-center gap-2 text-slate-300 font-medium"><i class="fa-solid fa-book text-sky-400"></i> Swagger REST API Documentation</span>
-              <i class="fa-solid fa-arrow-up-right-from-square text-slate-500 text-[10px]"></i>
-            </a>
-            <button onclick="switchTab('devices')" type="button" class="w-full flex items-center justify-between p-2.5 rounded-xl bg-slate-950/60 border border-slate-800/80 hover:border-sky-500/40 transition cursor-pointer">
-              <span class="flex items-center gap-2 text-slate-300 font-medium"><i class="fa-solid fa-microchip text-sky-400"></i> LoRaWAN Devices & Gateways</span>
-              <i class="fa-solid fa-arrow-right text-slate-500 text-[10px]"></i>
-            </button>
-            <button onclick="switchTab('telemetry')" type="button" class="w-full flex items-center justify-between p-2.5 rounded-xl bg-slate-950/60 border border-slate-800/80 hover:border-indigo-500/40 transition cursor-pointer">
-              <span class="flex items-center gap-2 text-slate-300 font-medium"><i class="fa-solid fa-wave-square text-indigo-400"></i> Live Telemetry Packets</span>
-              <i class="fa-solid fa-arrow-right text-slate-500 text-[10px]"></i>
-            </button>
-            <button onclick="switchTab('database')" type="button" class="w-full flex items-center justify-between p-2.5 rounded-xl bg-slate-950/60 border border-slate-800/80 hover:border-amber-500/40 transition cursor-pointer">
-              <span class="flex items-center gap-2 text-slate-300 font-medium"><i class="fa-solid fa-heart-pulse text-amber-400"></i> Visual Database Health Monitor</span>
-              <i class="fa-solid fa-arrow-right text-slate-500 text-[10px]"></i>
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- TAB 2: USERS -->
-    <div id="tabContent-users" class="space-y-6" style="display: none;">
-      <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 space-y-5">
-        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+    <!-- Main Viewport Content Area -->
+    <div class="flex-1 flex flex-col min-w-0">
+      <!-- Top Bar Header -->
+      <header class="bg-slate-900/90 border-b border-slate-800/80 sticky top-0 z-30 backdrop-blur-md h-16 flex items-center justify-between px-4 sm:px-6">
+        <div class="flex items-center gap-3">
+          <button onclick="toggleSidebar(true)" type="button" class="lg:hidden p-2 rounded-lg bg-slate-800 text-slate-300 hover:text-white border border-slate-700">
+            <i class="fa-solid fa-bars"></i>
+          </button>
           <div>
-            <h2 class="text-base font-bold text-white flex items-center gap-2">
-              <i class="fa-solid fa-users text-sky-400"></i> User Directory
-            </h2>
-            <p class="text-xs text-slate-400 mt-0.5">Manage administrative and standard user accounts</p>
-          </div>
-          <div class="flex items-center gap-2">
-            <button onclick="loadUsers()" type="button" class="btn px-3 py-2 text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700">
-              <i class="fa-solid fa-arrows-rotate"></i> Refresh
-            </button>
-            <button onclick="openCreateUserModal()" type="button" class="btn px-3.5 py-2 text-xs font-semibold bg-sky-500 hover:bg-sky-400 text-white shadow-lg shadow-sky-500/20">
-              <i class="fa-solid fa-user-plus"></i> Create User
-            </button>
-          </div>
-        </div>
-
-        <div class="overflow-x-auto custom-scroll border border-slate-800/80 rounded-xl">
-          <table class="w-full text-left text-xs">
-            <thead class="text-slate-400 border-b border-slate-800 bg-slate-950/60">
-              <tr>
-                <th class="py-3 px-4">Username</th>
-                <th class="py-3 px-4">Full Name</th>
-                <th class="py-3 px-4">Email</th>
-                <th class="py-3 px-4">Type</th>
-                <th class="py-3 px-4">Roles</th>
-                <th class="py-3 px-4">Status</th>
-                <th class="py-3 px-4 text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody id="usersTableBody" class="divide-y divide-slate-800/60">
-              <tr><td colspan="7" class="py-4 text-center text-slate-500">Loading user accounts...</td></tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-
-    <!-- TAB 3: ROLE MATRIX -->
-    <div id="tabContent-roles" class="space-y-6" style="display: none;">
-      <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 space-y-5">
-        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div>
-            <h2 class="text-base font-bold text-white flex items-center gap-2">
-              <i class="fa-solid fa-shield-halved text-amber-400"></i> Role & Permissions Matrix (RBAC)
-            </h2>
-            <p class="text-xs text-slate-400 mt-0.5">Configure role definitions and granular permission assignments. Only Super Admin has modification rights.</p>
-          </div>
-          <div class="flex items-center gap-2">
-            <button onclick="loadRoles()" type="button" class="btn px-3 py-2 text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700">
-              <i class="fa-solid fa-arrows-rotate"></i> Refresh
-            </button>
-            <button onclick="openCreateRoleModal()" type="button" class="btn px-3.5 py-2 text-xs font-semibold bg-amber-500 hover:bg-amber-400 text-slate-950 shadow-lg shadow-amber-500/20">
-              <i class="fa-solid fa-plus"></i> Create New Role
-            </button>
-          </div>
-        </div>
-
-        <!-- Role Cards Grid -->
-        <div id="rolesCardsContainer" class="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div class="p-4 text-center text-slate-500 text-xs">Loading roles...</div>
-        </div>
-
-        <!-- Role Table Details -->
-        <div class="overflow-x-auto custom-scroll border border-slate-800/80 rounded-xl mt-4">
-          <table class="w-full text-left text-xs">
-            <thead class="text-slate-400 border-b border-slate-800 bg-slate-950/60">
-              <tr>
-                <th class="py-3 px-4">Role Code</th>
-                <th class="py-3 px-4">Display Name</th>
-                <th class="py-3 px-4">Description</th>
-                <th class="py-3 px-4">Assigned Permissions</th>
-                <th class="py-3 px-4 text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody id="rolesTableBody" class="divide-y divide-slate-800/60">
-              <tr><td colspan="5" class="py-4 text-center text-slate-500">Loading roles list...</td></tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-
-    <!-- TAB 4: DATABASE HEALTH & ROUTING -->
-    <div id="tabContent-database" class="space-y-6" style="display: none;">
-      <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 space-y-4">
-        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div>
-            <h2 class="text-base font-bold text-white flex items-center gap-2">
-              <i class="fa-solid fa-heart-pulse text-emerald-400"></i> Visual Database Health & Metrics
-            </h2>
-            <p class="text-xs text-slate-400 mt-0.5">Real-time status of multi-database connections, latency, and table routing</p>
-          </div>
-          <div class="flex items-center gap-2">
-            <button onclick="loadDatabaseHealth()" type="button" class="btn px-3 py-1.5 text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700">
-              <i class="fa-solid fa-arrows-rotate"></i> Refresh Health
-            </button>
-            <button onclick="reloadDbConfig()" type="button" class="btn px-3 py-1.5 text-xs font-semibold bg-sky-500/10 text-sky-400 border border-sky-500/30 hover:bg-sky-500/20">
-              <i class="fa-solid fa-gear"></i> Hot-Reload Config
-            </button>
-          </div>
-        </div>
-
-        <div id="dbHealthPoolsGrid" class="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
-          <div class="p-4 text-center text-slate-500 text-xs">Checking database health...</div>
-        </div>
-      </div>
-
-      <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 space-y-4">
-        <div class="flex items-center justify-between">
-          <h3 class="text-sm font-bold text-white flex items-center gap-2">
-            <i class="fa-solid fa-map-location-dot text-sky-400"></i> Active Table Routing & Record Counts
-          </h3>
-          <span class="text-xs text-slate-400 font-mono">config/db-routing.config.json</span>
-        </div>
-        <div class="overflow-x-auto custom-scroll border border-slate-800/80 rounded-xl">
-          <table class="w-full text-left text-xs">
-            <thead class="text-slate-400 border-b border-slate-800 bg-slate-950/60">
-              <tr>
-                <th class="py-3 px-4">Table / Entity</th>
-                <th class="py-3 px-4">Target Database Pool</th>
-                <th class="py-3 px-4">Live Record Count</th>
-                <th class="py-3 px-4">Table Status</th>
-              </tr>
-            </thead>
-            <tbody id="tableStatsBody" class="divide-y divide-slate-800/60 font-mono">
-              <tr><td colspan="4" class="py-4 text-center text-slate-500">Loading table statistics...</td></tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-
-    <!-- TAB 5: LORAWAN DEVICES -->
-    <div id="tabContent-devices" class="space-y-6" style="display: none;">
-      <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 space-y-5">
-        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div>
-            <h2 class="text-base font-bold text-white flex items-center gap-2">
-              <i class="fa-solid fa-microchip text-sky-400"></i> LoRaWAN Device Fleet
-            </h2>
-            <p class="text-xs text-slate-400 mt-0.5">Manage registered End Devices and decoder scripts</p>
-          </div>
-          <div class="flex items-center gap-2">
-            <button onclick="loadDevices()" type="button" class="btn px-3 py-2 text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700">
-              <i class="fa-solid fa-arrows-rotate"></i> Refresh
-            </button>
-            <button onclick="openRegisterDeviceModal()" type="button" class="btn px-3.5 py-2 text-xs font-semibold bg-sky-500 hover:bg-sky-400 text-white shadow-lg shadow-sky-500/20">
-              <i class="fa-solid fa-plus"></i> Register Device
-            </button>
-          </div>
-        </div>
-
-        <div class="overflow-x-auto custom-scroll border border-slate-800/80 rounded-xl">
-          <table class="w-full text-left text-xs">
-            <thead class="text-slate-400 border-b border-slate-800 bg-slate-950/60">
-              <tr>
-                <th class="py-3 px-4">DevEUI</th>
-                <th class="py-3 px-4">Device Name</th>
-                <th class="py-3 px-4">Activation</th>
-                <th class="py-3 px-4">Decoder Script</th>
-                <th class="py-3 px-4">Status</th>
-                <th class="py-3 px-4 text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody id="devicesTableBody" class="divide-y divide-slate-800/60 font-mono">
-              <tr><td colspan="6" class="py-4 text-center text-slate-500 font-sans">Loading device fleet...</td></tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-
-    <!-- TAB 6: LIVE TELEMETRY -->
-    <div id="tabContent-telemetry" class="space-y-6" style="display: none;">
-      <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 space-y-5">
-        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div>
-            <h2 class="text-base font-bold text-white flex items-center gap-2">
-              <i class="fa-solid fa-wave-square text-indigo-400"></i> Live Telemetry Uplinks
-            </h2>
-            <p class="text-xs text-slate-400 mt-0.5">Real-time incoming packets from ChirpStack, ThingPark, and Generic Webhooks</p>
-          </div>
-          <div class="flex items-center gap-2">
-            <button onclick="loadTelemetry()" type="button" class="btn px-3 py-2 text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700">
-              <i class="fa-solid fa-arrows-rotate"></i> Refresh Telemetry
-            </button>
-          </div>
-        </div>
-
-        <div class="overflow-x-auto custom-scroll border border-slate-800/80 rounded-xl">
-          <table class="w-full text-left text-xs">
-            <thead class="text-slate-400 border-b border-slate-800 bg-slate-950/60">
-              <tr>
-                <th class="py-3 px-4">Time</th>
-                <th class="py-3 px-4">DevEUI</th>
-                <th class="py-3 px-4">Port / FCnt</th>
-                <th class="py-3 px-4">Raw Hex</th>
-                <th class="py-3 px-4">Decoded Data</th>
-                <th class="py-3 px-4">RSSI / SNR</th>
-              </tr>
-            </thead>
-            <tbody id="telemetryTableBody" class="divide-y divide-slate-800/60 font-mono">
-              <tr><td colspan="6" class="py-4 text-center text-slate-500 font-sans">Loading telemetry...</td></tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-
-    <!-- TAB 7: WEBHOOKS -->
-    <div id="tabContent-webhooks" class="space-y-6" style="display: none;">
-      <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 space-y-4">
-        <h2 class="text-base font-bold text-white flex items-center gap-2">
-          <i class="fa-solid fa-satellite-dish text-sky-400"></i> LoRaWAN Network Server Webhook Endpoints
-        </h2>
-        <p class="text-xs text-slate-400">
-          Configure these webhook URLs on ChirpStack or ThingPark Wireless Network Servers to ingest uplink telemetry:
-        </p>
-
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs font-mono">
-          <div class="bg-slate-950/70 border border-slate-800 rounded-xl p-4 space-y-2">
-            <div class="flex items-center justify-between text-sky-400 font-bold font-sans">
-              <span>ChirpStack v4 Ingestion</span>
-              <span class="px-2 py-0.5 rounded bg-sky-500/10 border border-sky-500/20 text-[10px]">POST / JSON</span>
+            <div class="flex items-center gap-2">
+              <h1 id="pageTitleText" class="text-sm font-bold text-white tracking-tight">Overview Dashboard</h1>
+              <span id="pageCategoryBadge" class="px-2 py-0.5 rounded text-[10px] font-semibold bg-sky-500/10 text-sky-300 border border-sky-500/20">Real-time</span>
             </div>
-            <div class="p-2 bg-slate-900 rounded-lg border border-slate-800 text-slate-300 break-all select-all flex items-center justify-between">
-              <span id="chirpstackWebhookUrl">POST /lorawan/webhook/chirpstack</span>
-              <button onclick="copyToClipboard(window.location.origin + '/lorawan/webhook/chirpstack')" type="button" class="text-slate-400 hover:text-sky-400 text-xs ml-2 cursor-pointer" title="Copy"><i class="fa-solid fa-copy"></i></button>
-            </div>
-            <p class="text-[11px] text-slate-400 font-sans">Supports ChirpStack uplink events: deduplication, RSSI/SNR metrics, payload decoding.</p>
-          </div>
-
-          <div class="bg-slate-950/70 border border-slate-800 rounded-xl p-4 space-y-2">
-            <div class="flex items-center justify-between text-emerald-400 font-bold font-sans">
-              <span>ThingPark Wireless Ingestion</span>
-              <span class="px-2 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/20 text-[10px]">POST / JSON</span>
-            </div>
-            <div class="p-2 bg-slate-900 rounded-lg border border-slate-800 text-slate-300 break-all select-all flex items-center justify-between">
-              <span id="thingparkWebhookUrl">POST /lorawan/webhook/thingpark</span>
-              <button onclick="copyToClipboard(window.location.origin + '/lorawan/webhook/thingpark')" type="button" class="text-slate-400 hover:text-emerald-400 text-xs ml-2 cursor-pointer" title="Copy"><i class="fa-solid fa-copy"></i></button>
-            </div>
-            <p class="text-[11px] text-slate-400 font-sans">Supports Actility ThingPark Wireless DX packets and hex payloads.</p>
+            <p id="pageSubtitleText" class="text-[11px] text-slate-400 hidden sm:block">LoRaWAN Platform runtime metrics and status</p>
           </div>
         </div>
-      </div>
-    </div>
 
-    <!-- TAB 8: DECODER SANDBOX -->
-    <div id="tabContent-decoder" class="space-y-6" style="display: none;">
-      <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 space-y-4">
-        <h2 class="text-base font-bold text-white flex items-center gap-2">
-          <i class="fa-solid fa-code text-indigo-400"></i> Payload Formatter Sandbox
-        </h2>
-        <p class="text-xs text-slate-400">Test and evaluate JavaScript payload decoders before saving them to devices.</p>
+        <!-- Top Right Actions -->
+        <div class="flex items-center gap-2">
+          <button onclick="forceCleanSession()" type="button" title="Clean stale browser cache & session" class="btn px-2.5 py-1.5 text-xs text-slate-400 hover:text-amber-400 bg-slate-800/80 hover:bg-slate-800 border border-slate-700/80 rounded-lg transition">
+            <i class="fa-solid fa-arrows-rotate"></i>
+            <span class="hidden md:inline text-[11px]">Clear Session</span>
+          </button>
+          <a href="/api/docs" target="_blank" class="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-sky-400 bg-sky-950/50 border border-sky-500/30 hover:bg-sky-900/50 transition">
+            <i class="fa-solid fa-book"></i> REST API
+          </a>
+          <button onclick="handleLogout()" type="button" class="btn px-3 py-1.5 rounded-lg bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-400 hover:text-red-300 text-xs">
+            <i class="fa-solid fa-right-from-bracket"></i>
+            <span class="hidden sm:inline">Logout</span>
+          </button>
+        </div>
+      </header>
 
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 text-xs font-mono">
-          <div class="space-y-2">
-            <label class="block text-xs font-sans font-semibold text-slate-300">JavaScript Decoder Function</label>
-            <textarea id="sandboxCode" class="w-full h-48 bg-slate-950 border border-slate-800 rounded-xl p-3 text-slate-200 focus:outline-none focus:border-indigo-500 font-mono text-xs">function decodeUplink(bytes, fPort) {
+      <!-- Main Body Container -->
+      <main class="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8 space-y-6">
+        
+        <!-- TAB 1: OVERVIEW -->
+        <div id="tabContent-overview" class="space-y-6" style="display: block;">
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-4">
+              <div class="flex items-center justify-between text-slate-400 text-xs">
+                <span>Server Runtime</span>
+                <i class="fa-solid fa-server text-sky-400"></i>
+              </div>
+              <div class="text-xl font-bold text-white mt-2 flex items-center gap-2">
+                <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span> ONLINE
+              </div>
+              <div class="text-[11px] text-slate-500 mt-1">NestJS Core Engine</div>
+            </div>
+
+            <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-4">
+              <div class="flex items-center justify-between text-slate-400 text-xs">
+                <span>Total Users</span>
+                <i class="fa-solid fa-users text-emerald-400"></i>
+              </div>
+              <div class="text-xl font-bold text-white mt-2" id="metricTotalUsers">--</div>
+              <div class="text-[11px] text-slate-500 mt-1">Super Admins & Operators</div>
+            </div>
+
+            <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-4">
+              <div class="flex items-center justify-between text-slate-400 text-xs">
+                <span>Configured Roles</span>
+                <i class="fa-solid fa-shield-halved text-amber-400"></i>
+              </div>
+              <div class="text-xl font-bold text-white mt-2" id="metricTotalRoles">--</div>
+              <div class="text-[11px] text-slate-500 mt-1">RBAC Role Definitions</div>
+            </div>
+
+            <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-4">
+              <div class="flex items-center justify-between text-slate-400 text-xs">
+                <span>Database Pools</span>
+                <i class="fa-solid fa-database text-indigo-400"></i>
+              </div>
+              <div class="text-xl font-bold text-white mt-2" id="metricDbPools">--</div>
+              <div class="text-[11px] text-slate-500 mt-1">Dynamic Routing Active</div>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 space-y-3">
+              <h3 class="text-sm font-bold text-white flex items-center gap-2">
+                <i class="fa-solid fa-bolt text-sky-400"></i> Platform Architecture
+              </h3>
+              <p class="text-xs text-slate-400 leading-relaxed">
+                The platform functions as a high-performance LoRaWAN Application Server providing webhook ingestion for ChirpStack and ThingPark Wireless, dynamic PostgreSQL table routing, and multi-tier RBAC access control.
+              </p>
+              <div class="grid grid-cols-2 gap-2 pt-2 text-xs">
+                <div class="p-3 bg-slate-950/60 rounded-xl border border-slate-800/80">
+                  <span class="text-slate-400 text-[11px] block">Role-Based Access Control</span>
+                  <span class="font-semibold text-emerald-400 mt-0.5 block">5-Table RBAC Model</span>
+                </div>
+                <div class="p-3 bg-slate-950/60 rounded-xl border border-slate-800/80">
+                  <span class="text-slate-400 text-[11px] block">Database Routing</span>
+                  <span class="font-semibold text-sky-400 mt-0.5 block">Single/Multi DB Active</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 space-y-3">
+              <h3 class="text-sm font-bold text-white flex items-center gap-2">
+                <i class="fa-solid fa-link text-emerald-400"></i> Quick Navigation
+              </h3>
+              <div class="space-y-2 text-xs">
+                <button onclick="switchTab('devices')" type="button" class="w-full flex items-center justify-between p-2.5 rounded-xl bg-slate-950/60 border border-slate-800/80 hover:border-sky-500/40 transition cursor-pointer">
+                  <span class="flex items-center gap-2 text-slate-300 font-medium"><i class="fa-solid fa-microchip text-sky-400"></i> LoRaWAN Devices Fleet</span>
+                  <i class="fa-solid fa-arrow-right text-slate-500 text-[10px]"></i>
+                </button>
+                <button onclick="switchTab('telemetry')" type="button" class="w-full flex items-center justify-between p-2.5 rounded-xl bg-slate-950/60 border border-slate-800/80 hover:border-indigo-500/40 transition cursor-pointer">
+                  <span class="flex items-center gap-2 text-slate-300 font-medium"><i class="fa-solid fa-wave-square text-indigo-400"></i> Live Telemetry Packets</span>
+                  <i class="fa-solid fa-arrow-right text-slate-500 text-[10px]"></i>
+                </button>
+                <button onclick="switchTab('database')" type="button" class="w-full flex items-center justify-between p-2.5 rounded-xl bg-slate-950/60 border border-slate-800/80 hover:border-amber-500/40 transition cursor-pointer">
+                  <span class="flex items-center gap-2 text-slate-300 font-medium"><i class="fa-solid fa-heart-pulse text-amber-400"></i> Database Health Monitor</span>
+                  <i class="fa-solid fa-arrow-right text-slate-500 text-[10px]"></i>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB 2: LIVE TELEMETRY -->
+        <div id="tabContent-telemetry" class="space-y-6" style="display: none;">
+          <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 space-y-5">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <h2 class="text-base font-bold text-white flex items-center gap-2">
+                  <i class="fa-solid fa-wave-square text-indigo-400"></i> Live Telemetry Uplinks
+                </h2>
+                <p class="text-xs text-slate-400 mt-0.5">Real-time incoming packets from ChirpStack, ThingPark, and Generic Webhooks</p>
+              </div>
+              <div class="flex items-center gap-2">
+                <button onclick="loadTelemetry()" type="button" class="btn px-3 py-2 text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700">
+                  <i class="fa-solid fa-arrows-rotate"></i> Refresh Telemetry
+                </button>
+              </div>
+            </div>
+
+            <div class="overflow-x-auto custom-scroll border border-slate-800/80 rounded-xl">
+              <table class="w-full text-left text-xs">
+                <thead class="text-slate-400 border-b border-slate-800 bg-slate-950/60">
+                  <tr>
+                    <th class="py-3 px-4">Time</th>
+                    <th class="py-3 px-4">DevEUI</th>
+                    <th class="py-3 px-4">Port / FCnt</th>
+                    <th class="py-3 px-4">Raw Hex</th>
+                    <th class="py-3 px-4">Decoded Data</th>
+                    <th class="py-3 px-4">RSSI / SNR</th>
+                  </tr>
+                </thead>
+                <tbody id="telemetryTableBody" class="divide-y divide-slate-800/60 font-mono">
+                  <tr><td colspan="6" class="py-4 text-center text-slate-500 font-sans">Loading telemetry...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB 3: DATABASE HEALTH & ROUTING -->
+        <div id="tabContent-database" class="space-y-6" style="display: none;">
+          <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 space-y-4">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <h2 class="text-base font-bold text-white flex items-center gap-2">
+                  <i class="fa-solid fa-heart-pulse text-emerald-400"></i> Visual Database Health & Metrics
+                </h2>
+                <p class="text-xs text-slate-400 mt-0.5">Real-time status of PostgreSQL connections, latency, and table routing</p>
+              </div>
+              <div class="flex items-center gap-2">
+                <button onclick="loadDatabaseHealth()" type="button" class="btn px-3 py-1.5 text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700">
+                  <i class="fa-solid fa-arrows-rotate"></i> Refresh Health
+                </button>
+                <button onclick="reloadDbConfig()" type="button" class="btn px-3 py-1.5 text-xs font-semibold bg-sky-500/10 text-sky-400 border border-sky-500/30 hover:bg-sky-500/20">
+                  <i class="fa-solid fa-gear"></i> Hot-Reload Config
+                </button>
+              </div>
+            </div>
+
+            <div id="dbHealthPoolsGrid" class="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
+              <div class="p-4 text-center text-slate-500 text-xs">Checking database health...</div>
+            </div>
+          </div>
+
+          <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 space-y-4">
+            <div class="flex items-center justify-between">
+              <h3 class="text-sm font-bold text-white flex items-center gap-2">
+                <i class="fa-solid fa-map-location-dot text-sky-400"></i> Active Table Routing & Record Counts
+              </h3>
+              <span class="text-xs text-slate-400 font-mono">config/db-routing.config.json</span>
+            </div>
+            <div class="overflow-x-auto custom-scroll border border-slate-800/80 rounded-xl">
+              <table class="w-full text-left text-xs">
+                <thead class="text-slate-400 border-b border-slate-800 bg-slate-950/60">
+                  <tr>
+                    <th class="py-3 px-4">Table / Entity</th>
+                    <th class="py-3 px-4">Target Database Pool</th>
+                    <th class="py-3 px-4">Live Record Count</th>
+                    <th class="py-3 px-4">Table Status</th>
+                  </tr>
+                </thead>
+                <tbody id="tableStatsBody" class="divide-y divide-slate-800/60 font-mono">
+                  <tr><td colspan="4" class="py-4 text-center text-slate-500">Loading table statistics...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB 4: LORAWAN DEVICES -->
+        <div id="tabContent-devices" class="space-y-6" style="display: none;">
+          <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 space-y-5">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <h2 class="text-base font-bold text-white flex items-center gap-2">
+                  <i class="fa-solid fa-microchip text-sky-400"></i> LoRaWAN Device Fleet
+                </h2>
+                <p class="text-xs text-slate-400 mt-0.5">Manage registered End Devices and decoder scripts</p>
+              </div>
+              <div class="flex items-center gap-2">
+                <button onclick="loadDevices()" type="button" class="btn px-3 py-2 text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700">
+                  <i class="fa-solid fa-arrows-rotate"></i> Refresh
+                </button>
+                <button onclick="openRegisterDeviceModal()" type="button" class="btn px-3.5 py-2 text-xs font-semibold bg-sky-500 hover:bg-sky-400 text-white shadow-lg shadow-sky-500/20">
+                  <i class="fa-solid fa-plus"></i> Register Device
+                </button>
+              </div>
+            </div>
+
+            <div class="overflow-x-auto custom-scroll border border-slate-800/80 rounded-xl">
+              <table class="w-full text-left text-xs">
+                <thead class="text-slate-400 border-b border-slate-800 bg-slate-950/60">
+                  <tr>
+                    <th class="py-3 px-4">DevEUI</th>
+                    <th class="py-3 px-4">Device Name</th>
+                    <th class="py-3 px-4">Activation</th>
+                    <th class="py-3 px-4">Decoder Script</th>
+                    <th class="py-3 px-4">Status</th>
+                    <th class="py-3 px-4 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="devicesTableBody" class="divide-y divide-slate-800/60 font-mono">
+                  <tr><td colspan="6" class="py-4 text-center text-slate-500 font-sans">Loading device fleet...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB 5: WEBHOOKS -->
+        <div id="tabContent-webhooks" class="space-y-6" style="display: none;">
+          <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 space-y-4">
+            <h2 class="text-base font-bold text-white flex items-center gap-2">
+              <i class="fa-solid fa-satellite-dish text-sky-400"></i> LoRaWAN Network Server Webhook Endpoints
+            </h2>
+            <p class="text-xs text-slate-400">
+              Configure these webhook URLs on ChirpStack or ThingPark Wireless Network Servers to ingest uplink telemetry:
+            </p>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs font-mono">
+              <div class="bg-slate-950/70 border border-slate-800 rounded-xl p-4 space-y-2">
+                <div class="flex items-center justify-between text-sky-400 font-bold font-sans">
+                  <span>ChirpStack v4 Ingestion</span>
+                  <span class="px-2 py-0.5 rounded bg-sky-500/10 border border-sky-500/20 text-[10px]">POST / JSON</span>
+                </div>
+                <div class="p-2 bg-slate-900 rounded-lg border border-slate-800 text-slate-300 break-all select-all flex items-center justify-between">
+                  <span id="chirpstackWebhookUrl">POST /lorawan/webhook/chirpstack</span>
+                  <button onclick="copyToClipboard(window.location.origin + '/lorawan/webhook/chirpstack')" type="button" class="text-slate-400 hover:text-sky-400 text-xs ml-2 cursor-pointer" title="Copy"><i class="fa-solid fa-copy"></i></button>
+                </div>
+                <p class="text-[11px] text-slate-400 font-sans">Supports ChirpStack uplink events: deduplication, RSSI/SNR metrics, payload decoding.</p>
+              </div>
+
+              <div class="bg-slate-950/70 border border-slate-800 rounded-xl p-4 space-y-2">
+                <div class="flex items-center justify-between text-emerald-400 font-bold font-sans">
+                  <span>ThingPark Wireless Ingestion</span>
+                  <span class="px-2 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/20 text-[10px]">POST / JSON</span>
+                </div>
+                <div class="p-2 bg-slate-900 rounded-lg border border-slate-800 text-slate-300 break-all select-all flex items-center justify-between">
+                  <span id="thingparkWebhookUrl">POST /lorawan/webhook/thingpark</span>
+                  <button onclick="copyToClipboard(window.location.origin + '/lorawan/webhook/thingpark')" type="button" class="text-slate-400 hover:text-emerald-400 text-xs ml-2 cursor-pointer" title="Copy"><i class="fa-solid fa-copy"></i></button>
+                </div>
+                <p class="text-[11px] text-slate-400 font-sans">Supports Actility ThingPark Wireless DX packets and hex payloads.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB 6: DECODER SANDBOX -->
+        <div id="tabContent-decoder" class="space-y-6" style="display: none;">
+          <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 space-y-4">
+            <h2 class="text-base font-bold text-white flex items-center gap-2">
+              <i class="fa-solid fa-code text-indigo-400"></i> Payload Formatter Sandbox
+            </h2>
+            <p class="text-xs text-slate-400">Test and evaluate JavaScript payload decoders before saving them to devices.</p>
+
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 text-xs font-mono">
+              <div class="space-y-2">
+                <label class="block text-xs font-sans font-semibold text-slate-300">JavaScript Decoder Function</label>
+                <textarea id="sandboxCode" class="w-full h-48 bg-slate-950 border border-slate-800 rounded-xl p-3 text-slate-200 focus:outline-none focus:border-indigo-500 font-mono text-xs">function decodeUplink(bytes, fPort) {
   var temperature = ((bytes[0] << 8) | bytes[1]) / 100;
   var humidity = bytes[2];
   return {
@@ -547,20 +527,109 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
     humidity: humidity
   };
 }</textarea>
-          </div>
+              </div>
 
-          <div class="space-y-2">
-            <label class="block text-xs font-sans font-semibold text-slate-300">Test Hex Bytes & Output</label>
-            <div class="flex gap-2">
-              <input type="text" id="sandboxHex" value="09C441" placeholder="Hex string e.g. 09C441" class="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-slate-200 focus:outline-none focus:border-indigo-500 font-mono" />
-              <button onclick="runSandboxDecode()" type="button" class="btn px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-sans font-semibold rounded-xl transition">Decode</button>
+              <div class="space-y-2">
+                <label class="block text-xs font-sans font-semibold text-slate-300">Test Hex Bytes & Output</label>
+                <div class="flex gap-2">
+                  <input type="text" id="sandboxHex" value="09C441" placeholder="Hex string e.g. 09C441" class="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-slate-200 focus:outline-none focus:border-indigo-500 font-mono" />
+                  <button onclick="runSandboxDecode()" type="button" class="btn px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-sans font-semibold rounded-xl transition">Decode</button>
+                </div>
+                <pre id="sandboxResult" class="w-full h-36 bg-slate-950 border border-slate-800 rounded-xl p-3 text-emerald-400 overflow-auto text-xs">{ "ready": true }</pre>
+              </div>
             </div>
-            <pre id="sandboxResult" class="w-full h-36 bg-slate-950 border border-slate-800 rounded-xl p-3 text-emerald-400 overflow-auto text-xs">{ "ready": true }</pre>
           </div>
         </div>
-      </div>
+
+        <!-- TAB 7: USERS DIRECTORY -->
+        <div id="tabContent-users" class="space-y-6" style="display: none;">
+          <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 space-y-5">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <h2 class="text-base font-bold text-white flex items-center gap-2">
+                  <i class="fa-solid fa-users text-cyan-400"></i> User Directory
+                </h2>
+                <p class="text-xs text-slate-400 mt-0.5">Manage administrative and standard user accounts</p>
+              </div>
+              <div class="flex items-center gap-2">
+                <button onclick="loadUsers()" type="button" class="btn px-3 py-2 text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700">
+                  <i class="fa-solid fa-arrows-rotate"></i> Refresh
+                </button>
+                <button onclick="openCreateUserModal()" type="button" class="btn px-3.5 py-2 text-xs font-semibold bg-sky-500 hover:bg-sky-400 text-white shadow-lg shadow-sky-500/20">
+                  <i class="fa-solid fa-user-plus"></i> Create User
+                </button>
+              </div>
+            </div>
+
+            <div class="overflow-x-auto custom-scroll border border-slate-800/80 rounded-xl">
+              <table class="w-full text-left text-xs">
+                <thead class="text-slate-400 border-b border-slate-800 bg-slate-950/60">
+                  <tr>
+                    <th class="py-3 px-4">Username</th>
+                    <th class="py-3 px-4">Full Name</th>
+                    <th class="py-3 px-4">Email</th>
+                    <th class="py-3 px-4">Type</th>
+                    <th class="py-3 px-4">Roles</th>
+                    <th class="py-3 px-4">Status</th>
+                    <th class="py-3 px-4 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="usersTableBody" class="divide-y divide-slate-800/60">
+                  <tr><td colspan="7" class="py-4 text-center text-slate-500">Loading user accounts...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB 8: ROLE MATRIX -->
+        <div id="tabContent-roles" class="space-y-6" style="display: none;">
+          <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 space-y-5">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <h2 class="text-base font-bold text-white flex items-center gap-2">
+                  <i class="fa-solid fa-shield-halved text-yellow-400"></i> Role & Permissions Matrix (RBAC)
+                </h2>
+                <p class="text-xs text-slate-400 mt-0.5">Configure role definitions and granular permission assignments</p>
+              </div>
+              <div class="flex items-center gap-2">
+                <button onclick="loadRoles()" type="button" class="btn px-3 py-2 text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700">
+                  <i class="fa-solid fa-arrows-rotate"></i> Refresh
+                </button>
+                <button onclick="openCreateRoleModal()" type="button" class="btn px-3.5 py-2 text-xs font-semibold bg-amber-500 hover:bg-amber-400 text-slate-950 shadow-lg shadow-amber-500/20">
+                  <i class="fa-solid fa-plus"></i> Create New Role
+                </button>
+              </div>
+            </div>
+
+            <!-- Role Cards Grid -->
+            <div id="rolesCardsContainer" class="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div class="p-4 text-center text-slate-500 text-xs">Loading roles...</div>
+            </div>
+
+            <!-- Role Table Details -->
+            <div class="overflow-x-auto custom-scroll border border-slate-800/80 rounded-xl mt-4">
+              <table class="w-full text-left text-xs">
+                <thead class="text-slate-400 border-b border-slate-800 bg-slate-950/60">
+                  <tr>
+                    <th class="py-3 px-4">Role Code</th>
+                    <th class="py-3 px-4">Display Name</th>
+                    <th class="py-3 px-4">Description</th>
+                    <th class="py-3 px-4">Assigned Permissions</th>
+                    <th class="py-3 px-4 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="rolesTableBody" class="divide-y divide-slate-800/60">
+                  <tr><td colspan="5" class="py-4 text-center text-slate-500">Loading roles list...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+      </main>
     </div>
-  </main>
+  </div>
 
   <!-- MODAL: CREATE USER -->
   <div id="createUserModal" class="modal-overlay" onclick="closeCreateUserModal()">
@@ -762,6 +831,30 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
     var allLoadedUsers = [];
     var allLoadedDevices = [];
 
+    var tabMetadata = {
+      overview: { title: "Overview Dashboard", category: "Real-time", subtitle: "LoRaWAN Platform runtime metrics and status" },
+      telemetry: { title: "Live Telemetry Packets", category: "Uplink Monitor", subtitle: "Real-time stream of incoming LoRaWAN packets and decoded values" },
+      database: { title: "Database Health & Routing", category: "Infrastructure", subtitle: "PostgreSQL multi-pool latency, table routing, and config reload" },
+      devices: { title: "LoRaWAN Device Fleet", category: "Fleet Management", subtitle: "Registered OTAA/ABP sensors and payload decoder script status" },
+      webhooks: { title: "Webhook Ingestion Endpoints", category: "Integration", subtitle: "ChirpStack v4 and Actility ThingPark Wireless ingest URLs" },
+      decoder: { title: "Payload Formatter Sandbox", category: "JS Engine", subtitle: "Test JavaScript payload decoders before saving to devices" },
+      users: { title: "User Directory", category: "RBAC Security", subtitle: "Manage Super Admin, Sub-Admin, and standard user accounts" },
+      roles: { title: "Role Matrix & Permissions", category: "RBAC Matrix", subtitle: "Role definitions and granular system permission mapping" }
+    };
+
+    function toggleSidebar(open) {
+      var sidebar = document.getElementById("mainSidebar");
+      var backdrop = document.getElementById("mobileSidebarBackdrop");
+      if (open) {
+        sidebar.classList.remove("-translate-x-full");
+        backdrop.classList.remove("hidden");
+      } else {
+        sidebar.classList.add("-translate-x-full");
+        backdrop.classList.add("hidden");
+      }
+    }
+    window.toggleSidebar = toggleSidebar;
+
     function showToast(msg, type) {
       var container = document.getElementById("toastContainer");
       if (!container) return;
@@ -799,6 +892,21 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
       }
     }
     window.copyToClipboard = copyToClipboard;
+
+    function forceCleanSession() {
+      try {
+        localStorage.clear();
+        sessionStorage.clear();
+      } catch(e) {}
+      var cookies = ["access_token", "lorawan_token", "session_id", "connect.sid"];
+      for (var i = 0; i < cookies.length; i++) {
+        var c = cookies[i];
+        document.cookie = c + "=; Path=/; Expires=Thu, 01 Jan 1970 00:00:01 GMT; Max-Age=0; SameSite=Lax;";
+        document.cookie = c + "=; Path=/; Expires=Thu, 01 Jan 1970 00:00:01 GMT; Max-Age=0;";
+      }
+      window.location.replace("/login?cleared=1");
+    }
+    window.forceCleanSession = forceCleanSession;
 
     function getAuthToken() {
       var token = null;
@@ -844,23 +952,19 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
     }
 
     function switchTab(tabId) {
-      var tabList = ["overview", "users", "roles", "database", "devices", "telemetry", "webhooks", "decoder"];
+      var tabList = ["overview", "telemetry", "database", "devices", "webhooks", "decoder", "users", "roles"];
+      if (tabList.indexOf(tabId) === -1) tabId = "overview";
+
       for (var i = 0; i < tabList.length; i++) {
         var t = tabList[i];
-        var btn = document.getElementById("tabBtn-" + t);
+        var navItem = document.getElementById("navItem-" + t);
         var content = document.getElementById("tabContent-" + t);
         
-        if (btn) {
+        if (navItem) {
           if (t === tabId) {
-            btn.classList.add("active");
-            btn.style.backgroundColor = "rgba(14, 165, 233, 0.18)";
-            btn.style.color = "#38bdf8";
-            btn.style.borderColor = "rgba(56, 189, 248, 0.5)";
+            navItem.classList.add("active");
           } else {
-            btn.classList.remove("active");
-            btn.style.backgroundColor = "transparent";
-            btn.style.color = "#94a3b8";
-            btn.style.borderColor = "transparent";
+            navItem.classList.remove("active");
           }
         }
         
@@ -873,6 +977,26 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
         }
       }
 
+      // Update Header Titles
+      var meta = tabMetadata[tabId] || tabMetadata.overview;
+      var titleEl = document.getElementById("pageTitleText");
+      var badgeEl = document.getElementById("pageCategoryBadge");
+      var subEl = document.getElementById("pageSubtitleText");
+      if (titleEl) titleEl.textContent = meta.title;
+      if (badgeEl) badgeEl.textContent = meta.category;
+      if (subEl) subEl.textContent = meta.subtitle;
+
+      // Close mobile drawer if open
+      if (window.innerWidth < 1024) {
+        toggleSidebar(false);
+      }
+
+      // Set URL hash for easy bookmarking / refresh
+      try {
+        window.history.replaceState(null, null, "#" + tabId);
+      } catch(e) {}
+
+      // Lazy load tab data
       if (tabId === "users") loadUsers();
       if (tabId === "roles") loadRoles();
       if (tabId === "database") loadDatabaseHealth();
@@ -888,17 +1012,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
       try {
         await fetch("/reset-session", { method: "POST", credentials: "include" });
       } catch (e) {}
-      try {
-        localStorage.clear();
-        sessionStorage.clear();
-      } catch(e) {}
-      var cookies = ["access_token", "lorawan_token", "session_id", "connect.sid"];
-      for (var i = 0; i < cookies.length; i++) {
-        var c = cookies[i];
-        document.cookie = c + "=; Path=/; Expires=Thu, 01 Jan 1970 00:00:01 GMT; Max-Age=0; SameSite=Lax;";
-        document.cookie = c + "=; Path=/; Expires=Thu, 01 Jan 1970 00:00:01 GMT; Max-Age=0;";
-      }
-      window.location.replace("/login?cleared=1");
+      forceCleanSession();
     }
     window.handleLogout = handleLogout;
 
@@ -1228,17 +1342,13 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
         }
       }
       var modal = document.getElementById("createUserModal");
-      if (modal) {
-        modal.classList.add("active");
-      }
+      if (modal) modal.classList.add("active");
     }
     window.openCreateUserModal = openCreateUserModal;
 
     function closeCreateUserModal() {
       var modal = document.getElementById("createUserModal");
-      if (modal) {
-        modal.classList.remove("active");
-      }
+      if (modal) modal.classList.remove("active");
     }
     window.closeCreateUserModal = closeCreateUserModal;
 
@@ -1263,17 +1373,13 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
       }
 
       var modal = document.getElementById("editUserModal");
-      if (modal) {
-        modal.classList.add("active");
-      }
+      if (modal) modal.classList.add("active");
     }
     window.openEditUserModal = openEditUserModal;
 
     function closeEditUserModal() {
       var modal = document.getElementById("editUserModal");
-      if (modal) {
-        modal.classList.remove("active");
-      }
+      if (modal) modal.classList.remove("active");
     }
     window.closeEditUserModal = closeEditUserModal;
 
@@ -1291,17 +1397,13 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
         }
       }
       var modal = document.getElementById("createRoleModal");
-      if (modal) {
-        modal.classList.add("active");
-      }
+      if (modal) modal.classList.add("active");
     }
     window.openCreateRoleModal = openCreateRoleModal;
 
     function closeCreateRoleModal() {
       var modal = document.getElementById("createRoleModal");
-      if (modal) {
-        modal.classList.remove("active");
-      }
+      if (modal) modal.classList.remove("active");
     }
     window.closeCreateRoleModal = closeCreateRoleModal;
 
@@ -1339,33 +1441,25 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
       }
 
       var modal = document.getElementById("editRoleModal");
-      if (modal) {
-        modal.classList.add("active");
-      }
+      if (modal) modal.classList.add("active");
     }
     window.openEditRoleModal = openEditRoleModal;
 
     function closeEditRoleModal() {
       var modal = document.getElementById("editRoleModal");
-      if (modal) {
-        modal.classList.remove("active");
-      }
+      if (modal) modal.classList.remove("active");
     }
     window.closeEditRoleModal = closeEditRoleModal;
 
     function openRegisterDeviceModal() {
       var modal = document.getElementById("registerDeviceModal");
-      if (modal) {
-        modal.classList.add("active");
-      }
+      if (modal) modal.classList.add("active");
     }
     window.openRegisterDeviceModal = openRegisterDeviceModal;
 
     function closeRegisterDeviceModal() {
       var modal = document.getElementById("registerDeviceModal");
-      if (modal) {
-        modal.classList.remove("active");
-      }
+      if (modal) modal.classList.remove("active");
     }
     window.closeRegisterDeviceModal = closeRegisterDeviceModal;
 
@@ -1629,6 +1723,14 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
         }
       } catch (err) {
         console.warn("Session check notice:", err);
+      }
+
+      // Check URL Hash to restore active tab
+      var hash = window.location.hash.replace("#", "").trim();
+      if (hash && tabMetadata[hash]) {
+        switchTab(hash);
+      } else {
+        switchTab("overview");
       }
 
       loadUsers();
