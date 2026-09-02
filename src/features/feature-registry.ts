@@ -6,9 +6,11 @@ export interface FeatureModule {
   icon: string;
   color: string;
   badge?: string;
-  category: 'Monitoring' | 'Fleet' | 'Analytics' | 'System';
+  category: 'Monitoring' | 'Fleet' | 'Analytics' | 'System' | 'Reports' | 'Custom';
   requiredPermission?: string;
-  status: 'active' | 'ready' | 'beta';
+  allowedRoleCodes?: string[];
+  status?: 'active' | 'ready' | 'beta';
+  isActive?: boolean;
 }
 
 export const FEATURE_MODULES_REGISTRY: FeatureModule[] = [

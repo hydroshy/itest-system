@@ -94,18 +94,23 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
         </a>
       </div>
 
-      <!-- Center / Horizontal Pill Tabs (All 8 Admin Management Tabs) -->
+      <!-- Center / Horizontal Pill Tabs (All Admin Tabs including Feature Modules) -->
       <nav class="hidden md:flex items-center gap-1 overflow-x-auto custom-scroll py-1">
         <button @click="activeTab = 'overview'" :class="{ active: activeTab === 'overview' }" class="tab-btn">
           <i class="fa-solid fa-chart-pie text-xs"></i> <span>Overview</span>
         </button>
 
-        <button @click="activeTab = 'users'" :class="{ active: activeTab === 'users' }" class="tab-btn">
-          <i class="fa-solid fa-users text-xs"></i> <span>Users</span>
+        <button @click="activeTab = 'modules'" :class="{ active: activeTab === 'modules' }" class="tab-btn">
+          <i class="fa-solid fa-cubes text-xs"></i> <span>Modules</span>
+          <span v-if="modulesList.length" class="ml-1 px-1.5 py-0.2 rounded-full bg-sky-500/20 text-sky-300 text-[10px] font-mono">{{ modulesList.length }}</span>
         </button>
 
         <button @click="activeTab = 'roles'" :class="{ active: activeTab === 'roles' }" class="tab-btn">
           <i class="fa-solid fa-shield-halved text-xs"></i> <span>Roles</span>
+        </button>
+
+        <button @click="activeTab = 'users'" :class="{ active: activeTab === 'users' }" class="tab-btn">
+          <i class="fa-solid fa-users text-xs"></i> <span>Users</span>
         </button>
 
         <button @click="activeTab = 'database'" :class="{ active: activeTab === 'database' }" class="tab-btn">
@@ -151,11 +156,12 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
       </div>
     </header>
 
-    <!-- MOBILE NAVIGATION TABS (Visible only on small screens) -->
+    <!-- MOBILE NAVIGATION TABS -->
     <div class="md:hidden flex items-center gap-1 overflow-x-auto custom-scroll p-2 bg-slate-950/80 border-b border-slate-800">
       <button @click="activeTab = 'overview'" :class="{ active: activeTab === 'overview' }" class="tab-btn text-xs py-1 px-2.5">Overview</button>
-      <button @click="activeTab = 'users'" :class="{ active: activeTab === 'users' }" class="tab-btn text-xs py-1 px-2.5">Users</button>
+      <button @click="activeTab = 'modules'" :class="{ active: activeTab === 'modules' }" class="tab-btn text-xs py-1 px-2.5">Modules</button>
       <button @click="activeTab = 'roles'" :class="{ active: activeTab === 'roles' }" class="tab-btn text-xs py-1 px-2.5">Roles</button>
+      <button @click="activeTab = 'users'" :class="{ active: activeTab === 'users' }" class="tab-btn text-xs py-1 px-2.5">Users</button>
       <button @click="activeTab = 'database'" :class="{ active: activeTab === 'database' }" class="tab-btn text-xs py-1 px-2.5">Database</button>
       <button @click="activeTab = 'devices'" :class="{ active: activeTab === 'devices' }" class="tab-btn text-xs py-1 px-2.5">Devices</button>
       <button @click="activeTab = 'telemetry'" :class="{ active: activeTab === 'telemetry' }" class="tab-btn text-xs py-1 px-2.5">Telemetry</button>
@@ -163,7 +169,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
       <button @click="activeTab = 'decoder'" :class="{ active: activeTab === 'decoder' }" class="tab-btn text-xs py-1 px-2.5">Decoder</button>
     </div>
 
-    <!-- MAIN BODY CONTAINER (Instant Tab Switching via v-show) -->
+    <!-- MAIN BODY CONTAINER -->
     <main class="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 space-y-6">
       
       <!-- TAB 1: OVERVIEW -->
@@ -183,11 +189,11 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
 
           <div class="glass-card rounded-xl p-4 space-y-1">
             <div class="flex items-center justify-between text-xs text-slate-400 font-medium">
-              <span>Total Accounts</span>
-              <i class="fa-solid fa-users text-emerald-400 text-sm"></i>
+              <span>Dashboard Modules</span>
+              <i class="fa-solid fa-cubes text-sky-400 text-sm"></i>
             </div>
-            <div class="text-xl font-extrabold text-white pt-1">{{ usersList.length || '--' }}</div>
-            <div class="text-[11px] text-slate-500">Super Admins & Operators</div>
+            <div class="text-xl font-extrabold text-white pt-1">{{ modulesList.length || '--' }}</div>
+            <div class="text-[11px] text-slate-500">{{ modulesList.filter(m => m.isActive !== false).length }} Active on User Portal</div>
           </div>
 
           <div class="glass-card rounded-xl p-4 space-y-1">
@@ -216,7 +222,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
               <i class="fa-solid fa-bolt text-sky-400"></i> Platform Architecture
             </div>
             <p class="text-xs text-slate-400 leading-relaxed">
-              Daviteq LoRaWAN Application Server provides enterprise-grade telemetry ingestion, dynamic PostgreSQL table routing, and granular 5-table role-based access control.
+              Daviteq LoRaWAN Application Server provides enterprise-grade telemetry ingestion, dynamic PostgreSQL table routing, and modular feature registries with role-based access control.
             </p>
             <div class="grid grid-cols-2 gap-2.5 pt-2">
               <div class="p-3 bg-slate-950/70 rounded-lg border border-slate-800">
@@ -224,27 +230,27 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
                 <span class="text-xs font-bold text-emerald-400 mt-0.5 block">5-Table RBAC Model</span>
               </div>
               <div class="p-3 bg-slate-950/70 rounded-lg border border-slate-800">
-                <span class="text-[11px] text-slate-500 block">Database Status</span>
-                <span class="text-xs font-bold text-sky-400 mt-0.5 block">core_db (dvt) Active</span>
+                <span class="text-[11px] text-slate-500 block">Module Engine</span>
+                <span class="text-xs font-bold text-sky-400 mt-0.5 block">Pluggable Feature Registry</span>
               </div>
             </div>
           </div>
 
           <div class="glass-card rounded-xl p-5 space-y-3">
             <div class="flex items-center gap-2 text-sm font-bold text-white">
-              <i class="fa-solid fa-link text-emerald-400"></i> Quick Navigation Shortcuts
+              <i class="fa-solid fa-link text-emerald-400"></i> Quick Admin Actions
             </div>
             <div class="space-y-2 text-xs">
-              <button @click="activeTab = 'users'" class="w-full flex items-center justify-between p-2.5 rounded-lg bg-slate-950/70 border border-slate-800 hover:border-sky-500/40 transition cursor-pointer text-slate-300 font-medium">
-                <span class="flex items-center gap-2"><i class="fa-solid fa-users text-sky-400"></i> User Directory & Permissions</span>
+              <button @click="activeTab = 'modules'" class="w-full flex items-center justify-between p-2.5 rounded-lg bg-slate-950/70 border border-slate-800 hover:border-sky-500/40 transition cursor-pointer text-slate-300 font-medium">
+                <span class="flex items-center gap-2"><i class="fa-solid fa-cubes text-sky-400"></i> Manage Dashboard Modules & Role Access</span>
                 <i class="fa-solid fa-arrow-right text-slate-500 text-[10px]"></i>
               </button>
               <button @click="activeTab = 'roles'" class="w-full flex items-center justify-between p-2.5 rounded-lg bg-slate-950/70 border border-slate-800 hover:border-amber-500/40 transition cursor-pointer text-slate-300 font-medium">
-                <span class="flex items-center gap-2"><i class="fa-solid fa-shield-halved text-amber-400"></i> Role Matrix & View Access Matrix</span>
+                <span class="flex items-center gap-2"><i class="fa-solid fa-shield-halved text-amber-400"></i> Role & Permissions Matrix (RBAC)</span>
                 <i class="fa-solid fa-arrow-right text-slate-500 text-[10px]"></i>
               </button>
-              <button @click="activeTab = 'database'" class="w-full flex items-center justify-between p-2.5 rounded-lg bg-slate-950/70 border border-slate-800 hover:border-emerald-500/40 transition cursor-pointer text-slate-300 font-medium">
-                <span class="flex items-center gap-2"><i class="fa-solid fa-database text-emerald-400"></i> Database Health & Table Counts</span>
+              <button @click="activeTab = 'users'" class="w-full flex items-center justify-between p-2.5 rounded-lg bg-slate-950/70 border border-slate-800 hover:border-emerald-500/40 transition cursor-pointer text-slate-300 font-medium">
+                <span class="flex items-center gap-2"><i class="fa-solid fa-users text-emerald-400"></i> User Accounts & Role Assignment</span>
                 <i class="fa-solid fa-arrow-right text-slate-500 text-[10px]"></i>
               </button>
             </div>
@@ -252,7 +258,224 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
         </div>
       </div>
 
-      <!-- TAB 2: USERS -->
+      <!-- TAB 2: MODULES MANAGEMENT (New Feature Module Management for Admin) -->
+      <div v-show="activeTab === 'modules'" class="space-y-4">
+        <div class="glass-card rounded-xl p-5 space-y-4">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <div class="flex items-center gap-2">
+                <h2 class="text-sm font-bold text-white flex items-center gap-2">
+                  <i class="fa-solid fa-cubes text-sky-400"></i> Dashboard Feature Modules Management
+                </h2>
+                <span class="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-sky-500/10 text-sky-400 border border-sky-500/25">
+                  {{ modulesList.length }} Modules
+                </span>
+              </div>
+              <p class="text-[11px] text-slate-400 mt-0.5">Add, customize, and configure role-based access for modules appearing on User Dashboard</p>
+            </div>
+            <div class="flex items-center gap-2">
+              <button @click="fetchModules" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 text-xs font-semibold flex items-center gap-1.5 cursor-pointer">
+                <i class="fa-solid fa-arrows-rotate"></i> Refresh
+              </button>
+              <button @click="resetModulesDefaults" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 text-xs font-semibold flex items-center gap-1.5 cursor-pointer">
+                <i class="fa-solid fa-rotate-left"></i> Reset Defaults
+              </button>
+              <button @click="openCreateModuleDialog" class="px-3.5 py-1.5 rounded-lg bg-sky-500 hover:bg-sky-400 text-white text-xs font-bold shadow-lg shadow-sky-500/20 flex items-center gap-1.5 cursor-pointer">
+                <i class="fa-solid fa-plus"></i> Add Module
+              </button>
+            </div>
+          </div>
+
+          <!-- Module Cards Grid -->
+          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div
+              v-for="mod in modulesList"
+              :key="mod.id"
+              class="p-4 bg-slate-950/75 rounded-2xl border transition duration-150 flex flex-col justify-between space-y-3 group"
+              :class="mod.isActive !== false ? 'border-slate-800 hover:border-sky-500/40' : 'border-red-500/20 opacity-60 bg-red-950/10'"
+            >
+              <div class="space-y-3">
+                <!-- Header Icon & Status Switch -->
+                <div class="flex items-center justify-between">
+                  <div :class="'bg-gradient-to-br ' + mod.color" class="w-10 h-10 rounded-xl flex items-center justify-center text-white shadow-md text-base">
+                    <i :class="mod.icon"></i>
+                  </div>
+                  <div class="flex items-center gap-1.5">
+                    <span class="px-2 py-0.5 rounded text-[10px] font-bold font-mono bg-slate-800 text-slate-300 border border-slate-700">
+                      {{ mod.category }}
+                    </span>
+                    <button
+                      @click="toggleModuleActive(mod)"
+                      :title="mod.isActive !== false ? 'Active (Click to disable)' : 'Inactive (Click to enable)'"
+                      :class="mod.isActive !== false ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' : 'bg-red-500/20 text-red-400 border-red-500/30'"
+                      class="px-2 py-0.5 rounded text-[10px] font-bold border cursor-pointer transition"
+                    >
+                      {{ mod.isActive !== false ? 'ACTIVE' : 'OFF' }}
+                    </button>
+                  </div>
+                </div>
+
+                <!-- Title & Slug -->
+                <div>
+                  <h3 class="text-sm font-bold text-white group-hover:text-sky-400 transition">{{ mod.title }}</h3>
+                  <div class="text-[10px] font-mono text-slate-500 mt-0.5">ID: {{ mod.id }}</div>
+                  <p class="text-xs text-slate-400 mt-1.5 line-clamp-2 leading-relaxed">{{ mod.description }}</p>
+                </div>
+
+                <!-- Role Access Badges -->
+                <div class="pt-2 border-t border-slate-800/80 space-y-1">
+                  <div class="text-[10px] text-slate-500 font-semibold uppercase tracking-wider">Permitted Roles:</div>
+                  <div class="flex flex-wrap gap-1">
+                    <template v-if="mod.allowedRoleCodes && mod.allowedRoleCodes.length">
+                      <span v-for="rc in mod.allowedRoleCodes" :key="rc" class="px-1.5 py-0.2 rounded bg-sky-500/10 text-sky-300 border border-sky-500/20 text-[10px] font-mono font-bold">
+                        {{ rc }}
+                      </span>
+                    </template>
+                    <template v-else-if="mod.requiredPermission">
+                      <span class="px-1.5 py-0.2 rounded bg-amber-500/10 text-amber-300 border border-amber-500/20 text-[10px] font-mono">
+                        {{ mod.requiredPermission }}
+                      </span>
+                    </template>
+                    <span v-else class="px-1.5 py-0.2 rounded bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 text-[10px] font-bold">
+                      All Users
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Action Buttons -->
+              <div class="pt-3 border-t border-slate-800/80 flex items-center justify-between text-xs">
+                <span class="text-[11px] font-mono text-slate-500">{{ mod.badge || mod.status }}</span>
+                <div class="flex items-center gap-1.5">
+                  <button @click="openEditModuleDialog(mod)" class="px-2.5 py-1 rounded-lg bg-sky-500/10 hover:bg-sky-500/20 text-sky-400 border border-sky-500/25 text-xs font-semibold cursor-pointer">
+                    <i class="fa-solid fa-pen-to-square"></i> Edit
+                  </button>
+                  <button @click="deleteModule(mod.id)" class="px-2.5 py-1 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/25 text-xs font-semibold cursor-pointer">
+                    <i class="fa-solid fa-trash"></i>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB 3: ROLES & RBAC MATRIX (Visual & Intuitive Redesign) -->
+      <div v-show="activeTab === 'roles'" class="space-y-4">
+        <div class="glass-card rounded-xl p-5 space-y-4">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <div class="flex items-center gap-2">
+                <h2 class="text-sm font-bold text-white flex items-center gap-2">
+                  <i class="fa-solid fa-shield-halved text-amber-400"></i> Role & Permissions Control Matrix (RBAC)
+                </h2>
+                <span class="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-amber-500/10 text-amber-400 border border-amber-500/25">
+                  {{ rolesList.length }} Roles Configured
+                </span>
+              </div>
+              <p class="text-[11px] text-slate-400 mt-0.5">Control view access, module permissions, and operational capabilities for each user role</p>
+            </div>
+            <div class="flex items-center gap-2">
+              <button @click="fetchRoles" :disabled="loadingRoles" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 text-xs font-semibold flex items-center gap-1.5 cursor-pointer">
+                <i :class="loadingRoles ? 'fa-spin' : ''" class="fa-solid fa-arrows-rotate"></i> Refresh
+              </button>
+              <button @click="openCreateRoleDialog" class="px-3.5 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-bold shadow-lg shadow-amber-500/20 flex items-center gap-1.5 cursor-pointer">
+                <i class="fa-solid fa-plus"></i> Create Role
+              </button>
+            </div>
+          </div>
+
+          <!-- Visual Role Cards Grid -->
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div v-for="r in rolesList" :key="r.id" class="p-4 bg-slate-950/75 rounded-2xl border border-slate-800 space-y-3 flex flex-col justify-between hover:border-amber-500/30 transition">
+              <div class="space-y-3">
+                <div class="flex items-center justify-between">
+                  <div class="flex items-center gap-2 font-bold text-sm" :class="r.code === 'SUPER_ADMIN' ? 'text-emerald-400' : 'text-amber-400'">
+                    <i :class="r.code === 'SUPER_ADMIN' ? 'fa-crown text-emerald-400' : 'fa-user-shield text-amber-400'" class="fa-solid text-base"></i>
+                    <span>{{ r.name }}</span>
+                  </div>
+                  <span :class="r.code === 'SUPER_ADMIN' ? 'bg-emerald-500/10 text-emerald-300 border-emerald-500/25' : 'bg-amber-500/10 text-amber-300 border-amber-500/25'" class="px-2 py-0.5 rounded text-[10px] font-mono font-bold border">
+                    {{ r.code }}
+                  </span>
+                </div>
+
+                <p class="text-xs text-slate-400 leading-relaxed">{{ r.description || 'Standard operational role' }}</p>
+
+                <!-- Privilege Counter & Unlocked Modules -->
+                <div class="space-y-1.5 pt-2 border-t border-slate-800/80 text-xs">
+                  <div class="flex items-center justify-between text-[11px] text-slate-400">
+                    <span>Privileges Enabled:</span>
+                    <strong class="text-white font-mono">{{ r.permissions ? r.permissions.length : 0 }} / {{ allPermissions.length }}</strong>
+                  </div>
+                  <div class="w-full bg-slate-900 rounded-full h-1.5 overflow-hidden">
+                    <div class="bg-gradient-to-r from-amber-500 to-sky-500 h-1.5 rounded-full" :style="{ width: ((r.permissions ? r.permissions.length : 0) / (allPermissions.length || 1) * 100) + '%' }"></div>
+                  </div>
+                </div>
+
+                <!-- Unlocked Dashboard Modules Tag Chips -->
+                <div class="space-y-1 text-xs">
+                  <div class="text-[10px] text-slate-500 font-semibold uppercase tracking-wider">Dashboard Modules Unlocked:</div>
+                  <div class="flex flex-wrap gap-1">
+                    <span v-for="mod in getModulesForRole(r.code)" :key="mod.id" class="px-1.5 py-0.2 rounded bg-sky-500/10 text-sky-300 border border-sky-500/20 text-[10px] font-mono">
+                      {{ mod.title }}
+                    </span>
+                    <span v-if="!getModulesForRole(r.code).length" class="text-[10px] text-slate-600 italic">No specific modules mapped</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Card Action Footer -->
+              <div class="pt-3 border-t border-slate-800/80 flex items-center justify-between text-xs">
+                <button v-if="r.code !== 'SUPER_ADMIN'" @click="openEditRoleDialog(r)" class="w-full py-1.5 px-3 rounded-lg bg-sky-500/10 hover:bg-sky-500/20 text-sky-400 border border-sky-500/20 font-bold transition flex items-center justify-center gap-1.5 cursor-pointer">
+                  <i class="fa-solid fa-pen-to-square"></i> Configure Permissions & Modules
+                </button>
+                <div v-else class="w-full py-1.5 px-3 text-center text-slate-500 font-mono text-xs bg-slate-900/50 rounded-lg">
+                  <i class="fa-solid fa-lock text-emerald-400 mr-1"></i> Full System Access (Immutable)
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Detailed Role Table -->
+          <div class="overflow-x-auto custom-scroll border border-slate-800 rounded-lg mt-4">
+            <table class="w-full text-left text-xs">
+              <thead class="bg-slate-950/80 text-slate-400 font-semibold border-b border-slate-800">
+                <tr>
+                  <th class="py-2.5 px-3.5">Role Code</th>
+                  <th class="py-2.5 px-3.5">Display Name</th>
+                  <th class="py-2.5 px-3.5">Description</th>
+                  <th class="py-2.5 px-3.5">Assigned Permissions</th>
+                  <th class="py-2.5 px-3.5 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-slate-800/60">
+                <tr v-for="r in rolesList" :key="r.id" class="hover:bg-slate-800/30 transition">
+                  <td :class="r.code === 'SUPER_ADMIN' ? 'text-emerald-400' : 'text-amber-400'" class="py-2.5 px-3.5 font-mono font-bold">{{ r.code }}</td>
+                  <td class="py-2.5 px-3.5 font-bold text-white">{{ r.name }}</td>
+                  <td class="py-2.5 px-3.5 text-slate-400">{{ r.description || '--' }}</td>
+                  <td class="py-2.5 px-3.5">
+                    <span v-for="p in (r.permissions || []).slice(0, 6)" :key="p.id" class="inline-block px-1.5 py-0.5 rounded bg-slate-800 text-slate-300 font-mono text-[10px] mr-1 mb-1 border border-slate-700">
+                      {{ p.name }}
+                    </span>
+                    <span v-if="(r.permissions || []).length > 6" class="inline-block px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-400 font-mono text-[10px] border border-amber-500/20 font-bold">
+                      +{{ (r.permissions || []).length - 6 }} more
+                    </span>
+                  </td>
+                  <td class="py-2.5 px-3.5 text-right space-x-1">
+                    <template v-if="r.code !== 'SUPER_ADMIN'">
+                      <button @click="openEditRoleDialog(r)" class="px-2 py-0.8 rounded bg-sky-500/10 hover:bg-sky-500/20 text-sky-400 border border-sky-500/20 text-[11px] font-semibold cursor-pointer">Edit</button>
+                      <button @click="deleteRole(r.id)" class="px-2 py-0.8 rounded bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 text-[11px] font-semibold cursor-pointer">Delete</button>
+                    </template>
+                    <span v-else class="text-slate-600 font-mono text-[10px]">Immutable</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB 4: USERS -->
       <div v-show="activeTab === 'users'" class="space-y-4">
         <div class="glass-card rounded-xl p-5 space-y-4">
           <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -321,83 +544,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
         </div>
       </div>
 
-      <!-- TAB 3: ROLES -->
-      <div v-show="activeTab === 'roles'" class="space-y-4">
-        <div class="glass-card rounded-xl p-5 space-y-4">
-          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div>
-              <h2 class="text-sm font-bold text-white flex items-center gap-2">
-                <i class="fa-solid fa-shield-halved text-amber-400"></i> Role & Permissions Matrix (RBAC)
-              </h2>
-              <p class="text-[11px] text-slate-400 mt-0.5">Admin controls which views & parameters are accessible to each role</p>
-            </div>
-            <div class="flex items-center gap-2">
-              <button @click="fetchRoles" :disabled="loadingRoles" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 text-xs font-semibold flex items-center gap-1.5 cursor-pointer">
-                <i :class="loadingRoles ? 'fa-spin' : ''" class="fa-solid fa-arrows-rotate"></i> Refresh
-              </button>
-              <button @click="openCreateRoleDialog" class="px-3.5 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-bold shadow-lg shadow-amber-500/20 flex items-center gap-1.5 cursor-pointer">
-                <i class="fa-solid fa-plus"></i> Create Role
-              </button>
-            </div>
-          </div>
-
-          <!-- Role Cards Grid -->
-          <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
-            <div v-for="r in rolesList" :key="r.id" class="p-3.5 bg-slate-950/70 rounded-lg border border-slate-800 space-y-2">
-              <div class="flex items-center justify-between">
-                <span :class="r.code === 'SUPER_ADMIN' ? 'text-emerald-400' : 'text-sky-400'" class="font-bold text-xs flex items-center gap-1.5">
-                  <i :class="r.code === 'SUPER_ADMIN' ? 'fa-crown' : 'fa-user-shield'" class="fa-solid"></i> {{ r.name }}
-                </span>
-                <span :class="r.code === 'SUPER_ADMIN' ? 'bg-emerald-500/10 text-emerald-300 border-emerald-500/25' : 'bg-slate-800 text-slate-400 border-slate-700'" class="px-2 py-0.5 rounded text-[10px] font-mono border">
-                  {{ r.code }}
-                </span>
-              </div>
-              <p class="text-[11px] text-slate-400">{{ r.description || 'No description provided' }}</p>
-              <div class="pt-2 border-t border-slate-800/80 flex items-center justify-between text-[11px] text-slate-500">
-                <span>{{ r.permissions ? r.permissions.length : 0 }} privileges enabled</span>
-                <button v-if="r.code !== 'SUPER_ADMIN'" @click="openEditRoleDialog(r)" class="text-sky-400 hover:text-sky-300 font-medium cursor-pointer">Edit Permissions</button>
-                <span v-else class="text-slate-600 font-mono text-[10px]">Protected</span>
-              </div>
-            </div>
-          </div>
-
-          <!-- Roles Table Details -->
-          <div class="overflow-x-auto custom-scroll border border-slate-800 rounded-lg">
-            <table class="w-full text-left text-xs">
-              <thead class="bg-slate-950/80 text-slate-400 font-semibold border-b border-slate-800">
-                <tr>
-                  <th class="py-2.5 px-3.5">Role Code</th>
-                  <th class="py-2.5 px-3.5">Display Name</th>
-                  <th class="py-2.5 px-3.5">Description</th>
-                  <th class="py-2.5 px-3.5">Enabled Views & Privileges</th>
-                  <th class="py-2.5 px-3.5 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody class="divide-y divide-slate-800/60">
-                <tr v-for="r in rolesList" :key="r.id" class="hover:bg-slate-800/30 transition">
-                  <td :class="r.code === 'SUPER_ADMIN' ? 'text-emerald-400' : 'text-sky-400'" class="py-2.5 px-3.5 font-mono font-bold">{{ r.code }}</td>
-                  <td class="py-2.5 px-3.5 font-bold text-white">{{ r.name }}</td>
-                  <td class="py-2.5 px-3.5 text-slate-400">{{ r.description || '--' }}</td>
-                  <td class="py-2.5 px-3.5">
-                    <span v-for="p in (r.permissions || [])" :key="p.id" class="inline-block px-1.5 py-0.5 rounded bg-slate-800 text-slate-300 font-mono text-[10px] mr-1 mb-1 border border-slate-700">
-                      {{ p.name }}
-                    </span>
-                  </td>
-                  <td class="py-2.5 px-3.5 text-right space-x-1">
-                    <template v-if="r.code !== 'SUPER_ADMIN'">
-                      <button @click="openEditRoleDialog(r)" class="px-2 py-0.8 rounded bg-sky-500/10 hover:bg-sky-500/20 text-sky-400 border border-sky-500/20 text-[11px] font-semibold cursor-pointer">Edit</button>
-                      <button @click="deleteRole(r.id)" class="px-2 py-0.8 rounded bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 text-[11px] font-semibold cursor-pointer">Delete</button>
-                    </template>
-                    <span v-else class="text-slate-600 font-mono text-[10px]">Immutable</span>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-
-      <!-- TAB 4: DATABASE HEALTH (Shows core_db • ONLINE here) -->
+      <!-- TAB 5: DATABASE HEALTH -->
       <div v-show="activeTab === 'database'" class="space-y-4">
         <div class="glass-card rounded-xl p-5 space-y-4">
           <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -406,7 +553,6 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
                 <h2 class="text-sm font-bold text-white flex items-center gap-2">
                   <i class="fa-solid fa-heart-pulse text-emerald-400"></i> Visual Database Health & Metrics
                 </h2>
-                <!-- core_db • ONLINE status badge displayed HERE in Database tab -->
                 <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/25 text-emerald-400 text-[11px] font-mono font-medium">
                   <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
                   core_db &bull; ONLINE
@@ -470,7 +616,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
         </div>
       </div>
 
-      <!-- TAB 5: DEVICES -->
+      <!-- TAB 6: DEVICES -->
       <div v-show="activeTab === 'devices'" class="space-y-4">
         <div class="glass-card rounded-xl p-5 space-y-4">
           <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -531,7 +677,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
         </div>
       </div>
 
-      <!-- TAB 6: TELEMETRY -->
+      <!-- TAB 7: TELEMETRY -->
       <div v-show="activeTab === 'telemetry'" class="space-y-4">
         <div class="glass-card rounded-xl p-5 space-y-4">
           <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -578,7 +724,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
         </div>
       </div>
 
-      <!-- TAB 7: WEBHOOKS -->
+      <!-- TAB 8: WEBHOOKS -->
       <div v-show="activeTab === 'webhooks'" class="space-y-4">
         <div class="glass-card rounded-xl p-5 space-y-4">
           <div>
@@ -616,7 +762,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
         </div>
       </div>
 
-      <!-- TAB 8: DECODER SANDBOX -->
+      <!-- TAB 9: DECODER SANDBOX -->
       <div v-show="activeTab === 'decoder'" class="space-y-4">
         <div class="glass-card rounded-xl p-5 space-y-4">
           <div>
@@ -646,6 +792,163 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
       </div>
 
     </main>
+
+    <!-- MODAL: CREATE / EDIT FEATURE MODULE -->
+    <div v-if="moduleDialog" class="fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop">
+      <div class="w-full max-w-xl bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-4 shadow-2xl">
+        <div class="flex items-center justify-between">
+          <h3 class="text-sm font-bold text-white flex items-center gap-2">
+            <i class="fa-solid fa-cubes text-sky-400"></i> {{ isEditingModule ? 'Edit Dashboard Feature Module' : 'Create New Feature Module' }}
+          </h3>
+          <button @click="moduleDialog = false" class="text-slate-500 hover:text-white cursor-pointer"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <form @submit.prevent="submitModuleForm" class="space-y-3.5 text-xs">
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block font-semibold text-slate-300 mb-1">Module Title</label>
+              <input v-model="currentModule.title" type="text" required placeholder="e.g. Water Level Sensor" class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-sky-500" />
+            </div>
+            <div>
+              <label class="block font-semibold text-slate-300 mb-1">Module Slug / ID</label>
+              <input v-model="currentModule.id" :disabled="isEditingModule" type="text" required placeholder="e.g. water-level" class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-white font-mono lowercase focus:outline-none focus:border-sky-500 disabled:opacity-50" />
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block font-semibold text-slate-300 mb-1">Category</label>
+              <select v-model="currentModule.category" class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-sky-500">
+                <option value="Monitoring">Monitoring (Live Data)</option>
+                <option value="Fleet">Fleet (Devices & Gateways)</option>
+                <option value="Analytics">Analytics (Charts & Reports)</option>
+                <option value="System">System (Decoders & Webhooks)</option>
+                <option value="Reports">Reports & Exports</option>
+                <option value="Custom">Custom Feature</option>
+              </select>
+            </div>
+            <div>
+              <label class="block font-semibold text-slate-300 mb-1">Status Badge</label>
+              <input v-model="currentModule.badge" type="text" placeholder="e.g. Real-time, Beta, New" class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-sky-500" />
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block font-semibold text-slate-300 mb-1">Icon (FontAwesome Class)</label>
+              <div class="flex items-center gap-2">
+                <div class="w-8 h-8 rounded-lg bg-slate-950 border border-slate-700 flex items-center justify-center text-sky-400 text-sm">
+                  <i :class="currentModule.icon || 'fa-solid fa-cube'"></i>
+                </div>
+                <input v-model="currentModule.icon" type="text" placeholder="fa-solid fa-wave-square" class="flex-1 px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-white font-mono text-xs focus:outline-none focus:border-sky-500" />
+              </div>
+            </div>
+            <div>
+              <label class="block font-semibold text-slate-300 mb-1">Gradient Theme</label>
+              <select v-model="currentModule.color" class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-white font-mono text-xs focus:outline-none focus:border-sky-500">
+                <option value="from-cyan-500 to-blue-600">Cyan to Blue</option>
+                <option value="from-emerald-500 to-teal-600">Emerald to Teal</option>
+                <option value="from-indigo-500 to-purple-600">Indigo to Purple</option>
+                <option value="from-amber-500 to-orange-600">Amber to Orange</option>
+                <option value="from-rose-500 to-pink-600">Rose to Pink</option>
+                <option value="from-sky-500 to-cyan-600">Sky to Cyan</option>
+                <option value="from-fuchsia-500 to-purple-600">Fuchsia to Purple</option>
+                <option value="from-teal-500 to-emerald-600">Teal to Emerald</option>
+              </select>
+            </div>
+          </div>
+
+          <div>
+            <label class="block font-semibold text-slate-300 mb-1">Description</label>
+            <textarea v-model="currentModule.description" rows="2" placeholder="Summary of what this module does..." class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-sky-500"></textarea>
+          </div>
+
+          <!-- Role Assignment for this Module -->
+          <div class="space-y-1.5 pt-1">
+            <div class="flex items-center justify-between">
+              <label class="font-bold text-slate-200">Permitted Roles for this Module:</label>
+              <span class="text-[11px] text-slate-500">(Leave empty to allow all logged in users)</span>
+            </div>
+            <div class="p-3 bg-slate-950 border border-slate-800 rounded-xl max-h-36 overflow-y-auto custom-scroll grid grid-cols-2 gap-2">
+              <label v-for="r in rolesList" :key="r.id" class="flex items-center gap-2 p-1.5 rounded hover:bg-slate-900 cursor-pointer select-none">
+                <input type="checkbox" :value="r.code" v-model="currentModule.allowedRoleCodes" class="rounded border-slate-700 bg-slate-800 text-sky-500 focus:ring-0" />
+                <span class="font-bold text-xs" :class="r.code === 'SUPER_ADMIN' ? 'text-emerald-400' : 'text-slate-300'">{{ r.name }} ({{ r.code }})</span>
+              </label>
+            </div>
+          </div>
+
+          <div class="flex items-center justify-between pt-2">
+            <label class="flex items-center gap-2 text-slate-300 cursor-pointer select-none">
+              <input type="checkbox" v-model="currentModule.isActive" class="rounded border-slate-700 bg-slate-800 text-emerald-500 focus:ring-0" />
+              <span>Enable module on User Dashboard (Active)</span>
+            </label>
+            <div class="flex gap-2">
+              <button type="button" @click="moduleDialog = false" class="px-3.5 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold cursor-pointer">Cancel</button>
+              <button type="submit" :disabled="savingModule" class="px-4 py-2 rounded-lg bg-sky-500 hover:bg-sky-400 text-white font-bold cursor-pointer">Save Module</button>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- MODAL: CREATE / EDIT ROLE (Upgraded Visual Modal with Module Assignment) -->
+    <div v-if="roleDialog" class="fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop">
+      <div class="w-full max-w-2xl bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-4 shadow-2xl">
+        <div class="flex items-center justify-between">
+          <h3 class="text-sm font-bold text-white flex items-center gap-2">
+            <i class="fa-solid fa-shield-halved text-amber-400"></i> {{ isEditingRole ? 'Configure Role & Permissions' : 'Create New System Role' }}
+          </h3>
+          <button @click="roleDialog = false" class="text-slate-500 hover:text-white cursor-pointer"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <form @submit.prevent="submitRoleForm" class="space-y-4 text-xs">
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block font-semibold text-slate-300 mb-1">Role Code</label>
+              <input v-model="currentRole.code" :disabled="isEditingRole" type="text" required placeholder="e.g. AUDITOR" class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-white font-mono uppercase focus:outline-none focus:border-amber-500 disabled:opacity-50" />
+            </div>
+            <div>
+              <label class="block font-semibold text-slate-300 mb-1">Display Name</label>
+              <input v-model="currentRole.name" type="text" required placeholder="e.g. Security Auditor" class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-amber-500" />
+            </div>
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-300 mb-1">Description</label>
+            <input v-model="currentRole.description" type="text" placeholder="Description of role responsibilities..." class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-amber-500" />
+          </div>
+
+          <!-- Permission Category Matrix -->
+          <div class="space-y-2">
+            <div class="flex items-center justify-between">
+              <label class="font-bold text-slate-200">System Privileges Matrix ({{ currentRole.permissions.length }} Selected):</label>
+              <button type="button" @click="toggleSelectAllRolePermissions" class="text-amber-400 hover:text-amber-300 text-[11px] font-semibold cursor-pointer">Toggle All Privileges</button>
+            </div>
+            <div class="max-h-56 overflow-y-auto custom-scroll p-3 bg-slate-950 border border-slate-800 rounded-xl space-y-3">
+              <div v-for="(perms, groupName) in groupedPermissions" :key="groupName" class="space-y-1">
+                <div class="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-slate-400 border-b border-slate-800 pb-1">
+                  <span>{{ groupName }}</span>
+                  <button type="button" @click="toggleGroupPermissions(perms)" class="text-sky-400 hover:text-sky-300 lowercase text-[10px] cursor-pointer">toggle group</button>
+                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-1.5 pt-1">
+                  <label v-for="p in perms" :key="p.id" class="flex items-center gap-2 p-1.5 rounded hover:bg-slate-900 text-slate-300 hover:text-white cursor-pointer select-none">
+                    <input type="checkbox" :value="p.id" v-model="currentRole.permissions" class="rounded border-slate-700 bg-slate-800 text-amber-500 focus:ring-0" />
+                    <div class="leading-tight">
+                      <div class="font-mono text-[11px] text-amber-400 font-semibold">{{ p.name }}</div>
+                      <div class="text-[10px] text-slate-500">{{ p.description }}</div>
+                    </div>
+                  </label>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="flex justify-end gap-2 pt-2">
+            <button type="button" @click="roleDialog = false" class="px-3.5 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold cursor-pointer">Cancel</button>
+            <button type="submit" :disabled="savingRole" class="px-4 py-2 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold cursor-pointer">
+              {{ isEditingRole ? 'Update Role' : 'Create Role' }}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
 
     <!-- MODAL: CREATE USER -->
     <div v-if="createUserDialog" class="fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop">
@@ -732,110 +1035,6 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
       </div>
     </div>
 
-    <!-- MODAL: CREATE ROLE -->
-    <div v-if="createRoleDialog" class="fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop">
-      <div class="w-full max-w-xl bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-4 shadow-2xl">
-        <div class="flex items-center justify-between">
-          <h3 class="text-sm font-bold text-white flex items-center gap-2">
-            <i class="fa-solid fa-shield-halved text-amber-400"></i> Create New Role
-          </h3>
-          <button @click="createRoleDialog = false" class="text-slate-500 hover:text-white cursor-pointer"><i class="fa-solid fa-xmark"></i></button>
-        </div>
-        <form @submit.prevent="submitCreateRole" class="space-y-3 text-xs">
-          <div class="grid grid-cols-2 gap-3">
-            <div>
-              <label class="block font-semibold text-slate-300 mb-1">Role Code (Uppercase)</label>
-              <input v-model="newRole.code" type="text" required placeholder="e.g. AUDITOR" class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-white font-mono uppercase focus:outline-none focus:border-amber-500" />
-            </div>
-            <div>
-              <label class="block font-semibold text-slate-300 mb-1">Display Name</label>
-              <input v-model="newRole.name" type="text" required placeholder="e.g. System Auditor" class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-amber-500" />
-            </div>
-          </div>
-          <div>
-            <label class="block font-semibold text-slate-300 mb-1">Description</label>
-            <input v-model="newRole.description" type="text" placeholder="Description of role permissions" class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-amber-500" />
-          </div>
-          <div>
-            <div class="flex items-center justify-between mb-1.5">
-              <label class="font-bold text-slate-200">Assign Permissions & Views:</label>
-              <button type="button" @click="toggleSelectAllPermissions(newRole)" class="text-amber-400 hover:text-amber-300 text-[11px] font-semibold cursor-pointer">Toggle All</button>
-            </div>
-            <div class="max-h-52 overflow-y-auto custom-scroll p-3 bg-slate-950 border border-slate-800 rounded-xl space-y-2">
-              <div v-for="(perms, groupName) in groupedPermissions" :key="groupName" class="space-y-1">
-                <div class="text-[10px] font-bold uppercase tracking-wider text-slate-400 border-b border-slate-800 pb-0.5">{{ groupName }}</div>
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-1.5 pt-1">
-                  <label v-for="p in perms" :key="p.id" class="flex items-center gap-2 p-1.5 rounded hover:bg-slate-900 text-slate-300 hover:text-white cursor-pointer select-none">
-                    <input type="checkbox" :value="p.id" v-model="newRole.permissions" class="rounded border-slate-700 bg-slate-800 text-amber-500 focus:ring-0" />
-                    <div>
-                      <div class="font-mono text-[11px] text-amber-400 font-semibold">{{ p.name }}</div>
-                      <div class="text-[10px] text-slate-500">{{ p.description }}</div>
-                    </div>
-                  </label>
-                </div>
-              </div>
-            </div>
-          </div>
-          <div class="flex justify-end gap-2 pt-2">
-            <button type="button" @click="createRoleDialog = false" class="px-3.5 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold cursor-pointer">Cancel</button>
-            <button type="submit" :disabled="savingRole" class="px-4 py-2 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold cursor-pointer">Create Role</button>
-          </div>
-        </form>
-      </div>
-    </div>
-
-    <!-- MODAL: EDIT ROLE -->
-    <div v-if="editRoleDialog" class="fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop">
-      <div class="w-full max-w-xl bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-4 shadow-2xl">
-        <div class="flex items-center justify-between">
-          <h3 class="text-sm font-bold text-white flex items-center gap-2">
-            <i class="fa-solid fa-pen-to-square text-sky-400"></i> Edit Role Definition
-          </h3>
-          <button @click="editRoleDialog = false" class="text-slate-500 hover:text-white cursor-pointer"><i class="fa-solid fa-xmark"></i></button>
-        </div>
-        <form @submit.prevent="submitEditRole" class="space-y-3 text-xs">
-          <div class="grid grid-cols-2 gap-3">
-            <div>
-              <label class="block font-semibold text-slate-300 mb-1">Role Code</label>
-              <input v-model="editingRole.code" type="text" disabled class="w-full px-3 py-2 bg-slate-950/60 border border-slate-800 rounded-lg text-slate-400 font-mono" />
-            </div>
-            <div>
-              <label class="block font-semibold text-slate-300 mb-1">Display Name</label>
-              <input v-model="editingRole.name" type="text" required class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-sky-500" />
-            </div>
-          </div>
-          <div>
-            <label class="block font-semibold text-slate-300 mb-1">Description</label>
-            <input v-model="editingRole.description" type="text" class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-sky-500" />
-          </div>
-          <div>
-            <div class="flex items-center justify-between mb-1.5">
-              <label class="font-bold text-slate-200">Assign Permissions & Views:</label>
-              <button type="button" @click="toggleSelectAllPermissions(editingRole)" class="text-sky-400 hover:text-sky-300 text-[11px] font-semibold cursor-pointer">Toggle All</button>
-            </div>
-            <div class="max-h-52 overflow-y-auto custom-scroll p-3 bg-slate-950 border border-slate-800 rounded-xl space-y-2">
-              <div v-for="(perms, groupName) in groupedPermissions" :key="groupName" class="space-y-1">
-                <div class="text-[10px] font-bold uppercase tracking-wider text-slate-400 border-b border-slate-800 pb-0.5">{{ groupName }}</div>
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-1.5 pt-1">
-                  <label v-for="p in perms" :key="p.id" class="flex items-center gap-2 p-1.5 rounded hover:bg-slate-900 text-slate-300 hover:text-white cursor-pointer select-none">
-                    <input type="checkbox" :value="p.id" v-model="editingRole.permissions" class="rounded border-slate-700 bg-slate-800 text-sky-500 focus:ring-0" />
-                    <div>
-                      <div class="font-mono text-[11px] text-sky-400 font-semibold">{{ p.name }}</div>
-                      <div class="text-[10px] text-slate-500">{{ p.description }}</div>
-                    </div>
-                  </label>
-                </div>
-              </div>
-            </div>
-          </div>
-          <div class="flex justify-end gap-2 pt-2">
-            <button type="button" @click="editRoleDialog = false" class="px-3.5 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold cursor-pointer">Cancel</button>
-            <button type="submit" :disabled="savingRole" class="px-4 py-2 rounded-lg bg-sky-500 hover:bg-sky-400 text-white font-bold cursor-pointer">Update Role</button>
-          </div>
-        </form>
-      </div>
-    </div>
-
     <!-- MODAL: REGISTER DEVICE -->
     <div v-if="registerDeviceDialog" class="fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop">
       <div class="w-full max-w-md bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-4 shadow-2xl">
@@ -898,6 +1097,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
       setup() {
         const activeTab = ref('overview');
         const currentUser = ref(getStoredUser());
+        const modulesList = ref([]);
         const usersList = ref([]);
         const rolesList = ref([]);
         const allPermissions = ref([]);
@@ -907,22 +1107,46 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
 
         const loadingUsers = ref(false);
         const loadingRoles = ref(false);
+        const savingModule = ref(false);
+        const savingRole = ref(false);
+        const savingUser = ref(false);
+        const savingDevice = ref(false);
 
         // Modals
+        const moduleDialog = ref(false);
+        const isEditingModule = ref(false);
+        const roleDialog = ref(false);
+        const isEditingRole = ref(false);
         const createUserDialog = ref(false);
         const editUserDialog = ref(false);
-        const createRoleDialog = ref(false);
-        const editRoleDialog = ref(false);
         const registerDeviceDialog = ref(false);
 
-        const savingUser = ref(false);
-        const savingRole = ref(false);
-        const savingDevice = ref(false);
+        // Form Models
+        const currentModule = ref({
+          id: '',
+          code: '',
+          title: '',
+          description: '',
+          icon: 'fa-solid fa-layer-group',
+          color: 'from-sky-500 to-cyan-600',
+          badge: '',
+          category: 'Monitoring',
+          allowedRoleCodes: [],
+          requiredPermission: '',
+          status: 'active',
+          isActive: true
+        });
+
+        const currentRole = ref({
+          id: '',
+          code: '',
+          name: '',
+          description: '',
+          permissions: []
+        });
 
         const newUser = ref({ username: '', fullName: '', email: '', password: '', userType: 'USER', roleId: '' });
         const editUser = ref({ id: '', username: '', roleId: '', isActive: true });
-        const newRole = ref({ code: '', name: '', description: '', permissions: [] });
-        const editingRole = ref({ id: '', code: '', name: '', description: '', permissions: [] });
         const newDevice = ref({ devEUI: '', name: '', activationType: 'OTAA', appKey: '' });
 
         // Decoder Sandbox
@@ -939,7 +1163,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
 
         const isSuperAdmin = computed(() => {
           const user = currentUser.value;
-          if (!user || !user.username) return true; // Default admin view in control panel
+          if (!user || !user.username) return true;
           if (user.username === 'admin') return true;
           if (user.userType === 'ADMIN' || String(user.userType).toUpperCase() === 'ADMIN') return true;
           if (user.roles && Array.isArray(user.roles)) {
@@ -953,32 +1177,51 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
 
         const groupedPermissions = computed(() => {
           const groups = {
-            'Module: User Accounts': [],
-            'Module: RBAC Roles': [],
-            'Module: Database Health': [],
-            'Module: LoRaWAN Fleet & Devices': [],
-            'Module: Telemetry Stream': [],
-            'Module: Webhook Endpoints': [],
-            'Module: Decoder Sandbox': []
+            '👥 User Management': [],
+            '🛡️ RBAC Role Management': [],
+            '🗄️ Database Operations': [],
+            '📡 LoRaWAN Fleet & Gateways': [],
+            '📊 Live Telemetry Stream': [],
+            '🔌 Webhook Ingestion': [],
+            '💻 Payload Decoder Sandbox': []
           };
           allPermissions.value.forEach(p => {
-            if (p.name.startsWith('users:')) groups['Module: User Accounts'].push(p);
-            else if (p.name.startsWith('roles:')) groups['Module: RBAC Roles'].push(p);
-            else if (p.name.startsWith('database:')) groups['Module: Database Health'].push(p);
-            else if (p.name.startsWith('lorawan:device:')) groups['Module: LoRaWAN Fleet & Devices'].push(p);
-            else if (p.name.startsWith('lorawan:telemetry:')) groups['Module: Telemetry Stream'].push(p);
-            else if (p.name.startsWith('lorawan:webhooks:')) groups['Module: Webhook Endpoints'].push(p);
-            else if (p.name.startsWith('lorawan:decoder:')) groups['Module: Decoder Sandbox'].push(p);
-            else groups['Module: LoRaWAN Fleet & Devices'].push(p);
+            if (p.name.startsWith('users:')) groups['👥 User Management'].push(p);
+            else if (p.name.startsWith('roles:')) groups['🛡️ RBAC Role Management'].push(p);
+            else if (p.name.startsWith('database:')) groups['🗄️ Database Operations'].push(p);
+            else if (p.name.startsWith('lorawan:device:') || p.name.startsWith('lorawan:app:') || p.name.startsWith('lorawan:gateway:')) groups['📡 LoRaWAN Fleet & Gateways'].push(p);
+            else if (p.name.startsWith('lorawan:telemetry:')) groups['📊 Live Telemetry Stream'].push(p);
+            else if (p.name.startsWith('lorawan:webhooks:')) groups['🔌 Webhook Ingestion'].push(p);
+            else if (p.name.startsWith('lorawan:decoder:')) groups['💻 Payload Decoder Sandbox'].push(p);
+            else groups['📡 LoRaWAN Fleet & Gateways'].push(p);
           });
           return groups;
         });
 
-        const toggleSelectAllPermissions = (targetRole) => {
-          if (targetRole.permissions.length === allPermissions.value.length) {
-            targetRole.permissions = [];
+        const getModulesForRole = (roleCode) => {
+          if (roleCode === 'SUPER_ADMIN') return modulesList.value;
+          return modulesList.value.filter(m => {
+            if (!m.allowedRoleCodes || !m.allowedRoleCodes.length) return true;
+            return m.allowedRoleCodes.includes(roleCode);
+          });
+        };
+
+        const toggleSelectAllRolePermissions = () => {
+          if (currentRole.value.permissions.length === allPermissions.value.length) {
+            currentRole.value.permissions = [];
           } else {
-            targetRole.permissions = allPermissions.value.map(p => p.id);
+            currentRole.value.permissions = allPermissions.value.map(p => p.id);
+          }
+        };
+
+        const toggleGroupPermissions = (groupPerms) => {
+          const groupIds = groupPerms.map(p => p.id);
+          const hasAll = groupIds.every(id => currentRole.value.permissions.includes(id));
+          if (hasAll) {
+            currentRole.value.permissions = currentRole.value.permissions.filter(id => !groupIds.includes(id));
+          } else {
+            const set = new Set([...currentRole.value.permissions, ...groupIds]);
+            currentRole.value.permissions = Array.from(set);
           }
         };
 
@@ -1035,6 +1278,15 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
         };
 
         // Fetchers
+        const fetchModules = async () => {
+          try {
+            const res = await fetch('/api/features/all', { headers: authHeaders(), credentials: 'include' });
+            if (res.ok) modulesList.value = await res.json();
+          } catch(e) {
+            console.error(e);
+          }
+        };
+
         const fetchUsers = async () => {
           loadingUsers.value = true;
           try {
@@ -1096,9 +1348,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
           try {
             const res = await fetch('/lorawan/telemetry?limit=25', { headers: authHeaders(), credentials: 'include' });
             if (res.ok) telemetryList.value = await res.json();
-          } catch(e) {
-            console.error(e);
-          }
+          } catch(e) {}
         };
 
         const fetchSession = async () => {
@@ -1139,6 +1389,161 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
             sessionStorage.clear();
             window.location.replace('/login');
             return false;
+          }
+        };
+
+        // Module CRUD
+        const openCreateModuleDialog = () => {
+          isEditingModule.value = false;
+          currentModule.value = {
+            id: '',
+            code: '',
+            title: '',
+            description: '',
+            icon: 'fa-solid fa-layer-group',
+            color: 'from-sky-500 to-cyan-600',
+            badge: 'Feature',
+            category: 'Monitoring',
+            allowedRoleCodes: [],
+            requiredPermission: '',
+            status: 'active',
+            isActive: true
+          };
+          moduleDialog.value = true;
+        };
+
+        const openEditModuleDialog = (mod) => {
+          isEditingModule.value = true;
+          currentModule.value = JSON.parse(JSON.stringify(mod));
+          if (!currentModule.value.allowedRoleCodes) currentModule.value.allowedRoleCodes = [];
+          moduleDialog.value = true;
+        };
+
+        const submitModuleForm = async () => {
+          savingModule.value = true;
+          try {
+            const url = isEditingModule.value ? '/api/features/' + currentModule.value.id : '/api/features';
+            const method = isEditingModule.value ? 'PUT' : 'POST';
+            const res = await fetch(url, {
+              method,
+              headers: authHeaders(),
+              credentials: 'include',
+              body: JSON.stringify(currentModule.value)
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.message || "Failed to save module");
+            showToast(isEditingModule.value ? "Module updated successfully!" : "Module created successfully!", "success");
+            moduleDialog.value = false;
+            fetchModules();
+          } catch(e) {
+            showToast(e.message, "error");
+          } finally {
+            savingModule.value = false;
+          }
+        };
+
+        const toggleModuleActive = async (mod) => {
+          const newStatus = mod.isActive === false ? true : false;
+          try {
+            const res = await fetch('/api/features/' + mod.id, {
+              method: 'PUT',
+              headers: authHeaders(),
+              credentials: 'include',
+              body: JSON.stringify({ isActive: newStatus })
+            });
+            if (!res.ok) throw new Error("Failed to toggle status");
+            mod.isActive = newStatus;
+            showToast("Module " + (newStatus ? "enabled" : "disabled") + " on Dashboard", "success");
+          } catch(e) {
+            showToast(e.message, "error");
+          }
+        };
+
+        const deleteModule = async (id) => {
+          if (!confirm("Are you sure you want to delete this module from dashboard?")) return;
+          try {
+            const res = await fetch('/api/features/' + id, { method: 'DELETE', headers: authHeaders(), credentials: 'include' });
+            if (!res.ok) throw new Error("Delete failed");
+            showToast("Module removed successfully", "success");
+            fetchModules();
+          } catch(e) {
+            showToast(e.message, "error");
+          }
+        };
+
+        const resetModulesDefaults = async () => {
+          if (!confirm("Reset all modules back to standard 8 default modules?")) return;
+          try {
+            const res = await fetch('/api/features/reset-defaults', { method: 'POST', headers: authHeaders(), credentials: 'include' });
+            if (!res.ok) throw new Error("Reset failed");
+            showToast("Modules restored to defaults!", "success");
+            fetchModules();
+          } catch(e) {
+            showToast(e.message, "error");
+          }
+        };
+
+        // Role CRUD
+        const openCreateRoleDialog = () => {
+          isEditingRole.value = false;
+          currentRole.value = { id: '', code: '', name: '', description: '', permissions: [] };
+          roleDialog.value = true;
+        };
+
+        const openEditRoleDialog = (r) => {
+          isEditingRole.value = true;
+          currentRole.value = {
+            id: r.id,
+            code: r.code,
+            name: r.name,
+            description: r.description || '',
+            permissions: (r.permissions || []).map(p => p.id)
+          };
+          roleDialog.value = true;
+        };
+
+        const submitRoleForm = async () => {
+          savingRole.value = true;
+          try {
+            const url = isEditingRole.value ? '/roles/' + currentRole.value.id : '/roles';
+            const method = isEditingRole.value ? 'PUT' : 'POST';
+            const payload = isEditingRole.value ? {
+              name: currentRole.value.name.trim(),
+              description: currentRole.value.description.trim(),
+              permissionIds: currentRole.value.permissions
+            } : {
+              code: currentRole.value.code.trim().toUpperCase(),
+              name: currentRole.value.name.trim(),
+              description: currentRole.value.description.trim(),
+              permissionIds: currentRole.value.permissions
+            };
+            const res = await fetch(url, {
+              method,
+              headers: authHeaders(),
+              credentials: 'include',
+              body: JSON.stringify(payload)
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.message || "Failed to save role");
+            showToast(isEditingRole.value ? "Role updated successfully!" : "Role created successfully!", "success");
+            roleDialog.value = false;
+            fetchRoles();
+          } catch(e) {
+            showToast(e.message, "error");
+          } finally {
+            savingRole.value = false;
+          }
+        };
+
+        const deleteRole = async (id) => {
+          if (!confirm("Are you sure you want to delete this role?")) return;
+          try {
+            const res = await fetch('/roles/' + id, { method: 'DELETE', headers: authHeaders(), credentials: 'include' });
+            if (!res.ok) throw new Error("Delete failed");
+            showToast("Role deleted successfully", "success");
+            fetchRoles();
+          } catch(e) {
+            showToast(e.message, "error");
           }
         };
 
@@ -1225,86 +1630,6 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
           }
         };
 
-        // Role CRUD
-        const openCreateRoleDialog = () => {
-          newRole.value = { code: '', name: '', description: '', permissions: [] };
-          createRoleDialog.value = true;
-        };
-
-        const submitCreateRole = async () => {
-          savingRole.value = true;
-          try {
-            const res = await fetch('/roles', {
-              method: 'POST',
-              headers: authHeaders(),
-              credentials: 'include',
-              body: JSON.stringify({
-                code: newRole.value.code.trim().toUpperCase(),
-                name: newRole.value.name.trim(),
-                description: newRole.value.description.trim(),
-                permissionIds: newRole.value.permissions
-              })
-            });
-            const data = await res.json();
-            if (!res.ok) throw new Error(data.message || "Failed to create role");
-            showToast("Role created successfully!", "success");
-            createRoleDialog.value = false;
-            fetchRoles();
-          } catch(e) {
-            showToast(e.message, "error");
-          } finally {
-            savingRole.value = false;
-          }
-        };
-
-        const openEditRoleDialog = (r) => {
-          editingRole.value = {
-            id: r.id,
-            code: r.code,
-            name: r.name,
-            description: r.description || '',
-            permissions: (r.permissions || []).map(p => p.id)
-          };
-          editRoleDialog.value = true;
-        };
-
-        const submitEditRole = async () => {
-          savingRole.value = true;
-          try {
-            const res = await fetch('/roles/' + editingRole.value.id, {
-              method: 'PUT',
-              headers: authHeaders(),
-              credentials: 'include',
-              body: JSON.stringify({
-                name: editingRole.value.name.trim(),
-                description: editingRole.value.description.trim(),
-                permissionIds: editingRole.value.permissions
-              })
-            });
-            const data = await res.json();
-            if (!res.ok) throw new Error(data.message || "Failed to update role");
-            showToast("Role updated successfully!", "success");
-            editRoleDialog.value = false;
-            fetchRoles();
-          } catch(e) {
-            showToast(e.message, "error");
-          } finally {
-            savingRole.value = false;
-          }
-        };
-
-        const deleteRole = async (id) => {
-          if (!confirm("Are you sure you want to delete this role?")) return;
-          try {
-            const res = await fetch('/roles/' + id, { method: 'DELETE', headers: authHeaders(), credentials: 'include' });
-            if (!res.ok) throw new Error("Delete failed");
-            showToast("Role deleted successfully", "success");
-            fetchRoles();
-          } catch(e) {
-            showToast(e.message, "error");
-          }
-        };
-
         // Device CRUD
         const openRegisterDeviceDialog = () => {
           newDevice.value = { devEUI: '', name: '', activationType: 'OTAA', appKey: '' };
@@ -1362,8 +1687,9 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
           try {
             window.history.replaceState(null, null, '#' + newTab);
           } catch(e) {}
-          if (newTab === 'users') fetchUsers();
+          if (newTab === 'modules') fetchModules();
           if (newTab === 'roles') fetchRoles();
+          if (newTab === 'users') fetchUsers();
           if (newTab === 'database') fetchDbHealth();
           if (newTab === 'devices') fetchDevices();
           if (newTab === 'telemetry') fetchTelemetry();
@@ -1373,6 +1699,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
           const ok = await fetchSession();
           if (!ok) return;
 
+          fetchModules();
           fetchRoles();
           fetchUsers();
           fetchDbHealth();
@@ -1399,28 +1726,34 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
           activeTab,
           currentUser,
           isSuperAdmin,
-          groupedPermissions,
-          toggleSelectAllPermissions,
-          usersList,
+          modulesList,
           rolesList,
+          usersList,
           allPermissions,
+          groupedPermissions,
+          getModulesForRole,
+          toggleSelectAllRolePermissions,
+          toggleGroupPermissions,
           dbHealth,
           devicesList,
           telemetryList,
           loadingUsers,
           loadingRoles,
+          savingModule,
+          savingRole,
+          savingUser,
+          savingDevice,
+          moduleDialog,
+          isEditingModule,
+          roleDialog,
+          isEditingRole,
           createUserDialog,
           editUserDialog,
-          createRoleDialog,
-          editRoleDialog,
           registerDeviceDialog,
-          savingUser,
-          savingRole,
-          savingDevice,
+          currentModule,
+          currentRole,
           newUser,
           editUser,
-          newRole,
-          editingRole,
           newDevice,
           sandboxCode,
           sandboxHex,
@@ -1430,22 +1763,28 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
           copyUrl,
           formatTime,
           formatDecoded,
-          fetchUsers,
+          fetchModules,
           fetchRoles,
+          fetchUsers,
           fetchDbHealth,
           reloadDbConfig,
           fetchDevices,
           fetchTelemetry,
+          openCreateModuleDialog,
+          openEditModuleDialog,
+          submitModuleForm,
+          toggleModuleActive,
+          deleteModule,
+          resetModulesDefaults,
+          openCreateRoleDialog,
+          openEditRoleDialog,
+          submitRoleForm,
+          deleteRole,
           openCreateUserDialog,
           submitCreateUser,
           openEditUserDialog,
           submitEditUser,
           deleteUser,
-          openCreateRoleDialog,
-          submitCreateRole,
-          openEditRoleDialog,
-          submitEditRole,
-          deleteRole,
           openRegisterDeviceDialog,
           submitRegisterDevice,
           testDevice,
