@@ -940,11 +940,14 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
         // RBAC View Access Computeds
         const isSuperAdmin = computed(() => {
           const user = currentUser.value;
-          if (!user) return false;
+          if (!user || !user.username) return false;
           if (user.username === 'admin') return true;
           if (user.userType === 'ADMIN' || String(user.userType).toUpperCase() === 'ADMIN') return true;
           if (user.roles && Array.isArray(user.roles)) {
-            return user.roles.some(r => (r.code || r) === 'SUPER_ADMIN');
+            return user.roles.some(r => {
+              const code = (typeof r === 'string' ? r : (r.code || r.name || '')).toUpperCase();
+              return code === 'SUPER_ADMIN' || code === 'SUPER ADMINISTRATOR' || code === 'ADMIN';
+            });
           }
           return false;
         });
@@ -1144,11 +1147,19 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
             const res = await fetch('/auth/session', { headers: authHeaders(), credentials: 'include' });
             if (res.ok) {
               currentUser.value = await res.json();
-              if (!canViewTab(activeTab.value)) {
-                activeTab.value = 'overview';
+              if (!isSuperAdmin.value) {
+                window.location.replace('/dashboard');
+                return false;
               }
+              return true;
+            } else if (res.status === 401) {
+              window.location.replace('/login');
+              return false;
             }
-          } catch(e) {}
+          } catch(e) {
+            return false;
+          }
+          return false;
         };
 
         // User CRUD
@@ -1381,8 +1392,10 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
         });
 
         onMounted(async () => {
+          const ok = await fetchSession();
+          if (!ok) return;
+
           await fetchRoles();
-          await fetchSession();
           
           const hash = window.location.hash.replace('#', '').trim();
           if (hash && canViewTab(hash)) {

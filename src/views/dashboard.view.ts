@@ -89,18 +89,30 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
         </div>
       </div>
 
-      <!-- Right User Menu Dropdown -->
-      <div class="relative">
-        <button
-          @click.stop="userMenuOpen = !userMenuOpen"
-          class="flex items-center gap-2.5 px-3 py-1.5 rounded-xl bg-slate-900/90 border border-slate-800 hover:border-slate-700 transition cursor-pointer select-none"
+      <!-- Right Actions & User Menu -->
+      <div class="flex items-center gap-2.5">
+        <!-- Direct Control Panel Button for Super Admin -->
+        <a
+          v-if="isSuperAdmin"
+          href="/control-panel"
+          class="px-3 py-1.5 rounded-xl bg-sky-500/10 hover:bg-sky-500/20 text-sky-400 border border-sky-500/25 transition text-xs font-bold flex items-center gap-1.5 cursor-pointer text-decoration-none"
         >
-          <div class="w-6 h-6 rounded-full bg-sky-500/20 text-sky-400 border border-sky-500/30 flex items-center justify-center font-bold text-xs">
-            {{ userInitials }}
-          </div>
-          <span class="text-xs font-bold text-slate-200">{{ currentUser.fullName || currentUser.username || 'User' }}</span>
-          <i :class="userMenuOpen ? 'rotate-180' : ''" class="fa-solid fa-chevron-down text-[10px] text-slate-500 transition-transform duration-150"></i>
-        </button>
+          <i class="fa-solid fa-sliders text-xs"></i>
+          <span class="hidden sm:inline">Control Panel</span>
+        </a>
+
+        <!-- User Menu Dropdown Button -->
+        <div class="relative">
+          <button
+            @click.stop="userMenuOpen = !userMenuOpen"
+            class="flex items-center gap-2.5 px-3 py-1.5 rounded-xl bg-slate-900/90 border border-slate-800 hover:border-slate-700 transition cursor-pointer select-none"
+          >
+            <div class="w-6 h-6 rounded-full bg-sky-500/20 text-sky-400 border border-sky-500/30 flex items-center justify-center font-bold text-xs">
+              {{ userInitials }}
+            </div>
+            <span class="text-xs font-bold text-slate-200">{{ currentUser.fullName || currentUser.username || 'User' }}</span>
+            <i :class="userMenuOpen ? 'rotate-180' : ''" class="fa-solid fa-chevron-down text-[10px] text-slate-500 transition-transform duration-150"></i>
+          </button>
 
         <!-- Dropdown Menu Card -->
         <div
