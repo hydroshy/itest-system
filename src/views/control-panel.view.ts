@@ -7,1535 +7,1397 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
   <meta http-equiv="Pragma" content="no-cache" />
   <meta http-equiv="Expires" content="0" />
   <title>Control Panel - Daviteq LoRaWAN Platform</title>
+  <!-- Material Design Icons -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font@7.4.47/css/materialdesignicons.min.css" />
+  <!-- Vuetify 3 CSS -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/vuetify@3.6.14/dist/vuetify.min.css" />
   <style>
-    *, *::before, *::after {
-      box-sizing: border-box;
+    body {
+      background-color: #0b132b;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       margin: 0;
       padding: 0;
+      color: #f1f5f9;
     }
-    :root {
-      --bg: #0b132b;
-      --card-bg: #1c2541;
-      --border: #3a506b;
-      --text: #f0f4f8;
-      --text-dim: #9baec8;
-      --accent: #00b4d8;
-      --accent-hover: #90e0ef;
-      --success: #10b981;
-      --warning: #f59e0b;
-      --danger: #ef4444;
+    .custom-scroll::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
     }
-    body {
-      background-color: var(--bg);
-      color: var(--text);
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-      min-height: 100vh;
-      display: flex;
-      flex-direction: column;
+    .custom-scroll::-webkit-scrollbar-track {
+      background: #0f172a;
     }
-    
-    /* Top Bar */
-    .topbar {
-      background: #070d1e;
-      border-bottom: 1px solid var(--border);
-      padding: 0.75rem 1.5rem;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      position: sticky;
-      top: 0;
-      z-index: 100;
+    .custom-scroll::-webkit-scrollbar-thumb {
+      background: #334155;
+      border-radius: 4px;
     }
-    .brand {
-      display: flex;
-      align-items: center;
-      gap: 0.75rem;
-      font-size: 1.125rem;
-      font-weight: 700;
-      color: #ffffff;
-      text-decoration: none;
+    .font-mono {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace !important;
     }
-    .brand-icon {
-      width: 36px;
-      height: 36px;
-      background: rgba(0, 180, 216, 0.15);
-      border: 1px solid rgba(0, 180, 216, 0.4);
-      border-radius: 8px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 1.25rem;
-    }
-    .top-actions {
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-    }
-
-    /* Tab Navbar */
-    .navbar {
-      background: #111a36;
-      border-bottom: 1px solid var(--border);
-      padding: 0.5rem 1.5rem;
-      display: flex;
-      gap: 0.5rem;
-      overflow-x: auto;
-      white-space: nowrap;
-      position: sticky;
-      top: 57px;
-      z-index: 90;
-    }
-    .nav-tab {
-      padding: 0.6rem 1rem;
-      border-radius: 8px;
-      font-size: 0.8125rem;
-      font-weight: 600;
-      color: var(--text-dim);
-      background: transparent;
-      border: 1px solid transparent;
-      cursor: pointer !important;
-      display: inline-flex;
-      align-items: center;
-      gap: 0.5rem;
-      user-select: none;
-      transition: all 0.15s ease;
-    }
-    .nav-tab:hover {
-      color: #ffffff;
-      background: rgba(255, 255, 255, 0.05);
-    }
-    .nav-tab.active {
-      color: #ffffff !important;
-      background: #00b4d8 !important;
-      border-color: #0096c7 !important;
-      box-shadow: 0 2px 8px rgba(0, 180, 216, 0.4);
-    }
-
-    /* Content Area */
-    .main-wrap {
-      flex: 1;
-      padding: 1.5rem;
-      max-width: 1400px;
-      width: 100%;
-      margin: 0 auto;
-    }
-    .tab-pane {
-      display: none;
-    }
-    .tab-pane.active {
-      display: block !important;
-    }
-
-    /* Cards & Layout */
-    .grid-4 {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-      gap: 1rem;
-      margin-bottom: 1.5rem;
-    }
-    .grid-2 {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
-      gap: 1.25rem;
-    }
-    .card {
-      background: var(--card-bg);
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 1.25rem;
-    }
-    .card-title {
-      font-size: 0.9375rem;
-      font-weight: 700;
-      color: #ffffff;
-      margin-bottom: 0.5rem;
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-    }
-
-    /* Buttons */
-    .btn {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      gap: 0.375rem;
-      font-size: 0.75rem;
-      font-weight: 600;
-      padding: 0.5rem 0.875rem;
-      border-radius: 8px;
-      border: 1px solid transparent;
-      cursor: pointer !important;
-      outline: none;
-      text-decoration: none;
-      user-select: none;
-      transition: all 0.15s ease;
-    }
-    .btn-primary {
-      background: #00b4d8;
-      color: #ffffff;
-      border-color: #0096c7;
-    }
-    .btn-primary:hover {
-      background: #48cae4;
-    }
-    .btn-secondary {
-      background: #243356;
-      color: #e0e6ed;
-      border-color: #3a506b;
-    }
-    .btn-secondary:hover {
-      background: #3a506b;
-      color: #ffffff;
-    }
-    .btn-danger {
-      background: rgba(239, 68, 68, 0.2);
-      color: #fca5a5;
-      border-color: rgba(239, 68, 68, 0.4);
-    }
-    .btn-danger:hover {
-      background: #ef4444;
-      color: #ffffff;
-    }
-    .btn-warning {
-      background: #f59e0b;
-      color: #000000;
-      border-color: #d97706;
-      font-weight: 700;
-    }
-    .btn-warning:hover {
-      background: #fbbf24;
-    }
-
-    /* Tables */
-    .table-responsive {
-      overflow-x: auto;
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      background: rgba(11, 19, 43, 0.5);
-    }
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      font-size: 0.75rem;
-      text-align: left;
-    }
-    th {
-      background: #0f1830;
-      color: var(--text-dim);
-      font-weight: 600;
-      padding: 0.75rem 1rem;
-      border-bottom: 1px solid var(--border);
-    }
-    td {
-      padding: 0.75rem 1rem;
-      border-bottom: 1px solid rgba(58, 80, 107, 0.4);
-      color: var(--text);
-    }
-    tr:hover td {
-      background: rgba(255, 255, 255, 0.03);
-    }
-
-    /* Badges */
-    .badge {
-      display: inline-flex;
-      align-items: center;
-      padding: 0.2rem 0.5rem;
-      border-radius: 9999px;
-      font-size: 0.6875rem;
-      font-weight: 600;
-      font-family: monospace;
-    }
-    .badge-success { background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.3); }
-    .badge-primary { background: rgba(0, 180, 216, 0.15); color: #00b4d8; border: 1px solid rgba(0, 180, 216, 0.3); }
-    .badge-warning { background: rgba(245, 158, 11, 0.15); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.3); }
-    .badge-danger { background: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.3); }
-
-    /* Modals */
-    .modal-overlay {
-      display: none;
-      position: fixed;
-      inset: 0;
-      background: rgba(5, 10, 25, 0.85);
-      backdrop-filter: blur(4px);
-      z-index: 9999;
-      align-items: center;
-      justify-content: center;
-      padding: 1rem;
-    }
-    .modal-overlay.open {
-      display: flex !important;
-    }
-    .modal-box {
-      background: var(--card-bg);
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      width: 100%;
-      max-width: 500px;
-      padding: 1.5rem;
-      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.8);
-    }
-    .form-group {
-      margin-bottom: 0.875rem;
-    }
-    .form-label {
-      display: block;
-      font-size: 0.75rem;
-      font-weight: 600;
-      color: var(--text-dim);
-      margin-bottom: 0.25rem;
-    }
-    .form-input {
-      width: 100%;
-      padding: 0.55rem 0.75rem;
-      background: #0b132b;
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      color: #ffffff;
-      font-size: 0.75rem;
-      outline: none;
-    }
-    .form-input:focus {
-      border-color: var(--accent);
-    }
-
-    /* Toast */
-    #toastWrap {
-      position: fixed;
-      top: 1.25rem;
-      right: 1.25rem;
-      z-index: 10000;
-      display: flex;
-      flex-direction: column;
-      gap: 0.5rem;
-      pointer-events: none;
-    }
-    .toast-msg {
-      pointer-events: auto;
-      padding: 0.75rem 1rem;
-      border-radius: 8px;
-      font-size: 0.75rem;
-      font-weight: 600;
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-      box-shadow: 0 10px 15px -3px rgba(0,0,0,0.5);
+    .code-box {
+      background: #060a17 !important;
+      border: 1px solid #1e293b !important;
+      border-radius: 8px !important;
+      font-family: monospace !important;
     }
   </style>
 </head>
 <body>
-  <div id="toastWrap"></div>
-
-  <!-- TOPBAR -->
-  <header class="topbar">
-    <a href="/control-panel" class="brand">
-      <div class="brand-icon">&#128225;</div>
-      <div>
-        <div><span style="color:#00b4d8;">DAVITEQ</span> LoRaWAN</div>
-        <div style="font-size:0.625rem; color:var(--text-dim); font-weight:normal;">Application & Network Server</div>
-      </div>
-    </a>
-
-    <div class="top-actions">
-      <div style="padding:0.35rem 0.6rem; background:#111a36; border:1px solid var(--border); border-radius:6px; font-size:0.6875rem; display:flex; align-items:center; gap:0.4rem;">
-        <span style="width:6px; height:6px; border-radius:50%; background:#10b981; display:inline-block;"></span>
-        <span id="navUserBadge" style="color:#34d399; font-weight:700;">ADMIN</span>
-      </div>
-
-      <a href="/api/docs" target="_blank" class="btn btn-secondary">
-        API Docs
-      </a>
-
-      <button onclick="window.forceCleanSession()" type="button" class="btn btn-secondary" title="Reset all cookies & session">
-        &#8635; Reset Session
-      </button>
-
-      <button onclick="window.handleLogout()" type="button" class="btn btn-danger">
-        Logout
-      </button>
-    </div>
-  </header>
-
-  <!-- NAVBAR TABS -->
-  <nav class="navbar" id="tabNavBar">
-    <button onclick="window.switchTab('overview')" type="button" id="tabBtn-overview" class="nav-tab active">
-      <span>&#128202;</span> <span>Overview</span>
-    </button>
-    <button onclick="window.switchTab('users')" type="button" id="tabBtn-users" class="nav-tab">
-      <span>&#128101;</span> <span>User Directory</span>
-    </button>
-    <button onclick="window.switchTab('roles')" type="button" id="tabBtn-roles" class="nav-tab">
-      <span>&#128737;</span> <span>Role Matrix</span>
-    </button>
-    <button onclick="window.switchTab('database')" type="button" id="tabBtn-database" class="nav-tab">
-      <span>&#128452;</span> <span>Database Health</span>
-    </button>
-    <button onclick="window.switchTab('devices')" type="button" id="tabBtn-devices" class="nav-tab">
-      <span>&#128223;</span> <span>LoRaWAN Devices</span>
-    </button>
-    <button onclick="window.switchTab('telemetry')" type="button" id="tabBtn-telemetry" class="nav-tab">
-      <span>&#9889;</span> <span>Live Telemetry</span>
-    </button>
-    <button onclick="window.switchTab('webhooks')" type="button" id="tabBtn-webhooks" class="nav-tab">
-      <span>&#128225;</span> <span>Webhooks</span>
-    </button>
-    <button onclick="window.switchTab('decoder')" type="button" id="tabBtn-decoder" class="nav-tab">
-      <span>&#128295;</span> <span>Decoder Sandbox</span>
-    </button>
-  </nav>
-
-  <!-- MAIN WRAPPER -->
-  <div class="main-wrap">
-    
-    <!-- PANE 1: OVERVIEW -->
-    <section id="pane-overview" class="tab-pane active">
-      <div class="grid-4">
-        <div class="card">
-          <div style="font-size:0.75rem; color:var(--text-dim); display:flex; justify-content:space-between;">
-            <span>System Status</span> <span>&#128421;</span>
-          </div>
-          <div style="font-size:1.25rem; font-weight:700; color:#ffffff; margin-top:0.5rem; display:flex; align-items:center; gap:0.4rem;">
-            <span style="width:8px; height:8px; border-radius:50%; background:#10b981; display:inline-block;"></span> ONLINE
-          </div>
-          <div style="font-size:0.6875rem; color:#64748b; margin-top:0.25rem;">NestJS Core Platform</div>
-        </div>
-
-        <div class="card">
-          <div style="font-size:0.75rem; color:var(--text-dim); display:flex; justify-content:space-between;">
-            <span>Total Accounts</span> <span>&#128101;</span>
-          </div>
-          <div id="metricUsers" style="font-size:1.25rem; font-weight:700; color:#ffffff; margin-top:0.5rem;">--</div>
-          <div style="font-size:0.6875rem; color:#64748b; margin-top:0.25rem;">Super Admins & Users</div>
-        </div>
-
-        <div class="card">
-          <div style="font-size:0.75rem; color:var(--text-dim); display:flex; justify-content:space-between;">
-            <span>RBAC Roles</span> <span>&#128737;</span>
-          </div>
-          <div id="metricRoles" style="font-size:1.25rem; font-weight:700; color:#ffffff; margin-top:0.5rem;">--</div>
-          <div style="font-size:0.6875rem; color:#64748b; margin-top:0.25rem;">Configured Role Definitions</div>
-        </div>
-
-        <div class="card">
-          <div style="font-size:0.75rem; color:var(--text-dim); display:flex; justify-content:space-between;">
-            <span>Database Pools</span> <span>&#128452;</span>
-          </div>
-          <div id="metricDb" style="font-size:1.25rem; font-weight:700; color:#ffffff; margin-top:0.5rem;">--</div>
-          <div style="font-size:0.6875rem; color:#64748b; margin-top:0.25rem;">PostgreSQL Core Pool (dvt)</div>
-        </div>
-      </div>
-
-      <div class="grid-2">
-        <div class="card">
-          <div class="card-title">&#9889; Platform Overview</div>
-          <p style="font-size:0.75rem; color:var(--text-dim); line-height:1.5;">
-            Daviteq LoRaWAN Network & Application Server is running with single-pool PostgreSQL routing, 5-table granular RBAC, and payload decoding engine.
-          </p>
-          <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.75rem; margin-top:1rem;">
-            <div style="padding:0.75rem; background:#0b132b; border:1px solid var(--border); border-radius:8px;">
-              <div style="font-size:0.6875rem; color:var(--text-dim);">Database Routing</div>
-              <div style="font-size:0.75rem; font-weight:700; color:#00b4d8; margin-top:0.25rem;">core_db (dvt)</div>
-            </div>
-            <div style="padding:0.75rem; background:#0b132b; border:1px solid var(--border); border-radius:8px;">
-              <div style="font-size:0.6875rem; color:var(--text-dim);">Access Control</div>
-              <div style="font-size:0.75rem; font-weight:700; color:#34d399; margin-top:0.25rem;">SUPER_ADMIN Active</div>
-            </div>
-          </div>
-        </div>
-
-        <div class="card">
-          <div class="card-title">&#128279; Quick Action Shortcuts</div>
-          <div style="display:flex; flex-direction:column; gap:0.5rem;">
-            <button onclick="window.switchTab('devices')" type="button" class="btn btn-secondary" style="justify-content:flex-start; padding:0.6rem 0.85rem;">
-              <span>&#128223;</span> <span>Manage LoRaWAN Device Fleet</span>
-            </button>
-            <button onclick="window.switchTab('telemetry')" type="button" class="btn btn-secondary" style="justify-content:flex-start; padding:0.6rem 0.85rem;">
-              <span>&#9889;</span> <span>Inspect Live Incoming Telemetry</span>
-            </button>
-            <button onclick="window.switchTab('database')" type="button" class="btn btn-secondary" style="justify-content:flex-start; padding:0.6rem 0.85rem;">
-              <span>&#128452;</span> <span>Check Database Health & Table Records</span>
-            </button>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- PANE 2: USERS -->
-    <section id="pane-users" class="tab-pane">
-      <div class="card">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
+  <div id="app">
+    <v-app theme="dark" style="background: #0b132b;">
+      <!-- NAVIGATION DRAWER -->
+      <v-navigation-drawer v-model="drawer" color="#090f1f" width="270" border="right">
+        <!-- Brand Header -->
+        <div class="pa-4 d-flex align-center gap-3 border-b border-slate-800">
+          <v-avatar color="cyan-darken-3" rounded="lg" size="40">
+            <v-icon icon="mdi-transmission-tower" color="cyan-lighten-2" size="26"></v-icon>
+          </v-avatar>
           <div>
-            <div class="card-title">&#128101; User Directory</div>
-            <p style="font-size:0.6875rem; color:var(--text-dim);">Manage administrative and operator accounts</p>
-          </div>
-          <div style="display:flex; gap:0.5rem;">
-            <button onclick="window.loadUsers()" type="button" class="btn btn-secondary">&#8635; Refresh</button>
-            <button onclick="window.openCreateUserModal()" type="button" class="btn btn-primary">+ Create User</button>
-          </div>
-        </div>
-
-        <div class="table-responsive">
-          <table>
-            <thead>
-              <tr>
-                <th>Username</th>
-                <th>Full Name</th>
-                <th>Email</th>
-                <th>Type</th>
-                <th>Roles</th>
-                <th>Status</th>
-                <th style="text-align:right;">Action</th>
-              </tr>
-            </thead>
-            <tbody id="usersTableBody">
-              <tr><td colspan="7" style="text-align:center; padding:2rem; color:var(--text-dim);">Loading users...</td></tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </section>
-
-    <!-- PANE 3: ROLES -->
-    <section id="pane-roles" class="tab-pane">
-      <div class="card">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
-          <div>
-            <div class="card-title">&#128737; Role Matrix & Permissions</div>
-            <p style="font-size:0.6875rem; color:var(--text-dim);">Configure RBAC roles and granular privileges</p>
-          </div>
-          <div style="display:flex; gap:0.5rem;">
-            <button onclick="window.loadRoles()" type="button" class="btn btn-secondary">&#8635; Refresh</button>
-            <button onclick="window.openCreateRoleModal()" type="button" class="btn btn-warning">+ Create Role</button>
-          </div>
-        </div>
-
-        <div id="rolesCardsGrid" class="grid-4" style="margin-bottom:1rem;">
-          <div style="padding:1rem; text-align:center; color:var(--text-dim);">Loading roles...</div>
-        </div>
-
-        <div class="table-responsive">
-          <table>
-            <thead>
-              <tr>
-                <th>Role Code</th>
-                <th>Name</th>
-                <th>Description</th>
-                <th>Permissions</th>
-                <th style="text-align:right;">Action</th>
-              </tr>
-            </thead>
-            <tbody id="rolesTableBody">
-              <tr><td colspan="5" style="text-align:center; padding:2rem; color:var(--text-dim);">Loading role matrix...</td></tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </section>
-
-    <!-- PANE 4: DATABASE HEALTH -->
-    <section id="pane-database" class="tab-pane">
-      <div class="card" style="margin-bottom:1.25rem;">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
-          <div>
-            <div class="card-title">&#128452; Visual Database Health & Metrics</div>
-            <p style="font-size:0.6875rem; color:var(--text-dim);">Real-time status of PostgreSQL connection pool</p>
-          </div>
-          <div style="display:flex; gap:0.5rem;">
-            <button onclick="window.loadDatabaseHealth()" type="button" class="btn btn-secondary">&#8635; Refresh</button>
-            <button onclick="window.reloadDbConfig()" type="button" class="btn btn-primary">&#9881; Hot-Reload Config</button>
-          </div>
-        </div>
-
-        <div id="dbPoolsGrid" class="grid-4" style="margin-bottom:0;">
-          <div style="padding:1rem; text-align:center; color:var(--text-dim);">Checking database health...</div>
-        </div>
-      </div>
-
-      <div class="card">
-        <div class="card-title">Active Table Routing & Record Counts</div>
-        <div class="table-responsive">
-          <table>
-            <thead>
-              <tr>
-                <th>Table / Entity</th>
-                <th>Assigned Pool</th>
-                <th>Record Count</th>
-                <th>Status</th>
-              </tr>
-            </thead>
-            <tbody id="tableStatsBody">
-              <tr><td colspan="4" style="text-align:center; padding:2rem; color:var(--text-dim);">Loading table stats...</td></tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </section>
-
-    <!-- PANE 5: DEVICES -->
-    <section id="pane-devices" class="tab-pane">
-      <div class="card">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
-          <div>
-            <div class="card-title">&#128223; LoRaWAN Device Fleet</div>
-            <p style="font-size:0.6875rem; color:var(--text-dim);">Registered OTAA / ABP End Devices</p>
-          </div>
-          <div style="display:flex; gap:0.5rem;">
-            <button onclick="window.loadDevices()" type="button" class="btn btn-secondary">&#8635; Refresh</button>
-            <button onclick="window.openRegisterDeviceModal()" type="button" class="btn btn-primary">+ Register Device</button>
-          </div>
-        </div>
-
-        <div class="table-responsive">
-          <table>
-            <thead>
-              <tr>
-                <th>DevEUI</th>
-                <th>Device Name</th>
-                <th>Activation</th>
-                <th>Decoder</th>
-                <th>Status</th>
-                <th style="text-align:right;">Action</th>
-              </tr>
-            </thead>
-            <tbody id="devicesTableBody">
-              <tr><td colspan="6" style="text-align:center; padding:2rem; color:var(--text-dim);">Loading devices...</td></tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </section>
-
-    <!-- PANE 6: TELEMETRY -->
-    <section id="pane-telemetry" class="tab-pane">
-      <div class="card">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
-          <div>
-            <div class="card-title">&#9889; Live Telemetry Uplinks</div>
-            <p style="font-size:0.6875rem; color:var(--text-dim);">Real-time stream of incoming LoRaWAN packets</p>
-          </div>
-          <button onclick="window.loadTelemetry()" type="button" class="btn btn-secondary">&#8635; Refresh</button>
-        </div>
-
-        <div class="table-responsive">
-          <table>
-            <thead>
-              <tr>
-                <th>Time</th>
-                <th>DevEUI</th>
-                <th>Port / FCnt</th>
-                <th>Raw Hex</th>
-                <th>Decoded Payload</th>
-                <th>RSSI / SNR</th>
-              </tr>
-            </thead>
-            <tbody id="telemetryTableBody">
-              <tr><td colspan="6" style="text-align:center; padding:2rem; color:var(--text-dim);">Loading telemetry...</td></tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </section>
-
-    <!-- PANE 7: WEBHOOKS -->
-    <section id="pane-webhooks" class="tab-pane">
-      <div class="card">
-        <div class="card-title">&#128225; Network Server Webhook Endpoints</div>
-        <p style="font-size:0.75rem; color:var(--text-dim); margin-bottom:1rem;">Configure these HTTP endpoints on your Network Server:</p>
-
-        <div class="grid-2">
-          <div style="background:#0b132b; border:1px solid var(--border); border-radius:8px; padding:1rem;">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.5rem;">
-              <span style="font-weight:700; color:#00b4d8; font-size:0.8125rem;">ChirpStack v4 Ingestion</span>
-              <span class="badge badge-primary">POST / JSON</span>
+            <div class="text-subtitle-2 font-weight-bold text-white d-flex align-center gap-1">
+              <span class="text-cyan-lighten-2">DAVITEQ</span> IoT
+              <v-chip size="x-small" color="cyan" variant="tonal" class="font-weight-bold px-1 py-0">v1.0</v-chip>
             </div>
-            <div style="padding:0.5rem; background:#1c2541; border:1px solid var(--border); border-radius:6px; font-family:monospace; font-size:0.6875rem; display:flex; justify-content:space-between; align-items:center;">
-              <span>POST /lorawan/webhook/chirpstack</span>
-              <button onclick="window.copyToClipboard(window.location.origin + '/lorawan/webhook/chirpstack')" type="button" class="btn btn-secondary" style="padding:0.2rem 0.4rem; font-size:0.625rem;">Copy</button>
-            </div>
-            <p style="font-size:0.6875rem; color:var(--text-dim); margin-top:0.5rem;">Supports ChirpStack uplink events and payload decoding.</p>
-          </div>
-
-          <div style="background:#0b132b; border:1px solid var(--border); border-radius:8px; padding:1rem;">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.5rem;">
-              <span style="font-weight:700; color:#34d399; font-size:0.8125rem;">ThingPark Wireless Ingestion</span>
-              <span class="badge badge-success">POST / JSON</span>
-            </div>
-            <div style="padding:0.5rem; background:#1c2541; border:1px solid var(--border); border-radius:6px; font-family:monospace; font-size:0.6875rem; display:flex; justify-content:space-between; align-items:center;">
-              <span>POST /lorawan/webhook/thingpark</span>
-              <button onclick="window.copyToClipboard(window.location.origin + '/lorawan/webhook/thingpark')" type="button" class="btn btn-secondary" style="padding:0.2rem 0.4rem; font-size:0.625rem;">Copy</button>
-            </div>
-            <p style="font-size:0.6875rem; color:var(--text-dim); margin-top:0.5rem;">Supports Actility ThingPark Wireless DX packets.</p>
+            <div class="text-caption text-medium-emphasis">LoRaWAN Platform</div>
           </div>
         </div>
-      </div>
-    </section>
 
-    <!-- PANE 8: DECODER SANDBOX -->
-    <section id="pane-decoder" class="tab-pane">
-      <div class="card">
-        <div class="card-title">&#128295; Payload Formatter Sandbox</div>
-        <p style="font-size:0.75rem; color:var(--text-dim); margin-bottom:1rem;">Test JavaScript decoder scripts on raw hex bytes:</p>
+        <!-- Navigation List -->
+        <v-list density="compact" nav class="pa-3 custom-scroll">
+          <v-list-subheader class="text-uppercase font-weight-bold text-caption text-slate-400">Monitoring</v-list-subheader>
+          
+          <v-list-item
+            value="overview"
+            :active="tab === 'overview'"
+            @click="tab = 'overview'"
+            prepend-icon="mdi-view-dashboard-outline"
+            title="Overview"
+            rounded="lg"
+            color="cyan-lighten-2"
+          ></v-list-item>
 
-        <div class="grid-2">
-          <div>
-            <label class="form-label">JavaScript Decoder Function</label>
-            <textarea id="sandboxCode" class="form-input" style="height:180px; font-family:monospace;">function decodeUplink(bytes, fPort) {
-  var temperature = ((bytes[0] << 8) | bytes[1]) / 100;
-  var humidity = bytes[2];
-  return {
-    temperature: temperature,
-    humidity: humidity
-  };
-}</textarea>
-          </div>
+          <v-list-item
+            value="telemetry"
+            :active="tab === 'telemetry'"
+            @click="tab = 'telemetry'"
+            prepend-icon="mdi-sine-wave"
+            title="Live Telemetry"
+            rounded="lg"
+            color="indigo-lighten-2"
+          ></v-list-item>
 
-          <div>
-            <label class="form-label">Test Hex String</label>
-            <div style="display:flex; gap:0.5rem; margin-bottom:0.75rem;">
-              <input type="text" id="sandboxHex" value="09C441" class="form-input" style="font-family:monospace;" />
-              <button onclick="window.runSandboxDecode()" type="button" class="btn btn-primary">Decode</button>
+          <v-list-item
+            value="database"
+            :active="tab === 'database'"
+            @click="tab = 'database'"
+            prepend-icon="mdi-database-eye-outline"
+            title="Database Health"
+            rounded="lg"
+            color="amber-lighten-2"
+          ></v-list-item>
+
+          <v-list-subheader class="text-uppercase font-weight-bold text-caption text-slate-400 mt-3">LoRaWAN Fleet</v-list-subheader>
+          
+          <v-list-item
+            value="devices"
+            :active="tab === 'devices'"
+            @click="tab = 'devices'"
+            prepend-icon="mdi-chip"
+            title="LoRaWAN Devices"
+            rounded="lg"
+            color="cyan-lighten-2"
+          ></v-list-item>
+
+          <v-list-item
+            value="webhooks"
+            :active="tab === 'webhooks'"
+            @click="tab = 'webhooks'"
+            prepend-icon="mdi-webhook"
+            title="Webhooks Ingestion"
+            rounded="lg"
+            color="emerald-lighten-2"
+          ></v-list-item>
+
+          <v-list-item
+            value="decoder"
+            :active="tab === 'decoder'"
+            @click="tab = 'decoder'"
+            prepend-icon="mdi-code-braces"
+            title="Decoder Sandbox"
+            rounded="lg"
+            color="purple-lighten-2"
+          ></v-list-item>
+
+          <v-list-subheader class="text-uppercase font-weight-bold text-caption text-slate-400 mt-3">Security & RBAC</v-list-subheader>
+          
+          <v-list-item
+            value="users"
+            :active="tab === 'users'"
+            @click="tab = 'users'"
+            prepend-icon="mdi-account-multiple-outline"
+            title="User Directory"
+            rounded="lg"
+            color="cyan-lighten-2"
+          ></v-list-item>
+
+          <v-list-item
+            value="roles"
+            :active="tab === 'roles'"
+            @click="tab = 'roles'"
+            prepend-icon="mdi-shield-account-outline"
+            title="Role Matrix"
+            rounded="lg"
+            color="yellow-lighten-2"
+          ></v-list-item>
+        </v-list>
+
+        <!-- Drawer Footer Profile -->
+        <template v-slot:append>
+          <div class="pa-3 border-t border-slate-800 bg-slate-950">
+            <div class="d-flex align-center justify-space-between mb-2">
+              <v-chip size="x-small" color="success" variant="tonal" class="font-weight-bold">
+                <v-badge dot color="success" inline class="mr-1"></v-badge>
+                core_db : ONLINE
+              </v-chip>
+              <a href="/api/docs" target="_blank" class="text-caption text-cyan-lighten-2 text-decoration-none">Swagger &rarr;</a>
             </div>
-            <label class="form-label">Decoded Output</label>
-            <pre id="sandboxResult" style="padding:0.75rem; background:#0b132b; border:1px solid var(--border); border-radius:6px; color:#34d399; font-family:monospace; font-size:0.6875rem; height:130px; overflow:auto;">{ "ready": true }</pre>
-          </div>
-        </div>
-      </div>
-    </section>
 
+            <v-card color="#0f172a" rounded="lg" class="pa-2 d-flex align-center justify-space-between" variant="outlined">
+              <div class="text-truncate mr-2">
+                <div class="text-caption font-weight-bold text-white text-truncate">{{ currentUser.fullName || currentUser.username || 'Admin User' }}</div>
+                <div class="text-caption text-cyan-lighten-2 font-mono font-weight-bold">{{ currentUser.userType || 'ADMIN' }}</div>
+              </div>
+              <v-btn icon="mdi-power" size="small" color="error" variant="text" @click="handleLogout" title="Logout"></v-btn>
+            </v-card>
+          </div>
+        </template>
+      </v-navigation-drawer>
+
+      <!-- APP BAR -->
+      <v-app-bar color="#070d1e" density="comfortable" elevation="1" border="bottom">
+        <v-app-bar-nav-icon @click="drawer = !drawer"></v-app-bar-nav-icon>
+
+        <v-app-bar-title class="text-subtitle-1 font-weight-bold d-flex align-center gap-2">
+          <span>{{ tabTitles[tab] || 'Control Panel' }}</span>
+          <v-chip size="x-small" color="cyan" variant="tonal" class="ml-2 font-weight-bold">{{ tabCategories[tab] || 'LoRaWAN' }}</v-chip>
+        </v-app-bar-title>
+
+        <!-- Horizontal Tabs for Fast Click -->
+        <v-tabs v-model="tab" color="cyan-lighten-2" density="comfortable" class="d-none d-md-flex">
+          <v-tab value="overview"><v-icon icon="mdi-view-dashboard-outline" start size="small"></v-icon>Overview</v-tab>
+          <v-tab value="users"><v-icon icon="mdi-account-multiple-outline" start size="small"></v-icon>Users</v-tab>
+          <v-tab value="roles"><v-icon icon="mdi-shield-account-outline" start size="small"></v-icon>Roles</v-tab>
+          <v-tab value="database"><v-icon icon="mdi-database-eye-outline" start size="small"></v-icon>Database</v-tab>
+          <v-tab value="devices"><v-icon icon="mdi-chip" start size="small"></v-icon>Devices</v-tab>
+          <v-tab value="telemetry"><v-icon icon="mdi-sine-wave" start size="small"></v-icon>Telemetry</v-tab>
+          <v-tab value="webhooks"><v-icon icon="mdi-webhook" start size="small"></v-icon>Webhooks</v-tab>
+          <v-tab value="decoder"><v-icon icon="mdi-code-braces" start size="small"></v-icon>Decoder</v-tab>
+        </v-tabs>
+
+        <v-spacer></v-spacer>
+
+        <!-- Action Buttons -->
+        <v-btn
+          variant="outlined"
+          color="slate-400"
+          size="small"
+          rounded="lg"
+          class="mr-2"
+          @click="forceCleanSession"
+        >
+          <v-icon icon="mdi-cached" start></v-icon>
+          Reset Session
+        </v-btn>
+
+        <v-btn
+          href="/api/docs"
+          target="_blank"
+          variant="flat"
+          color="cyan-darken-2"
+          size="small"
+          rounded="lg"
+          class="mr-2 d-none d-sm-inline-flex"
+        >
+          <v-icon icon="mdi-book-open-outline" start></v-icon>
+          Swagger API
+        </v-btn>
+
+        <v-btn
+          variant="tonal"
+          color="error"
+          size="small"
+          rounded="lg"
+          @click="handleLogout"
+        >
+          <v-icon icon="mdi-logout" start></v-icon>
+          Logout
+        </v-btn>
+      </v-app-bar>
+
+      <!-- MAIN CONTENT VIEWPORT -->
+      <v-main class="pa-4 pa-sm-6 custom-scroll">
+        <v-window v-model="tab">
+          
+          <!-- TAB 1: OVERVIEW -->
+          <v-window-item value="overview">
+            <v-row>
+              <v-col cols="12" sm="6" md="3">
+                <v-card color="#1c2541" rounded="xl" class="pa-4" variant="outlined">
+                  <div class="d-flex justify-space-between text-caption text-medium-emphasis">
+                    <span>System Runtime</span>
+                    <v-icon icon="mdi-server" color="cyan-lighten-2"></v-icon>
+                  </div>
+                  <div class="text-h5 font-weight-bold text-white mt-2 d-flex align-center gap-2">
+                    <v-badge dot color="success" inline class="mr-1"></v-badge> ONLINE
+                  </div>
+                  <div class="text-caption text-medium-emphasis mt-1">NestJS Core Engine</div>
+                </v-card>
+              </v-col>
+
+              <v-col cols="12" sm="6" md="3">
+                <v-card color="#1c2541" rounded="xl" class="pa-4" variant="outlined">
+                  <div class="d-flex justify-space-between text-caption text-medium-emphasis">
+                    <span>Total Accounts</span>
+                    <v-icon icon="mdi-account-group" color="emerald-lighten-2"></v-icon>
+                  </div>
+                  <div class="text-h5 font-weight-bold text-white mt-2">{{ usersList.length || '--' }}</div>
+                  <div class="text-caption text-medium-emphasis mt-1">Super Admins & Users</div>
+                </v-card>
+              </v-col>
+
+              <v-col cols="12" sm="6" md="3">
+                <v-card color="#1c2541" rounded="xl" class="pa-4" variant="outlined">
+                  <div class="d-flex justify-space-between text-caption text-medium-emphasis">
+                    <span>Configured Roles</span>
+                    <v-icon icon="mdi-shield-check" color="amber-lighten-2"></v-icon>
+                  </div>
+                  <div class="text-h5 font-weight-bold text-white mt-2">{{ rolesList.length || '--' }}</div>
+                  <div class="text-caption text-medium-emphasis mt-1">RBAC Role Definitions</div>
+                </v-card>
+              </v-col>
+
+              <v-col cols="12" sm="6" md="3">
+                <v-card color="#1c2541" rounded="xl" class="pa-4" variant="outlined">
+                  <div class="d-flex justify-space-between text-caption text-medium-emphasis">
+                    <span>Database Pool</span>
+                    <v-icon icon="mdi-database" color="indigo-lighten-2"></v-icon>
+                  </div>
+                  <div class="text-h5 font-weight-bold text-white mt-2">{{ dbHealth.totalConnections || 1 }}</div>
+                  <div class="text-caption text-medium-emphasis mt-1">core_db (mas.local:5432)</div>
+                </v-card>
+              </v-col>
+            </v-row>
+
+            <v-row class="mt-4">
+              <v-col cols="12" md="6">
+                <v-card color="#1c2541" rounded="xl" class="pa-5" variant="outlined">
+                  <div class="text-subtitle-1 font-weight-bold text-white mb-2 d-flex align-center gap-2">
+                    <v-icon icon="mdi-lightning-bolt" color="cyan-lighten-2"></v-icon>
+                    System Architecture
+                  </div>
+                  <p class="text-caption text-medium-emphasis" style="line-height: 1.6;">
+                    Daviteq LoRaWAN Application Server provides enterprise-grade telemetry ingestion, dynamic PostgreSQL single/multi-pool table routing, and granular 5-table role-based access control.
+                  </p>
+                  <v-row class="mt-2">
+                    <v-col cols="6">
+                      <v-card color="#0b132b" rounded="lg" class="pa-3" variant="outlined">
+                        <div class="text-caption text-medium-emphasis">Access Control</div>
+                        <div class="text-subtitle-2 font-weight-bold text-emerald-lighten-2 mt-1">5-Table RBAC Model</div>
+                      </v-card>
+                    </v-col>
+                    <v-col cols="6">
+                      <v-card color="#0b132b" rounded="lg" class="pa-3" variant="outlined">
+                        <div class="text-caption text-medium-emphasis">Database Routing</div>
+                        <div class="text-subtitle-2 font-weight-bold text-cyan-lighten-2 mt-1">core_db (dvt) Active</div>
+                      </v-card>
+                    </v-col>
+                  </v-row>
+                </v-card>
+              </v-col>
+
+              <v-col cols="12" md="6">
+                <v-card color="#1c2541" rounded="xl" class="pa-5" variant="outlined">
+                  <div class="text-subtitle-1 font-weight-bold text-white mb-3 d-flex align-center gap-2">
+                    <v-icon icon="mdi-link-variant" color="emerald-lighten-2"></v-icon>
+                    Quick Action Navigation
+                  </div>
+                  <div class="d-flex flex-column gap-2">
+                    <v-btn color="#0b132b" variant="outlined" block class="justify-start text-none mb-2" rounded="lg" @click="tab = 'devices'">
+                      <v-icon icon="mdi-chip" color="cyan-lighten-2" start></v-icon> Manage LoRaWAN Device Fleet
+                    </v-btn>
+                    <v-btn color="#0b132b" variant="outlined" block class="justify-start text-none mb-2" rounded="lg" @click="tab = 'telemetry'">
+                      <v-icon icon="mdi-sine-wave" color="indigo-lighten-2" start></v-icon> Inspect Incoming Telemetry Stream
+                    </v-btn>
+                    <v-btn color="#0b132b" variant="outlined" block class="justify-start text-none" rounded="lg" @click="tab = 'database'">
+                      <v-icon icon="mdi-database-eye-outline" color="amber-lighten-2" start></v-icon> Visual Database Health & Metrics
+                    </v-btn>
+                  </div>
+                </v-card>
+              </v-col>
+            </v-row>
+          </v-window-item>
+
+          <!-- TAB 2: USERS -->
+          <v-window-item value="users">
+            <v-card color="#1c2541" rounded="xl" class="pa-5" variant="outlined">
+              <div class="d-flex justify-space-between align-center mb-4 flex-wrap gap-2">
+                <div>
+                  <div class="text-h6 font-weight-bold text-white d-flex align-center gap-2">
+                    <v-icon icon="mdi-account-multiple" color="cyan-lighten-2"></v-icon> User Directory
+                  </div>
+                  <div class="text-caption text-medium-emphasis">Manage administrative and operator accounts</div>
+                </div>
+                <div class="d-flex gap-2">
+                  <v-btn color="slate-700" variant="outlined" size="small" rounded="lg" @click="fetchUsers" :loading="loadingUsers">
+                    <v-icon icon="mdi-refresh" start></v-icon> Refresh
+                  </v-btn>
+                  <v-btn color="cyan-darken-2" variant="flat" size="small" rounded="lg" @click="openCreateUserDialog">
+                    <v-icon icon="mdi-account-plus" start></v-icon> Create User
+                  </v-btn>
+                </div>
+              </div>
+
+              <v-table hover class="bg-transparent rounded-lg border">
+                <thead>
+                  <tr class="bg-slate-950">
+                    <th class="text-caption font-weight-bold text-slate-400">Username</th>
+                    <th class="text-caption font-weight-bold text-slate-400">Full Name</th>
+                    <th class="text-caption font-weight-bold text-slate-400">Email</th>
+                    <th class="text-caption font-weight-bold text-slate-400">Type</th>
+                    <th class="text-caption font-weight-bold text-slate-400">Roles</th>
+                    <th class="text-caption font-weight-bold text-slate-400">Status</th>
+                    <th class="text-caption font-weight-bold text-slate-400 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-if="usersList.length === 0">
+                    <td colspan="7" class="text-center py-6 text-medium-emphasis">No user accounts found.</td>
+                  </tr>
+                  <tr v-for="u in usersList" :key="u.id">
+                    <td class="font-mono font-weight-bold text-white">{{ u.username }}</td>
+                    <td>{{ u.fullName || '--' }}</td>
+                    <td class="text-medium-emphasis">{{ u.email }}</td>
+                    <td>
+                      <v-chip size="x-small" :color="u.userType === 'ADMIN' ? 'success' : 'cyan'" variant="tonal" class="font-weight-bold">
+                        {{ u.userType }}
+                      </v-chip>
+                    </td>
+                    <td>
+                      <span v-if="!u.roles || u.roles.length === 0" class="text-medium-emphasis text-caption">None</span>
+                      <v-chip v-for="r in u.roles" :key="r.id || r" size="x-small" color="cyan" variant="tonal" class="mr-1">
+                        {{ r.name || r.code || r }}
+                      </v-chip>
+                    </td>
+                    <td>
+                      <v-chip size="x-small" :color="u.isActive ? 'success' : 'error'" variant="tonal">
+                        {{ u.isActive ? 'Active' : 'Suspended' }}
+                      </v-chip>
+                    </td>
+                    <td class="text-right">
+                      <v-btn size="x-small" variant="tonal" color="cyan" class="mr-1" @click="openEditUserDialog(u)">Edit</v-btn>
+                      <v-btn size="x-small" variant="tonal" color="error" @click="deleteUser(u.id)" :disabled="u.username === 'admin'">Delete</v-btn>
+                    </td>
+                  </tr>
+                </tbody>
+              </v-table>
+            </v-card>
+          </v-window-item>
+
+          <!-- TAB 3: ROLES -->
+          <v-window-item value="roles">
+            <v-card color="#1c2541" rounded="xl" class="pa-5" variant="outlined">
+              <div class="d-flex justify-space-between align-center mb-4 flex-wrap gap-2">
+                <div>
+                  <div class="text-h6 font-weight-bold text-white d-flex align-center gap-2">
+                    <v-icon icon="mdi-shield-account" color="amber-lighten-2"></v-icon> Role Matrix & Permissions
+                  </div>
+                  <div class="text-caption text-medium-emphasis">Configure RBAC roles and granular access rights</div>
+                </div>
+                <div class="d-flex gap-2">
+                  <v-btn color="slate-700" variant="outlined" size="small" rounded="lg" @click="fetchRoles" :loading="loadingRoles">
+                    <v-icon icon="mdi-refresh" start></v-icon> Refresh
+                  </v-btn>
+                  <v-btn color="amber-darken-2" variant="flat" size="small" rounded="lg" @click="openCreateRoleDialog">
+                    <v-icon icon="mdi-plus" start></v-icon> Create Role
+                  </v-btn>
+                </div>
+              </div>
+
+              <!-- Roles Cards Grid -->
+              <v-row class="mb-4">
+                <v-col v-for="r in rolesList" :key="r.id" cols="12" sm="6" md="4">
+                  <v-card color="#0b132b" rounded="lg" class="pa-4" variant="outlined">
+                    <div class="d-flex justify-space-between align-center">
+                      <span class="font-weight-bold text-subtitle-2" :class="r.code === 'SUPER_ADMIN' ? 'text-emerald-lighten-2' : 'text-cyan-lighten-2'">
+                        <v-icon :icon="r.code === 'SUPER_ADMIN' ? 'mdi-crown' : 'mdi-shield-check'" size="small" start></v-icon>
+                        {{ r.name }}
+                      </span>
+                      <v-chip size="x-small" :color="r.code === 'SUPER_ADMIN' ? 'success' : 'cyan'" variant="tonal" class="font-mono">
+                        {{ r.code }}
+                      </v-chip>
+                    </div>
+                    <div class="text-caption text-medium-emphasis my-2">{{ r.description || 'No description provided' }}</div>
+                    <div class="d-flex justify-space-between align-center text-caption text-medium-emphasis pt-2 border-t border-slate-800">
+                      <span>{{ r.permissions ? r.permissions.length : 0 }} privileges assigned</span>
+                      <v-btn v-if="r.code !== 'SUPER_ADMIN'" size="x-small" variant="text" color="cyan" @click="openEditRoleDialog(r)">Edit</v-btn>
+                      <span v-else class="text-caption text-slate-500 font-mono">Protected</span>
+                    </div>
+                  </v-card>
+                </v-col>
+              </v-row>
+
+              <!-- Roles Table Details -->
+              <v-table hover class="bg-transparent rounded-lg border">
+                <thead>
+                  <tr class="bg-slate-950">
+                    <th class="text-caption font-weight-bold text-slate-400">Role Code</th>
+                    <th class="text-caption font-weight-bold text-slate-400">Name</th>
+                    <th class="text-caption font-weight-bold text-slate-400">Description</th>
+                    <th class="text-caption font-weight-bold text-slate-400">Assigned Permissions</th>
+                    <th class="text-caption font-weight-bold text-slate-400 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="r in rolesList" :key="r.id">
+                    <td class="font-mono font-weight-bold" :class="r.code === 'SUPER_ADMIN' ? 'text-emerald-lighten-2' : 'text-cyan-lighten-2'">{{ r.code }}</td>
+                    <td class="font-weight-bold text-white">{{ r.name }}</td>
+                    <td class="text-medium-emphasis">{{ r.description || '--' }}</td>
+                    <td>
+                      <v-chip v-for="p in (r.permissions || [])" :key="p.id" size="x-small" color="slate-700" variant="tonal" class="mr-1 mb-1 font-mono">
+                        {{ p.name }}
+                      </v-chip>
+                    </td>
+                    <td class="text-right">
+                      <template v-if="r.code !== 'SUPER_ADMIN'">
+                        <v-btn size="x-small" variant="tonal" color="cyan" class="mr-1" @click="openEditRoleDialog(r)">Edit</v-btn>
+                        <v-btn size="x-small" variant="tonal" color="error" @click="deleteRole(r.id)">Delete</v-btn>
+                      </template>
+                      <span v-else class="text-caption text-slate-500 font-mono">Immutable</span>
+                    </td>
+                  </tr>
+                </tbody>
+              </v-table>
+            </v-card>
+          </v-window-item>
+
+          <!-- TAB 4: DATABASE HEALTH -->
+          <v-window-item value="database">
+            <v-card color="#1c2541" rounded="xl" class="pa-5 mb-4" variant="outlined">
+              <div class="d-flex justify-space-between align-center mb-4 flex-wrap gap-2">
+                <div>
+                  <div class="text-h6 font-weight-bold text-white d-flex align-center gap-2">
+                    <v-icon icon="mdi-heart-pulse" color="emerald-lighten-2"></v-icon> Visual Database Health
+                  </div>
+                  <div class="text-caption text-medium-emphasis">Real-time status of PostgreSQL connection pools</div>
+                </div>
+                <div class="d-flex gap-2">
+                  <v-btn color="slate-700" variant="outlined" size="small" rounded="lg" @click="fetchDbHealth">
+                    <v-icon icon="mdi-refresh" start></v-icon> Refresh
+                  </v-btn>
+                  <v-btn color="cyan-darken-2" variant="flat" size="small" rounded="lg" @click="reloadDbConfig">
+                    <v-icon icon="mdi-cog-refresh" start></v-icon> Hot-Reload Config
+                  </v-btn>
+                </div>
+              </div>
+
+              <v-row>
+                <v-col v-for="(conn, key) in dbHealth.connections" :key="key" cols="12" sm="6" md="4">
+                  <v-card color="#0b132b" rounded="lg" class="pa-4" variant="outlined">
+                    <div class="d-flex justify-space-between align-center mb-2">
+                      <span class="font-mono font-weight-bold text-white">{{ conn.name }}</span>
+                      <v-chip size="x-small" :color="conn.isAlive ? 'success' : 'error'" variant="tonal" class="font-weight-bold">
+                        {{ conn.isAlive ? 'CONNECTED' : 'OFFLINE' }}
+                      </v-chip>
+                    </div>
+                    <div class="text-caption text-medium-emphasis font-mono" style="line-height: 1.8;">
+                      <div>Host: <strong class="text-white">{{ conn.host }}:{{ conn.port }}</strong></div>
+                      <div>Database: <strong class="text-white">{{ conn.database }}</strong></div>
+                      <div>Ping Latency: <strong :class="conn.latencyMs < 50 ? 'text-emerald-lighten-2' : 'text-amber-lighten-2'">{{ conn.latencyMs !== null ? conn.latencyMs + ' ms' : 'N/A' }}</strong></div>
+                      <div>Pool Size: <strong class="text-slate-300">{{ conn.poolSize }} connections</strong></div>
+                    </div>
+                  </v-card>
+                </v-col>
+              </v-row>
+            </v-card>
+
+            <v-card color="#1c2541" rounded="xl" class="pa-5" variant="outlined">
+              <div class="text-subtitle-1 font-weight-bold text-white mb-3">Active Table Routing & Live Record Counts</div>
+              <v-table hover class="bg-transparent rounded-lg border">
+                <thead>
+                  <tr class="bg-slate-950">
+                    <th class="text-caption font-weight-bold text-slate-400">Table / Entity</th>
+                    <th class="text-caption font-weight-bold text-slate-400">Assigned Database Pool</th>
+                    <th class="text-caption font-weight-bold text-slate-400">Record Count</th>
+                    <th class="text-caption font-weight-bold text-slate-400">Table Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="(stat, tableName) in dbHealth.tableStats" :key="tableName">
+                    <td class="font-mono font-weight-bold text-white">{{ tableName }}</td>
+                    <td class="font-mono text-cyan-lighten-2">{{ stat.routedTo }}</td>
+                    <td class="font-weight-bold text-emerald-lighten-2">{{ Number(stat.recordCount).toLocaleString() }} rows</td>
+                    <td><v-chip size="x-small" color="success" variant="tonal">{{ stat.status }}</v-chip></td>
+                  </tr>
+                </tbody>
+              </v-table>
+            </v-card>
+          </v-window-item>
+
+          <!-- TAB 5: DEVICES -->
+          <v-window-item value="devices">
+            <v-card color="#1c2541" rounded="xl" class="pa-5" variant="outlined">
+              <div class="d-flex justify-space-between align-center mb-4 flex-wrap gap-2">
+                <div>
+                  <div class="text-h6 font-weight-bold text-white d-flex align-center gap-2">
+                    <v-icon icon="mdi-chip" color="cyan-lighten-2"></v-icon> LoRaWAN Device Fleet
+                  </div>
+                  <div class="text-caption text-medium-emphasis">Registered End Devices and decoder bindings</div>
+                </div>
+                <div class="d-flex gap-2">
+                  <v-btn color="slate-700" variant="outlined" size="small" rounded="lg" @click="fetchDevices">
+                    <v-icon icon="mdi-refresh" start></v-icon> Refresh
+                  </v-btn>
+                  <v-btn color="cyan-darken-2" variant="flat" size="small" rounded="lg" @click="openRegisterDeviceDialog">
+                    <v-icon icon="mdi-plus" start></v-icon> Register Device
+                  </v-btn>
+                </div>
+              </div>
+
+              <v-table hover class="bg-transparent rounded-lg border">
+                <thead>
+                  <tr class="bg-slate-950">
+                    <th class="text-caption font-weight-bold text-slate-400">DevEUI</th>
+                    <th class="text-caption font-weight-bold text-slate-400">Device Name</th>
+                    <th class="text-caption font-weight-bold text-slate-400">Activation</th>
+                    <th class="text-caption font-weight-bold text-slate-400">Decoder Script</th>
+                    <th class="text-caption font-weight-bold text-slate-400">Status</th>
+                    <th class="text-caption font-weight-bold text-slate-400 text-right">Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-if="devicesList.length === 0">
+                    <td colspan="6" class="text-center py-6 text-medium-emphasis">No LoRaWAN devices registered. Click "+ Register Device" to add one.</td>
+                  </tr>
+                  <tr v-for="d in devicesList" :key="d.id || d.devEUI">
+                    <td class="font-mono font-weight-bold text-cyan-lighten-2">{{ d.devEUI }}</td>
+                    <td class="font-weight-bold text-white">{{ d.name || '--' }}</td>
+                    <td><v-chip size="x-small" color="amber" variant="tonal">{{ d.activationType || 'OTAA' }}</v-chip></td>
+                    <td>
+                      <v-chip size="x-small" :color="d.payloadFormatterScript ? 'success' : 'slate-700'" variant="tonal">
+                        {{ d.payloadFormatterScript ? 'Configured' : 'None' }}
+                      </v-chip>
+                    </td>
+                    <td>
+                      <v-chip size="x-small" :color="d.isActive ? 'success' : 'error'" variant="tonal">
+                        {{ d.isActive ? 'ACTIVE' : 'INACTIVE' }}
+                      </v-chip>
+                    </td>
+                    <td class="text-right">
+                      <v-btn size="x-small" variant="tonal" color="cyan" @click="testDevice(d)">Test Payload</v-btn>
+                    </td>
+                  </tr>
+                </tbody>
+              </v-table>
+            </v-card>
+          </v-window-item>
+
+          <!-- TAB 6: TELEMETRY -->
+          <v-window-item value="telemetry">
+            <v-card color="#1c2541" rounded="xl" class="pa-5" variant="outlined">
+              <div class="d-flex justify-space-between align-center mb-4 flex-wrap gap-2">
+                <div>
+                  <div class="text-h6 font-weight-bold text-white d-flex align-center gap-2">
+                    <v-icon icon="mdi-sine-wave" color="indigo-lighten-2"></v-icon> Live Telemetry Stream
+                  </div>
+                  <div class="text-caption text-medium-emphasis">Real-time incoming LoRaWAN uplink packets</div>
+                </div>
+                <div class="d-flex align-center gap-2">
+                  <v-btn color="slate-700" variant="outlined" size="small" rounded="lg" @click="fetchTelemetry">
+                    <v-icon icon="mdi-refresh" start></v-icon> Refresh
+                  </v-btn>
+                </div>
+              </div>
+
+              <v-table hover class="bg-transparent rounded-lg border">
+                <thead>
+                  <tr class="bg-slate-950">
+                    <th class="text-caption font-weight-bold text-slate-400">Timestamp</th>
+                    <th class="text-caption font-weight-bold text-slate-400">DevEUI</th>
+                    <th class="text-caption font-weight-bold text-slate-400">Port / FCnt</th>
+                    <th class="text-caption font-weight-bold text-slate-400">Raw Hex</th>
+                    <th class="text-caption font-weight-bold text-slate-400">Decoded JSON</th>
+                    <th class="text-caption font-weight-bold text-slate-400">RSSI / SNR</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-if="telemetryList.length === 0">
+                    <td colspan="6" class="text-center py-6 text-medium-emphasis">No incoming telemetry packets yet. Send a webhook to see live data.</td>
+                  </tr>
+                  <tr v-for="t in telemetryList" :key="t.id">
+                    <td class="text-caption text-medium-emphasis">{{ formatTime(t.timestamp || t.createdAt) }}</td>
+                    <td class="font-mono font-weight-bold text-cyan-lighten-2">{{ t.devEUI }}</td>
+                    <td class="font-mono text-amber-lighten-2">p:{{ t.fPort || 1 }} / c:{{ t.fCnt || 0 }}</td>
+                    <td class="font-mono text-slate-300">{{ t.payloadHex || '--' }}</td>
+                    <td class="font-mono text-emerald-lighten-2">{{ formatDecoded(t.decodedPayload) }}</td>
+                    <td class="text-caption text-medium-emphasis">{{ t.rssi !== undefined ? t.rssi + ' dBm' : '--' }} / {{ t.snr !== undefined ? t.snr + ' dB' : '--' }}</td>
+                  </tr>
+                </tbody>
+              </v-table>
+            </v-card>
+          </v-window-item>
+
+          <!-- TAB 7: WEBHOOKS -->
+          <v-window-item value="webhooks">
+            <v-card color="#1c2541" rounded="xl" class="pa-5" variant="outlined">
+              <div class="text-h6 font-weight-bold text-white mb-1 d-flex align-center gap-2">
+                <v-icon icon="mdi-webhook" color="emerald-lighten-2"></v-icon> Network Server Webhooks
+              </div>
+              <p class="text-caption text-medium-emphasis mb-4">Configure these HTTP endpoints on your Network Server (ChirpStack v4 or ThingPark Wireless):</p>
+
+              <v-row>
+                <v-col cols="12" md="6">
+                  <v-card color="#0b132b" rounded="lg" class="pa-4" variant="outlined">
+                    <div class="d-flex justify-space-between align-center mb-2">
+                      <span class="text-subtitle-2 font-weight-bold text-cyan-lighten-2">ChirpStack v4 Ingestion</span>
+                      <v-chip size="x-small" color="cyan" variant="tonal">POST / JSON</v-chip>
+                    </div>
+                    <div class="code-box pa-2 d-flex justify-space-between align-center my-2 text-caption">
+                      <span>POST /lorawan/webhook/chirpstack</span>
+                      <v-btn size="x-small" variant="text" color="cyan" @click="copyUrl('/lorawan/webhook/chirpstack')">Copy</v-btn>
+                    </div>
+                    <div class="text-caption text-medium-emphasis">Supports ChirpStack uplink events, deduplication, and payload parsing.</div>
+                  </v-card>
+                </v-col>
+
+                <v-col cols="12" md="6">
+                  <v-card color="#0b132b" rounded="lg" class="pa-4" variant="outlined">
+                    <div class="d-flex justify-space-between align-center mb-2">
+                      <span class="text-subtitle-2 font-weight-bold text-emerald-lighten-2">ThingPark Wireless Ingestion</span>
+                      <v-chip size="x-small" color="success" variant="tonal">POST / JSON</v-chip>
+                    </div>
+                    <div class="code-box pa-2 d-flex justify-space-between align-center my-2 text-caption">
+                      <span>POST /lorawan/webhook/thingpark</span>
+                      <v-btn size="x-small" variant="text" color="emerald" @click="copyUrl('/lorawan/webhook/thingpark')">Copy</v-btn>
+                    </div>
+                    <div class="text-caption text-medium-emphasis">Supports Actility ThingPark Wireless DX packets and hex payloads.</div>
+                  </v-card>
+                </v-col>
+              </v-row>
+            </v-card>
+          </v-window-item>
+
+          <!-- TAB 8: DECODER SANDBOX -->
+          <v-window-item value="decoder">
+            <v-card color="#1c2541" rounded="xl" class="pa-5" variant="outlined">
+              <div class="text-h6 font-weight-bold text-white mb-1 d-flex align-center gap-2">
+                <v-icon icon="mdi-code-braces" color="purple-lighten-2"></v-icon> Payload Formatter Sandbox
+              </div>
+              <p class="text-caption text-medium-emphasis mb-4">Test JavaScript decoder functions on raw hex bytes in a secure sandbox:</p>
+
+              <v-row>
+                <v-col cols="12" md="6">
+                  <div class="text-caption font-weight-bold text-white mb-1">JavaScript Decoder Function</div>
+                  <v-textarea
+                    v-model="sandboxCode"
+                    rows="10"
+                    variant="outlined"
+                    class="font-mono"
+                    density="comfortable"
+                    color="purple-lighten-2"
+                  ></v-textarea>
+                </v-col>
+
+                <v-col cols="12" md="6">
+                  <div class="text-caption font-weight-bold text-white mb-1">Test Hex String</div>
+                  <div class="d-flex gap-2 mb-3">
+                    <v-text-field
+                      v-model="sandboxHex"
+                      variant="outlined"
+                      density="compact"
+                      class="font-mono"
+                      color="purple-lighten-2"
+                      hide-details
+                    ></v-text-field>
+                    <v-btn color="purple-darken-2" @click="runSandboxDecode">Decode</v-btn>
+                  </div>
+
+                  <div class="text-caption font-weight-bold text-white mb-1">Decoded Output</div>
+                  <pre class="code-box pa-3 text-emerald-lighten-2 font-mono" style="height: 190px; overflow: auto;">{{ sandboxResult }}</pre>
+                </v-col>
+              </v-row>
+            </v-card>
+          </v-window-item>
+
+        </v-window>
+      </v-main>
+
+      <!-- DIALOG: CREATE USER -->
+      <v-dialog v-model="createUserDialog" max-width="500">
+        <v-card color="#1c2541" rounded="xl" class="pa-4">
+          <v-card-title class="text-h6 font-weight-bold text-white">Create User Account</v-card-title>
+          <v-card-text>
+            <v-form @submit.prevent="submitCreateUser">
+              <v-text-field v-model="newUser.username" label="Username" required variant="outlined" density="compact" class="mb-2"></v-text-field>
+              <v-text-field v-model="newUser.fullName" label="Full Name" required variant="outlined" density="compact" class="mb-2"></v-text-field>
+              <v-text-field v-model="newUser.email" label="Email" type="email" required variant="outlined" density="compact" class="mb-2"></v-text-field>
+              <v-text-field v-model="newUser.password" label="Password" type="password" required minlength="6" variant="outlined" density="compact" class="mb-2"></v-text-field>
+              <v-select
+                v-model="newUser.userType"
+                :items="['USER', 'SUB_ADMIN', 'ADMIN']"
+                label="User Type"
+                variant="outlined"
+                density="compact"
+                class="mb-2"
+              ></v-select>
+              <v-select
+                v-model="newUser.roleId"
+                :items="roleSelectItems"
+                label="Assign Role"
+                item-title="title"
+                item-value="value"
+                variant="outlined"
+                density="compact"
+              ></v-select>
+            </v-form>
+          </v-card-text>
+          <v-card-actions class="justify-end">
+            <v-btn variant="text" @click="createUserDialog = false">Cancel</v-btn>
+            <v-btn color="cyan" variant="flat" @click="submitCreateUser" :loading="savingUser">Save User</v-btn>
+          </v-card-actions>
+        </v-card>
+      </v-dialog>
+
+      <!-- DIALOG: EDIT USER -->
+      <v-dialog v-model="editUserDialog" max-width="500">
+        <v-card color="#1c2541" rounded="xl" class="pa-4">
+          <v-card-title class="text-h6 font-weight-bold text-white">Edit User</v-card-title>
+          <v-card-text>
+            <v-text-field v-model="editUser.username" label="Username" disabled variant="outlined" density="compact" class="mb-2"></v-text-field>
+            <v-select
+              v-model="editUser.roleId"
+              :items="roleSelectItems"
+              label="Assign Role"
+              item-title="title"
+              item-value="value"
+              variant="outlined"
+              density="compact"
+              class="mb-2"
+            ></v-select>
+            <v-select
+              v-model="editUser.isActive"
+              :items="[{ title: 'Active', value: true }, { title: 'Suspended', value: false }]"
+              label="Account Status"
+              item-title="title"
+              item-value="value"
+              variant="outlined"
+              density="compact"
+            ></v-select>
+          </v-card-text>
+          <v-card-actions class="justify-end">
+            <v-btn variant="text" @click="editUserDialog = false">Cancel</v-btn>
+            <v-btn color="cyan" variant="flat" @click="submitEditUser" :loading="savingUser">Update User</v-btn>
+          </v-card-actions>
+        </v-card>
+      </v-dialog>
+
+      <!-- DIALOG: CREATE ROLE -->
+      <v-dialog v-model="createRoleDialog" max-width="560">
+        <v-card color="#1c2541" rounded="xl" class="pa-4">
+          <v-card-title class="text-h6 font-weight-bold text-white">Create New Role</v-card-title>
+          <v-card-text>
+            <v-text-field v-model="newRole.code" label="Role Code (e.g. AUDITOR)" required variant="outlined" density="compact" class="mb-2 font-mono"></v-text-field>
+            <v-text-field v-model="newRole.name" label="Display Name" required variant="outlined" density="compact" class="mb-2"></v-text-field>
+            <v-text-field v-model="newRole.description" label="Description" variant="outlined" density="compact" class="mb-2"></v-text-field>
+            <div class="text-caption font-weight-bold text-white mb-2">Assign Permissions:</div>
+            <div style="max-height: 180px; overflow-y: auto;" class="code-box pa-2">
+              <v-checkbox
+                v-for="p in allPermissions"
+                :key="p.id"
+                v-model="newRole.permissions"
+                :value="p.id"
+                :label="p.name + ' (' + (p.description || p.module) + ')'"
+                density="compact"
+                hide-details
+                color="amber"
+              ></v-checkbox>
+            </div>
+          </v-card-text>
+          <v-card-actions class="justify-end">
+            <v-btn variant="text" @click="createRoleDialog = false">Cancel</v-btn>
+            <v-btn color="amber-darken-2" variant="flat" @click="submitCreateRole" :loading="savingRole">Create Role</v-btn>
+          </v-card-actions>
+        </v-card>
+      </v-dialog>
+
+      <!-- DIALOG: EDIT ROLE -->
+      <v-dialog v-model="editRoleDialog" max-width="560">
+        <v-card color="#1c2541" rounded="xl" class="pa-4">
+          <v-card-title class="text-h6 font-weight-bold text-white">Edit Role</v-card-title>
+          <v-card-text>
+            <v-text-field v-model="editingRole.code" label="Role Code" disabled variant="outlined" density="compact" class="mb-2 font-mono"></v-text-field>
+            <v-text-field v-model="editingRole.name" label="Display Name" required variant="outlined" density="compact" class="mb-2"></v-text-field>
+            <v-text-field v-model="editingRole.description" label="Description" variant="outlined" density="compact" class="mb-2"></v-text-field>
+            <div class="text-caption font-weight-bold text-white mb-2">Permissions Matrix:</div>
+            <div style="max-height: 180px; overflow-y: auto;" class="code-box pa-2">
+              <v-checkbox
+                v-for="p in allPermissions"
+                :key="p.id"
+                v-model="editingRole.permissions"
+                :value="p.id"
+                :label="p.name + ' (' + (p.description || p.module) + ')'"
+                density="compact"
+                hide-details
+                color="cyan"
+              ></v-checkbox>
+            </div>
+          </v-card-text>
+          <v-card-actions class="justify-end">
+            <v-btn variant="text" @click="editRoleDialog = false">Cancel</v-btn>
+            <v-btn color="cyan" variant="flat" @click="submitEditRole" :loading="savingRole">Update Role</v-btn>
+          </v-card-actions>
+        </v-card>
+      </v-dialog>
+
+      <!-- DIALOG: REGISTER DEVICE -->
+      <v-dialog v-model="registerDeviceDialog" max-width="500">
+        <v-card color="#1c2541" rounded="xl" class="pa-4">
+          <v-card-title class="text-h6 font-weight-bold text-white">Register LoRaWAN Device</v-card-title>
+          <v-card-text>
+            <v-text-field v-model="newDevice.devEUI" label="DevEUI (16 Hex Characters)" maxlength="16" required variant="outlined" density="compact" class="mb-2 font-mono"></v-text-field>
+            <v-text-field v-model="newDevice.name" label="Device Name" required variant="outlined" density="compact" class="mb-2"></v-text-field>
+            <v-select v-model="newDevice.activationType" :items="['OTAA', 'ABP']" label="Activation Mode" variant="outlined" density="compact" class="mb-2"></v-select>
+            <v-text-field v-model="newDevice.appKey" label="AppKey (Optional)" variant="outlined" density="compact" class="font-mono"></v-text-field>
+          </v-card-text>
+          <v-card-actions class="justify-end">
+            <v-btn variant="text" @click="registerDeviceDialog = false">Cancel</v-btn>
+            <v-btn color="cyan" variant="flat" @click="submitRegisterDevice" :loading="savingDevice">Register</v-btn>
+          </v-card-actions>
+        </v-card>
+      </v-dialog>
+
+      <!-- SNACKBAR TOAST -->
+      <v-snackbar v-model="snackbar.show" :color="snackbar.color" :timeout="3500" location="top right">
+        {{ snackbar.text }}
+        <template v-slot:actions>
+          <v-btn variant="text" @click="snackbar.show = false">Close</v-btn>
+        </template>
+      </v-snackbar>
+    </v-app>
   </div>
 
-  <!-- MODAL: CREATE USER -->
-  <div id="modal-createUser" class="modal-overlay" onclick="window.closeModal('modal-createUser')">
-    <div class="modal-box" onclick="event.stopPropagation()">
-      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
-        <h3 style="font-size:0.875rem; font-weight:700; color:#ffffff;">Create User Account</h3>
-        <button onclick="window.closeModal('modal-createUser')" type="button" class="btn btn-secondary" style="padding:0.2rem 0.4rem;">&#10005;</button>
-      </div>
-      <form id="form-createUser">
-        <div class="form-group">
-          <label class="form-label">Username</label>
-          <input type="text" id="newUsername" required class="form-input" />
-        </div>
-        <div class="form-group">
-          <label class="form-label">Full Name</label>
-          <input type="text" id="newFullName" required class="form-input" />
-        </div>
-        <div class="form-group">
-          <label class="form-label">Email</label>
-          <input type="email" id="newEmail" required class="form-input" />
-        </div>
-        <div class="form-group">
-          <label class="form-label">Password</label>
-          <input type="password" id="newPassword" required minlength="6" class="form-input" />
-        </div>
-        <div class="form-group">
-          <label class="form-label">User Type</label>
-          <select id="newUserType" class="form-input">
-            <option value="USER">Standard User (USER)</option>
-            <option value="SUB_ADMIN">Sub-Administrator (SUB_ADMIN)</option>
-            <option value="ADMIN">Super Administrator (ADMIN)</option>
-          </select>
-        </div>
-        <div class="form-group">
-          <label class="form-label">Assign Role</label>
-          <select id="newUserRoleId" class="form-input">
-            <option value="">Select a role...</option>
-          </select>
-        </div>
-        <div style="display:flex; justify-content:flex-end; gap:0.5rem; margin-top:1.25rem;">
-          <button type="button" onclick="window.closeModal('modal-createUser')" class="btn btn-secondary">Cancel</button>
-          <button type="submit" class="btn btn-primary">Save User</button>
-        </div>
-      </form>
-    </div>
-  </div>
-
-  <!-- MODAL: EDIT USER -->
-  <div id="modal-editUser" class="modal-overlay" onclick="window.closeModal('modal-editUser')">
-    <div class="modal-box" onclick="event.stopPropagation()">
-      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
-        <h3 style="font-size:0.875rem; font-weight:700; color:#ffffff;">Edit User Status & Role</h3>
-        <button onclick="window.closeModal('modal-editUser')" type="button" class="btn btn-secondary" style="padding:0.2rem 0.4rem;">&#10005;</button>
-      </div>
-      <form id="form-editUser">
-        <input type="hidden" id="editUserId" />
-        <div class="form-group">
-          <label class="form-label">Username</label>
-          <input type="text" id="editUserDisplay" disabled class="form-input" style="color:var(--text-dim);" />
-        </div>
-        <div class="form-group">
-          <label class="form-label">Assign Role</label>
-          <select id="editUserRoleId" class="form-input">
-            <option value="">No role assigned</option>
-          </select>
-        </div>
-        <div class="form-group">
-          <label class="form-label">Account Status</label>
-          <select id="editUserActive" class="form-input">
-            <option value="true">Active</option>
-            <option value="false">Suspended</option>
-          </select>
-        </div>
-        <div style="display:flex; justify-content:flex-end; gap:0.5rem; margin-top:1.25rem;">
-          <button type="button" onclick="window.closeModal('modal-editUser')" class="btn btn-secondary">Cancel</button>
-          <button type="submit" class="btn btn-primary">Update User</button>
-        </div>
-      </form>
-    </div>
-  </div>
-
-  <!-- MODAL: CREATE ROLE -->
-  <div id="modal-createRole" class="modal-overlay" onclick="window.closeModal('modal-createRole')">
-    <div class="modal-box" style="max-width:550px;" onclick="event.stopPropagation()">
-      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
-        <h3 style="font-size:0.875rem; font-weight:700; color:#ffffff;">Create New Role</h3>
-        <button onclick="window.closeModal('modal-createRole')" type="button" class="btn btn-secondary" style="padding:0.2rem 0.4rem;">&#10005;</button>
-      </div>
-      <form id="form-createRole">
-        <div class="form-group">
-          <label class="form-label">Role Code (Uppercase)</label>
-          <input type="text" id="newRoleCode" required placeholder="e.g. AUDITOR" class="form-input" style="font-family:monospace; text-transform:uppercase;" />
-        </div>
-        <div class="form-group">
-          <label class="form-label">Display Name</label>
-          <input type="text" id="newRoleName" required class="form-input" />
-        </div>
-        <div class="form-group">
-          <label class="form-label">Description</label>
-          <input type="text" id="newRoleDescription" class="form-input" />
-        </div>
-        <div class="form-group">
-          <label class="form-label">Assign Permissions</label>
-          <div id="newRolePermsContainer" style="max-height:160px; overflow-y:auto; padding:0.5rem; background:#0b132b; border:1px solid var(--border); border-radius:6px; display:flex; flex-direction:column; gap:0.35rem;">
-            <span style="color:var(--text-dim); font-size:0.6875rem;">Loading permissions...</span>
-          </div>
-        </div>
-        <div style="display:flex; justify-content:flex-end; gap:0.5rem; margin-top:1.25rem;">
-          <button type="button" onclick="window.closeModal('modal-createRole')" class="btn btn-secondary">Cancel</button>
-          <button type="submit" class="btn btn-warning">Create Role</button>
-        </div>
-      </form>
-    </div>
-  </div>
-
-  <!-- MODAL: EDIT ROLE -->
-  <div id="modal-editRole" class="modal-overlay" onclick="window.closeModal('modal-editRole')">
-    <div class="modal-box" style="max-width:550px;" onclick="event.stopPropagation()">
-      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
-        <h3 style="font-size:0.875rem; font-weight:700; color:#ffffff;">Edit Role Definition</h3>
-        <button onclick="window.closeModal('modal-editRole')" type="button" class="btn btn-secondary" style="padding:0.2rem 0.4rem;">&#10005;</button>
-      </div>
-      <form id="form-editRole">
-        <input type="hidden" id="editRoleId" />
-        <div class="form-group">
-          <label class="form-label">Role Code</label>
-          <input type="text" id="editRoleCode" disabled class="form-input" style="font-family:monospace; color:var(--text-dim);" />
-        </div>
-        <div class="form-group">
-          <label class="form-label">Display Name</label>
-          <input type="text" id="editRoleName" required class="form-input" />
-        </div>
-        <div class="form-group">
-          <label class="form-label">Description</label>
-          <input type="text" id="editRoleDescription" class="form-input" />
-        </div>
-        <div class="form-group">
-          <label class="form-label">Permissions Matrix</label>
-          <div id="editRolePermsContainer" style="max-height:160px; overflow-y:auto; padding:0.5rem; background:#0b132b; border:1px solid var(--border); border-radius:6px; display:flex; flex-direction:column; gap:0.35rem;">
-            <span style="color:var(--text-dim); font-size:0.6875rem;">Loading permissions...</span>
-          </div>
-        </div>
-        <div style="display:flex; justify-content:flex-end; gap:0.5rem; margin-top:1.25rem;">
-          <button type="button" onclick="window.closeModal('modal-editRole')" class="btn btn-secondary">Cancel</button>
-          <button type="submit" class="btn btn-primary">Update Role</button>
-        </div>
-      </form>
-    </div>
-  </div>
-
-  <!-- MODAL: REGISTER DEVICE -->
-  <div id="modal-registerDevice" class="modal-overlay" onclick="window.closeModal('modal-registerDevice')">
-    <div class="modal-box" onclick="event.stopPropagation()">
-      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
-        <h3 style="font-size:0.875rem; font-weight:700; color:#ffffff;">Register LoRaWAN Device</h3>
-        <button onclick="window.closeModal('modal-registerDevice')" type="button" class="btn btn-secondary" style="padding:0.2rem 0.4rem;">&#10005;</button>
-      </div>
-      <form id="form-registerDevice">
-        <div class="form-group">
-          <label class="form-label">DevEUI (16 Hex Characters)</label>
-          <input type="text" id="newDevEUI" required placeholder="0018B20000000001" maxlength="16" class="form-input" style="font-family:monospace; text-transform:uppercase;" />
-        </div>
-        <div class="form-group">
-          <label class="form-label">Device Name</label>
-          <input type="text" id="newDeviceName" required placeholder="e.g. Temperature Sensor 01" class="form-input" />
-        </div>
-        <div class="form-group">
-          <label class="form-label">Activation Mode</label>
-          <select id="newActivationType" class="form-input">
-            <option value="OTAA">OTAA (Over-The-Air Activation)</option>
-            <option value="ABP">ABP (Activation By Personalization)</option>
-          </select>
-        </div>
-        <div class="form-group">
-          <label class="form-label">AppKey (Optional)</label>
-          <input type="text" id="newAppKey" placeholder="32 Hex AppKey (if OTAA)" class="form-input" style="font-family:monospace;" />
-        </div>
-        <div style="display:flex; justify-content:flex-end; gap:0.5rem; margin-top:1.25rem;">
-          <button type="button" onclick="window.closeModal('modal-registerDevice')" class="btn btn-secondary">Cancel</button>
-          <button type="submit" class="btn btn-primary">Register Device</button>
-        </div>
-      </form>
-    </div>
-  </div>
-
+  <!-- Vue 3 and Vuetify 3 CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/vue@3.4.31/dist/vue.global.prod.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/vuetify@3.6.14/dist/vuetify.min.js"></script>
   <script>
-    // DEFINE ALL FUNCTIONS GLOBALLY FIRST
-    window.allAvailablePermissions = [];
-    window.allAvailableRoles = [];
-    window.allLoadedUsers = [];
-    window.allLoadedDevices = [];
+    const { createApp, ref, computed, onMounted, watch } = Vue;
+    const { createVuetify } = Vuetify;
 
-    window.showToast = function(msg, type) {
-      var wrap = document.getElementById("toastWrap");
-      if (!wrap) return;
-      var el = document.createElement("div");
-      el.className = "toast-msg";
-      if (type === "error") {
-        el.style.cssText = "background:#450a0a; color:#fca5a5; border:1px solid #ef4444;";
-        el.innerHTML = "<span>&#9888;</span> <span>" + msg + "</span>";
-      } else if (type === "success") {
-        el.style.cssText = "background:#022c22; color:#6ee7b7; border:1px solid #10b981;";
-        el.innerHTML = "<span>&#10004;</span> <span>" + msg + "</span>";
-      } else {
-        el.style.cssText = "background:#082f49; color:#7dd3fc; border:1px solid #00b4d8;";
-        el.innerHTML = "<span>&#9432;</span> <span>" + msg + "</span>";
-      }
-      wrap.appendChild(el);
-      setTimeout(function() {
-        el.style.opacity = "0";
-        setTimeout(function() { if (el.parentNode) el.parentNode.removeChild(el); }, 200);
-      }, 3500);
-    };
+    const vuetify = createVuetify({
+      theme: { defaultTheme: 'dark' }
+    });
 
-    window.copyToClipboard = function(text) {
-      if (navigator.clipboard) {
-        navigator.clipboard.writeText(text).then(function() {
-          window.showToast("Copied to clipboard!", "success");
-        }).catch(function() {
-          window.showToast("Copy failed", "error");
+    const app = createApp({
+      setup() {
+        const drawer = ref(true);
+        const tab = ref('overview');
+
+        const tabTitles = {
+          overview: 'Overview Dashboard',
+          users: 'User Directory',
+          roles: 'Role Matrix & Permissions',
+          database: 'Database Health & Routing',
+          devices: 'LoRaWAN Device Fleet',
+          telemetry: 'Live Telemetry Uplinks',
+          webhooks: 'Webhook Ingestion Endpoints',
+          decoder: 'Payload Formatter Sandbox'
+        };
+
+        const tabCategories = {
+          overview: 'Real-time',
+          users: 'RBAC Security',
+          roles: 'RBAC Matrix',
+          database: 'Infrastructure',
+          devices: 'Fleet Management',
+          telemetry: 'Uplink Stream',
+          webhooks: 'Integration',
+          decoder: 'JS Engine'
+        };
+
+        const snackbar = ref({ show: false, text: '', color: 'info' });
+        const showToast = (text, color = 'info') => {
+          snackbar.value = { show: true, text, color: color === 'error' ? 'error' : (color === 'success' ? 'success' : 'info') };
+        };
+
+        const currentUser = ref({});
+        const usersList = ref([]);
+        const rolesList = ref([]);
+        const allPermissions = ref([]);
+        const dbHealth = ref({ totalConnections: 1, connections: {}, tableStats: {} });
+        const devicesList = ref([]);
+        const telemetryList = ref([]);
+
+        const loadingUsers = ref(false);
+        const loadingRoles = ref(false);
+
+        // Dialogs
+        const createUserDialog = ref(false);
+        const editUserDialog = ref(false);
+        const createRoleDialog = ref(false);
+        const editRoleDialog = ref(false);
+        const registerDeviceDialog = ref(false);
+
+        const savingUser = ref(false);
+        const savingRole = ref(false);
+        const savingDevice = ref(false);
+
+        const newUser = ref({ username: '', fullName: '', email: '', password: '', userType: 'USER', roleId: '' });
+        const editUser = ref({ id: '', username: '', roleId: '', isActive: true });
+        const newRole = ref({ code: '', name: '', description: '', permissions: [] });
+        const editingRole = ref({ id: '', code: '', name: '', description: '', permissions: [] });
+        const newDevice = ref({ devEUI: '', name: '', activationType: 'OTAA', appKey: '' });
+
+        // Decoder Sandbox
+        const sandboxCode = ref("function decodeUplink(bytes, fPort) {\\n  var temperature = ((bytes[0] << 8) | bytes[1]) / 100;\\n  var humidity = bytes[2];\\n  return { temperature, humidity };\\n}");
+        const sandboxHex = ref("09C441");
+        const sandboxResult = ref('{\\n  "ready": true\\n}');
+
+        const roleSelectItems = computed(() => {
+          return [
+            { title: 'No role assigned', value: '' },
+            ...rolesList.value.map(r => ({ title: r.name + ' (' + r.code + ')', value: r.id }))
+          ];
         });
-      } else {
-        var ta = document.createElement("textarea");
-        ta.value = text;
-        document.body.appendChild(ta);
-        ta.select();
-        document.execCommand("copy");
-        document.body.removeChild(ta);
-        window.showToast("Copied to clipboard!", "success");
-      }
-    };
 
-    window.forceCleanSession = function() {
-      try {
-        localStorage.clear();
-        sessionStorage.clear();
-      } catch(e) {}
-      var cookies = ["access_token", "lorawan_token", "session_id", "connect.sid"];
-      for (var i = 0; i < cookies.length; i++) {
-        var c = cookies[i];
-        document.cookie = c + "=; Path=/; Expires=Thu, 01 Jan 1970 00:00:01 GMT; Max-Age=0; SameSite=Lax;";
-        document.cookie = c + "=; Path=/; Expires=Thu, 01 Jan 1970 00:00:01 GMT; Max-Age=0;";
-      }
-      window.location.replace("/login?cleared=1");
-    };
-
-    window.getAuthToken = function() {
-      var token = null;
-      try {
-        token = localStorage.getItem("lorawan_token");
-      } catch(e) {}
-      if (!token || token === "undefined" || token === "null") {
-        var match = document.cookie.match(/(?:^|;\\s*)access_token=([^;]*)/);
-        if (match && match[1] && match[1] !== "undefined" && match[1] !== "null") {
-          token = decodeURIComponent(match[1]);
-        }
-      }
-      return token;
-    };
-
-    window.authHeaders = function() {
-      var headers = { "Content-Type": "application/json" };
-      var token = window.getAuthToken();
-      if (token) headers["Authorization"] = "Bearer " + token;
-      return headers;
-    };
-
-    window.switchTab = function(tabId) {
-      var tabs = ["overview", "users", "roles", "database", "devices", "telemetry", "webhooks", "decoder"];
-      if (tabs.indexOf(tabId) === -1) tabId = "overview";
-
-      for (var i = 0; i < tabs.length; i++) {
-        var t = tabs[i];
-        var btn = document.getElementById("tabBtn-" + t);
-        var pane = document.getElementById("pane-" + t);
-        if (btn) {
-          if (t === tabId) btn.classList.add("active");
-          else btn.classList.remove("active");
-        }
-        if (pane) {
-          if (t === tabId) pane.classList.add("active");
-          else pane.classList.remove("active");
-        }
-      }
-
-      try {
-        window.history.replaceState(null, null, "#" + tabId);
-      } catch(e) {}
-
-      if (tabId === "users") window.loadUsers();
-      if (tabId === "roles") window.loadRoles();
-      if (tabId === "database") window.loadDatabaseHealth();
-      if (tabId === "devices") window.loadDevices();
-      if (tabId === "telemetry") window.loadTelemetry();
-    };
-
-    window.handleLogout = async function() {
-      try {
-        await fetch("/auth/logout", { method: "POST", headers: window.authHeaders(), credentials: "include" });
-      } catch(e) {}
-      try {
-        await fetch("/reset-session", { method: "POST", credentials: "include" });
-      } catch(e) {}
-      window.forceCleanSession();
-    };
-
-    window.openModal = function(id) {
-      var modal = document.getElementById(id);
-      if (modal) modal.classList.add("open");
-    };
-
-    window.closeModal = function(id) {
-      var modal = document.getElementById(id);
-      if (modal) modal.classList.remove("open");
-    };
-
-    window.openCreateUserModal = function() {
-      var select = document.getElementById("newUserRoleId");
-      if (select) {
-        select.innerHTML = '<option value="">Select a role...</option>';
-        if (Array.isArray(window.allAvailableRoles)) {
-          for (var i = 0; i < window.allAvailableRoles.length; i++) {
-            var r = window.allAvailableRoles[i];
-            select.innerHTML += '<option value="' + r.id + '">' + r.name + ' (' + r.code + ')</option>';
+        const getAuthToken = () => {
+          let token = localStorage.getItem('lorawan_token');
+          if (!token || token === 'undefined' || token === 'null') {
+            const match = document.cookie.match(/(?:^|;\\s*)access_token=([^;]*)/);
+            if (match && match[1] && match[1] !== 'undefined') {
+              token = decodeURIComponent(match[1]);
+            }
           }
-        }
-      }
-      window.openModal("modal-createUser");
-    };
+          return token;
+        };
 
-    window.openEditUserModal = function(userId) {
-      var user = (window.allLoadedUsers || []).find(function(u) { return u.id === userId; });
-      if (!user) return;
+        const authHeaders = () => {
+          const headers = { 'Content-Type': 'application/json' };
+          const token = getAuthToken();
+          if (token) headers['Authorization'] = 'Bearer ' + token;
+          return headers;
+        };
 
-      document.getElementById("editUserId").value = user.id;
-      document.getElementById("editUserDisplay").value = user.username + " (" + (user.email || "") + ")";
-      document.getElementById("editUserActive").value = user.isActive ? "true" : "false";
-
-      var select = document.getElementById("editUserRoleId");
-      select.innerHTML = '<option value="">No role assigned</option>';
-      var currentRoleId = user.roles && user.roles[0] ? user.roles[0].id : "";
-
-      if (Array.isArray(window.allAvailableRoles)) {
-        for (var i = 0; i < window.allAvailableRoles.length; i++) {
-          var r = window.allAvailableRoles[i];
-          var isSelected = r.id === currentRoleId ? " selected" : "";
-          select.innerHTML += '<option value="' + r.id + '"' + isSelected + '>' + r.name + ' (' + r.code + ')</option>';
-        }
-      }
-      window.openModal("modal-editUser");
-    };
-
-    window.openCreateRoleModal = function() {
-      var container = document.getElementById("newRolePermsContainer");
-      if (container) {
-        container.innerHTML = "";
-        if (Array.isArray(window.allAvailablePermissions)) {
-          for (var i = 0; i < window.allAvailablePermissions.length; i++) {
-            var p = window.allAvailablePermissions[i];
-            container.innerHTML += '<label style="display:flex;align-items:center;gap:0.5rem;font-size:0.6875rem;color:var(--text-dim);cursor:pointer;">' +
-              '<input type="checkbox" value="' + p.id + '" class="new-role-perm" />' +
-              '<span style="font-family:monospace;color:#fbbf24;">' + p.name + '</span>' +
-              '<span style="color:#64748b;">(' + (p.description || p.module) + ')</span>' +
-              '</label>';
-          }
-        }
-      }
-      window.openModal("modal-createRole");
-    };
-
-    window.openEditRoleModal = function(roleId) {
-      var role = (window.allAvailableRoles || []).find(function(r) { return r.id === roleId; });
-      if (!role) return;
-
-      document.getElementById("editRoleId").value = role.id;
-      document.getElementById("editRoleCode").value = role.code;
-      document.getElementById("editRoleName").value = role.name;
-      document.getElementById("editRoleDescription").value = role.description || "";
-
-      var container = document.getElementById("editRolePermsContainer");
-      container.innerHTML = "";
-      var assignedIds = (role.permissions || []).map(function(p) { return p.id; });
-
-      if (Array.isArray(window.allAvailablePermissions)) {
-        for (var j = 0; j < window.allAvailablePermissions.length; j++) {
-          var p = window.allAvailablePermissions[j];
-          var isChecked = assignedIds.indexOf(p.id) !== -1;
-          container.innerHTML += '<label style="display:flex;align-items:center;gap:0.5rem;font-size:0.6875rem;color:var(--text-dim);cursor:pointer;">' +
-            '<input type="checkbox" value="' + p.id + '" ' + (isChecked ? "checked" : "") + ' class="edit-role-perm" />' +
-            '<span style="font-family:monospace;color:#00b4d8;">' + p.name + '</span>' +
-            '<span style="color:#64748b;">(' + (p.description || p.module) + ')</span>' +
-            '</label>';
-        }
-      }
-      window.openModal("modal-editRole");
-    };
-
-    window.openRegisterDeviceModal = function() {
-      window.openModal("modal-registerDevice");
-    };
-
-    window.loadUsers = async function() {
-      try {
-        var res = await fetch("/users", { headers: window.authHeaders(), credentials: "include" });
-        if (!res.ok) throw new Error("HTTP " + res.status);
-        var users = await res.json();
-        window.allLoadedUsers = users;
-        
-        var totalEl = document.getElementById("metricUsers");
-        if (totalEl) totalEl.textContent = users.length;
-        var tbody = document.getElementById("usersTableBody");
-        if (!tbody) return;
-        tbody.innerHTML = "";
-
-        if (users.length === 0) {
-          tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--text-dim);padding:2rem;">No user accounts found.</td></tr>';
-          return;
-        }
-
-        for (var i = 0; i < users.length; i++) {
-          var u = users[i];
-          var isSuper = u.userType === "ADMIN" || String(u.userType).toUpperCase() === "ADMIN" || u.username === "admin" || (u.roles && u.roles.some(function(r) { return r.code === "SUPER_ADMIN"; }));
-          var typeBadge = isSuper ? '<span class="badge badge-success">ADMIN</span>' : '<span class="badge badge-primary">' + u.userType + '</span>';
-          var rolesBadges = u.roles && u.roles.length > 0 ? u.roles.map(function(r) { return '<span class="badge badge-primary" style="margin-right:0.25rem;">' + (r.name || r.code) + '</span>'; }).join("") : '<span style="color:#64748b;">None</span>';
-          var actions = isSuper ? '<span style="color:#64748b;font-size:0.6875rem;">Protected</span>' : '<div style="display:flex;gap:0.35rem;justify-content:flex-end;"><button onclick="window.openEditUserModal(\'' + u.id + '\')" type="button" class="btn btn-secondary" style="padding:0.25rem 0.5rem;">Edit</button><button onclick="window.deleteUser(\'' + u.id + '\')" type="button" class="btn btn-danger" style="padding:0.25rem 0.5rem;">Delete</button></div>';
-
-          var tr = document.createElement("tr");
-          tr.innerHTML = '<td style="font-weight:600;color:#ffffff;font-family:monospace;">' + u.username + '</td>' +
-            '<td>' + (u.fullName || "--") + '</td>' +
-            '<td style="color:var(--text-dim);">' + u.email + '</td>' +
-            '<td>' + typeBadge + '</td>' +
-            '<td>' + rolesBadges + '</td>' +
-            '<td><span class="' + (u.isActive ? "badge badge-success" : "badge badge-danger") + '">' + (u.isActive ? "Active" : "Suspended") + '</span></td>' +
-            '<td style="text-align:right;">' + actions + '</td>';
-          tbody.appendChild(tr);
-        }
-      } catch (err) {
-        var tbody = document.getElementById("usersTableBody");
-        if (tbody) tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:#f87171;padding:2rem;">Notice: ' + err.message + '</td></tr>';
-      }
-    };
-
-    window.loadRoles = async function() {
-      try {
-        var results = await Promise.all([
-          fetch("/roles", { headers: window.authHeaders(), credentials: "include" }),
-          fetch("/roles/permissions", { headers: window.authHeaders(), credentials: "include" })
-        ]);
-
-        window.allAvailableRoles = await results[0].json();
-        window.allAvailablePermissions = await results[1].json();
-
-        var totalEl = document.getElementById("metricRoles");
-        if (totalEl) totalEl.textContent = window.allAvailableRoles.length;
-
-        var grid = document.getElementById("rolesCardsGrid");
-        if (grid) {
-          grid.innerHTML = "";
-          for (var i = 0; i < window.allAvailableRoles.length; i++) {
-            var r = window.allAvailableRoles[i];
-            var isSuper = r.code === "SUPER_ADMIN";
-            var card = document.createElement("div");
-            card.style.cssText = "background:#0b132b;border:1px solid var(--border);border-radius:8px;padding:0.875rem;";
-            card.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:center;">' +
-              '<span style="font-weight:700;color:' + (isSuper ? "#34d399" : "#00b4d8") + ';font-size:0.8125rem;">' + r.name + '</span>' +
-              '<span class="' + (isSuper ? "badge badge-success" : "badge badge-primary") + '">' + r.code + '</span>' +
-              '</div>' +
-              '<div style="font-size:0.6875rem;color:var(--text-dim);margin:0.35rem 0;">' + (r.description || "No description") + '</div>' +
-              '<div style="font-size:0.6875rem;color:#64748b;">' + (r.permissions ? r.permissions.length : 0) + ' permissions assigned</div>';
-            grid.appendChild(card);
-          }
-        }
-
-        var tbody = document.getElementById("rolesTableBody");
-        if (tbody) {
-          tbody.innerHTML = "";
-          for (var j = 0; j < window.allAvailableRoles.length; j++) {
-            var r = window.allAvailableRoles[j];
-            var isSuper = r.code === "SUPER_ADMIN";
-            var perms = r.permissions && r.permissions.length > 0 ? r.permissions.map(function(p) { return '<span class="badge badge-primary" style="margin-right:0.2rem;margin-bottom:0.2rem;">' + p.name + '</span>'; }).join("") : '<span style="color:#64748b;">None</span>';
-            var action = isSuper ? '<span style="color:#64748b;font-size:0.6875rem;">Immutable</span>' : '<div style="display:flex;gap:0.35rem;justify-content:flex-end;"><button onclick="window.openEditRoleModal(\'' + r.id + '\')" type="button" class="btn btn-secondary" style="padding:0.25rem 0.5rem;">Edit</button><button onclick="window.deleteRole(\'' + r.id + '\')" type="button" class="btn btn-danger" style="padding:0.25rem 0.5rem;">Delete</button></div>';
-
-            var tr = document.createElement("tr");
-            tr.innerHTML = '<td style="font-family:monospace;font-weight:700;color:' + (isSuper ? "#34d399" : "#00b4d8") + ';">' + r.code + '</td>' +
-              '<td style="font-weight:600;color:#ffffff;">' + r.name + '</td>' +
-              '<td style="color:var(--text-dim);">' + (r.description || "--") + '</td>' +
-              '<td>' + perms + '</td>' +
-              '<td style="text-align:right;">' + action + '</td>';
-            tbody.appendChild(tr);
-          }
-        }
-      } catch (err) {
-        var tbody = document.getElementById("rolesTableBody");
-        if (tbody) tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#f87171;padding:2rem;">Notice: ' + err.message + '</td></tr>';
-      }
-    };
-
-    window.loadDatabaseHealth = async function() {
-      try {
-        var res = await fetch("/database/health", { headers: window.authHeaders(), credentials: "include" });
-        var data = await res.json();
-        var poolsEl = document.getElementById("metricDb");
-        if (poolsEl) poolsEl.textContent = data.totalConnections;
-
-        var grid = document.getElementById("dbPoolsGrid");
-        if (grid && data.connections) {
-          grid.innerHTML = "";
-          var conns = Object.values(data.connections);
-          for (var i = 0; i < conns.length; i++) {
-            var c = conns[i];
-            var card = document.createElement("div");
-            card.style.cssText = "background:#0b132b;border:1px solid var(--border);border-radius:8px;padding:0.875rem;";
-            card.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.5rem;">' +
-              '<span style="font-weight:700;color:#ffffff;font-family:monospace;">' + c.name + '</span>' +
-              '<span class="' + (c.isAlive ? "badge badge-success" : "badge badge-danger") + '">' + (c.isAlive ? "CONNECTED" : "OFFLINE") + '</span>' +
-              '</div>' +
-              '<div style="font-size:0.6875rem;color:var(--text-dim);line-height:1.6;font-family:monospace;">' +
-              '<div>Host: <strong style="color:#ffffff;">' + c.host + ':' + c.port + '</strong></div>' +
-              '<div>Database: <strong style="color:#ffffff;">' + c.database + '</strong></div>' +
-              '<div>Ping Latency: <strong style="color:' + (c.latencyMs < 50 ? "#34d399" : "#fbbf24") + ';">' + (c.latencyMs !== null ? c.latencyMs + ' ms' : 'N/A') + '</strong></div>' +
-              '<div>Pool Size: <strong style="color:#ffffff;">' + c.poolSize + ' connections</strong></div>' +
-              '</div>';
-            grid.appendChild(card);
-          }
-        }
-
-        var tbody = document.getElementById("tableStatsBody");
-        if (tbody && data.tableStats) {
-          tbody.innerHTML = "";
-          var entries = Object.entries(data.tableStats);
-          for (var j = 0; j < entries.length; j++) {
-            var table = entries[j][0];
-            var stat = entries[j][1];
-            var tr = document.createElement("tr");
-            tr.innerHTML = '<td style="font-weight:700;color:#ffffff;font-family:monospace;">' + table + '</td>' +
-              '<td style="color:#00b4d8;font-family:monospace;">' + stat.routedTo + '</td>' +
-              '<td style="color:#34d399;font-weight:600;">' + Number(stat.recordCount).toLocaleString() + ' rows</td>' +
-              '<td><span class="badge badge-success">' + stat.status + '</span></td>';
-            tbody.appendChild(tr);
-          }
-        }
-      } catch (err) {
-        var grid = document.getElementById("dbPoolsGrid");
-        if (grid) grid.innerHTML = '<div style="padding:1rem;color:#f87171;text-align:center;">Could not load database health (' + err.message + ')</div>';
-      }
-    };
-
-    window.loadDevices = async function() {
-      try {
-        var res = await fetch("/lorawan/devices", { headers: window.authHeaders(), credentials: "include" });
-        var devices = await res.json();
-        window.allLoadedDevices = devices;
-        var tbody = document.getElementById("devicesTableBody");
-        if (!tbody) return;
-        tbody.innerHTML = "";
-
-        if (!Array.isArray(devices) || devices.length === 0) {
-          tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--text-dim);padding:2rem;">No LoRaWAN devices registered. Click "+ Register Device" to add one.</td></tr>';
-          return;
-        }
-
-        for (var i = 0; i < devices.length; i++) {
-          var d = devices[i];
-          var tr = document.createElement("tr");
-          tr.innerHTML = '<td style="font-weight:700;color:#00b4d8;font-family:monospace;">' + d.devEUI + '</td>' +
-            '<td style="color:#ffffff;font-weight:600;">' + (d.name || "--") + '</td>' +
-            '<td><span class="badge badge-warning">' + (d.activationType || "OTAA") + '</span></td>' +
-            '<td>' + (d.payloadFormatterScript ? '<span style="color:#34d399;">&#10004; Configured</span>' : '<span style="color:#64748b;">None</span>') + '</td>' +
-            '<td><span class="' + (d.isActive ? "badge badge-success" : "badge badge-danger") + '">' + (d.isActive ? "ACTIVE" : "INACTIVE") + '</span></td>' +
-            '<td style="text-align:right;"><button onclick="window.testDeviceDecoder(\'' + d.devEUI + '\')" type="button" class="btn btn-secondary" style="padding:0.25rem 0.5rem;">Test Payload</button></td>';
-          tbody.appendChild(tr);
-        }
-      } catch (err) {
-        var tbody = document.getElementById("devicesTableBody");
-        if (tbody) tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#f87171;padding:2rem;">Could not load devices (' + err.message + ')</td></tr>';
-      }
-    };
-
-    window.loadTelemetry = async function() {
-      try {
-        var res = await fetch("/lorawan/telemetry?limit=25", { headers: window.authHeaders(), credentials: "include" });
-        var logs = await res.json();
-        var tbody = document.getElementById("telemetryTableBody");
-        if (!tbody) return;
-        tbody.innerHTML = "";
-
-        if (!Array.isArray(logs) || logs.length === 0) {
-          tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--text-dim);padding:2rem;">No incoming telemetry packets yet. Send a webhook to see live data.</td></tr>';
-          return;
-        }
-
-        for (var i = 0; i < logs.length; i++) {
-          var t = logs[i];
-          var decodedStr = typeof t.decodedPayload === "object" ? JSON.stringify(t.decodedPayload) : (t.decodedPayload || "--");
-          var tr = document.createElement("tr");
-          tr.innerHTML = '<td style="color:var(--text-dim);font-size:0.6875rem;">' + new Date(t.timestamp || t.createdAt).toLocaleTimeString() + '</td>' +
-            '<td style="font-weight:700;color:#00b4d8;font-family:monospace;">' + (t.devEUI || "--") + '</td>' +
-            '<td style="color:#fbbf24;font-family:monospace;">p:' + (t.fPort || 1) + ' / c:' + (t.fCnt || 0) + '</td>' +
-            '<td style="color:#ffffff;font-family:monospace;">' + (t.payloadHex || "--") + '</td>' +
-            '<td style="color:#34d399;font-family:monospace;">' + decodedStr + '</td>' +
-            '<td style="color:var(--text-dim);">' + (t.rssi !== undefined ? t.rssi + ' dBm' : '--') + ' / ' + (t.snr !== undefined ? t.snr + ' dB' : '--') + '</td>';
-          tbody.appendChild(tr);
-        }
-      } catch (err) {
-        var tbody = document.getElementById("telemetryTableBody");
-        if (tbody) tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#f87171;padding:2rem;">Could not load telemetry (' + err.message + ')</td></tr>';
-      }
-    };
-
-    window.reloadDbConfig = async function() {
-      try {
-        var res = await fetch("/database/reload", { method: "POST", headers: window.authHeaders(), credentials: "include" });
-        var data = await res.json();
-        window.showToast(data.message || "Configuration reloaded successfully", "success");
-        window.loadDatabaseHealth();
-      } catch (err) {
-        window.showToast("Reload failed: " + err.message, "error");
-      }
-    };
-
-    window.deleteUser = async function(id) {
-      if (!confirm("Are you sure you want to delete this user?")) return;
-      try {
-        var res = await fetch("/users/" + id, { method: "DELETE", headers: window.authHeaders(), credentials: "include" });
-        if (!res.ok) throw new Error("Delete failed");
-        window.showToast("User removed successfully", "success");
-        window.loadUsers();
-      } catch (err) {
-        window.showToast(err.message, "error");
-      }
-    };
-
-    window.deleteRole = async function(id) {
-      if (!confirm("Are you sure you want to delete this role?")) return;
-      try {
-        var res = await fetch("/roles/" + id, { method: "DELETE", headers: window.authHeaders(), credentials: "include" });
-        if (!res.ok) throw new Error("Delete role failed");
-        window.showToast("Role deleted successfully", "success");
-        window.loadRoles();
-      } catch (err) {
-        window.showToast(err.message, "error");
-      }
-    };
-
-    window.testDeviceDecoder = function(devEUI) {
-      window.switchTab("decoder");
-      var hexInput = document.getElementById("sandboxHex");
-      if (hexInput) hexInput.focus();
-    };
-
-    window.runSandboxDecode = function() {
-      var code = document.getElementById("sandboxCode").value;
-      var hex = document.getElementById("sandboxHex").value.trim().replace(/\\s+/g, "");
-      var resultArea = document.getElementById("sandboxResult");
-
-      try {
-        var bytes = [];
-        for (var c = 0; c < hex.length; c += 2) {
-          bytes.push(parseInt(hex.substr(c, 2), 16));
-        }
-        var fn = new Function("bytes", "fPort", code + "; return decodeUplink(bytes, fPort);");
-        var output = fn(bytes, 1);
-        resultArea.textContent = JSON.stringify(output, null, 2);
-        window.showToast("Decoder executed successfully", "success");
-      } catch (err) {
-        resultArea.textContent = "Decoder Error: " + err.message;
-        window.showToast("Decoder Error: " + err.message, "error");
-      }
-    };
-
-    // FORM BINDINGS
-    window.bindForms = function() {
-      var fCreateUser = document.getElementById("form-createUser");
-      if (fCreateUser) {
-        fCreateUser.onsubmit = async function(e) {
-          e.preventDefault();
-          var username = document.getElementById("newUsername").value.trim();
-          var fullName = document.getElementById("newFullName").value.trim();
-          var email = document.getElementById("newEmail").value.trim();
-          var password = document.getElementById("newPassword").value;
-          var userType = document.getElementById("newUserType").value;
-          var roleId = document.getElementById("newUserRoleId").value;
-
+        const forceCleanSession = () => {
           try {
-            var res = await fetch("/users", {
-              method: "POST",
-              headers: window.authHeaders(),
-              credentials: "include",
-              body: JSON.stringify({ username: username, fullName: fullName, email: email, password: password, userType: userType, roleIds: roleId ? [roleId] : [] })
+            localStorage.clear();
+            sessionStorage.clear();
+          } catch(e) {}
+          const cookies = ["access_token", "lorawan_token", "session_id", "connect.sid"];
+          cookies.forEach(c => {
+            document.cookie = c + "=; Path=/; Expires=Thu, 01 Jan 1970 00:00:01 GMT; Max-Age=0; SameSite=Lax;";
+            document.cookie = c + "=; Path=/; Expires=Thu, 01 Jan 1970 00:00:01 GMT; Max-Age=0;";
+          });
+          window.location.replace('/login?cleared=1');
+        };
+
+        const handleLogout = async () => {
+          try {
+            await fetch('/auth/logout', { method: 'POST', credentials: 'include' });
+          } catch(e) {}
+          forceCleanSession();
+        };
+
+        const copyUrl = (path) => {
+          const full = window.location.origin + path;
+          navigator.clipboard.writeText(full).then(() => {
+            showToast("Copied endpoint URL to clipboard!", "success");
+          });
+        };
+
+        const formatTime = (ts) => {
+          if (!ts) return '--';
+          return new Date(ts).toLocaleTimeString();
+        };
+
+        const formatDecoded = (payload) => {
+          if (!payload) return '--';
+          if (typeof payload === 'object') return JSON.stringify(payload);
+          return String(payload);
+        };
+
+        // Fetchers
+        const fetchUsers = async () => {
+          loadingUsers.value = true;
+          try {
+            const res = await fetch('/users', { headers: authHeaders(), credentials: 'include' });
+            if (res.ok) {
+              usersList.value = await res.json();
+            }
+          } catch(e) {
+            console.error(e);
+          } finally {
+            loadingUsers.value = false;
+          }
+        };
+
+        const fetchRoles = async () => {
+          loadingRoles.value = true;
+          try {
+            const [rolesRes, permsRes] = await Promise.all([
+              fetch('/roles', { headers: authHeaders(), credentials: 'include' }),
+              fetch('/roles/permissions', { headers: authHeaders(), credentials: 'include' })
+            ]);
+            if (rolesRes.ok) rolesList.value = await rolesRes.json();
+            if (permsRes.ok) allPermissions.value = await permsRes.json();
+          } catch(e) {
+            console.error(e);
+          } finally {
+            loadingRoles.value = false;
+          }
+        };
+
+        const fetchDbHealth = async () => {
+          try {
+            const res = await fetch('/database/health', { headers: authHeaders(), credentials: 'include' });
+            if (res.ok) dbHealth.value = await res.json();
+          } catch(e) {
+            console.error(e);
+          }
+        };
+
+        const reloadDbConfig = async () => {
+          try {
+            const res = await fetch('/database/reload', { method: 'POST', headers: authHeaders(), credentials: 'include' });
+            const data = await res.json();
+            showToast(data.message || "Database configuration reloaded", "success");
+            fetchDbHealth();
+          } catch(e) {
+            showToast("Reload failed: " + e.message, "error");
+          }
+        };
+
+        const fetchDevices = async () => {
+          try {
+            const res = await fetch('/lorawan/devices', { headers: authHeaders(), credentials: 'include' });
+            if (res.ok) devicesList.value = await res.json();
+          } catch(e) {
+            console.error(e);
+          }
+        };
+
+        const fetchTelemetry = async () => {
+          try {
+            const res = await fetch('/lorawan/telemetry?limit=25', { headers: authHeaders(), credentials: 'include' });
+            if (res.ok) telemetryList.value = await res.json();
+          } catch(e) {
+            console.error(e);
+          }
+        };
+
+        const fetchSession = async () => {
+          try {
+            const res = await fetch('/auth/session', { headers: authHeaders(), credentials: 'include' });
+            if (res.ok) {
+              currentUser.value = await res.json();
+            }
+          } catch(e) {}
+        };
+
+        // User Actions
+        const openCreateUserDialog = () => {
+          newUser.value = { username: '', fullName: '', email: '', password: '', userType: 'USER', roleId: '' };
+          createUserDialog.value = true;
+        };
+
+        const submitCreateUser = async () => {
+          savingUser.value = true;
+          try {
+            const res = await fetch('/users', {
+              method: 'POST',
+              headers: authHeaders(),
+              credentials: 'include',
+              body: JSON.stringify({
+                username: newUser.value.username.trim(),
+                fullName: newUser.value.fullName.trim(),
+                email: newUser.value.email.trim(),
+                password: newUser.value.password,
+                userType: newUser.value.userType,
+                roleIds: newUser.value.roleId ? [newUser.value.roleId] : []
+              })
             });
-            var data = await res.json();
+            const data = await res.json();
             if (!res.ok) throw new Error(data.message || "Failed to create user");
-            window.showToast("User '" + username + "' created successfully", "success");
-            window.closeModal("modal-createUser");
-            fCreateUser.reset();
-            window.loadUsers();
-          } catch (err) {
-            window.showToast(err.message, "error");
+            showToast("User created successfully!", "success");
+            createUserDialog.value = false;
+            fetchUsers();
+          } catch(e) {
+            showToast(e.message, "error");
+          } finally {
+            savingUser.value = false;
           }
         };
-      }
 
-      var fEditUser = document.getElementById("form-editUser");
-      if (fEditUser) {
-        fEditUser.onsubmit = async function(e) {
-          e.preventDefault();
-          var id = document.getElementById("editUserId").value;
-          var roleId = document.getElementById("editUserRoleId").value;
-          var isActive = document.getElementById("editUserActive").value === "true";
+        const openEditUserDialog = (u) => {
+          editUser.value = {
+            id: u.id,
+            username: u.username,
+            roleId: u.roles && u.roles[0] ? (u.roles[0].id || u.roles[0]) : '',
+            isActive: u.isActive
+          };
+          editUserDialog.value = true;
+        };
 
+        const submitEditUser = async () => {
+          savingUser.value = true;
           try {
-            var res = await fetch("/users/" + id + "/permissions", {
-              method: "PUT",
-              headers: window.authHeaders(),
-              credentials: "include",
-              body: JSON.stringify({ isActive: isActive, roleIds: roleId ? [roleId] : [] })
+            const res = await fetch('/users/' + editUser.value.id + '/permissions', {
+              method: 'PUT',
+              headers: authHeaders(),
+              credentials: 'include',
+              body: JSON.stringify({
+                isActive: editUser.value.isActive,
+                roleIds: editUser.value.roleId ? [editUser.value.roleId] : []
+              })
             });
-            var data = await res.json();
+            const data = await res.json();
             if (!res.ok) throw new Error(data.message || "Failed to update user");
-            window.showToast("User updated successfully", "success");
-            window.closeModal("modal-editUser");
-            window.loadUsers();
-          } catch (err) {
-            window.showToast(err.message, "error");
+            showToast("User updated successfully!", "success");
+            editUserDialog.value = false;
+            fetchUsers();
+          } catch(e) {
+            showToast(e.message, "error");
+          } finally {
+            savingUser.value = false;
           }
         };
-      }
 
-      var fCreateRole = document.getElementById("form-createRole");
-      if (fCreateRole) {
-        fCreateRole.onsubmit = async function(e) {
-          e.preventDefault();
-          var code = document.getElementById("newRoleCode").value.trim().toUpperCase();
-          var name = document.getElementById("newRoleName").value.trim();
-          var description = document.getElementById("newRoleDescription").value.trim();
-          var checkBoxes = document.querySelectorAll(".new-role-perm:checked");
-          var perms = [];
-          for (var i = 0; i < checkBoxes.length; i++) perms.push(checkBoxes[i].value);
-
+        const deleteUser = async (id) => {
+          if (!confirm("Are you sure you want to delete this user?")) return;
           try {
-            var res = await fetch("/roles", {
-              method: "POST",
-              headers: window.authHeaders(),
-              credentials: "include",
-              body: JSON.stringify({ code: code, name: name, description: description, permissionIds: perms })
+            const res = await fetch('/users/' + id, { method: 'DELETE', headers: authHeaders(), credentials: 'include' });
+            if (!res.ok) throw new Error("Delete failed");
+            showToast("User removed successfully", "success");
+            fetchUsers();
+          } catch(e) {
+            showToast(e.message, "error");
+          }
+        };
+
+        // Role Actions
+        const openCreateRoleDialog = () => {
+          newRole.value = { code: '', name: '', description: '', permissions: [] };
+          createRoleDialog.value = true;
+        };
+
+        const submitCreateRole = async () => {
+          savingRole.value = true;
+          try {
+            const res = await fetch('/roles', {
+              method: 'POST',
+              headers: authHeaders(),
+              credentials: 'include',
+              body: JSON.stringify({
+                code: newRole.value.code.trim().toUpperCase(),
+                name: newRole.value.name.trim(),
+                description: newRole.value.description.trim(),
+                permissionIds: newRole.value.permissions
+              })
             });
-            var data = await res.json();
+            const data = await res.json();
             if (!res.ok) throw new Error(data.message || "Failed to create role");
-            window.showToast("Role '" + name + "' created successfully", "success");
-            window.closeModal("modal-createRole");
-            fCreateRole.reset();
-            window.loadRoles();
-          } catch (err) {
-            window.showToast(err.message, "error");
+            showToast("Role created successfully!", "success");
+            createRoleDialog.value = false;
+            fetchRoles();
+          } catch(e) {
+            showToast(e.message, "error");
+          } finally {
+            savingRole.value = false;
           }
         };
-      }
 
-      var fEditRole = document.getElementById("form-editRole");
-      if (fEditRole) {
-        fEditRole.onsubmit = async function(e) {
-          e.preventDefault();
-          var id = document.getElementById("editRoleId").value;
-          var name = document.getElementById("editRoleName").value.trim();
-          var description = document.getElementById("editRoleDescription").value.trim();
-          var checkBoxes = document.querySelectorAll(".edit-role-perm:checked");
-          var perms = [];
-          for (var i = 0; i < checkBoxes.length; i++) perms.push(checkBoxes[i].value);
+        const openEditRoleDialog = (r) => {
+          editingRole.value = {
+            id: r.id,
+            code: r.code,
+            name: r.name,
+            description: r.description || '',
+            permissions: (r.permissions || []).map(p => p.id)
+          };
+          editRoleDialog.value = true;
+        };
 
+        const submitEditRole = async () => {
+          savingRole.value = true;
           try {
-            var res = await fetch("/roles/" + id, {
-              method: "PUT",
-              headers: window.authHeaders(),
-              credentials: "include",
-              body: JSON.stringify({ name: name, description: description, permissionIds: perms })
+            const res = await fetch('/roles/' + editingRole.value.id, {
+              method: 'PUT',
+              headers: authHeaders(),
+              credentials: 'include',
+              body: JSON.stringify({
+                name: editingRole.value.name.trim(),
+                description: editingRole.value.description.trim(),
+                permissionIds: editingRole.value.permissions
+              })
             });
-            var data = await res.json();
+            const data = await res.json();
             if (!res.ok) throw new Error(data.message || "Failed to update role");
-            window.showToast("Role updated successfully", "success");
-            window.closeModal("modal-editRole");
-            window.loadRoles();
-          } catch (err) {
-            window.showToast(err.message, "error");
+            showToast("Role updated successfully!", "success");
+            editRoleDialog.value = false;
+            fetchRoles();
+          } catch(e) {
+            showToast(e.message, "error");
+          } finally {
+            savingRole.value = false;
           }
         };
-      }
 
-      var fRegisterDevice = document.getElementById("form-registerDevice");
-      if (fRegisterDevice) {
-        fRegisterDevice.onsubmit = async function(e) {
-          e.preventDefault();
-          var devEUI = document.getElementById("newDevEUI").value.trim().toUpperCase();
-          var name = document.getElementById("newDeviceName").value.trim();
-          var activationType = document.getElementById("newActivationType").value;
-          var appKey = document.getElementById("newAppKey").value.trim();
-
+        const deleteRole = async (id) => {
+          if (!confirm("Are you sure you want to delete this role?")) return;
           try {
-            var res = await fetch("/lorawan/devices", {
-              method: "POST",
-              headers: window.authHeaders(),
-              credentials: "include",
-              body: JSON.stringify({ devEUI: devEUI, name: name, activationType: activationType, appKey: appKey || undefined })
-            });
-            var data = await res.json();
-            if (!res.ok) throw new Error(data.message || "Failed to register device");
-            window.showToast("Device '" + name + "' registered successfully", "success");
-            window.closeModal("modal-registerDevice");
-            fRegisterDevice.reset();
-            window.loadDevices();
-          } catch (err) {
-            window.showToast(err.message, "error");
+            const res = await fetch('/roles/' + id, { method: 'DELETE', headers: authHeaders(), credentials: 'include' });
+            if (!res.ok) throw new Error("Delete failed");
+            showToast("Role deleted successfully", "success");
+            fetchRoles();
+          } catch(e) {
+            showToast(e.message, "error");
           }
         };
+
+        // Device Actions
+        const openRegisterDeviceDialog = () => {
+          newDevice.value = { devEUI: '', name: '', activationType: 'OTAA', appKey: '' };
+          registerDeviceDialog.value = true;
+        };
+
+        const submitRegisterDevice = async () => {
+          savingDevice.value = true;
+          try {
+            const res = await fetch('/lorawan/devices', {
+              method: 'POST',
+              headers: authHeaders(),
+              credentials: 'include',
+              body: JSON.stringify({
+                devEUI: newDevice.value.devEUI.trim().toUpperCase(),
+                name: newDevice.value.name.trim(),
+                activationType: newDevice.value.activationType,
+                appKey: newDevice.value.appKey ? newDevice.value.appKey.trim() : undefined
+              })
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.message || "Failed to register device");
+            showToast("Device registered successfully!", "success");
+            registerDeviceDialog.value = false;
+            fetchDevices();
+          } catch(e) {
+            showToast(e.message, "error");
+          } finally {
+            savingDevice.value = false;
+          }
+        };
+
+        const testDevice = (d) => {
+          tab.value = 'decoder';
+        };
+
+        const runSandboxDecode = () => {
+          try {
+            const hex = sandboxHex.value.trim().replace(/\\s+/g, "");
+            const bytes = [];
+            for (let c = 0; c < hex.length; c += 2) {
+              bytes.push(parseInt(hex.substr(c, 2), 16));
+            }
+            const fn = new Function("bytes", "fPort", sandboxCode.value + "; return decodeUplink(bytes, fPort);");
+            const output = fn(bytes, 1);
+            sandboxResult.value = JSON.stringify(output, null, 2);
+            showToast("Decoder executed successfully!", "success");
+          } catch(e) {
+            sandboxResult.value = "Decoder Error: " + e.message;
+            showToast("Decoder Error: " + e.message, "error");
+          }
+        };
+
+        watch(tab, (newTab) => {
+          try {
+            window.history.replaceState(null, null, '#' + newTab);
+          } catch(e) {}
+          if (newTab === 'users') fetchUsers();
+          if (newTab === 'roles') fetchRoles();
+          if (newTab === 'database') fetchDbHealth();
+          if (newTab === 'devices') fetchDevices();
+          if (newTab === 'telemetry') fetchTelemetry();
+        });
+
+        onMounted(() => {
+          const hash = window.location.hash.replace('#', '').trim();
+          if (hash && tabTitles[hash]) {
+            tab.value = hash;
+          }
+          fetchSession();
+          fetchUsers();
+          fetchRoles();
+          fetchDbHealth();
+          fetchDevices();
+        });
+
+        return {
+          drawer,
+          tab,
+          tabTitles,
+          tabCategories,
+          snackbar,
+          currentUser,
+          usersList,
+          rolesList,
+          allPermissions,
+          dbHealth,
+          devicesList,
+          telemetryList,
+          loadingUsers,
+          loadingRoles,
+          createUserDialog,
+          editUserDialog,
+          createRoleDialog,
+          editRoleDialog,
+          registerDeviceDialog,
+          savingUser,
+          savingRole,
+          savingDevice,
+          newUser,
+          editUser,
+          newRole,
+          editingRole,
+          newDevice,
+          sandboxCode,
+          sandboxHex,
+          sandboxResult,
+          roleSelectItems,
+          forceCleanSession,
+          handleLogout,
+          copyUrl,
+          formatTime,
+          formatDecoded,
+          fetchUsers,
+          fetchRoles,
+          fetchDbHealth,
+          reloadDbConfig,
+          fetchDevices,
+          fetchTelemetry,
+          openCreateUserDialog,
+          submitCreateUser,
+          openEditUserDialog,
+          submitEditUser,
+          deleteUser,
+          openCreateRoleDialog,
+          submitCreateRole,
+          openEditRoleDialog,
+          submitEditRole,
+          deleteRole,
+          openRegisterDeviceDialog,
+          submitRegisterDevice,
+          testDevice,
+          runSandboxDecode
+        };
       }
-    };
+    });
 
-    // INIT
-    window.onload = function() {
-      window.bindForms();
-
-      var hash = window.location.hash.replace("#", "").trim();
-      if (hash) {
-        window.switchTab(hash);
-      } else {
-        window.switchTab("overview");
-      }
-
-      // Fetch initial data
-      window.loadUsers();
-      window.loadRoles();
-      window.loadDatabaseHealth();
-      window.loadDevices();
-    };
+    app.use(vuetify).mount('#app');
   </script>
 </body>
 </html>
