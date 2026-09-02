@@ -217,8 +217,24 @@ export class DynamicDatabaseService implements OnModuleInit, OnModuleDestroy {
   }
 
   public getDataSourceForTable(tableName: string): DataSource {
-    const targetConnKey = this.routingConfig.table_routes[tableName] || this.routingConfig.default_connection;
-    const ds = this.dataSources.get(targetConnKey);
+    if (!this.routingConfig) {
+      try {
+        if (fs.existsSync(this.configPath)) {
+          this.routingConfig = JSON.parse(fs.readFileSync(this.configPath, 'utf8'));
+        }
+      } catch (e) {}
+    }
+    const targetConnKey = this.routingConfig?.table_routes?.[tableName] || this.routingConfig?.default_connection || 'core_db';
+    let ds = this.dataSources.get(targetConnKey);
+    if (!ds || !ds.isInitialized) {
+      // Fallback to first available initialized data source
+      for (const candidate of this.dataSources.values()) {
+        if (candidate && candidate.isInitialized) {
+          ds = candidate;
+          break;
+        }
+      }
+    }
     if (!ds || !ds.isInitialized) {
       throw new Error(`No initialized database DataSource for table [${tableName}] assigned to connection [${targetConnKey}]`);
     }

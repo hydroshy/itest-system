@@ -29,15 +29,22 @@ export class PermissionsGuard implements CanActivate {
       throw new ForbiddenException('User session not found');
     }
 
-    // ADMIN userType gets bypass
-    if (user.userType === UserType.ADMIN) {
+    // ADMIN userType or SUPER_ADMIN role or username admin gets full bypass
+    const isSuperAdmin =
+      user.userType === UserType.ADMIN ||
+      String(user.userType).toUpperCase() === 'ADMIN' ||
+      String(user.userType).toUpperCase() === 'SUPER_ADMIN' ||
+      user.username === 'admin' ||
+      user.roles?.some((r) => r.code?.toUpperCase() === 'SUPER_ADMIN');
+
+    if (isSuperAdmin) {
       return true;
     }
 
     // 1. Check Roles requirement if present
     if (requiredRoles && requiredRoles.length > 0) {
-      const hasRoleType = requiredRoles.includes(user.userType);
-      const hasAssignedRole = user.roles?.some((r) => requiredRoles.includes(r.code));
+      const hasRoleType = requiredRoles.includes(user.userType) || requiredRoles.includes(String(user.userType).toUpperCase() as UserType);
+      const hasAssignedRole = user.roles?.some((r) => requiredRoles.includes(r.code) || requiredRoles.includes(r.code?.toUpperCase()));
       if (!hasRoleType && !hasAssignedRole) {
         throw new ForbiddenException(`User lacks required role: ${requiredRoles.join(', ')}`);
       }
