@@ -1,11 +1,11 @@
-import { Injectable, NotFoundException, ForbiddenException, OnModuleInit, Logger } from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException, OnModuleInit, OnApplicationBootstrap, Logger } from '@nestjs/common';
 import { In } from 'typeorm';
 import { DynamicDatabaseService } from '../database/dynamic-database.service';
 import { Role } from './entities/role.entity';
 import { Permission } from './entities/permission.entity';
 
 @Injectable()
-export class RolesService implements OnModuleInit {
+export class RolesService implements OnModuleInit, OnApplicationBootstrap {
   private readonly logger = new Logger(RolesService.name);
 
   constructor(private readonly dbService: DynamicDatabaseService) {}
@@ -19,68 +19,110 @@ export class RolesService implements OnModuleInit {
   }
 
   async onModuleInit() {
-    // Seed default permissions and roles if empty
     try {
       await this.seedDefaults();
     } catch (e: any) {
-      this.logger.warn(`Could not seed default roles/permissions: ${e.message}`);
+      // Will retry on application bootstrap
+    }
+  }
+
+  async onApplicationBootstrap() {
+    try {
+      await this.seedDefaults();
+    } catch (e: any) {
+      this.logger.warn(`Could not seed default roles/permissions on bootstrap: ${e.message}`);
     }
   }
 
   public async seedDefaults() {
-    const permRepo = this.getPermissionRepo();
-    const roleRepo = this.getRoleRepo();
-
-    const permCount = await permRepo.count();
-    if (permCount === 0) {
-      const defaultPerms = [
-        { name: 'users:read', module: 'users', action: 'read', description: 'View user list' },
-        { name: 'users:create', module: 'users', action: 'create', description: 'Create user or subadmin' },
-        { name: 'users:permissions:update', module: 'users', action: 'update', description: 'Update permissions' },
-        { name: 'users:delete', module: 'users', action: 'delete', description: 'Delete user' },
-
-        { name: 'lorawan:app:read', module: 'lorawan', action: 'read', description: 'Read applications' },
-        { name: 'lorawan:app:manage', module: 'lorawan', action: 'manage', description: 'Create/edit applications' },
-
-        { name: 'lorawan:device:read', module: 'lorawan', action: 'read', description: 'Read devices' },
-        { name: 'lorawan:device:manage', module: 'lorawan', action: 'manage', description: 'Create/edit devices' },
-
-        { name: 'lorawan:gateway:read', module: 'lorawan', action: 'read', description: 'Read gateways' },
-        { name: 'lorawan:gateway:manage', module: 'lorawan', action: 'manage', description: 'Create/edit gateways' },
-
-        { name: 'lorawan:telemetry:read', module: 'lorawan', action: 'read', description: 'View decoded telemetry' },
-      ];
-      await permRepo.save(permRepo.create(defaultPerms));
-      this.logger.log(`✅ Initialized ${defaultPerms.length} default system permissions into [permission] table.`);
+    let permRepo: any;
+    let roleRepo: any;
+    try {
+      permRepo = this.getPermissionRepo();
+      roleRepo = this.getRoleRepo();
+    } catch (e: any) {
+      return;
     }
 
-    const roleCount = await roleRepo.count();
-    if (roleCount === 0) {
-      const allPerms = await permRepo.find();
-      const subAdminPerms = allPerms.filter((p) => !p.name.includes('users:permissions:update'));
+    const defaultPerms = [
+      { name: 'users:read', module: 'users', action: 'read', description: 'View user list' },
+      { name: 'users:create', module: 'users', action: 'create', description: 'Create user or subadmin' },
+      { name: 'users:permissions:update', module: 'users', action: 'update', description: 'Update permissions' },
+      { name: 'users:delete', module: 'users', action: 'delete', description: 'Delete user' },
 
-      const defaultRoles = [
-        {
-          code: 'SUPER_ADMIN',
-          name: 'Super Administrator',
-          description: 'Full unhindered system access',
-          permissions: allPerms,
-        },
-        {
-          code: 'SUB_ADMIN',
-          name: 'Sub-Administrator',
-          description: 'Delegated administrative privileges',
-          permissions: subAdminPerms,
-        },
-        {
-          code: 'LORAWAN_OPERATOR',
-          name: 'LoRaWAN Operator',
-          description: 'Manage applications, devices, and gateways',
-          permissions: allPerms.filter((p) => p.module === 'lorawan'),
-        },
-      ];
-      await roleRepo.save(roleRepo.create(defaultRoles));
-      this.logger.log(`✅ Initialized default roles (SUPER_ADMIN, SUB_ADMIN, LORAWAN_OPERATOR) into [roles] table.`);
+      { name: 'lorawan:app:read', module: 'lorawan', action: 'read', description: 'Read applications' },
+      { name: 'lorawan:app:manage', module: 'lorawan', action: 'manage', description: 'Create/edit applications' },
+
+      { name: 'lorawan:device:read', module: 'lorawan', action: 'read', description: 'Read devices' },
+      { name: 'lorawan:device:manage', module: 'lorawan', action: 'manage', description: 'Create/edit devices' },
+
+      { name: 'lorawan:gateway:read', module: 'lorawan', action: 'read', description: 'Read gateways' },
+      { name: 'lorawan:gateway:manage', module: 'lorawan', action: 'manage', description: 'Create/edit gateways' },
+
+      { name: 'lorawan:telemetry:read', module: 'lorawan', action: 'read', description: 'View decoded telemetry' },
+    ];
+
+    let allExistingPerms: Permission[] = [];
+    try {
+      allExistingPerms = await permRepo.find();
+    } catch (err) {
+      allExistingPerms = [];
+    }
+
+    const existingPermNames = new Set(allExistingPerms.map((p) => p.name));
+
+    for (const defPerm of defaultPerms) {
+      if (!existingPermNames.has(defPerm.name)) {
+        try {
+          const created = permRepo.create(defPerm);
+          await permRepo.save(created);
+          existingPermNames.add(defPerm.name);
+        } catch (e) {}
+      }
+    }
+
+    const allPerms = await permRepo.find();
+
+    // 2. Ensure SUPER_ADMIN role exists and has ALL permissions
+    let superAdminRole = await roleRepo.findOne({ where: { code: 'SUPER_ADMIN' }, relations: ['permissions'] }).catch(() => null);
+    if (!superAdminRole) {
+      superAdminRole = roleRepo.create({
+        code: 'SUPER_ADMIN',
+        name: 'Super Administrator',
+        description: 'Full unhindered system access',
+        permissions: allPerms,
+      });
+      await roleRepo.save(superAdminRole);
+      this.logger.log('✅ Created SUPER_ADMIN role with full permissions');
+    } else {
+      superAdminRole.permissions = allPerms;
+      await roleRepo.save(superAdminRole);
+    }
+
+    // 3. Ensure SUB_ADMIN role exists
+    let subAdminRole = await roleRepo.findOne({ where: { code: 'SUB_ADMIN' }, relations: ['permissions'] }).catch(() => null);
+    const subAdminPerms = allPerms.filter((p) => !p.name.includes('users:permissions:update'));
+    if (!subAdminRole) {
+      subAdminRole = roleRepo.create({
+        code: 'SUB_ADMIN',
+        name: 'Sub-Administrator',
+        description: 'Delegated administrative privileges',
+        permissions: subAdminPerms,
+      });
+      await roleRepo.save(subAdminRole);
+    }
+
+    // 4. Ensure LORAWAN_OPERATOR role exists
+    let operatorRole = await roleRepo.findOne({ where: { code: 'LORAWAN_OPERATOR' }, relations: ['permissions'] }).catch(() => null);
+    const operatorPerms = allPerms.filter((p) => p.module === 'lorawan');
+    if (!operatorRole) {
+      operatorRole = roleRepo.create({
+        code: 'LORAWAN_OPERATOR',
+        name: 'LoRaWAN Operator',
+        description: 'Manage applications, devices, and gateways',
+        permissions: operatorPerms,
+      });
+      await roleRepo.save(operatorRole);
     }
   }
 

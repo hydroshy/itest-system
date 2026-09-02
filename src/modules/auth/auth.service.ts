@@ -1,4 +1,4 @@
-import { Injectable, UnauthorizedException, ConflictException, Logger, OnModuleInit, Inject, forwardRef } from '@nestjs/common';
+import { Injectable, UnauthorizedException, ConflictException, Logger, OnModuleInit, OnApplicationBootstrap, Inject, forwardRef } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { DynamicDatabaseService } from '../database/dynamic-database.service';
@@ -9,7 +9,7 @@ import { RolesService } from '../roles-permissions/roles.service';
 import { LoginDto } from './dto/login.dto';
 
 @Injectable()
-export class AuthService implements OnModuleInit {
+export class AuthService implements OnModuleInit, OnApplicationBootstrap {
   private readonly logger = new Logger(AuthService.name);
 
   constructor(
@@ -27,26 +27,49 @@ export class AuthService implements OnModuleInit {
       await this.rolesService.seedDefaults();
       await this.seedAdminUser();
     } catch (e: any) {
-      this.logger.warn(`Could not seed default admin user on module init: ${e.message}`);
+      // Will retry on application bootstrap
+    }
+  }
+
+  async onApplicationBootstrap() {
+    try {
+      await this.rolesService.seedDefaults();
+      await this.seedAdminUser();
+    } catch (e: any) {
+      this.logger.warn(`Could not seed default admin user on application bootstrap: ${e.message}`);
     }
   }
 
   public async seedAdminUser() {
+    let userRepo: any;
+    let roleRepo: any;
+    try {
+      userRepo = this.getUserRepository();
+      roleRepo = this.dbService.getRepositoryForTable('roles', Role);
+    } catch (e: any) {
+      return;
+    }
+
     await this.rolesService.seedDefaults();
-    const userRepo = this.getUserRepository();
-    const roleRepo = this.dbService.getRepositoryForTable('roles', Role);
 
     const defaultUsername = 'admin';
     const defaultPassword = 'Dvt@123';
     const defaultEmail = 'admin@daviteq.com';
 
     const passwordHash = await bcrypt.hash(defaultPassword, 10);
-    const superAdminRole = await roleRepo.findOne({ where: { code: 'SUPER_ADMIN' } });
+    const superAdminRole = await roleRepo.findOne({ where: { code: 'SUPER_ADMIN' } }).catch(() => null);
 
-    const existingAdmin = await userRepo.findOne({
-      where: [{ username: defaultUsername }, { email: defaultEmail }],
-      relations: ['roles'],
-    });
+    let existingAdmin: User | null = null;
+    try {
+      existingAdmin = await userRepo.findOne({
+        where: [{ username: defaultUsername }, { email: defaultEmail }],
+        relations: ['roles'],
+      });
+    } catch (e) {
+      existingAdmin = await userRepo.findOne({
+        where: [{ username: defaultUsername }, { email: defaultEmail }],
+      }).catch(() => null);
+    }
 
     if (!existingAdmin) {
       const admin = userRepo.create({
@@ -66,7 +89,7 @@ export class AuthService implements OnModuleInit {
       existingAdmin.passwordHash = passwordHash;
       existingAdmin.userType = UserType.ADMIN;
       existingAdmin.isActive = true;
-      if (superAdminRole && (!existingAdmin.roles || !existingAdmin.roles.some((r) => r.code === 'SUPER_ADMIN'))) {
+      if (superAdminRole && (!existingAdmin.roles || !existingAdmin.roles.some((r: any) => r.code === 'SUPER_ADMIN'))) {
         existingAdmin.roles = [superAdminRole];
       }
       await userRepo.save(existingAdmin);
