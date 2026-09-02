@@ -270,48 +270,11 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
           </div>
         </div>
 
-        <!-- Feature Content Container (Ready for independent source modular development) -->
+        <!-- Feature Content Container -->
         <div class="glass-card rounded-2xl p-6 sm:p-8 space-y-6">
           
-          <!-- Sample Module Preview Content based on active feature -->
-          <div v-if="activeFeature.id === 'telemetry-monitor'" class="space-y-4">
-            <div class="flex items-center justify-between">
-              <h3 class="text-xs font-bold text-slate-300 uppercase tracking-wider">Live Ingestion Packets</h3>
-              <button @click="fetchLiveTelemetry" class="px-3 py-1 rounded-lg bg-slate-800 text-slate-300 hover:text-white text-xs font-semibold cursor-pointer">
-                <i class="fa-solid fa-arrows-rotate"></i> Refresh
-              </button>
-            </div>
-            <div class="overflow-x-auto custom-scroll border border-slate-800 rounded-lg">
-              <table class="w-full text-left text-xs font-mono">
-                <thead class="bg-slate-950/80 text-slate-400 border-b border-slate-800">
-                  <tr>
-                    <th class="py-2.5 px-3">Time</th>
-                    <th class="py-2.5 px-3">DevEUI</th>
-                    <th class="py-2.5 px-3">Port / FCnt</th>
-                    <th class="py-2.5 px-3">Raw Payload</th>
-                    <th class="py-2.5 px-3">Decoded JSON</th>
-                    <th class="py-2.5 px-3">Signal</th>
-                  </tr>
-                </thead>
-                <tbody class="divide-y divide-slate-800/60">
-                  <tr v-if="telemetryList.length === 0">
-                    <td colspan="6" class="py-6 text-center text-slate-500 font-sans">No incoming telemetry packets yet. Send a LoRaWAN webhook to see real-time data.</td>
-                  </tr>
-                  <tr v-for="t in telemetryList" :key="t.id" class="hover:bg-slate-800/30">
-                    <td class="py-2 px-3 text-slate-400">{{ formatTime(t.timestamp || t.createdAt) }}</td>
-                    <td class="py-2 px-3 font-bold text-sky-400">{{ t.devEUI }}</td>
-                    <td class="py-2 px-3 text-amber-400">p:{{ t.fPort || 1 }} / c:{{ t.fCnt || 0 }}</td>
-                    <td class="py-2 px-3 text-slate-300 truncate max-w-xs">{{ t.payloadHex || '--' }}</td>
-                    <td class="py-2 px-3 text-emerald-400 truncate max-w-sm">{{ JSON.stringify(t.decodedPayload) }}</td>
-                    <td class="py-2 px-3 text-slate-400">{{ t.rssi !== undefined ? t.rssi + ' dBm' : '--' }}</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-
           <!-- FEATURE: DEVICE MANAGER (CARD GRID) -->
-          <div v-else-if="activeFeature.id === 'device-manager'" class="space-y-5">
+          <div v-if="activeFeature.id === 'device-manager'" class="space-y-5">
             <!-- Action Toolbar & Search -->
             <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-900/60 p-4 rounded-xl border border-slate-800">
               <div class="flex items-center gap-3">
@@ -640,7 +603,6 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
         const openFeature = (feature) => {
           activeFeature.value = feature;
           window.location.hash = feature.id;
-          if (feature.id === 'telemetry-monitor') fetchLiveTelemetry();
           if (feature.id === 'device-manager' || feature.id === 'device-fleet') {
             fetchDevices();
             fetchNetworkServers();
@@ -702,7 +664,6 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
                 const found = accessibleFeatures.value.find(f => f.id === hash);
                 if (found) {
                   activeFeature.value = found;
-                  if (found.id === 'telemetry-monitor') fetchLiveTelemetry();
                   if (found.id === 'device-manager' || found.id === 'device-fleet') {
                     fetchDevices();
                     fetchNetworkServers();
