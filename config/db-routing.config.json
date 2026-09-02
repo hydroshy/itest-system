@@ -8,25 +8,7 @@
       "password": "mason",
       "database": "dvt",
       "ssl": false,
-      "poolSize": 10
-    },
-    "lorawan_telemetry_db": {
-      "host": "mas.local",
-      "port": 5432,
-      "username": "admin",
-      "password": "mason",
-      "database": "dvt",
-      "ssl": false,
       "poolSize": 20
-    },
-    "gateway_db": {
-      "host": "mas.local",
-      "port": 5432,
-      "username": "admin",
-      "password": "mason",
-      "database": "dvt",
-      "ssl": false,
-      "poolSize": 10
     }
   },
   "table_routes": {
@@ -38,7 +20,7 @@
     "permissions": "core_db",
     "applications": "core_db",
     "devices": "core_db",
-    "gateways": "gateway_db",
-    "uplink_telemetry": "lorawan_telemetry_db"
+    "gateways": "core_db",
+    "uplink_telemetry": "core_db"
   }
 }
