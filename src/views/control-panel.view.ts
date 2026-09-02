@@ -32,7 +32,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
       border-radius: 4px;
     }
     .tab-btn {
-      cursor: pointer;
+      cursor: pointer !important;
       user-select: none;
       transition: all 0.15s ease;
       display: inline-flex;
@@ -49,18 +49,12 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
     }
     .tab-btn:hover {
       color: #f1f5f9;
-      background: rgba(30, 41, 59, 0.6);
+      background: rgba(30, 41, 59, 0.7);
     }
     .tab-btn.active {
-      background: rgba(14, 165, 233, 0.15) !important;
+      background: rgba(14, 165, 233, 0.18) !important;
       color: #38bdf8 !important;
-      border-color: rgba(56, 189, 248, 0.4) !important;
-    }
-    .tab-content {
-      display: none;
-    }
-    .tab-content.active {
-      display: block;
+      border-color: rgba(56, 189, 248, 0.5) !important;
     }
     .modal-overlay {
       display: none !important;
@@ -73,11 +67,8 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
       justify-content: center;
       padding: 1rem;
     }
-    .modal-overlay.open {
-      display: flex !important;
-    }
     .btn {
-      cursor: pointer;
+      cursor: pointer !important;
       display: inline-flex;
       align-items: center;
       justify-content: center;
@@ -85,6 +76,8 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
       font-weight: 600;
       border-radius: 0.75rem;
       transition: all 0.15s ease;
+      outline: none;
+      border: none;
     }
   </style>
 </head>
@@ -108,7 +101,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
       <!-- Center Status -->
       <div class="hidden md:flex items-center gap-2 px-3 py-1 rounded-lg bg-slate-950 border border-slate-800 text-xs">
         <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-        <span class="text-slate-400 text-[11px]">System: <strong class="text-emerald-400 font-semibold" id="sysStatusText">HEALTHY</strong></span>
+        <span class="text-slate-400 text-[11px]">System: <strong class="text-emerald-400 font-semibold" id="sysStatusText">ONLINE &bull; HEALTHY</strong></span>
       </div>
 
       <!-- Right User Menu -->
@@ -121,9 +114,9 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
             <div id="navFullName" class="text-xs font-semibold text-slate-200">Admin User</div>
             <div id="navRoleBadge" class="text-[10px] text-emerald-400 font-mono">SUPER_ADMIN</div>
           </div>
-          <button onclick="handleLogout()" type="button" title="Sign Out" class="btn px-2.5 py-1.5 rounded-lg bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-400 text-xs">
+          <button onclick="handleLogout()" id="btn-logout" type="button" title="Sign Out" class="btn px-3 py-1.5 rounded-lg bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-400 text-xs">
             <i class="fa-solid fa-right-from-bracket"></i>
-            <span class="hidden sm:inline">Logout</span>
+            <span>Logout</span>
           </button>
         </div>
       </div>
@@ -133,7 +126,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
   <!-- Main Content Layout -->
   <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
     <!-- Navigation Tabs Bar -->
-    <div class="flex border-b border-slate-800 gap-2 overflow-x-auto custom-scroll pb-1">
+    <div class="flex border-b border-slate-800 gap-2 overflow-x-auto custom-scroll pb-1" id="tabsBar">
       <button onclick="switchTab('overview')" type="button" id="tabBtn-overview" class="tab-btn active">
         <i class="fa-solid fa-chart-pie"></i> Overview
       </button>
@@ -155,7 +148,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
     </div>
 
     <!-- TAB 1: OVERVIEW -->
-    <div id="tabContent-overview" class="tab-content active space-y-6">
+    <div id="tabContent-overview" class="space-y-6" style="display: block;">
       <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-4">
           <div class="flex items-center justify-between text-slate-400 text-xs">
@@ -239,7 +232,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
     </div>
 
     <!-- TAB 2: USERS -->
-    <div id="tabContent-users" class="tab-content space-y-6">
+    <div id="tabContent-users" class="space-y-6" style="display: none;">
       <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 space-y-5">
         <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
@@ -275,7 +268,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
     </div>
 
     <!-- TAB 3: ROLE MATRIX -->
-    <div id="tabContent-roles" class="tab-content space-y-6">
+    <div id="tabContent-roles" class="space-y-6" style="display: none;">
       <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 space-y-5">
         <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
@@ -315,7 +308,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
     </div>
 
     <!-- TAB 4: DATABASE HEALTH & ROUTING -->
-    <div id="tabContent-database" class="tab-content space-y-6">
+    <div id="tabContent-database" class="space-y-6" style="display: none;">
       <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 space-y-4">
         <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
@@ -365,7 +358,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
     </div>
 
     <!-- TAB 5: WEBHOOKS -->
-    <div id="tabContent-webhooks" class="tab-content space-y-6">
+    <div id="tabContent-webhooks" class="space-y-6" style="display: none;">
       <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 space-y-4">
         <h2 class="text-base font-bold text-white flex items-center gap-2">
           <i class="fa-solid fa-satellite-dish text-sky-400"></i> LoRaWAN Network Server Webhook Endpoints
@@ -401,7 +394,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
     </div>
 
     <!-- TAB 6: DECODER SANDBOX -->
-    <div id="tabContent-decoder" class="tab-content space-y-6">
+    <div id="tabContent-decoder" class="space-y-6" style="display: none;">
       <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 space-y-4">
         <h2 class="text-base font-bold text-white flex items-center gap-2">
           <i class="fa-solid fa-code text-indigo-400"></i> Payload Formatter Sandbox
@@ -592,23 +585,31 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
     }
 
     function switchTab(tabId) {
-      var tabs = ["overview", "users", "roles", "database", "webhooks", "decoder"];
-      for (var i = 0; i < tabs.length; i++) {
-        var t = tabs[i];
+      var tabList = ["overview", "users", "roles", "database", "webhooks", "decoder"];
+      for (var i = 0; i < tabList.length; i++) {
+        var t = tabList[i];
         var btn = document.getElementById("tabBtn-" + t);
         var content = document.getElementById("tabContent-" + t);
+        
         if (btn) {
           if (t === tabId) {
             btn.classList.add("active");
+            btn.style.backgroundColor = "rgba(14, 165, 233, 0.18)";
+            btn.style.color = "#38bdf8";
+            btn.style.borderColor = "rgba(56, 189, 248, 0.5)";
           } else {
             btn.classList.remove("active");
+            btn.style.backgroundColor = "transparent";
+            btn.style.color = "#94a3b8";
+            btn.style.borderColor = "transparent";
           }
         }
+        
         if (content) {
           if (t === tabId) {
-            content.classList.add("active");
+            content.style.setProperty("display", "block", "important");
           } else {
-            content.classList.remove("active");
+            content.style.setProperty("display", "none", "important");
           }
         }
       }
@@ -634,7 +635,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
       try {
         var res = await fetch("/users", { headers: authHeaders(), credentials: "same-origin" });
         if (!res.ok) {
-          throw new Error("Failed with HTTP " + res.status);
+          throw new Error("HTTP " + res.status);
         }
         var users = await res.json();
         if (!Array.isArray(users)) throw new Error("Invalid response format");
@@ -646,7 +647,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
         tbody.innerHTML = "";
 
         if (users.length === 0) {
-          tbody.innerHTML = '<tr><td colspan="7" class="py-4 text-center text-slate-500">No users found. Click "+ Create User" above to add one.</td></tr>';
+          tbody.innerHTML = '<tr><td colspan="7" class="py-4 text-center text-slate-500">No user accounts found.</td></tr>';
           return;
         }
 
@@ -851,7 +852,9 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
     function handleModalBackdropClick(event, modalId) {
       if (event.target.id === modalId) {
         var modal = document.getElementById(modalId);
-        if (modal) modal.classList.remove("open");
+        if (modal) {
+          modal.style.setProperty("display", "none", "important");
+        }
       }
     }
     window.handleModalBackdropClick = handleModalBackdropClick;
@@ -866,13 +869,17 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
         }
       }
       var modal = document.getElementById("createUserModal");
-      if (modal) modal.classList.add("open");
+      if (modal) {
+        modal.style.setProperty("display", "flex", "important");
+      }
     }
     window.openCreateUserModal = openCreateUserModal;
 
     function closeCreateUserModal() {
       var modal = document.getElementById("createUserModal");
-      if (modal) modal.classList.remove("open");
+      if (modal) {
+        modal.style.setProperty("display", "none", "important");
+      }
     }
     window.closeCreateUserModal = closeCreateUserModal;
 
@@ -941,13 +948,17 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
         }
       }
       var modal = document.getElementById("createRoleModal");
-      if (modal) modal.classList.add("open");
+      if (modal) {
+        modal.style.setProperty("display", "flex", "important");
+      }
     }
     window.openCreateRoleModal = openCreateRoleModal;
 
     function closeCreateRoleModal() {
       var modal = document.getElementById("createRoleModal");
-      if (modal) modal.classList.remove("open");
+      if (modal) {
+        modal.style.setProperty("display", "none", "important");
+      }
     }
     window.closeCreateRoleModal = closeCreateRoleModal;
 
@@ -1012,13 +1023,17 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
       }
 
       var modal = document.getElementById("editRoleModal");
-      if (modal) modal.classList.add("open");
+      if (modal) {
+        modal.style.setProperty("display", "flex", "important");
+      }
     }
     window.openEditRoleModal = openEditRoleModal;
 
     function closeEditRoleModal() {
       var modal = document.getElementById("editRoleModal");
-      if (modal) modal.classList.remove("open");
+      if (modal) {
+        modal.style.setProperty("display", "none", "important");
+      }
     }
     window.closeEditRoleModal = closeEditRoleModal;
 
@@ -1088,8 +1103,26 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
     }
     window.runSandboxDecode = runSandboxDecode;
 
+    // Attach click listeners to all tab buttons to ensure 100% click reliability
+    function bindTabListeners() {
+      var tabList = ["overview", "users", "roles", "database", "webhooks", "decoder"];
+      for (var i = 0; i < tabList.length; i++) {
+        (function(id) {
+          var btn = document.getElementById("tabBtn-" + id);
+          if (btn) {
+            btn.onclick = function(e) {
+              e.preventDefault();
+              switchTab(id);
+            };
+          }
+        })(tabList[i]);
+      }
+    }
+
     // Check active session on load
     async function initPage() {
+      bindTabListeners();
+
       try {
         var rawUser = localStorage.getItem("lorawan_user");
         if (rawUser && rawUser.startsWith("{")) {
