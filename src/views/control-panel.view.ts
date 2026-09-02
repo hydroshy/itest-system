@@ -857,6 +857,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
                   <tr>
                     <th class="py-2.5 px-3.5">DevEUI</th>
                     <th class="py-2.5 px-3.5">Device Name</th>
+                    <th class="py-2.5 px-3.5">Created By</th>
                     <th class="py-2.5 px-3.5">Network Server</th>
                     <th class="py-2.5 px-3.5">Region Profile</th>
                     <th class="py-2.5 px-3.5">AppEUI</th>
@@ -868,11 +869,18 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
                 </thead>
                 <tbody class="divide-y divide-slate-800/60">
                   <tr v-if="devicesList.length === 0">
-                    <td colspan="9" class="py-6 text-center text-slate-500">No LoRaWAN devices registered. Click "Register Device" to provision a device.</td>
+                    <td colspan="10" class="py-6 text-center text-slate-500">No LoRaWAN devices registered. Click "Register Device" to provision a device.</td>
                   </tr>
                   <tr v-for="d in devicesList" :key="d.id || d.devEUI" class="hover:bg-slate-800/30 transition">
                     <td class="py-2.5 px-3.5 font-mono font-bold text-sky-400">{{ d.devEUI }}</td>
                     <td class="py-2.5 px-3.5 font-bold text-white">{{ d.name || '--' }}</td>
+                    <td class="py-2.5 px-3.5">
+                      <span v-if="d.owner" class="px-2 py-0.5 rounded bg-purple-500/10 text-purple-300 border border-purple-500/20 text-[11px] font-medium inline-flex items-center gap-1.5">
+                        <i class="fa-solid fa-user text-[10px]"></i>
+                        <span>{{ d.owner.username }}</span>
+                      </span>
+                      <span v-else class="text-slate-500 text-[11px] italic">admin / system</span>
+                    </td>
                     <td class="py-2.5 px-3.5">
                       <span v-if="d.networkServer" class="px-2 py-0.5 rounded bg-sky-500/10 text-sky-300 border border-sky-500/20 text-[10px] font-mono">
                         {{ d.networkServer.name }} ({{ d.networkServer.type }})
@@ -1346,32 +1354,9 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
             <h3 class="text-sm font-bold text-white flex items-center gap-2">
               <i class="fa-solid fa-microchip text-teal-400"></i> Register LoRaWAN Device
             </h3>
-            <p class="text-[11px] text-slate-400 mt-0.5">Provision end-device to Network Server (ThingPark / ChirpStack)</p>
+            <p class="text-[11px] text-slate-400 mt-0.5">Provision end-device to Network Server</p>
           </div>
           <button @click="registerDeviceDialog = false" class="text-slate-500 hover:text-white cursor-pointer"><i class="fa-solid fa-xmark"></i></button>
-        </div>
-
-        <!-- Provisioning Architecture Notice Banner -->
-        <div v-if="selectedDeviceNetworkServer" class="p-3 rounded-xl border text-xs space-y-1.5"
-          :class="selectedDeviceNetworkServer.type === 'CHIRPSTACK' ? 'bg-indigo-950/40 border-indigo-500/30 text-indigo-200' : 'bg-sky-950/40 border-sky-500/30 text-sky-200'">
-          <div class="flex items-center justify-between font-bold">
-            <span class="flex items-center gap-1.5">
-              <i :class="selectedDeviceNetworkServer.type === 'CHIRPSTACK' ? 'fa-solid fa-layer-group text-indigo-400' : 'fa-solid fa-bolt text-sky-400'"></i>
-              <span>{{ selectedDeviceNetworkServer.name }} ({{ selectedDeviceNetworkServer.type }})</span>
-            </span>
-            <span class="px-2 py-0.5 rounded text-[10px] font-mono font-bold"
-              :class="selectedDeviceNetworkServer.type === 'CHIRPSTACK' ? 'bg-indigo-500/20 text-indigo-300' : 'bg-sky-500/20 text-sky-300'">
-              {{ selectedDeviceNetworkServer.type === 'CHIRPSTACK' ? '2-Step Provisioning' : '1-Step Provisioning' }}
-            </span>
-          </div>
-          <p class="text-[11px] opacity-90 leading-relaxed">
-            <span v-if="selectedDeviceNetworkServer.type === 'CHIRPSTACK'">
-              🔄 <strong>2-Step ChirpStack Flow:</strong> Step 1 creates device with AppEUI (JoinEUI) at <code>POST /api/devices</code> ➔ Step 2 configures AppKey at <code>POST /api/devices/{devEUI}/keys</code>.
-            </span>
-            <span v-else>
-              ⚡ <strong>1-Step ThingPark Flow:</strong> Single DX REST payload provisions DevEUI, Name, AppEUI, and AppKey directly in 1 step.
-            </span>
-          </p>
         </div>
 
         <form @submit.prevent="submitRegisterDevice" class="space-y-3.5 text-xs">
@@ -1407,19 +1392,13 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
 
           <!-- AppEUI (Pre-filled 0102030405060708) -->
           <div>
-            <div class="flex items-center justify-between mb-1">
-              <label class="font-semibold text-slate-300">AppEUI / JoinEUI (16 Hex Characters) <span class="text-red-400">*</span></label>
-              <span class="text-[10px] text-teal-400 font-mono font-bold">Default Pre-filled</span>
-            </div>
+            <label class="block font-semibold text-slate-300 mb-1">AppEUI / JoinEUI (16 Hex Characters) <span class="text-red-400">*</span></label>
             <input v-model="newDevice.appEUI" type="text" required maxlength="16" minlength="16" class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-white font-mono uppercase focus:outline-none focus:border-teal-500" />
           </div>
 
           <!-- APP_key (Pre-filled 0102030405060708090A0B0C0D0E0F10) -->
           <div>
-            <div class="flex items-center justify-between mb-1">
-              <label class="font-semibold text-slate-300">APP_Key (32 Hex Characters) <span class="text-red-400">*</span></label>
-              <span class="text-[10px] text-teal-400 font-mono font-bold">Default Pre-filled</span>
-            </div>
+            <label class="block font-semibold text-slate-300 mb-1">APP_Key (32 Hex Characters) <span class="text-red-400">*</span></label>
             <input v-model="newDevice.appKey" type="text" required maxlength="32" minlength="32" class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-white font-mono uppercase focus:outline-none focus:border-teal-500" />
           </div>
 
@@ -1428,7 +1407,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
             <button type="submit" :disabled="savingDevice" class="px-4 py-2 rounded-lg bg-teal-500 hover:bg-teal-400 text-slate-950 font-bold flex items-center gap-1.5 cursor-pointer">
               <i v-if="savingDevice" class="fa-solid fa-circle-notch fa-spin"></i>
               <i v-else class="fa-solid fa-plus"></i>
-              <span>{{ savingDevice ? 'Provisioning Device...' : 'Register & Provision' }}</span>
+              <span>{{ savingDevice ? 'Registering...' : 'Register Device' }}</span>
             </button>
           </div>
         </form>

@@ -5,6 +5,7 @@ import { RegisterDeviceDto, RegisterGatewayDto, UplinkPayloadDto, TestPayloadFor
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../common/guards/permissions.guard';
 import { RequirePermissions } from '../../common/decorators/permissions.decorator';
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
 
 @ApiTags('LoRaWAN & Webhook Ingestion')
 @Controller('lorawan')
@@ -16,8 +17,8 @@ export class LorawanController {
   @RequirePermissions('lorawan:device:manage')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Đăng ký thiết bị LoRaWAN mới (DevEUI, OTAA/ABP, Network Server)' })
-  async registerDevice(@Body() body: RegisterDeviceDto) {
-    return await this.lorawanService.registerDevice(body);
+  async registerDevice(@Body() body: RegisterDeviceDto, @CurrentUser() user: any) {
+    return await this.lorawanService.registerDevice(body, user);
   }
 
   @Post('gateways')
@@ -67,8 +68,8 @@ export class LorawanController {
   @RequirePermissions('lorawan:device:read')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Danh sách các thiết bị LoRaWAN' })
-  async listDevices() {
-    return await this.lorawanService.listDevices();
+  async listDevices(@CurrentUser() user: any) {
+    return await this.lorawanService.listDevices(user);
   }
 
   @Get('devices/:devEUI')
@@ -76,8 +77,8 @@ export class LorawanController {
   @RequirePermissions('lorawan:device:read')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Lấy chi tiết một thiết bị LoRaWAN theo DevEUI' })
-  async findOneDevice(@Param('devEUI') devEUI: string) {
-    return await this.lorawanService.findOneDevice(devEUI);
+  async findOneDevice(@Param('devEUI') devEUI: string, @CurrentUser() user: any) {
+    return await this.lorawanService.findOneDevice(devEUI, user);
   }
 
   @Put('devices/:devEUI')
@@ -85,8 +86,8 @@ export class LorawanController {
   @RequirePermissions('lorawan:device:manage')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Cập nhật cấu hình thiết bị LoRaWAN' })
-  async updateDevice(@Param('devEUI') devEUI: string, @Body() body: Partial<RegisterDeviceDto>) {
-    return await this.lorawanService.updateDevice(devEUI, body);
+  async updateDevice(@Param('devEUI') devEUI: string, @Body() body: Partial<RegisterDeviceDto>, @CurrentUser() user: any) {
+    return await this.lorawanService.updateDevice(devEUI, body, user);
   }
 
   @Delete('devices/:devEUI')
@@ -94,8 +95,8 @@ export class LorawanController {
   @RequirePermissions('lorawan:device:manage')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Xóa thiết bị LoRaWAN khỏi hệ thống và Network Server' })
-  async deleteDevice(@Param('devEUI') devEUI: string) {
-    return await this.lorawanService.deleteDevice(devEUI);
+  async deleteDevice(@Param('devEUI') devEUI: string, @CurrentUser() user: any) {
+    return await this.lorawanService.deleteDevice(devEUI, user);
   }
 
   @Post('devices/:devEUI/sync')
@@ -103,8 +104,8 @@ export class LorawanController {
   @RequirePermissions('lorawan:device:manage')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Đồng bộ/Provisioning lại thiết bị lên Network Server (ThingPark / ChirpStack)' })
-  async syncDevice(@Param('devEUI') devEUI: string) {
-    return await this.lorawanService.syncDeviceToNetworkServer(devEUI);
+  async syncDevice(@Param('devEUI') devEUI: string, @CurrentUser() user: any) {
+    return await this.lorawanService.syncDeviceToNetworkServer(devEUI, user);
   }
 
   @Get('gateways')

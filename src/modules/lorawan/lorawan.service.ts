@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, ForbiddenException, Logger } from '@nestjs/common';
 import { DynamicDatabaseService } from '../database/dynamic-database.service';
 import { PayloadFormatterService } from './payload-formatters/payload-formatter.service';
 import { DeviceProvisioningService, ProvisioningResult } from './services/device-provisioning.service';
@@ -8,6 +8,16 @@ import { GatewayEntity } from './entities/gateway.entity';
 import { TelemetryEntity } from './entities/telemetry.entity';
 import { NetworkServerEntity } from '../network-servers/entities/network-server.entity';
 import { RegisterDeviceDto, RegisterGatewayDto } from './dto/lorawan.dto';
+
+function isUserSuperAdmin(user?: any): boolean {
+  if (!user) return false;
+  if (user.username === 'admin') return true;
+  if (user.userType === 'ADMIN' || String(user.userType).toUpperCase() === 'ADMIN') return true;
+  if (user.roles && Array.isArray(user.roles)) {
+    return user.roles.some((r: any) => (r.code || r) === 'SUPER_ADMIN');
+  }
+  return false;
+}
 
 @Injectable()
 export class LorawanService {
@@ -43,7 +53,7 @@ export class LorawanService {
    * Register device and provision it to upstream Network Server
    * (ThingPark: 1-step, ChirpStack: 2-step with AppEUI and AppKey)
    */
-  async registerDevice(dto: RegisterDeviceDto): Promise<{
+  async registerDevice(dto: RegisterDeviceDto, user?: any): Promise<{
     success: boolean;
     device: DeviceEntity;
     provisioning?: ProvisioningResult;
@@ -54,6 +64,7 @@ export class LorawanService {
     const appEUI = (dto.appEUI || '0102030405060708').trim().toUpperCase();
     const appKey = (dto.appKey || '0102030405060708090A0B0C0D0E0F10').trim().toUpperCase();
     const activationMode = dto.activationType || 'OTAA';
+    const ownerId = user?.id || undefined;
 
     if (!devEUI || devEUI.length < 16) {
       throw new BadRequestException('DevEUI must be at least 16 Hexadecimal characters.');
@@ -103,6 +114,7 @@ export class LorawanService {
         appEUI,
         appKey,
         activationMode,
+        ownerId,
         networkServerId: dto.networkServerId || undefined,
         regionProfileId: dto.regionProfileId || undefined,
         payloadFormatterScript: dto.payloadFormatterScript || undefined,
@@ -111,10 +123,16 @@ export class LorawanService {
         isActive: true,
       });
     } else {
+      if (!isUserSuperAdmin(user) && device.ownerId && user?.id && device.ownerId !== user.id) {
+        throw new ForbiddenException('You do not have permission to modify this device.');
+      }
       device.name = name;
       device.appEUI = appEUI;
       device.appKey = appKey;
       device.activationMode = activationMode;
+      if (!device.ownerId && ownerId) {
+        device.ownerId = ownerId;
+      }
       device.networkServerId = dto.networkServerId || undefined as any;
       device.regionProfileId = dto.regionProfileId || undefined as any;
       if (dto.payloadFormatterScript !== undefined) {
@@ -138,10 +156,13 @@ export class LorawanService {
     };
   }
 
-  async updateDevice(devEUI: string, dto: Partial<RegisterDeviceDto>): Promise<DeviceEntity> {
+  async updateDevice(devEUI: string, dto: Partial<RegisterDeviceDto>, user?: any): Promise<DeviceEntity> {
     const device = await this.deviceRepo.findOne({ where: { devEUI: devEUI.toUpperCase() } });
     if (!device) {
       throw new NotFoundException(`Device with DevEUI ${devEUI} not found`);
+    }
+    if (!isUserSuperAdmin(user) && device.ownerId && user?.id && device.ownerId !== user.id) {
+      throw new ForbiddenException('You do not have permission to modify this device.');
     }
 
     if (dto.name !== undefined) device.name = dto.name.trim();
@@ -155,13 +176,16 @@ export class LorawanService {
     return await this.deviceRepo.save(device);
   }
 
-  async deleteDevice(devEUI: string): Promise<{ success: boolean; message: string }> {
+  async deleteDevice(devEUI: string, user?: any): Promise<{ success: boolean; message: string }> {
     const device = await this.deviceRepo.findOne({
       where: { devEUI: devEUI.toUpperCase() },
       relations: ['networkServer'],
     });
     if (!device) {
       throw new NotFoundException(`Device with DevEUI ${devEUI} not found`);
+    }
+    if (!isUserSuperAdmin(user) && device.ownerId && user?.id && device.ownerId !== user.id) {
+      throw new ForbiddenException('You do not have permission to delete this device.');
     }
 
     if (device.networkServer) {
@@ -173,7 +197,7 @@ export class LorawanService {
     return { success: true, message: `Device '${device.name}' (${devEUI}) deleted successfully` };
   }
 
-  async syncDeviceToNetworkServer(devEUI: string): Promise<{
+  async syncDeviceToNetworkServer(devEUI: string, user?: any): Promise<{
     success: boolean;
     provisioning: ProvisioningResult;
     device: DeviceEntity;
@@ -184,6 +208,9 @@ export class LorawanService {
     });
     if (!device) {
       throw new NotFoundException(`Device with DevEUI ${devEUI} not found`);
+    }
+    if (!isUserSuperAdmin(user) && device.ownerId && user?.id && device.ownerId !== user.id) {
+      throw new ForbiddenException('You do not have permission to manage this device.');
     }
     if (!device.networkServer) {
       throw new BadRequestException(`Device ${devEUI} is not assigned to any Network Server.`);
@@ -367,11 +394,22 @@ export class LorawanService {
     return this.payloadFormatterService.decodePayload(script, bytesHex, fPort);
   }
 
-  async listDevices(): Promise<any[]> {
-    const devices = await this.deviceRepo.find({
-      relations: ['networkServer'],
-      order: { createdAt: 'DESC' },
-    });
+  async listDevices(user?: any): Promise<any[]> {
+    const isSuperAdmin = isUserSuperAdmin(user);
+
+    let devices: DeviceEntity[];
+    if (isSuperAdmin || !user || !user.id) {
+      devices = await this.deviceRepo.find({
+        relations: ['networkServer', 'owner'],
+        order: { createdAt: 'DESC' },
+      });
+    } else {
+      devices = await this.deviceRepo.find({
+        where: { ownerId: user.id },
+        relations: ['networkServer', 'owner'],
+        order: { createdAt: 'DESC' },
+      });
+    }
 
     return devices.map((d) => {
       let regionProfileName = '';
@@ -385,17 +423,26 @@ export class LorawanService {
       return {
         ...d,
         regionProfileName: regionProfileName || d.regionProfileId || '',
+        owner: d.owner ? {
+          id: d.owner.id,
+          username: d.owner.username,
+          fullName: d.owner.fullName || d.owner.username,
+          email: d.owner.email,
+        } : null,
       };
     });
   }
 
-  async findOneDevice(devEUI: string): Promise<DeviceEntity> {
+  async findOneDevice(devEUI: string, user?: any): Promise<DeviceEntity> {
     const device = await this.deviceRepo.findOne({
       where: { devEUI: devEUI.toUpperCase() },
-      relations: ['networkServer'],
+      relations: ['networkServer', 'owner'],
     });
     if (!device) {
       throw new NotFoundException(`Device with DevEUI ${devEUI} not found`);
+    }
+    if (!isUserSuperAdmin(user) && device.ownerId && user?.id && device.ownerId !== user.id) {
+      throw new ForbiddenException('Device not found or not owned by you.');
     }
     return device;
   }

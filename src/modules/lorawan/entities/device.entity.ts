@@ -1,5 +1,6 @@
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, ManyToOne, JoinColumn } from 'typeorm';
 import { NetworkServerEntity } from '../../network-servers/entities/network-server.entity';
+import { User } from '../../users/entities/user.entity';
 
 @Entity('devices')
 export class DeviceEntity {
@@ -14,6 +15,13 @@ export class DeviceEntity {
 
   @Column({ nullable: true })
   appId: string;
+
+  @Column({ nullable: true })
+  ownerId: string;
+
+  @ManyToOne(() => User, { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'ownerId' })
+  owner?: User;
 
   @Column({ nullable: true })
   networkServerId: string;

@@ -310,17 +310,31 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
             </div>
           </div>
 
-          <div v-else-if="activeFeature.id === 'device-fleet'" class="space-y-4">
-            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <div>
-                <h3 class="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-2">
-                  <i class="fa-solid fa-microchip text-emerald-400"></i> Registered LoRaWAN End-Devices
-                </h3>
-                <p class="text-[11px] text-slate-400 mt-0.5">Provisioned end-devices on ThingPark Wireless & ChirpStack v4</p>
+          <!-- FEATURE: DEVICE MANAGER (CARD GRID) -->
+          <div v-else-if="activeFeature.id === 'device-fleet'" class="space-y-5">
+            <!-- Action Toolbar & Search -->
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-900/60 p-4 rounded-xl border border-slate-800">
+              <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/25 flex items-center justify-center text-emerald-400 text-lg shadow-inner">
+                  <i class="fa-solid fa-microchip"></i>
+                </div>
+                <div>
+                  <div class="flex items-center gap-2">
+                    <h3 class="text-sm font-bold text-white tracking-wide">DEVICE MANAGER</h3>
+                    <span class="px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/25 text-[10px] font-bold font-mono">
+                      {{ filteredDevices.length }} {{ filteredDevices.length === 1 ? 'Device' : 'Devices' }}
+                    </span>
+                  </div>
+                  <p class="text-[11px] text-slate-400 mt-0.5">Manage and provision your LoRaWAN end-devices</p>
+                </div>
               </div>
               <div class="flex items-center gap-2">
-                <button @click="fetchDevices" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 text-xs font-semibold flex items-center gap-1.5 cursor-pointer">
-                  <i class="fa-solid fa-arrows-rotate"></i> Refresh
+                <div class="relative">
+                  <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-xs"></i>
+                  <input v-model="deviceSearchQuery" type="text" placeholder="Search devEUI, name..." class="pl-8 pr-3 py-1.5 bg-slate-950 border border-slate-800 rounded-lg text-xs text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 w-44 sm:w-56" />
+                </div>
+                <button @click="fetchDevices" title="Refresh Device List" class="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 text-xs font-semibold cursor-pointer">
+                  <i class="fa-solid fa-arrows-rotate"></i>
                 </button>
                 <button @click="openRegisterDeviceDialog" class="px-3.5 py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-xs font-bold shadow-lg shadow-emerald-500/20 flex items-center gap-1.5 cursor-pointer">
                   <i class="fa-solid fa-plus"></i> Register Device
@@ -328,69 +342,91 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
               </div>
             </div>
 
-            <div class="overflow-x-auto custom-scroll border border-slate-800 rounded-lg">
-              <table class="w-full text-left text-xs">
-                <thead class="bg-slate-950/80 text-slate-400 border-b border-slate-800">
-                  <tr>
-                    <th class="py-2.5 px-3.5">DevEUI</th>
-                    <th class="py-2.5 px-3.5">Device Name</th>
-                    <th class="py-2.5 px-3.5">Network Server</th>
-                    <th class="py-2.5 px-3.5">Region Profile</th>
-                    <th class="py-2.5 px-3.5">AppEUI</th>
-                    <th class="py-2.5 px-3.5">AppKey</th>
-                    <th class="py-2.5 px-3.5">Sync Status</th>
-                    <th class="py-2.5 px-3.5">Status</th>
-                    <th class="py-2.5 px-3.5 text-right">Actions</th>
-                  </tr>
-                </thead>
-                <tbody class="divide-y divide-slate-800/60">
-                  <tr v-if="devicesList.length === 0">
-                    <td colspan="9" class="py-6 text-center text-slate-500">No devices registered. Click "Register Device" above to add your first LoRaWAN device.</td>
-                  </tr>
-                  <tr v-for="d in devicesList" :key="d.id || d.devEUI" class="hover:bg-slate-800/30 transition">
-                    <td class="py-2.5 px-3.5 font-mono font-bold text-sky-400">{{ d.devEUI }}</td>
-                    <td class="py-2.5 px-3.5 font-bold text-white">{{ d.name }}</td>
-                    <td class="py-2.5 px-3.5">
-                      <span v-if="d.networkServer" class="px-2 py-0.5 rounded bg-sky-500/10 text-sky-300 border border-sky-500/20 text-[10px] font-mono">
-                        {{ d.networkServer.name }} ({{ d.networkServer.type }})
-                      </span>
-                      <span v-else class="text-slate-500 text-[11px]">Unassigned</span>
-                    </td>
-                    <td class="py-2.5 px-3.5">
-                      <span v-if="d.regionProfileName" class="px-2 py-0.5 rounded bg-indigo-500/10 text-indigo-300 border border-indigo-500/20 text-[10px] font-mono">
-                        {{ d.regionProfileName }}
-                      </span>
-                      <span v-else class="text-slate-500 text-[11px]">--</span>
-                    </td>
-                    <td class="py-2.5 px-3.5 font-mono text-slate-300 text-[11px]">{{ d.appEUI || '0102030405060708' }}</td>
-                    <td class="py-2.5 px-3.5 font-mono text-slate-400 text-[11px]">
-                      <span :title="d.appKey">{{ d.appKey ? d.appKey.slice(0, 6) + '...' + d.appKey.slice(-6) : '010203...0F10' }}</span>
-                    </td>
-                    <td class="py-2.5 px-3.5">
-                      <span :class="d.syncStatus === 'SYNCED' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/25' : 'bg-amber-500/10 text-amber-400 border-amber-500/25'" class="px-2 py-0.5 rounded-full text-[10px] font-bold border flex items-center gap-1 w-max">
-                        <span class="w-1.5 h-1.5 rounded-full" :class="d.syncStatus === 'SYNCED' ? 'bg-emerald-400' : 'bg-amber-400'"></span>
-                        <span>{{ d.syncStatus || 'SYNCED' }}</span>
-                      </span>
-                    </td>
-                    <td class="py-2.5 px-3.5">
-                      <span class="px-2 py-0.5 rounded-full text-[10px] font-bold" :class="d.isActive ? 'bg-emerald-500/10 text-emerald-400' : 'bg-red-500/10 text-red-400'">
-                        {{ d.isActive ? 'ACTIVE' : 'INACTIVE' }}
-                      </span>
-                    </td>
-                    <td class="py-2.5 px-3.5 text-right">
-                      <div class="flex items-center justify-end gap-1.5">
-                        <button v-if="d.networkServer" @click="syncDevice(d)" title="Re-sync to Network Server" class="p-1.5 rounded bg-sky-500/10 hover:bg-sky-500/20 text-sky-400 border border-sky-500/20 text-xs cursor-pointer">
-                          <i class="fa-solid fa-arrows-rotate"></i>
-                        </button>
-                        <button @click="deleteDevice(d)" title="Delete Device" class="p-1.5 rounded bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 text-xs cursor-pointer">
-                          <i class="fa-solid fa-trash-can"></i>
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
+            <!-- Empty State -->
+            <div v-if="filteredDevices.length === 0" class="text-center py-16 px-4 bg-slate-900/40 border border-slate-800/80 rounded-2xl space-y-4">
+              <div class="w-14 h-14 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 text-2xl mx-auto">
+                <i class="fa-solid fa-microchip"></i>
+              </div>
+              <div class="space-y-1">
+                <h4 class="text-sm font-bold text-white">No devices found</h4>
+                <p class="text-xs text-slate-400 max-w-sm mx-auto">
+                  {{ deviceSearchQuery ? 'No devices match your search filter.' : 'You have not provisioned any LoRaWAN devices yet.' }}
+                </p>
+              </div>
+              <button v-if="!deviceSearchQuery" @click="openRegisterDeviceDialog" class="px-4 py-2 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-xs font-bold shadow-lg shadow-emerald-500/20 inline-flex items-center gap-1.5 cursor-pointer">
+                <i class="fa-solid fa-plus"></i> Register Your First Device
+              </button>
             </div>
+
+            <!-- Card Grid -->
+            <div v-else class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div v-for="d in filteredDevices" :key="d.id || d.devEUI" class="bg-slate-900/90 border border-slate-800/90 hover:border-emerald-500/40 rounded-2xl p-4.5 shadow-xl transition duration-200 flex flex-col justify-between space-y-3.5 group">
+                
+                <!-- Card Header -->
+                <div class="flex items-start justify-between gap-2 pb-2.5 border-b border-slate-800/70">
+                  <div class="space-y-0.5 min-w-0">
+                    <h4 class="font-bold text-white text-sm truncate group-hover:text-emerald-300 transition" :title="d.name">{{ d.name }}</h4>
+                    <div class="flex items-center gap-1.5">
+                      <span class="font-mono text-xs font-bold text-sky-400 tracking-wider">{{ d.devEUI }}</span>
+                    </div>
+                  </div>
+                  <div class="flex items-center gap-1.5 flex-shrink-0">
+                    <span :class="d.syncStatus === 'SYNCED' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/25' : 'bg-amber-500/10 text-amber-400 border-amber-500/25'" class="px-2 py-0.5 rounded-full text-[10px] font-bold border flex items-center gap-1">
+                      <span class="w-1.5 h-1.5 rounded-full" :class="d.syncStatus === 'SYNCED' ? 'bg-emerald-400' : 'bg-amber-400'"></span>
+                      <span>{{ d.syncStatus || 'SYNCED' }}</span>
+                    </span>
+                  </div>
+                </div>
+
+                <!-- Card Body (Properties) -->
+                <div class="space-y-2 text-xs">
+                  <div class="flex items-center justify-between text-[11px]">
+                    <span class="text-slate-400 flex items-center gap-1.5"><i class="fa-solid fa-server text-slate-500 w-3.5 text-center"></i> Network Server:</span>
+                    <span v-if="d.networkServer" class="px-2 py-0.5 rounded bg-sky-500/10 text-sky-300 border border-sky-500/20 font-mono font-medium text-[10px] truncate max-w-[160px]" :title="d.networkServer.name">
+                      {{ d.networkServer.name }}
+                    </span>
+                    <span v-else class="text-slate-500 text-[11px]">Unassigned</span>
+                  </div>
+
+                  <div class="flex items-center justify-between text-[11px]">
+                    <span class="text-slate-400 flex items-center gap-1.5"><i class="fa-solid fa-globe text-slate-500 w-3.5 text-center"></i> Region Plan:</span>
+                    <span v-if="d.regionProfileName" class="px-2 py-0.5 rounded bg-indigo-500/10 text-indigo-300 border border-indigo-500/20 font-mono text-[10px] truncate max-w-[160px]">
+                      {{ d.regionProfileName }}
+                    </span>
+                    <span v-else class="text-slate-500 text-[11px]">--</span>
+                  </div>
+
+                  <div class="flex items-center justify-between text-[11px]">
+                    <span class="text-slate-400 flex items-center gap-1.5"><i class="fa-solid fa-key text-slate-500 w-3.5 text-center"></i> AppEUI:</span>
+                    <span class="font-mono text-slate-300 text-[11px]">{{ d.appEUI || '0102030405060708' }}</span>
+                  </div>
+
+                  <div class="flex items-center justify-between text-[11px]">
+                    <span class="text-slate-400 flex items-center gap-1.5"><i class="fa-solid fa-shield-halved text-slate-500 w-3.5 text-center"></i> AppKey:</span>
+                    <span class="font-mono text-slate-400 text-[11px]" :title="d.appKey">
+                      {{ d.appKey ? d.appKey.slice(0, 6) + '...' + d.appKey.slice(-6) : '010203...0F10' }}
+                    </span>
+                  </div>
+                </div>
+
+                <!-- Card Footer (Actions) -->
+                <div class="pt-3 border-t border-slate-800/70 flex items-center justify-between text-xs">
+                  <span class="px-2 py-0.5 rounded-full text-[10px] font-bold" :class="d.isActive ? 'bg-emerald-500/10 text-emerald-400' : 'bg-red-500/10 text-red-400'">
+                    {{ d.isActive ? 'ACTIVE' : 'INACTIVE' }}
+                  </span>
+                  <div class="flex items-center gap-1.5">
+                    <button v-if="d.networkServer" @click="syncDevice(d)" title="Re-sync Provisioning to Network Server" class="px-2.5 py-1 rounded-lg bg-sky-500/10 hover:bg-sky-500/20 text-sky-300 border border-sky-500/20 text-[11px] font-semibold flex items-center gap-1 cursor-pointer">
+                      <i class="fa-solid fa-arrows-rotate"></i> Sync
+                    </button>
+                    <button @click="deleteDevice(d)" title="Delete Device" class="p-1.5 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 text-xs cursor-pointer">
+                      <i class="fa-solid fa-trash-can"></i>
+                    </button>
+                  </div>
+                </div>
+
+              </div>
+            </div>
+
           </div>
 
           <!-- General Module Template for independent module source extension -->
@@ -424,32 +460,9 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
             <h3 class="text-sm font-bold text-white flex items-center gap-2">
               <i class="fa-solid fa-microchip text-emerald-400"></i> Register LoRaWAN Device
             </h3>
-            <p class="text-[11px] text-slate-400 mt-0.5">Provision end-device to Network Server (ThingPark / ChirpStack)</p>
+            <p class="text-[11px] text-slate-400 mt-0.5">Provision end-device to Network Server</p>
           </div>
           <button @click="registerDeviceDialog = false" class="text-slate-500 hover:text-white cursor-pointer"><i class="fa-solid fa-xmark"></i></button>
-        </div>
-
-        <!-- Provisioning Architecture Notice Banner -->
-        <div v-if="selectedDeviceNetworkServer" class="p-3 rounded-xl border text-xs space-y-1.5"
-          :class="selectedDeviceNetworkServer.type === 'CHIRPSTACK' ? 'bg-indigo-950/40 border-indigo-500/30 text-indigo-200' : 'bg-sky-950/40 border-sky-500/30 text-sky-200'">
-          <div class="flex items-center justify-between font-bold">
-            <span class="flex items-center gap-1.5">
-              <i :class="selectedDeviceNetworkServer.type === 'CHIRPSTACK' ? 'fa-solid fa-layer-group text-indigo-400' : 'fa-solid fa-bolt text-sky-400'"></i>
-              <span>{{ selectedDeviceNetworkServer.name }} ({{ selectedDeviceNetworkServer.type }})</span>
-            </span>
-            <span class="px-2 py-0.5 rounded text-[10px] font-mono font-bold"
-              :class="selectedDeviceNetworkServer.type === 'CHIRPSTACK' ? 'bg-indigo-500/20 text-indigo-300' : 'bg-sky-500/20 text-sky-300'">
-              {{ selectedDeviceNetworkServer.type === 'CHIRPSTACK' ? '2-Step Provisioning' : '1-Step Provisioning' }}
-            </span>
-          </div>
-          <p class="text-[11px] opacity-90 leading-relaxed">
-            <span v-if="selectedDeviceNetworkServer.type === 'CHIRPSTACK'">
-              🔄 <strong>2-Step ChirpStack Flow:</strong> Step 1 creates device with AppEUI (JoinEUI) at <code>POST /api/devices</code> ➔ Step 2 configures AppKey at <code>POST /api/devices/{devEUI}/keys</code>.
-            </span>
-            <span v-else>
-              ⚡ <strong>1-Step ThingPark Flow:</strong> Single DX REST payload provisions DevEUI, Name, AppEUI, and AppKey directly in 1 step.
-            </span>
-          </p>
         </div>
 
         <form @submit.prevent="submitRegisterDevice" class="space-y-3.5 text-xs">
@@ -485,19 +498,13 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
 
           <!-- AppEUI (Pre-filled 0102030405060708) -->
           <div>
-            <div class="flex items-center justify-between mb-1">
-              <label class="font-semibold text-slate-300">AppEUI / JoinEUI (16 Hex Characters) <span class="text-red-400">*</span></label>
-              <span class="text-[10px] text-emerald-400 font-mono font-bold">Default Pre-filled</span>
-            </div>
+            <label class="block font-semibold text-slate-300 mb-1">AppEUI / JoinEUI (16 Hex Characters) <span class="text-red-400">*</span></label>
             <input v-model="newDevice.appEUI" type="text" required maxlength="16" minlength="16" class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-white font-mono uppercase focus:outline-none focus:border-emerald-500" />
           </div>
 
           <!-- APP_key (Pre-filled 0102030405060708090A0B0C0D0E0F10) -->
           <div>
-            <div class="flex items-center justify-between mb-1">
-              <label class="font-semibold text-slate-300">APP_Key (32 Hex Characters) <span class="text-red-400">*</span></label>
-              <span class="text-[10px] text-emerald-400 font-mono font-bold">Default Pre-filled</span>
-            </div>
+            <label class="block font-semibold text-slate-300 mb-1">APP_Key (32 Hex Characters) <span class="text-red-400">*</span></label>
             <input v-model="newDevice.appKey" type="text" required maxlength="32" minlength="32" class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-white font-mono uppercase focus:outline-none focus:border-emerald-500" />
           </div>
 
@@ -506,7 +513,7 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
             <button type="submit" :disabled="savingDevice" class="px-4 py-2 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold flex items-center gap-1.5 cursor-pointer">
               <i v-if="savingDevice" class="fa-solid fa-circle-notch fa-spin"></i>
               <i v-else class="fa-solid fa-plus"></i>
-              <span>{{ savingDevice ? 'Provisioning Device...' : 'Register & Provision' }}</span>
+              <span>{{ savingDevice ? 'Registering...' : 'Register Device' }}</span>
             </button>
           </div>
         </form>
@@ -564,6 +571,18 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
           const ns = selectedDeviceNetworkServer.value;
           if (!ns || !Array.isArray(ns.regionProfiles)) return [];
           return ns.regionProfiles.filter(rp => rp.isActive !== false);
+        });
+
+        const deviceSearchQuery = ref('');
+        const filteredDevices = computed(() => {
+          if (!deviceSearchQuery.value.trim()) return devicesList.value;
+          const q = deviceSearchQuery.value.trim().toLowerCase();
+          return devicesList.value.filter(d => 
+            (d.name && d.name.toLowerCase().includes(q)) ||
+            (d.devEUI && d.devEUI.toLowerCase().includes(q)) ||
+            (d.networkServer && d.networkServer.name && d.networkServer.name.toLowerCase().includes(q)) ||
+            (d.regionProfileName && d.regionProfileName.toLowerCase().includes(q))
+          );
         });
 
         const onDeviceNetworkServerChange = () => {
@@ -837,6 +856,8 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
           isSuperAdmin,
           telemetryList,
           devicesList,
+          deviceSearchQuery,
+          filteredDevices,
           networkServersList,
           registerDeviceDialog,
           savingDevice,

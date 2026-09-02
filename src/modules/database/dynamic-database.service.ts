@@ -258,6 +258,7 @@ export class DynamicDatabaseService implements OnModuleInit, OnModuleDestroy {
           "devEUI" VARCHAR(255) UNIQUE NOT NULL,
           "name" VARCHAR(255) NOT NULL,
           "appId" VARCHAR(255),
+          "ownerId" UUID,
           "appEUI" VARCHAR(255) DEFAULT '0102030405060708',
           "networkServerId" UUID,
           "regionProfileId" VARCHAR(100),
@@ -273,6 +274,7 @@ export class DynamicDatabaseService implements OnModuleInit, OnModuleDestroy {
           "updatedAt" TIMESTAMP NOT NULL DEFAULT now()
         );
       `);
+      await dataSource.query(`ALTER TABLE "devices" ADD COLUMN IF NOT EXISTS "ownerId" UUID;`).catch(() => {});
       await dataSource.query(`ALTER TABLE "devices" ADD COLUMN IF NOT EXISTS "appEUI" VARCHAR(255) DEFAULT '0102030405060708';`).catch(() => {});
       await dataSource.query(`ALTER TABLE "devices" ADD COLUMN IF NOT EXISTS "networkServerId" UUID;`).catch(() => {});
       await dataSource.query(`ALTER TABLE "devices" ADD COLUMN IF NOT EXISTS "regionProfileId" VARCHAR(100);`).catch(() => {});
