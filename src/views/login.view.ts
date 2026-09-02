@@ -7,155 +7,141 @@ export const LOGIN_HTML = `<!DOCTYPE html>
   <meta http-equiv="Pragma" content="no-cache" />
   <meta http-equiv="Expires" content="0" />
   <title>Sign In - Daviteq LoRaWAN Platform</title>
-  <!-- Material Design Icons -->
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font@7.4.47/css/materialdesignicons.min.css" />
-  <!-- Vuetify 3 CSS -->
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/vuetify@3.6.14/dist/vuetify.min.css" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
   <style>
     body {
-      background: radial-gradient(circle at 50% 10%, #0f172a 0%, #030712 100%);
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      margin: 0;
-      padding: 0;
-    }
-    .login-container {
+      background: radial-gradient(circle at 50% -20%, #0c4a6e 0%, #020617 70%);
+      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       min-height: 100vh;
       display: flex;
       align-items: center;
       justify-content: center;
+      color: #f8fafc;
+      margin: 0;
       padding: 1rem;
     }
-    .glow-card {
-      box-shadow: 0 0 35px -5px rgba(14, 165, 233, 0.25) !important;
-      border: 1px solid rgba(56, 189, 248, 0.2) !important;
+    .font-mono { font-family: 'JetBrains Mono', monospace; }
+    .glass-card {
+      background: rgba(15, 23, 42, 0.75);
+      backdrop-filter: blur(16px);
+      border: 1px solid rgba(56, 189, 248, 0.2);
+      box-shadow: 0 0 50px -10px rgba(14, 165, 233, 0.2), 0 25px 50px -12px rgba(0, 0, 0, 0.7);
+    }
+    .input-focus:focus {
+      border-color: #38bdf8;
+      box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.2);
     }
   </style>
 </head>
 <body>
-  <div id="app">
-    <v-app theme="dark" style="background: transparent;">
-      <v-main class="login-container">
-        <v-card width="100%" max-width="440" rounded="xl" color="#0f172a" class="pa-8 glow-card">
-          <!-- Logo & Header -->
-          <div class="text-center mb-6">
-            <v-avatar color="primary" variant="tonal" size="56" class="mb-3">
-              <v-icon icon="mdi-transmission-tower" size="32" color="cyan-lighten-2"></v-icon>
-            </v-avatar>
-            <h1 class="text-h5 font-weight-bold text-white mb-1">
-              <span class="text-cyan-lighten-2">DAVITEQ</span> LoRaWAN
-            </h1>
-            <p class="text-caption text-medium-emphasis">Application & Network Server Platform</p>
-          </div>
+  <div id="app" class="w-full max-w-md">
+    <div class="glass-card rounded-2xl p-8 space-y-6">
+      <!-- Header -->
+      <div class="text-center space-y-2">
+        <div class="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-sky-500/10 border border-sky-500/30 text-sky-400 text-2xl shadow-inner mb-1">
+          <i class="fa-solid fa-tower-broadcast"></i>
+        </div>
+        <h1 class="text-2xl font-extrabold tracking-tight text-white flex items-center justify-center gap-2">
+          <span class="text-sky-400">DAVITEQ</span> LoRaWAN
+        </h1>
+        <p class="text-xs text-slate-400 font-medium">Enterprise Network & Application Server</p>
+      </div>
 
-          <!-- Alert notification -->
-          <v-alert
-            v-if="alert.show"
-            :type="alert.type"
-            :text="alert.msg"
-            variant="tonal"
-            density="compact"
-            class="mb-4"
-            closable
-            @click:close="alert.show = false"
-          ></v-alert>
+      <!-- Alert -->
+      <div v-if="alert.show" :class="alert.type === 'error' ? 'bg-red-500/10 border-red-500/30 text-red-400' : 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'" class="p-3 rounded-xl border text-xs font-medium flex items-center gap-2">
+        <i :class="alert.type === 'error' ? 'fa-solid fa-circle-exclamation' : 'fa-solid fa-circle-check'"></i>
+        <span>{{ alert.msg }}</span>
+      </div>
 
-          <!-- Login Form -->
-          <v-form @submit.prevent="handleLogin" v-model="formValid">
-            <v-text-field
+      <!-- Form -->
+      <form @submit.prevent="handleLogin" class="space-y-4">
+        <div class="space-y-1.5">
+          <label class="block text-xs font-semibold text-slate-300">Username or Email</label>
+          <div class="relative">
+            <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500">
+              <i class="fa-solid fa-user text-xs"></i>
+            </div>
+            <input
               v-model="username"
-              label="Username or Email"
-              prepend-inner-icon="mdi-account"
-              variant="outlined"
-              density="comfortable"
-              color="cyan-lighten-2"
-              class="mb-3"
+              type="text"
               required
-              :disabled="loading"
-            ></v-text-field>
+              placeholder="admin or user@domain.com"
+              class="w-full pl-10 pr-4 py-2.5 bg-slate-950/80 border border-slate-700/80 rounded-xl text-sm text-white placeholder-slate-500 focus:outline-none input-focus transition"
+            />
+          </div>
+        </div>
 
-            <v-text-field
+        <div class="space-y-1.5">
+          <label class="block text-xs font-semibold text-slate-300">Password</label>
+          <div class="relative">
+            <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500">
+              <i class="fa-solid fa-lock text-xs"></i>
+            </div>
+            <input
               v-model="password"
               :type="showPassword ? 'text' : 'password'"
-              label="Password"
-              prepend-inner-icon="mdi-lock"
-              :append-inner-icon="showPassword ? 'mdi-eye-off' : 'mdi-eye'"
-              @click:append-inner="showPassword = !showPassword"
-              variant="outlined"
-              density="comfortable"
-              color="cyan-lighten-2"
-              class="mb-2"
               required
-              :disabled="loading"
-            ></v-text-field>
-
-            <div class="d-flex align-center justify-space-between mb-4">
-              <v-checkbox
-                v-model="rememberMe"
-                label="Remember session"
-                color="cyan-lighten-2"
-                density="compact"
-                hide-details
-              ></v-checkbox>
-              <a href="/api/docs" target="_blank" class="text-caption text-cyan-lighten-2 text-decoration-none font-weight-medium">
-                <v-icon icon="mdi-book-open-outline" size="small" class="mr-1"></v-icon>Swagger API
-              </a>
-            </div>
-
-            <v-btn
-              type="submit"
-              color="cyan-darken-1"
-              size="large"
-              block
-              rounded="lg"
-              class="font-weight-bold"
-              :loading="loading"
+              placeholder="••••••••"
+              class="w-full pl-10 pr-10 py-2.5 bg-slate-950/80 border border-slate-700/80 rounded-xl text-sm text-white placeholder-slate-500 focus:outline-none input-focus transition"
+            />
+            <button
+              type="button"
+              @click="showPassword = !showPassword"
+              class="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-500 hover:text-slate-300 cursor-pointer"
             >
-              Sign In <v-icon icon="mdi-arrow-right" end></v-icon>
-            </v-btn>
-          </v-form>
-
-          <!-- Footer Actions -->
-          <v-divider class="my-4"></v-divider>
-          <div class="d-flex align-center justify-space-between text-caption text-medium-emphasis">
-            <v-btn
-              variant="text"
-              size="small"
-              color="error"
-              density="compact"
-              @click="clearSession"
-            >
-              <v-icon icon="mdi-trash-can-outline" start size="small"></v-icon>
-              Clear Session
-            </v-btn>
-            <div class="d-flex align-center gap-1">
-              <v-badge dot color="success" inline class="mr-1"></v-badge>
-              <span>PostgreSQL &bull; NestJS</span>
-            </div>
+              <i :class="showPassword ? 'fa-solid fa-eye-slash' : 'fa-solid fa-eye'" class="text-xs"></i>
+            </button>
           </div>
-        </v-card>
-      </v-main>
-    </v-app>
+        </div>
+
+        <div class="flex items-center justify-between text-xs pt-1">
+          <label class="flex items-center text-slate-400 cursor-pointer select-none">
+            <input type="checkbox" v-model="rememberMe" class="rounded border-slate-700 bg-slate-800 text-sky-500 focus:ring-0 mr-2" />
+            Remember session
+          </label>
+          <a href="/api/docs" target="_blank" class="text-sky-400 hover:text-sky-300 transition flex items-center gap-1 font-semibold">
+            <i class="fa-solid fa-book-open"></i> Swagger API
+          </a>
+        </div>
+
+        <button
+          type="submit"
+          :disabled="loading"
+          class="w-full py-2.5 px-4 bg-gradient-to-r from-sky-500 to-cyan-500 hover:from-sky-400 hover:to-cyan-400 active:from-sky-600 active:to-cyan-600 text-white font-bold rounded-xl text-sm shadow-lg shadow-sky-500/25 transition duration-150 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+        >
+          <span v-if="loading"><i class="fa-solid fa-circle-notch fa-spin"></i> Signing in...</span>
+          <span v-else class="flex items-center gap-2">Sign In <i class="fa-solid fa-arrow-right text-xs"></i></span>
+        </button>
+      </form>
+
+      <!-- Footer -->
+      <div class="pt-4 border-t border-slate-800/80 flex items-center justify-between text-xs text-slate-500">
+        <button @click="clearSession" type="button" class="text-slate-400 hover:text-red-400 transition cursor-pointer flex items-center gap-1 text-[11px]">
+          <i class="fa-solid fa-trash-can"></i> Clear Session
+        </button>
+        <span class="inline-flex items-center gap-1.5 text-slate-400 text-[11px]">
+          <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+          PostgreSQL &bull; NestJS
+        </span>
+      </div>
+    </div>
   </div>
 
-  <!-- Vue 3 and Vuetify 3 Scripts -->
   <script src="https://cdn.jsdelivr.net/npm/vue@3.4.31/dist/vue.global.prod.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/vuetify@3.6.14/dist/vuetify.min.js"></script>
   <script>
     const { createApp, ref, onMounted } = Vue;
-    const { createVuetify } = Vuetify;
 
-    const vuetify = createVuetify({
-      theme: { defaultTheme: 'dark' }
-    });
-
-    const app = createApp({
+    createApp({
       setup() {
         const username = ref('admin');
         const password = ref('Dvt@123');
         const showPassword = ref(false);
         const rememberMe = ref(true);
         const loading = ref(false);
-        const formValid = ref(true);
         const alert = ref({ show: false, type: 'info', msg: '' });
 
         const showAlert = (msg, type = 'info') => {
@@ -172,14 +158,10 @@ export const LOGIN_HTML = `<!DOCTYPE html>
             document.cookie = c + "=; Path=/; Expires=Thu, 01 Jan 1970 00:00:01 GMT; Max-Age=0; SameSite=Lax;";
             document.cookie = c + "=; Path=/; Expires=Thu, 01 Jan 1970 00:00:01 GMT; Max-Age=0;";
           });
-          showAlert("Session cleared successfully. Please log in.", "success");
+          showAlert("Session reset successfully. Please log in.", "success");
         };
 
         const handleLogin = async () => {
-          if (!username.value || !password.value) {
-            showAlert("Please enter username and password.", "error");
-            return;
-          }
           loading.value = true;
           try {
             const res = await fetch('/auth/login', {
@@ -192,20 +174,16 @@ export const LOGIN_HTML = `<!DOCTYPE html>
               })
             });
             const data = await res.json();
-            if (!res.ok) {
-              throw new Error(data.message || "Invalid username or password");
-            }
-            if (data.access_token) {
-              localStorage.setItem('lorawan_token', data.access_token);
-            }
-            if (data.user) {
-              localStorage.setItem('lorawan_user', JSON.stringify(data.user));
-            }
-            showAlert("Login successful! Redirecting to Control Panel...", "success");
+            if (!res.ok) throw new Error(data.message || "Invalid credentials");
+
+            if (data.access_token) localStorage.setItem('lorawan_token', data.access_token);
+            if (data.user) localStorage.setItem('lorawan_user', JSON.stringify(data.user));
+
+            showAlert("Login successful! Opening Control Panel...", "success");
             setTimeout(() => {
               window.location.replace('/control-panel');
-            }, 300);
-          } catch (err) {
+            }, 250);
+          } catch(err) {
             showAlert(err.message, "error");
             loading.value = false;
           }
@@ -224,15 +202,12 @@ export const LOGIN_HTML = `<!DOCTYPE html>
           showPassword,
           rememberMe,
           loading,
-          formValid,
           alert,
           handleLogin,
           clearSession
         };
       }
-    });
-
-    app.use(vuetify).mount('#app');
+    }).mount('#app');
   </script>
 </body>
 </html>

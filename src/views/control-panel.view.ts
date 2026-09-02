@@ -7,953 +7,856 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
   <meta http-equiv="Pragma" content="no-cache" />
   <meta http-equiv="Expires" content="0" />
   <title>Control Panel - Daviteq LoRaWAN Platform</title>
-  <!-- Material Design Icons -->
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font@7.4.47/css/materialdesignicons.min.css" />
-  <!-- Vuetify 3 CSS -->
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/vuetify@3.6.14/dist/vuetify.min.css" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
   <style>
-    html {
-      font-size: 13.5px;
-    }
     body {
-      background-color: #070d1e;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background-color: #030712;
+      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       margin: 0;
       padding: 0;
       color: #f1f5f9;
+      font-size: 13.5px;
       overflow-x: hidden;
     }
-    .custom-scroll::-webkit-scrollbar {
-      width: 5px;
-      height: 5px;
+    .font-mono { font-family: 'JetBrains Mono', monospace !important; }
+    .custom-scroll::-webkit-scrollbar { width: 5px; height: 5px; }
+    .custom-scroll::-webkit-scrollbar-track { background: #030712; }
+    .custom-scroll::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 4px; }
+    
+    .glass-header {
+      background: rgba(3, 7, 18, 0.85);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid rgba(30, 41, 59, 0.8);
     }
-    .custom-scroll::-webkit-scrollbar-track {
-      background: #0b132b;
+    .glass-card {
+      background: rgba(15, 23, 42, 0.65);
+      backdrop-filter: blur(8px);
+      border: 1px solid rgba(30, 41, 59, 0.8);
     }
-    .custom-scroll::-webkit-scrollbar-thumb {
-      background: #2a3b5c;
-      border-radius: 4px;
+    .glass-card:hover {
+      border-color: rgba(56, 189, 248, 0.3);
     }
-    .font-mono {
-      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace !important;
+    .tab-btn {
+      padding: 0.45rem 0.85rem;
+      border-radius: 0.5rem;
+      font-weight: 600;
+      font-size: 0.8125rem;
+      color: #94a3b8;
+      transition: all 0.15s ease;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      user-select: none;
+      white-space: nowrap;
     }
-    .code-box {
-      background: #040814 !important;
-      border: 1px solid #1e293b !important;
-      border-radius: 6px !important;
-      font-family: monospace !important;
+    .tab-btn:hover {
+      color: #ffffff;
+      background: rgba(30, 41, 59, 0.6);
     }
-    .compact-table td, .compact-table th {
-      padding: 6px 12px !important;
-      height: 38px !important;
+    .tab-btn.active {
+      color: #38bdf8 !important;
+      background: rgba(14, 165, 233, 0.12) !important;
+      border: 1px solid rgba(56, 189, 248, 0.35) !important;
+      box-shadow: 0 0 12px rgba(56, 189, 248, 0.15);
     }
-    .v-tab {
-      letter-spacing: 0.02em !important;
-      text-transform: none !important;
-      font-weight: 600 !important;
-      min-width: auto !important;
-      padding: 0 10px !important;
-      font-size: 0.8125rem !important;
-    }
-    .v-card {
-      border-color: rgba(51, 65, 85, 0.6) !important;
+    .modal-backdrop {
+      background: rgba(2, 6, 23, 0.85);
+      backdrop-filter: blur(6px);
     }
   </style>
 </head>
-<body>
-  <div id="app">
-    <v-app theme="dark" style="background: #070d1e;">
-      <!-- NAVIGATION DRAWER -->
-      <v-navigation-drawer v-model="drawer" color="#050a17" width="230" border="right">
-        <!-- Brand Header -->
-        <div class="pa-3 d-flex align-center gap-2 border-b border-slate-800">
-          <v-avatar color="cyan-darken-3" rounded="lg" size="32">
-            <v-icon icon="mdi-transmission-tower" color="cyan-lighten-2" size="20"></v-icon>
-          </v-avatar>
+<body class="min-h-screen flex flex-col antialiased">
+  <div id="app" class="flex-1 flex flex-col">
+    
+    <!-- TOP APP BAR -->
+    <header class="glass-header sticky top-0 z-40 px-4 sm:px-6 h-14 flex items-center justify-between">
+      <!-- Left Brand & Status -->
+      <div class="flex items-center gap-4">
+        <a href="/control-panel" class="flex items-center gap-2.5 text-white font-extrabold text-sm tracking-tight text-decoration-none">
+          <div class="w-8 h-8 rounded-lg bg-sky-500/10 border border-sky-500/30 flex items-center justify-center text-sky-400 text-sm shadow-inner">
+            <i class="fa-solid fa-tower-broadcast"></i>
+          </div>
+          <div class="leading-none">
+            <div class="flex items-center gap-1.5">
+              <span><span class="text-sky-400">DAVITEQ</span> IoT</span>
+              <span class="px-1.5 py-0.2 rounded text-[9px] font-bold bg-sky-500/15 text-sky-300 border border-sky-500/30">v1.0</span>
+            </div>
+            <span class="text-[10px] text-slate-400 font-normal">LoRaWAN Server</span>
+          </div>
+        </a>
+
+        <div class="hidden lg:flex items-center gap-2 pl-3 border-l border-slate-800 text-xs">
+          <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/25 text-emerald-400 text-[11px] font-mono font-medium">
+            <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+            core_db &bull; ONLINE
+          </span>
+        </div>
+      </div>
+
+      <!-- Center / Horizontal Pill Tabs -->
+      <nav class="hidden md:flex items-center gap-1 overflow-x-auto custom-scroll py-1">
+        <button @click="activeTab = 'overview'" :class="{ active: activeTab === 'overview' }" class="tab-btn">
+          <i class="fa-solid fa-chart-pie text-xs"></i> <span>Overview</span>
+        </button>
+        <button @click="activeTab = 'users'" :class="{ active: activeTab === 'users' }" class="tab-btn">
+          <i class="fa-solid fa-users text-xs"></i> <span>Users</span>
+        </button>
+        <button @click="activeTab = 'roles'" :class="{ active: activeTab === 'roles' }" class="tab-btn">
+          <i class="fa-solid fa-shield-halved text-xs"></i> <span>Roles</span>
+        </button>
+        <button @click="activeTab = 'database'" :class="{ active: activeTab === 'database' }" class="tab-btn">
+          <i class="fa-solid fa-database text-xs"></i> <span>Database</span>
+        </button>
+        <button @click="activeTab = 'devices'" :class="{ active: activeTab === 'devices' }" class="tab-btn">
+          <i class="fa-solid fa-microchip text-xs"></i> <span>Devices</span>
+        </button>
+        <button @click="activeTab = 'telemetry'" :class="{ active: activeTab === 'telemetry' }" class="tab-btn">
+          <i class="fa-solid fa-wave-square text-xs"></i> <span>Telemetry</span>
+          <span v-if="telemetryList.length" class="ml-1 px-1.5 py-0.2 rounded-full bg-indigo-500/20 text-indigo-300 text-[10px] font-mono">{{ telemetryList.length }}</span>
+        </button>
+        <button @click="activeTab = 'webhooks'" :class="{ active: activeTab === 'webhooks' }" class="tab-btn">
+          <i class="fa-solid fa-satellite-dish text-xs"></i> <span>Webhooks</span>
+        </button>
+        <button @click="activeTab = 'decoder'" :class="{ active: activeTab === 'decoder' }" class="tab-btn">
+          <i class="fa-solid fa-code text-xs"></i> <span>Decoder</span>
+        </button>
+      </nav>
+
+      <!-- Right Actions -->
+      <div class="flex items-center gap-2">
+        <a href="/api/docs" target="_blank" class="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold text-sky-400 bg-sky-500/10 border border-sky-500/25 hover:bg-sky-500/20 transition">
+          <i class="fa-solid fa-book-open text-xs"></i> Swagger
+        </a>
+
+        <button @click="forceCleanSession" title="Reset all tokens & cache" class="px-2.5 py-1 rounded-lg text-xs font-semibold text-slate-400 hover:text-amber-400 bg-slate-900 border border-slate-800 hover:border-slate-700 transition flex items-center gap-1 cursor-pointer">
+          <i class="fa-solid fa-arrows-rotate text-[11px]"></i>
+          <span class="hidden xl:inline text-[11px]">Reset Session</span>
+        </button>
+
+        <div class="flex items-center gap-2 pl-2 border-l border-slate-800">
+          <div class="hidden sm:block text-right leading-tight">
+            <div class="text-xs font-bold text-slate-200">{{ currentUser.fullName || currentUser.username || 'Admin User' }}</div>
+            <div class="text-[10px] text-emerald-400 font-mono font-bold">{{ currentUser.userType || 'ADMIN' }}</div>
+          </div>
+          <button @click="handleLogout" title="Logout" class="px-2.5 py-1 rounded-lg text-xs font-semibold text-red-400 bg-red-500/10 border border-red-500/20 hover:bg-red-500/20 transition flex items-center gap-1 cursor-pointer">
+            <i class="fa-solid fa-right-from-bracket text-xs"></i>
+            <span class="hidden sm:inline">Logout</span>
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <!-- MOBILE NAVIGATION TABS (Visible only on small screens) -->
+    <div class="md:hidden flex items-center gap-1 overflow-x-auto custom-scroll p-2 bg-slate-950/80 border-b border-slate-800">
+      <button @click="activeTab = 'overview'" :class="{ active: activeTab === 'overview' }" class="tab-btn text-xs py-1 px-2.5">Overview</button>
+      <button @click="activeTab = 'users'" :class="{ active: activeTab === 'users' }" class="tab-btn text-xs py-1 px-2.5">Users</button>
+      <button @click="activeTab = 'roles'" :class="{ active: activeTab === 'roles' }" class="tab-btn text-xs py-1 px-2.5">Roles</button>
+      <button @click="activeTab = 'database'" :class="{ active: activeTab === 'database' }" class="tab-btn text-xs py-1 px-2.5">Database</button>
+      <button @click="activeTab = 'devices'" :class="{ active: activeTab === 'devices' }" class="tab-btn text-xs py-1 px-2.5">Devices</button>
+      <button @click="activeTab = 'telemetry'" :class="{ active: activeTab === 'telemetry' }" class="tab-btn text-xs py-1 px-2.5">Telemetry</button>
+      <button @click="activeTab = 'webhooks'" :class="{ active: activeTab === 'webhooks' }" class="tab-btn text-xs py-1 px-2.5">Webhooks</button>
+      <button @click="activeTab = 'decoder'" :class="{ active: activeTab === 'decoder' }" class="tab-btn text-xs py-1 px-2.5">Decoder</button>
+    </div>
+
+    <!-- MAIN BODY CONTAINER (Instant tab render with zero slide) -->
+    <main class="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 space-y-6">
+      
+      <!-- TAB 1: OVERVIEW -->
+      <div v-show="activeTab === 'overview'" class="space-y-6">
+        <!-- 4 Metric Cards -->
+        <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+          <div class="glass-card rounded-xl p-4 space-y-1">
+            <div class="flex items-center justify-between text-xs text-slate-400 font-medium">
+              <span>Platform Runtime</span>
+              <i class="fa-solid fa-server text-sky-400 text-sm"></i>
+            </div>
+            <div class="text-xl font-extrabold text-white flex items-center gap-2 pt-1">
+              <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span> ONLINE
+            </div>
+            <div class="text-[11px] text-slate-500">NestJS Core Engine</div>
+          </div>
+
+          <div class="glass-card rounded-xl p-4 space-y-1">
+            <div class="flex items-center justify-between text-xs text-slate-400 font-medium">
+              <span>Total Accounts</span>
+              <i class="fa-solid fa-users text-emerald-400 text-sm"></i>
+            </div>
+            <div class="text-xl font-extrabold text-white pt-1">{{ usersList.length || '--' }}</div>
+            <div class="text-[11px] text-slate-500">Super Admins & Operators</div>
+          </div>
+
+          <div class="glass-card rounded-xl p-4 space-y-1">
+            <div class="flex items-center justify-between text-xs text-slate-400 font-medium">
+              <span>Configured Roles</span>
+              <i class="fa-solid fa-shield-halved text-amber-400 text-sm"></i>
+            </div>
+            <div class="text-xl font-extrabold text-white pt-1">{{ rolesList.length || '--' }}</div>
+            <div class="text-[11px] text-slate-500">RBAC Role Definitions</div>
+          </div>
+
+          <div class="glass-card rounded-xl p-4 space-y-1">
+            <div class="flex items-center justify-between text-xs text-slate-400 font-medium">
+              <span>Database Pool</span>
+              <i class="fa-solid fa-database text-indigo-400 text-sm"></i>
+            </div>
+            <div class="text-xl font-extrabold text-white pt-1">{{ dbHealth.totalConnections || 1 }}</div>
+            <div class="text-[11px] text-slate-500 font-mono">core_db (mas.local:5432)</div>
+          </div>
+        </div>
+
+        <!-- 2 Summary Cards -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <div class="glass-card rounded-xl p-5 space-y-3">
+            <div class="flex items-center gap-2 text-sm font-bold text-white">
+              <i class="fa-solid fa-bolt text-sky-400"></i> Platform Architecture
+            </div>
+            <p class="text-xs text-slate-400 leading-relaxed">
+              Daviteq LoRaWAN Application Server provides enterprise-grade telemetry ingestion, dynamic PostgreSQL table routing, and granular 5-table role-based access control.
+            </p>
+            <div class="grid grid-cols-2 gap-2.5 pt-2">
+              <div class="p-3 bg-slate-950/70 rounded-lg border border-slate-800">
+                <span class="text-[11px] text-slate-500 block">Access Control</span>
+                <span class="text-xs font-bold text-emerald-400 mt-0.5 block">5-Table RBAC Model</span>
+              </div>
+              <div class="p-3 bg-slate-950/70 rounded-lg border border-slate-800">
+                <span class="text-[11px] text-slate-500 block">Database Routing</span>
+                <span class="text-xs font-bold text-sky-400 mt-0.5 block">core_db (dvt) Active</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="glass-card rounded-xl p-5 space-y-3">
+            <div class="flex items-center gap-2 text-sm font-bold text-white">
+              <i class="fa-solid fa-link text-emerald-400"></i> Quick Navigation Shortcuts
+            </div>
+            <div class="space-y-2 text-xs">
+              <button @click="activeTab = 'devices'" class="w-full flex items-center justify-between p-2.5 rounded-lg bg-slate-950/70 border border-slate-800 hover:border-sky-500/40 transition cursor-pointer text-slate-300 font-medium">
+                <span class="flex items-center gap-2"><i class="fa-solid fa-microchip text-sky-400"></i> Manage LoRaWAN Device Fleet</span>
+                <i class="fa-solid fa-arrow-right text-slate-500 text-[10px]"></i>
+              </button>
+              <button @click="activeTab = 'telemetry'" class="w-full flex items-center justify-between p-2.5 rounded-lg bg-slate-950/70 border border-slate-800 hover:border-indigo-500/40 transition cursor-pointer text-slate-300 font-medium">
+                <span class="flex items-center gap-2"><i class="fa-solid fa-wave-square text-indigo-400"></i> Inspect Incoming Telemetry Stream</span>
+                <i class="fa-solid fa-arrow-right text-slate-500 text-[10px]"></i>
+              </button>
+              <button @click="activeTab = 'database'" class="w-full flex items-center justify-between p-2.5 rounded-lg bg-slate-950/70 border border-slate-800 hover:border-amber-500/40 transition cursor-pointer text-slate-300 font-medium">
+                <span class="flex items-center gap-2"><i class="fa-solid fa-heart-pulse text-amber-400"></i> Visual Database Health & Metrics</span>
+                <i class="fa-solid fa-arrow-right text-slate-500 text-[10px]"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB 2: USERS -->
+      <div v-show="activeTab === 'users'" class="space-y-4">
+        <div class="glass-card rounded-xl p-5 space-y-4">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <h2 class="text-sm font-bold text-white flex items-center gap-2">
+                <i class="fa-solid fa-users text-sky-400"></i> User Directory
+              </h2>
+              <p class="text-[11px] text-slate-400 mt-0.5">Manage administrative and operator accounts</p>
+            </div>
+            <div class="flex items-center gap-2">
+              <button @click="fetchUsers" :disabled="loadingUsers" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 text-xs font-semibold flex items-center gap-1.5 cursor-pointer">
+                <i :class="loadingUsers ? 'fa-spin' : ''" class="fa-solid fa-arrows-rotate"></i> Refresh
+              </button>
+              <button @click="openCreateUserDialog" class="px-3.5 py-1.5 rounded-lg bg-sky-500 hover:bg-sky-400 text-white text-xs font-bold shadow-lg shadow-sky-500/20 flex items-center gap-1.5 cursor-pointer">
+                <i class="fa-solid fa-user-plus"></i> Create User
+              </button>
+            </div>
+          </div>
+
+          <div class="overflow-x-auto custom-scroll border border-slate-800 rounded-lg">
+            <table class="w-full text-left text-xs">
+              <thead class="bg-slate-950/80 text-slate-400 font-semibold border-b border-slate-800">
+                <tr>
+                  <th class="py-2.5 px-3.5">Username</th>
+                  <th class="py-2.5 px-3.5">Full Name</th>
+                  <th class="py-2.5 px-3.5">Email</th>
+                  <th class="py-2.5 px-3.5">Type</th>
+                  <th class="py-2.5 px-3.5">Roles</th>
+                  <th class="py-2.5 px-3.5">Status</th>
+                  <th class="py-2.5 px-3.5 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-slate-800/60">
+                <tr v-if="usersList.length === 0">
+                  <td colspan="7" class="py-6 text-center text-slate-500">No user accounts found.</td>
+                </tr>
+                <tr v-for="u in usersList" :key="u.id" class="hover:bg-slate-800/30 transition">
+                  <td class="py-2.5 px-3.5 font-mono font-bold text-white">{{ u.username }}</td>
+                  <td class="py-2.5 px-3.5 text-slate-300">{{ u.fullName || '--' }}</td>
+                  <td class="py-2.5 px-3.5 text-slate-400">{{ u.email }}</td>
+                  <td class="py-2.5 px-3.5">
+                    <span :class="u.userType === 'ADMIN' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-slate-800 text-slate-300 border-slate-700'" class="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold border">
+                      {{ u.userType }}
+                    </span>
+                  </td>
+                  <td class="py-2.5 px-3.5">
+                    <span v-if="!u.roles || !u.roles.length" class="text-slate-500 text-[11px]">None</span>
+                    <span v-for="r in u.roles" :key="r.id || r" class="inline-block px-1.5 py-0.5 rounded bg-sky-500/10 text-sky-300 border border-sky-500/20 text-[10px] font-mono mr-1">
+                      {{ r.name || r.code || r }}
+                    </span>
+                  </td>
+                  <td class="py-2.5 px-3.5">
+                    <span :class="u.isActive ? 'text-emerald-400' : 'text-red-400'" class="inline-flex items-center gap-1.5 text-[11px] font-medium">
+                      <span :class="u.isActive ? 'bg-emerald-500' : 'bg-red-500'" class="w-1.5 h-1.5 rounded-full"></span>
+                      {{ u.isActive ? 'Active' : 'Suspended' }}
+                    </span>
+                  </td>
+                  <td class="py-2.5 px-3.5 text-right space-x-1">
+                    <button @click="openEditUserDialog(u)" class="px-2 py-0.8 rounded bg-sky-500/10 hover:bg-sky-500/20 text-sky-400 border border-sky-500/20 text-[11px] font-semibold cursor-pointer">Edit</button>
+                    <button @click="deleteUser(u.id)" :disabled="u.username === 'admin'" class="px-2 py-0.8 rounded bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 text-[11px] font-semibold cursor-pointer disabled:opacity-30">Delete</button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB 3: ROLES -->
+      <div v-show="activeTab === 'roles'" class="space-y-4">
+        <div class="glass-card rounded-xl p-5 space-y-4">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <h2 class="text-sm font-bold text-white flex items-center gap-2">
+                <i class="fa-solid fa-shield-halved text-amber-400"></i> Role & Permissions Matrix (RBAC)
+              </h2>
+              <p class="text-[11px] text-slate-400 mt-0.5">Configure RBAC roles and granular system privileges</p>
+            </div>
+            <div class="flex items-center gap-2">
+              <button @click="fetchRoles" :disabled="loadingRoles" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 text-xs font-semibold flex items-center gap-1.5 cursor-pointer">
+                <i :class="loadingRoles ? 'fa-spin' : ''" class="fa-solid fa-arrows-rotate"></i> Refresh
+              </button>
+              <button @click="openCreateRoleDialog" class="px-3.5 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-bold shadow-lg shadow-amber-500/20 flex items-center gap-1.5 cursor-pointer">
+                <i class="fa-solid fa-plus"></i> Create Role
+              </button>
+            </div>
+          </div>
+
+          <!-- Role Cards Grid -->
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <div v-for="r in rolesList" :key="r.id" class="p-3.5 bg-slate-950/70 rounded-lg border border-slate-800 space-y-2">
+              <div class="flex items-center justify-between">
+                <span :class="r.code === 'SUPER_ADMIN' ? 'text-emerald-400' : 'text-sky-400'" class="font-bold text-xs flex items-center gap-1.5">
+                  <i :class="r.code === 'SUPER_ADMIN' ? 'fa-crown' : 'fa-user-shield'" class="fa-solid"></i> {{ r.name }}
+                </span>
+                <span :class="r.code === 'SUPER_ADMIN' ? 'bg-emerald-500/10 text-emerald-300 border-emerald-500/25' : 'bg-slate-800 text-slate-400 border-slate-700'" class="px-2 py-0.5 rounded text-[10px] font-mono border">
+                  {{ r.code }}
+                </span>
+              </div>
+              <p class="text-[11px] text-slate-400">{{ r.description || 'No description provided' }}</p>
+              <div class="pt-2 border-t border-slate-800/80 flex items-center justify-between text-[11px] text-slate-500">
+                <span>{{ r.permissions ? r.permissions.length : 0 }} privileges assigned</span>
+                <button v-if="r.code !== 'SUPER_ADMIN'" @click="openEditRoleDialog(r)" class="text-sky-400 hover:text-sky-300 font-medium cursor-pointer">Edit</button>
+                <span v-else class="text-slate-600 font-mono text-[10px]">Protected</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Roles Table Details -->
+          <div class="overflow-x-auto custom-scroll border border-slate-800 rounded-lg">
+            <table class="w-full text-left text-xs">
+              <thead class="bg-slate-950/80 text-slate-400 font-semibold border-b border-slate-800">
+                <tr>
+                  <th class="py-2.5 px-3.5">Role Code</th>
+                  <th class="py-2.5 px-3.5">Display Name</th>
+                  <th class="py-2.5 px-3.5">Description</th>
+                  <th class="py-2.5 px-3.5">Assigned Permissions</th>
+                  <th class="py-2.5 px-3.5 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-slate-800/60">
+                <tr v-for="r in rolesList" :key="r.id" class="hover:bg-slate-800/30 transition">
+                  <td :class="r.code === 'SUPER_ADMIN' ? 'text-emerald-400' : 'text-sky-400'" class="py-2.5 px-3.5 font-mono font-bold">{{ r.code }}</td>
+                  <td class="py-2.5 px-3.5 font-bold text-white">{{ r.name }}</td>
+                  <td class="py-2.5 px-3.5 text-slate-400">{{ r.description || '--' }}</td>
+                  <td class="py-2.5 px-3.5">
+                    <span v-for="p in (r.permissions || [])" :key="p.id" class="inline-block px-1.5 py-0.5 rounded bg-slate-800 text-slate-300 font-mono text-[10px] mr-1 mb-1 border border-slate-700">
+                      {{ p.name }}
+                    </span>
+                  </td>
+                  <td class="py-2.5 px-3.5 text-right space-x-1">
+                    <template v-if="r.code !== 'SUPER_ADMIN'">
+                      <button @click="openEditRoleDialog(r)" class="px-2 py-0.8 rounded bg-sky-500/10 hover:bg-sky-500/20 text-sky-400 border border-sky-500/20 text-[11px] font-semibold cursor-pointer">Edit</button>
+                      <button @click="deleteRole(r.id)" class="px-2 py-0.8 rounded bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 text-[11px] font-semibold cursor-pointer">Delete</button>
+                    </template>
+                    <span v-else class="text-slate-600 font-mono text-[10px]">Immutable</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB 4: DATABASE HEALTH -->
+      <div v-show="activeTab === 'database'" class="space-y-4">
+        <div class="glass-card rounded-xl p-5 space-y-4">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <h2 class="text-sm font-bold text-white flex items-center gap-2">
+                <i class="fa-solid fa-heart-pulse text-emerald-400"></i> Visual Database Health & Metrics
+              </h2>
+              <p class="text-[11px] text-slate-400 mt-0.5">Real-time status of PostgreSQL connection pool and latency</p>
+            </div>
+            <div class="flex items-center gap-2">
+              <button @click="fetchDbHealth" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 text-xs font-semibold flex items-center gap-1.5 cursor-pointer">
+                <i class="fa-solid fa-arrows-rotate"></i> Refresh
+              </button>
+              <button @click="reloadDbConfig" class="px-3 py-1.5 rounded-lg bg-sky-500/10 hover:bg-sky-500/20 text-sky-400 border border-sky-500/30 text-xs font-bold flex items-center gap-1.5 cursor-pointer">
+                <i class="fa-solid fa-gear"></i> Hot-Reload Config
+              </button>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <div v-for="(conn, key) in dbHealth.connections" :key="key" class="p-4 bg-slate-950/70 rounded-xl border border-slate-800 space-y-2">
+              <div class="flex items-center justify-between">
+                <span class="font-mono font-bold text-white text-xs">{{ conn.name }}</span>
+                <span :class="conn.isAlive ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/25' : 'bg-red-500/10 text-red-400 border-red-500/25'" class="px-2 py-0.5 rounded-full text-[10px] font-bold border">
+                  {{ conn.isAlive ? 'CONNECTED' : 'OFFLINE' }}
+                </span>
+              </div>
+              <div class="text-[11px] text-slate-400 font-mono space-y-1">
+                <div>Host: <strong class="text-slate-200">{{ conn.host }}:{{ conn.port }}</strong></div>
+                <div>Database: <strong class="text-slate-200">{{ conn.database }}</strong></div>
+                <div>Ping Latency: <strong :class="conn.latencyMs < 50 ? 'text-emerald-400' : 'text-amber-400'">{{ conn.latencyMs !== null ? conn.latencyMs + ' ms' : 'N/A' }}</strong></div>
+                <div>Pool Size: <strong class="text-slate-300">{{ conn.poolSize }} max connections</strong></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="glass-card rounded-xl p-5 space-y-3">
+          <div class="flex items-center justify-between">
+            <h3 class="text-xs font-bold text-white">Active Table Routing & Live Record Counts</h3>
+            <span class="text-[10px] font-mono text-slate-500">config/db-routing.config.json</span>
+          </div>
+          <div class="overflow-x-auto custom-scroll border border-slate-800 rounded-lg">
+            <table class="w-full text-left text-xs font-mono">
+              <thead class="bg-slate-950/80 text-slate-400 border-b border-slate-800 font-sans font-semibold">
+                <tr>
+                  <th class="py-2.5 px-3.5">Table / Entity</th>
+                  <th class="py-2.5 px-3.5">Assigned Database Pool</th>
+                  <th class="py-2.5 px-3.5">Record Count</th>
+                  <th class="py-2.5 px-3.5">Status</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-slate-800/60">
+                <tr v-for="(stat, tableName) in dbHealth.tableStats" :key="tableName" class="hover:bg-slate-800/30 transition">
+                  <td class="py-2.5 px-3.5 font-bold text-white">{{ tableName }}</td>
+                  <td class="py-2.5 px-3.5 text-sky-400">{{ stat.routedTo }}</td>
+                  <td class="py-2.5 px-3.5 text-emerald-400 font-bold">{{ Number(stat.recordCount).toLocaleString() }} rows</td>
+                  <td class="py-2.5 px-3.5"><span class="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[10px]">{{ stat.status }}</span></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB 5: DEVICES -->
+      <div v-show="activeTab === 'devices'" class="space-y-4">
+        <div class="glass-card rounded-xl p-5 space-y-4">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <h2 class="text-sm font-bold text-white flex items-center gap-2">
+                <i class="fa-solid fa-microchip text-sky-400"></i> LoRaWAN Device Fleet
+              </h2>
+              <p class="text-[11px] text-slate-400 mt-0.5">Registered End Devices and decoder script assignments</p>
+            </div>
+            <div class="flex items-center gap-2">
+              <button @click="fetchDevices" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 text-xs font-semibold flex items-center gap-1.5 cursor-pointer">
+                <i class="fa-solid fa-arrows-rotate"></i> Refresh
+              </button>
+              <button @click="openRegisterDeviceDialog" class="px-3.5 py-1.5 rounded-lg bg-sky-500 hover:bg-sky-400 text-white text-xs font-bold shadow-lg shadow-sky-500/20 flex items-center gap-1.5 cursor-pointer">
+                <i class="fa-solid fa-plus"></i> Register Device
+              </button>
+            </div>
+          </div>
+
+          <div class="overflow-x-auto custom-scroll border border-slate-800 rounded-lg">
+            <table class="w-full text-left text-xs">
+              <thead class="bg-slate-950/80 text-slate-400 font-semibold border-b border-slate-800">
+                <tr>
+                  <th class="py-2.5 px-3.5">DevEUI</th>
+                  <th class="py-2.5 px-3.5">Device Name</th>
+                  <th class="py-2.5 px-3.5">Activation</th>
+                  <th class="py-2.5 px-3.5">Decoder Script</th>
+                  <th class="py-2.5 px-3.5">Status</th>
+                  <th class="py-2.5 px-3.5 text-right">Action</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-slate-800/60">
+                <tr v-if="devicesList.length === 0">
+                  <td colspan="6" class="py-6 text-center text-slate-500">No LoRaWAN devices registered. Click "+ Register Device" to add one.</td>
+                </tr>
+                <tr v-for="d in devicesList" :key="d.id || d.devEUI" class="hover:bg-slate-800/30 transition">
+                  <td class="py-2.5 px-3.5 font-mono font-bold text-sky-400">{{ d.devEUI }}</td>
+                  <td class="py-2.5 px-3.5 font-bold text-white">{{ d.name || '--' }}</td>
+                  <td class="py-2.5 px-3.5"><span class="px-2 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20 text-[10px] font-mono">{{ d.activationType || 'OTAA' }}</span></td>
+                  <td class="py-2.5 px-3.5">
+                    <span :class="d.payloadFormatterScript ? 'text-emerald-400' : 'text-slate-500'" class="text-[11px] font-medium">
+                      <i :class="d.payloadFormatterScript ? 'fa-code' : 'fa-minus'" class="fa-solid mr-1"></i>
+                      {{ d.payloadFormatterScript ? 'Configured' : 'None' }}
+                    </span>
+                  </td>
+                  <td class="py-2.5 px-3.5">
+                    <span :class="d.isActive ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/25' : 'bg-red-500/10 text-red-400 border-red-500/25'" class="px-2 py-0.5 rounded-full text-[10px] font-bold border">
+                      {{ d.isActive ? 'ACTIVE' : 'INACTIVE' }}
+                    </span>
+                  </td>
+                  <td class="py-2.5 px-3.5 text-right">
+                    <button @click="testDevice(d)" class="px-2.5 py-0.8 rounded bg-sky-500/10 hover:bg-sky-500/20 text-sky-400 border border-sky-500/20 text-[11px] font-semibold cursor-pointer">Test Payload</button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB 6: TELEMETRY -->
+      <div v-show="activeTab === 'telemetry'" class="space-y-4">
+        <div class="glass-card rounded-xl p-5 space-y-4">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <h2 class="text-sm font-bold text-white flex items-center gap-2">
+                <i class="fa-solid fa-wave-square text-indigo-400"></i> Live Telemetry Stream
+              </h2>
+              <p class="text-[11px] text-slate-400 mt-0.5">Real-time incoming packets from ChirpStack, ThingPark, and Generic Webhooks</p>
+            </div>
+            <div class="flex items-center gap-2">
+              <button @click="fetchTelemetry" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 text-xs font-semibold flex items-center gap-1.5 cursor-pointer">
+                <i class="fa-solid fa-arrows-rotate"></i> Refresh Telemetry
+              </button>
+            </div>
+          </div>
+
+          <div class="overflow-x-auto custom-scroll border border-slate-800 rounded-lg">
+            <table class="w-full text-left text-xs font-mono">
+              <thead class="bg-slate-950/80 text-slate-400 font-sans font-semibold border-b border-slate-800">
+                <tr>
+                  <th class="py-2.5 px-3.5">Timestamp</th>
+                  <th class="py-2.5 px-3.5">DevEUI</th>
+                  <th class="py-2.5 px-3.5">Port / FCnt</th>
+                  <th class="py-2.5 px-3.5">Raw Hex</th>
+                  <th class="py-2.5 px-3.5">Decoded JSON</th>
+                  <th class="py-2.5 px-3.5">RSSI / SNR</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-slate-800/60">
+                <tr v-if="telemetryList.length === 0">
+                  <td colspan="6" class="py-6 text-center text-slate-500 font-sans">No incoming telemetry packets yet. Send a webhook to see live data.</td>
+                </tr>
+                <tr v-for="t in telemetryList" :key="t.id" class="hover:bg-slate-800/30 transition">
+                  <td class="py-2.5 px-3.5 text-slate-400 text-[11px] font-sans">{{ formatTime(t.timestamp || t.createdAt) }}</td>
+                  <td class="py-2.5 px-3.5 font-bold text-sky-400">{{ t.devEUI }}</td>
+                  <td class="py-2.5 px-3.5 text-amber-400">p:{{ t.fPort || 1 }} / c:{{ t.fCnt || 0 }}</td>
+                  <td class="py-2.5 px-3.5 text-slate-300 max-w-xs truncate">{{ t.payloadHex || '--' }}</td>
+                  <td class="py-2.5 px-3.5 text-emerald-400 max-w-sm truncate">{{ formatDecoded(t.decodedPayload) }}</td>
+                  <td class="py-2.5 px-3.5 text-slate-400 font-sans">{{ t.rssi !== undefined ? t.rssi + ' dBm' : '--' }} / {{ t.snr !== undefined ? t.snr + ' dB' : '--' }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB 7: WEBHOOKS -->
+      <div v-show="activeTab === 'webhooks'" class="space-y-4">
+        <div class="glass-card rounded-xl p-5 space-y-4">
           <div>
-            <div class="text-caption font-weight-bold text-white d-flex align-center gap-1">
-              <span class="text-cyan-lighten-2">DAVITEQ</span> IoT
-              <v-chip size="x-small" color="cyan" variant="tonal" class="font-weight-bold px-1 py-0" style="font-size: 8px; height: 16px;">v1.0</v-chip>
+            <h2 class="text-sm font-bold text-white flex items-center gap-2">
+              <i class="fa-solid fa-satellite-dish text-sky-400"></i> Network Server Webhook Ingestion
+            </h2>
+            <p class="text-[11px] text-slate-400 mt-0.5">Configure these HTTP endpoints on your Network Server (ChirpStack v4 or ThingPark Wireless):</p>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs font-mono">
+            <div class="bg-slate-950/70 border border-slate-800 rounded-xl p-4 space-y-2">
+              <div class="flex items-center justify-between text-sky-400 font-bold font-sans">
+                <span>ChirpStack v4 Ingestion</span>
+                <span class="px-2 py-0.5 rounded bg-sky-500/10 border border-sky-500/20 text-[10px]">POST / JSON</span>
+              </div>
+              <div class="p-2.5 bg-slate-900 rounded-lg border border-slate-800 text-slate-200 flex items-center justify-between">
+                <span>POST /lorawan/webhook/chirpstack</span>
+                <button @click="copyUrl('/lorawan/webhook/chirpstack')" class="text-sky-400 hover:text-sky-300 ml-2 cursor-pointer font-sans text-xs">Copy</button>
+              </div>
+              <p class="text-[11px] text-slate-400 font-sans">Supports ChirpStack uplink events, deduplication, and payload parsing.</p>
             </div>
-            <div class="text-caption text-medium-emphasis" style="font-size: 10px;">LoRaWAN Server</div>
+
+            <div class="bg-slate-950/70 border border-slate-800 rounded-xl p-4 space-y-2">
+              <div class="flex items-center justify-between text-emerald-400 font-bold font-sans">
+                <span>ThingPark Wireless Ingestion</span>
+                <span class="px-2 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/20 text-[10px]">POST / JSON</span>
+              </div>
+              <div class="p-2.5 bg-slate-900 rounded-lg border border-slate-800 text-slate-200 flex items-center justify-between">
+                <span>POST /lorawan/webhook/thingpark</span>
+                <button @click="copyUrl('/lorawan/webhook/thingpark')" class="text-emerald-400 hover:text-emerald-300 ml-2 cursor-pointer font-sans text-xs">Copy</button>
+              </div>
+              <p class="text-[11px] text-slate-400 font-sans">Supports Actility ThingPark Wireless DX packets and hex payloads.</p>
+            </div>
           </div>
         </div>
+      </div>
 
-        <!-- Navigation List -->
-        <v-list density="compact" nav class="pa-2 custom-scroll">
-          <v-list-subheader class="text-uppercase font-weight-bold text-caption text-slate-400 py-1" style="font-size: 10px;">Monitoring</v-list-subheader>
-          
-          <v-list-item
-            value="overview"
-            :active="tab === 'overview'"
-            @click="tab = 'overview'"
-            prepend-icon="mdi-view-dashboard-outline"
-            title="Overview"
-            rounded="lg"
-            color="cyan-lighten-2"
-            density="compact"
-          ></v-list-item>
+      <!-- TAB 8: DECODER SANDBOX -->
+      <div v-show="activeTab === 'decoder'" class="space-y-4">
+        <div class="glass-card rounded-xl p-5 space-y-4">
+          <div>
+            <h2 class="text-sm font-bold text-white flex items-center gap-2">
+              <i class="fa-solid fa-code text-purple-400"></i> Payload Formatter Sandbox
+            </h2>
+            <p class="text-[11px] text-slate-400 mt-0.5">Test JavaScript decoder functions on raw hex bytes before saving to devices:</p>
+          </div>
 
-          <v-list-item
-            value="telemetry"
-            :active="tab === 'telemetry'"
-            @click="tab = 'telemetry'"
-            prepend-icon="mdi-sine-wave"
-            title="Live Telemetry"
-            rounded="lg"
-            color="indigo-lighten-2"
-            density="compact"
-          ></v-list-item>
-
-          <v-list-item
-            value="database"
-            :active="tab === 'database'"
-            @click="tab = 'database'"
-            prepend-icon="mdi-database-eye-outline"
-            title="Database Health"
-            rounded="lg"
-            color="amber-lighten-2"
-            density="compact"
-          ></v-list-item>
-
-          <v-list-subheader class="text-uppercase font-weight-bold text-caption text-slate-400 mt-2 py-1" style="font-size: 10px;">LoRaWAN Fleet</v-list-subheader>
-          
-          <v-list-item
-            value="devices"
-            :active="tab === 'devices'"
-            @click="tab = 'devices'"
-            prepend-icon="mdi-chip"
-            title="LoRaWAN Devices"
-            rounded="lg"
-            color="cyan-lighten-2"
-            density="compact"
-          ></v-list-item>
-
-          <v-list-item
-            value="webhooks"
-            :active="tab === 'webhooks'"
-            @click="tab = 'webhooks'"
-            prepend-icon="mdi-webhook"
-            title="Webhooks Ingest"
-            rounded="lg"
-            color="emerald-lighten-2"
-            density="compact"
-          ></v-list-item>
-
-          <v-list-item
-            value="decoder"
-            :active="tab === 'decoder'"
-            @click="tab = 'decoder'"
-            prepend-icon="mdi-code-braces"
-            title="Decoder Sandbox"
-            rounded="lg"
-            color="purple-lighten-2"
-            density="compact"
-          ></v-list-item>
-
-          <v-list-subheader class="text-uppercase font-weight-bold text-caption text-slate-400 mt-2 py-1" style="font-size: 10px;">Security & RBAC</v-list-subheader>
-          
-          <v-list-item
-            value="users"
-            :active="tab === 'users'"
-            @click="tab = 'users'"
-            prepend-icon="mdi-account-multiple-outline"
-            title="User Directory"
-            rounded="lg"
-            color="cyan-lighten-2"
-            density="compact"
-          ></v-list-item>
-
-          <v-list-item
-            value="roles"
-            :active="tab === 'roles'"
-            @click="tab = 'roles'"
-            prepend-icon="mdi-shield-account-outline"
-            title="Role Matrix"
-            rounded="lg"
-            color="yellow-lighten-2"
-            density="compact"
-          ></v-list-item>
-        </v-list>
-
-        <!-- Drawer Footer Profile -->
-        <template v-slot:append>
-          <div class="pa-2 border-t border-slate-800 bg-slate-950">
-            <div class="d-flex align-center justify-space-between mb-1">
-              <v-chip size="x-small" color="success" variant="tonal" class="font-weight-bold" style="font-size: 9px; height: 18px;">
-                <v-badge dot color="success" inline class="mr-1"></v-badge>
-                core_db : ONLINE
-              </v-chip>
-              <a href="/api/docs" target="_blank" class="text-caption text-cyan-lighten-2 text-decoration-none" style="font-size: 10px;">API &rarr;</a>
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 text-xs font-mono">
+            <div class="space-y-1.5">
+              <label class="block text-xs font-sans font-semibold text-slate-300">JavaScript Decoder Function</label>
+              <textarea v-model="sandboxCode" rows="9" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-slate-200 focus:outline-none focus:border-purple-500 font-mono text-xs"></textarea>
             </div>
 
-            <v-card color="#0d1527" rounded="lg" class="pa-2 d-flex align-center justify-space-between" variant="outlined">
-              <div class="text-truncate mr-1">
-                <div class="text-caption font-weight-bold text-white text-truncate" style="font-size: 11px;">{{ currentUser.fullName || currentUser.username || 'Admin User' }}</div>
-                <div class="text-caption text-cyan-lighten-2 font-mono font-weight-bold" style="font-size: 9px;">{{ currentUser.userType || 'ADMIN' }}</div>
+            <div class="space-y-1.5">
+              <label class="block text-xs font-sans font-semibold text-slate-300">Test Hex String</label>
+              <div class="flex gap-2">
+                <input v-model="sandboxHex" type="text" class="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-slate-200 focus:outline-none focus:border-purple-500 font-mono text-xs" />
+                <button @click="runSandboxDecode" class="px-4 py-2 bg-purple-600 hover:bg-purple-500 text-white font-sans font-bold rounded-xl transition cursor-pointer">Decode</button>
               </div>
-              <v-btn icon="mdi-power" size="x-small" color="error" variant="text" @click="handleLogout" title="Logout"></v-btn>
-            </v-card>
+              <label class="block text-xs font-sans font-semibold text-slate-300 pt-1">Decoded JSON Output</label>
+              <pre class="w-full h-36 bg-slate-950 border border-slate-800 rounded-xl p-3 text-emerald-400 overflow-auto text-xs">{{ sandboxResult }}</pre>
+            </div>
           </div>
-        </template>
-      </v-navigation-drawer>
-
-      <!-- TOP APP BAR -->
-      <v-app-bar color="#070d1e" density="compact" elevation="1" border="bottom">
-        <v-app-bar-nav-icon size="small" @click="drawer = !drawer"></v-app-bar-nav-icon>
-
-        <v-app-bar-title class="text-caption font-weight-bold d-flex align-center gap-1" style="font-size: 13px !important;">
-          <span>{{ tabTitles[tab] || 'Control Panel' }}</span>
-          <v-chip size="x-small" color="cyan" variant="tonal" class="ml-1 font-weight-bold" style="height: 18px; font-size: 9px;">{{ tabCategories[tab] || 'LoRaWAN' }}</v-chip>
-        </v-app-bar-title>
-
-        <!-- Horizontal Tabs with Zero Slide -->
-        <v-tabs v-model="tab" color="cyan-lighten-2" density="compact" class="d-none d-md-flex">
-          <v-tab value="overview"><v-icon icon="mdi-view-dashboard-outline" start size="x-small"></v-icon>Overview</v-tab>
-          <v-tab value="users"><v-icon icon="mdi-account-multiple-outline" start size="x-small"></v-icon>Users</v-tab>
-          <v-tab value="roles"><v-icon icon="mdi-shield-account-outline" start size="x-small"></v-icon>Roles</v-tab>
-          <v-tab value="database"><v-icon icon="mdi-database-eye-outline" start size="x-small"></v-icon>Database</v-tab>
-          <v-tab value="devices"><v-icon icon="mdi-chip" start size="x-small"></v-icon>Devices</v-tab>
-          <v-tab value="telemetry"><v-icon icon="mdi-sine-wave" start size="x-small"></v-icon>Telemetry</v-tab>
-          <v-tab value="webhooks"><v-icon icon="mdi-webhook" start size="x-small"></v-icon>Webhooks</v-tab>
-          <v-tab value="decoder"><v-icon icon="mdi-code-braces" start size="x-small"></v-icon>Decoder</v-tab>
-        </v-tabs>
-
-        <v-spacer></v-spacer>
-
-        <!-- Top Right Actions -->
-        <v-btn
-          variant="outlined"
-          color="slate-400"
-          size="x-small"
-          rounded="lg"
-          class="mr-1 text-none"
-          @click="forceCleanSession"
-        >
-          <v-icon icon="mdi-cached" start size="small"></v-icon>
-          Reset Session
-        </v-btn>
-
-        <v-btn
-          href="/api/docs"
-          target="_blank"
-          variant="flat"
-          color="cyan-darken-3"
-          size="x-small"
-          rounded="lg"
-          class="mr-1 d-none d-sm-inline-flex text-none"
-        >
-          <v-icon icon="mdi-book-open-outline" start size="small"></v-icon>
-          Swagger
-        </v-btn>
-
-        <v-btn
-          variant="tonal"
-          color="error"
-          size="x-small"
-          rounded="lg"
-          class="text-none"
-          @click="handleLogout"
-        >
-          <v-icon icon="mdi-logout" start size="small"></v-icon>
-          Logout
-        </v-btn>
-      </v-app-bar>
-
-      <!-- MAIN CONTENT VIEWPORT (Zero swipe / Instant transition) -->
-      <v-main class="pa-3 pa-sm-4 custom-scroll" style="background: #070d1e;">
-        <div style="max-width: 1350px; margin: 0 auto; width: 100%;">
-          
-          <!-- TAB 1: OVERVIEW -->
-          <div v-show="tab === 'overview'">
-            <v-row dense>
-              <v-col cols="6" sm="6" md="3">
-                <v-card color="#0e172e" rounded="lg" class="pa-3" variant="outlined">
-                  <div class="d-flex justify-space-between text-caption text-medium-emphasis">
-                    <span>System Status</span>
-                    <v-icon icon="mdi-server" color="cyan-lighten-2" size="small"></v-icon>
-                  </div>
-                  <div class="text-subtitle-1 font-weight-bold text-white mt-1 d-flex align-center gap-1">
-                    <v-badge dot color="success" inline class="mr-1"></v-badge> ONLINE
-                  </div>
-                  <div class="text-caption text-medium-emphasis" style="font-size: 10px;">NestJS Core Platform</div>
-                </v-card>
-              </v-col>
-
-              <v-col cols="6" sm="6" md="3">
-                <v-card color="#0e172e" rounded="lg" class="pa-3" variant="outlined">
-                  <div class="d-flex justify-space-between text-caption text-medium-emphasis">
-                    <span>Total Accounts</span>
-                    <v-icon icon="mdi-account-group" color="emerald-lighten-2" size="small"></v-icon>
-                  </div>
-                  <div class="text-subtitle-1 font-weight-bold text-white mt-1">{{ usersList.length || '--' }}</div>
-                  <div class="text-caption text-medium-emphasis" style="font-size: 10px;">Super Admins & Users</div>
-                </v-card>
-              </v-col>
-
-              <v-col cols="6" sm="6" md="3">
-                <v-card color="#0e172e" rounded="lg" class="pa-3" variant="outlined">
-                  <div class="d-flex justify-space-between text-caption text-medium-emphasis">
-                    <span>Configured Roles</span>
-                    <v-icon icon="mdi-shield-check" color="amber-lighten-2" size="small"></v-icon>
-                  </div>
-                  <div class="text-subtitle-1 font-weight-bold text-white mt-1">{{ rolesList.length || '--' }}</div>
-                  <div class="text-caption text-medium-emphasis" style="font-size: 10px;">RBAC Role Matrix</div>
-                </v-card>
-              </v-col>
-
-              <v-col cols="6" sm="6" md="3">
-                <v-card color="#0e172e" rounded="lg" class="pa-3" variant="outlined">
-                  <div class="d-flex justify-space-between text-caption text-medium-emphasis">
-                    <span>Database Pool</span>
-                    <v-icon icon="mdi-database" color="indigo-lighten-2" size="small"></v-icon>
-                  </div>
-                  <div class="text-subtitle-1 font-weight-bold text-white mt-1">{{ dbHealth.totalConnections || 1 }}</div>
-                  <div class="text-caption text-medium-emphasis" style="font-size: 10px;">core_db (mas.local:5432)</div>
-                </v-card>
-              </v-col>
-            </v-row>
-
-            <v-row dense class="mt-2">
-              <v-col cols="12" md="6">
-                <v-card color="#0e172e" rounded="lg" class="pa-4" variant="outlined">
-                  <div class="text-subtitle-2 font-weight-bold text-white mb-1 d-flex align-center gap-1">
-                    <v-icon icon="mdi-lightning-bolt" color="cyan-lighten-2" size="small"></v-icon>
-                    System Architecture
-                  </div>
-                  <p class="text-caption text-medium-emphasis" style="line-height: 1.5; font-size: 11.5px;">
-                    Daviteq LoRaWAN Application Server provides enterprise-grade telemetry ingestion, dynamic PostgreSQL single/multi-pool table routing, and granular 5-table role-based access control.
-                  </p>
-                  <v-row dense class="mt-2">
-                    <v-col cols="6">
-                      <v-card color="#050a17" rounded="lg" class="pa-2" variant="outlined">
-                        <div class="text-caption text-medium-emphasis" style="font-size: 10px;">Access Control</div>
-                        <div class="text-caption font-weight-bold text-emerald-lighten-2 mt-0.5">5-Table RBAC Model</div>
-                      </v-card>
-                    </v-col>
-                    <v-col cols="6">
-                      <v-card color="#050a17" rounded="lg" class="pa-2" variant="outlined">
-                        <div class="text-caption text-medium-emphasis" style="font-size: 10px;">Database Routing</div>
-                        <div class="text-caption font-weight-bold text-cyan-lighten-2 mt-0.5">core_db (dvt) Active</div>
-                      </v-card>
-                    </v-col>
-                  </v-row>
-                </v-card>
-              </v-col>
-
-              <v-col cols="12" md="6">
-                <v-card color="#0e172e" rounded="lg" class="pa-4" variant="outlined">
-                  <div class="text-subtitle-2 font-weight-bold text-white mb-2 d-flex align-center gap-1">
-                    <v-icon icon="mdi-link-variant" color="emerald-lighten-2" size="small"></v-icon>
-                    Quick Navigation Shortcuts
-                  </div>
-                  <div class="d-flex flex-column gap-1">
-                    <v-btn color="#050a17" variant="outlined" block class="justify-start text-none mb-1 text-caption" rounded="lg" density="compact" @click="tab = 'devices'">
-                      <v-icon icon="mdi-chip" color="cyan-lighten-2" start size="small"></v-icon> Manage LoRaWAN Device Fleet
-                    </v-btn>
-                    <v-btn color="#050a17" variant="outlined" block class="justify-start text-none mb-1 text-caption" rounded="lg" density="compact" @click="tab = 'telemetry'">
-                      <v-icon icon="mdi-sine-wave" color="indigo-lighten-2" start size="small"></v-icon> Inspect Incoming Telemetry Stream
-                    </v-btn>
-                    <v-btn color="#050a17" variant="outlined" block class="justify-start text-none text-caption" rounded="lg" density="compact" @click="tab = 'database'">
-                      <v-icon icon="mdi-database-eye-outline" color="amber-lighten-2" start size="small"></v-icon> Visual Database Health & Metrics
-                    </v-btn>
-                  </div>
-                </v-card>
-              </v-col>
-            </v-row>
-          </div>
-
-          <!-- TAB 2: USERS -->
-          <div v-show="tab === 'users'">
-            <v-card color="#0e172e" rounded="lg" class="pa-4" variant="outlined">
-              <div class="d-flex justify-space-between align-center mb-3 flex-wrap gap-2">
-                <div>
-                  <div class="text-subtitle-2 font-weight-bold text-white d-flex align-center gap-1">
-                    <v-icon icon="mdi-account-multiple" color="cyan-lighten-2" size="small"></v-icon> User Directory
-                  </div>
-                  <div class="text-caption text-medium-emphasis" style="font-size: 10.5px;">Manage administrative and operator accounts</div>
-                </div>
-                <div class="d-flex gap-1">
-                  <v-btn color="slate-700" variant="outlined" size="x-small" rounded="lg" class="text-none" @click="fetchUsers" :loading="loadingUsers">
-                    <v-icon icon="mdi-refresh" start size="small"></v-icon> Refresh
-                  </v-btn>
-                  <v-btn color="cyan-darken-3" variant="flat" size="x-small" rounded="lg" class="text-none" @click="openCreateUserDialog">
-                    <v-icon icon="mdi-account-plus" start size="small"></v-icon> Create User
-                  </v-btn>
-                </div>
-              </div>
-
-              <v-table hover class="bg-transparent rounded-lg border compact-table">
-                <thead>
-                  <tr class="bg-slate-950">
-                    <th class="text-caption font-weight-bold text-slate-400">Username</th>
-                    <th class="text-caption font-weight-bold text-slate-400">Full Name</th>
-                    <th class="text-caption font-weight-bold text-slate-400">Email</th>
-                    <th class="text-caption font-weight-bold text-slate-400">Type</th>
-                    <th class="text-caption font-weight-bold text-slate-400">Roles</th>
-                    <th class="text-caption font-weight-bold text-slate-400">Status</th>
-                    <th class="text-caption font-weight-bold text-slate-400 text-right">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr v-if="usersList.length === 0">
-                    <td colspan="7" class="text-center py-4 text-medium-emphasis text-caption">No user accounts found.</td>
-                  </tr>
-                  <tr v-for="u in usersList" :key="u.id">
-                    <td class="font-mono font-weight-bold text-white text-caption">{{ u.username }}</td>
-                    <td class="text-caption">{{ u.fullName || '--' }}</td>
-                    <td class="text-medium-emphasis text-caption">{{ u.email }}</td>
-                    <td>
-                      <v-chip size="x-small" :color="u.userType === 'ADMIN' ? 'success' : 'cyan'" variant="tonal" class="font-weight-bold" style="height: 18px; font-size: 9px;">
-                        {{ u.userType }}
-                      </v-chip>
-                    </td>
-                    <td>
-                      <span v-if="!u.roles || u.roles.length === 0" class="text-medium-emphasis text-caption" style="font-size: 10px;">None</span>
-                      <v-chip v-for="r in u.roles" :key="r.id || r" size="x-small" color="cyan" variant="tonal" class="mr-1" style="height: 18px; font-size: 9px;">
-                        {{ r.name || r.code || r }}
-                      </v-chip>
-                    </td>
-                    <td>
-                      <v-chip size="x-small" :color="u.isActive ? 'success' : 'error'" variant="tonal" style="height: 18px; font-size: 9px;">
-                        {{ u.isActive ? 'Active' : 'Suspended' }}
-                      </v-chip>
-                    </td>
-                    <td class="text-right">
-                      <v-btn size="x-small" variant="tonal" color="cyan" class="mr-1 text-none" density="compact" @click="openEditUserDialog(u)">Edit</v-btn>
-                      <v-btn size="x-small" variant="tonal" color="error" class="text-none" density="compact" @click="deleteUser(u.id)" :disabled="u.username === 'admin'">Delete</v-btn>
-                    </td>
-                  </tr>
-                </tbody>
-              </v-table>
-            </v-card>
-          </div>
-
-          <!-- TAB 3: ROLES -->
-          <div v-show="tab === 'roles'">
-            <v-card color="#0e172e" rounded="lg" class="pa-4" variant="outlined">
-              <div class="d-flex justify-space-between align-center mb-3 flex-wrap gap-2">
-                <div>
-                  <div class="text-subtitle-2 font-weight-bold text-white d-flex align-center gap-1">
-                    <v-icon icon="mdi-shield-account" color="amber-lighten-2" size="small"></v-icon> Role Matrix & Permissions
-                  </div>
-                  <div class="text-caption text-medium-emphasis" style="font-size: 10.5px;">Configure RBAC roles and granular access privileges</div>
-                </div>
-                <div class="d-flex gap-1">
-                  <v-btn color="slate-700" variant="outlined" size="x-small" rounded="lg" class="text-none" @click="fetchRoles" :loading="loadingRoles">
-                    <v-icon icon="mdi-refresh" start size="small"></v-icon> Refresh
-                  </v-btn>
-                  <v-btn color="amber-darken-3" variant="flat" size="x-small" rounded="lg" class="text-none" @click="openCreateRoleDialog">
-                    <v-icon icon="mdi-plus" start size="small"></v-icon> Create Role
-                  </v-btn>
-                </div>
-              </div>
-
-              <!-- Roles Cards Grid -->
-              <v-row dense class="mb-3">
-                <v-col v-for="r in rolesList" :key="r.id" cols="12" sm="6" md="4">
-                  <v-card color="#050a17" rounded="lg" class="pa-3" variant="outlined">
-                    <div class="d-flex justify-space-between align-center">
-                      <span class="font-weight-bold text-caption" :class="r.code === 'SUPER_ADMIN' ? 'text-emerald-lighten-2' : 'text-cyan-lighten-2'">
-                        <v-icon :icon="r.code === 'SUPER_ADMIN' ? 'mdi-crown' : 'mdi-shield-check'" size="x-small" start></v-icon>
-                        {{ r.name }}
-                      </span>
-                      <v-chip size="x-small" :color="r.code === 'SUPER_ADMIN' ? 'success' : 'cyan'" variant="tonal" class="font-mono" style="height: 18px; font-size: 9px;">
-                        {{ r.code }}
-                      </v-chip>
-                    </div>
-                    <div class="text-caption text-medium-emphasis my-1" style="font-size: 10.5px;">{{ r.description || 'No description provided' }}</div>
-                    <div class="d-flex justify-space-between align-center text-caption text-medium-emphasis pt-1 border-t border-slate-800" style="font-size: 10px;">
-                      <span>{{ r.permissions ? r.permissions.length : 0 }} privileges</span>
-                      <v-btn v-if="r.code !== 'SUPER_ADMIN'" size="x-small" variant="text" color="cyan" density="compact" class="text-none" @click="openEditRoleDialog(r)">Edit</v-btn>
-                      <span v-else class="text-caption text-slate-500 font-mono" style="font-size: 9px;">Protected</span>
-                    </div>
-                  </v-card>
-                </v-col>
-              </v-row>
-
-              <!-- Roles Table Details -->
-              <v-table hover class="bg-transparent rounded-lg border compact-table">
-                <thead>
-                  <tr class="bg-slate-950">
-                    <th class="text-caption font-weight-bold text-slate-400">Role Code</th>
-                    <th class="text-caption font-weight-bold text-slate-400">Name</th>
-                    <th class="text-caption font-weight-bold text-slate-400">Description</th>
-                    <th class="text-caption font-weight-bold text-slate-400">Assigned Permissions</th>
-                    <th class="text-caption font-weight-bold text-slate-400 text-right">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr v-for="r in rolesList" :key="r.id">
-                    <td class="font-mono font-weight-bold text-caption" :class="r.code === 'SUPER_ADMIN' ? 'text-emerald-lighten-2' : 'text-cyan-lighten-2'">{{ r.code }}</td>
-                    <td class="font-weight-bold text-white text-caption">{{ r.name }}</td>
-                    <td class="text-medium-emphasis text-caption">{{ r.description || '--' }}</td>
-                    <td>
-                      <v-chip v-for="p in (r.permissions || [])" :key="p.id" size="x-small" color="slate-700" variant="tonal" class="mr-1 mb-1 font-mono" style="height: 18px; font-size: 9px;">
-                        {{ p.name }}
-                      </v-chip>
-                    </td>
-                    <td class="text-right">
-                      <template v-if="r.code !== 'SUPER_ADMIN'">
-                        <v-btn size="x-small" variant="tonal" color="cyan" class="mr-1 text-none" density="compact" @click="openEditRoleDialog(r)">Edit</v-btn>
-                        <v-btn size="x-small" variant="tonal" color="error" class="text-none" density="compact" @click="deleteRole(r.id)">Delete</v-btn>
-                      </template>
-                      <span v-else class="text-caption text-slate-500 font-mono" style="font-size: 9px;">Immutable</span>
-                    </td>
-                  </tr>
-                </tbody>
-              </v-table>
-            </v-card>
-          </div>
-
-          <!-- TAB 4: DATABASE HEALTH -->
-          <div v-show="tab === 'database'">
-            <v-card color="#0e172e" rounded="lg" class="pa-4 mb-3" variant="outlined">
-              <div class="d-flex justify-space-between align-center mb-3 flex-wrap gap-2">
-                <div>
-                  <div class="text-subtitle-2 font-weight-bold text-white d-flex align-center gap-1">
-                    <v-icon icon="mdi-heart-pulse" color="emerald-lighten-2" size="small"></v-icon> Visual Database Health
-                  </div>
-                  <div class="text-caption text-medium-emphasis" style="font-size: 10.5px;">Real-time status of PostgreSQL connection pools</div>
-                </div>
-                <div class="d-flex gap-1">
-                  <v-btn color="slate-700" variant="outlined" size="x-small" rounded="lg" class="text-none" @click="fetchDbHealth">
-                    <v-icon icon="mdi-refresh" start size="small"></v-icon> Refresh
-                  </v-btn>
-                  <v-btn color="cyan-darken-3" variant="flat" size="x-small" rounded="lg" class="text-none" @click="reloadDbConfig">
-                    <v-icon icon="mdi-cog-refresh" start size="small"></v-icon> Hot-Reload Config
-                  </v-btn>
-                </div>
-              </div>
-
-              <v-row dense>
-                <v-col v-for="(conn, key) in dbHealth.connections" :key="key" cols="12" sm="6" md="4">
-                  <v-card color="#050a17" rounded="lg" class="pa-3" variant="outlined">
-                    <div class="d-flex justify-space-between align-center mb-1">
-                      <span class="font-mono font-weight-bold text-white text-caption">{{ conn.name }}</span>
-                      <v-chip size="x-small" :color="conn.isAlive ? 'success' : 'error'" variant="tonal" class="font-weight-bold" style="height: 18px; font-size: 9px;">
-                        {{ conn.isAlive ? 'CONNECTED' : 'OFFLINE' }}
-                      </v-chip>
-                    </div>
-                    <div class="text-caption text-medium-emphasis font-mono" style="line-height: 1.6; font-size: 10.5px;">
-                      <div>Host: <strong class="text-white">{{ conn.host }}:{{ conn.port }}</strong></div>
-                      <div>Database: <strong class="text-white">{{ conn.database }}</strong></div>
-                      <div>Ping Latency: <strong :class="conn.latencyMs < 50 ? 'text-emerald-lighten-2' : 'text-amber-lighten-2'">{{ conn.latencyMs !== null ? conn.latencyMs + ' ms' : 'N/A' }}</strong></div>
-                      <div>Pool Size: <strong class="text-slate-300">{{ conn.poolSize }} connections</strong></div>
-                    </div>
-                  </v-card>
-                </v-col>
-              </v-row>
-            </v-card>
-
-            <v-card color="#0e172e" rounded="lg" class="pa-4" variant="outlined">
-              <div class="text-caption font-weight-bold text-white mb-2">Active Table Routing & Live Record Counts</div>
-              <v-table hover class="bg-transparent rounded-lg border compact-table">
-                <thead>
-                  <tr class="bg-slate-950">
-                    <th class="text-caption font-weight-bold text-slate-400">Table / Entity</th>
-                    <th class="text-caption font-weight-bold text-slate-400">Assigned Database Pool</th>
-                    <th class="text-caption font-weight-bold text-slate-400">Record Count</th>
-                    <th class="text-caption font-weight-bold text-slate-400">Table Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr v-for="(stat, tableName) in dbHealth.tableStats" :key="tableName">
-                    <td class="font-mono font-weight-bold text-white text-caption">{{ tableName }}</td>
-                    <td class="font-mono text-cyan-lighten-2 text-caption">{{ stat.routedTo }}</td>
-                    <td class="font-weight-bold text-emerald-lighten-2 text-caption">{{ Number(stat.recordCount).toLocaleString() }} rows</td>
-                    <td><v-chip size="x-small" color="success" variant="tonal" style="height: 18px; font-size: 9px;">{{ stat.status }}</v-chip></td>
-                  </tr>
-                </tbody>
-              </v-table>
-            </v-card>
-          </div>
-
-          <!-- TAB 5: DEVICES -->
-          <div v-show="tab === 'devices'">
-            <v-card color="#0e172e" rounded="lg" class="pa-4" variant="outlined">
-              <div class="d-flex justify-space-between align-center mb-3 flex-wrap gap-2">
-                <div>
-                  <div class="text-subtitle-2 font-weight-bold text-white d-flex align-center gap-1">
-                    <v-icon icon="mdi-chip" color="cyan-lighten-2" size="small"></v-icon> LoRaWAN Device Fleet
-                  </div>
-                  <div class="text-caption text-medium-emphasis" style="font-size: 10.5px;">Registered End Devices and decoder bindings</div>
-                </div>
-                <div class="d-flex gap-1">
-                  <v-btn color="slate-700" variant="outlined" size="x-small" rounded="lg" class="text-none" @click="fetchDevices">
-                    <v-icon icon="mdi-refresh" start size="small"></v-icon> Refresh
-                  </v-btn>
-                  <v-btn color="cyan-darken-3" variant="flat" size="x-small" rounded="lg" class="text-none" @click="openRegisterDeviceDialog">
-                    <v-icon icon="mdi-plus" start size="small"></v-icon> Register Device
-                  </v-btn>
-                </div>
-              </div>
-
-              <v-table hover class="bg-transparent rounded-lg border compact-table">
-                <thead>
-                  <tr class="bg-slate-950">
-                    <th class="text-caption font-weight-bold text-slate-400">DevEUI</th>
-                    <th class="text-caption font-weight-bold text-slate-400">Device Name</th>
-                    <th class="text-caption font-weight-bold text-slate-400">Activation</th>
-                    <th class="text-caption font-weight-bold text-slate-400">Decoder Script</th>
-                    <th class="text-caption font-weight-bold text-slate-400">Status</th>
-                    <th class="text-caption font-weight-bold text-slate-400 text-right">Action</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr v-if="devicesList.length === 0">
-                    <td colspan="6" class="text-center py-4 text-medium-emphasis text-caption">No LoRaWAN devices registered. Click "+ Register Device" to add one.</td>
-                  </tr>
-                  <tr v-for="d in devicesList" :key="d.id || d.devEUI">
-                    <td class="font-mono font-weight-bold text-cyan-lighten-2 text-caption">{{ d.devEUI }}</td>
-                    <td class="font-weight-bold text-white text-caption">{{ d.name || '--' }}</td>
-                    <td><v-chip size="x-small" color="amber" variant="tonal" style="height: 18px; font-size: 9px;">{{ d.activationType || 'OTAA' }}</v-chip></td>
-                    <td>
-                      <v-chip size="x-small" :color="d.payloadFormatterScript ? 'success' : 'slate-700'" variant="tonal" style="height: 18px; font-size: 9px;">
-                        {{ d.payloadFormatterScript ? 'Configured' : 'None' }}
-                      </v-chip>
-                    </td>
-                    <td>
-                      <v-chip size="x-small" :color="d.isActive ? 'success' : 'error'" variant="tonal" style="height: 18px; font-size: 9px;">
-                        {{ d.isActive ? 'ACTIVE' : 'INACTIVE' }}
-                      </v-chip>
-                    </td>
-                    <td class="text-right">
-                      <v-btn size="x-small" variant="tonal" color="cyan" class="text-none" density="compact" @click="testDevice(d)">Test Payload</v-btn>
-                    </td>
-                  </tr>
-                </tbody>
-              </v-table>
-            </v-card>
-          </div>
-
-          <!-- TAB 6: TELEMETRY -->
-          <div v-show="tab === 'telemetry'">
-            <v-card color="#0e172e" rounded="lg" class="pa-4" variant="outlined">
-              <div class="d-flex justify-space-between align-center mb-3 flex-wrap gap-2">
-                <div>
-                  <div class="text-subtitle-2 font-weight-bold text-white d-flex align-center gap-1">
-                    <v-icon icon="mdi-sine-wave" color="indigo-lighten-2" size="small"></v-icon> Live Telemetry Stream
-                  </div>
-                  <div class="text-caption text-medium-emphasis" style="font-size: 10.5px;">Real-time stream of incoming LoRaWAN uplink packets</div>
-                </div>
-                <div class="d-flex align-center gap-1">
-                  <v-btn color="slate-700" variant="outlined" size="x-small" rounded="lg" class="text-none" @click="fetchTelemetry">
-                    <v-icon icon="mdi-refresh" start size="small"></v-icon> Refresh
-                  </v-btn>
-                </div>
-              </div>
-
-              <v-table hover class="bg-transparent rounded-lg border compact-table">
-                <thead>
-                  <tr class="bg-slate-950">
-                    <th class="text-caption font-weight-bold text-slate-400">Timestamp</th>
-                    <th class="text-caption font-weight-bold text-slate-400">DevEUI</th>
-                    <th class="text-caption font-weight-bold text-slate-400">Port / FCnt</th>
-                    <th class="text-caption font-weight-bold text-slate-400">Raw Hex</th>
-                    <th class="text-caption font-weight-bold text-slate-400">Decoded JSON</th>
-                    <th class="text-caption font-weight-bold text-slate-400">RSSI / SNR</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr v-if="telemetryList.length === 0">
-                    <td colspan="6" class="text-center py-4 text-medium-emphasis text-caption">No incoming telemetry packets yet. Send a webhook to see live data.</td>
-                  </tr>
-                  <tr v-for="t in telemetryList" :key="t.id">
-                    <td class="text-caption text-medium-emphasis">{{ formatTime(t.timestamp || t.createdAt) }}</td>
-                    <td class="font-mono font-weight-bold text-cyan-lighten-2 text-caption">{{ t.devEUI }}</td>
-                    <td class="font-mono text-amber-lighten-2 text-caption">p:{{ t.fPort || 1 }} / c:{{ t.fCnt || 0 }}</td>
-                    <td class="font-mono text-slate-300 text-caption">{{ t.payloadHex || '--' }}</td>
-                    <td class="font-mono text-emerald-lighten-2 text-caption">{{ formatDecoded(t.decodedPayload) }}</td>
-                    <td class="text-caption text-medium-emphasis">{{ t.rssi !== undefined ? t.rssi + ' dBm' : '--' }} / {{ t.snr !== undefined ? t.snr + ' dB' : '--' }}</td>
-                  </tr>
-                </tbody>
-              </v-table>
-            </v-card>
-          </div>
-
-          <!-- TAB 7: WEBHOOKS -->
-          <div v-show="tab === 'webhooks'">
-            <v-card color="#0e172e" rounded="lg" class="pa-4" variant="outlined">
-              <div class="text-subtitle-2 font-weight-bold text-white mb-1 d-flex align-center gap-1">
-                <v-icon icon="mdi-webhook" color="emerald-lighten-2" size="small"></v-icon> Network Server Webhooks
-              </div>
-              <p class="text-caption text-medium-emphasis mb-3" style="font-size: 11px;">Configure these HTTP endpoints on your Network Server (ChirpStack v4 or ThingPark Wireless):</p>
-
-              <v-row dense>
-                <v-col cols="12" md="6">
-                  <v-card color="#050a17" rounded="lg" class="pa-3" variant="outlined">
-                    <div class="d-flex justify-space-between align-center mb-1">
-                      <span class="text-caption font-weight-bold text-cyan-lighten-2">ChirpStack v4 Ingestion</span>
-                      <v-chip size="x-small" color="cyan" variant="tonal" style="height: 18px; font-size: 9px;">POST / JSON</v-chip>
-                    </div>
-                    <div class="code-box pa-2 d-flex justify-space-between align-center my-1 text-caption font-mono" style="font-size: 11px;">
-                      <span>POST /lorawan/webhook/chirpstack</span>
-                      <v-btn size="x-small" variant="text" color="cyan" density="compact" class="text-none" @click="copyUrl('/lorawan/webhook/chirpstack')">Copy</v-btn>
-                    </div>
-                    <div class="text-caption text-medium-emphasis" style="font-size: 10px;">Supports ChirpStack uplink events, deduplication, and payload parsing.</div>
-                  </v-card>
-                </v-col>
-
-                <v-col cols="12" md="6">
-                  <v-card color="#050a17" rounded="lg" class="pa-3" variant="outlined">
-                    <div class="d-flex justify-space-between align-center mb-1">
-                      <span class="text-caption font-weight-bold text-emerald-lighten-2">ThingPark Wireless Ingestion</span>
-                      <v-chip size="x-small" color="success" variant="tonal" style="height: 18px; font-size: 9px;">POST / JSON</v-chip>
-                    </div>
-                    <div class="code-box pa-2 d-flex justify-space-between align-center my-1 text-caption font-mono" style="font-size: 11px;">
-                      <span>POST /lorawan/webhook/thingpark</span>
-                      <v-btn size="x-small" variant="text" color="emerald" density="compact" class="text-none" @click="copyUrl('/lorawan/webhook/thingpark')">Copy</v-btn>
-                    </div>
-                    <div class="text-caption text-medium-emphasis" style="font-size: 10px;">Supports Actility ThingPark Wireless DX packets and hex payloads.</div>
-                  </v-card>
-                </v-col>
-              </v-row>
-            </v-card>
-          </div>
-
-          <!-- TAB 8: DECODER SANDBOX -->
-          <div v-show="tab === 'decoder'">
-            <v-card color="#0e172e" rounded="lg" class="pa-4" variant="outlined">
-              <div class="text-subtitle-2 font-weight-bold text-white mb-1 d-flex align-center gap-1">
-                <v-icon icon="mdi-code-braces" color="purple-lighten-2" size="small"></v-icon> Payload Formatter Sandbox
-              </div>
-              <p class="text-caption text-medium-emphasis mb-3" style="font-size: 11px;">Test JavaScript decoder functions on raw hex bytes in a secure sandbox:</p>
-
-              <v-row dense>
-                <v-col cols="12" md="6">
-                  <div class="text-caption font-weight-bold text-white mb-1">JavaScript Decoder Function</div>
-                  <v-textarea
-                    v-model="sandboxCode"
-                    rows="8"
-                    variant="outlined"
-                    class="font-mono text-caption"
-                    density="compact"
-                    color="purple-lighten-2"
-                  ></v-textarea>
-                </v-col>
-
-                <v-col cols="12" md="6">
-                  <div class="text-caption font-weight-bold text-white mb-1">Test Hex String</div>
-                  <div class="d-flex gap-2 mb-2">
-                    <v-text-field
-                      v-model="sandboxHex"
-                      variant="outlined"
-                      density="compact"
-                      class="font-mono text-caption"
-                      color="purple-lighten-2"
-                      hide-details
-                    ></v-text-field>
-                    <v-btn color="purple-darken-3" size="small" class="text-none" @click="runSandboxDecode">Decode</v-btn>
-                  </div>
-
-                  <div class="text-caption font-weight-bold text-white mb-1">Decoded Output</div>
-                  <pre class="code-box pa-2 text-emerald-lighten-2 font-mono text-caption" style="height: 155px; overflow: auto; font-size: 11px;">{{ sandboxResult }}</pre>
-                </v-col>
-              </v-row>
-            </v-card>
-          </div>
-
         </div>
-      </v-main>
+      </div>
 
-      <!-- DIALOG: CREATE USER -->
-      <v-dialog v-model="createUserDialog" max-width="450">
-        <v-card color="#0e172e" rounded="lg" class="pa-4">
-          <v-card-title class="text-subtitle-1 font-weight-bold text-white">Create User Account</v-card-title>
-          <v-card-text class="pa-0 mt-2">
-            <v-form @submit.prevent="submitCreateUser">
-              <v-text-field v-model="newUser.username" label="Username" required variant="outlined" density="compact" class="mb-2"></v-text-field>
-              <v-text-field v-model="newUser.fullName" label="Full Name" required variant="outlined" density="compact" class="mb-2"></v-text-field>
-              <v-text-field v-model="newUser.email" label="Email" type="email" required variant="outlined" density="compact" class="mb-2"></v-text-field>
-              <v-text-field v-model="newUser.password" label="Password" type="password" required minlength="6" variant="outlined" density="compact" class="mb-2"></v-text-field>
-              <v-select
-                v-model="newUser.userType"
-                :items="['USER', 'SUB_ADMIN', 'ADMIN']"
-                label="User Type"
-                variant="outlined"
-                density="compact"
-                class="mb-2"
-              ></v-select>
-              <v-select
-                v-model="newUser.roleId"
-                :items="roleSelectItems"
-                label="Assign Role"
-                item-title="title"
-                item-value="value"
-                variant="outlined"
-                density="compact"
-              ></v-select>
-            </v-form>
-          </v-card-text>
-          <v-card-actions class="justify-end pa-0 mt-3">
-            <v-btn variant="text" size="small" class="text-none" @click="createUserDialog = false">Cancel</v-btn>
-            <v-btn color="cyan-darken-3" variant="flat" size="small" class="text-none" @click="submitCreateUser" :loading="savingUser">Save User</v-btn>
-          </v-card-actions>
-        </v-card>
-      </v-dialog>
+    </main>
 
-      <!-- DIALOG: EDIT USER -->
-      <v-dialog v-model="editUserDialog" max-width="450">
-        <v-card color="#0e172e" rounded="lg" class="pa-4">
-          <v-card-title class="text-subtitle-1 font-weight-bold text-white">Edit User</v-card-title>
-          <v-card-text class="pa-0 mt-2">
-            <v-text-field v-model="editUser.username" label="Username" disabled variant="outlined" density="compact" class="mb-2"></v-text-field>
-            <v-select
-              v-model="editUser.roleId"
-              :items="roleSelectItems"
-              label="Assign Role"
-              item-title="title"
-              item-value="value"
-              variant="outlined"
-              density="compact"
-              class="mb-2"
-            ></v-select>
-            <v-select
-              v-model="editUser.isActive"
-              :items="[{ title: 'Active', value: true }, { title: 'Suspended', value: false }]"
-              label="Account Status"
-              item-title="title"
-              item-value="value"
-              variant="outlined"
-              density="compact"
-            ></v-select>
-          </v-card-text>
-          <v-card-actions class="justify-end pa-0 mt-3">
-            <v-btn variant="text" size="small" class="text-none" @click="editUserDialog = false">Cancel</v-btn>
-            <v-btn color="cyan-darken-3" variant="flat" size="small" class="text-none" @click="submitEditUser" :loading="savingUser">Update User</v-btn>
-          </v-card-actions>
-        </v-card>
-      </v-dialog>
+    <!-- MODAL: CREATE USER -->
+    <div v-if="createUserDialog" class="fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop">
+      <div class="w-full max-w-md bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-4 shadow-2xl">
+        <div class="flex items-center justify-between">
+          <h3 class="text-sm font-bold text-white flex items-center gap-2">
+            <i class="fa-solid fa-user-plus text-sky-400"></i> Create User Account
+          </h3>
+          <button @click="createUserDialog = false" class="text-slate-500 hover:text-white cursor-pointer"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <form @submit.prevent="submitCreateUser" class="space-y-3 text-xs">
+          <div>
+            <label class="block font-semibold text-slate-300 mb-1">Username</label>
+            <input v-model="newUser.username" type="text" required class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-sky-500" />
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-300 mb-1">Full Name</label>
+            <input v-model="newUser.fullName" type="text" required class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-sky-500" />
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-300 mb-1">Email</label>
+            <input v-model="newUser.email" type="email" required class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-sky-500" />
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-300 mb-1">Password</label>
+            <input v-model="newUser.password" type="password" required minlength="6" class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-sky-500" />
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-300 mb-1">User Type</label>
+            <select v-model="newUser.userType" class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-sky-500">
+              <option value="USER">Standard User (USER)</option>
+              <option value="SUB_ADMIN">Sub-Administrator (SUB_ADMIN)</option>
+              <option value="ADMIN">Super Administrator (ADMIN)</option>
+            </select>
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-300 mb-1">Assign Role</label>
+            <select v-model="newUser.roleId" class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-sky-500">
+              <option value="">No role assigned</option>
+              <option v-for="r in rolesList" :key="r.id" :value="r.id">{{ r.name }} ({{ r.code }})</option>
+            </select>
+          </div>
+          <div class="flex justify-end gap-2 pt-2">
+            <button type="button" @click="createUserDialog = false" class="px-3.5 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold cursor-pointer">Cancel</button>
+            <button type="submit" :disabled="savingUser" class="px-4 py-2 rounded-lg bg-sky-500 hover:bg-sky-400 text-white font-bold cursor-pointer">Save User</button>
+          </div>
+        </form>
+      </div>
+    </div>
 
-      <!-- DIALOG: CREATE ROLE -->
-      <v-dialog v-model="createRoleDialog" max-width="500">
-        <v-card color="#0e172e" rounded="lg" class="pa-4">
-          <v-card-title class="text-subtitle-1 font-weight-bold text-white">Create New Role</v-card-title>
-          <v-card-text class="pa-0 mt-2">
-            <v-text-field v-model="newRole.code" label="Role Code (e.g. AUDITOR)" required variant="outlined" density="compact" class="mb-2 font-mono"></v-text-field>
-            <v-text-field v-model="newRole.name" label="Display Name" required variant="outlined" density="compact" class="mb-2"></v-text-field>
-            <v-text-field v-model="newRole.description" label="Description" variant="outlined" density="compact" class="mb-2"></v-text-field>
-            <div class="text-caption font-weight-bold text-white mb-1">Assign Permissions:</div>
-            <div style="max-height: 150px; overflow-y: auto;" class="code-box pa-2">
-              <v-checkbox
-                v-for="p in allPermissions"
-                :key="p.id"
-                v-model="newRole.permissions"
-                :value="p.id"
-                :label="p.name + ' (' + (p.description || p.module) + ')'"
-                density="compact"
-                hide-details
-                color="amber"
-              ></v-checkbox>
+    <!-- MODAL: EDIT USER -->
+    <div v-if="editUserDialog" class="fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop">
+      <div class="w-full max-w-md bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-4 shadow-2xl">
+        <div class="flex items-center justify-between">
+          <h3 class="text-sm font-bold text-white flex items-center gap-2">
+            <i class="fa-solid fa-user-gear text-sky-400"></i> Edit User & Roles
+          </h3>
+          <button @click="editUserDialog = false" class="text-slate-500 hover:text-white cursor-pointer"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <form @submit.prevent="submitEditUser" class="space-y-3 text-xs">
+          <div>
+            <label class="block font-semibold text-slate-300 mb-1">Username</label>
+            <input v-model="editUser.username" type="text" disabled class="w-full px-3 py-2 bg-slate-950/60 border border-slate-800 rounded-lg text-slate-400 font-mono" />
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-300 mb-1">Assign Role</label>
+            <select v-model="editUser.roleId" class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-sky-500">
+              <option value="">No role assigned</option>
+              <option v-for="r in rolesList" :key="r.id" :value="r.id">{{ r.name }} ({{ r.code }})</option>
+            </select>
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-300 mb-1">Account Status</label>
+            <select v-model="editUser.isActive" class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-sky-500">
+              <option :value="true">Active</option>
+              <option :value="false">Suspended</option>
+            </select>
+          </div>
+          <div class="flex justify-end gap-2 pt-2">
+            <button type="button" @click="editUserDialog = false" class="px-3.5 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold cursor-pointer">Cancel</button>
+            <button type="submit" :disabled="savingUser" class="px-4 py-2 rounded-lg bg-sky-500 hover:bg-sky-400 text-white font-bold cursor-pointer">Update User</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- MODAL: CREATE ROLE -->
+    <div v-if="createRoleDialog" class="fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop">
+      <div class="w-full max-w-lg bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-4 shadow-2xl">
+        <div class="flex items-center justify-between">
+          <h3 class="text-sm font-bold text-white flex items-center gap-2">
+            <i class="fa-solid fa-shield-halved text-amber-400"></i> Create New Role
+          </h3>
+          <button @click="createRoleDialog = false" class="text-slate-500 hover:text-white cursor-pointer"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <form @submit.prevent="submitCreateRole" class="space-y-3 text-xs">
+          <div>
+            <label class="block font-semibold text-slate-300 mb-1">Role Code (Uppercase)</label>
+            <input v-model="newRole.code" type="text" required placeholder="e.g. AUDITOR" class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-white font-mono uppercase focus:outline-none focus:border-amber-500" />
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-300 mb-1">Display Name</label>
+            <input v-model="newRole.name" type="text" required placeholder="e.g. System Auditor" class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-amber-500" />
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-300 mb-1">Description</label>
+            <input v-model="newRole.description" type="text" placeholder="Description of role privileges" class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-amber-500" />
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-300 mb-1">Assign Permissions</label>
+            <div class="max-h-40 overflow-y-auto custom-scroll p-2.5 bg-slate-950 border border-slate-800 rounded-lg space-y-1">
+              <label v-for="p in allPermissions" :key="p.id" class="flex items-center gap-2 text-slate-300 hover:text-white cursor-pointer select-none">
+                <input type="checkbox" :value="p.id" v-model="newRole.permissions" class="rounded border-slate-700 bg-slate-800 text-amber-500 focus:ring-0" />
+                <span class="font-mono text-[11px] text-amber-400">{{ p.name }}</span>
+                <span class="text-slate-500 text-[10px]">({{ p.description || p.module }})</span>
+              </label>
             </div>
-          </v-card-text>
-          <v-card-actions class="justify-end pa-0 mt-3">
-            <v-btn variant="text" size="small" class="text-none" @click="createRoleDialog = false">Cancel</v-btn>
-            <v-btn color="amber-darken-3" variant="flat" size="small" class="text-none" @click="submitCreateRole" :loading="savingRole">Create Role</v-btn>
-          </v-card-actions>
-        </v-card>
-      </v-dialog>
+          </div>
+          <div class="flex justify-end gap-2 pt-2">
+            <button type="button" @click="createRoleDialog = false" class="px-3.5 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold cursor-pointer">Cancel</button>
+            <button type="submit" :disabled="savingRole" class="px-4 py-2 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold cursor-pointer">Create Role</button>
+          </div>
+        </form>
+      </div>
+    </div>
 
-      <!-- DIALOG: EDIT ROLE -->
-      <v-dialog v-model="editRoleDialog" max-width="500">
-        <v-card color="#0e172e" rounded="lg" class="pa-4">
-          <v-card-title class="text-subtitle-1 font-weight-bold text-white">Edit Role</v-card-title>
-          <v-card-text class="pa-0 mt-2">
-            <v-text-field v-model="editingRole.code" label="Role Code" disabled variant="outlined" density="compact" class="mb-2 font-mono"></v-text-field>
-            <v-text-field v-model="editingRole.name" label="Display Name" required variant="outlined" density="compact" class="mb-2"></v-text-field>
-            <v-text-field v-model="editingRole.description" label="Description" variant="outlined" density="compact" class="mb-2"></v-text-field>
-            <div class="text-caption font-weight-bold text-white mb-1">Permissions Matrix:</div>
-            <div style="max-height: 150px; overflow-y: auto;" class="code-box pa-2">
-              <v-checkbox
-                v-for="p in allPermissions"
-                :key="p.id"
-                v-model="editingRole.permissions"
-                :value="p.id"
-                :label="p.name + ' (' + (p.description || p.module) + ')'"
-                density="compact"
-                hide-details
-                color="cyan"
-              ></v-checkbox>
+    <!-- MODAL: EDIT ROLE -->
+    <div v-if="editRoleDialog" class="fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop">
+      <div class="w-full max-w-lg bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-4 shadow-2xl">
+        <div class="flex items-center justify-between">
+          <h3 class="text-sm font-bold text-white flex items-center gap-2">
+            <i class="fa-solid fa-pen-to-square text-sky-400"></i> Edit Role Definition
+          </h3>
+          <button @click="editRoleDialog = false" class="text-slate-500 hover:text-white cursor-pointer"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <form @submit.prevent="submitEditRole" class="space-y-3 text-xs">
+          <div>
+            <label class="block font-semibold text-slate-300 mb-1">Role Code</label>
+            <input v-model="editingRole.code" type="text" disabled class="w-full px-3 py-2 bg-slate-950/60 border border-slate-800 rounded-lg text-slate-400 font-mono" />
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-300 mb-1">Display Name</label>
+            <input v-model="editingRole.name" type="text" required class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-sky-500" />
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-300 mb-1">Description</label>
+            <input v-model="editingRole.description" type="text" class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-sky-500" />
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-300 mb-1">Permissions Matrix</label>
+            <div class="max-h-40 overflow-y-auto custom-scroll p-2.5 bg-slate-950 border border-slate-800 rounded-lg space-y-1">
+              <label v-for="p in allPermissions" :key="p.id" class="flex items-center gap-2 text-slate-300 hover:text-white cursor-pointer select-none">
+                <input type="checkbox" :value="p.id" v-model="editingRole.permissions" class="rounded border-slate-700 bg-slate-800 text-sky-500 focus:ring-0" />
+                <span class="font-mono text-[11px] text-sky-400">{{ p.name }}</span>
+                <span class="text-slate-500 text-[10px]">({{ p.description || p.module }})</span>
+              </label>
             </div>
-          </v-card-text>
-          <v-card-actions class="justify-end pa-0 mt-3">
-            <v-btn variant="text" size="small" class="text-none" @click="editRoleDialog = false">Cancel</v-btn>
-            <v-btn color="cyan-darken-3" variant="flat" size="small" class="text-none" @click="submitEditRole" :loading="savingRole">Update Role</v-btn>
-          </v-card-actions>
-        </v-card>
-      </v-dialog>
+          </div>
+          <div class="flex justify-end gap-2 pt-2">
+            <button type="button" @click="editRoleDialog = false" class="px-3.5 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold cursor-pointer">Cancel</button>
+            <button type="submit" :disabled="savingRole" class="px-4 py-2 rounded-lg bg-sky-500 hover:bg-sky-400 text-white font-bold cursor-pointer">Update Role</button>
+          </div>
+        </form>
+      </div>
+    </div>
 
-      <!-- DIALOG: REGISTER DEVICE -->
-      <v-dialog v-model="registerDeviceDialog" max-width="450">
-        <v-card color="#0e172e" rounded="lg" class="pa-4">
-          <v-card-title class="text-subtitle-1 font-weight-bold text-white">Register LoRaWAN Device</v-card-title>
-          <v-card-text class="pa-0 mt-2">
-            <v-text-field v-model="newDevice.devEUI" label="DevEUI (16 Hex Characters)" maxlength="16" required variant="outlined" density="compact" class="mb-2 font-mono"></v-text-field>
-            <v-text-field v-model="newDevice.name" label="Device Name" required variant="outlined" density="compact" class="mb-2"></v-text-field>
-            <v-select v-model="newDevice.activationType" :items="['OTAA', 'ABP']" label="Activation Mode" variant="outlined" density="compact" class="mb-2"></v-select>
-            <v-text-field v-model="newDevice.appKey" label="AppKey (Optional)" variant="outlined" density="compact" class="font-mono"></v-text-field>
-          </v-card-text>
-          <v-card-actions class="justify-end pa-0 mt-3">
-            <v-btn variant="text" size="small" class="text-none" @click="registerDeviceDialog = false">Cancel</v-btn>
-            <v-btn color="cyan-darken-3" variant="flat" size="small" class="text-none" @click="submitRegisterDevice" :loading="savingDevice">Register</v-btn>
-          </v-card-actions>
-        </v-card>
-      </v-dialog>
+    <!-- MODAL: REGISTER DEVICE -->
+    <div v-if="registerDeviceDialog" class="fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop">
+      <div class="w-full max-w-md bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-4 shadow-2xl">
+        <div class="flex items-center justify-between">
+          <h3 class="text-sm font-bold text-white flex items-center gap-2">
+            <i class="fa-solid fa-microchip text-sky-400"></i> Register LoRaWAN Device
+          </h3>
+          <button @click="registerDeviceDialog = false" class="text-slate-500 hover:text-white cursor-pointer"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <form @submit.prevent="submitRegisterDevice" class="space-y-3 text-xs">
+          <div>
+            <label class="block font-semibold text-slate-300 mb-1">DevEUI (16 Hex Characters)</label>
+            <input v-model="newDevice.devEUI" type="text" required placeholder="0018B20000000001" maxlength="16" class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-white font-mono uppercase focus:outline-none focus:border-sky-500" />
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-300 mb-1">Device Name</label>
+            <input v-model="newDevice.name" type="text" required placeholder="e.g. Temperature Sensor 01" class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-sky-500" />
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-300 mb-1">Activation Mode</label>
+            <select v-model="newDevice.activationType" class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-sky-500">
+              <option value="OTAA">OTAA (Over-The-Air Activation)</option>
+              <option value="ABP">ABP (Activation By Personalization)</option>
+            </select>
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-300 mb-1">AppKey (Optional)</label>
+            <input v-model="newDevice.appKey" type="text" placeholder="32 Hex AppKey (if OTAA)" class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-white font-mono focus:outline-none focus:border-sky-500" />
+          </div>
+          <div class="flex justify-end gap-2 pt-2">
+            <button type="button" @click="registerDeviceDialog = false" class="px-3.5 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold cursor-pointer">Cancel</button>
+            <button type="submit" :disabled="savingDevice" class="px-4 py-2 rounded-lg bg-sky-500 hover:bg-sky-400 text-white font-bold cursor-pointer">Register Device</button>
+          </div>
+        </form>
+      </div>
+    </div>
 
-      <!-- SNACKBAR TOAST -->
-      <v-snackbar v-model="snackbar.show" :color="snackbar.color" :timeout="3500" location="top right">
-        {{ snackbar.text }}
-        <template v-slot:actions>
-          <v-btn variant="text" size="small" @click="snackbar.show = false">Close</v-btn>
-        </template>
-      </v-snackbar>
-    </v-app>
+    <!-- TOAST NOTIFICATION -->
+    <div v-if="toast.show" class="fixed top-4 right-4 z-50 flex items-center gap-2 px-4 py-3 rounded-xl shadow-2xl text-xs font-semibold" :class="toast.type === 'error' ? 'bg-red-950 border border-red-500 text-red-200' : (toast.type === 'success' ? 'bg-emerald-950 border border-emerald-500 text-emerald-200' : 'bg-sky-950 border border-sky-500 text-sky-200')">
+      <i :class="toast.type === 'error' ? 'fa-solid fa-circle-exclamation text-red-400' : (toast.type === 'success' ? 'fa-solid fa-circle-check text-emerald-400' : 'fa-solid fa-circle-info text-sky-400')"></i>
+      <span>{{ toast.text }}</span>
+    </div>
+
   </div>
 
-  <!-- Vue 3 and Vuetify 3 CDN -->
   <script src="https://cdn.jsdelivr.net/npm/vue@3.4.31/dist/vue.global.prod.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/vuetify@3.6.14/dist/vuetify.min.js"></script>
   <script>
-    const { createApp, ref, computed, onMounted, watch } = Vue;
-    const { createVuetify } = Vuetify;
+    const { createApp, ref, onMounted, watch } = Vue;
 
-    const vuetify = createVuetify({
-      theme: { defaultTheme: 'dark' }
-    });
-
-    const app = createApp({
+    createApp({
       setup() {
-        const drawer = ref(true);
-        const tab = ref('overview');
-
-        const tabTitles = {
-          overview: 'Overview Dashboard',
-          users: 'User Directory',
-          roles: 'Role Matrix & Permissions',
-          database: 'Database Health & Routing',
-          devices: 'LoRaWAN Device Fleet',
-          telemetry: 'Live Telemetry Uplinks',
-          webhooks: 'Webhook Ingestion Endpoints',
-          decoder: 'Payload Formatter Sandbox'
-        };
-
-        const tabCategories = {
-          overview: 'Real-time',
-          users: 'RBAC Security',
-          roles: 'RBAC Matrix',
-          database: 'Infrastructure',
-          devices: 'Fleet Management',
-          telemetry: 'Uplink Stream',
-          webhooks: 'Integration',
-          decoder: 'JS Engine'
-        };
-
-        const snackbar = ref({ show: false, text: '', color: 'info' });
-        const showToast = (text, color = 'info') => {
-          snackbar.value = { show: true, text, color: color === 'error' ? 'error' : (color === 'success' ? 'success' : 'info') };
-        };
-
+        const activeTab = ref('overview');
         const currentUser = ref({});
         const usersList = ref([]);
         const rolesList = ref([]);
@@ -965,7 +868,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
         const loadingUsers = ref(false);
         const loadingRoles = ref(false);
 
-        // Dialogs
+        // Modals
         const createUserDialog = ref(false);
         const editUserDialog = ref(false);
         const createRoleDialog = ref(false);
@@ -987,12 +890,12 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
         const sandboxHex = ref("09C441");
         const sandboxResult = ref('{\\n  "ready": true\\n}');
 
-        const roleSelectItems = computed(() => {
-          return [
-            { title: 'No role assigned', value: '' },
-            ...rolesList.value.map(r => ({ title: r.name + ' (' + r.code + ')', value: r.id }))
-          ];
-        });
+        // Toast
+        const toast = ref({ show: false, text: '', type: 'info' });
+        const showToast = (text, type = 'info') => {
+          toast.value = { show: true, text, type };
+          setTimeout(() => { toast.value.show = false; }, 3500);
+        };
 
         const getAuthToken = () => {
           let token = localStorage.getItem('lorawan_token');
@@ -1055,9 +958,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
           loadingUsers.value = true;
           try {
             const res = await fetch('/users', { headers: authHeaders(), credentials: 'include' });
-            if (res.ok) {
-              usersList.value = await res.json();
-            }
+            if (res.ok) usersList.value = await res.json();
           } catch(e) {
             console.error(e);
           } finally {
@@ -1122,13 +1023,11 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
         const fetchSession = async () => {
           try {
             const res = await fetch('/auth/session', { headers: authHeaders(), credentials: 'include' });
-            if (res.ok) {
-              currentUser.value = await res.json();
-            }
+            if (res.ok) currentUser.value = await res.json();
           } catch(e) {}
         };
 
-        // User Actions
+        // User CRUD
         const openCreateUserDialog = () => {
           newUser.value = { username: '', fullName: '', email: '', password: '', userType: 'USER', roleId: '' };
           createUserDialog.value = true;
@@ -1152,7 +1051,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
             });
             const data = await res.json();
             if (!res.ok) throw new Error(data.message || "Failed to create user");
-            showToast("User created successfully!", "success");
+            showToast("User account created successfully!", "success");
             createUserDialog.value = false;
             fetchUsers();
           } catch(e) {
@@ -1208,7 +1107,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
           }
         };
 
-        // Role Actions
+        // Role CRUD
         const openCreateRoleDialog = () => {
           newRole.value = { code: '', name: '', description: '', permissions: [] };
           createRoleDialog.value = true;
@@ -1288,7 +1187,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
           }
         };
 
-        // Device Actions
+        // Device CRUD
         const openRegisterDeviceDialog = () => {
           newDevice.value = { devEUI: '', name: '', activationType: 'OTAA', appKey: '' };
           registerDeviceDialog.value = true;
@@ -1321,7 +1220,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
         };
 
         const testDevice = (d) => {
-          tab.value = 'decoder';
+          activeTab.value = 'decoder';
         };
 
         const runSandboxDecode = () => {
@@ -1341,7 +1240,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
           }
         };
 
-        watch(tab, (newTab) => {
+        watch(activeTab, (newTab) => {
           try {
             window.history.replaceState(null, null, '#' + newTab);
           } catch(e) {}
@@ -1354,9 +1253,8 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
 
         onMounted(() => {
           const hash = window.location.hash.replace('#', '').trim();
-          if (hash && tabTitles[hash]) {
-            tab.value = hash;
-          }
+          if (hash) activeTab.value = hash;
+
           fetchSession();
           fetchUsers();
           fetchRoles();
@@ -1365,11 +1263,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
         });
 
         return {
-          drawer,
-          tab,
-          tabTitles,
-          tabCategories,
-          snackbar,
+          activeTab,
           currentUser,
           usersList,
           rolesList,
@@ -1395,7 +1289,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
           sandboxCode,
           sandboxHex,
           sandboxResult,
-          roleSelectItems,
+          toast,
           forceCleanSession,
           handleLogout,
           copyUrl,
@@ -1423,9 +1317,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
           runSandboxDecode
         };
       }
-    });
-
-    app.use(vuetify).mount('#app');
+    }).mount('#app');
   </script>
 </body>
 </html>
