@@ -71,7 +71,11 @@ export class DynamicDatabaseService implements OnModuleInit, OnModuleDestroy {
 
     for (const [connKey, connDetails] of Object.entries(this.routingConfig.connections)) {
       if (!this.dataSources.has(connKey) || !this.dataSources.get(connKey).isInitialized) {
-        await this.createAndRegisterDataSource(connKey, connDetails);
+        try {
+          await this.createAndRegisterDataSource(connKey, connDetails);
+        } catch (err: any) {
+          this.logger.error(`⚠️ Could not connect pool [${connKey}] on startup: ${err.message}. Server will remain active.`);
+        }
       }
     }
   }
