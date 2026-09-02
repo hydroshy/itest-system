@@ -14,7 +14,7 @@ export class LorawanController {
 
   @Post('devices')
   @UseGuards(JwtAuthGuard, PermissionsGuard)
-  @RequirePermissions('lorawan:device:manage')
+  @RequirePermissions('lorawan:device:create')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Đăng ký thiết bị LoRaWAN mới (DevEUI, OTAA/ABP, Network Server)' })
   async registerDevice(@Body() body: RegisterDeviceDto, @CurrentUser() user: any) {
@@ -32,7 +32,7 @@ export class LorawanController {
 
   @Put('devices/:devEUI/payload-formatter')
   @UseGuards(JwtAuthGuard, PermissionsGuard)
-  @RequirePermissions('lorawan:device:manage')
+  @RequirePermissions('lorawan:device:update')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Cập nhật script JS Payload Formatter cho thiết bị' })
   async updatePayloadFormatter(@Param('devEUI') devEUI: string, @Body('script') script: string) {
@@ -83,7 +83,7 @@ export class LorawanController {
 
   @Put('devices/:devEUI')
   @UseGuards(JwtAuthGuard, PermissionsGuard)
-  @RequirePermissions('lorawan:device:manage')
+  @RequirePermissions('lorawan:device:update')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Cập nhật cấu hình thiết bị LoRaWAN' })
   async updateDevice(@Param('devEUI') devEUI: string, @Body() body: Partial<RegisterDeviceDto>, @CurrentUser() user: any) {
@@ -92,7 +92,7 @@ export class LorawanController {
 
   @Delete('devices/:devEUI')
   @UseGuards(JwtAuthGuard, PermissionsGuard)
-  @RequirePermissions('lorawan:device:manage')
+  @RequirePermissions('lorawan:device:delete')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Xóa thiết bị LoRaWAN khỏi hệ thống và Network Server' })
   async deleteDevice(@Param('devEUI') devEUI: string, @CurrentUser() user: any) {
@@ -101,7 +101,7 @@ export class LorawanController {
 
   @Post('devices/:devEUI/sync')
   @UseGuards(JwtAuthGuard, PermissionsGuard)
-  @RequirePermissions('lorawan:device:manage')
+  @RequirePermissions('lorawan:device:update')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Đồng bộ/Provisioning lại thiết bị lên Network Server (ThingPark / ChirpStack)' })
   async syncDevice(@Param('devEUI') devEUI: string, @CurrentUser() user: any) {

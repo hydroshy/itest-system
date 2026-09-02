@@ -357,8 +357,11 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
                     {{ d.isActive ? 'ACTIVE' : 'INACTIVE' }}
                   </span>
                   <div class="flex items-center gap-1.5">
-                    <button v-if="d.networkServer" @click="syncDevice(d)" title="Re-sync Provisioning to Network Server" class="px-2.5 py-1 rounded-lg bg-sky-500/10 hover:bg-sky-500/20 text-sky-300 border border-sky-500/20 text-[11px] font-semibold flex items-center gap-1 cursor-pointer">
+                    <button v-if="d.networkServer" @click="syncDevice(d)" title="Re-sync Provisioning to Network Server" class="px-2 py-1 rounded-lg bg-sky-500/10 hover:bg-sky-500/20 text-sky-300 border border-sky-500/20 text-[11px] font-semibold flex items-center gap-1 cursor-pointer">
                       <i class="fa-solid fa-arrows-rotate"></i> Sync
+                    </button>
+                    <button @click="openEditDeviceDialog(d)" title="Edit Device & Sync" class="p-1.5 rounded-lg bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 border border-indigo-500/20 text-xs cursor-pointer">
+                      <i class="fa-solid fa-pen-to-square"></i>
                     </button>
                     <button @click="deleteDevice(d)" title="Delete Device" class="p-1.5 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 text-xs cursor-pointer">
                       <i class="fa-solid fa-trash-can"></i>
@@ -378,14 +381,10 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
             </div>
             <div class="space-y-1">
               <h3 class="text-base font-bold text-white">{{ activeFeature.title }} Module</h3>
-              <p class="text-xs text-slate-400 max-w-md mx-auto">
-                {{ activeFeature.description }}
-              </p>
+              <p class="text-xs text-slate-400 max-w-md mx-auto">{{ activeFeature.description }}</p>
             </div>
-            <div class="p-4 bg-slate-950/80 border border-slate-800 rounded-xl max-w-md mx-auto text-left font-mono text-xs space-y-1">
-              <div class="text-slate-500">// D-Module Source Directory:</div>
-              <div class="text-sky-400">src/modules/d-modules/{{ activeFeature.id }}/</div>
-              <div class="text-emerald-400">// Status: Ready for business logic development</div>
+            <div class="p-4 bg-slate-900/60 rounded-xl border border-slate-800 max-w-lg mx-auto text-xs text-slate-400">
+              <span class="font-bold text-slate-300">Feature Code:</span> <code class="text-sky-400 font-mono">{{ activeFeature.code }}</code>
             </div>
           </div>
 
@@ -394,20 +393,20 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
 
     </main>
 
-    <!-- MODAL: REGISTER DEVICE -->
+    <!-- MODAL: REGISTER / EDIT DEVICE -->
     <div v-if="registerDeviceDialog" class="fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop" style="background: rgba(2, 6, 23, 0.85); backdrop-filter: blur(6px);">
       <div class="w-full max-w-lg bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-4 shadow-2xl animate-in fade-in text-slate-200">
         <div class="flex items-center justify-between pb-2 border-b border-slate-800">
           <div>
             <h3 class="text-sm font-bold text-white flex items-center gap-2">
-              <i class="fa-solid fa-microchip text-emerald-400"></i> Register LoRaWAN Device
+              <i class="fa-solid fa-microchip text-emerald-400"></i> {{ isEditingDevice ? 'Edit LoRaWAN Device' : 'Register LoRaWAN Device' }}
             </h3>
-            <p class="text-[11px] text-slate-400 mt-0.5">Provision end-device to Network Server</p>
+            <p class="text-[11px] text-slate-400 mt-0.5">{{ isEditingDevice ? 'Update configuration and auto-synchronize with Network Server' : 'Provision end-device to Network Server' }}</p>
           </div>
           <button @click="registerDeviceDialog = false" class="text-slate-500 hover:text-white cursor-pointer"><i class="fa-solid fa-xmark"></i></button>
         </div>
 
-        <form @submit.prevent="submitRegisterDevice" class="space-y-3.5 text-xs">
+        <form @submit.prevent="submitDeviceForm" class="space-y-3.5 text-xs">
           <!-- Device Name -->
           <div>
             <label class="block font-semibold text-slate-300 mb-1">Device Name <span class="text-red-400">*</span></label>
@@ -417,7 +416,8 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
           <!-- DEV_EUI -->
           <div>
             <label class="block font-semibold text-slate-300 mb-1">DEV_EUI (16 Hex Characters) <span class="text-red-400">*</span></label>
-            <input v-model="newDevice.devEUI" type="text" required placeholder="0018B20000000001" maxlength="16" minlength="16" class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-white font-mono uppercase focus:outline-none focus:border-emerald-500" />
+            <input v-model="newDevice.devEUI" type="text" required placeholder="0018B20000000001" maxlength="16" minlength="16" :disabled="isEditingDevice" :class="isEditingDevice ? 'opacity-60 cursor-not-allowed bg-slate-900/80 border-slate-800' : 'bg-slate-950 border-slate-700'" class="w-full px-3 py-2 border rounded-lg text-white font-mono uppercase focus:outline-none focus:border-emerald-500" />
+            <p v-if="isEditingDevice" class="text-[10px] text-slate-500 mt-0.5">DevEUI is the unique hardware identifier and cannot be modified.</p>
           </div>
 
           <!-- 2 Columns: Network Server & Region Profile -->
@@ -454,8 +454,8 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
             <button type="button" @click="registerDeviceDialog = false" class="px-3.5 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold cursor-pointer">Cancel</button>
             <button type="submit" :disabled="savingDevice" class="px-4 py-2 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold flex items-center gap-1.5 cursor-pointer">
               <i v-if="savingDevice" class="fa-solid fa-circle-notch fa-spin"></i>
-              <i v-else class="fa-solid fa-plus"></i>
-              <span>{{ savingDevice ? 'Registering...' : 'Register Device' }}</span>
+              <i v-else :class="isEditingDevice ? 'fa-solid fa-floppy-disk' : 'fa-solid fa-plus'"></i>
+              <span>{{ savingDevice ? (isEditingDevice ? 'Saving & Syncing...' : 'Registering...') : (isEditingDevice ? 'Save & Sync Device' : 'Register Device') }}</span>
             </button>
           </div>
         </form>
@@ -542,6 +542,7 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
         const networkServersList = ref([]);
 
         const registerDeviceDialog = ref(false);
+        const isEditingDevice = ref(false);
         const savingDevice = ref(false);
         const deleteConfirmDialog = ref(false);
         const deviceToDelete = ref(null);
@@ -736,6 +737,7 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
         };
 
         const openRegisterDeviceDialog = () => {
+          isEditingDevice.value = false;
           const defaultNs = networkServersList.value.find(ns => ns.isDefault) || networkServersList.value[0];
           const defaultNsId = defaultNs ? defaultNs.id : '';
           const defaultRegionId = defaultNs && Array.isArray(defaultNs.regionProfiles) && defaultNs.regionProfiles.length > 0
@@ -754,7 +756,30 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
           registerDeviceDialog.value = true;
         };
 
-        const submitRegisterDevice = async () => {
+        const openEditDeviceDialog = (d) => {
+          isEditingDevice.value = true;
+          const nsId = d.networkServerId || (d.networkServer ? d.networkServer.id : '');
+          let regId = d.regionProfileId || '';
+          if (!regId && nsId) {
+            const ns = networkServersList.value.find(n => n.id === nsId);
+            if (ns && Array.isArray(ns.regionProfiles) && ns.regionProfiles.length > 0) {
+              regId = ns.regionProfiles[0].id;
+            }
+          }
+
+          newDevice.value = {
+            name: d.name || '',
+            devEUI: d.devEUI || '',
+            networkServerId: nsId,
+            regionProfileId: regId,
+            appEUI: d.appEUI || '0102030405060708',
+            appKey: d.appKey || '0102030405060708090A0B0C0D0E0F10',
+            activationType: d.activationMode || 'OTAA',
+          };
+          registerDeviceDialog.value = true;
+        };
+
+        const submitDeviceForm = async () => {
           if (!newDevice.value.name.trim()) {
             showToast("Please enter device name", "error");
             return;
@@ -765,23 +790,28 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
           }
           savingDevice.value = true;
           try {
-            const res = await fetch('/lorawan/devices', {
-              method: 'POST',
+            const isEdit = isEditingDevice.value;
+            const cleanDevEUI = newDevice.value.devEUI.trim().toUpperCase();
+            const url = isEdit ? '/lorawan/devices/' + cleanDevEUI : '/lorawan/devices';
+            const method = isEdit ? 'PUT' : 'POST';
+
+            const res = await fetch(url, {
+              method,
               headers: authHeaders(),
               credentials: 'include',
               body: JSON.stringify({
                 name: newDevice.value.name.trim(),
-                devEUI: newDevice.value.devEUI.trim().toUpperCase(),
+                devEUI: cleanDevEUI,
                 networkServerId: newDevice.value.networkServerId || undefined,
                 regionProfileId: newDevice.value.regionProfileId || undefined,
                 appEUI: newDevice.value.appEUI ? newDevice.value.appEUI.trim().toUpperCase() : '0102030405060708',
                 appKey: newDevice.value.appKey ? newDevice.value.appKey.trim().toUpperCase() : '0102030405060708090A0B0C0D0E0F10',
-                activationType: 'OTAA',
+                activationType: newDevice.value.activationType || 'OTAA',
               })
             });
             const data = await res.json();
-            if (!res.ok) throw new Error(data.message || "Failed to register device");
-            showToast(data.message || "Device registered & provisioned successfully!", "success");
+            if (!res.ok) throw new Error(data.message || (isEdit ? "Failed to update device" : "Failed to register device"));
+            showToast(data.message || (isEdit ? "Device updated & synced successfully!" : "Device registered & provisioned successfully!"), "success");
             registerDeviceDialog.value = false;
             fetchDevices();
           } catch(e) {
@@ -870,6 +900,7 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
           filteredDevices,
           networkServersList,
           registerDeviceDialog,
+          isEditingDevice,
           savingDevice,
           deleteConfirmDialog,
           deviceToDelete,
@@ -879,7 +910,8 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
           availableDeviceRegions,
           onDeviceNetworkServerChange,
           openRegisterDeviceDialog,
-          submitRegisterDevice,
+          openEditDeviceDialog,
+          submitDeviceForm,
           deleteDevice,
           confirmDeleteDevice,
           syncDevice,

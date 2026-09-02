@@ -156,10 +156,19 @@ export class LorawanService {
     };
   }
 
-  async updateDevice(devEUI: string, dto: Partial<RegisterDeviceDto>, user?: any): Promise<DeviceEntity> {
-    const device = await this.deviceRepo.findOne({ where: { devEUI: devEUI.toUpperCase() } });
+  async updateDevice(devEUI: string, dto: Partial<RegisterDeviceDto>, user?: any): Promise<{
+    success: boolean;
+    device: DeviceEntity;
+    provisioning?: ProvisioningResult;
+    message: string;
+  }> {
+    const cleanDevEUI = devEUI.trim().toUpperCase();
+    const device = await this.deviceRepo.findOne({
+      where: { devEUI: cleanDevEUI },
+      relations: ['networkServer'],
+    });
     if (!device) {
-      throw new NotFoundException(`Device with DevEUI ${devEUI} not found`);
+      throw new NotFoundException(`Device with DevEUI ${cleanDevEUI} not found`);
     }
     if (!isUserSuperAdmin(user) && device.ownerId && user?.id && device.ownerId !== user.id) {
       throw new ForbiddenException('You do not have permission to modify this device.');
@@ -169,11 +178,63 @@ export class LorawanService {
     if (dto.appEUI !== undefined) device.appEUI = dto.appEUI.trim().toUpperCase();
     if (dto.appKey !== undefined) device.appKey = dto.appKey.trim().toUpperCase();
     if (dto.activationType !== undefined) device.activationMode = dto.activationType;
-    if (dto.networkServerId !== undefined) device.networkServerId = dto.networkServerId;
-    if (dto.regionProfileId !== undefined) device.regionProfileId = dto.regionProfileId;
     if (dto.payloadFormatterScript !== undefined) device.payloadFormatterScript = dto.payloadFormatterScript;
 
-    return await this.deviceRepo.save(device);
+    if (dto.networkServerId !== undefined) {
+      device.networkServerId = (dto.networkServerId ? dto.networkServerId : undefined) as any;
+    }
+    if (dto.regionProfileId !== undefined) {
+      device.regionProfileId = (dto.regionProfileId ? dto.regionProfileId : undefined) as any;
+    }
+
+    let networkServer: NetworkServerEntity | null = null;
+    let regionProfile: any = null;
+
+    if (device.networkServerId) {
+      networkServer = await this.serverRepo.findOne({ where: { id: device.networkServerId } });
+      if (networkServer && device.regionProfileId && Array.isArray(networkServer.regionProfiles)) {
+        regionProfile = networkServer.regionProfiles.find((rp) => rp.id === device.regionProfileId);
+      }
+    }
+
+    let provisioningResult: ProvisioningResult | undefined;
+    if (networkServer) {
+      this.logger.log(
+        `Auto-syncing updated device [${cleanDevEUI}] '${device.name}' to Network Server [${networkServer.name}] (${networkServer.type})`,
+      );
+      const provDto: RegisterDeviceDto = {
+        devEUI: cleanDevEUI,
+        name: device.name,
+        appEUI: device.appEUI,
+        appKey: device.appKey,
+        activationType: device.activationMode,
+        networkServerId: device.networkServerId,
+        regionProfileId: device.regionProfileId,
+      };
+      provisioningResult = await this.provisioningService.provisionDevice(networkServer, regionProfile, provDto);
+      device.syncStatus = provisioningResult.syncStatus;
+      device.syncDetails = {
+        ...device.syncDetails,
+        lastUpdatedAndSyncedAt: new Date().toISOString(),
+        serverType: networkServer.type,
+        serverUrl: networkServer.apiUrl,
+        totalSteps: provisioningResult.totalSteps,
+        summaryMessage: provisioningResult.summaryMessage,
+        steps: provisioningResult.steps,
+      };
+    }
+
+    const updated = await this.deviceRepo.save(device);
+    this.logger.log(`✅ Updated device [${updated.devEUI}] '${updated.name}'. SyncStatus=${updated.syncStatus}`);
+
+    return {
+      success: true,
+      device: updated,
+      provisioning: provisioningResult,
+      message: provisioningResult
+        ? provisioningResult.summaryMessage
+        : `Device ${updated.name} (${updated.devEUI}) updated successfully.`,
+    };
   }
 
   async deleteDevice(devEUI: string, user?: any): Promise<{ success: boolean; message: string }> {

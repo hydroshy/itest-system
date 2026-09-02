@@ -59,7 +59,15 @@ export class PermissionsGuard implements CanActivate {
         role.permissions?.forEach((p) => userPermissions.add(p.name));
       });
 
-      const hasAllPermissions = requiredPermissions.every((perm) => userPermissions.has(perm));
+      const hasPermission = (perm: string) => {
+        if (userPermissions.has(perm)) return true;
+        if (perm.startsWith('lorawan:device:') && userPermissions.has('lorawan:device:manage')) return true;
+        if (perm.startsWith('users:') && userPermissions.has('users:manage')) return true;
+        if (perm.startsWith('roles:') && userPermissions.has('roles:manage')) return true;
+        return false;
+      };
+
+      const hasAllPermissions = requiredPermissions.every((perm) => hasPermission(perm));
       if (!hasAllPermissions) {
         throw new ForbiddenException(`Missing permission(s): ${requiredPermissions.join(', ')}`);
       }

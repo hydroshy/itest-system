@@ -61,7 +61,10 @@ export class RolesService implements OnModuleInit, OnApplicationBootstrap {
         { name: 'database:manage', module: 'database', action: 'manage', description: 'Hot-Reload Database Config' },
 
         { name: 'lorawan:device:read', module: 'lorawan', action: 'read', description: 'View LoRaWAN Devices' },
-        { name: 'lorawan:device:manage', module: 'lorawan', action: 'manage', description: 'Register & Edit LoRaWAN Devices' },
+        { name: 'lorawan:device:create', module: 'lorawan', action: 'create', description: 'Add New LoRaWAN Device' },
+        { name: 'lorawan:device:update', module: 'lorawan', action: 'update', description: 'Edit LoRaWAN Device' },
+        { name: 'lorawan:device:delete', module: 'lorawan', action: 'delete', description: 'Remove LoRaWAN Device' },
+        { name: 'lorawan:device:manage', module: 'lorawan', action: 'manage', description: 'Full LoRaWAN Device Management' },
 
         { name: 'lorawan:telemetry:read', module: 'lorawan', action: 'read', description: 'View Live Telemetry Uplinks' },
         { name: 'lorawan:webhooks:read', module: 'lorawan', action: 'read', description: 'View Webhook Ingestion URLs' },
