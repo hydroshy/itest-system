@@ -1,0 +1,106 @@
+/**
+ * Standardized Control Panel Module (C-Module) Registry
+ * Represents administrative, system governance, and infrastructure modules in (/control-panel)
+ */
+export interface CModule {
+  id: string; // e.g. 'c-network-servers', 'c-roles-rbac'
+  code: string; // e.g. 'C_MOD_NETWORK_SERVERS'
+  title: string; // e.g. 'Network Servers Management'
+  description: string;
+  icon: string; // FontAwesome icon class
+  category: 'Governance' | 'Infrastructure' | 'Security' | 'Developer';
+  routeHash: string; // e.g. '#network-servers', '#modules', '#roles'
+  requiredPermission?: string;
+}
+
+export const C_MODULES_REGISTRY: CModule[] = [
+  {
+    id: 'c-overview-hub',
+    code: 'C_MOD_OVERVIEW',
+    title: 'Overview Hub',
+    description: 'Central platform metrics, system engine health, and quick navigation cards.',
+    icon: 'fa-solid fa-chart-pie',
+    category: 'Governance',
+    routeHash: '#overview',
+  },
+  {
+    id: 'c-d-module-manager',
+    code: 'C_MOD_D_MODULES',
+    title: 'Dashboard D-Modules Management',
+    description: 'Manage, customize, and configure role-based access for user-facing D-Modules.',
+    icon: 'fa-solid fa-cubes',
+    category: 'Governance',
+    routeHash: '#modules',
+    requiredPermission: 'roles:manage',
+  },
+  {
+    id: 'c-roles-rbac',
+    code: 'C_MOD_ROLES_RBAC',
+    title: 'Roles & RBAC Matrix',
+    description: 'Define system roles, group privileges by functional area, and control operational capabilities.',
+    icon: 'fa-solid fa-shield-halved',
+    category: 'Security',
+    routeHash: '#roles',
+    requiredPermission: 'roles:read',
+  },
+  {
+    id: 'c-user-directory',
+    code: 'C_MOD_USERS',
+    title: 'User Directory & Accounts',
+    description: 'Create and manage administrative and operator accounts, assign roles, and configure credentials.',
+    icon: 'fa-solid fa-users',
+    category: 'Governance',
+    routeHash: '#users',
+    requiredPermission: 'users:read',
+  },
+  {
+    id: 'c-network-servers',
+    code: 'C_MOD_NETWORK_SERVERS',
+    title: 'Network Servers (ThingPark & ChirpStack)',
+    description: 'Manage Actility ThingPark Wireless and ChirpStack instances, Route References, API keys, and Region profiles.',
+    icon: 'fa-solid fa-tower-broadcast',
+    category: 'Infrastructure',
+    routeHash: '#network-servers',
+    requiredPermission: 'network_server:read',
+  },
+  {
+    id: 'c-database-routing',
+    code: 'C_MOD_DATABASE',
+    title: 'Database Health & Table Routing',
+    description: 'Real-time PostgreSQL connection latency, live table statistics, and dynamic multi-DB pool routing.',
+    icon: 'fa-solid fa-database',
+    category: 'Infrastructure',
+    routeHash: '#database',
+    requiredPermission: 'database:read',
+  },
+  {
+    id: 'c-device-fleet-admin',
+    code: 'C_MOD_DEVICE_FLEET',
+    title: 'LoRaWAN Device Fleet Oversight',
+    description: 'System-wide view of all registered devices with Created By ownership tracking, OTAA/ABP keys, and sync status.',
+    icon: 'fa-solid fa-microchip',
+    category: 'Infrastructure',
+    routeHash: '#devices',
+    requiredPermission: 'lorawan:device:read',
+  },
+  {
+    id: 'c-webhook-admin',
+    code: 'C_MOD_WEBHOOKS',
+    title: 'Webhook Ingestion Endpoints',
+    description: 'Configure and monitor HTTP ingestion endpoints for ChirpStack and ThingPark Wireless DX uplinks.',
+    icon: 'fa-solid fa-satellite-dish',
+    category: 'Infrastructure',
+    routeHash: '#webhooks',
+    requiredPermission: 'lorawan:webhooks:read',
+  },
+  {
+    id: 'c-decoder-admin',
+    code: 'C_MOD_DECODER',
+    title: 'Payload Formatter Sandbox',
+    description: 'Interactive JavaScript testing environment to execute and debug uplink hex payload transformations.',
+    icon: 'fa-solid fa-code',
+    category: 'Developer',
+    routeHash: '#decoder',
+    requiredPermission: 'lorawan:decoder:read',
+  },
+];
