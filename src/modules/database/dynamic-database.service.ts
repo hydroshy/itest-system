@@ -167,6 +167,8 @@ export class DynamicDatabaseService implements OnModuleInit, OnModuleDestroy {
           "createdAt" TIMESTAMP NOT NULL DEFAULT now()
         );
       `);
+      // Clean any legacy corrupted records with null names
+      await dataSource.query(`DELETE FROM "permission" WHERE "name" IS NULL OR "name" = '';`).catch(() => {});
 
       // 2. roles table
       await dataSource.query(`
@@ -188,6 +190,12 @@ export class DynamicDatabaseService implements OnModuleInit, OnModuleDestroy {
           CONSTRAINT "PK_role_permissions" PRIMARY KEY ("role_id", "permission_id")
         );
       `);
+      // Clean orphaned role_permissions
+      await dataSource.query(`
+        DELETE FROM "role_permissions"
+        WHERE "role_id" NOT IN (SELECT "id" FROM "roles")
+           OR "permission_id" NOT IN (SELECT "id" FROM "permission");
+      `).catch(() => {});
 
       // 4. users table
       await dataSource.query(`
@@ -213,6 +221,12 @@ export class DynamicDatabaseService implements OnModuleInit, OnModuleDestroy {
           CONSTRAINT "PK_user_role" PRIMARY KEY ("user_id", "role_id")
         );
       `);
+      // Clean orphaned user_role
+      await dataSource.query(`
+        DELETE FROM "user_role"
+        WHERE "user_id" NOT IN (SELECT "id" FROM "users")
+           OR "role_id" NOT IN (SELECT "id" FROM "roles");
+      `).catch(() => {});
 
       this.logger.log('✅ Guaranteed presence of 5 core RBAC tables in PostgreSQL');
     } catch (err: any) {

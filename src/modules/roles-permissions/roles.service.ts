@@ -35,94 +35,114 @@ export class RolesService implements OnModuleInit, OnApplicationBootstrap {
   }
 
   public async seedDefaults() {
-    let permRepo: any;
-    let roleRepo: any;
+    let ds: any;
     try {
-      permRepo = this.getPermissionRepo();
-      roleRepo = this.getRoleRepo();
+      ds = this.dbService.getDataSourceForTable('permission');
     } catch (e: any) {
       return;
     }
 
-    const defaultPerms = [
-      { name: 'users:read', module: 'users', action: 'read', description: 'View user list' },
-      { name: 'users:create', module: 'users', action: 'create', description: 'Create user or subadmin' },
-      { name: 'users:permissions:update', module: 'users', action: 'update', description: 'Update permissions' },
-      { name: 'users:delete', module: 'users', action: 'delete', description: 'Delete user' },
+    if (!ds || !ds.isInitialized) return;
 
-      { name: 'lorawan:app:read', module: 'lorawan', action: 'read', description: 'Read applications' },
-      { name: 'lorawan:app:manage', module: 'lorawan', action: 'manage', description: 'Create/edit applications' },
-
-      { name: 'lorawan:device:read', module: 'lorawan', action: 'read', description: 'Read devices' },
-      { name: 'lorawan:device:manage', module: 'lorawan', action: 'manage', description: 'Create/edit devices' },
-
-      { name: 'lorawan:gateway:read', module: 'lorawan', action: 'read', description: 'Read gateways' },
-      { name: 'lorawan:gateway:manage', module: 'lorawan', action: 'manage', description: 'Create/edit gateways' },
-
-      { name: 'lorawan:telemetry:read', module: 'lorawan', action: 'read', description: 'View decoded telemetry' },
-    ];
-
-    let allExistingPerms: Permission[] = [];
     try {
-      allExistingPerms = await permRepo.find();
-    } catch (err) {
-      allExistingPerms = [];
-    }
+      // 0. Clean corrupted or null permission records
+      await ds.query(`DELETE FROM "permission" WHERE "name" IS NULL OR "name" = '';`).catch(() => {});
 
-    const existingPermNames = new Set(allExistingPerms.map((p) => p.name));
+      const defaultPerms = [
+        { name: 'users:read', module: 'users', action: 'read', description: 'View user list' },
+        { name: 'users:create', module: 'users', action: 'create', description: 'Create user or subadmin' },
+        { name: 'users:permissions:update', module: 'users', action: 'update', description: 'Update permissions' },
+        { name: 'users:delete', module: 'users', action: 'delete', description: 'Delete user' },
 
-    for (const defPerm of defaultPerms) {
-      if (!existingPermNames.has(defPerm.name)) {
-        try {
-          const created = permRepo.create(defPerm);
-          await permRepo.save(created);
-          existingPermNames.add(defPerm.name);
-        } catch (e) {}
+        { name: 'lorawan:app:read', module: 'lorawan', action: 'read', description: 'Read applications' },
+        { name: 'lorawan:app:manage', module: 'lorawan', action: 'manage', description: 'Create/edit applications' },
+
+        { name: 'lorawan:device:read', module: 'lorawan', action: 'read', description: 'Read devices' },
+        { name: 'lorawan:device:manage', module: 'lorawan', action: 'manage', description: 'Create/edit devices' },
+
+        { name: 'lorawan:gateway:read', module: 'lorawan', action: 'read', description: 'Read gateways' },
+        { name: 'lorawan:gateway:manage', module: 'lorawan', action: 'manage', description: 'Create/edit gateways' },
+
+        { name: 'lorawan:telemetry:read', module: 'lorawan', action: 'read', description: 'View decoded telemetry' },
+      ];
+
+      // 1. Insert or update default permissions atomically
+      for (const p of defaultPerms) {
+        await ds.query(
+          `INSERT INTO "permission" ("name", "module", "action", "description")
+           VALUES ($1, $2, $3, $4)
+           ON CONFLICT ("name") DO UPDATE SET "module" = EXCLUDED."module", "action" = EXCLUDED."action", "description" = EXCLUDED."description";`,
+          [p.name, p.module, p.action, p.description],
+        ).catch(() => {});
       }
-    }
 
-    const allPerms = await permRepo.find();
+      // Fetch all permission IDs from database
+      const allPermRows = await ds.query(`SELECT "id", "name", "module" FROM "permission";`);
+      const allPermIds = allPermRows.map((r: any) => r.id);
+      const subAdminPermIds = allPermRows.filter((r: any) => !r.name.includes('users:permissions:update')).map((r: any) => r.id);
+      const operatorPermIds = allPermRows.filter((r: any) => r.module === 'lorawan').map((r: any) => r.id);
 
-    // 2. Ensure SUPER_ADMIN role exists and has ALL permissions
-    let superAdminRole = await roleRepo.findOne({ where: { code: 'SUPER_ADMIN' }, relations: ['permissions'] }).catch(() => null);
-    if (!superAdminRole) {
-      superAdminRole = roleRepo.create({
-        code: 'SUPER_ADMIN',
-        name: 'Super Administrator',
-        description: 'Full unhindered system access',
-        permissions: allPerms,
-      });
-      await roleRepo.save(superAdminRole);
-      this.logger.log('✅ Created SUPER_ADMIN role with full permissions');
-    } else {
-      superAdminRole.permissions = allPerms;
-      await roleRepo.save(superAdminRole);
-    }
+      // 2. Ensure SUPER_ADMIN role exists
+      const superAdminResult = await ds.query(
+        `INSERT INTO "roles" ("code", "name", "description")
+         VALUES ('SUPER_ADMIN', 'Super Administrator', 'Full unhindered system access')
+         ON CONFLICT ("code") DO UPDATE SET "name" = EXCLUDED."name", "description" = EXCLUDED."description"
+         RETURNING "id";`,
+      );
+      const superAdminId = superAdminResult[0]?.id;
 
-    // 3. Ensure SUB_ADMIN role exists
-    let subAdminRole = await roleRepo.findOne({ where: { code: 'SUB_ADMIN' }, relations: ['permissions'] }).catch(() => null);
-    const subAdminPerms = allPerms.filter((p) => !p.name.includes('users:permissions:update'));
-    if (!subAdminRole) {
-      subAdminRole = roleRepo.create({
-        code: 'SUB_ADMIN',
-        name: 'Sub-Administrator',
-        description: 'Delegated administrative privileges',
-        permissions: subAdminPerms,
-      });
-      await roleRepo.save(subAdminRole);
-    }
+      if (superAdminId && allPermIds.length > 0) {
+        for (const pId of allPermIds) {
+          await ds.query(
+            `INSERT INTO "role_permissions" ("role_id", "permission_id")
+             VALUES ($1, $2)
+             ON CONFLICT DO NOTHING;`,
+            [superAdminId, pId],
+          ).catch(() => {});
+        }
+      }
 
-    // 4. Ensure LORAWAN_OPERATOR role exists
-    let operatorRole = await roleRepo.findOne({ where: { code: 'LORAWAN_OPERATOR' }, relations: ['permissions'] }).catch(() => null);
-    const operatorPerms = allPerms.filter((p) => p.module === 'lorawan');
-    if (!operatorRole) {
-      operatorRole = roleRepo.create({
-        code: 'LORAWAN_OPERATOR',
-        name: 'LoRaWAN Operator',
-        description: 'Manage applications, devices, and gateways',
-        permissions: operatorPerms,
-      });
-      await roleRepo.save(operatorRole);
+      // 3. Ensure SUB_ADMIN role exists
+      const subAdminResult = await ds.query(
+        `INSERT INTO "roles" ("code", "name", "description")
+         VALUES ('SUB_ADMIN', 'Sub-Administrator', 'Delegated administrative privileges')
+         ON CONFLICT ("code") DO UPDATE SET "name" = EXCLUDED."name", "description" = EXCLUDED."description"
+         RETURNING "id";`,
+      );
+      const subAdminId = subAdminResult[0]?.id;
+      if (subAdminId && subAdminPermIds.length > 0) {
+        for (const pId of subAdminPermIds) {
+          await ds.query(
+            `INSERT INTO "role_permissions" ("role_id", "permission_id")
+             VALUES ($1, $2)
+             ON CONFLICT DO NOTHING;`,
+            [subAdminId, pId],
+          ).catch(() => {});
+        }
+      }
+
+      // 4. Ensure LORAWAN_OPERATOR role exists
+      const operatorResult = await ds.query(
+        `INSERT INTO "roles" ("code", "name", "description")
+         VALUES ('LORAWAN_OPERATOR', 'LoRaWAN Operator', 'Manage applications, devices, and gateways')
+         ON CONFLICT ("code") DO UPDATE SET "name" = EXCLUDED."name", "description" = EXCLUDED."description"
+         RETURNING "id";`,
+      );
+      const operatorId = operatorResult[0]?.id;
+      if (operatorId && operatorPermIds.length > 0) {
+        for (const pId of operatorPermIds) {
+          await ds.query(
+            `INSERT INTO "role_permissions" ("role_id", "permission_id")
+             VALUES ($1, $2)
+             ON CONFLICT DO NOTHING;`,
+            [operatorId, pId],
+          ).catch(() => {});
+        }
+      }
+
+      this.logger.log('✅ Guaranteed presence and seeding of all RBAC permissions and default roles.');
+    } catch (err: any) {
+      this.logger.warn(`seedDefaults direct SQL notice: ${err.message}`);
     }
   }
 

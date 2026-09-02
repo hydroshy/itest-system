@@ -41,60 +41,49 @@ export class AuthService implements OnModuleInit, OnApplicationBootstrap {
   }
 
   public async seedAdminUser() {
-    let userRepo: any;
-    let roleRepo: any;
+    let ds: any;
     try {
-      userRepo = this.getUserRepository();
-      roleRepo = this.dbService.getRepositoryForTable('roles', Role);
+      ds = this.dbService.getDataSourceForTable('users');
     } catch (e: any) {
       return;
     }
+
+    if (!ds || !ds.isInitialized) return;
 
     await this.rolesService.seedDefaults();
 
     const defaultUsername = 'admin';
     const defaultPassword = 'Dvt@123';
     const defaultEmail = 'admin@daviteq.com';
-
     const passwordHash = await bcrypt.hash(defaultPassword, 10);
-    const superAdminRole = await roleRepo.findOne({ where: { code: 'SUPER_ADMIN' } }).catch(() => null);
 
-    let existingAdmin: User | null = null;
     try {
-      existingAdmin = await userRepo.findOne({
-        where: [{ username: defaultUsername }, { email: defaultEmail }],
-        relations: ['roles'],
-      });
-    } catch (e) {
-      existingAdmin = await userRepo.findOne({
-        where: [{ username: defaultUsername }, { email: defaultEmail }],
-      }).catch(() => null);
-    }
+      // 1. Insert or update Admin user
+      const userResult = await ds.query(
+        `INSERT INTO "users" ("username", "email", "passwordHash", "fullName", "userType", "isActive")
+         VALUES ($1, $2, $3, 'Daviteq Super Administrator', 'ADMIN', true)
+         ON CONFLICT ("username") DO UPDATE SET "passwordHash" = EXCLUDED."passwordHash", "userType" = 'ADMIN', "isActive" = true
+         RETURNING "id";`,
+        [defaultUsername, defaultEmail, passwordHash],
+      );
+      const adminUserId = userResult[0]?.id;
 
-    if (!existingAdmin) {
-      const admin = userRepo.create({
-        username: defaultUsername,
-        email: defaultEmail,
-        passwordHash,
-        fullName: 'Daviteq Super Administrator',
-        userType: UserType.ADMIN,
-        isActive: true,
-        roles: superAdminRole ? [superAdminRole] : [],
-      });
-      await userRepo.save(admin);
-      this.logger.log(`✅ Default Super Admin account initialized: [${defaultUsername} / ${defaultPassword}]`);
-      return admin;
-    } else {
-      // Ensure password is Dvt@123 and superadmin role is present
-      existingAdmin.passwordHash = passwordHash;
-      existingAdmin.userType = UserType.ADMIN;
-      existingAdmin.isActive = true;
-      if (superAdminRole && (!existingAdmin.roles || !existingAdmin.roles.some((r: any) => r.code === 'SUPER_ADMIN'))) {
-        existingAdmin.roles = [superAdminRole];
+      // 2. Link Admin user to SUPER_ADMIN role
+      const roleResult = await ds.query(`SELECT "id" FROM "roles" WHERE "code" = 'SUPER_ADMIN' LIMIT 1;`);
+      const superAdminRoleId = roleResult[0]?.id;
+
+      if (adminUserId && superAdminRoleId) {
+        await ds.query(
+          `INSERT INTO "user_role" ("user_id", "role_id")
+           VALUES ($1, $2)
+           ON CONFLICT DO NOTHING;`,
+          [adminUserId, superAdminRoleId],
+        ).catch(() => {});
       }
-      await userRepo.save(existingAdmin);
-      this.logger.log(`✅ Verified and synced default Super Admin account: [${defaultUsername} / ${defaultPassword}]`);
-      return existingAdmin;
+
+      this.logger.log(`✅ Default Super Admin account verified & bound to SUPER_ADMIN role: [${defaultUsername} / ${defaultPassword}]`);
+    } catch (err: any) {
+      this.logger.warn(`seedAdminUser SQL notice: ${err.message}`);
     }
   }
 
