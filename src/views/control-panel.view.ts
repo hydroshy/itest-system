@@ -73,9 +73,9 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
 <body class="min-h-screen flex flex-col antialiased">
   <div id="app" class="flex-1 flex flex-col">
     
-    <!-- TOP APP BAR -->
+    <!-- TOP APP BAR (Clean Navbar without Swagger, Reset Session, or DB Online Badge) -->
     <header class="glass-header sticky top-0 z-40 px-4 sm:px-6 h-14 flex items-center justify-between">
-      <!-- Left Brand & Status -->
+      <!-- Left Brand -->
       <div class="flex items-center gap-4">
         <a href="/control-panel" class="flex items-center gap-2.5 text-white font-extrabold text-sm tracking-tight text-decoration-none">
           <div class="w-8 h-8 rounded-lg bg-sky-500/10 border border-sky-500/30 flex items-center justify-center text-sky-400 text-sm shadow-inner">
@@ -89,86 +89,86 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
             <span class="text-[10px] text-slate-400 font-normal">LoRaWAN Server</span>
           </div>
         </a>
-
-        <div class="hidden lg:flex items-center gap-2 pl-3 border-l border-slate-800 text-xs">
-          <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/25 text-emerald-400 text-[11px] font-mono font-medium">
-            <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-            core_db &bull; ONLINE
-          </span>
-        </div>
       </div>
 
-      <!-- Center / Horizontal Pill Tabs -->
+      <!-- Center / Horizontal Pill Tabs (Filtered by Role Permissions) -->
       <nav class="hidden md:flex items-center gap-1 overflow-x-auto custom-scroll py-1">
+        <!-- Overview (Always visible for all users) -->
         <button @click="activeTab = 'overview'" :class="{ active: activeTab === 'overview' }" class="tab-btn">
           <i class="fa-solid fa-chart-pie text-xs"></i> <span>Overview</span>
         </button>
-        <button @click="activeTab = 'users'" :class="{ active: activeTab === 'users' }" class="tab-btn">
+
+        <!-- User Directory Tab -->
+        <button v-if="canViewTab('users')" @click="activeTab = 'users'" :class="{ active: activeTab === 'users' }" class="tab-btn">
           <i class="fa-solid fa-users text-xs"></i> <span>Users</span>
         </button>
-        <button @click="activeTab = 'roles'" :class="{ active: activeTab === 'roles' }" class="tab-btn">
+
+        <!-- Role Matrix Tab -->
+        <button v-if="canViewTab('roles')" @click="activeTab = 'roles'" :class="{ active: activeTab === 'roles' }" class="tab-btn">
           <i class="fa-solid fa-shield-halved text-xs"></i> <span>Roles</span>
         </button>
-        <button @click="activeTab = 'database'" :class="{ active: activeTab === 'database' }" class="tab-btn">
+
+        <!-- Database Health Tab -->
+        <button v-if="canViewTab('database')" @click="activeTab = 'database'" :class="{ active: activeTab === 'database' }" class="tab-btn">
           <i class="fa-solid fa-database text-xs"></i> <span>Database</span>
         </button>
-        <button @click="activeTab = 'devices'" :class="{ active: activeTab === 'devices' }" class="tab-btn">
+
+        <!-- LoRaWAN Devices Tab -->
+        <button v-if="canViewTab('devices')" @click="activeTab = 'devices'" :class="{ active: activeTab === 'devices' }" class="tab-btn">
           <i class="fa-solid fa-microchip text-xs"></i> <span>Devices</span>
         </button>
-        <button @click="activeTab = 'telemetry'" :class="{ active: activeTab === 'telemetry' }" class="tab-btn">
+
+        <!-- Live Telemetry Tab -->
+        <button v-if="canViewTab('telemetry')" @click="activeTab = 'telemetry'" :class="{ active: activeTab === 'telemetry' }" class="tab-btn">
           <i class="fa-solid fa-wave-square text-xs"></i> <span>Telemetry</span>
           <span v-if="telemetryList.length" class="ml-1 px-1.5 py-0.2 rounded-full bg-indigo-500/20 text-indigo-300 text-[10px] font-mono">{{ telemetryList.length }}</span>
         </button>
-        <button @click="activeTab = 'webhooks'" :class="{ active: activeTab === 'webhooks' }" class="tab-btn">
+
+        <!-- Webhook Ingestion Tab -->
+        <button v-if="canViewTab('webhooks')" @click="activeTab = 'webhooks'" :class="{ active: activeTab === 'webhooks' }" class="tab-btn">
           <i class="fa-solid fa-satellite-dish text-xs"></i> <span>Webhooks</span>
         </button>
-        <button @click="activeTab = 'decoder'" :class="{ active: activeTab === 'decoder' }" class="tab-btn">
+
+        <!-- Payload Decoder Sandbox Tab -->
+        <button v-if="canViewTab('decoder')" @click="activeTab = 'decoder'" :class="{ active: activeTab === 'decoder' }" class="tab-btn">
           <i class="fa-solid fa-code text-xs"></i> <span>Decoder</span>
         </button>
       </nav>
 
-      <!-- Right Actions -->
-      <div class="flex items-center gap-2">
-        <a href="/api/docs" target="_blank" class="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold text-sky-400 bg-sky-500/10 border border-sky-500/25 hover:bg-sky-500/20 transition">
-          <i class="fa-solid fa-book-open text-xs"></i> Swagger
-        </a>
-
-        <button @click="forceCleanSession" title="Reset all tokens & cache" class="px-2.5 py-1 rounded-lg text-xs font-semibold text-slate-400 hover:text-amber-400 bg-slate-900 border border-slate-800 hover:border-slate-700 transition flex items-center gap-1 cursor-pointer">
-          <i class="fa-solid fa-arrows-rotate text-[11px]"></i>
-          <span class="hidden xl:inline text-[11px]">Reset Session</span>
-        </button>
-
-        <div class="flex items-center gap-2 pl-2 border-l border-slate-800">
-          <div class="hidden sm:block text-right leading-tight">
-            <div class="text-xs font-bold text-slate-200">{{ currentUser.fullName || currentUser.username || 'Admin User' }}</div>
-            <div class="text-[10px] text-emerald-400 font-mono font-bold">{{ currentUser.userType || 'ADMIN' }}</div>
+      <!-- Right User Profile & Logout -->
+      <div class="flex items-center gap-3">
+        <div class="hidden sm:block text-right leading-tight">
+          <div class="text-xs font-bold text-slate-200">{{ currentUser.fullName || currentUser.username || 'User' }}</div>
+          <div class="text-[10px] font-mono font-bold" :class="isSuperAdmin ? 'text-emerald-400' : 'text-sky-400'">
+            {{ isSuperAdmin ? 'SUPER_ADMIN' : (currentUser.userType || 'USER') }}
           </div>
-          <button @click="handleLogout" title="Logout" class="px-2.5 py-1 rounded-lg text-xs font-semibold text-red-400 bg-red-500/10 border border-red-500/20 hover:bg-red-500/20 transition flex items-center gap-1 cursor-pointer">
-            <i class="fa-solid fa-right-from-bracket text-xs"></i>
-            <span class="hidden sm:inline">Logout</span>
-          </button>
         </div>
+
+        <button @click="handleLogout" title="Logout" class="px-3 py-1.5 rounded-lg text-xs font-semibold text-red-400 bg-red-500/10 border border-red-500/20 hover:bg-red-500/20 transition flex items-center gap-1.5 cursor-pointer">
+          <i class="fa-solid fa-right-from-bracket text-xs"></i>
+          <span>Logout</span>
+        </button>
       </div>
     </header>
 
-    <!-- MOBILE NAVIGATION TABS (Visible only on small screens) -->
+    <!-- MOBILE NAVIGATION TABS (Visible only on small screens, Filtered by Role) -->
     <div class="md:hidden flex items-center gap-1 overflow-x-auto custom-scroll p-2 bg-slate-950/80 border-b border-slate-800">
       <button @click="activeTab = 'overview'" :class="{ active: activeTab === 'overview' }" class="tab-btn text-xs py-1 px-2.5">Overview</button>
-      <button @click="activeTab = 'users'" :class="{ active: activeTab === 'users' }" class="tab-btn text-xs py-1 px-2.5">Users</button>
-      <button @click="activeTab = 'roles'" :class="{ active: activeTab === 'roles' }" class="tab-btn text-xs py-1 px-2.5">Roles</button>
-      <button @click="activeTab = 'database'" :class="{ active: activeTab === 'database' }" class="tab-btn text-xs py-1 px-2.5">Database</button>
-      <button @click="activeTab = 'devices'" :class="{ active: activeTab === 'devices' }" class="tab-btn text-xs py-1 px-2.5">Devices</button>
-      <button @click="activeTab = 'telemetry'" :class="{ active: activeTab === 'telemetry' }" class="tab-btn text-xs py-1 px-2.5">Telemetry</button>
-      <button @click="activeTab = 'webhooks'" :class="{ active: activeTab === 'webhooks' }" class="tab-btn text-xs py-1 px-2.5">Webhooks</button>
-      <button @click="activeTab = 'decoder'" :class="{ active: activeTab === 'decoder' }" class="tab-btn text-xs py-1 px-2.5">Decoder</button>
+      <button v-if="canViewTab('users')" @click="activeTab = 'users'" :class="{ active: activeTab === 'users' }" class="tab-btn text-xs py-1 px-2.5">Users</button>
+      <button v-if="canViewTab('roles')" @click="activeTab = 'roles'" :class="{ active: activeTab === 'roles' }" class="tab-btn text-xs py-1 px-2.5">Roles</button>
+      <button v-if="canViewTab('database')" @click="activeTab = 'database'" :class="{ active: activeTab === 'database' }" class="tab-btn text-xs py-1 px-2.5">Database</button>
+      <button v-if="canViewTab('devices')" @click="activeTab = 'devices'" :class="{ active: activeTab === 'devices' }" class="tab-btn text-xs py-1 px-2.5">Devices</button>
+      <button v-if="canViewTab('telemetry')" @click="activeTab = 'telemetry'" :class="{ active: activeTab === 'telemetry' }" class="tab-btn text-xs py-1 px-2.5">Telemetry</button>
+      <button v-if="canViewTab('webhooks')" @click="activeTab = 'webhooks'" :class="{ active: activeTab === 'webhooks' }" class="tab-btn text-xs py-1 px-2.5">Webhooks</button>
+      <button v-if="canViewTab('decoder')" @click="activeTab = 'decoder'" :class="{ active: activeTab === 'decoder' }" class="tab-btn text-xs py-1 px-2.5">Decoder</button>
     </div>
 
-    <!-- MAIN BODY CONTAINER (Instant tab render with zero slide) -->
+    <!-- MAIN BODY CONTAINER -->
     <main class="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 space-y-6">
       
-      <!-- TAB 1: OVERVIEW -->
+      <!-- TAB 1: OVERVIEW (Always accessible to all users) -->
       <div v-show="activeTab === 'overview'" class="space-y-6">
-        <!-- 4 Metric Cards -->
+        <!-- Metric Cards -->
         <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
           <div class="glass-card rounded-xl p-4 space-y-1">
             <div class="flex items-center justify-between text-xs text-slate-400 font-medium">
@@ -205,11 +205,11 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
               <i class="fa-solid fa-database text-indigo-400 text-sm"></i>
             </div>
             <div class="text-xl font-extrabold text-white pt-1">{{ dbHealth.totalConnections || 1 }}</div>
-            <div class="text-[11px] text-slate-500 font-mono">core_db (mas.local:5432)</div>
+            <div class="text-[11px] text-slate-500 font-mono">core_db (dvt)</div>
           </div>
         </div>
 
-        <!-- 2 Summary Cards -->
+        <!-- Architecture & Accessible Views -->
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
           <div class="glass-card rounded-xl p-5 space-y-3">
             <div class="flex items-center gap-2 text-sm font-bold text-white">
@@ -224,36 +224,39 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
                 <span class="text-xs font-bold text-emerald-400 mt-0.5 block">5-Table RBAC Model</span>
               </div>
               <div class="p-3 bg-slate-950/70 rounded-lg border border-slate-800">
-                <span class="text-[11px] text-slate-500 block">Database Routing</span>
-                <span class="text-xs font-bold text-sky-400 mt-0.5 block">core_db (dvt) Active</span>
+                <span class="text-[11px] text-slate-500 block">Role Clearance</span>
+                <span class="text-xs font-bold text-sky-400 mt-0.5 block">{{ isSuperAdmin ? 'Full Admin Access' : (currentUser.roles?.[0]?.name || 'Standard User') }}</span>
               </div>
             </div>
           </div>
 
           <div class="glass-card rounded-xl p-5 space-y-3">
             <div class="flex items-center gap-2 text-sm font-bold text-white">
-              <i class="fa-solid fa-link text-emerald-400"></i> Quick Navigation Shortcuts
+              <i class="fa-solid fa-link text-emerald-400"></i> Accessible Navigation Modules
             </div>
             <div class="space-y-2 text-xs">
-              <button @click="activeTab = 'devices'" class="w-full flex items-center justify-between p-2.5 rounded-lg bg-slate-950/70 border border-slate-800 hover:border-sky-500/40 transition cursor-pointer text-slate-300 font-medium">
-                <span class="flex items-center gap-2"><i class="fa-solid fa-microchip text-sky-400"></i> Manage LoRaWAN Device Fleet</span>
+              <button v-if="canViewTab('devices')" @click="activeTab = 'devices'" class="w-full flex items-center justify-between p-2.5 rounded-lg bg-slate-950/70 border border-slate-800 hover:border-sky-500/40 transition cursor-pointer text-slate-300 font-medium">
+                <span class="flex items-center gap-2"><i class="fa-solid fa-microchip text-sky-400"></i> LoRaWAN Device Fleet</span>
                 <i class="fa-solid fa-arrow-right text-slate-500 text-[10px]"></i>
               </button>
-              <button @click="activeTab = 'telemetry'" class="w-full flex items-center justify-between p-2.5 rounded-lg bg-slate-950/70 border border-slate-800 hover:border-indigo-500/40 transition cursor-pointer text-slate-300 font-medium">
-                <span class="flex items-center gap-2"><i class="fa-solid fa-wave-square text-indigo-400"></i> Inspect Incoming Telemetry Stream</span>
+              <button v-if="canViewTab('telemetry')" @click="activeTab = 'telemetry'" class="w-full flex items-center justify-between p-2.5 rounded-lg bg-slate-950/70 border border-slate-800 hover:border-indigo-500/40 transition cursor-pointer text-slate-300 font-medium">
+                <span class="flex items-center gap-2"><i class="fa-solid fa-wave-square text-indigo-400"></i> Live Telemetry Stream</span>
                 <i class="fa-solid fa-arrow-right text-slate-500 text-[10px]"></i>
               </button>
-              <button @click="activeTab = 'database'" class="w-full flex items-center justify-between p-2.5 rounded-lg bg-slate-950/70 border border-slate-800 hover:border-amber-500/40 transition cursor-pointer text-slate-300 font-medium">
-                <span class="flex items-center gap-2"><i class="fa-solid fa-heart-pulse text-amber-400"></i> Visual Database Health & Metrics</span>
+              <button v-if="canViewTab('database')" @click="activeTab = 'database'" class="w-full flex items-center justify-between p-2.5 rounded-lg bg-slate-950/70 border border-slate-800 hover:border-amber-500/40 transition cursor-pointer text-slate-300 font-medium">
+                <span class="flex items-center gap-2"><i class="fa-solid fa-database text-amber-400"></i> Database Health & Records</span>
                 <i class="fa-solid fa-arrow-right text-slate-500 text-[10px]"></i>
               </button>
+              <div v-if="!isSuperAdmin && !canViewTab('devices') && !canViewTab('telemetry') && !canViewTab('database')" class="p-3 text-center text-slate-500 text-xs italic">
+                You are currently in View-Only Overview mode. Contact your Super Admin to grant additional module privileges.
+              </div>
             </div>
           </div>
         </div>
       </div>
 
-      <!-- TAB 2: USERS -->
-      <div v-show="activeTab === 'users'" class="space-y-4">
+      <!-- TAB 2: USERS (Guarded by users:read) -->
+      <div v-if="canViewTab('users')" v-show="activeTab === 'users'" class="space-y-4">
         <div class="glass-card rounded-xl p-5 space-y-4">
           <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
@@ -266,7 +269,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
               <button @click="fetchUsers" :disabled="loadingUsers" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 text-xs font-semibold flex items-center gap-1.5 cursor-pointer">
                 <i :class="loadingUsers ? 'fa-spin' : ''" class="fa-solid fa-arrows-rotate"></i> Refresh
               </button>
-              <button @click="openCreateUserDialog" class="px-3.5 py-1.5 rounded-lg bg-sky-500 hover:bg-sky-400 text-white text-xs font-bold shadow-lg shadow-sky-500/20 flex items-center gap-1.5 cursor-pointer">
+              <button v-if="hasPermission('users:create')" @click="openCreateUserDialog" class="px-3.5 py-1.5 rounded-lg bg-sky-500 hover:bg-sky-400 text-white text-xs font-bold shadow-lg shadow-sky-500/20 flex items-center gap-1.5 cursor-pointer">
                 <i class="fa-solid fa-user-plus"></i> Create User
               </button>
             </div>
@@ -282,7 +285,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
                   <th class="py-2.5 px-3.5">Type</th>
                   <th class="py-2.5 px-3.5">Roles</th>
                   <th class="py-2.5 px-3.5">Status</th>
-                  <th class="py-2.5 px-3.5 text-right">Actions</th>
+                  <th v-if="hasPermission('users:permissions:update') || hasPermission('users:delete')" class="py-2.5 px-3.5 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody class="divide-y divide-slate-800/60">
@@ -310,9 +313,9 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
                       {{ u.isActive ? 'Active' : 'Suspended' }}
                     </span>
                   </td>
-                  <td class="py-2.5 px-3.5 text-right space-x-1">
-                    <button @click="openEditUserDialog(u)" class="px-2 py-0.8 rounded bg-sky-500/10 hover:bg-sky-500/20 text-sky-400 border border-sky-500/20 text-[11px] font-semibold cursor-pointer">Edit</button>
-                    <button @click="deleteUser(u.id)" :disabled="u.username === 'admin'" class="px-2 py-0.8 rounded bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 text-[11px] font-semibold cursor-pointer disabled:opacity-30">Delete</button>
+                  <td v-if="hasPermission('users:permissions:update') || hasPermission('users:delete')" class="py-2.5 px-3.5 text-right space-x-1">
+                    <button v-if="hasPermission('users:permissions:update')" @click="openEditUserDialog(u)" class="px-2 py-0.8 rounded bg-sky-500/10 hover:bg-sky-500/20 text-sky-400 border border-sky-500/20 text-[11px] font-semibold cursor-pointer">Edit</button>
+                    <button v-if="hasPermission('users:delete')" @click="deleteUser(u.id)" :disabled="u.username === 'admin'" class="px-2 py-0.8 rounded bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 text-[11px] font-semibold cursor-pointer disabled:opacity-30">Delete</button>
                   </td>
                 </tr>
               </tbody>
@@ -321,21 +324,21 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
         </div>
       </div>
 
-      <!-- TAB 3: ROLES -->
-      <div v-show="activeTab === 'roles'" class="space-y-4">
+      <!-- TAB 3: ROLES (Guarded by roles:read) -->
+      <div v-if="canViewTab('roles')" v-show="activeTab === 'roles'" class="space-y-4">
         <div class="glass-card rounded-xl p-5 space-y-4">
           <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
               <h2 class="text-sm font-bold text-white flex items-center gap-2">
                 <i class="fa-solid fa-shield-halved text-amber-400"></i> Role & Permissions Matrix (RBAC)
               </h2>
-              <p class="text-[11px] text-slate-400 mt-0.5">Configure RBAC roles and granular system privileges</p>
+              <p class="text-[11px] text-slate-400 mt-0.5">Admin controls which views & parameters are accessible to each role</p>
             </div>
             <div class="flex items-center gap-2">
               <button @click="fetchRoles" :disabled="loadingRoles" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 text-xs font-semibold flex items-center gap-1.5 cursor-pointer">
                 <i :class="loadingRoles ? 'fa-spin' : ''" class="fa-solid fa-arrows-rotate"></i> Refresh
               </button>
-              <button @click="openCreateRoleDialog" class="px-3.5 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-bold shadow-lg shadow-amber-500/20 flex items-center gap-1.5 cursor-pointer">
+              <button v-if="hasPermission('roles:manage')" @click="openCreateRoleDialog" class="px-3.5 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-bold shadow-lg shadow-amber-500/20 flex items-center gap-1.5 cursor-pointer">
                 <i class="fa-solid fa-plus"></i> Create Role
               </button>
             </div>
@@ -354,8 +357,8 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
               </div>
               <p class="text-[11px] text-slate-400">{{ r.description || 'No description provided' }}</p>
               <div class="pt-2 border-t border-slate-800/80 flex items-center justify-between text-[11px] text-slate-500">
-                <span>{{ r.permissions ? r.permissions.length : 0 }} privileges assigned</span>
-                <button v-if="r.code !== 'SUPER_ADMIN'" @click="openEditRoleDialog(r)" class="text-sky-400 hover:text-sky-300 font-medium cursor-pointer">Edit</button>
+                <span>{{ r.permissions ? r.permissions.length : 0 }} privileges enabled</span>
+                <button v-if="r.code !== 'SUPER_ADMIN' && hasPermission('roles:manage')" @click="openEditRoleDialog(r)" class="text-sky-400 hover:text-sky-300 font-medium cursor-pointer">Edit Permissions</button>
                 <span v-else class="text-slate-600 font-mono text-[10px]">Protected</span>
               </div>
             </div>
@@ -369,8 +372,8 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
                   <th class="py-2.5 px-3.5">Role Code</th>
                   <th class="py-2.5 px-3.5">Display Name</th>
                   <th class="py-2.5 px-3.5">Description</th>
-                  <th class="py-2.5 px-3.5">Assigned Permissions</th>
-                  <th class="py-2.5 px-3.5 text-right">Actions</th>
+                  <th class="py-2.5 px-3.5">Enabled Views & Privileges</th>
+                  <th v-if="hasPermission('roles:manage')" class="py-2.5 px-3.5 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody class="divide-y divide-slate-800/60">
@@ -383,7 +386,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
                       {{ p.name }}
                     </span>
                   </td>
-                  <td class="py-2.5 px-3.5 text-right space-x-1">
+                  <td v-if="hasPermission('roles:manage')" class="py-2.5 px-3.5 text-right space-x-1">
                     <template v-if="r.code !== 'SUPER_ADMIN'">
                       <button @click="openEditRoleDialog(r)" class="px-2 py-0.8 rounded bg-sky-500/10 hover:bg-sky-500/20 text-sky-400 border border-sky-500/20 text-[11px] font-semibold cursor-pointer">Edit</button>
                       <button @click="deleteRole(r.id)" class="px-2 py-0.8 rounded bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 text-[11px] font-semibold cursor-pointer">Delete</button>
@@ -397,21 +400,28 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
         </div>
       </div>
 
-      <!-- TAB 4: DATABASE HEALTH -->
-      <div v-show="activeTab === 'database'" class="space-y-4">
+      <!-- TAB 4: DATABASE HEALTH (Guarded by database:read - Shows core_db • ONLINE here) -->
+      <div v-if="canViewTab('database')" v-show="activeTab === 'database'" class="space-y-4">
         <div class="glass-card rounded-xl p-5 space-y-4">
           <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
-              <h2 class="text-sm font-bold text-white flex items-center gap-2">
-                <i class="fa-solid fa-heart-pulse text-emerald-400"></i> Visual Database Health & Metrics
-              </h2>
+              <div class="flex items-center gap-3">
+                <h2 class="text-sm font-bold text-white flex items-center gap-2">
+                  <i class="fa-solid fa-heart-pulse text-emerald-400"></i> Visual Database Health & Metrics
+                </h2>
+                <!-- core_db • ONLINE status badge displayed HERE in Database tab -->
+                <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/25 text-emerald-400 text-[11px] font-mono font-medium">
+                  <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                  core_db &bull; ONLINE
+                </span>
+              </div>
               <p class="text-[11px] text-slate-400 mt-0.5">Real-time status of PostgreSQL connection pool and latency</p>
             </div>
             <div class="flex items-center gap-2">
               <button @click="fetchDbHealth" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 text-xs font-semibold flex items-center gap-1.5 cursor-pointer">
                 <i class="fa-solid fa-arrows-rotate"></i> Refresh
               </button>
-              <button @click="reloadDbConfig" class="px-3 py-1.5 rounded-lg bg-sky-500/10 hover:bg-sky-500/20 text-sky-400 border border-sky-500/30 text-xs font-bold flex items-center gap-1.5 cursor-pointer">
+              <button v-if="hasPermission('database:manage')" @click="reloadDbConfig" class="px-3 py-1.5 rounded-lg bg-sky-500/10 hover:bg-sky-500/20 text-sky-400 border border-sky-500/30 text-xs font-bold flex items-center gap-1.5 cursor-pointer">
                 <i class="fa-solid fa-gear"></i> Hot-Reload Config
               </button>
             </div>
@@ -463,8 +473,8 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
         </div>
       </div>
 
-      <!-- TAB 5: DEVICES -->
-      <div v-show="activeTab === 'devices'" class="space-y-4">
+      <!-- TAB 5: DEVICES (Guarded by lorawan:device:read) -->
+      <div v-if="canViewTab('devices')" v-show="activeTab === 'devices'" class="space-y-4">
         <div class="glass-card rounded-xl p-5 space-y-4">
           <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
@@ -477,7 +487,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
               <button @click="fetchDevices" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 text-xs font-semibold flex items-center gap-1.5 cursor-pointer">
                 <i class="fa-solid fa-arrows-rotate"></i> Refresh
               </button>
-              <button @click="openRegisterDeviceDialog" class="px-3.5 py-1.5 rounded-lg bg-sky-500 hover:bg-sky-400 text-white text-xs font-bold shadow-lg shadow-sky-500/20 flex items-center gap-1.5 cursor-pointer">
+              <button v-if="hasPermission('lorawan:device:manage')" @click="openRegisterDeviceDialog" class="px-3.5 py-1.5 rounded-lg bg-sky-500 hover:bg-sky-400 text-white text-xs font-bold shadow-lg shadow-sky-500/20 flex items-center gap-1.5 cursor-pointer">
                 <i class="fa-solid fa-plus"></i> Register Device
               </button>
             </div>
@@ -492,12 +502,12 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
                   <th class="py-2.5 px-3.5">Activation</th>
                   <th class="py-2.5 px-3.5">Decoder Script</th>
                   <th class="py-2.5 px-3.5">Status</th>
-                  <th class="py-2.5 px-3.5 text-right">Action</th>
+                  <th v-if="canViewTab('decoder')" class="py-2.5 px-3.5 text-right">Action</th>
                 </tr>
               </thead>
               <tbody class="divide-y divide-slate-800/60">
                 <tr v-if="devicesList.length === 0">
-                  <td colspan="6" class="py-6 text-center text-slate-500">No LoRaWAN devices registered. Click "+ Register Device" to add one.</td>
+                  <td colspan="6" class="py-6 text-center text-slate-500">No LoRaWAN devices registered.</td>
                 </tr>
                 <tr v-for="d in devicesList" :key="d.id || d.devEUI" class="hover:bg-slate-800/30 transition">
                   <td class="py-2.5 px-3.5 font-mono font-bold text-sky-400">{{ d.devEUI }}</td>
@@ -514,7 +524,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
                       {{ d.isActive ? 'ACTIVE' : 'INACTIVE' }}
                     </span>
                   </td>
-                  <td class="py-2.5 px-3.5 text-right">
+                  <td v-if="canViewTab('decoder')" class="py-2.5 px-3.5 text-right">
                     <button @click="testDevice(d)" class="px-2.5 py-0.8 rounded bg-sky-500/10 hover:bg-sky-500/20 text-sky-400 border border-sky-500/20 text-[11px] font-semibold cursor-pointer">Test Payload</button>
                   </td>
                 </tr>
@@ -524,15 +534,15 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
         </div>
       </div>
 
-      <!-- TAB 6: TELEMETRY -->
-      <div v-show="activeTab === 'telemetry'" class="space-y-4">
+      <!-- TAB 6: TELEMETRY (Guarded by lorawan:telemetry:read) -->
+      <div v-if="canViewTab('telemetry')" v-show="activeTab === 'telemetry'" class="space-y-4">
         <div class="glass-card rounded-xl p-5 space-y-4">
           <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
               <h2 class="text-sm font-bold text-white flex items-center gap-2">
                 <i class="fa-solid fa-wave-square text-indigo-400"></i> Live Telemetry Stream
               </h2>
-              <p class="text-[11px] text-slate-400 mt-0.5">Real-time incoming packets from ChirpStack, ThingPark, and Generic Webhooks</p>
+              <p class="text-[11px] text-slate-400 mt-0.5">Real-time incoming packets from ChirpStack, ThingPark, and Webhooks</p>
             </div>
             <div class="flex items-center gap-2">
               <button @click="fetchTelemetry" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 text-xs font-semibold flex items-center gap-1.5 cursor-pointer">
@@ -571,8 +581,8 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
         </div>
       </div>
 
-      <!-- TAB 7: WEBHOOKS -->
-      <div v-show="activeTab === 'webhooks'" class="space-y-4">
+      <!-- TAB 7: WEBHOOKS (Guarded by lorawan:webhooks:read) -->
+      <div v-if="canViewTab('webhooks')" v-show="activeTab === 'webhooks'" class="space-y-4">
         <div class="glass-card rounded-xl p-5 space-y-4">
           <div>
             <h2 class="text-sm font-bold text-white flex items-center gap-2">
@@ -609,14 +619,14 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
         </div>
       </div>
 
-      <!-- TAB 8: DECODER SANDBOX -->
-      <div v-show="activeTab === 'decoder'" class="space-y-4">
+      <!-- TAB 8: DECODER SANDBOX (Guarded by lorawan:decoder:read) -->
+      <div v-if="canViewTab('decoder')" v-show="activeTab === 'decoder'" class="space-y-4">
         <div class="glass-card rounded-xl p-5 space-y-4">
           <div>
             <h2 class="text-sm font-bold text-white flex items-center gap-2">
               <i class="fa-solid fa-code text-purple-400"></i> Payload Formatter Sandbox
             </h2>
-            <p class="text-[11px] text-slate-400 mt-0.5">Test JavaScript decoder functions on raw hex bytes before saving to devices:</p>
+            <p class="text-[11px] text-slate-400 mt-0.5">Test JavaScript decoder functions on raw hex bytes:</p>
           </div>
 
           <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 text-xs font-mono">
@@ -677,7 +687,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
           <div>
             <label class="block font-semibold text-slate-300 mb-1">Assign Role</label>
             <select v-model="newUser.roleId" class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-sky-500">
-              <option value="">No role assigned</option>
+              <option value="">No role assigned (Overview Only)</option>
               <option v-for="r in rolesList" :key="r.id" :value="r.id">{{ r.name }} ({{ r.code }})</option>
             </select>
           </div>
@@ -706,7 +716,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
           <div>
             <label class="block font-semibold text-slate-300 mb-1">Assign Role</label>
             <select v-model="editUser.roleId" class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-sky-500">
-              <option value="">No role assigned</option>
+              <option value="">No role assigned (Overview Only)</option>
               <option v-for="r in rolesList" :key="r.id" :value="r.id">{{ r.name }} ({{ r.code }})</option>
             </select>
           </div>
@@ -725,9 +735,9 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
       </div>
     </div>
 
-    <!-- MODAL: CREATE ROLE -->
+    <!-- MODAL: CREATE ROLE (Categorized View & Management Permission Checkboxes) -->
     <div v-if="createRoleDialog" class="fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop">
-      <div class="w-full max-w-lg bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-4 shadow-2xl">
+      <div class="w-full max-w-xl bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-4 shadow-2xl">
         <div class="flex items-center justify-between">
           <h3 class="text-sm font-bold text-white flex items-center gap-2">
             <i class="fa-solid fa-shield-halved text-amber-400"></i> Create New Role
@@ -735,26 +745,38 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
           <button @click="createRoleDialog = false" class="text-slate-500 hover:text-white cursor-pointer"><i class="fa-solid fa-xmark"></i></button>
         </div>
         <form @submit.prevent="submitCreateRole" class="space-y-3 text-xs">
-          <div>
-            <label class="block font-semibold text-slate-300 mb-1">Role Code (Uppercase)</label>
-            <input v-model="newRole.code" type="text" required placeholder="e.g. AUDITOR" class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-white font-mono uppercase focus:outline-none focus:border-amber-500" />
-          </div>
-          <div>
-            <label class="block font-semibold text-slate-300 mb-1">Display Name</label>
-            <input v-model="newRole.name" type="text" required placeholder="e.g. System Auditor" class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-amber-500" />
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block font-semibold text-slate-300 mb-1">Role Code (Uppercase)</label>
+              <input v-model="newRole.code" type="text" required placeholder="e.g. AUDITOR" class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-white font-mono uppercase focus:outline-none focus:border-amber-500" />
+            </div>
+            <div>
+              <label class="block font-semibold text-slate-300 mb-1">Display Name</label>
+              <input v-model="newRole.name" type="text" required placeholder="e.g. System Auditor" class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-amber-500" />
+            </div>
           </div>
           <div>
             <label class="block font-semibold text-slate-300 mb-1">Description</label>
-            <input v-model="newRole.description" type="text" placeholder="Description of role privileges" class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-amber-500" />
+            <input v-model="newRole.description" type="text" placeholder="Description of role permissions" class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-amber-500" />
           </div>
           <div>
-            <label class="block font-semibold text-slate-300 mb-1">Assign Permissions</label>
-            <div class="max-h-40 overflow-y-auto custom-scroll p-2.5 bg-slate-950 border border-slate-800 rounded-lg space-y-1">
-              <label v-for="p in allPermissions" :key="p.id" class="flex items-center gap-2 text-slate-300 hover:text-white cursor-pointer select-none">
-                <input type="checkbox" :value="p.id" v-model="newRole.permissions" class="rounded border-slate-700 bg-slate-800 text-amber-500 focus:ring-0" />
-                <span class="font-mono text-[11px] text-amber-400">{{ p.name }}</span>
-                <span class="text-slate-500 text-[10px]">({{ p.description || p.module }})</span>
-              </label>
+            <div class="flex items-center justify-between mb-1.5">
+              <label class="font-bold text-slate-200">Toggle View Access & Management Rights (Bật/Tắt quyền xem):</label>
+              <button type="button" @click="toggleSelectAllPermissions(newRole)" class="text-amber-400 hover:text-amber-300 text-[11px] font-semibold cursor-pointer">Toggle All</button>
+            </div>
+            <div class="max-h-52 overflow-y-auto custom-scroll p-3 bg-slate-950 border border-slate-800 rounded-xl space-y-2">
+              <div v-for="(perms, groupName) in groupedPermissions" :key="groupName" class="space-y-1">
+                <div class="text-[10px] font-bold uppercase tracking-wider text-slate-400 border-b border-slate-800 pb-0.5">{{ groupName }}</div>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-1.5 pt-1">
+                  <label v-for="p in perms" :key="p.id" class="flex items-center gap-2 p-1.5 rounded hover:bg-slate-900 text-slate-300 hover:text-white cursor-pointer select-none">
+                    <input type="checkbox" :value="p.id" v-model="newRole.permissions" class="rounded border-slate-700 bg-slate-800 text-amber-500 focus:ring-0" />
+                    <div>
+                      <div class="font-mono text-[11px] text-amber-400 font-semibold">{{ p.name }}</div>
+                      <div class="text-[10px] text-slate-500">{{ p.description }}</div>
+                    </div>
+                  </label>
+                </div>
+              </div>
             </div>
           </div>
           <div class="flex justify-end gap-2 pt-2">
@@ -765,36 +787,48 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
       </div>
     </div>
 
-    <!-- MODAL: EDIT ROLE -->
+    <!-- MODAL: EDIT ROLE (Toggle View Permissions) -->
     <div v-if="editRoleDialog" class="fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop">
-      <div class="w-full max-w-lg bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-4 shadow-2xl">
+      <div class="w-full max-w-xl bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-4 shadow-2xl">
         <div class="flex items-center justify-between">
           <h3 class="text-sm font-bold text-white flex items-center gap-2">
-            <i class="fa-solid fa-pen-to-square text-sky-400"></i> Edit Role Definition
+            <i class="fa-solid fa-pen-to-square text-sky-400"></i> Edit Role & View Permissions
           </h3>
           <button @click="editRoleDialog = false" class="text-slate-500 hover:text-white cursor-pointer"><i class="fa-solid fa-xmark"></i></button>
         </div>
         <form @submit.prevent="submitEditRole" class="space-y-3 text-xs">
-          <div>
-            <label class="block font-semibold text-slate-300 mb-1">Role Code</label>
-            <input v-model="editingRole.code" type="text" disabled class="w-full px-3 py-2 bg-slate-950/60 border border-slate-800 rounded-lg text-slate-400 font-mono" />
-          </div>
-          <div>
-            <label class="block font-semibold text-slate-300 mb-1">Display Name</label>
-            <input v-model="editingRole.name" type="text" required class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-sky-500" />
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block font-semibold text-slate-300 mb-1">Role Code</label>
+              <input v-model="editingRole.code" type="text" disabled class="w-full px-3 py-2 bg-slate-950/60 border border-slate-800 rounded-lg text-slate-400 font-mono" />
+            </div>
+            <div>
+              <label class="block font-semibold text-slate-300 mb-1">Display Name</label>
+              <input v-model="editingRole.name" type="text" required class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-sky-500" />
+            </div>
           </div>
           <div>
             <label class="block font-semibold text-slate-300 mb-1">Description</label>
             <input v-model="editingRole.description" type="text" class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-sky-500" />
           </div>
           <div>
-            <label class="block font-semibold text-slate-300 mb-1">Permissions Matrix</label>
-            <div class="max-h-40 overflow-y-auto custom-scroll p-2.5 bg-slate-950 border border-slate-800 rounded-lg space-y-1">
-              <label v-for="p in allPermissions" :key="p.id" class="flex items-center gap-2 text-slate-300 hover:text-white cursor-pointer select-none">
-                <input type="checkbox" :value="p.id" v-model="editingRole.permissions" class="rounded border-slate-700 bg-slate-800 text-sky-500 focus:ring-0" />
-                <span class="font-mono text-[11px] text-sky-400">{{ p.name }}</span>
-                <span class="text-slate-500 text-[10px]">({{ p.description || p.module }})</span>
-              </label>
+            <div class="flex items-center justify-between mb-1.5">
+              <label class="font-bold text-slate-200">Toggle View Access & Management Rights (Bật/Tắt quyền xem):</label>
+              <button type="button" @click="toggleSelectAllPermissions(editingRole)" class="text-sky-400 hover:text-sky-300 text-[11px] font-semibold cursor-pointer">Toggle All</button>
+            </div>
+            <div class="max-h-52 overflow-y-auto custom-scroll p-3 bg-slate-950 border border-slate-800 rounded-xl space-y-2">
+              <div v-for="(perms, groupName) in groupedPermissions" :key="groupName" class="space-y-1">
+                <div class="text-[10px] font-bold uppercase tracking-wider text-slate-400 border-b border-slate-800 pb-0.5">{{ groupName }}</div>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-1.5 pt-1">
+                  <label v-for="p in perms" :key="p.id" class="flex items-center gap-2 p-1.5 rounded hover:bg-slate-900 text-slate-300 hover:text-white cursor-pointer select-none">
+                    <input type="checkbox" :value="p.id" v-model="editingRole.permissions" class="rounded border-slate-700 bg-slate-800 text-sky-500 focus:ring-0" />
+                    <div>
+                      <div class="font-mono text-[11px] text-sky-400 font-semibold">{{ p.name }}</div>
+                      <div class="text-[10px] text-slate-500">{{ p.description }}</div>
+                    </div>
+                  </label>
+                </div>
+              </div>
             </div>
           </div>
           <div class="flex justify-end gap-2 pt-2">
@@ -852,7 +886,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
 
   <script src="https://cdn.jsdelivr.net/npm/vue@3.4.31/dist/vue.global.prod.js"></script>
   <script>
-    const { createApp, ref, onMounted, watch } = Vue;
+    const { createApp, ref, computed, onMounted, watch } = Vue;
 
     createApp({
       setup() {
@@ -897,6 +931,84 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
           setTimeout(() => { toast.value.show = false; }, 3500);
         };
 
+        // RBAC View Access Computeds
+        const isSuperAdmin = computed(() => {
+          const user = currentUser.value;
+          if (!user) return false;
+          if (user.username === 'admin') return true;
+          if (user.userType === 'ADMIN' || String(user.userType).toUpperCase() === 'ADMIN') return true;
+          if (user.roles && Array.isArray(user.roles)) {
+            return user.roles.some(r => (r.code || r) === 'SUPER_ADMIN');
+          }
+          return false;
+        });
+
+        const grantedPermissionsSet = computed(() => {
+          const set = new Set();
+          if (isSuperAdmin.value) {
+            allPermissions.value.forEach(p => set.add(p.name));
+            return set;
+          }
+          const user = currentUser.value;
+          if (user && user.roles && Array.isArray(user.roles)) {
+            user.roles.forEach(role => {
+              if (role.permissions && Array.isArray(role.permissions)) {
+                role.permissions.forEach(p => set.add(p.name));
+              }
+            });
+          }
+          return set;
+        });
+
+        const hasPermission = (permissionName) => {
+          if (isSuperAdmin.value) return true;
+          return grantedPermissionsSet.value.has(permissionName);
+        };
+
+        const canViewTab = (tabName) => {
+          if (isSuperAdmin.value) return true;
+          if (tabName === 'overview') return true; // Overview is always accessible
+          if (tabName === 'users') return hasPermission('users:read');
+          if (tabName === 'roles') return hasPermission('roles:read');
+          if (tabName === 'database') return hasPermission('database:read');
+          if (tabName === 'devices') return hasPermission('lorawan:device:read');
+          if (tabName === 'telemetry') return hasPermission('lorawan:telemetry:read');
+          if (tabName === 'webhooks') return hasPermission('lorawan:webhooks:read');
+          if (tabName === 'decoder') return hasPermission('lorawan:decoder:read');
+          return false;
+        };
+
+        const groupedPermissions = computed(() => {
+          const groups = {
+            'Module: User Accounts': [],
+            'Module: RBAC Roles': [],
+            'Module: Database Health': [],
+            'Module: LoRaWAN Fleet & Devices': [],
+            'Module: Telemetry Stream': [],
+            'Module: Webhook Endpoints': [],
+            'Module: Decoder Sandbox': []
+          };
+          allPermissions.value.forEach(p => {
+            if (p.name.startsWith('users:')) groups['Module: User Accounts'].push(p);
+            else if (p.name.startsWith('roles:')) groups['Module: RBAC Roles'].push(p);
+            else if (p.name.startsWith('database:')) groups['Module: Database Health'].push(p);
+            else if (p.name.startsWith('lorawan:device:')) groups['Module: LoRaWAN Fleet & Devices'].push(p);
+            else if (p.name.startsWith('lorawan:telemetry:')) groups['Module: Telemetry Stream'].push(p);
+            else if (p.name.startsWith('lorawan:webhooks:')) groups['Module: Webhook Endpoints'].push(p);
+            else if (p.name.startsWith('lorawan:decoder:')) groups['Module: Decoder Sandbox'].push(p);
+            else groups['Module: LoRaWAN Fleet & Devices'].push(p);
+          });
+          return groups;
+        });
+
+        const toggleSelectAllPermissions = (targetRole) => {
+          if (targetRole.permissions.length === allPermissions.value.length) {
+            targetRole.permissions = [];
+          } else {
+            targetRole.permissions = allPermissions.value.map(p => p.id);
+          }
+        };
+
         const getAuthToken = () => {
           let token = localStorage.getItem('lorawan_token');
           if (!token || token === 'undefined' || token === 'null') {
@@ -915,7 +1027,10 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
           return headers;
         };
 
-        const forceCleanSession = () => {
+        const handleLogout = async () => {
+          try {
+            await fetch('/auth/logout', { method: 'POST', credentials: 'include' });
+          } catch(e) {}
           try {
             localStorage.clear();
             sessionStorage.clear();
@@ -925,14 +1040,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
             document.cookie = c + "=; Path=/; Expires=Thu, 01 Jan 1970 00:00:01 GMT; Max-Age=0; SameSite=Lax;";
             document.cookie = c + "=; Path=/; Expires=Thu, 01 Jan 1970 00:00:01 GMT; Max-Age=0;";
           });
-          window.location.replace('/login?cleared=1');
-        };
-
-        const handleLogout = async () => {
-          try {
-            await fetch('/auth/logout', { method: 'POST', credentials: 'include' });
-          } catch(e) {}
-          forceCleanSession();
+          window.location.replace('/login?logout=1');
         };
 
         const copyUrl = (path) => {
@@ -955,6 +1063,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
 
         // Fetchers
         const fetchUsers = async () => {
+          if (!canViewTab('users')) return;
           loadingUsers.value = true;
           try {
             const res = await fetch('/users', { headers: authHeaders(), credentials: 'include' });
@@ -983,6 +1092,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
         };
 
         const fetchDbHealth = async () => {
+          if (!canViewTab('database')) return;
           try {
             const res = await fetch('/database/health', { headers: authHeaders(), credentials: 'include' });
             if (res.ok) dbHealth.value = await res.json();
@@ -992,6 +1102,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
         };
 
         const reloadDbConfig = async () => {
+          if (!hasPermission('database:manage')) return;
           try {
             const res = await fetch('/database/reload', { method: 'POST', headers: authHeaders(), credentials: 'include' });
             const data = await res.json();
@@ -1003,6 +1114,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
         };
 
         const fetchDevices = async () => {
+          if (!canViewTab('devices')) return;
           try {
             const res = await fetch('/lorawan/devices', { headers: authHeaders(), credentials: 'include' });
             if (res.ok) devicesList.value = await res.json();
@@ -1012,6 +1124,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
         };
 
         const fetchTelemetry = async () => {
+          if (!canViewTab('telemetry')) return;
           try {
             const res = await fetch('/lorawan/telemetry?limit=25', { headers: authHeaders(), credentials: 'include' });
             if (res.ok) telemetryList.value = await res.json();
@@ -1023,7 +1136,12 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
         const fetchSession = async () => {
           try {
             const res = await fetch('/auth/session', { headers: authHeaders(), credentials: 'include' });
-            if (res.ok) currentUser.value = await res.json();
+            if (res.ok) {
+              currentUser.value = await res.json();
+              if (!canViewTab(activeTab.value)) {
+                activeTab.value = 'overview';
+              }
+            }
           } catch(e) {}
         };
 
@@ -1220,7 +1338,9 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
         };
 
         const testDevice = (d) => {
-          activeTab.value = 'decoder';
+          if (canViewTab('decoder')) {
+            activeTab.value = 'decoder';
+          }
         };
 
         const runSandboxDecode = () => {
@@ -1251,13 +1371,18 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
           if (newTab === 'telemetry') fetchTelemetry();
         });
 
-        onMounted(() => {
+        onMounted(async () => {
+          await fetchRoles();
+          await fetchSession();
+          
           const hash = window.location.hash.replace('#', '').trim();
-          if (hash) activeTab.value = hash;
+          if (hash && canViewTab(hash)) {
+            activeTab.value = hash;
+          } else {
+            activeTab.value = 'overview';
+          }
 
-          fetchSession();
           fetchUsers();
-          fetchRoles();
           fetchDbHealth();
           fetchDevices();
         });
@@ -1265,6 +1390,12 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
         return {
           activeTab,
           currentUser,
+          isSuperAdmin,
+          grantedPermissionsSet,
+          hasPermission,
+          canViewTab,
+          groupedPermissions,
+          toggleSelectAllPermissions,
           usersList,
           rolesList,
           allPermissions,
@@ -1290,7 +1421,6 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
           sandboxHex,
           sandboxResult,
           toast,
-          forceCleanSession,
           handleLogout,
           copyUrl,
           formatTime,

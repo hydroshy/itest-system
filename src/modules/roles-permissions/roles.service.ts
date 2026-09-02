@@ -49,21 +49,23 @@ export class RolesService implements OnModuleInit, OnApplicationBootstrap {
       await ds.query(`DELETE FROM "permission" WHERE "name" IS NULL OR "name" = '';`).catch(() => {});
 
       const defaultPerms = [
-        { name: 'users:read', module: 'users', action: 'read', description: 'View user list' },
-        { name: 'users:create', module: 'users', action: 'create', description: 'Create user or subadmin' },
-        { name: 'users:permissions:update', module: 'users', action: 'update', description: 'Update permissions' },
-        { name: 'users:delete', module: 'users', action: 'delete', description: 'Delete user' },
+        { name: 'users:read', module: 'users', action: 'read', description: 'View User Directory' },
+        { name: 'users:create', module: 'users', action: 'create', description: 'Create New User' },
+        { name: 'users:permissions:update', module: 'users', action: 'update', description: 'Update User Permissions & Roles' },
+        { name: 'users:delete', module: 'users', action: 'delete', description: 'Delete User' },
 
-        { name: 'lorawan:app:read', module: 'lorawan', action: 'read', description: 'Read applications' },
-        { name: 'lorawan:app:manage', module: 'lorawan', action: 'manage', description: 'Create/edit applications' },
+        { name: 'roles:read', module: 'roles', action: 'read', description: 'View Role Matrix' },
+        { name: 'roles:manage', module: 'roles', action: 'manage', description: 'Create & Edit Roles' },
 
-        { name: 'lorawan:device:read', module: 'lorawan', action: 'read', description: 'Read devices' },
-        { name: 'lorawan:device:manage', module: 'lorawan', action: 'manage', description: 'Create/edit devices' },
+        { name: 'database:read', module: 'database', action: 'read', description: 'View Database Health' },
+        { name: 'database:manage', module: 'database', action: 'manage', description: 'Hot-Reload Database Config' },
 
-        { name: 'lorawan:gateway:read', module: 'lorawan', action: 'read', description: 'Read gateways' },
-        { name: 'lorawan:gateway:manage', module: 'lorawan', action: 'manage', description: 'Create/edit gateways' },
+        { name: 'lorawan:device:read', module: 'lorawan', action: 'read', description: 'View LoRaWAN Devices' },
+        { name: 'lorawan:device:manage', module: 'lorawan', action: 'manage', description: 'Register & Edit LoRaWAN Devices' },
 
-        { name: 'lorawan:telemetry:read', module: 'lorawan', action: 'read', description: 'View decoded telemetry' },
+        { name: 'lorawan:telemetry:read', module: 'lorawan', action: 'read', description: 'View Live Telemetry Uplinks' },
+        { name: 'lorawan:webhooks:read', module: 'lorawan', action: 'read', description: 'View Webhook Ingestion URLs' },
+        { name: 'lorawan:decoder:read', module: 'lorawan', action: 'read', description: 'Access Payload Formatter Sandbox' },
       ];
 
       // 1. Insert or update default permissions atomically
