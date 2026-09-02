@@ -64,6 +64,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
       border: 1px solid rgba(56, 189, 248, 0.35) !important;
       box-shadow: 0 0 12px rgba(56, 189, 248, 0.15);
     }
+    [v-cloak] { display: none !important; }
     .modal-backdrop {
       background: rgba(2, 6, 23, 0.85);
       backdrop-filter: blur(6px);
@@ -71,7 +72,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
   </style>
 </head>
 <body class="min-h-screen flex flex-col antialiased">
-  <div id="app" class="flex-1 flex flex-col">
+  <div id="app" v-cloak class="flex-1 flex flex-col">
     
     <!-- TOP APP BAR (Clean Navbar without Swagger, Reset Session, or DB Online Badge) -->
     <header class="glass-header sticky top-0 z-40 px-4 sm:px-6 h-14 flex items-center justify-between">

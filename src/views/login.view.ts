@@ -24,6 +24,7 @@ export const LOGIN_HTML = `<!DOCTYPE html>
       margin: 0;
       padding: 1rem;
     }
+    [v-cloak] { display: none !important; }
     .glass-card {
       background: rgba(15, 23, 42, 0.75);
       backdrop-filter: blur(16px);
@@ -37,7 +38,7 @@ export const LOGIN_HTML = `<!DOCTYPE html>
   </style>
 </head>
 <body>
-  <div id="app" class="w-full max-w-sm">
+  <div id="app" v-cloak class="w-full max-w-sm">
     <div class="glass-card rounded-2xl p-7 space-y-6">
       <!-- Logo Header -->
       <div class="text-center space-y-2">
@@ -164,11 +165,7 @@ export const LOGIN_HTML = `<!DOCTYPE html>
 
             showAlert("Login successful! Redirecting...", "success");
             setTimeout(() => {
-              if (isSuperAdmin) {
-                window.location.replace('/control-panel');
-              } else {
-                window.location.replace('/dashboard');
-              }
+              window.location.replace('/dashboard');
             }, 250);
           } catch(err) {
             showAlert(err.message, "error");

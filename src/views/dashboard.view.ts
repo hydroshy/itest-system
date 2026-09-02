@@ -43,6 +43,7 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
       transform: translateY(-2px);
       box-shadow: 0 12px 30px -10px rgba(14, 165, 233, 0.15);
     }
+    [v-cloak] { display: none !important; }
     .feature-icon-box {
       width: 44px;
       height: 44px;
@@ -55,7 +56,7 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
   </style>
 </head>
 <body class="min-h-screen flex flex-col antialiased">
-  <div id="app" class="flex-1 flex flex-col" @click="handleGlobalClick">
+  <div id="app" v-cloak class="flex-1 flex flex-col" @click="handleGlobalClick">
     
     <!-- TOP APP BAR -->
     <header class="glass-header sticky top-0 z-40 px-4 sm:px-8 h-14 flex items-center justify-between">
