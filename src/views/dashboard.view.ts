@@ -168,7 +168,7 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
     </header>
 
     <!-- MAIN BODY CONTAINER -->
-    <main class="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-8 space-y-6">
+    <main class="flex-1 w-full max-w-[1920px] mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
       
       <!-- MODE 1: FEATURE MODULES GRID (Dashboard Home) -->
       <div v-if="!activeFeature" class="space-y-6">
@@ -197,7 +197,7 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
         </div>
 
         <!-- Grid of Action Feature Buttons / Cards -->
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-5 gap-4.5">
           <div
             v-for="feature in accessibleFeatures"
             :key="feature.id"
@@ -247,7 +247,7 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
       <!-- MODE 2: ACTIVE FEATURE MODULE VIEW -->
       <div v-else class="space-y-4">
         <!-- Feature Content Container -->
-        <div class="glass-card rounded-2xl p-6 sm:p-8 space-y-6">
+        <div class="glass-card rounded-2xl p-4 sm:p-6 lg:p-8 space-y-6">
           
           <!-- FEATURE: DEVICE MANAGER (CARD GRID) -->
           <div v-if="activeFeature.id === 'device-manager'" class="space-y-5">
@@ -301,7 +301,7 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
             </div>
 
             <!-- Card Grid -->
-            <div v-else class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div v-else class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-5 gap-4.5">
               <div v-for="d in filteredDevices" :key="d.id || d.devEUI" class="bg-slate-900/90 border border-slate-800/90 hover:border-emerald-500/40 rounded-2xl p-4.5 shadow-xl transition duration-200 flex flex-col justify-between space-y-3.5 group">
                 
                 <!-- Card Header -->
@@ -462,6 +462,62 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
       </div>
     </div>
 
+    <!-- MODAL: CONFIRM DELETE DEVICE -->
+    <div v-if="deleteConfirmDialog && deviceToDelete" class="fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop" style="background: rgba(2, 6, 23, 0.85); backdrop-filter: blur(8px);">
+      <div class="w-full max-w-md bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-5 shadow-2xl animate-in fade-in zoom-in-95 text-slate-200">
+        <!-- Header -->
+        <div class="flex items-start gap-3.5">
+          <div class="w-11 h-11 rounded-2xl bg-red-500/10 border border-red-500/25 flex items-center justify-center text-red-400 text-lg flex-shrink-0 shadow-inner">
+            <i class="fa-solid fa-triangle-exclamation"></i>
+          </div>
+          <div class="space-y-1">
+            <h3 class="text-base font-bold text-white">Delete Device Confirmation</h3>
+            <p class="text-xs text-slate-400 leading-relaxed">
+              Are you sure you want to permanently delete this device? This action cannot be undone.
+            </p>
+          </div>
+        </div>
+
+        <!-- Device Info Box -->
+        <div class="p-3.5 bg-slate-950/90 border border-slate-800 rounded-xl space-y-2 text-xs">
+          <div class="flex items-center justify-between">
+            <span class="text-slate-400 font-medium">Device Name:</span>
+            <span class="font-bold text-white truncate max-w-[200px]">{{ deviceToDelete.name || '--' }}</span>
+          </div>
+          <div class="flex items-center justify-between">
+            <span class="text-slate-400 font-medium">DevEUI:</span>
+            <span class="font-mono font-bold text-sky-400">{{ deviceToDelete.devEUI }}</span>
+          </div>
+          <div v-if="deviceToDelete.networkServer" class="flex items-center justify-between">
+            <span class="text-slate-400 font-medium">Network Server:</span>
+            <span class="text-slate-300 font-mono text-[11px]">{{ deviceToDelete.networkServer.name }}</span>
+          </div>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="flex items-center justify-end gap-2.5 pt-2 border-t border-slate-800">
+          <button
+            type="button"
+            @click="deleteConfirmDialog = false"
+            :disabled="deletingDevice"
+            class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold cursor-pointer transition"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            @click="confirmDeleteDevice"
+            :disabled="deletingDevice"
+            class="px-4 py-2 rounded-xl bg-red-600 hover:bg-red-500 text-white text-xs font-bold shadow-lg shadow-red-600/30 flex items-center gap-1.5 cursor-pointer transition"
+          >
+            <i v-if="deletingDevice" class="fa-solid fa-circle-notch fa-spin"></i>
+            <i v-else class="fa-solid fa-trash-can"></i>
+            <span>{{ deletingDevice ? 'Deleting...' : 'Delete Device' }}</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
     <!-- TOAST NOTIFICATION -->
     <div v-if="toast.show" class="fixed top-4 right-4 z-50 flex items-center gap-2 px-4 py-3 rounded-xl shadow-2xl text-xs font-semibold" :class="toast.type === 'error' ? 'bg-red-950 border border-red-500 text-red-200' : (toast.type === 'success' ? 'bg-emerald-950 border border-emerald-500 text-emerald-200' : 'bg-sky-950 border border-sky-500 text-sky-200')">
       <i :class="toast.type === 'error' ? 'fa-solid fa-circle-exclamation text-red-400' : (toast.type === 'success' ? 'fa-solid fa-circle-check text-emerald-400' : 'fa-solid fa-circle-info text-sky-400')"></i>
@@ -487,6 +543,9 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
 
         const registerDeviceDialog = ref(false);
         const savingDevice = ref(false);
+        const deleteConfirmDialog = ref(false);
+        const deviceToDelete = ref(null);
+        const deletingDevice = ref(false);
         const toast = ref({ show: false, text: '', type: 'info' });
 
         const showToast = (text, type = 'info') => {
@@ -732,8 +791,15 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
           }
         };
 
-        const deleteDevice = async (d) => {
-          if (!confirm("Are you sure you want to delete device '" + d.name + "' (" + d.devEUI + ")?")) return;
+        const deleteDevice = (d) => {
+          deviceToDelete.value = d;
+          deleteConfirmDialog.value = true;
+        };
+
+        const confirmDeleteDevice = async () => {
+          if (!deviceToDelete.value) return;
+          deletingDevice.value = true;
+          const d = deviceToDelete.value;
           try {
             const res = await fetch('/lorawan/devices/' + d.devEUI, {
               method: 'DELETE',
@@ -742,10 +808,14 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
             });
             const data = await res.json();
             if (!res.ok) throw new Error(data.message || "Failed to delete device");
-            showToast("Device " + d.devEUI + " deleted successfully", "success");
+            showToast("Device " + (d.name || d.devEUI) + " deleted successfully", "success");
+            deleteConfirmDialog.value = false;
+            deviceToDelete.value = null;
             fetchDevices();
           } catch(e) {
             showToast(e.message, "error");
+          } finally {
+            deletingDevice.value = false;
           }
         };
 
@@ -801,6 +871,9 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
           networkServersList,
           registerDeviceDialog,
           savingDevice,
+          deleteConfirmDialog,
+          deviceToDelete,
+          deletingDevice,
           newDevice,
           selectedDeviceNetworkServer,
           availableDeviceRegions,
@@ -808,6 +881,7 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
           openRegisterDeviceDialog,
           submitRegisterDevice,
           deleteDevice,
+          confirmDeleteDevice,
           syncDevice,
           toast,
           handleGlobalClick,
