@@ -4,12 +4,15 @@ export const LOGIN_HTML = `<!DOCTYPE html>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Sign In - Daviteq LoRaWAN Platform</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
   <style>
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
     body {
       background: radial-gradient(circle at 50% 10%, #0f172a 0%, #030712 100%);
-      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
       min-height: 100vh;
       display: flex;
       align-items: center;
@@ -17,98 +20,134 @@ export const LOGIN_HTML = `<!DOCTYPE html>
       padding: 1rem;
       color: #f1f5f9;
     }
-    .glow-card {
+    .card-login {
+      width: 100%;
+      max-width: 420px;
+      background: rgba(15, 23, 42, 0.95);
+      border: 1px solid rgba(51, 65, 85, 0.8);
+      border-radius: 1rem;
+      padding: 2rem;
       box-shadow: 0 0 35px -5px rgba(56, 189, 248, 0.15);
+    }
+    .form-group {
+      margin-bottom: 1rem;
+    }
+    .form-label {
+      display: block;
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: #cbd5e1;
+      margin-bottom: 0.35rem;
+    }
+    .form-input {
+      width: 100%;
+      padding: 0.65rem 0.85rem;
+      background: rgba(2, 6, 23, 0.8);
+      border: 1px solid #334155;
+      border-radius: 0.625rem;
+      color: #ffffff;
+      font-size: 0.875rem;
+      outline: none;
+      transition: border-color 0.15s ease;
+    }
+    .form-input:focus {
+      border-color: #0ea5e9;
+    }
+    .btn-submit {
+      width: 100%;
+      padding: 0.7rem;
+      background: #0ea5e9;
+      color: #ffffff;
+      border: 1px solid #0284c7;
+      border-radius: 0.625rem;
+      font-size: 0.875rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.15s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      margin-top: 1.25rem;
+    }
+    .btn-submit:hover {
+      background: #38bdf8;
+    }
+    .btn-submit:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+    .alert {
+      display: none;
+      padding: 0.75rem 1rem;
+      border-radius: 0.625rem;
+      font-size: 0.75rem;
+      font-weight: 500;
+      margin-bottom: 1rem;
+    }
+    .alert.show {
+      display: block !important;
+    }
+    .alert-error {
+      background: rgba(239, 68, 68, 0.15);
+      border: 1px solid rgba(239, 68, 68, 0.3);
+      color: #f87171;
+    }
+    .alert-success {
+      background: rgba(16, 185, 129, 0.15);
+      border: 1px solid rgba(16, 185, 129, 0.3);
+      color: #34d399;
     }
   </style>
 </head>
 <body>
-  <div class="w-full max-w-md bg-slate-900/90 border border-slate-800 rounded-2xl p-8 backdrop-blur-xl glow-card">
+  <div class="card-login">
     <!-- Header -->
-    <div class="text-center mb-6">
-      <div class="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-sky-500/10 border border-sky-500/30 text-sky-400 text-2xl mb-3 shadow-inner">
-        <i class="fa-solid fa-tower-broadcast"></i>
+    <div style="text-align: center; margin-bottom: 1.5rem;">
+      <div style="display: inline-flex; align-items: center; justify-content: center; width: 52px; height: 52px; border-radius: 1rem; background: rgba(14, 165, 233, 0.15); border: 1px solid rgba(14, 165, 233, 0.3); color: #38bdf8; font-size: 1.5rem; margin-bottom: 0.75rem;">
+        &#128225;
       </div>
-      <h1 class="text-2xl font-bold tracking-tight text-white flex items-center justify-center gap-2">
-        <span class="text-sky-400">DAVITEQ</span> LoRaWAN
+      <h1 style="font-size: 1.35rem; font-weight: 700; color: #ffffff;">
+        <span style="color: #38bdf8;">DAVITEQ</span> LoRaWAN
       </h1>
-      <p class="text-xs text-slate-400 mt-1 font-medium tracking-wide">Network & Application Server Platform</p>
+      <p style="font-size: 0.75rem; color: #94a3b8; margin-top: 0.25rem;">Network & Application Server Platform</p>
     </div>
 
     <!-- Alert Box -->
-    <div id="alertBox" class="hidden mb-4 p-3 rounded-xl text-xs font-medium flex items-center gap-2"></div>
+    <div id="alertBox" class="alert"></div>
 
-    <!-- Login Form -->
-    <form id="loginForm" class="space-y-4">
-      <div>
-        <label class="block text-xs font-semibold text-slate-300 mb-1.5">Username or Email</label>
-        <div class="relative">
-          <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500">
-            <i class="fa-solid fa-user text-sm"></i>
-          </div>
-          <input
-            type="text"
-            id="usernameInput"
-            required
-            value="admin"
-            placeholder="admin or user@domain.com"
-            class="w-full pl-10 pr-4 py-2.5 bg-slate-950/80 border border-slate-700/80 rounded-xl text-sm text-white placeholder-slate-500 focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500 transition"
-          />
-        </div>
+    <!-- Form -->
+    <form id="loginForm">
+      <div class="form-group">
+        <label class="form-label">Username or Email</label>
+        <input type="text" id="usernameInput" required value="admin" class="form-input" placeholder="admin or user@domain.com" />
       </div>
 
-      <div>
-        <label class="block text-xs font-semibold text-slate-300 mb-1.5">Password</label>
-        <div class="relative">
-          <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500">
-            <i class="fa-solid fa-lock text-sm"></i>
-          </div>
-          <input
-            type="password"
-            id="passwordInput"
-            required
-            value="Dvt@123"
-            placeholder="••••••••"
-            class="w-full pl-10 pr-10 py-2.5 bg-slate-950/80 border border-slate-700/80 rounded-xl text-sm text-white placeholder-slate-500 focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500 transition"
-          />
-          <button
-            type="button"
-            onclick="togglePasswordVisibility()"
-            class="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-500 hover:text-slate-300"
-          >
-            <i id="eyeIcon" class="fa-solid fa-eye text-sm"></i>
-          </button>
-        </div>
+      <div class="form-group">
+        <label class="form-label">Password</label>
+        <input type="password" id="passwordInput" required value="Dvt@123" class="form-input" placeholder="••••••••" />
       </div>
 
-      <div class="flex items-center justify-between text-xs pt-1">
-        <label class="flex items-center text-slate-400 cursor-pointer select-none">
-          <input type="checkbox" id="rememberMe" checked class="rounded border-slate-700 bg-slate-800 text-sky-500 focus:ring-sky-400 focus:ring-offset-slate-900 mr-2" />
-          Remember session
+      <div style="display: flex; align-items: center; justify-content: space-between; font-size: 0.75rem;">
+        <label style="display: flex; align-items: center; gap: 0.35rem; color: #94a3b8; cursor: pointer;">
+          <input type="checkbox" id="rememberMe" checked style="accent-color: #0ea5e9;" /> Remember session
         </label>
-        <a href="/api/docs" target="_blank" class="text-sky-400 hover:text-sky-300 transition flex items-center gap-1 font-medium">
-          <i class="fa-solid fa-book"></i> Swagger API
-        </a>
+        <a href="/api/docs" target="_blank" style="color: #38bdf8; text-decoration: none; font-weight: 500;">API Docs &rarr;</a>
       </div>
 
-      <button
-        type="submit"
-        id="submitBtn"
-        class="w-full py-2.5 px-4 bg-sky-500 hover:bg-sky-400 active:bg-sky-600 text-white font-semibold rounded-xl text-sm shadow-lg shadow-sky-500/20 transition duration-150 flex items-center justify-center gap-2 mt-4 cursor-pointer"
-      >
-        <span>Sign In</span>
-        <i class="fa-solid fa-arrow-right text-xs"></i>
+      <button type="submit" id="submitBtn" class="btn-submit">
+        <span>Sign In</span> &rarr;
       </button>
     </form>
 
-    <!-- Session Reset Helper -->
-    <div class="mt-4 pt-3 border-t border-slate-800/80 flex items-center justify-between text-xs text-slate-500">
-      <button onclick="forceCleanSession()" type="button" class="text-[11px] text-slate-400 hover:text-red-400 transition cursor-pointer flex items-center gap-1">
-        <i class="fa-solid fa-trash-can"></i> Clear Stale Session
+    <!-- Footer Controls -->
+    <div style="margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid rgba(51, 65, 85, 0.6); display: flex; align-items: center; justify-content: space-between; font-size: 0.6875rem; color: #64748b;">
+      <button onclick="forceCleanSession()" type="button" style="background: transparent; border: none; color: #94a3b8; cursor: pointer; text-decoration: underline; font-size: 0.6875rem;">
+        Clear Stale Session
       </button>
-      <span class="inline-flex items-center gap-1.5 text-slate-400 text-[11px]">
-        <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-        PostgreSQL &bull; NestJS
+      <span style="color: #34d399; display: flex; align-items: center; gap: 0.35rem;">
+        <span style="display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #10b981;"></span>
+        NestJS Engine
       </span>
     </div>
   </div>
@@ -129,33 +168,12 @@ export const LOGIN_HTML = `<!DOCTYPE html>
     }
     window.forceCleanSession = forceCleanSession;
 
-    window.togglePasswordVisibility = function() {
-      var passInput = document.getElementById("passwordInput");
-      var eyeIcon = document.getElementById("eyeIcon");
-      if (passInput.type === "password") {
-        passInput.type = "text";
-        eyeIcon.className = "fa-solid fa-eye-slash text-sm";
-      } else {
-        passInput.type = "password";
-        eyeIcon.className = "fa-solid fa-eye text-sm";
-      }
-    };
-
-    window.showAlert = function(msg, type) {
-      var alertBox = document.getElementById("alertBox");
-      alertBox.className = "mb-4 p-3 rounded-xl text-xs font-medium flex items-center gap-2";
-      var icon = '<i class="fa-solid fa-circle-info"></i>';
-      if (type === "error") {
-        alertBox.className += " bg-red-500/10 border border-red-500/30 text-red-400";
-        icon = '<i class="fa-solid fa-circle-exclamation"></i>';
-      } else if (type === "success") {
-        alertBox.className += " bg-emerald-500/10 border border-emerald-500/30 text-emerald-400";
-        icon = '<i class="fa-solid fa-circle-check"></i>';
-      } else {
-        alertBox.className += " bg-sky-500/10 border border-sky-500/30 text-sky-400";
-      }
-      alertBox.innerHTML = icon + " <span>" + msg + "</span>";
-    };
+    function showAlert(msg, type) {
+      var box = document.getElementById("alertBox");
+      box.className = "alert show " + (type === "error" ? "alert-error" : "alert-success");
+      box.textContent = msg;
+    }
+    window.showAlert = showAlert;
 
     document.getElementById("loginForm").addEventListener("submit", async function(e) {
       e.preventDefault();
@@ -164,7 +182,7 @@ export const LOGIN_HTML = `<!DOCTYPE html>
       var submitBtn = document.getElementById("submitBtn");
 
       submitBtn.disabled = true;
-      submitBtn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Signing in...';
+      submitBtn.innerHTML = "Signing in...";
 
       try {
         var response = await fetch("/auth/login", {
@@ -177,7 +195,7 @@ export const LOGIN_HTML = `<!DOCTYPE html>
         var data = await response.json();
 
         if (!response.ok) {
-          throw new Error(data.message || "Authentication failed. Please verify credentials.");
+          throw new Error(data.message || "Authentication failed.");
         }
 
         showAlert("Sign in successful. Opening Control Panel...", "success");
@@ -194,11 +212,10 @@ export const LOGIN_HTML = `<!DOCTYPE html>
       } catch (err) {
         showAlert(err.message, "error");
         submitBtn.disabled = false;
-        submitBtn.innerHTML = '<span>Sign In</span> <i class="fa-solid fa-arrow-right text-xs"></i>';
+        submitBtn.innerHTML = "<span>Sign In</span> &rarr;";
       }
     });
 
-    // Check query params
     var urlParams = new URLSearchParams(window.location.search);
     if (urlParams.get("cleared") === "1" || urlParams.get("logout") === "1") {
       try {
