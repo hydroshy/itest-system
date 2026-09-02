@@ -12,57 +12,76 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
   <!-- Vuetify 3 CSS -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/vuetify@3.6.14/dist/vuetify.min.css" />
   <style>
+    html {
+      font-size: 13.5px;
+    }
     body {
-      background-color: #0b132b;
+      background-color: #070d1e;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       margin: 0;
       padding: 0;
       color: #f1f5f9;
+      overflow-x: hidden;
     }
     .custom-scroll::-webkit-scrollbar {
-      width: 6px;
-      height: 6px;
+      width: 5px;
+      height: 5px;
     }
     .custom-scroll::-webkit-scrollbar-track {
-      background: #0f172a;
+      background: #0b132b;
     }
     .custom-scroll::-webkit-scrollbar-thumb {
-      background: #334155;
+      background: #2a3b5c;
       border-radius: 4px;
     }
     .font-mono {
       font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace !important;
     }
     .code-box {
-      background: #060a17 !important;
+      background: #040814 !important;
       border: 1px solid #1e293b !important;
-      border-radius: 8px !important;
+      border-radius: 6px !important;
       font-family: monospace !important;
+    }
+    .compact-table td, .compact-table th {
+      padding: 6px 12px !important;
+      height: 38px !important;
+    }
+    .v-tab {
+      letter-spacing: 0.02em !important;
+      text-transform: none !important;
+      font-weight: 600 !important;
+      min-width: auto !important;
+      padding: 0 10px !important;
+      font-size: 0.8125rem !important;
+    }
+    .v-card {
+      border-color: rgba(51, 65, 85, 0.6) !important;
     }
   </style>
 </head>
 <body>
   <div id="app">
-    <v-app theme="dark" style="background: #0b132b;">
+    <v-app theme="dark" style="background: #070d1e;">
       <!-- NAVIGATION DRAWER -->
-      <v-navigation-drawer v-model="drawer" color="#090f1f" width="270" border="right">
+      <v-navigation-drawer v-model="drawer" color="#050a17" width="230" border="right">
         <!-- Brand Header -->
-        <div class="pa-4 d-flex align-center gap-3 border-b border-slate-800">
-          <v-avatar color="cyan-darken-3" rounded="lg" size="40">
-            <v-icon icon="mdi-transmission-tower" color="cyan-lighten-2" size="26"></v-icon>
+        <div class="pa-3 d-flex align-center gap-2 border-b border-slate-800">
+          <v-avatar color="cyan-darken-3" rounded="lg" size="32">
+            <v-icon icon="mdi-transmission-tower" color="cyan-lighten-2" size="20"></v-icon>
           </v-avatar>
           <div>
-            <div class="text-subtitle-2 font-weight-bold text-white d-flex align-center gap-1">
+            <div class="text-caption font-weight-bold text-white d-flex align-center gap-1">
               <span class="text-cyan-lighten-2">DAVITEQ</span> IoT
-              <v-chip size="x-small" color="cyan" variant="tonal" class="font-weight-bold px-1 py-0">v1.0</v-chip>
+              <v-chip size="x-small" color="cyan" variant="tonal" class="font-weight-bold px-1 py-0" style="font-size: 8px; height: 16px;">v1.0</v-chip>
             </div>
-            <div class="text-caption text-medium-emphasis">LoRaWAN Platform</div>
+            <div class="text-caption text-medium-emphasis" style="font-size: 10px;">LoRaWAN Server</div>
           </div>
         </div>
 
         <!-- Navigation List -->
-        <v-list density="compact" nav class="pa-3 custom-scroll">
-          <v-list-subheader class="text-uppercase font-weight-bold text-caption text-slate-400">Monitoring</v-list-subheader>
+        <v-list density="compact" nav class="pa-2 custom-scroll">
+          <v-list-subheader class="text-uppercase font-weight-bold text-caption text-slate-400 py-1" style="font-size: 10px;">Monitoring</v-list-subheader>
           
           <v-list-item
             value="overview"
@@ -72,6 +91,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
             title="Overview"
             rounded="lg"
             color="cyan-lighten-2"
+            density="compact"
           ></v-list-item>
 
           <v-list-item
@@ -82,6 +102,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
             title="Live Telemetry"
             rounded="lg"
             color="indigo-lighten-2"
+            density="compact"
           ></v-list-item>
 
           <v-list-item
@@ -92,9 +113,10 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
             title="Database Health"
             rounded="lg"
             color="amber-lighten-2"
+            density="compact"
           ></v-list-item>
 
-          <v-list-subheader class="text-uppercase font-weight-bold text-caption text-slate-400 mt-3">LoRaWAN Fleet</v-list-subheader>
+          <v-list-subheader class="text-uppercase font-weight-bold text-caption text-slate-400 mt-2 py-1" style="font-size: 10px;">LoRaWAN Fleet</v-list-subheader>
           
           <v-list-item
             value="devices"
@@ -104,6 +126,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
             title="LoRaWAN Devices"
             rounded="lg"
             color="cyan-lighten-2"
+            density="compact"
           ></v-list-item>
 
           <v-list-item
@@ -111,9 +134,10 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
             :active="tab === 'webhooks'"
             @click="tab = 'webhooks'"
             prepend-icon="mdi-webhook"
-            title="Webhooks Ingestion"
+            title="Webhooks Ingest"
             rounded="lg"
             color="emerald-lighten-2"
+            density="compact"
           ></v-list-item>
 
           <v-list-item
@@ -124,9 +148,10 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
             title="Decoder Sandbox"
             rounded="lg"
             color="purple-lighten-2"
+            density="compact"
           ></v-list-item>
 
-          <v-list-subheader class="text-uppercase font-weight-bold text-caption text-slate-400 mt-3">Security & RBAC</v-list-subheader>
+          <v-list-subheader class="text-uppercase font-weight-bold text-caption text-slate-400 mt-2 py-1" style="font-size: 10px;">Security & RBAC</v-list-subheader>
           
           <v-list-item
             value="users"
@@ -136,6 +161,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
             title="User Directory"
             rounded="lg"
             color="cyan-lighten-2"
+            density="compact"
           ></v-list-item>
 
           <v-list-item
@@ -146,64 +172,65 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
             title="Role Matrix"
             rounded="lg"
             color="yellow-lighten-2"
+            density="compact"
           ></v-list-item>
         </v-list>
 
         <!-- Drawer Footer Profile -->
         <template v-slot:append>
-          <div class="pa-3 border-t border-slate-800 bg-slate-950">
-            <div class="d-flex align-center justify-space-between mb-2">
-              <v-chip size="x-small" color="success" variant="tonal" class="font-weight-bold">
+          <div class="pa-2 border-t border-slate-800 bg-slate-950">
+            <div class="d-flex align-center justify-space-between mb-1">
+              <v-chip size="x-small" color="success" variant="tonal" class="font-weight-bold" style="font-size: 9px; height: 18px;">
                 <v-badge dot color="success" inline class="mr-1"></v-badge>
                 core_db : ONLINE
               </v-chip>
-              <a href="/api/docs" target="_blank" class="text-caption text-cyan-lighten-2 text-decoration-none">Swagger &rarr;</a>
+              <a href="/api/docs" target="_blank" class="text-caption text-cyan-lighten-2 text-decoration-none" style="font-size: 10px;">API &rarr;</a>
             </div>
 
-            <v-card color="#0f172a" rounded="lg" class="pa-2 d-flex align-center justify-space-between" variant="outlined">
-              <div class="text-truncate mr-2">
-                <div class="text-caption font-weight-bold text-white text-truncate">{{ currentUser.fullName || currentUser.username || 'Admin User' }}</div>
-                <div class="text-caption text-cyan-lighten-2 font-mono font-weight-bold">{{ currentUser.userType || 'ADMIN' }}</div>
+            <v-card color="#0d1527" rounded="lg" class="pa-2 d-flex align-center justify-space-between" variant="outlined">
+              <div class="text-truncate mr-1">
+                <div class="text-caption font-weight-bold text-white text-truncate" style="font-size: 11px;">{{ currentUser.fullName || currentUser.username || 'Admin User' }}</div>
+                <div class="text-caption text-cyan-lighten-2 font-mono font-weight-bold" style="font-size: 9px;">{{ currentUser.userType || 'ADMIN' }}</div>
               </div>
-              <v-btn icon="mdi-power" size="small" color="error" variant="text" @click="handleLogout" title="Logout"></v-btn>
+              <v-btn icon="mdi-power" size="x-small" color="error" variant="text" @click="handleLogout" title="Logout"></v-btn>
             </v-card>
           </div>
         </template>
       </v-navigation-drawer>
 
-      <!-- APP BAR -->
-      <v-app-bar color="#070d1e" density="comfortable" elevation="1" border="bottom">
-        <v-app-bar-nav-icon @click="drawer = !drawer"></v-app-bar-nav-icon>
+      <!-- TOP APP BAR -->
+      <v-app-bar color="#070d1e" density="compact" elevation="1" border="bottom">
+        <v-app-bar-nav-icon size="small" @click="drawer = !drawer"></v-app-bar-nav-icon>
 
-        <v-app-bar-title class="text-subtitle-1 font-weight-bold d-flex align-center gap-2">
+        <v-app-bar-title class="text-caption font-weight-bold d-flex align-center gap-1" style="font-size: 13px !important;">
           <span>{{ tabTitles[tab] || 'Control Panel' }}</span>
-          <v-chip size="x-small" color="cyan" variant="tonal" class="ml-2 font-weight-bold">{{ tabCategories[tab] || 'LoRaWAN' }}</v-chip>
+          <v-chip size="x-small" color="cyan" variant="tonal" class="ml-1 font-weight-bold" style="height: 18px; font-size: 9px;">{{ tabCategories[tab] || 'LoRaWAN' }}</v-chip>
         </v-app-bar-title>
 
-        <!-- Horizontal Tabs for Fast Click -->
-        <v-tabs v-model="tab" color="cyan-lighten-2" density="comfortable" class="d-none d-md-flex">
-          <v-tab value="overview"><v-icon icon="mdi-view-dashboard-outline" start size="small"></v-icon>Overview</v-tab>
-          <v-tab value="users"><v-icon icon="mdi-account-multiple-outline" start size="small"></v-icon>Users</v-tab>
-          <v-tab value="roles"><v-icon icon="mdi-shield-account-outline" start size="small"></v-icon>Roles</v-tab>
-          <v-tab value="database"><v-icon icon="mdi-database-eye-outline" start size="small"></v-icon>Database</v-tab>
-          <v-tab value="devices"><v-icon icon="mdi-chip" start size="small"></v-icon>Devices</v-tab>
-          <v-tab value="telemetry"><v-icon icon="mdi-sine-wave" start size="small"></v-icon>Telemetry</v-tab>
-          <v-tab value="webhooks"><v-icon icon="mdi-webhook" start size="small"></v-icon>Webhooks</v-tab>
-          <v-tab value="decoder"><v-icon icon="mdi-code-braces" start size="small"></v-icon>Decoder</v-tab>
+        <!-- Horizontal Tabs with Zero Slide -->
+        <v-tabs v-model="tab" color="cyan-lighten-2" density="compact" class="d-none d-md-flex">
+          <v-tab value="overview"><v-icon icon="mdi-view-dashboard-outline" start size="x-small"></v-icon>Overview</v-tab>
+          <v-tab value="users"><v-icon icon="mdi-account-multiple-outline" start size="x-small"></v-icon>Users</v-tab>
+          <v-tab value="roles"><v-icon icon="mdi-shield-account-outline" start size="x-small"></v-icon>Roles</v-tab>
+          <v-tab value="database"><v-icon icon="mdi-database-eye-outline" start size="x-small"></v-icon>Database</v-tab>
+          <v-tab value="devices"><v-icon icon="mdi-chip" start size="x-small"></v-icon>Devices</v-tab>
+          <v-tab value="telemetry"><v-icon icon="mdi-sine-wave" start size="x-small"></v-icon>Telemetry</v-tab>
+          <v-tab value="webhooks"><v-icon icon="mdi-webhook" start size="x-small"></v-icon>Webhooks</v-tab>
+          <v-tab value="decoder"><v-icon icon="mdi-code-braces" start size="x-small"></v-icon>Decoder</v-tab>
         </v-tabs>
 
         <v-spacer></v-spacer>
 
-        <!-- Action Buttons -->
+        <!-- Top Right Actions -->
         <v-btn
           variant="outlined"
           color="slate-400"
-          size="small"
+          size="x-small"
           rounded="lg"
-          class="mr-2"
+          class="mr-1 text-none"
           @click="forceCleanSession"
         >
-          <v-icon icon="mdi-cached" start></v-icon>
+          <v-icon icon="mdi-cached" start size="small"></v-icon>
           Reset Session
         </v-btn>
 
@@ -211,102 +238,103 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
           href="/api/docs"
           target="_blank"
           variant="flat"
-          color="cyan-darken-2"
-          size="small"
+          color="cyan-darken-3"
+          size="x-small"
           rounded="lg"
-          class="mr-2 d-none d-sm-inline-flex"
+          class="mr-1 d-none d-sm-inline-flex text-none"
         >
-          <v-icon icon="mdi-book-open-outline" start></v-icon>
-          Swagger API
+          <v-icon icon="mdi-book-open-outline" start size="small"></v-icon>
+          Swagger
         </v-btn>
 
         <v-btn
           variant="tonal"
           color="error"
-          size="small"
+          size="x-small"
           rounded="lg"
+          class="text-none"
           @click="handleLogout"
         >
-          <v-icon icon="mdi-logout" start></v-icon>
+          <v-icon icon="mdi-logout" start size="small"></v-icon>
           Logout
         </v-btn>
       </v-app-bar>
 
-      <!-- MAIN CONTENT VIEWPORT -->
-      <v-main class="pa-4 pa-sm-6 custom-scroll">
-        <v-window v-model="tab">
+      <!-- MAIN CONTENT VIEWPORT (Zero swipe / Instant transition) -->
+      <v-main class="pa-3 pa-sm-4 custom-scroll" style="background: #070d1e;">
+        <div style="max-width: 1350px; margin: 0 auto; width: 100%;">
           
           <!-- TAB 1: OVERVIEW -->
-          <v-window-item value="overview">
-            <v-row>
-              <v-col cols="12" sm="6" md="3">
-                <v-card color="#1c2541" rounded="xl" class="pa-4" variant="outlined">
+          <div v-show="tab === 'overview'">
+            <v-row dense>
+              <v-col cols="6" sm="6" md="3">
+                <v-card color="#0e172e" rounded="lg" class="pa-3" variant="outlined">
                   <div class="d-flex justify-space-between text-caption text-medium-emphasis">
-                    <span>System Runtime</span>
-                    <v-icon icon="mdi-server" color="cyan-lighten-2"></v-icon>
+                    <span>System Status</span>
+                    <v-icon icon="mdi-server" color="cyan-lighten-2" size="small"></v-icon>
                   </div>
-                  <div class="text-h5 font-weight-bold text-white mt-2 d-flex align-center gap-2">
+                  <div class="text-subtitle-1 font-weight-bold text-white mt-1 d-flex align-center gap-1">
                     <v-badge dot color="success" inline class="mr-1"></v-badge> ONLINE
                   </div>
-                  <div class="text-caption text-medium-emphasis mt-1">NestJS Core Engine</div>
+                  <div class="text-caption text-medium-emphasis" style="font-size: 10px;">NestJS Core Platform</div>
                 </v-card>
               </v-col>
 
-              <v-col cols="12" sm="6" md="3">
-                <v-card color="#1c2541" rounded="xl" class="pa-4" variant="outlined">
+              <v-col cols="6" sm="6" md="3">
+                <v-card color="#0e172e" rounded="lg" class="pa-3" variant="outlined">
                   <div class="d-flex justify-space-between text-caption text-medium-emphasis">
                     <span>Total Accounts</span>
-                    <v-icon icon="mdi-account-group" color="emerald-lighten-2"></v-icon>
+                    <v-icon icon="mdi-account-group" color="emerald-lighten-2" size="small"></v-icon>
                   </div>
-                  <div class="text-h5 font-weight-bold text-white mt-2">{{ usersList.length || '--' }}</div>
-                  <div class="text-caption text-medium-emphasis mt-1">Super Admins & Users</div>
+                  <div class="text-subtitle-1 font-weight-bold text-white mt-1">{{ usersList.length || '--' }}</div>
+                  <div class="text-caption text-medium-emphasis" style="font-size: 10px;">Super Admins & Users</div>
                 </v-card>
               </v-col>
 
-              <v-col cols="12" sm="6" md="3">
-                <v-card color="#1c2541" rounded="xl" class="pa-4" variant="outlined">
+              <v-col cols="6" sm="6" md="3">
+                <v-card color="#0e172e" rounded="lg" class="pa-3" variant="outlined">
                   <div class="d-flex justify-space-between text-caption text-medium-emphasis">
                     <span>Configured Roles</span>
-                    <v-icon icon="mdi-shield-check" color="amber-lighten-2"></v-icon>
+                    <v-icon icon="mdi-shield-check" color="amber-lighten-2" size="small"></v-icon>
                   </div>
-                  <div class="text-h5 font-weight-bold text-white mt-2">{{ rolesList.length || '--' }}</div>
-                  <div class="text-caption text-medium-emphasis mt-1">RBAC Role Definitions</div>
+                  <div class="text-subtitle-1 font-weight-bold text-white mt-1">{{ rolesList.length || '--' }}</div>
+                  <div class="text-caption text-medium-emphasis" style="font-size: 10px;">RBAC Role Matrix</div>
                 </v-card>
               </v-col>
 
-              <v-col cols="12" sm="6" md="3">
-                <v-card color="#1c2541" rounded="xl" class="pa-4" variant="outlined">
+              <v-col cols="6" sm="6" md="3">
+                <v-card color="#0e172e" rounded="lg" class="pa-3" variant="outlined">
                   <div class="d-flex justify-space-between text-caption text-medium-emphasis">
                     <span>Database Pool</span>
-                    <v-icon icon="mdi-database" color="indigo-lighten-2"></v-icon>
+                    <v-icon icon="mdi-database" color="indigo-lighten-2" size="small"></v-icon>
                   </div>
-                  <div class="text-h5 font-weight-bold text-white mt-2">{{ dbHealth.totalConnections || 1 }}</div>
-                  <div class="text-caption text-medium-emphasis mt-1">core_db (mas.local:5432)</div>
+                  <div class="text-subtitle-1 font-weight-bold text-white mt-1">{{ dbHealth.totalConnections || 1 }}</div>
+                  <div class="text-caption text-medium-emphasis" style="font-size: 10px;">core_db (mas.local:5432)</div>
                 </v-card>
               </v-col>
             </v-row>
 
-            <v-row class="mt-4">
+            <v-row dense class="mt-2">
               <v-col cols="12" md="6">
-                <v-card color="#1c2541" rounded="xl" class="pa-5" variant="outlined">
-                  <div class="text-subtitle-1 font-weight-bold text-white mb-2 d-flex align-center gap-2">
-                    <v-icon icon="mdi-lightning-bolt" color="cyan-lighten-2"></v-icon>
+                <v-card color="#0e172e" rounded="lg" class="pa-4" variant="outlined">
+                  <div class="text-subtitle-2 font-weight-bold text-white mb-1 d-flex align-center gap-1">
+                    <v-icon icon="mdi-lightning-bolt" color="cyan-lighten-2" size="small"></v-icon>
                     System Architecture
                   </div>
-                  <p class="text-caption text-medium-emphasis" style="line-height: 1.6;">
+                  <p class="text-caption text-medium-emphasis" style="line-height: 1.5; font-size: 11.5px;">
                     Daviteq LoRaWAN Application Server provides enterprise-grade telemetry ingestion, dynamic PostgreSQL single/multi-pool table routing, and granular 5-table role-based access control.
                   </p>
-                  <v-row class="mt-2">
+                  <v-row dense class="mt-2">
                     <v-col cols="6">
-                      <v-card color="#0b132b" rounded="lg" class="pa-3" variant="outlined">
-                        <div class="text-caption text-medium-emphasis">Access Control</div>
-                        <div class="text-subtitle-2 font-weight-bold text-emerald-lighten-2 mt-1">5-Table RBAC Model</div>
+                      <v-card color="#050a17" rounded="lg" class="pa-2" variant="outlined">
+                        <div class="text-caption text-medium-emphasis" style="font-size: 10px;">Access Control</div>
+                        <div class="text-caption font-weight-bold text-emerald-lighten-2 mt-0.5">5-Table RBAC Model</div>
                       </v-card>
                     </v-col>
                     <v-col cols="6">
-                      <v-card color="#0b132b" rounded="lg" class="pa-3" variant="outlined">
-                        <div class="text-caption text-medium-emphasis">Database Routing</div>
-                        <div class="text-subtitle-2 font-weight-bold text-cyan-lighten-2 mt-1">core_db (dvt) Active</div>
+                      <v-card color="#050a17" rounded="lg" class="pa-2" variant="outlined">
+                        <div class="text-caption text-medium-emphasis" style="font-size: 10px;">Database Routing</div>
+                        <div class="text-caption font-weight-bold text-cyan-lighten-2 mt-0.5">core_db (dvt) Active</div>
                       </v-card>
                     </v-col>
                   </v-row>
@@ -314,48 +342,48 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
               </v-col>
 
               <v-col cols="12" md="6">
-                <v-card color="#1c2541" rounded="xl" class="pa-5" variant="outlined">
-                  <div class="text-subtitle-1 font-weight-bold text-white mb-3 d-flex align-center gap-2">
-                    <v-icon icon="mdi-link-variant" color="emerald-lighten-2"></v-icon>
-                    Quick Action Navigation
+                <v-card color="#0e172e" rounded="lg" class="pa-4" variant="outlined">
+                  <div class="text-subtitle-2 font-weight-bold text-white mb-2 d-flex align-center gap-1">
+                    <v-icon icon="mdi-link-variant" color="emerald-lighten-2" size="small"></v-icon>
+                    Quick Navigation Shortcuts
                   </div>
-                  <div class="d-flex flex-column gap-2">
-                    <v-btn color="#0b132b" variant="outlined" block class="justify-start text-none mb-2" rounded="lg" @click="tab = 'devices'">
-                      <v-icon icon="mdi-chip" color="cyan-lighten-2" start></v-icon> Manage LoRaWAN Device Fleet
+                  <div class="d-flex flex-column gap-1">
+                    <v-btn color="#050a17" variant="outlined" block class="justify-start text-none mb-1 text-caption" rounded="lg" density="compact" @click="tab = 'devices'">
+                      <v-icon icon="mdi-chip" color="cyan-lighten-2" start size="small"></v-icon> Manage LoRaWAN Device Fleet
                     </v-btn>
-                    <v-btn color="#0b132b" variant="outlined" block class="justify-start text-none mb-2" rounded="lg" @click="tab = 'telemetry'">
-                      <v-icon icon="mdi-sine-wave" color="indigo-lighten-2" start></v-icon> Inspect Incoming Telemetry Stream
+                    <v-btn color="#050a17" variant="outlined" block class="justify-start text-none mb-1 text-caption" rounded="lg" density="compact" @click="tab = 'telemetry'">
+                      <v-icon icon="mdi-sine-wave" color="indigo-lighten-2" start size="small"></v-icon> Inspect Incoming Telemetry Stream
                     </v-btn>
-                    <v-btn color="#0b132b" variant="outlined" block class="justify-start text-none" rounded="lg" @click="tab = 'database'">
-                      <v-icon icon="mdi-database-eye-outline" color="amber-lighten-2" start></v-icon> Visual Database Health & Metrics
+                    <v-btn color="#050a17" variant="outlined" block class="justify-start text-none text-caption" rounded="lg" density="compact" @click="tab = 'database'">
+                      <v-icon icon="mdi-database-eye-outline" color="amber-lighten-2" start size="small"></v-icon> Visual Database Health & Metrics
                     </v-btn>
                   </div>
                 </v-card>
               </v-col>
             </v-row>
-          </v-window-item>
+          </div>
 
           <!-- TAB 2: USERS -->
-          <v-window-item value="users">
-            <v-card color="#1c2541" rounded="xl" class="pa-5" variant="outlined">
-              <div class="d-flex justify-space-between align-center mb-4 flex-wrap gap-2">
+          <div v-show="tab === 'users'">
+            <v-card color="#0e172e" rounded="lg" class="pa-4" variant="outlined">
+              <div class="d-flex justify-space-between align-center mb-3 flex-wrap gap-2">
                 <div>
-                  <div class="text-h6 font-weight-bold text-white d-flex align-center gap-2">
-                    <v-icon icon="mdi-account-multiple" color="cyan-lighten-2"></v-icon> User Directory
+                  <div class="text-subtitle-2 font-weight-bold text-white d-flex align-center gap-1">
+                    <v-icon icon="mdi-account-multiple" color="cyan-lighten-2" size="small"></v-icon> User Directory
                   </div>
-                  <div class="text-caption text-medium-emphasis">Manage administrative and operator accounts</div>
+                  <div class="text-caption text-medium-emphasis" style="font-size: 10.5px;">Manage administrative and operator accounts</div>
                 </div>
-                <div class="d-flex gap-2">
-                  <v-btn color="slate-700" variant="outlined" size="small" rounded="lg" @click="fetchUsers" :loading="loadingUsers">
-                    <v-icon icon="mdi-refresh" start></v-icon> Refresh
+                <div class="d-flex gap-1">
+                  <v-btn color="slate-700" variant="outlined" size="x-small" rounded="lg" class="text-none" @click="fetchUsers" :loading="loadingUsers">
+                    <v-icon icon="mdi-refresh" start size="small"></v-icon> Refresh
                   </v-btn>
-                  <v-btn color="cyan-darken-2" variant="flat" size="small" rounded="lg" @click="openCreateUserDialog">
-                    <v-icon icon="mdi-account-plus" start></v-icon> Create User
+                  <v-btn color="cyan-darken-3" variant="flat" size="x-small" rounded="lg" class="text-none" @click="openCreateUserDialog">
+                    <v-icon icon="mdi-account-plus" start size="small"></v-icon> Create User
                   </v-btn>
                 </div>
               </div>
 
-              <v-table hover class="bg-transparent rounded-lg border">
+              <v-table hover class="bg-transparent rounded-lg border compact-table">
                 <thead>
                   <tr class="bg-slate-950">
                     <th class="text-caption font-weight-bold text-slate-400">Username</th>
@@ -369,83 +397,83 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
                 </thead>
                 <tbody>
                   <tr v-if="usersList.length === 0">
-                    <td colspan="7" class="text-center py-6 text-medium-emphasis">No user accounts found.</td>
+                    <td colspan="7" class="text-center py-4 text-medium-emphasis text-caption">No user accounts found.</td>
                   </tr>
                   <tr v-for="u in usersList" :key="u.id">
-                    <td class="font-mono font-weight-bold text-white">{{ u.username }}</td>
-                    <td>{{ u.fullName || '--' }}</td>
-                    <td class="text-medium-emphasis">{{ u.email }}</td>
+                    <td class="font-mono font-weight-bold text-white text-caption">{{ u.username }}</td>
+                    <td class="text-caption">{{ u.fullName || '--' }}</td>
+                    <td class="text-medium-emphasis text-caption">{{ u.email }}</td>
                     <td>
-                      <v-chip size="x-small" :color="u.userType === 'ADMIN' ? 'success' : 'cyan'" variant="tonal" class="font-weight-bold">
+                      <v-chip size="x-small" :color="u.userType === 'ADMIN' ? 'success' : 'cyan'" variant="tonal" class="font-weight-bold" style="height: 18px; font-size: 9px;">
                         {{ u.userType }}
                       </v-chip>
                     </td>
                     <td>
-                      <span v-if="!u.roles || u.roles.length === 0" class="text-medium-emphasis text-caption">None</span>
-                      <v-chip v-for="r in u.roles" :key="r.id || r" size="x-small" color="cyan" variant="tonal" class="mr-1">
+                      <span v-if="!u.roles || u.roles.length === 0" class="text-medium-emphasis text-caption" style="font-size: 10px;">None</span>
+                      <v-chip v-for="r in u.roles" :key="r.id || r" size="x-small" color="cyan" variant="tonal" class="mr-1" style="height: 18px; font-size: 9px;">
                         {{ r.name || r.code || r }}
                       </v-chip>
                     </td>
                     <td>
-                      <v-chip size="x-small" :color="u.isActive ? 'success' : 'error'" variant="tonal">
+                      <v-chip size="x-small" :color="u.isActive ? 'success' : 'error'" variant="tonal" style="height: 18px; font-size: 9px;">
                         {{ u.isActive ? 'Active' : 'Suspended' }}
                       </v-chip>
                     </td>
                     <td class="text-right">
-                      <v-btn size="x-small" variant="tonal" color="cyan" class="mr-1" @click="openEditUserDialog(u)">Edit</v-btn>
-                      <v-btn size="x-small" variant="tonal" color="error" @click="deleteUser(u.id)" :disabled="u.username === 'admin'">Delete</v-btn>
+                      <v-btn size="x-small" variant="tonal" color="cyan" class="mr-1 text-none" density="compact" @click="openEditUserDialog(u)">Edit</v-btn>
+                      <v-btn size="x-small" variant="tonal" color="error" class="text-none" density="compact" @click="deleteUser(u.id)" :disabled="u.username === 'admin'">Delete</v-btn>
                     </td>
                   </tr>
                 </tbody>
               </v-table>
             </v-card>
-          </v-window-item>
+          </div>
 
           <!-- TAB 3: ROLES -->
-          <v-window-item value="roles">
-            <v-card color="#1c2541" rounded="xl" class="pa-5" variant="outlined">
-              <div class="d-flex justify-space-between align-center mb-4 flex-wrap gap-2">
+          <div v-show="tab === 'roles'">
+            <v-card color="#0e172e" rounded="lg" class="pa-4" variant="outlined">
+              <div class="d-flex justify-space-between align-center mb-3 flex-wrap gap-2">
                 <div>
-                  <div class="text-h6 font-weight-bold text-white d-flex align-center gap-2">
-                    <v-icon icon="mdi-shield-account" color="amber-lighten-2"></v-icon> Role Matrix & Permissions
+                  <div class="text-subtitle-2 font-weight-bold text-white d-flex align-center gap-1">
+                    <v-icon icon="mdi-shield-account" color="amber-lighten-2" size="small"></v-icon> Role Matrix & Permissions
                   </div>
-                  <div class="text-caption text-medium-emphasis">Configure RBAC roles and granular access rights</div>
+                  <div class="text-caption text-medium-emphasis" style="font-size: 10.5px;">Configure RBAC roles and granular access privileges</div>
                 </div>
-                <div class="d-flex gap-2">
-                  <v-btn color="slate-700" variant="outlined" size="small" rounded="lg" @click="fetchRoles" :loading="loadingRoles">
-                    <v-icon icon="mdi-refresh" start></v-icon> Refresh
+                <div class="d-flex gap-1">
+                  <v-btn color="slate-700" variant="outlined" size="x-small" rounded="lg" class="text-none" @click="fetchRoles" :loading="loadingRoles">
+                    <v-icon icon="mdi-refresh" start size="small"></v-icon> Refresh
                   </v-btn>
-                  <v-btn color="amber-darken-2" variant="flat" size="small" rounded="lg" @click="openCreateRoleDialog">
-                    <v-icon icon="mdi-plus" start></v-icon> Create Role
+                  <v-btn color="amber-darken-3" variant="flat" size="x-small" rounded="lg" class="text-none" @click="openCreateRoleDialog">
+                    <v-icon icon="mdi-plus" start size="small"></v-icon> Create Role
                   </v-btn>
                 </div>
               </div>
 
               <!-- Roles Cards Grid -->
-              <v-row class="mb-4">
+              <v-row dense class="mb-3">
                 <v-col v-for="r in rolesList" :key="r.id" cols="12" sm="6" md="4">
-                  <v-card color="#0b132b" rounded="lg" class="pa-4" variant="outlined">
+                  <v-card color="#050a17" rounded="lg" class="pa-3" variant="outlined">
                     <div class="d-flex justify-space-between align-center">
-                      <span class="font-weight-bold text-subtitle-2" :class="r.code === 'SUPER_ADMIN' ? 'text-emerald-lighten-2' : 'text-cyan-lighten-2'">
-                        <v-icon :icon="r.code === 'SUPER_ADMIN' ? 'mdi-crown' : 'mdi-shield-check'" size="small" start></v-icon>
+                      <span class="font-weight-bold text-caption" :class="r.code === 'SUPER_ADMIN' ? 'text-emerald-lighten-2' : 'text-cyan-lighten-2'">
+                        <v-icon :icon="r.code === 'SUPER_ADMIN' ? 'mdi-crown' : 'mdi-shield-check'" size="x-small" start></v-icon>
                         {{ r.name }}
                       </span>
-                      <v-chip size="x-small" :color="r.code === 'SUPER_ADMIN' ? 'success' : 'cyan'" variant="tonal" class="font-mono">
+                      <v-chip size="x-small" :color="r.code === 'SUPER_ADMIN' ? 'success' : 'cyan'" variant="tonal" class="font-mono" style="height: 18px; font-size: 9px;">
                         {{ r.code }}
                       </v-chip>
                     </div>
-                    <div class="text-caption text-medium-emphasis my-2">{{ r.description || 'No description provided' }}</div>
-                    <div class="d-flex justify-space-between align-center text-caption text-medium-emphasis pt-2 border-t border-slate-800">
-                      <span>{{ r.permissions ? r.permissions.length : 0 }} privileges assigned</span>
-                      <v-btn v-if="r.code !== 'SUPER_ADMIN'" size="x-small" variant="text" color="cyan" @click="openEditRoleDialog(r)">Edit</v-btn>
-                      <span v-else class="text-caption text-slate-500 font-mono">Protected</span>
+                    <div class="text-caption text-medium-emphasis my-1" style="font-size: 10.5px;">{{ r.description || 'No description provided' }}</div>
+                    <div class="d-flex justify-space-between align-center text-caption text-medium-emphasis pt-1 border-t border-slate-800" style="font-size: 10px;">
+                      <span>{{ r.permissions ? r.permissions.length : 0 }} privileges</span>
+                      <v-btn v-if="r.code !== 'SUPER_ADMIN'" size="x-small" variant="text" color="cyan" density="compact" class="text-none" @click="openEditRoleDialog(r)">Edit</v-btn>
+                      <span v-else class="text-caption text-slate-500 font-mono" style="font-size: 9px;">Protected</span>
                     </div>
                   </v-card>
                 </v-col>
               </v-row>
 
               <!-- Roles Table Details -->
-              <v-table hover class="bg-transparent rounded-lg border">
+              <v-table hover class="bg-transparent rounded-lg border compact-table">
                 <thead>
                   <tr class="bg-slate-950">
                     <th class="text-caption font-weight-bold text-slate-400">Role Code</th>
@@ -457,57 +485,57 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
                 </thead>
                 <tbody>
                   <tr v-for="r in rolesList" :key="r.id">
-                    <td class="font-mono font-weight-bold" :class="r.code === 'SUPER_ADMIN' ? 'text-emerald-lighten-2' : 'text-cyan-lighten-2'">{{ r.code }}</td>
-                    <td class="font-weight-bold text-white">{{ r.name }}</td>
-                    <td class="text-medium-emphasis">{{ r.description || '--' }}</td>
+                    <td class="font-mono font-weight-bold text-caption" :class="r.code === 'SUPER_ADMIN' ? 'text-emerald-lighten-2' : 'text-cyan-lighten-2'">{{ r.code }}</td>
+                    <td class="font-weight-bold text-white text-caption">{{ r.name }}</td>
+                    <td class="text-medium-emphasis text-caption">{{ r.description || '--' }}</td>
                     <td>
-                      <v-chip v-for="p in (r.permissions || [])" :key="p.id" size="x-small" color="slate-700" variant="tonal" class="mr-1 mb-1 font-mono">
+                      <v-chip v-for="p in (r.permissions || [])" :key="p.id" size="x-small" color="slate-700" variant="tonal" class="mr-1 mb-1 font-mono" style="height: 18px; font-size: 9px;">
                         {{ p.name }}
                       </v-chip>
                     </td>
                     <td class="text-right">
                       <template v-if="r.code !== 'SUPER_ADMIN'">
-                        <v-btn size="x-small" variant="tonal" color="cyan" class="mr-1" @click="openEditRoleDialog(r)">Edit</v-btn>
-                        <v-btn size="x-small" variant="tonal" color="error" @click="deleteRole(r.id)">Delete</v-btn>
+                        <v-btn size="x-small" variant="tonal" color="cyan" class="mr-1 text-none" density="compact" @click="openEditRoleDialog(r)">Edit</v-btn>
+                        <v-btn size="x-small" variant="tonal" color="error" class="text-none" density="compact" @click="deleteRole(r.id)">Delete</v-btn>
                       </template>
-                      <span v-else class="text-caption text-slate-500 font-mono">Immutable</span>
+                      <span v-else class="text-caption text-slate-500 font-mono" style="font-size: 9px;">Immutable</span>
                     </td>
                   </tr>
                 </tbody>
               </v-table>
             </v-card>
-          </v-window-item>
+          </div>
 
           <!-- TAB 4: DATABASE HEALTH -->
-          <v-window-item value="database">
-            <v-card color="#1c2541" rounded="xl" class="pa-5 mb-4" variant="outlined">
-              <div class="d-flex justify-space-between align-center mb-4 flex-wrap gap-2">
+          <div v-show="tab === 'database'">
+            <v-card color="#0e172e" rounded="lg" class="pa-4 mb-3" variant="outlined">
+              <div class="d-flex justify-space-between align-center mb-3 flex-wrap gap-2">
                 <div>
-                  <div class="text-h6 font-weight-bold text-white d-flex align-center gap-2">
-                    <v-icon icon="mdi-heart-pulse" color="emerald-lighten-2"></v-icon> Visual Database Health
+                  <div class="text-subtitle-2 font-weight-bold text-white d-flex align-center gap-1">
+                    <v-icon icon="mdi-heart-pulse" color="emerald-lighten-2" size="small"></v-icon> Visual Database Health
                   </div>
-                  <div class="text-caption text-medium-emphasis">Real-time status of PostgreSQL connection pools</div>
+                  <div class="text-caption text-medium-emphasis" style="font-size: 10.5px;">Real-time status of PostgreSQL connection pools</div>
                 </div>
-                <div class="d-flex gap-2">
-                  <v-btn color="slate-700" variant="outlined" size="small" rounded="lg" @click="fetchDbHealth">
-                    <v-icon icon="mdi-refresh" start></v-icon> Refresh
+                <div class="d-flex gap-1">
+                  <v-btn color="slate-700" variant="outlined" size="x-small" rounded="lg" class="text-none" @click="fetchDbHealth">
+                    <v-icon icon="mdi-refresh" start size="small"></v-icon> Refresh
                   </v-btn>
-                  <v-btn color="cyan-darken-2" variant="flat" size="small" rounded="lg" @click="reloadDbConfig">
-                    <v-icon icon="mdi-cog-refresh" start></v-icon> Hot-Reload Config
+                  <v-btn color="cyan-darken-3" variant="flat" size="x-small" rounded="lg" class="text-none" @click="reloadDbConfig">
+                    <v-icon icon="mdi-cog-refresh" start size="small"></v-icon> Hot-Reload Config
                   </v-btn>
                 </div>
               </div>
 
-              <v-row>
+              <v-row dense>
                 <v-col v-for="(conn, key) in dbHealth.connections" :key="key" cols="12" sm="6" md="4">
-                  <v-card color="#0b132b" rounded="lg" class="pa-4" variant="outlined">
-                    <div class="d-flex justify-space-between align-center mb-2">
-                      <span class="font-mono font-weight-bold text-white">{{ conn.name }}</span>
-                      <v-chip size="x-small" :color="conn.isAlive ? 'success' : 'error'" variant="tonal" class="font-weight-bold">
+                  <v-card color="#050a17" rounded="lg" class="pa-3" variant="outlined">
+                    <div class="d-flex justify-space-between align-center mb-1">
+                      <span class="font-mono font-weight-bold text-white text-caption">{{ conn.name }}</span>
+                      <v-chip size="x-small" :color="conn.isAlive ? 'success' : 'error'" variant="tonal" class="font-weight-bold" style="height: 18px; font-size: 9px;">
                         {{ conn.isAlive ? 'CONNECTED' : 'OFFLINE' }}
                       </v-chip>
                     </div>
-                    <div class="text-caption text-medium-emphasis font-mono" style="line-height: 1.8;">
+                    <div class="text-caption text-medium-emphasis font-mono" style="line-height: 1.6; font-size: 10.5px;">
                       <div>Host: <strong class="text-white">{{ conn.host }}:{{ conn.port }}</strong></div>
                       <div>Database: <strong class="text-white">{{ conn.database }}</strong></div>
                       <div>Ping Latency: <strong :class="conn.latencyMs < 50 ? 'text-emerald-lighten-2' : 'text-amber-lighten-2'">{{ conn.latencyMs !== null ? conn.latencyMs + ' ms' : 'N/A' }}</strong></div>
@@ -518,9 +546,9 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
               </v-row>
             </v-card>
 
-            <v-card color="#1c2541" rounded="xl" class="pa-5" variant="outlined">
-              <div class="text-subtitle-1 font-weight-bold text-white mb-3">Active Table Routing & Live Record Counts</div>
-              <v-table hover class="bg-transparent rounded-lg border">
+            <v-card color="#0e172e" rounded="lg" class="pa-4" variant="outlined">
+              <div class="text-caption font-weight-bold text-white mb-2">Active Table Routing & Live Record Counts</div>
+              <v-table hover class="bg-transparent rounded-lg border compact-table">
                 <thead>
                   <tr class="bg-slate-950">
                     <th class="text-caption font-weight-bold text-slate-400">Table / Entity</th>
@@ -531,37 +559,37 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
                 </thead>
                 <tbody>
                   <tr v-for="(stat, tableName) in dbHealth.tableStats" :key="tableName">
-                    <td class="font-mono font-weight-bold text-white">{{ tableName }}</td>
-                    <td class="font-mono text-cyan-lighten-2">{{ stat.routedTo }}</td>
-                    <td class="font-weight-bold text-emerald-lighten-2">{{ Number(stat.recordCount).toLocaleString() }} rows</td>
-                    <td><v-chip size="x-small" color="success" variant="tonal">{{ stat.status }}</v-chip></td>
+                    <td class="font-mono font-weight-bold text-white text-caption">{{ tableName }}</td>
+                    <td class="font-mono text-cyan-lighten-2 text-caption">{{ stat.routedTo }}</td>
+                    <td class="font-weight-bold text-emerald-lighten-2 text-caption">{{ Number(stat.recordCount).toLocaleString() }} rows</td>
+                    <td><v-chip size="x-small" color="success" variant="tonal" style="height: 18px; font-size: 9px;">{{ stat.status }}</v-chip></td>
                   </tr>
                 </tbody>
               </v-table>
             </v-card>
-          </v-window-item>
+          </div>
 
           <!-- TAB 5: DEVICES -->
-          <v-window-item value="devices">
-            <v-card color="#1c2541" rounded="xl" class="pa-5" variant="outlined">
-              <div class="d-flex justify-space-between align-center mb-4 flex-wrap gap-2">
+          <div v-show="tab === 'devices'">
+            <v-card color="#0e172e" rounded="lg" class="pa-4" variant="outlined">
+              <div class="d-flex justify-space-between align-center mb-3 flex-wrap gap-2">
                 <div>
-                  <div class="text-h6 font-weight-bold text-white d-flex align-center gap-2">
-                    <v-icon icon="mdi-chip" color="cyan-lighten-2"></v-icon> LoRaWAN Device Fleet
+                  <div class="text-subtitle-2 font-weight-bold text-white d-flex align-center gap-1">
+                    <v-icon icon="mdi-chip" color="cyan-lighten-2" size="small"></v-icon> LoRaWAN Device Fleet
                   </div>
-                  <div class="text-caption text-medium-emphasis">Registered End Devices and decoder bindings</div>
+                  <div class="text-caption text-medium-emphasis" style="font-size: 10.5px;">Registered End Devices and decoder bindings</div>
                 </div>
-                <div class="d-flex gap-2">
-                  <v-btn color="slate-700" variant="outlined" size="small" rounded="lg" @click="fetchDevices">
-                    <v-icon icon="mdi-refresh" start></v-icon> Refresh
+                <div class="d-flex gap-1">
+                  <v-btn color="slate-700" variant="outlined" size="x-small" rounded="lg" class="text-none" @click="fetchDevices">
+                    <v-icon icon="mdi-refresh" start size="small"></v-icon> Refresh
                   </v-btn>
-                  <v-btn color="cyan-darken-2" variant="flat" size="small" rounded="lg" @click="openRegisterDeviceDialog">
-                    <v-icon icon="mdi-plus" start></v-icon> Register Device
+                  <v-btn color="cyan-darken-3" variant="flat" size="x-small" rounded="lg" class="text-none" @click="openRegisterDeviceDialog">
+                    <v-icon icon="mdi-plus" start size="small"></v-icon> Register Device
                   </v-btn>
                 </div>
               </div>
 
-              <v-table hover class="bg-transparent rounded-lg border">
+              <v-table hover class="bg-transparent rounded-lg border compact-table">
                 <thead>
                   <tr class="bg-slate-950">
                     <th class="text-caption font-weight-bold text-slate-400">DevEUI</th>
@@ -574,49 +602,49 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
                 </thead>
                 <tbody>
                   <tr v-if="devicesList.length === 0">
-                    <td colspan="6" class="text-center py-6 text-medium-emphasis">No LoRaWAN devices registered. Click "+ Register Device" to add one.</td>
+                    <td colspan="6" class="text-center py-4 text-medium-emphasis text-caption">No LoRaWAN devices registered. Click "+ Register Device" to add one.</td>
                   </tr>
                   <tr v-for="d in devicesList" :key="d.id || d.devEUI">
-                    <td class="font-mono font-weight-bold text-cyan-lighten-2">{{ d.devEUI }}</td>
-                    <td class="font-weight-bold text-white">{{ d.name || '--' }}</td>
-                    <td><v-chip size="x-small" color="amber" variant="tonal">{{ d.activationType || 'OTAA' }}</v-chip></td>
+                    <td class="font-mono font-weight-bold text-cyan-lighten-2 text-caption">{{ d.devEUI }}</td>
+                    <td class="font-weight-bold text-white text-caption">{{ d.name || '--' }}</td>
+                    <td><v-chip size="x-small" color="amber" variant="tonal" style="height: 18px; font-size: 9px;">{{ d.activationType || 'OTAA' }}</v-chip></td>
                     <td>
-                      <v-chip size="x-small" :color="d.payloadFormatterScript ? 'success' : 'slate-700'" variant="tonal">
+                      <v-chip size="x-small" :color="d.payloadFormatterScript ? 'success' : 'slate-700'" variant="tonal" style="height: 18px; font-size: 9px;">
                         {{ d.payloadFormatterScript ? 'Configured' : 'None' }}
                       </v-chip>
                     </td>
                     <td>
-                      <v-chip size="x-small" :color="d.isActive ? 'success' : 'error'" variant="tonal">
+                      <v-chip size="x-small" :color="d.isActive ? 'success' : 'error'" variant="tonal" style="height: 18px; font-size: 9px;">
                         {{ d.isActive ? 'ACTIVE' : 'INACTIVE' }}
                       </v-chip>
                     </td>
                     <td class="text-right">
-                      <v-btn size="x-small" variant="tonal" color="cyan" @click="testDevice(d)">Test Payload</v-btn>
+                      <v-btn size="x-small" variant="tonal" color="cyan" class="text-none" density="compact" @click="testDevice(d)">Test Payload</v-btn>
                     </td>
                   </tr>
                 </tbody>
               </v-table>
             </v-card>
-          </v-window-item>
+          </div>
 
           <!-- TAB 6: TELEMETRY -->
-          <v-window-item value="telemetry">
-            <v-card color="#1c2541" rounded="xl" class="pa-5" variant="outlined">
-              <div class="d-flex justify-space-between align-center mb-4 flex-wrap gap-2">
+          <div v-show="tab === 'telemetry'">
+            <v-card color="#0e172e" rounded="lg" class="pa-4" variant="outlined">
+              <div class="d-flex justify-space-between align-center mb-3 flex-wrap gap-2">
                 <div>
-                  <div class="text-h6 font-weight-bold text-white d-flex align-center gap-2">
-                    <v-icon icon="mdi-sine-wave" color="indigo-lighten-2"></v-icon> Live Telemetry Stream
+                  <div class="text-subtitle-2 font-weight-bold text-white d-flex align-center gap-1">
+                    <v-icon icon="mdi-sine-wave" color="indigo-lighten-2" size="small"></v-icon> Live Telemetry Stream
                   </div>
-                  <div class="text-caption text-medium-emphasis">Real-time incoming LoRaWAN uplink packets</div>
+                  <div class="text-caption text-medium-emphasis" style="font-size: 10.5px;">Real-time stream of incoming LoRaWAN uplink packets</div>
                 </div>
-                <div class="d-flex align-center gap-2">
-                  <v-btn color="slate-700" variant="outlined" size="small" rounded="lg" @click="fetchTelemetry">
-                    <v-icon icon="mdi-refresh" start></v-icon> Refresh
+                <div class="d-flex align-center gap-1">
+                  <v-btn color="slate-700" variant="outlined" size="x-small" rounded="lg" class="text-none" @click="fetchTelemetry">
+                    <v-icon icon="mdi-refresh" start size="small"></v-icon> Refresh
                   </v-btn>
                 </div>
               </div>
 
-              <v-table hover class="bg-transparent rounded-lg border">
+              <v-table hover class="bg-transparent rounded-lg border compact-table">
                 <thead>
                   <tr class="bg-slate-950">
                     <th class="text-caption font-weight-bold text-slate-400">Timestamp</th>
@@ -629,111 +657,111 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
                 </thead>
                 <tbody>
                   <tr v-if="telemetryList.length === 0">
-                    <td colspan="6" class="text-center py-6 text-medium-emphasis">No incoming telemetry packets yet. Send a webhook to see live data.</td>
+                    <td colspan="6" class="text-center py-4 text-medium-emphasis text-caption">No incoming telemetry packets yet. Send a webhook to see live data.</td>
                   </tr>
                   <tr v-for="t in telemetryList" :key="t.id">
                     <td class="text-caption text-medium-emphasis">{{ formatTime(t.timestamp || t.createdAt) }}</td>
-                    <td class="font-mono font-weight-bold text-cyan-lighten-2">{{ t.devEUI }}</td>
-                    <td class="font-mono text-amber-lighten-2">p:{{ t.fPort || 1 }} / c:{{ t.fCnt || 0 }}</td>
-                    <td class="font-mono text-slate-300">{{ t.payloadHex || '--' }}</td>
-                    <td class="font-mono text-emerald-lighten-2">{{ formatDecoded(t.decodedPayload) }}</td>
+                    <td class="font-mono font-weight-bold text-cyan-lighten-2 text-caption">{{ t.devEUI }}</td>
+                    <td class="font-mono text-amber-lighten-2 text-caption">p:{{ t.fPort || 1 }} / c:{{ t.fCnt || 0 }}</td>
+                    <td class="font-mono text-slate-300 text-caption">{{ t.payloadHex || '--' }}</td>
+                    <td class="font-mono text-emerald-lighten-2 text-caption">{{ formatDecoded(t.decodedPayload) }}</td>
                     <td class="text-caption text-medium-emphasis">{{ t.rssi !== undefined ? t.rssi + ' dBm' : '--' }} / {{ t.snr !== undefined ? t.snr + ' dB' : '--' }}</td>
                   </tr>
                 </tbody>
               </v-table>
             </v-card>
-          </v-window-item>
+          </div>
 
           <!-- TAB 7: WEBHOOKS -->
-          <v-window-item value="webhooks">
-            <v-card color="#1c2541" rounded="xl" class="pa-5" variant="outlined">
-              <div class="text-h6 font-weight-bold text-white mb-1 d-flex align-center gap-2">
-                <v-icon icon="mdi-webhook" color="emerald-lighten-2"></v-icon> Network Server Webhooks
+          <div v-show="tab === 'webhooks'">
+            <v-card color="#0e172e" rounded="lg" class="pa-4" variant="outlined">
+              <div class="text-subtitle-2 font-weight-bold text-white mb-1 d-flex align-center gap-1">
+                <v-icon icon="mdi-webhook" color="emerald-lighten-2" size="small"></v-icon> Network Server Webhooks
               </div>
-              <p class="text-caption text-medium-emphasis mb-4">Configure these HTTP endpoints on your Network Server (ChirpStack v4 or ThingPark Wireless):</p>
+              <p class="text-caption text-medium-emphasis mb-3" style="font-size: 11px;">Configure these HTTP endpoints on your Network Server (ChirpStack v4 or ThingPark Wireless):</p>
 
-              <v-row>
+              <v-row dense>
                 <v-col cols="12" md="6">
-                  <v-card color="#0b132b" rounded="lg" class="pa-4" variant="outlined">
-                    <div class="d-flex justify-space-between align-center mb-2">
-                      <span class="text-subtitle-2 font-weight-bold text-cyan-lighten-2">ChirpStack v4 Ingestion</span>
-                      <v-chip size="x-small" color="cyan" variant="tonal">POST / JSON</v-chip>
+                  <v-card color="#050a17" rounded="lg" class="pa-3" variant="outlined">
+                    <div class="d-flex justify-space-between align-center mb-1">
+                      <span class="text-caption font-weight-bold text-cyan-lighten-2">ChirpStack v4 Ingestion</span>
+                      <v-chip size="x-small" color="cyan" variant="tonal" style="height: 18px; font-size: 9px;">POST / JSON</v-chip>
                     </div>
-                    <div class="code-box pa-2 d-flex justify-space-between align-center my-2 text-caption">
+                    <div class="code-box pa-2 d-flex justify-space-between align-center my-1 text-caption font-mono" style="font-size: 11px;">
                       <span>POST /lorawan/webhook/chirpstack</span>
-                      <v-btn size="x-small" variant="text" color="cyan" @click="copyUrl('/lorawan/webhook/chirpstack')">Copy</v-btn>
+                      <v-btn size="x-small" variant="text" color="cyan" density="compact" class="text-none" @click="copyUrl('/lorawan/webhook/chirpstack')">Copy</v-btn>
                     </div>
-                    <div class="text-caption text-medium-emphasis">Supports ChirpStack uplink events, deduplication, and payload parsing.</div>
+                    <div class="text-caption text-medium-emphasis" style="font-size: 10px;">Supports ChirpStack uplink events, deduplication, and payload parsing.</div>
                   </v-card>
                 </v-col>
 
                 <v-col cols="12" md="6">
-                  <v-card color="#0b132b" rounded="lg" class="pa-4" variant="outlined">
-                    <div class="d-flex justify-space-between align-center mb-2">
-                      <span class="text-subtitle-2 font-weight-bold text-emerald-lighten-2">ThingPark Wireless Ingestion</span>
-                      <v-chip size="x-small" color="success" variant="tonal">POST / JSON</v-chip>
+                  <v-card color="#050a17" rounded="lg" class="pa-3" variant="outlined">
+                    <div class="d-flex justify-space-between align-center mb-1">
+                      <span class="text-caption font-weight-bold text-emerald-lighten-2">ThingPark Wireless Ingestion</span>
+                      <v-chip size="x-small" color="success" variant="tonal" style="height: 18px; font-size: 9px;">POST / JSON</v-chip>
                     </div>
-                    <div class="code-box pa-2 d-flex justify-space-between align-center my-2 text-caption">
+                    <div class="code-box pa-2 d-flex justify-space-between align-center my-1 text-caption font-mono" style="font-size: 11px;">
                       <span>POST /lorawan/webhook/thingpark</span>
-                      <v-btn size="x-small" variant="text" color="emerald" @click="copyUrl('/lorawan/webhook/thingpark')">Copy</v-btn>
+                      <v-btn size="x-small" variant="text" color="emerald" density="compact" class="text-none" @click="copyUrl('/lorawan/webhook/thingpark')">Copy</v-btn>
                     </div>
-                    <div class="text-caption text-medium-emphasis">Supports Actility ThingPark Wireless DX packets and hex payloads.</div>
+                    <div class="text-caption text-medium-emphasis" style="font-size: 10px;">Supports Actility ThingPark Wireless DX packets and hex payloads.</div>
                   </v-card>
                 </v-col>
               </v-row>
             </v-card>
-          </v-window-item>
+          </div>
 
           <!-- TAB 8: DECODER SANDBOX -->
-          <v-window-item value="decoder">
-            <v-card color="#1c2541" rounded="xl" class="pa-5" variant="outlined">
-              <div class="text-h6 font-weight-bold text-white mb-1 d-flex align-center gap-2">
-                <v-icon icon="mdi-code-braces" color="purple-lighten-2"></v-icon> Payload Formatter Sandbox
+          <div v-show="tab === 'decoder'">
+            <v-card color="#0e172e" rounded="lg" class="pa-4" variant="outlined">
+              <div class="text-subtitle-2 font-weight-bold text-white mb-1 d-flex align-center gap-1">
+                <v-icon icon="mdi-code-braces" color="purple-lighten-2" size="small"></v-icon> Payload Formatter Sandbox
               </div>
-              <p class="text-caption text-medium-emphasis mb-4">Test JavaScript decoder functions on raw hex bytes in a secure sandbox:</p>
+              <p class="text-caption text-medium-emphasis mb-3" style="font-size: 11px;">Test JavaScript decoder functions on raw hex bytes in a secure sandbox:</p>
 
-              <v-row>
+              <v-row dense>
                 <v-col cols="12" md="6">
                   <div class="text-caption font-weight-bold text-white mb-1">JavaScript Decoder Function</div>
                   <v-textarea
                     v-model="sandboxCode"
-                    rows="10"
+                    rows="8"
                     variant="outlined"
-                    class="font-mono"
-                    density="comfortable"
+                    class="font-mono text-caption"
+                    density="compact"
                     color="purple-lighten-2"
                   ></v-textarea>
                 </v-col>
 
                 <v-col cols="12" md="6">
                   <div class="text-caption font-weight-bold text-white mb-1">Test Hex String</div>
-                  <div class="d-flex gap-2 mb-3">
+                  <div class="d-flex gap-2 mb-2">
                     <v-text-field
                       v-model="sandboxHex"
                       variant="outlined"
                       density="compact"
-                      class="font-mono"
+                      class="font-mono text-caption"
                       color="purple-lighten-2"
                       hide-details
                     ></v-text-field>
-                    <v-btn color="purple-darken-2" @click="runSandboxDecode">Decode</v-btn>
+                    <v-btn color="purple-darken-3" size="small" class="text-none" @click="runSandboxDecode">Decode</v-btn>
                   </div>
 
                   <div class="text-caption font-weight-bold text-white mb-1">Decoded Output</div>
-                  <pre class="code-box pa-3 text-emerald-lighten-2 font-mono" style="height: 190px; overflow: auto;">{{ sandboxResult }}</pre>
+                  <pre class="code-box pa-2 text-emerald-lighten-2 font-mono text-caption" style="height: 155px; overflow: auto; font-size: 11px;">{{ sandboxResult }}</pre>
                 </v-col>
               </v-row>
             </v-card>
-          </v-window-item>
+          </div>
 
-        </v-window>
+        </div>
       </v-main>
 
       <!-- DIALOG: CREATE USER -->
-      <v-dialog v-model="createUserDialog" max-width="500">
-        <v-card color="#1c2541" rounded="xl" class="pa-4">
-          <v-card-title class="text-h6 font-weight-bold text-white">Create User Account</v-card-title>
-          <v-card-text>
+      <v-dialog v-model="createUserDialog" max-width="450">
+        <v-card color="#0e172e" rounded="lg" class="pa-4">
+          <v-card-title class="text-subtitle-1 font-weight-bold text-white">Create User Account</v-card-title>
+          <v-card-text class="pa-0 mt-2">
             <v-form @submit.prevent="submitCreateUser">
               <v-text-field v-model="newUser.username" label="Username" required variant="outlined" density="compact" class="mb-2"></v-text-field>
               <v-text-field v-model="newUser.fullName" label="Full Name" required variant="outlined" density="compact" class="mb-2"></v-text-field>
@@ -758,18 +786,18 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
               ></v-select>
             </v-form>
           </v-card-text>
-          <v-card-actions class="justify-end">
-            <v-btn variant="text" @click="createUserDialog = false">Cancel</v-btn>
-            <v-btn color="cyan" variant="flat" @click="submitCreateUser" :loading="savingUser">Save User</v-btn>
+          <v-card-actions class="justify-end pa-0 mt-3">
+            <v-btn variant="text" size="small" class="text-none" @click="createUserDialog = false">Cancel</v-btn>
+            <v-btn color="cyan-darken-3" variant="flat" size="small" class="text-none" @click="submitCreateUser" :loading="savingUser">Save User</v-btn>
           </v-card-actions>
         </v-card>
       </v-dialog>
 
       <!-- DIALOG: EDIT USER -->
-      <v-dialog v-model="editUserDialog" max-width="500">
-        <v-card color="#1c2541" rounded="xl" class="pa-4">
-          <v-card-title class="text-h6 font-weight-bold text-white">Edit User</v-card-title>
-          <v-card-text>
+      <v-dialog v-model="editUserDialog" max-width="450">
+        <v-card color="#0e172e" rounded="lg" class="pa-4">
+          <v-card-title class="text-subtitle-1 font-weight-bold text-white">Edit User</v-card-title>
+          <v-card-text class="pa-0 mt-2">
             <v-text-field v-model="editUser.username" label="Username" disabled variant="outlined" density="compact" class="mb-2"></v-text-field>
             <v-select
               v-model="editUser.roleId"
@@ -791,23 +819,23 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
               density="compact"
             ></v-select>
           </v-card-text>
-          <v-card-actions class="justify-end">
-            <v-btn variant="text" @click="editUserDialog = false">Cancel</v-btn>
-            <v-btn color="cyan" variant="flat" @click="submitEditUser" :loading="savingUser">Update User</v-btn>
+          <v-card-actions class="justify-end pa-0 mt-3">
+            <v-btn variant="text" size="small" class="text-none" @click="editUserDialog = false">Cancel</v-btn>
+            <v-btn color="cyan-darken-3" variant="flat" size="small" class="text-none" @click="submitEditUser" :loading="savingUser">Update User</v-btn>
           </v-card-actions>
         </v-card>
       </v-dialog>
 
       <!-- DIALOG: CREATE ROLE -->
-      <v-dialog v-model="createRoleDialog" max-width="560">
-        <v-card color="#1c2541" rounded="xl" class="pa-4">
-          <v-card-title class="text-h6 font-weight-bold text-white">Create New Role</v-card-title>
-          <v-card-text>
+      <v-dialog v-model="createRoleDialog" max-width="500">
+        <v-card color="#0e172e" rounded="lg" class="pa-4">
+          <v-card-title class="text-subtitle-1 font-weight-bold text-white">Create New Role</v-card-title>
+          <v-card-text class="pa-0 mt-2">
             <v-text-field v-model="newRole.code" label="Role Code (e.g. AUDITOR)" required variant="outlined" density="compact" class="mb-2 font-mono"></v-text-field>
             <v-text-field v-model="newRole.name" label="Display Name" required variant="outlined" density="compact" class="mb-2"></v-text-field>
             <v-text-field v-model="newRole.description" label="Description" variant="outlined" density="compact" class="mb-2"></v-text-field>
-            <div class="text-caption font-weight-bold text-white mb-2">Assign Permissions:</div>
-            <div style="max-height: 180px; overflow-y: auto;" class="code-box pa-2">
+            <div class="text-caption font-weight-bold text-white mb-1">Assign Permissions:</div>
+            <div style="max-height: 150px; overflow-y: auto;" class="code-box pa-2">
               <v-checkbox
                 v-for="p in allPermissions"
                 :key="p.id"
@@ -820,23 +848,23 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
               ></v-checkbox>
             </div>
           </v-card-text>
-          <v-card-actions class="justify-end">
-            <v-btn variant="text" @click="createRoleDialog = false">Cancel</v-btn>
-            <v-btn color="amber-darken-2" variant="flat" @click="submitCreateRole" :loading="savingRole">Create Role</v-btn>
+          <v-card-actions class="justify-end pa-0 mt-3">
+            <v-btn variant="text" size="small" class="text-none" @click="createRoleDialog = false">Cancel</v-btn>
+            <v-btn color="amber-darken-3" variant="flat" size="small" class="text-none" @click="submitCreateRole" :loading="savingRole">Create Role</v-btn>
           </v-card-actions>
         </v-card>
       </v-dialog>
 
       <!-- DIALOG: EDIT ROLE -->
-      <v-dialog v-model="editRoleDialog" max-width="560">
-        <v-card color="#1c2541" rounded="xl" class="pa-4">
-          <v-card-title class="text-h6 font-weight-bold text-white">Edit Role</v-card-title>
-          <v-card-text>
+      <v-dialog v-model="editRoleDialog" max-width="500">
+        <v-card color="#0e172e" rounded="lg" class="pa-4">
+          <v-card-title class="text-subtitle-1 font-weight-bold text-white">Edit Role</v-card-title>
+          <v-card-text class="pa-0 mt-2">
             <v-text-field v-model="editingRole.code" label="Role Code" disabled variant="outlined" density="compact" class="mb-2 font-mono"></v-text-field>
             <v-text-field v-model="editingRole.name" label="Display Name" required variant="outlined" density="compact" class="mb-2"></v-text-field>
             <v-text-field v-model="editingRole.description" label="Description" variant="outlined" density="compact" class="mb-2"></v-text-field>
-            <div class="text-caption font-weight-bold text-white mb-2">Permissions Matrix:</div>
-            <div style="max-height: 180px; overflow-y: auto;" class="code-box pa-2">
+            <div class="text-caption font-weight-bold text-white mb-1">Permissions Matrix:</div>
+            <div style="max-height: 150px; overflow-y: auto;" class="code-box pa-2">
               <v-checkbox
                 v-for="p in allPermissions"
                 :key="p.id"
@@ -849,26 +877,26 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
               ></v-checkbox>
             </div>
           </v-card-text>
-          <v-card-actions class="justify-end">
-            <v-btn variant="text" @click="editRoleDialog = false">Cancel</v-btn>
-            <v-btn color="cyan" variant="flat" @click="submitEditRole" :loading="savingRole">Update Role</v-btn>
+          <v-card-actions class="justify-end pa-0 mt-3">
+            <v-btn variant="text" size="small" class="text-none" @click="editRoleDialog = false">Cancel</v-btn>
+            <v-btn color="cyan-darken-3" variant="flat" size="small" class="text-none" @click="submitEditRole" :loading="savingRole">Update Role</v-btn>
           </v-card-actions>
         </v-card>
       </v-dialog>
 
       <!-- DIALOG: REGISTER DEVICE -->
-      <v-dialog v-model="registerDeviceDialog" max-width="500">
-        <v-card color="#1c2541" rounded="xl" class="pa-4">
-          <v-card-title class="text-h6 font-weight-bold text-white">Register LoRaWAN Device</v-card-title>
-          <v-card-text>
+      <v-dialog v-model="registerDeviceDialog" max-width="450">
+        <v-card color="#0e172e" rounded="lg" class="pa-4">
+          <v-card-title class="text-subtitle-1 font-weight-bold text-white">Register LoRaWAN Device</v-card-title>
+          <v-card-text class="pa-0 mt-2">
             <v-text-field v-model="newDevice.devEUI" label="DevEUI (16 Hex Characters)" maxlength="16" required variant="outlined" density="compact" class="mb-2 font-mono"></v-text-field>
             <v-text-field v-model="newDevice.name" label="Device Name" required variant="outlined" density="compact" class="mb-2"></v-text-field>
             <v-select v-model="newDevice.activationType" :items="['OTAA', 'ABP']" label="Activation Mode" variant="outlined" density="compact" class="mb-2"></v-select>
             <v-text-field v-model="newDevice.appKey" label="AppKey (Optional)" variant="outlined" density="compact" class="font-mono"></v-text-field>
           </v-card-text>
-          <v-card-actions class="justify-end">
-            <v-btn variant="text" @click="registerDeviceDialog = false">Cancel</v-btn>
-            <v-btn color="cyan" variant="flat" @click="submitRegisterDevice" :loading="savingDevice">Register</v-btn>
+          <v-card-actions class="justify-end pa-0 mt-3">
+            <v-btn variant="text" size="small" class="text-none" @click="registerDeviceDialog = false">Cancel</v-btn>
+            <v-btn color="cyan-darken-3" variant="flat" size="small" class="text-none" @click="submitRegisterDevice" :loading="savingDevice">Register</v-btn>
           </v-card-actions>
         </v-card>
       </v-dialog>
@@ -877,7 +905,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
       <v-snackbar v-model="snackbar.show" :color="snackbar.color" :timeout="3500" location="top right">
         {{ snackbar.text }}
         <template v-slot:actions>
-          <v-btn variant="text" @click="snackbar.show = false">Close</v-btn>
+          <v-btn variant="text" size="small" @click="snackbar.show = false">Close</v-btn>
         </template>
       </v-snackbar>
     </v-app>
