@@ -217,7 +217,67 @@ export class DynamicDatabaseService implements OnModuleInit, OnModuleDestroy {
         );
       `);
 
-      // 6. Clean orphaned join records
+      // 6. applications table
+      await dataSource.query(`
+        CREATE TABLE IF NOT EXISTS "applications" (
+          "id" UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          "appId" VARCHAR(255) UNIQUE NOT NULL,
+          "name" VARCHAR(255) NOT NULL,
+          "description" VARCHAR(255),
+          "ownerId" VARCHAR(255),
+          "createdAt" TIMESTAMP NOT NULL DEFAULT now(),
+          "updatedAt" TIMESTAMP NOT NULL DEFAULT now()
+        );
+      `);
+
+      // 7. devices table
+      await dataSource.query(`
+        CREATE TABLE IF NOT EXISTS "devices" (
+          "id" UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          "devEUI" VARCHAR(255) UNIQUE NOT NULL,
+          "name" VARCHAR(255) NOT NULL,
+          "appId" VARCHAR(255),
+          "activationMode" VARCHAR(50) NOT NULL DEFAULT 'OTAA',
+          "appKey" VARCHAR(255),
+          "nwkSKey" VARCHAR(255),
+          "appSKey" VARCHAR(255),
+          "payloadFormatterScript" TEXT,
+          "isActive" BOOLEAN NOT NULL DEFAULT true,
+          "createdAt" TIMESTAMP NOT NULL DEFAULT now(),
+          "updatedAt" TIMESTAMP NOT NULL DEFAULT now()
+        );
+      `);
+
+      // 8. gateways table
+      await dataSource.query(`
+        CREATE TABLE IF NOT EXISTS "gateways" (
+          "id" UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          "gatewayEUI" VARCHAR(255) UNIQUE NOT NULL,
+          "name" VARCHAR(255) NOT NULL,
+          "latitude" DOUBLE PRECISION,
+          "longitude" DOUBLE PRECISION,
+          "altitude" DOUBLE PRECISION,
+          "status" VARCHAR(50) NOT NULL DEFAULT 'ONLINE',
+          "ownerId" VARCHAR(255),
+          "createdAt" TIMESTAMP NOT NULL DEFAULT now(),
+          "updatedAt" TIMESTAMP NOT NULL DEFAULT now()
+        );
+      `);
+
+      // 9. uplink_telemetry table
+      await dataSource.query(`
+        CREATE TABLE IF NOT EXISTS "uplink_telemetry" (
+          "id" UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          "devEUI" VARCHAR(255) NOT NULL,
+          "fPort" INT NOT NULL DEFAULT 1,
+          "fCnt" INT NOT NULL DEFAULT 1,
+          "payloadHex" TEXT NOT NULL,
+          "decodedData" JSONB,
+          "receivedAt" TIMESTAMP NOT NULL DEFAULT now()
+        );
+      `);
+
+      // 10. Clean orphaned join records
       await dataSource.query(`
         DELETE FROM "role_permissions"
         WHERE "role_id" NOT IN (SELECT "id" FROM "roles")
@@ -230,7 +290,7 @@ export class DynamicDatabaseService implements OnModuleInit, OnModuleDestroy {
            OR "role_id" NOT IN (SELECT "id" FROM "roles");
       `).catch(() => {});
 
-      this.logger.log('✅ Guaranteed presence of 5 core RBAC tables in PostgreSQL');
+      this.logger.log('✅ Guaranteed presence of all 9 core RBAC & LoRaWAN tables in PostgreSQL');
     } catch (err: any) {
       this.logger.warn(`Auto-table verification notice: ${err.message}`);
     }

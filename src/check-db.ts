@@ -72,19 +72,23 @@ async function runDatabaseDiagnostics() {
       console.log(`   ✓ ${t}`);
     });
 
-    const expected5Tables = [
+    const expectedTables = [
       'users',
       'user_role',
       'roles',
       'role_permissions',
       'permission',
+      'applications',
+      'devices',
+      'gateways',
+      'uplink_telemetry',
     ];
 
-    const missingTables = expected5Tables.filter((t) => !existingTables.includes(t));
+    const missingTables = expectedTables.filter((t) => !existingTables.includes(t));
     if (missingTables.length > 0) {
       console.warn(`\n⚠️  Missing tables: ${missingTables.join(', ')}`);
     } else {
-      console.log('\n✅ All 5 core tables exist: users, user_role, roles, role_permissions, permission.');
+      console.log('\n✅ All 9 core tables exist: users, user_role, roles, role_permissions, permission, applications, devices, gateways, uplink_telemetry.');
     }
 
     // 2. Check Permissions
