@@ -300,70 +300,102 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
               </button>
             </div>
 
-            <!-- Card Grid -->
-            <div v-else class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-5 gap-4.5">
-              <div v-for="d in filteredDevices" :key="d.id || d.devEUI" class="bg-slate-900/90 border border-slate-800/90 hover:border-emerald-500/40 rounded-2xl p-4.5 shadow-xl transition duration-200 flex flex-col justify-between space-y-3.5 group">
+            <!-- Card Grid (Spacious 1 to 3 columns) -->
+            <div v-else class="grid grid-cols-1 lg:grid-cols-2 2xl:grid-cols-3 gap-6">
+              <div v-for="d in filteredDevices" :key="d.id || d.devEUI" class="bg-slate-900/90 border border-slate-800/90 hover:border-emerald-500/40 rounded-2xl p-6 shadow-xl hover:shadow-2xl transition duration-200 flex flex-col justify-between space-y-5 group">
                 
                 <!-- Card Header -->
-                <div class="flex items-start justify-between gap-2 pb-2.5 border-b border-slate-800/70">
-                  <div class="space-y-0.5 min-w-0">
-                    <h4 class="font-bold text-white text-sm truncate group-hover:text-emerald-300 transition" :title="d.name">{{ d.name }}</h4>
-                    <div class="flex items-center gap-1.5">
-                      <span class="font-mono text-xs font-bold text-sky-400 tracking-wider">{{ d.devEUI }}</span>
+                <div class="flex items-start justify-between gap-3 pb-3 border-b border-slate-800/80">
+                  <div class="flex items-start gap-3.5 min-w-0">
+                    <div class="w-11 h-11 rounded-xl bg-emerald-500/10 border border-emerald-500/25 flex items-center justify-center text-emerald-400 text-lg flex-shrink-0 shadow-inner group-hover:scale-105 transition-transform">
+                      <i class="fa-solid fa-microchip"></i>
+                    </div>
+                    <div class="space-y-1 min-w-0">
+                      <h4 class="font-bold text-white text-base truncate group-hover:text-emerald-300 transition" :title="d.name">{{ d.name }}</h4>
+                      <div class="flex items-center gap-2">
+                        <span class="font-mono text-xs font-bold text-sky-400 tracking-wider bg-sky-500/10 border border-sky-500/20 px-2 py-0.5 rounded-md">
+                          {{ d.devEUI }}
+                        </span>
+                      </div>
                     </div>
                   </div>
-                  <div class="flex items-center gap-1.5 flex-shrink-0">
-                    <span :class="d.syncStatus === 'SYNCED' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/25' : 'bg-amber-500/10 text-amber-400 border-amber-500/25'" class="px-2 py-0.5 rounded-full text-[10px] font-bold border flex items-center gap-1">
-                      <span class="w-1.5 h-1.5 rounded-full" :class="d.syncStatus === 'SYNCED' ? 'bg-emerald-400' : 'bg-amber-400'"></span>
+                  <div class="flex flex-col items-end gap-1.5 flex-shrink-0">
+                    <span :class="d.syncStatus === 'SYNCED' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/25' : 'bg-amber-500/10 text-amber-400 border-amber-500/25'" class="px-2.5 py-1 rounded-full text-[11px] font-bold border flex items-center gap-1.5 shadow-sm">
+                      <span class="w-2 h-2 rounded-full" :class="d.syncStatus === 'SYNCED' ? 'bg-emerald-400' : 'bg-amber-400'"></span>
                       <span>{{ d.syncStatus || 'SYNCED' }}</span>
+                    </span>
+                    <span class="px-2 py-0.5 rounded text-[10px] font-bold font-mono" :class="d.isActive ? 'bg-slate-800 text-slate-300 border border-slate-700' : 'bg-red-500/10 text-red-400 border border-red-500/20'">
+                      {{ d.isActive ? 'OTAA ACTIVE' : 'INACTIVE' }}
                     </span>
                   </div>
                 </div>
 
-                <!-- Card Body (Properties) -->
-                <div class="space-y-2 text-xs">
-                  <div class="flex items-center justify-between text-[11px]">
-                    <span class="text-slate-400 flex items-center gap-1.5"><i class="fa-solid fa-server text-slate-500 w-3.5 text-center"></i> Network Server:</span>
-                    <span v-if="d.networkServer" class="px-2 py-0.5 rounded bg-sky-500/10 text-sky-300 border border-sky-500/20 font-mono font-medium text-[10px] truncate max-w-[160px]" :title="d.networkServer.name">
-                      {{ d.networkServer.name }}
-                    </span>
-                    <span v-else class="text-slate-500 text-[11px]">Unassigned</span>
+                <!-- Card Body (Organized Sub-Boxes) -->
+                <div class="space-y-3 text-xs">
+                  
+                  <!-- Box 1: Network & Region -->
+                  <div class="p-3 bg-slate-950/70 border border-slate-800/80 rounded-xl space-y-2">
+                    <div class="flex items-center justify-between text-xs">
+                      <span class="text-slate-400 flex items-center gap-2">
+                        <i class="fa-solid fa-server text-sky-400 w-4 text-center"></i>
+                        <span class="font-medium">Network Server:</span>
+                      </span>
+                      <span v-if="d.networkServer" class="px-2.5 py-1 rounded-lg bg-sky-500/10 text-sky-300 border border-sky-500/20 font-mono font-medium text-xs truncate max-w-[240px]" :title="d.networkServer.name">
+                        {{ d.networkServer.name }} ({{ d.networkServer.type }})
+                      </span>
+                      <span v-else class="text-slate-500 italic">Unassigned</span>
+                    </div>
+
+                    <div class="flex items-center justify-between text-xs pt-1 border-t border-slate-900">
+                      <span class="text-slate-400 flex items-center gap-2">
+                        <i class="fa-solid fa-globe text-indigo-400 w-4 text-center"></i>
+                        <span class="font-medium">Region Profile:</span>
+                      </span>
+                      <span v-if="d.regionProfileName" class="px-2.5 py-1 rounded-lg bg-indigo-500/10 text-indigo-300 border border-indigo-500/20 font-mono text-xs truncate max-w-[240px]" :title="d.regionProfileName">
+                        {{ d.regionProfileName }}
+                      </span>
+                      <span v-else class="text-slate-500">Default (AS923)</span>
+                    </div>
                   </div>
 
-                  <div class="flex items-center justify-between text-[11px]">
-                    <span class="text-slate-400 flex items-center gap-1.5"><i class="fa-solid fa-globe text-slate-500 w-3.5 text-center"></i> Region Plan:</span>
-                    <span v-if="d.regionProfileName" class="px-2 py-0.5 rounded bg-indigo-500/10 text-indigo-300 border border-indigo-500/20 font-mono text-[10px] truncate max-w-[160px]">
-                      {{ d.regionProfileName }}
-                    </span>
-                    <span v-else class="text-slate-500 text-[11px]">--</span>
+                  <!-- Box 2: OTAA Keys -->
+                  <div class="p-3 bg-slate-950/70 border border-slate-800/80 rounded-xl space-y-2">
+                    <div class="flex items-center justify-between text-xs">
+                      <span class="text-slate-400 flex items-center gap-2">
+                        <i class="fa-solid fa-key text-amber-400 w-4 text-center"></i>
+                        <span class="font-medium">AppEUI / JoinEUI:</span>
+                      </span>
+                      <span class="font-mono text-slate-200 bg-slate-900 px-2 py-0.5 rounded border border-slate-800 font-semibold tracking-wider text-xs">
+                        {{ d.appEUI || '0102030405060708' }}
+                      </span>
+                    </div>
+
+                    <div class="flex items-center justify-between text-xs pt-1 border-t border-slate-900">
+                      <span class="text-slate-400 flex items-center gap-2">
+                        <i class="fa-solid fa-shield-halved text-emerald-400 w-4 text-center"></i>
+                        <span class="font-medium">AppKey:</span>
+                      </span>
+                      <span class="font-mono text-slate-300 bg-slate-900 px-2 py-0.5 rounded border border-slate-800 font-medium tracking-wider text-[11px] truncate max-w-[240px]" :title="d.appKey">
+                        {{ d.appKey || '0102030405060708090A0B0C0D0E0F10' }}
+                      </span>
+                    </div>
                   </div>
 
-                  <div class="flex items-center justify-between text-[11px]">
-                    <span class="text-slate-400 flex items-center gap-1.5"><i class="fa-solid fa-key text-slate-500 w-3.5 text-center"></i> AppEUI:</span>
-                    <span class="font-mono text-slate-300 text-[11px]">{{ d.appEUI || '0102030405060708' }}</span>
-                  </div>
-
-                  <div class="flex items-center justify-between text-[11px]">
-                    <span class="text-slate-400 flex items-center gap-1.5"><i class="fa-solid fa-shield-halved text-slate-500 w-3.5 text-center"></i> AppKey:</span>
-                    <span class="font-mono text-slate-400 text-[11px]" :title="d.appKey">
-                      {{ d.appKey ? d.appKey.slice(0, 6) + '...' + d.appKey.slice(-6) : '010203...0F10' }}
-                    </span>
-                  </div>
                 </div>
 
                 <!-- Card Footer (Actions) -->
-                <div class="pt-3 border-t border-slate-800/70 flex items-center justify-between text-xs">
-                  <span class="px-2 py-0.5 rounded-full text-[10px] font-bold" :class="d.isActive ? 'bg-emerald-500/10 text-emerald-400' : 'bg-red-500/10 text-red-400'">
-                    {{ d.isActive ? 'ACTIVE' : 'INACTIVE' }}
-                  </span>
-                  <div class="flex items-center gap-1.5">
-                    <button v-if="d.networkServer" @click="syncDevice(d)" title="Re-sync Provisioning to Network Server" class="px-2 py-1 rounded-lg bg-sky-500/10 hover:bg-sky-500/20 text-sky-300 border border-sky-500/20 text-[11px] font-semibold flex items-center gap-1 cursor-pointer">
-                      <i class="fa-solid fa-arrows-rotate"></i> Sync
+                <div class="pt-3.5 border-t border-slate-800/80 flex items-center justify-between text-xs">
+                  <div class="text-[11px] text-slate-400 font-medium">
+                    <span class="text-slate-500">Mode:</span> <span class="font-mono text-sky-400 font-bold">OTAA</span>
+                  </div>
+                  <div class="flex items-center gap-2">
+                    <button v-if="d.networkServer" @click="syncDevice(d)" title="Re-sync Provisioning to Network Server" class="px-3 py-1.5 rounded-xl bg-sky-500/10 hover:bg-sky-500/20 text-sky-300 border border-sky-500/20 text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition">
+                      <i class="fa-solid fa-arrows-rotate"></i> <span>Sync</span>
                     </button>
-                    <button @click="openEditDeviceDialog(d)" title="Edit Device & Sync" class="p-1.5 rounded-lg bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 border border-indigo-500/20 text-xs cursor-pointer">
-                      <i class="fa-solid fa-pen-to-square"></i>
+                    <button @click="openEditDeviceDialog(d)" title="Edit Device & Sync" class="px-3 py-1.5 rounded-xl bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 border border-indigo-500/20 text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition">
+                      <i class="fa-solid fa-pen-to-square"></i> <span>Edit</span>
                     </button>
-                    <button @click="deleteDevice(d)" title="Delete Device" class="p-1.5 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 text-xs cursor-pointer">
+                    <button @click="deleteDevice(d)" title="Delete Device" class="p-2 rounded-xl bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 text-xs cursor-pointer transition flex items-center justify-center">
                       <i class="fa-solid fa-trash-can"></i>
                     </button>
                   </div>
