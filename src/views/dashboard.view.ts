@@ -311,7 +311,7 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
           </div>
 
           <!-- FEATURE: DEVICE MANAGER (CARD GRID) -->
-          <div v-else-if="activeFeature.id === 'device-fleet'" class="space-y-5">
+          <div v-else-if="activeFeature.id === 'device-manager'" class="space-y-5">
             <!-- Action Toolbar & Search -->
             <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-900/60 p-4 rounded-xl border border-slate-800">
               <div class="flex items-center gap-3">
@@ -641,7 +641,7 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
           activeFeature.value = feature;
           window.location.hash = feature.id;
           if (feature.id === 'telemetry-monitor') fetchLiveTelemetry();
-          if (feature.id === 'device-fleet') {
+          if (feature.id === 'device-manager' || feature.id === 'device-fleet') {
             fetchDevices();
             fetchNetworkServers();
           }
@@ -703,7 +703,7 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
                 if (found) {
                   activeFeature.value = found;
                   if (found.id === 'telemetry-monitor') fetchLiveTelemetry();
-                  if (found.id === 'device-fleet') {
+                  if (found.id === 'device-manager' || found.id === 'device-fleet') {
                     fetchDevices();
                     fetchNetworkServers();
                   }

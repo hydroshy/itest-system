@@ -3,7 +3,7 @@
  * Represents user-facing modules appearing on the User Portal (/dashboard)
  */
 export interface DModule {
-  id: string; // e.g. 'd-device-manager' or 'device-fleet'
+  id: string; // e.g. 'device-manager'
   code: string; // e.g. 'D_MOD_DEVICE_MANAGER'
   title: string; // e.g. 'DEVICE MANAGER'
   description: string;
@@ -19,7 +19,7 @@ export interface DModule {
 
 export const DEFAULT_D_MODULES: DModule[] = [
   {
-    id: 'device-fleet',
+    id: 'device-manager',
     code: 'D_MOD_DEVICE_MANAGER',
     title: 'DEVICE MANAGER',
     description: 'Manage registered end-devices, DevEUIs, activation keys (OTAA/ABP), and battery status with Card Grid.',
@@ -45,7 +45,7 @@ export const DEFAULT_D_MODULES: DModule[] = [
     isActive: true,
   },
   {
-    id: 'data-analytics',
+    id: 'sensor-analytics',
     code: 'D_MOD_ANALYTICS',
     title: 'Sensor Data Analytics',
     description: 'Visual charts, historical trends, temperature & humidity metrics, and statistical aggregations.',
