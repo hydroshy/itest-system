@@ -58,8 +58,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
       border-color: rgba(56, 189, 248, 0.5) !important;
     }
     .modal-overlay {
-      display: none !important;
-      pointer-events: none !important;
+      display: none;
       position: fixed;
       inset: 0;
       z-index: 9999;
@@ -71,7 +70,6 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
     }
     .modal-overlay.active {
       display: flex !important;
-      pointer-events: auto !important;
     }
     .btn {
       cursor: pointer !important;
@@ -152,7 +150,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
             <div id="navFullName" class="text-xs font-semibold text-slate-200">Admin User</div>
             <div id="navRoleBadge" class="text-[10px] text-emerald-400 font-mono font-bold">SUPER_ADMIN</div>
           </div>
-          <button onclick="handleLogout()" id="btn-logout" type="button" title="Sign Out" class="btn px-3 py-1.5 rounded-lg bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-400 hover:text-red-300 text-xs">
+          <button onclick="handleLogout()" id="btn-logout" type="button" title="Sign Out & Clear Session" class="btn px-3 py-1.5 rounded-lg bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-400 hover:text-red-300 text-xs cursor-pointer">
             <i class="fa-solid fa-right-from-bracket"></i>
             <span>Logout</span>
           </button>
@@ -565,7 +563,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
   </main>
 
   <!-- MODAL: CREATE USER -->
-  <div id="createUserModal" class="modal-overlay" onclick="handleModalBackdropClick(event, 'createUserModal')">
+  <div id="createUserModal" class="modal-overlay" onclick="closeCreateUserModal()">
     <div class="w-full max-w-md bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-4 shadow-2xl" onclick="event.stopPropagation()">
       <div class="flex items-center justify-between">
         <h3 class="text-sm font-bold text-white flex items-center gap-2">
@@ -613,7 +611,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
   </div>
 
   <!-- MODAL: EDIT USER -->
-  <div id="editUserModal" class="modal-overlay" onclick="handleModalBackdropClick(event, 'editUserModal')">
+  <div id="editUserModal" class="modal-overlay" onclick="closeEditUserModal()">
     <div class="w-full max-w-md bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-4 shadow-2xl" onclick="event.stopPropagation()">
       <div class="flex items-center justify-between">
         <h3 class="text-sm font-bold text-white flex items-center gap-2">
@@ -649,7 +647,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
   </div>
 
   <!-- MODAL: CREATE ROLE -->
-  <div id="createRoleModal" class="modal-overlay" onclick="handleModalBackdropClick(event, 'createRoleModal')">
+  <div id="createRoleModal" class="modal-overlay" onclick="closeCreateRoleModal()">
     <div class="w-full max-w-lg bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-4 shadow-2xl" onclick="event.stopPropagation()">
       <div class="flex items-center justify-between">
         <h3 class="text-sm font-bold text-white flex items-center gap-2">
@@ -685,7 +683,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
   </div>
 
   <!-- MODAL: EDIT ROLE -->
-  <div id="editRoleModal" class="modal-overlay" onclick="handleModalBackdropClick(event, 'editRoleModal')">
+  <div id="editRoleModal" class="modal-overlay" onclick="closeEditRoleModal()">
     <div class="w-full max-w-lg bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-4 shadow-2xl" onclick="event.stopPropagation()">
       <div class="flex items-center justify-between">
         <h3 class="text-sm font-bold text-white flex items-center gap-2">
@@ -722,7 +720,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
   </div>
 
   <!-- MODAL: REGISTER DEVICE -->
-  <div id="registerDeviceModal" class="modal-overlay" onclick="handleModalBackdropClick(event, 'registerDeviceModal')">
+  <div id="registerDeviceModal" class="modal-overlay" onclick="closeRegisterDeviceModal()">
     <div class="w-full max-w-md bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-4 shadow-2xl" onclick="event.stopPropagation()">
       <div class="flex items-center justify-between">
         <h3 class="text-sm font-bold text-white flex items-center gap-2">
@@ -803,7 +801,10 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
     window.copyToClipboard = copyToClipboard;
 
     function getAuthToken() {
-      var token = localStorage.getItem("lorawan_token");
+      var token = null;
+      try {
+        token = localStorage.getItem("lorawan_token");
+      } catch(e) {}
       if (!token || token === "undefined" || token === "null") {
         var match = document.cookie.match(/(?:^|;\\s*)access_token=([^;]*)/);
         if (match && match[1] && match[1] !== "undefined" && match[1] !== "null") {
@@ -885,17 +886,19 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
         await fetch("/auth/logout", { method: "POST", headers: authHeaders(), credentials: "include" });
       } catch (e) {}
       try {
-        await fetch("/auth/logout", { method: "GET", credentials: "include" });
+        await fetch("/reset-session", { method: "POST", credentials: "include" });
       } catch (e) {}
-      localStorage.clear();
-      sessionStorage.clear();
-      var cookies = ["access_token", "lorawan_token"];
+      try {
+        localStorage.clear();
+        sessionStorage.clear();
+      } catch(e) {}
+      var cookies = ["access_token", "lorawan_token", "session_id", "connect.sid"];
       for (var i = 0; i < cookies.length; i++) {
         var c = cookies[i];
         document.cookie = c + "=; Path=/; Expires=Thu, 01 Jan 1970 00:00:01 GMT; Max-Age=0; SameSite=Lax;";
         document.cookie = c + "=; Path=/; Expires=Thu, 01 Jan 1970 00:00:01 GMT; Max-Age=0;";
       }
-      window.location.replace("/login?logout=1");
+      window.location.replace("/login?cleared=1");
     }
     window.handleLogout = handleLogout;
 
@@ -903,7 +906,8 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
       try {
         var res = await fetch("/users", { headers: authHeaders(), credentials: "include" });
         if (res.status === 401) {
-          handleLogout();
+          showToast("Session expired. Redirecting to login...", "error");
+          setTimeout(handleLogout, 800);
           return;
         }
         if (!res.ok) throw new Error("HTTP " + res.status);
@@ -967,7 +971,8 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
         ]);
 
         if (results[0].status === 401 || results[1].status === 401) {
-          handleLogout();
+          showToast("Session expired. Redirecting to login...", "error");
+          setTimeout(handleLogout, 800);
           return;
         }
 
@@ -1060,7 +1065,8 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
       try {
         var res = await fetch("/database/health", { headers: authHeaders(), credentials: "include" });
         if (res.status === 401) {
-          handleLogout();
+          showToast("Session expired. Redirecting to login...", "error");
+          setTimeout(handleLogout, 800);
           return;
         }
         if (!res.ok) throw new Error("HTTP " + res.status);
@@ -1120,7 +1126,8 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
       try {
         var res = await fetch("/lorawan/devices", { headers: authHeaders(), credentials: "include" });
         if (res.status === 401) {
-          handleLogout();
+          showToast("Session expired. Redirecting to login...", "error");
+          setTimeout(handleLogout, 800);
           return;
         }
         if (!res.ok) throw new Error("HTTP " + res.status);
@@ -1159,7 +1166,8 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
       try {
         var res = await fetch("/lorawan/telemetry?limit=25", { headers: authHeaders(), credentials: "include" });
         if (res.status === 401) {
-          handleLogout();
+          showToast("Session expired. Redirecting to login...", "error");
+          setTimeout(handleLogout, 800);
           return;
         }
         if (!res.ok) throw new Error("HTTP " + res.status);
@@ -1209,16 +1217,6 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
       }
     }
     window.reloadDbConfig = reloadDbConfig;
-
-    function handleModalBackdropClick(event, modalId) {
-      if (event.target.id === modalId) {
-        var modal = document.getElementById(modalId);
-        if (modal) {
-          modal.classList.remove("active");
-        }
-      }
-    }
-    window.handleModalBackdropClick = handleModalBackdropClick;
 
     function openCreateUserModal() {
       var select = document.getElementById("newUserRoleId");
@@ -1440,7 +1438,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
     }
     window.runSandboxDecode = runSandboxDecode;
 
-    // Attach form submit handlers safely
+    // Attach form submit handlers
     function bindFormHandlers() {
       var createUserForm = document.getElementById("createUserForm");
       if (createUserForm) {
@@ -1600,30 +1598,13 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
       }
     }
 
-    // Attach click listeners to all tab buttons to ensure 100% click reliability
-    function bindTabListeners() {
-      var tabList = ["overview", "users", "roles", "database", "devices", "telemetry", "webhooks", "decoder"];
-      for (var i = 0; i < tabList.length; i++) {
-        (function(id) {
-          var btn = document.getElementById("tabBtn-" + id);
-          if (btn) {
-            btn.onclick = function(e) {
-              e.preventDefault();
-              switchTab(id);
-            };
-          }
-        })(tabList[i]);
-      }
-    }
-
     // Check active session on load
     async function initPage() {
-      bindTabListeners();
       bindFormHandlers();
 
       var token = getAuthToken();
       if (!token) {
-        window.location.replace("/login?logout=1");
+        window.location.replace("/login?cleared=1");
         return;
       }
 
@@ -1637,10 +1618,13 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
         var res = await fetch("/auth/session", { headers: authHeaders(), credentials: "include" });
         if (res.ok) {
           var user = await res.json();
-          localStorage.setItem("lorawan_user", JSON.stringify(user));
+          try {
+            localStorage.setItem("lorawan_user", JSON.stringify(user));
+          } catch(e) {}
           updateUserNav(user);
         } else if (res.status === 401) {
-          handleLogout();
+          showToast("Session expired. Redirecting to login...", "error");
+          setTimeout(handleLogout, 800);
           return;
         }
       } catch (err) {

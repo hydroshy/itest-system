@@ -10,17 +10,23 @@ export const LOGIN_HTML = `<!DOCTYPE html>
     body {
       background: radial-gradient(circle at 50% 10%, #0f172a 0%, #030712 100%);
       font-family: 'Inter', system-ui, -apple-system, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 1rem;
+      color: #f1f5f9;
     }
     .glow-card {
       box-shadow: 0 0 35px -5px rgba(56, 189, 248, 0.15);
     }
   </style>
 </head>
-<body class="min-h-screen flex items-center justify-center p-4 text-slate-100">
-  <div class="w-full max-w-md bg-slate-900/80 border border-slate-800 rounded-2xl p-8 backdrop-blur-xl glow-card">
+<body>
+  <div class="w-full max-w-md bg-slate-900/90 border border-slate-800 rounded-2xl p-8 backdrop-blur-xl glow-card">
     <!-- Header -->
-    <div class="text-center mb-8">
-      <div class="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-sky-500/10 border border-sky-500/30 text-sky-400 text-2xl mb-4 shadow-inner">
+    <div class="text-center mb-6">
+      <div class="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-sky-500/10 border border-sky-500/30 text-sky-400 text-2xl mb-3 shadow-inner">
         <i class="fa-solid fa-tower-broadcast"></i>
       </div>
       <h1 class="text-2xl font-bold tracking-tight text-white flex items-center justify-center gap-2">
@@ -30,7 +36,7 @@ export const LOGIN_HTML = `<!DOCTYPE html>
     </div>
 
     <!-- Alert Box -->
-    <div id="alertBox" class="hidden mb-5 p-3.5 rounded-xl text-xs font-medium flex items-center gap-2"></div>
+    <div id="alertBox" class="hidden mb-4 p-3 rounded-xl text-xs font-medium flex items-center gap-2"></div>
 
     <!-- Login Form -->
     <form id="loginForm" class="space-y-4">
@@ -44,6 +50,7 @@ export const LOGIN_HTML = `<!DOCTYPE html>
             type="text"
             id="usernameInput"
             required
+            value="admin"
             placeholder="admin or user@domain.com"
             class="w-full pl-10 pr-4 py-2.5 bg-slate-950/80 border border-slate-700/80 rounded-xl text-sm text-white placeholder-slate-500 focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500 transition"
           />
@@ -60,6 +67,7 @@ export const LOGIN_HTML = `<!DOCTYPE html>
             type="password"
             id="passwordInput"
             required
+            value="Dvt@123"
             placeholder="••••••••"
             class="w-full pl-10 pr-10 py-2.5 bg-slate-950/80 border border-slate-700/80 rounded-xl text-sm text-white placeholder-slate-500 focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500 transition"
           />
@@ -86,24 +94,41 @@ export const LOGIN_HTML = `<!DOCTYPE html>
       <button
         type="submit"
         id="submitBtn"
-        class="w-full py-2.5 px-4 bg-sky-500 hover:bg-sky-400 active:bg-sky-600 text-white font-semibold rounded-xl text-sm shadow-lg shadow-sky-500/20 transition duration-150 flex items-center justify-center gap-2 mt-4"
+        class="w-full py-2.5 px-4 bg-sky-500 hover:bg-sky-400 active:bg-sky-600 text-white font-semibold rounded-xl text-sm shadow-lg shadow-sky-500/20 transition duration-150 flex items-center justify-center gap-2 mt-4 cursor-pointer"
       >
         <span>Sign In</span>
         <i class="fa-solid fa-arrow-right text-xs"></i>
       </button>
     </form>
 
-    <!-- Footer -->
-    <div class="mt-8 pt-4 border-t border-slate-800/80 text-center text-xs text-slate-500 flex items-center justify-between">
-      <span>Enterprise IoT Platform</span>
-      <span class="inline-flex items-center gap-1.5 text-slate-400">
-        <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+    <!-- Session Reset Helper -->
+    <div class="mt-4 pt-3 border-t border-slate-800/80 flex items-center justify-between text-xs text-slate-500">
+      <button onclick="forceCleanSession()" type="button" class="text-[11px] text-slate-400 hover:text-red-400 transition cursor-pointer flex items-center gap-1">
+        <i class="fa-solid fa-trash-can"></i> Clear Stale Session
+      </button>
+      <span class="inline-flex items-center gap-1.5 text-slate-400 text-[11px]">
+        <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
         PostgreSQL &bull; NestJS
       </span>
     </div>
   </div>
 
   <script>
+    function forceCleanSession() {
+      try {
+        localStorage.clear();
+        sessionStorage.clear();
+      } catch(e) {}
+      var cookies = ["access_token", "lorawan_token", "session_id", "connect.sid"];
+      for (var i = 0; i < cookies.length; i++) {
+        var c = cookies[i];
+        document.cookie = c + "=; Path=/; Expires=Thu, 01 Jan 1970 00:00:01 GMT; Max-Age=0; SameSite=Lax;";
+        document.cookie = c + "=; Path=/; Expires=Thu, 01 Jan 1970 00:00:01 GMT; Max-Age=0;";
+      }
+      window.location.href = "/login?cleared=1";
+    }
+    window.forceCleanSession = forceCleanSession;
+
     window.togglePasswordVisibility = function() {
       var passInput = document.getElementById("passwordInput");
       var eyeIcon = document.getElementById("eyeIcon");
@@ -118,7 +143,7 @@ export const LOGIN_HTML = `<!DOCTYPE html>
 
     window.showAlert = function(msg, type) {
       var alertBox = document.getElementById("alertBox");
-      alertBox.className = "mb-5 p-3.5 rounded-xl text-xs font-medium flex items-center gap-2";
+      alertBox.className = "mb-4 p-3 rounded-xl text-xs font-medium flex items-center gap-2";
       var icon = '<i class="fa-solid fa-circle-info"></i>';
       if (type === "error") {
         alertBox.className += " bg-red-500/10 border border-red-500/30 text-red-400";
@@ -145,6 +170,7 @@ export const LOGIN_HTML = `<!DOCTYPE html>
         var response = await fetch("/auth/login", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
+          credentials: "include",
           body: JSON.stringify({ usernameOrEmail: usernameOrEmail, password: password })
         });
 
@@ -154,13 +180,17 @@ export const LOGIN_HTML = `<!DOCTYPE html>
           throw new Error(data.message || "Authentication failed. Please verify credentials.");
         }
 
-        showAlert("Sign in successful. Establishing session...", "success");
-        localStorage.setItem("lorawan_token", data.access_token);
-        localStorage.setItem("lorawan_user", JSON.stringify(data.user));
+        showAlert("Sign in successful. Opening Control Panel...", "success");
+        if (data.access_token) {
+          localStorage.setItem("lorawan_token", data.access_token);
+        }
+        if (data.user) {
+          localStorage.setItem("lorawan_user", JSON.stringify(data.user));
+        }
 
         setTimeout(function() {
-          window.location.href = "/control-panel";
-        }, 300);
+          window.location.replace("/control-panel");
+        }, 200);
       } catch (err) {
         showAlert(err.message, "error");
         submitBtn.disabled = false;
@@ -168,31 +198,15 @@ export const LOGIN_HTML = `<!DOCTYPE html>
       }
     });
 
-    // Auto-check if session is already active ONLY when not logging out and token exists
+    // Check query params
     var urlParams = new URLSearchParams(window.location.search);
-    var isLoggingOut = urlParams.get("logout") === "1" || urlParams.get("logout") === "true";
-    if (isLoggingOut) {
-      localStorage.removeItem("lorawan_token");
-      localStorage.removeItem("lorawan_user");
-      document.cookie = "access_token=; Path=/; Expires=Thu, 01 Jan 1970 00:00:01 GMT; Max-Age=0;";
-      document.cookie = "lorawan_token=; Path=/; Expires=Thu, 01 Jan 1970 00:00:01 GMT; Max-Age=0;";
-    } else {
-      var existingToken = localStorage.getItem("lorawan_token");
-      if (existingToken && existingToken !== "undefined" && existingToken !== "null") {
-        fetch("/auth/session", {
-          headers: { "Authorization": "Bearer " + existingToken },
-          credentials: "include"
-        }).then(function(res) {
-          if (res.ok) {
-            window.location.href = "/control-panel";
-          } else if (res.status === 401) {
-            localStorage.removeItem("lorawan_token");
-            localStorage.removeItem("lorawan_user");
-            document.cookie = "access_token=; Path=/; Expires=Thu, 01 Jan 1970 00:00:01 GMT; Max-Age=0;";
-            document.cookie = "lorawan_token=; Path=/; Expires=Thu, 01 Jan 1970 00:00:01 GMT; Max-Age=0;";
-          }
-        }).catch(function() {});
-      }
+    if (urlParams.get("cleared") === "1" || urlParams.get("logout") === "1") {
+      try {
+        localStorage.removeItem("lorawan_token");
+        localStorage.removeItem("lorawan_user");
+        sessionStorage.clear();
+      } catch(e) {}
+      showAlert("Session cleared. Please sign in with your credentials.", "success");
     }
   </script>
 </body>
