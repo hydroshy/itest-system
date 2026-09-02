@@ -1,7 +1,7 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import * as fs from 'fs';
 import * as path from 'path';
-import { User, UserType } from '../modules/users/entities/user.entity';
+import { User, UserType } from '../users/entities/user.entity';
 import { DModule, DEFAULT_D_MODULES } from './d-module-registry';
 
 export interface CreateDModuleDto {

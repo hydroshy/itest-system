@@ -1,12 +1,12 @@
 import { Controller, Get, Post, Put, Delete, Body, Param, UseGuards, HttpException, HttpStatus } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
-import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
-import { CurrentUser } from '../common/decorators/current-user.decorator';
-import { User } from '../modules/users/entities/user.entity';
+import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { User } from '../users/entities/user.entity';
 import { DModulesService, CreateDModuleDto, UpdateDModuleDto } from './d-modules.service';
 
 @ApiTags('Dashboard D-Modules & RBAC Management')
-@Controller('api/d-modules')
+@Controller(['api/d-modules', 'api/features'])
 @UseGuards(JwtAuthGuard)
 @ApiBearerAuth()
 export class DModulesController {

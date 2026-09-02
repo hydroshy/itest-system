@@ -8,8 +8,7 @@ import { NetworkServersModule } from './modules/network-servers/network-servers.
 import { LorawanModule } from './modules/lorawan/lorawan.module';
 import { AdminPanelModule } from './modules/admin-panel/admin-panel.module';
 import { UserPanelModule } from './modules/user-panel/user-panel.module';
-import { FeaturesModule } from './features/features.module';
-import { DModulesModule } from './d-modules/d-modules.module';
+import { DModulesModule } from './modules/d-modules/d-modules.module';
 import { AppController } from './app.controller';
 
 @Module({
@@ -25,7 +24,6 @@ import { AppController } from './app.controller';
     LorawanModule,
     AdminPanelModule,
     UserPanelModule,
-    FeaturesModule,
     DModulesModule,
   ],
   controllers: [AppController],

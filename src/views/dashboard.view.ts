@@ -441,8 +441,8 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
               </p>
             </div>
             <div class="p-4 bg-slate-950/80 border border-slate-800 rounded-xl max-w-md mx-auto text-left font-mono text-xs space-y-1">
-              <div class="text-slate-500">// Module Source Directory:</div>
-              <div class="text-sky-400">src/features/{{ activeFeature.id }}/</div>
+              <div class="text-slate-500">// D-Module Source Directory:</div>
+              <div class="text-sky-400">src/modules/d-modules/{{ activeFeature.id }}/</div>
               <div class="text-emerald-400">// Status: Ready for business logic development</div>
             </div>
           </div>
