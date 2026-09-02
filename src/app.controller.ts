@@ -6,6 +6,12 @@ import { CONTROL_PANEL_HTML } from './views/control-panel.view';
 
 @Controller()
 export class AppController {
+  private setNoCacheHeaders(res: Response) {
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+  }
+
   private clearAllCookies(res: Response) {
     const cookieNames = ['access_token', 'lorawan_token', 'session_id', 'connect.sid'];
     cookieNames.forEach((name) => {
@@ -19,6 +25,7 @@ export class AppController {
   @Get()
   @ApiExcludeEndpoint()
   root(@Req() req: Request, @Res() res: Response) {
+    this.setNoCacheHeaders(res);
     const isLogout = req.query?.logout === '1' || req.query?.logout === 'true' || req.query?.clear === '1';
     if (isLogout) {
       this.clearAllCookies(res);
@@ -34,6 +41,7 @@ export class AppController {
   @Get('login')
   @ApiExcludeEndpoint()
   getLoginPage(@Req() req: Request, @Res() res: Response) {
+    this.setNoCacheHeaders(res);
     const isClearing =
       req.query?.logout === '1' ||
       req.query?.logout === 'true' ||
@@ -51,6 +59,7 @@ export class AppController {
   @Get('control-panel')
   @ApiExcludeEndpoint()
   getControlPanelPage(@Res() res: Response) {
+    this.setNoCacheHeaders(res);
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
     res.send(CONTROL_PANEL_HTML);
   }
@@ -58,6 +67,7 @@ export class AppController {
   @Get('reset-session')
   @ApiExcludeEndpoint()
   resetSessionGet(@Res() res: Response) {
+    this.setNoCacheHeaders(res);
     this.clearAllCookies(res);
     return res.redirect('/login?cleared=1');
   }
@@ -65,6 +75,7 @@ export class AppController {
   @Post('reset-session')
   @ApiExcludeEndpoint()
   resetSessionPost(@Res() res: Response) {
+    this.setNoCacheHeaders(res);
     this.clearAllCookies(res);
     return res.json({ success: true, message: 'Session cleared successfully' });
   }
@@ -72,6 +83,7 @@ export class AppController {
   @Get('auth/clear-session')
   @ApiExcludeEndpoint()
   clearSession(@Res() res: Response) {
+    this.setNoCacheHeaders(res);
     this.clearAllCookies(res);
     return res.redirect('/login?cleared=1');
   }
