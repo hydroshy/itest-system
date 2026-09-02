@@ -7,6 +7,8 @@ export const LOGIN_HTML = `<!DOCTYPE html>
   <meta http-equiv="Pragma" content="no-cache" />
   <meta http-equiv="Expires" content="0" />
   <title>Sign In - Daviteq LoRaWAN</title>
+  <link rel="icon" type="image/svg+xml" href="/images/favicon.svg" />
+  <link rel="alternate icon" type="image/png" href="/images/favicon.png" />
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -42,8 +44,8 @@ export const LOGIN_HTML = `<!DOCTYPE html>
     <div class="glass-card rounded-2xl p-7 space-y-6">
       <!-- Logo Header -->
       <div class="text-center space-y-2">
-        <div class="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-sky-500/10 border border-sky-500/30 text-sky-400 text-xl shadow-inner mb-1">
-          <i class="fa-solid fa-tower-broadcast"></i>
+        <div class="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-sky-500/10 border border-sky-500/30 p-2 shadow-inner mb-1 overflow-hidden">
+          <img src="/images/logo-login.png" onerror="this.onerror=null; this.src='/images/logo-login.svg';" class="w-full h-full object-contain rounded-xl" alt="Daviteq Logo" />
         </div>
         <h1 class="text-xl font-extrabold tracking-tight text-white flex items-center justify-center gap-1.5">
           <span class="text-sky-400">DAVITEQ</span> IoT

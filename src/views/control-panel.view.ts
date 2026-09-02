@@ -7,6 +7,8 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
   <meta http-equiv="Pragma" content="no-cache" />
   <meta http-equiv="Expires" content="0" />
   <title>Control Panel - Daviteq LoRaWAN Platform</title>
+  <link rel="icon" type="image/svg+xml" href="/images/favicon.svg" />
+  <link rel="alternate icon" type="image/png" href="/images/favicon.png" />
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -79,8 +81,8 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
       <!-- Left Brand -->
       <div class="flex items-center gap-4">
         <a href="/control-panel" class="flex items-center gap-2.5 text-white font-extrabold text-sm tracking-tight text-decoration-none">
-          <div class="w-8 h-8 rounded-lg bg-sky-500/10 border border-sky-500/30 flex items-center justify-center text-sky-400 text-sm shadow-inner">
-            <i class="fa-solid fa-tower-broadcast"></i>
+          <div class="w-8 h-8 rounded-lg bg-sky-500/10 border border-sky-500/30 flex items-center justify-center p-0.5 shadow-inner overflow-hidden">
+            <img src="/images/logo-navbar.png" onerror="this.onerror=null; this.src='/images/logo-navbar.svg';" class="w-full h-full object-contain rounded-md" alt="Daviteq Logo" />
           </div>
           <div class="leading-none">
             <div class="flex items-center gap-1.5">
