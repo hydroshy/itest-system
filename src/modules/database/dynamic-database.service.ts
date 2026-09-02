@@ -160,15 +160,16 @@ export class DynamicDatabaseService implements OnModuleInit, OnModuleDestroy {
       await dataSource.query(`
         CREATE TABLE IF NOT EXISTS "permission" (
           "id" UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-          "name" VARCHAR(255) UNIQUE NOT NULL,
+          "name" VARCHAR(255) UNIQUE,
           "description" VARCHAR(255),
-          "module" VARCHAR(100) NOT NULL,
-          "action" VARCHAR(100) NOT NULL,
+          "module" VARCHAR(100) NOT NULL DEFAULT 'system',
+          "action" VARCHAR(100) NOT NULL DEFAULT 'read',
           "createdAt" TIMESTAMP NOT NULL DEFAULT now()
         );
       `);
-      // Clean any legacy corrupted records with null names
+      // Delete any dirty rows with null name before setting NOT NULL
       await dataSource.query(`DELETE FROM "permission" WHERE "name" IS NULL OR "name" = '';`).catch(() => {});
+      await dataSource.query(`ALTER TABLE "permission" ALTER COLUMN "name" SET NOT NULL;`).catch(() => {});
 
       // 2. roles table
       await dataSource.query(`
@@ -190,12 +191,6 @@ export class DynamicDatabaseService implements OnModuleInit, OnModuleDestroy {
           CONSTRAINT "PK_role_permissions" PRIMARY KEY ("role_id", "permission_id")
         );
       `);
-      // Clean orphaned role_permissions
-      await dataSource.query(`
-        DELETE FROM "role_permissions"
-        WHERE "role_id" NOT IN (SELECT "id" FROM "roles")
-           OR "permission_id" NOT IN (SELECT "id" FROM "permission");
-      `).catch(() => {});
 
       // 4. users table
       await dataSource.query(`
@@ -221,7 +216,14 @@ export class DynamicDatabaseService implements OnModuleInit, OnModuleDestroy {
           CONSTRAINT "PK_user_role" PRIMARY KEY ("user_id", "role_id")
         );
       `);
-      // Clean orphaned user_role
+
+      // 6. Clean orphaned join records
+      await dataSource.query(`
+        DELETE FROM "role_permissions"
+        WHERE "role_id" NOT IN (SELECT "id" FROM "roles")
+           OR "permission_id" NOT IN (SELECT "id" FROM "permission");
+      `).catch(() => {});
+
       await dataSource.query(`
         DELETE FROM "user_role"
         WHERE "user_id" NOT IN (SELECT "id" FROM "users")
