@@ -14,6 +14,6 @@ export class UserPanelController {
   @Get('dashboard')
   @ApiOperation({ summary: 'Dashboard cá nhân cho User theo dõi thiết bị' })
   async getDashboard(@CurrentUser() user: any) {
-    return await this.userPanelService.getUserDashboard(user.userId);
+    return await this.userPanelService.getUserDashboard(user?.id || user?.userId);
   }
 }

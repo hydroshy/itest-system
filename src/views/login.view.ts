@@ -181,10 +181,15 @@ export const LOGIN_HTML = `<!DOCTYPE html>
       if (existingToken && existingToken !== "undefined" && existingToken !== "null") {
         fetch("/auth/session", {
           headers: { "Authorization": "Bearer " + existingToken },
-          credentials: "same-origin"
+          credentials: "include"
         }).then(function(res) {
           if (res.ok) {
             window.location.href = "/control-panel";
+          } else if (res.status === 401) {
+            localStorage.removeItem("lorawan_token");
+            localStorage.removeItem("lorawan_user");
+            document.cookie = "access_token=; Path=/; Expires=Thu, 01 Jan 1970 00:00:01 GMT; Max-Age=0;";
+            document.cookie = "lorawan_token=; Path=/; Expires=Thu, 01 Jan 1970 00:00:01 GMT; Max-Age=0;";
           }
         }).catch(function() {});
       }

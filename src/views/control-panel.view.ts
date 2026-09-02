@@ -21,8 +21,8 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
       flex-direction: column;
     }
     .custom-scroll::-webkit-scrollbar {
-      width: 5px;
-      height: 5px;
+      width: 6px;
+      height: 6px;
     }
     .custom-scroll::-webkit-scrollbar-track {
       background: #0f172a;
@@ -38,14 +38,15 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
       display: inline-flex;
       align-items: center;
       gap: 0.5rem;
-      padding: 0.5rem 1rem;
+      padding: 0.6rem 1.1rem;
       border-radius: 0.75rem;
-      font-size: 0.75rem;
+      font-size: 0.8125rem;
       font-weight: 600;
       color: #94a3b8;
       border: 1px solid transparent;
       background: transparent;
       outline: none;
+      white-space: nowrap;
     }
     .tab-btn:hover {
       color: #f1f5f9;
@@ -57,7 +58,8 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
       border-color: rgba(56, 189, 248, 0.5) !important;
     }
     .modal-overlay {
-      display: none;
+      display: none !important;
+      pointer-events: none !important;
       position: fixed;
       inset: 0;
       z-index: 9999;
@@ -69,6 +71,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
     }
     .modal-overlay.active {
       display: flex !important;
+      pointer-events: auto !important;
     }
     .btn {
       cursor: pointer !important;
@@ -81,6 +84,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
       transition: all 0.15s ease;
       outline: none;
       border: none;
+      user-select: none;
     }
     #toastContainer {
       position: fixed;
@@ -113,7 +117,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
   </style>
 </head>
 <body class="min-h-screen text-slate-100 flex flex-col">
-  <!-- Toast Container -->
+  <!-- Toast Notification Container -->
   <div id="toastContainer"></div>
 
   <!-- Top Navigation Bar -->
@@ -146,7 +150,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
         <div class="flex items-center gap-2 pl-3 border-l border-slate-800">
           <div class="text-right">
             <div id="navFullName" class="text-xs font-semibold text-slate-200">Admin User</div>
-            <div id="navRoleBadge" class="text-[10px] text-emerald-400 font-mono font-semibold">SUPER_ADMIN</div>
+            <div id="navRoleBadge" class="text-[10px] text-emerald-400 font-mono font-bold">SUPER_ADMIN</div>
           </div>
           <button onclick="handleLogout()" id="btn-logout" type="button" title="Sign Out" class="btn px-3 py-1.5 rounded-lg bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-400 hover:text-red-300 text-xs">
             <i class="fa-solid fa-right-from-bracket"></i>
@@ -173,6 +177,9 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
       <button onclick="switchTab('database')" type="button" id="tabBtn-database" class="tab-btn">
         <i class="fa-solid fa-database"></i> Database Health
       </button>
+      <button onclick="switchTab('devices')" type="button" id="tabBtn-devices" class="tab-btn">
+        <i class="fa-solid fa-microchip"></i> LoRaWAN Devices
+      </button>
       <button onclick="switchTab('webhooks')" type="button" id="tabBtn-webhooks" class="tab-btn">
         <i class="fa-solid fa-satellite-dish"></i> Webhooks & Ingestion
       </button>
@@ -190,7 +197,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
             <i class="fa-solid fa-server text-sky-400"></i>
           </div>
           <div class="text-xl font-bold text-white mt-2 flex items-center gap-2">
-            <span class="w-2 h-2 rounded-full bg-emerald-500"></span> ONLINE
+            <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span> ONLINE
           </div>
           <div class="text-[11px] text-slate-500 mt-1">NestJS Core Runtime</div>
         </div>
@@ -252,6 +259,10 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
               <span class="flex items-center gap-2 text-slate-300 font-medium"><i class="fa-solid fa-book text-sky-400"></i> Swagger REST API Documentation</span>
               <i class="fa-solid fa-arrow-up-right-from-square text-slate-500 text-[10px]"></i>
             </a>
+            <button onclick="switchTab('devices')" type="button" class="w-full flex items-center justify-between p-2.5 rounded-xl bg-slate-950/60 border border-slate-800/80 hover:border-sky-500/40 transition cursor-pointer">
+              <span class="flex items-center gap-2 text-slate-300 font-medium"><i class="fa-solid fa-microchip text-sky-400"></i> LoRaWAN Devices & Telemetry</span>
+              <i class="fa-solid fa-arrow-right text-slate-500 text-[10px]"></i>
+            </button>
             <button onclick="switchTab('webhooks')" type="button" class="w-full flex items-center justify-between p-2.5 rounded-xl bg-slate-950/60 border border-slate-800/80 hover:border-emerald-500/40 transition cursor-pointer">
               <span class="flex items-center gap-2 text-slate-300 font-medium"><i class="fa-solid fa-satellite-dish text-emerald-400"></i> Webhook Ingestion Configuration</span>
               <i class="fa-solid fa-arrow-right text-slate-500 text-[10px]"></i>
@@ -401,7 +412,47 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
       </div>
     </div>
 
-    <!-- TAB 5: WEBHOOKS -->
+    <!-- TAB 5: LORAWAN DEVICES -->
+    <div id="tabContent-devices" class="space-y-6" style="display: none;">
+      <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 space-y-5">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <h2 class="text-base font-bold text-white flex items-center gap-2">
+              <i class="fa-solid fa-microchip text-sky-400"></i> LoRaWAN Device Fleet
+            </h2>
+            <p class="text-xs text-slate-400 mt-0.5">Manage registered End Devices and view recent uplink data</p>
+          </div>
+          <div class="flex items-center gap-2">
+            <button onclick="loadDevices()" type="button" class="btn px-3 py-2 text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700">
+              <i class="fa-solid fa-arrows-rotate"></i> Refresh
+            </button>
+            <button onclick="openRegisterDeviceModal()" type="button" class="btn px-3.5 py-2 text-xs font-semibold bg-sky-500 hover:bg-sky-400 text-white shadow-lg shadow-sky-500/20">
+              <i class="fa-solid fa-plus"></i> Register Device
+            </button>
+          </div>
+        </div>
+
+        <div class="overflow-x-auto custom-scroll border border-slate-800/80 rounded-xl">
+          <table class="w-full text-left text-xs">
+            <thead class="text-slate-400 border-b border-slate-800 bg-slate-950/60">
+              <tr>
+                <th class="py-3 px-4">DevEUI</th>
+                <th class="py-3 px-4">Device Name</th>
+                <th class="py-3 px-4">Activation</th>
+                <th class="py-3 px-4">Decoder Script</th>
+                <th class="py-3 px-4">Status</th>
+                <th class="py-3 px-4 text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="devicesTableBody" class="divide-y divide-slate-800/60 font-mono">
+              <tr><td colspan="6" class="py-4 text-center text-slate-500 font-sans">Loading device fleet...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 6: WEBHOOKS -->
     <div id="tabContent-webhooks" class="space-y-6" style="display: none;">
       <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 space-y-4">
         <h2 class="text-base font-bold text-white flex items-center gap-2">
@@ -419,7 +470,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
             </div>
             <div class="p-2 bg-slate-900 rounded-lg border border-slate-800 text-slate-300 break-all select-all flex items-center justify-between">
               <span id="chirpstackWebhookUrl">POST /lorawan/webhook/chirpstack</span>
-              <button onclick="copyToClipboard(window.location.origin + '/lorawan/webhook/chirpstack')" type="button" class="text-slate-400 hover:text-sky-400 text-xs ml-2" title="Copy"><i class="fa-solid fa-copy"></i></button>
+              <button onclick="copyToClipboard(window.location.origin + '/lorawan/webhook/chirpstack')" type="button" class="text-slate-400 hover:text-sky-400 text-xs ml-2 cursor-pointer" title="Copy"><i class="fa-solid fa-copy"></i></button>
             </div>
             <p class="text-[11px] text-slate-400 font-sans">Supports ChirpStack uplink events: deduplication, RSSI/SNR metrics, payload decoding.</p>
           </div>
@@ -431,7 +482,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
             </div>
             <div class="p-2 bg-slate-900 rounded-lg border border-slate-800 text-slate-300 break-all select-all flex items-center justify-between">
               <span id="thingparkWebhookUrl">POST /lorawan/webhook/thingpark</span>
-              <button onclick="copyToClipboard(window.location.origin + '/lorawan/webhook/thingpark')" type="button" class="text-slate-400 hover:text-emerald-400 text-xs ml-2" title="Copy"><i class="fa-solid fa-copy"></i></button>
+              <button onclick="copyToClipboard(window.location.origin + '/lorawan/webhook/thingpark')" type="button" class="text-slate-400 hover:text-emerald-400 text-xs ml-2 cursor-pointer" title="Copy"><i class="fa-solid fa-copy"></i></button>
             </div>
             <p class="text-[11px] text-slate-400 font-sans">Supports Actility ThingPark Wireless DX packets and hex payloads.</p>
           </div>
@@ -439,7 +490,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
       </div>
     </div>
 
-    <!-- TAB 6: DECODER SANDBOX -->
+    <!-- TAB 7: DECODER SANDBOX -->
     <div id="tabContent-decoder" class="space-y-6" style="display: none;">
       <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 space-y-4">
         <h2 class="text-base font-bold text-white flex items-center gap-2">
@@ -463,7 +514,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
           <div class="space-y-2">
             <label class="block text-xs font-sans font-semibold text-slate-300">Test Hex Bytes & Output</label>
             <div class="flex gap-2">
-              <input type="text" id="sandboxHex" value="09C441" placeholder="Hex string e.g. 09C441" class="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-slate-200 focus:outline-none focus:border-indigo-500" />
+              <input type="text" id="sandboxHex" value="09C441" placeholder="Hex string e.g. 09C441" class="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-slate-200 focus:outline-none focus:border-indigo-500 font-mono" />
               <button onclick="runSandboxDecode()" type="button" class="btn px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-sans font-semibold rounded-xl transition">Decode</button>
             </div>
             <pre id="sandboxResult" class="w-full h-36 bg-slate-950 border border-slate-800 rounded-xl p-3 text-emerald-400 overflow-auto text-xs">{ "ready": true }</pre>
@@ -630,10 +681,48 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
     </div>
   </div>
 
+  <!-- MODAL: REGISTER DEVICE -->
+  <div id="registerDeviceModal" class="modal-overlay" onclick="handleModalBackdropClick(event, 'registerDeviceModal')">
+    <div class="w-full max-w-md bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-4 shadow-2xl" onclick="event.stopPropagation()">
+      <div class="flex items-center justify-between">
+        <h3 class="text-sm font-bold text-white flex items-center gap-2">
+          <i class="fa-solid fa-microchip text-sky-400"></i> Register LoRaWAN Device
+        </h3>
+        <button onclick="closeRegisterDeviceModal()" type="button" class="text-slate-500 hover:text-slate-300 cursor-pointer"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <form id="registerDeviceForm" class="space-y-3 text-xs">
+        <div>
+          <label class="block font-semibold text-slate-300 mb-1">DevEUI (16 Hex Characters)</label>
+          <input type="text" id="newDevEUI" required placeholder="0018B20000000001" maxlength="16" class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-white font-mono uppercase focus:outline-none focus:border-sky-500" />
+        </div>
+        <div>
+          <label class="block font-semibold text-slate-300 mb-1">Device Name</label>
+          <input type="text" id="newDeviceName" required placeholder="e.g. Temperature Sensor 01" class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-sky-500" />
+        </div>
+        <div>
+          <label class="block font-semibold text-slate-300 mb-1">Activation Type</label>
+          <select id="newActivationType" class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-sky-500">
+            <option value="OTAA">OTAA (Over-The-Air Activation)</option>
+            <option value="ABP">ABP (Activation By Personalization)</option>
+          </select>
+        </div>
+        <div>
+          <label class="block font-semibold text-slate-300 mb-1">AppKey (Optional)</label>
+          <input type="text" id="newAppKey" placeholder="32 Hex AppKey (if OTAA)" class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-white font-mono focus:outline-none focus:border-sky-500" />
+        </div>
+        <div class="flex justify-end gap-2 pt-2">
+          <button type="button" onclick="closeRegisterDeviceModal()" class="btn px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300">Cancel</button>
+          <button type="submit" class="btn px-4 py-2 bg-sky-500 hover:bg-sky-400 text-white font-semibold">Register Device</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <script>
     var allAvailablePermissions = [];
     var allAvailableRoles = [];
     var allLoadedUsers = [];
+    var allLoadedDevices = [];
 
     function showToast(msg, type) {
       var container = document.getElementById("toastContainer");
@@ -714,7 +803,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
     }
 
     function switchTab(tabId) {
-      var tabList = ["overview", "users", "roles", "database", "webhooks", "decoder"];
+      var tabList = ["overview", "users", "roles", "database", "devices", "webhooks", "decoder"];
       for (var i = 0; i < tabList.length; i++) {
         var t = tabList[i];
         var btn = document.getElementById("tabBtn-" + t);
@@ -746,6 +835,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
       if (tabId === "users") loadUsers();
       if (tabId === "roles") loadRoles();
       if (tabId === "database") loadDatabaseHealth();
+      if (tabId === "devices") loadDevices();
     }
     window.switchTab = switchTab;
 
@@ -756,13 +846,14 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
       try {
         await fetch("/auth/logout", { method: "GET", credentials: "include" });
       } catch (e) {}
-      localStorage.removeItem("lorawan_token");
-      localStorage.removeItem("lorawan_user");
+      localStorage.clear();
       sessionStorage.clear();
-      document.cookie = "access_token=; Path=/; Expires=Thu, 01 Jan 1970 00:00:01 GMT; Max-Age=0; SameSite=Lax;";
-      document.cookie = "lorawan_token=; Path=/; Expires=Thu, 01 Jan 1970 00:00:01 GMT; Max-Age=0; SameSite=Lax;";
-      document.cookie = "access_token=; Path=/; Expires=Thu, 01 Jan 1970 00:00:01 GMT; Max-Age=0;";
-      document.cookie = "lorawan_token=; Path=/; Expires=Thu, 01 Jan 1970 00:00:01 GMT; Max-Age=0;";
+      var cookies = ["access_token", "lorawan_token"];
+      for (var i = 0; i < cookies.length; i++) {
+        var c = cookies[i];
+        document.cookie = c + "=; Path=/; Expires=Thu, 01 Jan 1970 00:00:01 GMT; Max-Age=0; SameSite=Lax;";
+        document.cookie = c + "=; Path=/; Expires=Thu, 01 Jan 1970 00:00:01 GMT; Max-Age=0;";
+      }
       window.location.replace("/login?logout=1");
     }
     window.handleLogout = handleLogout;
@@ -812,7 +903,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
 
           var tr = document.createElement("tr");
           tr.className = "hover:bg-slate-950/40 transition";
-          tr.innerHTML = '<td class="py-3 px-4 font-semibold text-white">' + u.username + '</td>' +
+          tr.innerHTML = '<td class="py-3 px-4 font-semibold text-white font-mono">' + u.username + '</td>' +
             '<td class="py-3 px-4 text-slate-300">' + (u.fullName || "--") + '</td>' +
             '<td class="py-3 px-4 text-slate-400">' + u.email + '</td>' +
             '<td class="py-3 px-4">' + typeBadge + '</td>' +
@@ -986,6 +1077,45 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
     }
     window.loadDatabaseHealth = loadDatabaseHealth;
 
+    async function loadDevices() {
+      try {
+        var res = await fetch("/lorawan/devices", { headers: authHeaders(), credentials: "include" });
+        if (res.status === 401) {
+          handleLogout();
+          return;
+        }
+        if (!res.ok) throw new Error("HTTP " + res.status);
+        var devices = await res.json();
+        allLoadedDevices = devices;
+        var tbody = document.getElementById("devicesTableBody");
+        if (!tbody) return;
+        tbody.innerHTML = "";
+
+        if (!Array.isArray(devices) || devices.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="6" class="py-4 text-center text-slate-500 font-sans">No LoRaWAN devices registered. Click "Register Device" to add one.</td></tr>';
+          return;
+        }
+
+        for (var i = 0; i < devices.length; i++) {
+          var d = devices[i];
+          var tr = document.createElement("tr");
+          tr.className = "hover:bg-slate-950/40 transition";
+          tr.innerHTML = '<td class="py-3 px-4 font-bold text-sky-400">' + d.devEUI + '</td>' +
+            '<td class="py-3 px-4 font-sans text-white">' + (d.name || "--") + '</td>' +
+            '<td class="py-3 px-4 text-amber-400">' + (d.activationType || "OTAA") + '</td>' +
+            '<td class="py-3 px-4 text-slate-400 font-sans">' + (d.payloadFormatterScript ? '<span class="text-emerald-400"><i class="fa-solid fa-code"></i> Configured</span>' : '<span class="text-slate-500">None</span>') + '</td>' +
+            '<td class="py-3 px-4"><span class="px-2 py-0.5 rounded-full text-[10px] ' + (d.isActive ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" : "bg-red-500/10 text-red-400 border border-red-500/20") + '">' + (d.isActive ? "ACTIVE" : "INACTIVE") + '</span></td>' +
+            '<td class="py-3 px-4 text-right font-sans"><button onclick="testDeviceDecoder(\'' + d.devEUI + '\')" type="button" class="btn text-sky-400 hover:text-sky-300 text-xs px-2 py-1 rounded bg-sky-500/10 border border-sky-500/20">Test Payload</button></td>';
+          tbody.appendChild(tr);
+        }
+      } catch (err) {
+        console.error("loadDevices error:", err);
+        var tbody = document.getElementById("devicesTableBody");
+        if (tbody) tbody.innerHTML = '<tr><td colspan="6" class="py-4 text-center text-amber-400 font-sans">Could not load devices (' + err.message + ')</td></tr>';
+      }
+    }
+    window.loadDevices = loadDevices;
+
     async function reloadDbConfig() {
       try {
         var res = await fetch("/database/reload", {
@@ -1007,7 +1137,6 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
         var modal = document.getElementById(modalId);
         if (modal) {
           modal.classList.remove("active");
-          modal.style.display = "none";
         }
       }
     }
@@ -1025,7 +1154,6 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
       var modal = document.getElementById("createUserModal");
       if (modal) {
         modal.classList.add("active");
-        modal.style.display = "flex";
       }
     }
     window.openCreateUserModal = openCreateUserModal;
@@ -1034,7 +1162,6 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
       var modal = document.getElementById("createUserModal");
       if (modal) {
         modal.classList.remove("active");
-        modal.style.display = "none";
       }
     }
     window.closeCreateUserModal = closeCreateUserModal;
@@ -1062,7 +1189,6 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
       var modal = document.getElementById("editUserModal");
       if (modal) {
         modal.classList.add("active");
-        modal.style.display = "flex";
       }
     }
     window.openEditUserModal = openEditUserModal;
@@ -1071,90 +1197,9 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
       var modal = document.getElementById("editUserModal");
       if (modal) {
         modal.classList.remove("active");
-        modal.style.display = "none";
       }
     }
     window.closeEditUserModal = closeEditUserModal;
-
-    document.getElementById("editUserForm").addEventListener("submit", async function(e) {
-      e.preventDefault();
-      var id = document.getElementById("editUserId").value;
-      var roleId = document.getElementById("editUserRoleId").value;
-      var isActive = document.getElementById("editUserActive").value === "true";
-
-      try {
-        var res = await fetch("/users/" + id + "/permissions", {
-          method: "PUT",
-          headers: authHeaders(),
-          credentials: "include",
-          body: JSON.stringify({
-            isActive: isActive,
-            roleIds: roleId ? [roleId] : []
-          })
-        });
-        var data = await res.json();
-        if (!res.ok) throw new Error(data.message || "Failed to update user");
-        showToast("User updated successfully", "success");
-        closeEditUserModal();
-        loadUsers();
-      } catch (err) {
-        showToast(err.message, "error");
-      }
-    });
-
-    document.getElementById("createUserForm").addEventListener("submit", async function(e) {
-      e.preventDefault();
-      var username = document.getElementById("newUsername").value.trim();
-      var fullName = document.getElementById("newFullName").value.trim();
-      var email = document.getElementById("newEmail").value.trim();
-      var password = document.getElementById("newPassword").value;
-      var userType = document.getElementById("newUserType").value;
-      var roleId = document.getElementById("newUserRoleId").value;
-
-      try {
-        var res = await fetch("/users", {
-          method: "POST",
-          headers: authHeaders(),
-          credentials: "include",
-          body: JSON.stringify({
-            username: username,
-            fullName: fullName,
-            email: email,
-            password: password,
-            userType: userType,
-            roleIds: roleId ? [roleId] : []
-          })
-        });
-        var data = await res.json();
-        if (!res.ok) throw new Error(data.message || "Failed to create user");
-        showToast("User account '" + username + "' created successfully", "success");
-        closeCreateUserModal();
-        document.getElementById("createUserForm").reset();
-        loadUsers();
-      } catch (err) {
-        showToast(err.message, "error");
-      }
-    });
-
-    async function deleteUser(id) {
-      if (!confirm("Are you sure you want to delete this user?")) return;
-      try {
-        var res = await fetch("/users/" + id, {
-          method: "DELETE",
-          headers: authHeaders(),
-          credentials: "include"
-        });
-        if (!res.ok) {
-          var data = await res.json();
-          throw new Error(data.message || "Delete failed");
-        }
-        showToast("User removed successfully", "success");
-        loadUsers();
-      } catch (err) {
-        showToast(err.message, "error");
-      }
-    }
-    window.deleteUser = deleteUser;
 
     function openCreateRoleModal() {
       var container = document.getElementById("newRolePermissionsContainer");
@@ -1172,7 +1217,6 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
       var modal = document.getElementById("createRoleModal");
       if (modal) {
         modal.classList.add("active");
-        modal.style.display = "flex";
       }
     }
     window.openCreateRoleModal = openCreateRoleModal;
@@ -1181,39 +1225,9 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
       var modal = document.getElementById("createRoleModal");
       if (modal) {
         modal.classList.remove("active");
-        modal.style.display = "none";
       }
     }
     window.closeCreateRoleModal = closeCreateRoleModal;
-
-    document.getElementById("createRoleForm").addEventListener("submit", async function(e) {
-      e.preventDefault();
-      var code = document.getElementById("newRoleCode").value.trim().toUpperCase();
-      var name = document.getElementById("newRoleName").value.trim();
-      var description = document.getElementById("newRoleDescription").value.trim();
-      var checkBoxes = document.querySelectorAll(".new-role-perm:checked");
-      var checkedPerms = [];
-      for (var i = 0; i < checkBoxes.length; i++) {
-        checkedPerms.push(checkBoxes[i].value);
-      }
-
-      try {
-        var res = await fetch("/roles", {
-          method: "POST",
-          headers: authHeaders(),
-          credentials: "include",
-          body: JSON.stringify({ code: code, name: name, description: description, permissionIds: checkedPerms })
-        });
-        var data = await res.json();
-        if (!res.ok) throw new Error(data.message || "Failed to create role");
-        showToast("Role '" + name + "' created successfully", "success");
-        closeCreateRoleModal();
-        document.getElementById("createRoleForm").reset();
-        loadRoles();
-      } catch (err) {
-        showToast(err.message, "error");
-      }
-    });
 
     function openEditRoleModal(roleId) {
       var role = null;
@@ -1251,7 +1265,6 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
       var modal = document.getElementById("editRoleModal");
       if (modal) {
         modal.classList.add("active");
-        modal.style.display = "flex";
       }
     }
     window.openEditRoleModal = openEditRoleModal;
@@ -1260,38 +1273,45 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
       var modal = document.getElementById("editRoleModal");
       if (modal) {
         modal.classList.remove("active");
-        modal.style.display = "none";
       }
     }
     window.closeEditRoleModal = closeEditRoleModal;
 
-    document.getElementById("editRoleForm").addEventListener("submit", async function(e) {
-      e.preventDefault();
-      var id = document.getElementById("editRoleId").value;
-      var name = document.getElementById("editRoleName").value.trim();
-      var description = document.getElementById("editRoleDescription").value.trim();
-      var checkBoxes = document.querySelectorAll(".edit-role-perm:checked");
-      var checkedPerms = [];
-      for (var i = 0; i < checkBoxes.length; i++) {
-        checkedPerms.push(checkBoxes[i].value);
+    function openRegisterDeviceModal() {
+      var modal = document.getElementById("registerDeviceModal");
+      if (modal) {
+        modal.classList.add("active");
       }
+    }
+    window.openRegisterDeviceModal = openRegisterDeviceModal;
 
+    function closeRegisterDeviceModal() {
+      var modal = document.getElementById("registerDeviceModal");
+      if (modal) {
+        modal.classList.remove("active");
+      }
+    }
+    window.closeRegisterDeviceModal = closeRegisterDeviceModal;
+
+    async function deleteUser(id) {
+      if (!confirm("Are you sure you want to delete this user?")) return;
       try {
-        var res = await fetch("/roles/" + id, {
-          method: "PUT",
+        var res = await fetch("/users/" + id, {
+          method: "DELETE",
           headers: authHeaders(),
-          credentials: "include",
-          body: JSON.stringify({ name: name, description: description, permissionIds: checkedPerms })
+          credentials: "include"
         });
-        var data = await res.json();
-        if (!res.ok) throw new Error(data.message || "Failed to update role");
-        showToast("Role '" + name + "' updated successfully", "success");
-        closeEditRoleModal();
-        loadRoles();
+        if (!res.ok) {
+          var data = await res.json();
+          throw new Error(data.message || "Delete failed");
+        }
+        showToast("User removed successfully", "success");
+        loadUsers();
       } catch (err) {
         showToast(err.message, "error");
       }
-    });
+    }
+    window.deleteUser = deleteUser;
 
     async function deleteRole(id) {
       if (!confirm("Are you sure you want to delete this role?")) return;
@@ -1313,6 +1333,13 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
     }
     window.deleteRole = deleteRole;
 
+    function testDeviceDecoder(devEUI) {
+      switchTab('decoder');
+      var hexInput = document.getElementById("sandboxHex");
+      if (hexInput) hexInput.focus();
+    }
+    window.testDeviceDecoder = testDeviceDecoder;
+
     function runSandboxDecode() {
       var code = document.getElementById("sandboxCode").value;
       var hex = document.getElementById("sandboxHex").value.trim().replace(/\\s+/g, "");
@@ -1327,15 +1354,177 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
         var fn = new Function("bytes", "fPort", code + "; return decodeUplink(bytes, fPort);");
         var output = fn(bytes, 1);
         resultArea.textContent = JSON.stringify(output, null, 2);
+        showToast("Decoder executed successfully", "success");
       } catch (err) {
         resultArea.textContent = "Decoder Error: " + err.message;
+        showToast("Decoder Error: " + err.message, "error");
       }
     }
     window.runSandboxDecode = runSandboxDecode;
 
+    // Attach form submit handlers safely
+    function bindFormHandlers() {
+      var createUserForm = document.getElementById("createUserForm");
+      if (createUserForm) {
+        createUserForm.onsubmit = async function(e) {
+          e.preventDefault();
+          var username = document.getElementById("newUsername").value.trim();
+          var fullName = document.getElementById("newFullName").value.trim();
+          var email = document.getElementById("newEmail").value.trim();
+          var password = document.getElementById("newPassword").value;
+          var userType = document.getElementById("newUserType").value;
+          var roleId = document.getElementById("newUserRoleId").value;
+
+          try {
+            var res = await fetch("/users", {
+              method: "POST",
+              headers: authHeaders(),
+              credentials: "include",
+              body: JSON.stringify({
+                username: username,
+                fullName: fullName,
+                email: email,
+                password: password,
+                userType: userType,
+                roleIds: roleId ? [roleId] : []
+              })
+            });
+            var data = await res.json();
+            if (!res.ok) throw new Error(data.message || "Failed to create user");
+            showToast("User account '" + username + "' created successfully", "success");
+            closeCreateUserModal();
+            createUserForm.reset();
+            loadUsers();
+          } catch (err) {
+            showToast(err.message, "error");
+          }
+        };
+      }
+
+      var editUserForm = document.getElementById("editUserForm");
+      if (editUserForm) {
+        editUserForm.onsubmit = async function(e) {
+          e.preventDefault();
+          var id = document.getElementById("editUserId").value;
+          var roleId = document.getElementById("editUserRoleId").value;
+          var isActive = document.getElementById("editUserActive").value === "true";
+
+          try {
+            var res = await fetch("/users/" + id + "/permissions", {
+              method: "PUT",
+              headers: authHeaders(),
+              credentials: "include",
+              body: JSON.stringify({
+                isActive: isActive,
+                roleIds: roleId ? [roleId] : []
+              })
+            });
+            var data = await res.json();
+            if (!res.ok) throw new Error(data.message || "Failed to update user");
+            showToast("User updated successfully", "success");
+            closeEditUserModal();
+            loadUsers();
+          } catch (err) {
+            showToast(err.message, "error");
+          }
+        };
+      }
+
+      var createRoleForm = document.getElementById("createRoleForm");
+      if (createRoleForm) {
+        createRoleForm.onsubmit = async function(e) {
+          e.preventDefault();
+          var code = document.getElementById("newRoleCode").value.trim().toUpperCase();
+          var name = document.getElementById("newRoleName").value.trim();
+          var description = document.getElementById("newRoleDescription").value.trim();
+          var checkBoxes = document.querySelectorAll(".new-role-perm:checked");
+          var checkedPerms = [];
+          for (var i = 0; i < checkBoxes.length; i++) {
+            checkedPerms.push(checkBoxes[i].value);
+          }
+
+          try {
+            var res = await fetch("/roles", {
+              method: "POST",
+              headers: authHeaders(),
+              credentials: "include",
+              body: JSON.stringify({ code: code, name: name, description: description, permissionIds: checkedPerms })
+            });
+            var data = await res.json();
+            if (!res.ok) throw new Error(data.message || "Failed to create role");
+            showToast("Role '" + name + "' created successfully", "success");
+            closeCreateRoleModal();
+            createRoleForm.reset();
+            loadRoles();
+          } catch (err) {
+            showToast(err.message, "error");
+          }
+        };
+      }
+
+      var editRoleForm = document.getElementById("editRoleForm");
+      if (editRoleForm) {
+        editRoleForm.onsubmit = async function(e) {
+          e.preventDefault();
+          var id = document.getElementById("editRoleId").value;
+          var name = document.getElementById("editRoleName").value.trim();
+          var description = document.getElementById("editRoleDescription").value.trim();
+          var checkBoxes = document.querySelectorAll(".edit-role-perm:checked");
+          var checkedPerms = [];
+          for (var i = 0; i < checkBoxes.length; i++) {
+            checkedPerms.push(checkBoxes[i].value);
+          }
+
+          try {
+            var res = await fetch("/roles/" + id, {
+              method: "PUT",
+              headers: authHeaders(),
+              credentials: "include",
+              body: JSON.stringify({ name: name, description: description, permissionIds: checkedPerms })
+            });
+            var data = await res.json();
+            if (!res.ok) throw new Error(data.message || "Failed to update role");
+            showToast("Role '" + name + "' updated successfully", "success");
+            closeEditRoleModal();
+            loadRoles();
+          } catch (err) {
+            showToast(err.message, "error");
+          }
+        };
+      }
+
+      var registerDeviceForm = document.getElementById("registerDeviceForm");
+      if (registerDeviceForm) {
+        registerDeviceForm.onsubmit = async function(e) {
+          e.preventDefault();
+          var devEUI = document.getElementById("newDevEUI").value.trim().toUpperCase();
+          var name = document.getElementById("newDeviceName").value.trim();
+          var activationType = document.getElementById("newActivationType").value;
+          var appKey = document.getElementById("newAppKey").value.trim();
+
+          try {
+            var res = await fetch("/lorawan/devices", {
+              method: "POST",
+              headers: authHeaders(),
+              credentials: "include",
+              body: JSON.stringify({ devEUI: devEUI, name: name, activationType: activationType, appKey: appKey || undefined })
+            });
+            var data = await res.json();
+            if (!res.ok) throw new Error(data.message || "Failed to register device");
+            showToast("Device '" + name + "' registered successfully", "success");
+            closeRegisterDeviceModal();
+            registerDeviceForm.reset();
+            loadDevices();
+          } catch (err) {
+            showToast(err.message, "error");
+          }
+        };
+      }
+    }
+
     // Attach click listeners to all tab buttons to ensure 100% click reliability
     function bindTabListeners() {
-      var tabList = ["overview", "users", "roles", "database", "webhooks", "decoder"];
+      var tabList = ["overview", "users", "roles", "database", "devices", "webhooks", "decoder"];
       for (var i = 0; i < tabList.length; i++) {
         (function(id) {
           var btn = document.getElementById("tabBtn-" + id);
@@ -1352,10 +1541,10 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
     // Check active session on load
     async function initPage() {
       bindTabListeners();
+      bindFormHandlers();
 
       var token = getAuthToken();
       if (!token) {
-        // If neither localStorage nor cookie has token, redirect to login
         window.location.replace("/login?logout=1");
         return;
       }
@@ -1383,6 +1572,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
       loadUsers();
       loadRoles();
       loadDatabaseHealth();
+      loadDevices();
     }
 
     // Run after DOM content is ready

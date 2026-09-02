@@ -32,15 +32,21 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   async validate(payload: JwtPayload): Promise<User> {
     const userRepo = this.dbService.getRepositoryForTable('users', User);
     let user: User | null = null;
+    const lookupWhere: any[] = [];
+    if (payload.sub) lookupWhere.push({ id: payload.sub });
+    if (payload.username) lookupWhere.push({ username: payload.username });
+
     try {
       user = await userRepo.findOne({
-        where: { id: payload.sub },
+        where: lookupWhere.length > 0 ? lookupWhere : { id: payload.sub },
         relations: ['roles', 'roles.permissions'],
       });
     } catch (e) {
-      user = await userRepo.findOne({
-        where: { id: payload.sub },
-      });
+      try {
+        user = await userRepo.findOne({
+          where: lookupWhere.length > 0 ? lookupWhere : { id: payload.sub },
+        });
+      } catch (err) {}
     }
 
     if (!user) {
