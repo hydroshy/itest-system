@@ -446,12 +446,30 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
         };
 
         const fetchSession = async () => {
+          const token = getAuthToken();
+          if (!token) {
+            localStorage.clear();
+            sessionStorage.clear();
+            window.location.replace('/login');
+            return false;
+          }
           try {
             const res = await fetch('/auth/session', { headers: authHeaders(), credentials: 'include' });
             if (res.ok) {
               currentUser.value = await res.json();
+              return true;
+            } else {
+              localStorage.clear();
+              sessionStorage.clear();
+              window.location.replace('/login');
+              return false;
             }
-          } catch(e) {}
+          } catch(e) {
+            localStorage.clear();
+            sessionStorage.clear();
+            window.location.replace('/login');
+            return false;
+          }
         };
 
         const fetchFeatures = async () => {
@@ -491,9 +509,19 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
           return new Date(ts).toLocaleTimeString();
         };
 
-        onMounted(async () => {
-          await fetchSession();
-          await fetchFeatures();
+        const initDashboard = async () => {
+          const ok = await fetchSession();
+          if (ok) {
+            await fetchFeatures();
+          }
+        };
+
+        onMounted(() => {
+          initDashboard();
+        });
+
+        window.addEventListener('pageshow', (event) => {
+          initDashboard();
         });
 
         return {

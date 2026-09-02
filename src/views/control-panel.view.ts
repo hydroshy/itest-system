@@ -1100,12 +1100,44 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
         };
 
         const fetchSession = async () => {
+          const token = getAuthToken();
+          if (!token) {
+            localStorage.clear();
+            sessionStorage.clear();
+            window.location.replace('/login');
+            return false;
+          }
           try {
             const res = await fetch('/auth/session', { headers: authHeaders(), credentials: 'include' });
             if (res.ok) {
-              currentUser.value = await res.json();
+              const user = await res.json();
+              currentUser.value = user;
+              const isSuper =
+                user.username === 'admin' ||
+                user.userType === 'ADMIN' ||
+                String(user.userType).toUpperCase() === 'ADMIN' ||
+                (user.roles && Array.isArray(user.roles) && user.roles.some(r => {
+                  const code = (typeof r === 'string' ? r : (r.code || r.name || '')).toUpperCase();
+                  return code === 'SUPER_ADMIN' || code === 'SUPER ADMINISTRATOR' || code === 'ADMIN';
+                }));
+
+              if (!isSuper) {
+                window.location.replace('/dashboard');
+                return false;
+              }
+              return true;
+            } else {
+              localStorage.clear();
+              sessionStorage.clear();
+              window.location.replace('/login');
+              return false;
             }
-          } catch(e) {}
+          } catch(e) {
+            localStorage.clear();
+            sessionStorage.clear();
+            window.location.replace('/login');
+            return false;
+          }
         };
 
         // User CRUD
@@ -1335,8 +1367,10 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
           if (newTab === 'telemetry') fetchTelemetry();
         });
 
-        onMounted(() => {
-          fetchSession();
+        const initControlPanel = async () => {
+          const ok = await fetchSession();
+          if (!ok) return;
+
           fetchRoles();
           fetchUsers();
           fetchDbHealth();
@@ -1349,6 +1383,14 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
           } else {
             activeTab.value = 'overview';
           }
+        };
+
+        onMounted(() => {
+          initControlPanel();
+        });
+
+        window.addEventListener('pageshow', (event) => {
+          initControlPanel();
         });
 
         return {

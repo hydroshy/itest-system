@@ -11,6 +11,7 @@ export class AppController {
     res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0');
     res.setHeader('Pragma', 'no-cache');
     res.setHeader('Expires', '0');
+    res.setHeader('Surrogate-Control', 'no-store');
   }
 
   private clearAllCookies(res: Response) {
@@ -59,16 +60,24 @@ export class AppController {
 
   @Get('dashboard')
   @ApiExcludeEndpoint()
-  getDashboardPage(@Res() res: Response) {
+  getDashboardPage(@Req() req: Request, @Res() res: Response) {
     this.setNoCacheHeaders(res);
+    const token = req.cookies?.['access_token'] || req.cookies?.['lorawan_token'];
+    if (!token || token === 'undefined' || token === 'null' || token.length < 20) {
+      return res.redirect('/login');
+    }
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
     res.send(DASHBOARD_HTML);
   }
 
   @Get('control-panel')
   @ApiExcludeEndpoint()
-  getControlPanelPage(@Res() res: Response) {
+  getControlPanelPage(@Req() req: Request, @Res() res: Response) {
     this.setNoCacheHeaders(res);
+    const token = req.cookies?.['access_token'] || req.cookies?.['lorawan_token'];
+    if (!token || token === 'undefined' || token === 'null' || token.length < 20) {
+      return res.redirect('/login');
+    }
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
     res.send(CONTROL_PANEL_HTML);
   }

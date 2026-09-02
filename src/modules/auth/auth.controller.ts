@@ -35,10 +35,13 @@ export class AuthController {
   @Post('logout')
   @ApiOperation({ summary: 'Logout and clear session cookie' })
   async logout(@Req() req: Request, @Res() res: Response) {
-    res.clearCookie('access_token', { path: '/', sameSite: 'lax', httpOnly: false });
-    res.clearCookie('lorawan_token', { path: '/', sameSite: 'lax', httpOnly: false });
-    res.clearCookie('access_token', { path: '/' });
-    res.clearCookie('lorawan_token', { path: '/' });
+    const cookieNames = ['access_token', 'lorawan_token', 'session_id', 'connect.sid'];
+    cookieNames.forEach((name) => {
+      res.clearCookie(name, { path: '/', sameSite: 'lax', httpOnly: false });
+      res.clearCookie(name, { path: '/', sameSite: 'lax', httpOnly: true });
+      res.clearCookie(name, { path: '/' });
+      res.clearCookie(name);
+    });
     if (req.method === 'GET') {
       return res.redirect('/login?logout=1');
     }

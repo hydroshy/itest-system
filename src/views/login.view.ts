@@ -155,13 +155,11 @@ export const LOGIN_HTML = `<!DOCTYPE html>
             const data = await res.json();
             if (!res.ok) throw new Error(data.message || "Invalid username or password");
 
-            if (data.access_token) localStorage.setItem('lorawan_token', data.access_token);
+            if (data.access_token) {
+              localStorage.setItem('lorawan_token', data.access_token);
+              document.cookie = "access_token=" + encodeURIComponent(data.access_token) + "; Path=/; Max-Age=" + (30*24*3600) + "; SameSite=Lax";
+            }
             if (data.user) localStorage.setItem('lorawan_user', JSON.stringify(data.user));
-
-            const isSuperAdmin =
-              data.user?.userType === 'ADMIN' ||
-              data.user?.username === 'admin' ||
-              (data.user?.roles && data.user.roles.includes('SUPER_ADMIN'));
 
             showAlert("Login successful! Redirecting...", "success");
             setTimeout(() => {
