@@ -137,6 +137,11 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
 
       <!-- Right User Profile & Logout -->
       <div class="flex items-center gap-3">
+        <a href="/dashboard" class="px-3 py-1.5 rounded-lg text-xs font-semibold text-sky-400 bg-sky-500/10 border border-sky-500/25 hover:bg-sky-500/20 transition flex items-center gap-1.5 text-decoration-none">
+          <i class="fa-solid fa-layer-group text-xs"></i>
+          <span>Dashboard</span>
+        </a>
+
         <div class="hidden sm:block text-right leading-tight">
           <div class="text-xs font-bold text-slate-200">{{ currentUser.fullName || currentUser.username || 'User' }}</div>
           <div class="text-[10px] font-mono font-bold" :class="isSuperAdmin ? 'text-emerald-400' : 'text-sky-400'">
@@ -665,12 +670,12 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
             <input v-model="newUser.username" type="text" required class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-sky-500" />
           </div>
           <div>
-            <label class="block font-semibold text-slate-300 mb-1">Full Name</label>
-            <input v-model="newUser.fullName" type="text" required class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-sky-500" />
+            <label class="block font-semibold text-slate-300 mb-1">Full Name <span class="text-slate-500 font-normal">(Optional)</span></label>
+            <input v-model="newUser.fullName" type="text" placeholder="Optional" class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-sky-500" />
           </div>
           <div>
-            <label class="block font-semibold text-slate-300 mb-1">Email</label>
-            <input v-model="newUser.email" type="email" required class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-sky-500" />
+            <label class="block font-semibold text-slate-300 mb-1">Email <span class="text-slate-500 font-normal">(Optional)</span></label>
+            <input v-model="newUser.email" type="email" placeholder="Optional - Not required for login" class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-sky-500" />
           </div>
           <div>
             <label class="block font-semibold text-slate-300 mb-1">Password</label>
@@ -1154,18 +1159,21 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
         const submitCreateUser = async () => {
           savingUser.value = true;
           try {
+            const payload: any = {
+              username: newUser.value.username.trim(),
+              fullName: newUser.value.fullName?.trim() || newUser.value.username.trim(),
+              password: newUser.value.password,
+              userType: newUser.value.userType,
+              roleIds: newUser.value.roleId ? [newUser.value.roleId] : []
+            };
+            if (newUser.value.email?.trim()) {
+              payload.email = newUser.value.email.trim();
+            }
             const res = await fetch('/users', {
               method: 'POST',
               headers: authHeaders(),
               credentials: 'include',
-              body: JSON.stringify({
-                username: newUser.value.username.trim(),
-                fullName: newUser.value.fullName.trim(),
-                email: newUser.value.email.trim(),
-                password: newUser.value.password,
-                userType: newUser.value.userType,
-                roleIds: newUser.value.roleId ? [newUser.value.roleId] : []
-              })
+              body: JSON.stringify(payload)
             });
             const data = await res.json();
             if (!res.ok) throw new Error(data.message || "Failed to create user");

@@ -2,6 +2,7 @@ import { Controller, Get, Post, Req, Res } from '@nestjs/common';
 import { ApiExcludeEndpoint } from '@nestjs/swagger';
 import { Request, Response } from 'express';
 import { LOGIN_HTML } from './views/login.view';
+import { DASHBOARD_HTML } from './views/dashboard.view';
 import { CONTROL_PANEL_HTML } from './views/control-panel.view';
 
 @Controller()
@@ -33,7 +34,7 @@ export class AppController {
     }
     const token = req.cookies?.['access_token'] || req.cookies?.['lorawan_token'];
     if (token && token !== 'undefined' && token !== 'null' && token.length > 20) {
-      return res.redirect('/control-panel');
+      return res.redirect('/dashboard');
     }
     return res.redirect('/login');
   }
@@ -54,6 +55,14 @@ export class AppController {
     }
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
     res.send(LOGIN_HTML);
+  }
+
+  @Get('dashboard')
+  @ApiExcludeEndpoint()
+  getDashboardPage(@Res() res: Response) {
+    this.setNoCacheHeaders(res);
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.send(DASHBOARD_HTML);
   }
 
   @Get('control-panel')

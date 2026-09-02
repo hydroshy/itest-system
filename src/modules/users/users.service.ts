@@ -27,9 +27,11 @@ export class UsersService {
   async createUser(dto: CreateUserDto, creator: User) {
     const repo = this.getUserRepo();
 
+    const userEmail = dto.email?.trim() || `${dto.username.toLowerCase().trim()}@daviteq.local`;
+
     // Check existing
     const existing = await repo.findOne({
-      where: [{ username: dto.username }, { email: dto.email }],
+      where: [{ username: dto.username }, { email: userEmail }],
     });
     if (existing) {
       throw new ConflictException('Username or Email already exists');
@@ -42,10 +44,10 @@ export class UsersService {
 
     const passwordHash = await bcrypt.hash(dto.password, 10);
     const user = repo.create({
-      username: dto.username,
-      email: dto.email,
+      username: dto.username.trim(),
+      email: userEmail,
       passwordHash,
-      fullName: dto.fullName,
+      fullName: dto.fullName?.trim() || dto.username.trim(),
       userType: dto.userType || UserType.USER,
       createdById: creator.id,
       isActive: true,
