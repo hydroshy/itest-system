@@ -180,6 +180,9 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
       <button onclick="switchTab('devices')" type="button" id="tabBtn-devices" class="tab-btn">
         <i class="fa-solid fa-microchip"></i> LoRaWAN Devices
       </button>
+      <button onclick="switchTab('telemetry')" type="button" id="tabBtn-telemetry" class="tab-btn">
+        <i class="fa-solid fa-wave-square"></i> Live Telemetry
+      </button>
       <button onclick="switchTab('webhooks')" type="button" id="tabBtn-webhooks" class="tab-btn">
         <i class="fa-solid fa-satellite-dish"></i> Webhooks & Ingestion
       </button>
@@ -260,11 +263,11 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
               <i class="fa-solid fa-arrow-up-right-from-square text-slate-500 text-[10px]"></i>
             </a>
             <button onclick="switchTab('devices')" type="button" class="w-full flex items-center justify-between p-2.5 rounded-xl bg-slate-950/60 border border-slate-800/80 hover:border-sky-500/40 transition cursor-pointer">
-              <span class="flex items-center gap-2 text-slate-300 font-medium"><i class="fa-solid fa-microchip text-sky-400"></i> LoRaWAN Devices & Telemetry</span>
+              <span class="flex items-center gap-2 text-slate-300 font-medium"><i class="fa-solid fa-microchip text-sky-400"></i> LoRaWAN Devices & Gateways</span>
               <i class="fa-solid fa-arrow-right text-slate-500 text-[10px]"></i>
             </button>
-            <button onclick="switchTab('webhooks')" type="button" class="w-full flex items-center justify-between p-2.5 rounded-xl bg-slate-950/60 border border-slate-800/80 hover:border-emerald-500/40 transition cursor-pointer">
-              <span class="flex items-center gap-2 text-slate-300 font-medium"><i class="fa-solid fa-satellite-dish text-emerald-400"></i> Webhook Ingestion Configuration</span>
+            <button onclick="switchTab('telemetry')" type="button" class="w-full flex items-center justify-between p-2.5 rounded-xl bg-slate-950/60 border border-slate-800/80 hover:border-indigo-500/40 transition cursor-pointer">
+              <span class="flex items-center gap-2 text-slate-300 font-medium"><i class="fa-solid fa-wave-square text-indigo-400"></i> Live Telemetry Packets</span>
               <i class="fa-solid fa-arrow-right text-slate-500 text-[10px]"></i>
             </button>
             <button onclick="switchTab('database')" type="button" class="w-full flex items-center justify-between p-2.5 rounded-xl bg-slate-950/60 border border-slate-800/80 hover:border-amber-500/40 transition cursor-pointer">
@@ -420,7 +423,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
             <h2 class="text-base font-bold text-white flex items-center gap-2">
               <i class="fa-solid fa-microchip text-sky-400"></i> LoRaWAN Device Fleet
             </h2>
-            <p class="text-xs text-slate-400 mt-0.5">Manage registered End Devices and view recent uplink data</p>
+            <p class="text-xs text-slate-400 mt-0.5">Manage registered End Devices and decoder scripts</p>
           </div>
           <div class="flex items-center gap-2">
             <button onclick="loadDevices()" type="button" class="btn px-3 py-2 text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700">
@@ -452,7 +455,44 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
       </div>
     </div>
 
-    <!-- TAB 6: WEBHOOKS -->
+    <!-- TAB 6: LIVE TELEMETRY -->
+    <div id="tabContent-telemetry" class="space-y-6" style="display: none;">
+      <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 space-y-5">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <h2 class="text-base font-bold text-white flex items-center gap-2">
+              <i class="fa-solid fa-wave-square text-indigo-400"></i> Live Telemetry Uplinks
+            </h2>
+            <p class="text-xs text-slate-400 mt-0.5">Real-time incoming packets from ChirpStack, ThingPark, and Generic Webhooks</p>
+          </div>
+          <div class="flex items-center gap-2">
+            <button onclick="loadTelemetry()" type="button" class="btn px-3 py-2 text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700">
+              <i class="fa-solid fa-arrows-rotate"></i> Refresh Telemetry
+            </button>
+          </div>
+        </div>
+
+        <div class="overflow-x-auto custom-scroll border border-slate-800/80 rounded-xl">
+          <table class="w-full text-left text-xs">
+            <thead class="text-slate-400 border-b border-slate-800 bg-slate-950/60">
+              <tr>
+                <th class="py-3 px-4">Time</th>
+                <th class="py-3 px-4">DevEUI</th>
+                <th class="py-3 px-4">Port / FCnt</th>
+                <th class="py-3 px-4">Raw Hex</th>
+                <th class="py-3 px-4">Decoded Data</th>
+                <th class="py-3 px-4">RSSI / SNR</th>
+              </tr>
+            </thead>
+            <tbody id="telemetryTableBody" class="divide-y divide-slate-800/60 font-mono">
+              <tr><td colspan="6" class="py-4 text-center text-slate-500 font-sans">Loading telemetry...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 7: WEBHOOKS -->
     <div id="tabContent-webhooks" class="space-y-6" style="display: none;">
       <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 space-y-4">
         <h2 class="text-base font-bold text-white flex items-center gap-2">
@@ -490,7 +530,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
       </div>
     </div>
 
-    <!-- TAB 7: DECODER SANDBOX -->
+    <!-- TAB 8: DECODER SANDBOX -->
     <div id="tabContent-decoder" class="space-y-6" style="display: none;">
       <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 space-y-4">
         <h2 class="text-base font-bold text-white flex items-center gap-2">
@@ -803,7 +843,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
     }
 
     function switchTab(tabId) {
-      var tabList = ["overview", "users", "roles", "database", "devices", "webhooks", "decoder"];
+      var tabList = ["overview", "users", "roles", "database", "devices", "telemetry", "webhooks", "decoder"];
       for (var i = 0; i < tabList.length; i++) {
         var t = tabList[i];
         var btn = document.getElementById("tabBtn-" + t);
@@ -836,6 +876,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
       if (tabId === "roles") loadRoles();
       if (tabId === "database") loadDatabaseHealth();
       if (tabId === "devices") loadDevices();
+      if (tabId === "telemetry") loadTelemetry();
     }
     window.switchTab = switchTab;
 
@@ -865,9 +906,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
           handleLogout();
           return;
         }
-        if (!res.ok) {
-          throw new Error("HTTP " + res.status);
-        }
+        if (!res.ok) throw new Error("HTTP " + res.status);
         var users = await res.json();
         if (!Array.isArray(users)) throw new Error("Invalid response format");
         allLoadedUsers = users;
@@ -1115,6 +1154,45 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
       }
     }
     window.loadDevices = loadDevices;
+
+    async function loadTelemetry() {
+      try {
+        var res = await fetch("/lorawan/telemetry?limit=25", { headers: authHeaders(), credentials: "include" });
+        if (res.status === 401) {
+          handleLogout();
+          return;
+        }
+        if (!res.ok) throw new Error("HTTP " + res.status);
+        var logs = await res.json();
+        var tbody = document.getElementById("telemetryTableBody");
+        if (!tbody) return;
+        tbody.innerHTML = "";
+
+        if (!Array.isArray(logs) || logs.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="6" class="py-4 text-center text-slate-500 font-sans">No incoming telemetry packets yet. Send a webhook to see live data.</td></tr>';
+          return;
+        }
+
+        for (var i = 0; i < logs.length; i++) {
+          var t = logs[i];
+          var decodedStr = typeof t.decodedPayload === "object" ? JSON.stringify(t.decodedPayload) : (t.decodedPayload || "--");
+          var tr = document.createElement("tr");
+          tr.className = "hover:bg-slate-950/40 transition";
+          tr.innerHTML = '<td class="py-3 px-4 text-slate-400 text-[11px]">' + new Date(t.timestamp || t.createdAt).toLocaleTimeString() + '</td>' +
+            '<td class="py-3 px-4 font-bold text-sky-400">' + (t.devEUI || "--") + '</td>' +
+            '<td class="py-3 px-4 text-amber-400">p:' + (t.fPort || 1) + ' / c:' + (t.fCnt || 0) + '</td>' +
+            '<td class="py-3 px-4 text-slate-300 max-w-xs truncate">' + (t.payloadHex || "--") + '</td>' +
+            '<td class="py-3 px-4 text-emerald-400 max-w-sm truncate">' + decodedStr + '</td>' +
+            '<td class="py-3 px-4 text-slate-400">' + (t.rssi !== undefined ? t.rssi + ' dBm' : '--') + ' / ' + (t.snr !== undefined ? t.snr + ' dB' : '--') + '</td>';
+          tbody.appendChild(tr);
+        }
+      } catch (err) {
+        console.error("loadTelemetry error:", err);
+        var tbody = document.getElementById("telemetryTableBody");
+        if (tbody) tbody.innerHTML = '<tr><td colspan="6" class="py-4 text-center text-amber-400 font-sans">Could not load telemetry (' + err.message + ')</td></tr>';
+      }
+    }
+    window.loadTelemetry = loadTelemetry;
 
     async function reloadDbConfig() {
       try {
@@ -1524,7 +1602,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
 
     // Attach click listeners to all tab buttons to ensure 100% click reliability
     function bindTabListeners() {
-      var tabList = ["overview", "users", "roles", "database", "devices", "webhooks", "decoder"];
+      var tabList = ["overview", "users", "roles", "database", "devices", "telemetry", "webhooks", "decoder"];
       for (var i = 0; i < tabList.length; i++) {
         (function(id) {
           var btn = document.getElementById("tabBtn-" + id);
