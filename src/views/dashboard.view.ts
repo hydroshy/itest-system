@@ -311,31 +311,82 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
           </div>
 
           <div v-else-if="activeFeature.id === 'device-fleet'" class="space-y-4">
-            <div class="flex items-center justify-between">
-              <h3 class="text-xs font-bold text-slate-300 uppercase tracking-wider">Registered LoRaWAN End-Devices</h3>
-              <button @click="fetchDevices" class="px-3 py-1 rounded-lg bg-slate-800 text-slate-300 hover:text-white text-xs font-semibold cursor-pointer">
-                <i class="fa-solid fa-arrows-rotate"></i> Refresh
-              </button>
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <h3 class="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-2">
+                  <i class="fa-solid fa-microchip text-emerald-400"></i> Registered LoRaWAN End-Devices
+                </h3>
+                <p class="text-[11px] text-slate-400 mt-0.5">Provisioned end-devices on ThingPark Wireless & ChirpStack v4</p>
+              </div>
+              <div class="flex items-center gap-2">
+                <button @click="fetchDevices" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 text-xs font-semibold flex items-center gap-1.5 cursor-pointer">
+                  <i class="fa-solid fa-arrows-rotate"></i> Refresh
+                </button>
+                <button @click="openRegisterDeviceDialog" class="px-3.5 py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-xs font-bold shadow-lg shadow-emerald-500/20 flex items-center gap-1.5 cursor-pointer">
+                  <i class="fa-solid fa-plus"></i> Register Device
+                </button>
+              </div>
             </div>
+
             <div class="overflow-x-auto custom-scroll border border-slate-800 rounded-lg">
               <table class="w-full text-left text-xs">
                 <thead class="bg-slate-950/80 text-slate-400 border-b border-slate-800">
                   <tr>
-                    <th class="py-2.5 px-3">DevEUI</th>
-                    <th class="py-2.5 px-3">Device Name</th>
-                    <th class="py-2.5 px-3">Activation</th>
-                    <th class="py-2.5 px-3">Status</th>
+                    <th class="py-2.5 px-3.5">DevEUI</th>
+                    <th class="py-2.5 px-3.5">Device Name</th>
+                    <th class="py-2.5 px-3.5">Network Server</th>
+                    <th class="py-2.5 px-3.5">Region Profile</th>
+                    <th class="py-2.5 px-3.5">AppEUI</th>
+                    <th class="py-2.5 px-3.5">AppKey</th>
+                    <th class="py-2.5 px-3.5">Sync Status</th>
+                    <th class="py-2.5 px-3.5">Status</th>
+                    <th class="py-2.5 px-3.5 text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody class="divide-y divide-slate-800/60">
                   <tr v-if="devicesList.length === 0">
-                    <td colspan="4" class="py-6 text-center text-slate-500">No devices registered.</td>
+                    <td colspan="9" class="py-6 text-center text-slate-500">No devices registered. Click "Register Device" above to add your first LoRaWAN device.</td>
                   </tr>
-                  <tr v-for="d in devicesList" :key="d.id || d.devEUI" class="hover:bg-slate-800/30">
-                    <td class="py-2.5 px-3 font-mono font-bold text-sky-400">{{ d.devEUI }}</td>
-                    <td class="py-2.5 px-3 font-bold text-white">{{ d.name }}</td>
-                    <td class="py-2.5 px-3"><span class="px-2 py-0.5 rounded bg-amber-500/10 text-amber-400 font-mono text-[10px]">{{ d.activationType || 'OTAA' }}</span></td>
-                    <td class="py-2.5 px-3"><span class="px-2 py-0.5 rounded-full text-[10px] font-bold" :class="d.isActive ? 'bg-emerald-500/10 text-emerald-400' : 'bg-red-500/10 text-red-400'">{{ d.isActive ? 'ACTIVE' : 'INACTIVE' }}</span></td>
+                  <tr v-for="d in devicesList" :key="d.id || d.devEUI" class="hover:bg-slate-800/30 transition">
+                    <td class="py-2.5 px-3.5 font-mono font-bold text-sky-400">{{ d.devEUI }}</td>
+                    <td class="py-2.5 px-3.5 font-bold text-white">{{ d.name }}</td>
+                    <td class="py-2.5 px-3.5">
+                      <span v-if="d.networkServer" class="px-2 py-0.5 rounded bg-sky-500/10 text-sky-300 border border-sky-500/20 text-[10px] font-mono">
+                        {{ d.networkServer.name }} ({{ d.networkServer.type }})
+                      </span>
+                      <span v-else class="text-slate-500 text-[11px]">Unassigned</span>
+                    </td>
+                    <td class="py-2.5 px-3.5">
+                      <span v-if="d.regionProfileName" class="px-2 py-0.5 rounded bg-indigo-500/10 text-indigo-300 border border-indigo-500/20 text-[10px] font-mono">
+                        {{ d.regionProfileName }}
+                      </span>
+                      <span v-else class="text-slate-500 text-[11px]">--</span>
+                    </td>
+                    <td class="py-2.5 px-3.5 font-mono text-slate-300 text-[11px]">{{ d.appEUI || '0102030405060708' }}</td>
+                    <td class="py-2.5 px-3.5 font-mono text-slate-400 text-[11px]">
+                      <span :title="d.appKey">{{ d.appKey ? d.appKey.slice(0, 6) + '...' + d.appKey.slice(-6) : '010203...0F10' }}</span>
+                    </td>
+                    <td class="py-2.5 px-3.5">
+                      <span :class="d.syncStatus === 'SYNCED' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/25' : 'bg-amber-500/10 text-amber-400 border-amber-500/25'" class="px-2 py-0.5 rounded-full text-[10px] font-bold border flex items-center gap-1 w-max">
+                        <span class="w-1.5 h-1.5 rounded-full" :class="d.syncStatus === 'SYNCED' ? 'bg-emerald-400' : 'bg-amber-400'"></span>
+                        <span>{{ d.syncStatus || 'SYNCED' }}</span>
+                      </span>
+                    </td>
+                    <td class="py-2.5 px-3.5">
+                      <span class="px-2 py-0.5 rounded-full text-[10px] font-bold" :class="d.isActive ? 'bg-emerald-500/10 text-emerald-400' : 'bg-red-500/10 text-red-400'">
+                        {{ d.isActive ? 'ACTIVE' : 'INACTIVE' }}
+                      </span>
+                    </td>
+                    <td class="py-2.5 px-3.5 text-right">
+                      <div class="flex items-center justify-end gap-1.5">
+                        <button v-if="d.networkServer" @click="syncDevice(d)" title="Re-sync to Network Server" class="p-1.5 rounded bg-sky-500/10 hover:bg-sky-500/20 text-sky-400 border border-sky-500/20 text-xs cursor-pointer">
+                          <i class="fa-solid fa-arrows-rotate"></i>
+                        </button>
+                        <button @click="deleteDevice(d)" title="Delete Device" class="p-1.5 rounded bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 text-xs cursor-pointer">
+                          <i class="fa-solid fa-trash-can"></i>
+                        </button>
+                      </div>
+                    </td>
                   </tr>
                 </tbody>
               </table>
@@ -365,6 +416,109 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
 
     </main>
 
+    <!-- MODAL: REGISTER DEVICE -->
+    <div v-if="registerDeviceDialog" class="fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop" style="background: rgba(2, 6, 23, 0.85); backdrop-filter: blur(6px);">
+      <div class="w-full max-w-lg bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-4 shadow-2xl animate-in fade-in text-slate-200">
+        <div class="flex items-center justify-between pb-2 border-b border-slate-800">
+          <div>
+            <h3 class="text-sm font-bold text-white flex items-center gap-2">
+              <i class="fa-solid fa-microchip text-emerald-400"></i> Register LoRaWAN Device
+            </h3>
+            <p class="text-[11px] text-slate-400 mt-0.5">Provision end-device to Network Server (ThingPark / ChirpStack)</p>
+          </div>
+          <button @click="registerDeviceDialog = false" class="text-slate-500 hover:text-white cursor-pointer"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+
+        <!-- Provisioning Architecture Notice Banner -->
+        <div v-if="selectedDeviceNetworkServer" class="p-3 rounded-xl border text-xs space-y-1.5"
+          :class="selectedDeviceNetworkServer.type === 'CHIRPSTACK' ? 'bg-indigo-950/40 border-indigo-500/30 text-indigo-200' : 'bg-sky-950/40 border-sky-500/30 text-sky-200'">
+          <div class="flex items-center justify-between font-bold">
+            <span class="flex items-center gap-1.5">
+              <i :class="selectedDeviceNetworkServer.type === 'CHIRPSTACK' ? 'fa-solid fa-layer-group text-indigo-400' : 'fa-solid fa-bolt text-sky-400'"></i>
+              <span>{{ selectedDeviceNetworkServer.name }} ({{ selectedDeviceNetworkServer.type }})</span>
+            </span>
+            <span class="px-2 py-0.5 rounded text-[10px] font-mono font-bold"
+              :class="selectedDeviceNetworkServer.type === 'CHIRPSTACK' ? 'bg-indigo-500/20 text-indigo-300' : 'bg-sky-500/20 text-sky-300'">
+              {{ selectedDeviceNetworkServer.type === 'CHIRPSTACK' ? '2-Step Provisioning' : '1-Step Provisioning' }}
+            </span>
+          </div>
+          <p class="text-[11px] opacity-90 leading-relaxed">
+            <span v-if="selectedDeviceNetworkServer.type === 'CHIRPSTACK'">
+              🔄 <strong>2-Step ChirpStack Flow:</strong> Step 1 creates device with AppEUI (JoinEUI) at <code>POST /api/devices</code> ➔ Step 2 configures AppKey at <code>POST /api/devices/{devEUI}/keys</code>.
+            </span>
+            <span v-else>
+              ⚡ <strong>1-Step ThingPark Flow:</strong> Single DX REST payload provisions DevEUI, Name, AppEUI, and AppKey directly in 1 step.
+            </span>
+          </p>
+        </div>
+
+        <form @submit.prevent="submitRegisterDevice" class="space-y-3.5 text-xs">
+          <!-- Device Name -->
+          <div>
+            <label class="block font-semibold text-slate-300 mb-1">Device Name <span class="text-red-400">*</span></label>
+            <input v-model="newDevice.name" type="text" required placeholder="e.g. Temperature & Humidity Sensor 01" class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-emerald-500" />
+          </div>
+
+          <!-- DEV_EUI -->
+          <div>
+            <label class="block font-semibold text-slate-300 mb-1">DEV_EUI (16 Hex Characters) <span class="text-red-400">*</span></label>
+            <input v-model="newDevice.devEUI" type="text" required placeholder="0018B20000000001" maxlength="16" minlength="16" class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-white font-mono uppercase focus:outline-none focus:border-emerald-500" />
+          </div>
+
+          <!-- 2 Columns: Network Server & Region Profile -->
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label class="block font-semibold text-slate-300 mb-1">Network Server <span class="text-red-400">*</span></label>
+              <select v-model="newDevice.networkServerId" @change="onDeviceNetworkServerChange" required class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-emerald-500">
+                <option value="" disabled>-- Select Network Server --</option>
+                <option v-for="ns in networkServersList" :key="ns.id" :value="ns.id">{{ ns.name }} ({{ ns.type }})</option>
+              </select>
+            </div>
+            <div>
+              <label class="block font-semibold text-slate-300 mb-1">Region Profile <span class="text-red-400">*</span></label>
+              <select v-model="newDevice.regionProfileId" required class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-emerald-500">
+                <option value="" disabled>{{ selectedDeviceNetworkServer ? '-- Select Region --' : 'Select a Network Server first' }}</option>
+                <option v-for="rp in availableDeviceRegions" :key="rp.id" :value="rp.id">{{ rp.name }} ({{ rp.region }})</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- AppEUI (Pre-filled 0102030405060708) -->
+          <div>
+            <div class="flex items-center justify-between mb-1">
+              <label class="font-semibold text-slate-300">AppEUI / JoinEUI (16 Hex Characters) <span class="text-red-400">*</span></label>
+              <span class="text-[10px] text-emerald-400 font-mono font-bold">Default Pre-filled</span>
+            </div>
+            <input v-model="newDevice.appEUI" type="text" required maxlength="16" minlength="16" class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-white font-mono uppercase focus:outline-none focus:border-emerald-500" />
+          </div>
+
+          <!-- APP_key (Pre-filled 0102030405060708090A0B0C0D0E0F10) -->
+          <div>
+            <div class="flex items-center justify-between mb-1">
+              <label class="font-semibold text-slate-300">APP_Key (32 Hex Characters) <span class="text-red-400">*</span></label>
+              <span class="text-[10px] text-emerald-400 font-mono font-bold">Default Pre-filled</span>
+            </div>
+            <input v-model="newDevice.appKey" type="text" required maxlength="32" minlength="32" class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-white font-mono uppercase focus:outline-none focus:border-emerald-500" />
+          </div>
+
+          <div class="flex items-center justify-end gap-2 pt-2 border-t border-slate-800">
+            <button type="button" @click="registerDeviceDialog = false" class="px-3.5 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold cursor-pointer">Cancel</button>
+            <button type="submit" :disabled="savingDevice" class="px-4 py-2 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold flex items-center gap-1.5 cursor-pointer">
+              <i v-if="savingDevice" class="fa-solid fa-circle-notch fa-spin"></i>
+              <i v-else class="fa-solid fa-plus"></i>
+              <span>{{ savingDevice ? 'Provisioning Device...' : 'Register & Provision' }}</span>
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- TOAST NOTIFICATION -->
+    <div v-if="toast.show" class="fixed top-4 right-4 z-50 flex items-center gap-2 px-4 py-3 rounded-xl shadow-2xl text-xs font-semibold" :class="toast.type === 'error' ? 'bg-red-950 border border-red-500 text-red-200' : (toast.type === 'success' ? 'bg-emerald-950 border border-emerald-500 text-emerald-200' : 'bg-sky-950 border border-sky-500 text-sky-200')">
+      <i :class="toast.type === 'error' ? 'fa-solid fa-circle-exclamation text-red-400' : (toast.type === 'success' ? 'fa-solid fa-circle-check text-emerald-400' : 'fa-solid fa-circle-info text-sky-400')"></i>
+      <span>{{ toast.text }}</span>
+    </div>
+
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/vue@3.4.31/dist/vue.global.prod.js"></script>
@@ -380,6 +534,46 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
 
         const telemetryList = ref([]);
         const devicesList = ref([]);
+        const networkServersList = ref([]);
+
+        const registerDeviceDialog = ref(false);
+        const savingDevice = ref(false);
+        const toast = ref({ show: false, text: '', type: 'info' });
+
+        const showToast = (text, type = 'info') => {
+          toast.value = { show: true, text, type };
+          setTimeout(() => { toast.value.show = false; }, 3500);
+        };
+
+        const newDevice = ref({
+          name: '',
+          devEUI: '',
+          networkServerId: '',
+          regionProfileId: '',
+          appEUI: '0102030405060708',
+          appKey: '0102030405060708090A0B0C0D0E0F10',
+          activationType: 'OTAA',
+        });
+
+        const selectedDeviceNetworkServer = computed(() => {
+          if (!newDevice.value.networkServerId) return null;
+          return networkServersList.value.find(ns => ns.id === newDevice.value.networkServerId) || null;
+        });
+
+        const availableDeviceRegions = computed(() => {
+          const ns = selectedDeviceNetworkServer.value;
+          if (!ns || !Array.isArray(ns.regionProfiles)) return [];
+          return ns.regionProfiles.filter(rp => rp.isActive !== false);
+        });
+
+        const onDeviceNetworkServerChange = () => {
+          const regions = availableDeviceRegions.value;
+          if (regions && regions.length > 0) {
+            newDevice.value.regionProfileId = regions[0].id;
+          } else {
+            newDevice.value.regionProfileId = '';
+          }
+        };
 
         const userInitials = computed(() => {
           const name = currentUser.value.fullName || currentUser.value.username || 'U';
@@ -400,7 +594,7 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
         const getAuthToken = () => {
           let token = localStorage.getItem('lorawan_token');
           if (!token || token === 'undefined' || token === 'null') {
-            const match = document.cookie.match(/(?:^|;\\s*)access_token=([^;]*)/);
+            const match = document.cookie.match(/(?:^|;\s*)access_token=([^;]*)/);
             if (match && match[1] && match[1] !== 'undefined') {
               token = decodeURIComponent(match[1]);
             }
@@ -428,7 +622,10 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
           activeFeature.value = feature;
           window.location.hash = feature.id;
           if (feature.id === 'telemetry-monitor') fetchLiveTelemetry();
-          if (feature.id === 'device-fleet') fetchDevices();
+          if (feature.id === 'device-fleet') {
+            fetchDevices();
+            fetchNetworkServers();
+          }
         };
 
         const handleLogout = async () => {
@@ -484,7 +681,14 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
               const hash = window.location.hash.replace('#', '').trim();
               if (hash) {
                 const found = accessibleFeatures.value.find(f => f.id === hash);
-                if (found) activeFeature.value = found;
+                if (found) {
+                  activeFeature.value = found;
+                  if (found.id === 'telemetry-monitor') fetchLiveTelemetry();
+                  if (found.id === 'device-fleet') {
+                    fetchDevices();
+                    fetchNetworkServers();
+                  }
+                }
               }
             }
           } catch(e) {
@@ -506,6 +710,103 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
           } catch(e) {}
         };
 
+        const fetchNetworkServers = async () => {
+          try {
+            const res = await fetch('/api/network-servers', { headers: authHeaders(), credentials: 'include' });
+            if (res.ok) networkServersList.value = await res.json();
+          } catch(e) {}
+        };
+
+        const openRegisterDeviceDialog = () => {
+          const defaultNs = networkServersList.value.find(ns => ns.isDefault) || networkServersList.value[0];
+          const defaultNsId = defaultNs ? defaultNs.id : '';
+          const defaultRegionId = defaultNs && Array.isArray(defaultNs.regionProfiles) && defaultNs.regionProfiles.length > 0
+            ? defaultNs.regionProfiles[0].id
+            : '';
+
+          newDevice.value = {
+            name: '',
+            devEUI: '',
+            networkServerId: defaultNsId,
+            regionProfileId: defaultRegionId,
+            appEUI: '0102030405060708',
+            appKey: '0102030405060708090A0B0C0D0E0F10',
+            activationType: 'OTAA',
+          };
+          registerDeviceDialog.value = true;
+        };
+
+        const submitRegisterDevice = async () => {
+          if (!newDevice.value.name.trim()) {
+            showToast("Please enter device name", "error");
+            return;
+          }
+          if (!newDevice.value.devEUI.trim()) {
+            showToast("Please enter DevEUI (16 Hex characters)", "error");
+            return;
+          }
+          savingDevice.value = true;
+          try {
+            const res = await fetch('/lorawan/devices', {
+              method: 'POST',
+              headers: authHeaders(),
+              credentials: 'include',
+              body: JSON.stringify({
+                name: newDevice.value.name.trim(),
+                devEUI: newDevice.value.devEUI.trim().toUpperCase(),
+                networkServerId: newDevice.value.networkServerId || undefined,
+                regionProfileId: newDevice.value.regionProfileId || undefined,
+                appEUI: newDevice.value.appEUI ? newDevice.value.appEUI.trim().toUpperCase() : '0102030405060708',
+                appKey: newDevice.value.appKey ? newDevice.value.appKey.trim().toUpperCase() : '0102030405060708090A0B0C0D0E0F10',
+                activationType: 'OTAA',
+              })
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.message || "Failed to register device");
+            showToast(data.message || "Device registered & provisioned successfully!", "success");
+            registerDeviceDialog.value = false;
+            fetchDevices();
+          } catch(e) {
+            showToast(e.message, "error");
+          } finally {
+            savingDevice.value = false;
+          }
+        };
+
+        const deleteDevice = async (d) => {
+          if (!confirm("Are you sure you want to delete device '" + d.name + "' (" + d.devEUI + ")?")) return;
+          try {
+            const res = await fetch('/lorawan/devices/' + d.devEUI, {
+              method: 'DELETE',
+              headers: authHeaders(),
+              credentials: 'include'
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.message || "Failed to delete device");
+            showToast("Device " + d.devEUI + " deleted successfully", "success");
+            fetchDevices();
+          } catch(e) {
+            showToast(e.message, "error");
+          }
+        };
+
+        const syncDevice = async (d) => {
+          try {
+            showToast("Provisioning " + d.devEUI + " to Network Server...", "info");
+            const res = await fetch('/lorawan/devices/' + d.devEUI + '/sync', {
+              method: 'POST',
+              headers: authHeaders(),
+              credentials: 'include'
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.message || "Sync failed");
+            showToast(data.provisioning?.summaryMessage || ("Device " + d.devEUI + " synced successfully"), "success");
+            fetchDevices();
+          } catch(e) {
+            showToast(e.message, "error");
+          }
+        };
+
         const formatTime = (ts) => {
           if (!ts) return '--';
           return new Date(ts).toLocaleTimeString();
@@ -515,6 +816,7 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
           const ok = await fetchSession();
           if (ok) {
             await fetchFeatures();
+            fetchNetworkServers();
           }
         };
 
@@ -535,6 +837,18 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
           isSuperAdmin,
           telemetryList,
           devicesList,
+          networkServersList,
+          registerDeviceDialog,
+          savingDevice,
+          newDevice,
+          selectedDeviceNetworkServer,
+          availableDeviceRegions,
+          onDeviceNetworkServerChange,
+          openRegisterDeviceDialog,
+          submitRegisterDevice,
+          deleteDevice,
+          syncDevice,
+          toast,
           handleGlobalClick,
           returnToHome,
           openFeature,

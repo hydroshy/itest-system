@@ -258,20 +258,26 @@ export class DynamicDatabaseService implements OnModuleInit, OnModuleDestroy {
           "devEUI" VARCHAR(255) UNIQUE NOT NULL,
           "name" VARCHAR(255) NOT NULL,
           "appId" VARCHAR(255),
+          "appEUI" VARCHAR(255) DEFAULT '0102030405060708',
           "networkServerId" UUID,
           "regionProfileId" VARCHAR(100),
           "activationMode" VARCHAR(50) NOT NULL DEFAULT 'OTAA',
-          "appKey" VARCHAR(255),
+          "appKey" VARCHAR(255) DEFAULT '0102030405060708090A0B0C0D0E0F10',
           "nwkSKey" VARCHAR(255),
           "appSKey" VARCHAR(255),
+          "syncStatus" VARCHAR(50) DEFAULT 'SYNCED',
+          "syncDetails" JSONB DEFAULT '{}'::jsonb,
           "payloadFormatterScript" TEXT,
           "isActive" BOOLEAN NOT NULL DEFAULT true,
           "createdAt" TIMESTAMP NOT NULL DEFAULT now(),
           "updatedAt" TIMESTAMP NOT NULL DEFAULT now()
         );
       `);
+      await dataSource.query(`ALTER TABLE "devices" ADD COLUMN IF NOT EXISTS "appEUI" VARCHAR(255) DEFAULT '0102030405060708';`).catch(() => {});
       await dataSource.query(`ALTER TABLE "devices" ADD COLUMN IF NOT EXISTS "networkServerId" UUID;`).catch(() => {});
       await dataSource.query(`ALTER TABLE "devices" ADD COLUMN IF NOT EXISTS "regionProfileId" VARCHAR(100);`).catch(() => {});
+      await dataSource.query(`ALTER TABLE "devices" ADD COLUMN IF NOT EXISTS "syncStatus" VARCHAR(50) DEFAULT 'SYNCED';`).catch(() => {});
+      await dataSource.query(`ALTER TABLE "devices" ADD COLUMN IF NOT EXISTS "syncDetails" JSONB;`).catch(() => {});
 
       // 9. gateways table
       await dataSource.query(`
@@ -395,13 +401,20 @@ export class DynamicDatabaseService implements OnModuleInit, OnModuleDestroy {
           INSERT INTO "network_servers" ("name", "type", "description", "apiUrl", "apiKey", "routeRef", "regionProfiles", "status", "isDefault", "metadata")
           VALUES
             ('ThingPark Wireless Enterprise', 'THINGPARK', 'Actility ThingPark Wireless Cloud / On-Premises Server', 'https://community.thingpark.io/thingpark/wireless/rest/v1', 'tp_api_key_demo_token', 'DAVITEQ_TP_DEFAULT_ROUTE', $1, 'ONLINE', true, '{"webhookUrl": "/lorawan/webhook/thingpark"}'::jsonb),
-            ('ChirpStack LoRaWAN Network Server', 'CHIRPSTACK', 'ChirpStack v4 Open-source LoRaWAN Network Server', 'http://chirpstack.mas.local:8080', 'cs_api_token_secret_demo', NULL, $2, 'ONLINE', false, '{"webhookUrl": "/lorawan/webhook/chirpstack", "tenantId": "52f14cd4-c6f1-4fbd-8f87-4025e1d49242"}'::jsonb);
+            ('ChirpStack LoRaWAN Network Server', 'CHIRPSTACK', 'ChirpStack v4 Open-source LoRaWAN Network Server', 'https://chirpstack-test.globiots.com', 'cs_api_token_secret_demo', NULL, $2, 'ONLINE', false, '{"webhookUrl": "/lorawan/webhook/chirpstack", "tenantId": "52f14cd4-c6f1-4fbd-8f87-4025e1d49242", "applicationId": "app_daviteq_sensors"}'::jsonb);
         `, [defaultThingParkRegions, defaultChirpStackRegions]).catch((err) => {
           this.logger.warn(`Could not seed default network servers: ${err.message}`);
         });
 
         this.logger.log('🌱 Seeded default ThingPark and ChirpStack Network Servers into database');
       }
+
+      // Update any existing chirpstack URL from old local to new test URL
+      await dataSource.query(`
+        UPDATE "network_servers"
+        SET "apiUrl" = 'https://chirpstack-test.globiots.com'
+        WHERE "type" = 'CHIRPSTACK' AND ("apiUrl" LIKE '%chirpstack.mas.local%' OR "apiUrl" IS NULL OR "apiUrl" = '');
+      `).catch(() => {});
 
       this.logger.log('✅ Guaranteed presence of all 10 core RBAC & LoRaWAN tables (including network_servers) in PostgreSQL');
     } catch (err: any) {

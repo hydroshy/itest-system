@@ -1,4 +1,4 @@
-import { Controller, Post, Put, Get, Body, Param, Query, UseGuards } from '@nestjs/common';
+import { Controller, Post, Put, Get, Delete, Body, Param, Query, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
 import { LorawanService } from './lorawan.service';
 import { RegisterDeviceDto, RegisterGatewayDto, UplinkPayloadDto, TestPayloadFormatterDto } from './dto/lorawan.dto';
@@ -69,6 +69,42 @@ export class LorawanController {
   @ApiOperation({ summary: 'Danh sách các thiết bị LoRaWAN' })
   async listDevices() {
     return await this.lorawanService.listDevices();
+  }
+
+  @Get('devices/:devEUI')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermissions('lorawan:device:read')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Lấy chi tiết một thiết bị LoRaWAN theo DevEUI' })
+  async findOneDevice(@Param('devEUI') devEUI: string) {
+    return await this.lorawanService.findOneDevice(devEUI);
+  }
+
+  @Put('devices/:devEUI')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermissions('lorawan:device:manage')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Cập nhật cấu hình thiết bị LoRaWAN' })
+  async updateDevice(@Param('devEUI') devEUI: string, @Body() body: Partial<RegisterDeviceDto>) {
+    return await this.lorawanService.updateDevice(devEUI, body);
+  }
+
+  @Delete('devices/:devEUI')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermissions('lorawan:device:manage')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Xóa thiết bị LoRaWAN khỏi hệ thống và Network Server' })
+  async deleteDevice(@Param('devEUI') devEUI: string) {
+    return await this.lorawanService.deleteDevice(devEUI);
+  }
+
+  @Post('devices/:devEUI/sync')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermissions('lorawan:device:manage')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Đồng bộ/Provisioning lại thiết bị lên Network Server (ThingPark / ChirpStack)' })
+  async syncDevice(@Param('devEUI') devEUI: string) {
+    return await this.lorawanService.syncDeviceToNetworkServer(devEUI);
   }
 
   @Get('gateways')

@@ -28,7 +28,10 @@ export class DeviceEntity {
   @Column({ default: 'OTAA' })
   activationMode: string;
 
-  @Column({ nullable: true })
+  @Column({ length: 255, default: '0102030405060708' })
+  appEUI: string;
+
+  @Column({ length: 255, default: '0102030405060708090A0B0C0D0E0F10' })
   appKey: string;
 
   @Column({ nullable: true })
@@ -36,6 +39,12 @@ export class DeviceEntity {
 
   @Column({ nullable: true })
   appSKey: string;
+
+  @Column({ length: 50, default: 'SYNCED' })
+  syncStatus: string;
+
+  @Column({ type: 'jsonb', nullable: true })
+  syncDetails: Record<string, any>;
 
   @Column({ type: 'text', nullable: true })
   payloadFormatterScript: string;
