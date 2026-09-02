@@ -168,12 +168,27 @@ export const LOGIN_HTML = `<!DOCTYPE html>
       }
     });
 
-    // Auto-check if session is already active
-    fetch("/auth/session").then(function(res) {
-      if (res.ok) {
-        window.location.href = "/control-panel";
+    // Auto-check if session is already active ONLY when not logging out and token exists
+    var urlParams = new URLSearchParams(window.location.search);
+    var isLoggingOut = urlParams.get("logout") === "1" || urlParams.get("logout") === "true";
+    if (isLoggingOut) {
+      localStorage.removeItem("lorawan_token");
+      localStorage.removeItem("lorawan_user");
+      document.cookie = "access_token=; Path=/; Expires=Thu, 01 Jan 1970 00:00:01 GMT; Max-Age=0;";
+      document.cookie = "lorawan_token=; Path=/; Expires=Thu, 01 Jan 1970 00:00:01 GMT; Max-Age=0;";
+    } else {
+      var existingToken = localStorage.getItem("lorawan_token");
+      if (existingToken && existingToken !== "undefined" && existingToken !== "null") {
+        fetch("/auth/session", {
+          headers: { "Authorization": "Bearer " + existingToken },
+          credentials: "same-origin"
+        }).then(function(res) {
+          if (res.ok) {
+            window.location.href = "/control-panel";
+          }
+        }).catch(function() {});
       }
-    }).catch(function() {});
+    }
   </script>
 </body>
 </html>

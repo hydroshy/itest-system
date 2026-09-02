@@ -1,6 +1,7 @@
 import { Controller, Post, Put, Get, Body, Param, Query, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
 import { LorawanService } from './lorawan.service';
+import { RegisterDeviceDto, UplinkPayloadDto, TestPayloadFormatterDto } from './dto/lorawan.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../common/guards/permissions.guard';
 import { RequirePermissions } from '../../common/decorators/permissions.decorator';
@@ -15,7 +16,7 @@ export class LorawanController {
   @RequirePermissions('lorawan:device:manage')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Đăng ký thiết bị LoRaWAN mới (DevEUI, OTAA/ABP)' })
-  async registerDevice(@Body() body: any) {
+  async registerDevice(@Body() body: RegisterDeviceDto) {
     return await this.lorawanService.registerDevice(body);
   }
 
@@ -30,7 +31,7 @@ export class LorawanController {
 
   @Post('uplink')
   @ApiOperation({ summary: 'Generic Webhook nhận gói tin thô Uplink Hex & tự giải mã (Datacake / TTN style)' })
-  async handleUplink(@Body() body: { devEUI: string; payloadHex: string; fPort?: number; fCnt?: number }) {
+  async handleUplink(@Body() body: UplinkPayloadDto) {
     return await this.lorawanService.handleUplink(body.devEUI, body.payloadHex, body.fPort, body.fCnt);
   }
 
@@ -48,7 +49,7 @@ export class LorawanController {
 
   @Post('payload-formatter/test')
   @ApiOperation({ summary: 'Kiểm thử trực tiếp JavaScript Payload Formatter trong JS Sandbox (Node vm)' })
-  testPayloadFormatter(@Body() body: { script: string; bytesHex: string; fPort?: number }) {
+  testPayloadFormatter(@Body() body: TestPayloadFormatterDto) {
     return this.lorawanService.testPayloadFormatter(body.script, body.bytesHex, body.fPort);
   }
 

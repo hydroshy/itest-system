@@ -6,6 +6,8 @@ import { PermissionsGuard } from '../../common/guards/permissions.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { UserType } from '../users/entities/user.entity';
 
+import { CreateRoleDto, UpdateRoleDto } from './dto/role.dto';
+
 @ApiTags('Roles & Permissions (RBAC)')
 @ApiBearerAuth()
 @Controller('roles')
@@ -37,8 +39,8 @@ export class RolesController {
   @Post()
   @Roles(UserType.ADMIN)
   @ApiOperation({ summary: 'Create new role (Super Admin only)' })
-  async createRole(@Body() body: { code: string; name: string; description: string; permissionIds: string[] }) {
-    return this.rolesService.createRole(body.code, body.name, body.description, body.permissionIds);
+  async createRole(@Body() body: CreateRoleDto) {
+    return this.rolesService.createRole(body.code, body.name, body.description || '', body.permissionIds || []);
   }
 
   @Put(':id')
@@ -46,7 +48,7 @@ export class RolesController {
   @ApiOperation({ summary: 'Update role and permissions (Super Admin only)' })
   async updateRole(
     @Param('id') id: string,
-    @Body() body: { name: string; description: string; permissionIds?: string[] },
+    @Body() body: UpdateRoleDto,
   ) {
     return this.rolesService.updateRole(id, body.name, body.description, body.permissionIds);
   }

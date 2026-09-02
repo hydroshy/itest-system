@@ -57,7 +57,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
       border-color: rgba(56, 189, 248, 0.5) !important;
     }
     .modal-overlay {
-      display: none !important;
+      display: none;
       position: fixed;
       inset: 0;
       z-index: 9999;
@@ -66,6 +66,9 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
       align-items: center;
       justify-content: center;
       padding: 1rem;
+    }
+    .modal-overlay.active {
+      display: flex !important;
     }
     .btn {
       cursor: pointer !important;
@@ -79,9 +82,40 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
       outline: none;
       border: none;
     }
+    #toastContainer {
+      position: fixed;
+      top: 1.25rem;
+      right: 1.25rem;
+      z-index: 10000;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      max-width: 24rem;
+      pointer-events: none;
+    }
+    .toast-item {
+      pointer-events: auto;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 0.75rem 1rem;
+      border-radius: 0.75rem;
+      font-size: 0.8125rem;
+      font-weight: 500;
+      box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.5);
+      animation: toastIn 0.2s ease-out;
+      transition: all 0.2s ease-in-out;
+    }
+    @keyframes toastIn {
+      from { transform: translateY(-0.5rem); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
+    }
   </style>
 </head>
 <body class="min-h-screen text-slate-100 flex flex-col">
+  <!-- Toast Container -->
+  <div id="toastContainer"></div>
+
   <!-- Top Navigation Bar -->
   <header class="bg-slate-900/95 border-b border-slate-800 sticky top-0 z-40 backdrop-blur-md">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
@@ -112,9 +146,9 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
         <div class="flex items-center gap-2 pl-3 border-l border-slate-800">
           <div class="text-right">
             <div id="navFullName" class="text-xs font-semibold text-slate-200">Admin User</div>
-            <div id="navRoleBadge" class="text-[10px] text-emerald-400 font-mono">SUPER_ADMIN</div>
+            <div id="navRoleBadge" class="text-[10px] text-emerald-400 font-mono font-semibold">SUPER_ADMIN</div>
           </div>
-          <button onclick="handleLogout()" id="btn-logout" type="button" title="Sign Out" class="btn px-3 py-1.5 rounded-lg bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-400 text-xs">
+          <button onclick="handleLogout()" id="btn-logout" type="button" title="Sign Out" class="btn px-3 py-1.5 rounded-lg bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-400 hover:text-red-300 text-xs">
             <i class="fa-solid fa-right-from-bracket"></i>
             <span>Logout</span>
           </button>
@@ -241,9 +275,14 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
             </h2>
             <p class="text-xs text-slate-400 mt-0.5">Manage administrative and standard user accounts</p>
           </div>
-          <button onclick="openCreateUserModal()" type="button" class="btn px-3.5 py-2 text-xs font-semibold bg-sky-500 hover:bg-sky-400 text-white shadow-lg shadow-sky-500/20 self-start sm:self-auto">
-            <i class="fa-solid fa-user-plus"></i> Create User
-          </button>
+          <div class="flex items-center gap-2">
+            <button onclick="loadUsers()" type="button" class="btn px-3 py-2 text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700">
+              <i class="fa-solid fa-arrows-rotate"></i> Refresh
+            </button>
+            <button onclick="openCreateUserModal()" type="button" class="btn px-3.5 py-2 text-xs font-semibold bg-sky-500 hover:bg-sky-400 text-white shadow-lg shadow-sky-500/20">
+              <i class="fa-solid fa-user-plus"></i> Create User
+            </button>
+          </div>
         </div>
 
         <div class="overflow-x-auto custom-scroll border border-slate-800/80 rounded-xl">
@@ -277,9 +316,14 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
             </h2>
             <p class="text-xs text-slate-400 mt-0.5">Configure role definitions and granular permission assignments. Only Super Admin has modification rights.</p>
           </div>
-          <button onclick="openCreateRoleModal()" type="button" class="btn px-3.5 py-2 text-xs font-semibold bg-amber-500 hover:bg-amber-400 text-slate-950 shadow-lg shadow-amber-500/20 self-start sm:self-auto">
-            <i class="fa-solid fa-plus"></i> Create New Role
-          </button>
+          <div class="flex items-center gap-2">
+            <button onclick="loadRoles()" type="button" class="btn px-3 py-2 text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700">
+              <i class="fa-solid fa-arrows-rotate"></i> Refresh
+            </button>
+            <button onclick="openCreateRoleModal()" type="button" class="btn px-3.5 py-2 text-xs font-semibold bg-amber-500 hover:bg-amber-400 text-slate-950 shadow-lg shadow-amber-500/20">
+              <i class="fa-solid fa-plus"></i> Create New Role
+            </button>
+          </div>
         </div>
 
         <!-- Role Cards Grid -->
@@ -373,8 +417,9 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
               <span>ChirpStack v4 Ingestion</span>
               <span class="px-2 py-0.5 rounded bg-sky-500/10 border border-sky-500/20 text-[10px]">POST / JSON</span>
             </div>
-            <div class="p-2 bg-slate-900 rounded-lg border border-slate-800 text-slate-300 break-all select-all">
-              POST http://&lt;host&gt;:3000/lorawan/webhook/chirpstack
+            <div class="p-2 bg-slate-900 rounded-lg border border-slate-800 text-slate-300 break-all select-all flex items-center justify-between">
+              <span id="chirpstackWebhookUrl">POST /lorawan/webhook/chirpstack</span>
+              <button onclick="copyToClipboard(window.location.origin + '/lorawan/webhook/chirpstack')" type="button" class="text-slate-400 hover:text-sky-400 text-xs ml-2" title="Copy"><i class="fa-solid fa-copy"></i></button>
             </div>
             <p class="text-[11px] text-slate-400 font-sans">Supports ChirpStack uplink events: deduplication, RSSI/SNR metrics, payload decoding.</p>
           </div>
@@ -384,8 +429,9 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
               <span>ThingPark Wireless Ingestion</span>
               <span class="px-2 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/20 text-[10px]">POST / JSON</span>
             </div>
-            <div class="p-2 bg-slate-900 rounded-lg border border-slate-800 text-slate-300 break-all select-all">
-              POST http://&lt;host&gt;:3000/lorawan/webhook/thingpark
+            <div class="p-2 bg-slate-900 rounded-lg border border-slate-800 text-slate-300 break-all select-all flex items-center justify-between">
+              <span id="thingparkWebhookUrl">POST /lorawan/webhook/thingpark</span>
+              <button onclick="copyToClipboard(window.location.origin + '/lorawan/webhook/thingpark')" type="button" class="text-slate-400 hover:text-emerald-400 text-xs ml-2" title="Copy"><i class="fa-solid fa-copy"></i></button>
             </div>
             <p class="text-[11px] text-slate-400 font-sans">Supports Actility ThingPark Wireless DX packets and hex payloads.</p>
           </div>
@@ -417,7 +463,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
           <div class="space-y-2">
             <label class="block text-xs font-sans font-semibold text-slate-300">Test Hex Bytes & Output</label>
             <div class="flex gap-2">
-              <input type="text" id="sandboxHex" value="09C441" placeholder="Hex string e.g. 09C441" class="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-slate-200" />
+              <input type="text" id="sandboxHex" value="09C441" placeholder="Hex string e.g. 09C441" class="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-slate-200 focus:outline-none focus:border-indigo-500" />
               <button onclick="runSandboxDecode()" type="button" class="btn px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-sans font-semibold rounded-xl transition">Decode</button>
             </div>
             <pre id="sandboxResult" class="w-full h-36 bg-slate-950 border border-slate-800 rounded-xl p-3 text-emerald-400 overflow-auto text-xs">{ "ready": true }</pre>
@@ -439,23 +485,23 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
       <form id="createUserForm" class="space-y-3 text-xs">
         <div>
           <label class="block font-semibold text-slate-300 mb-1">Username</label>
-          <input type="text" id="newUsername" required class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-white" />
+          <input type="text" id="newUsername" required class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-sky-500" />
         </div>
         <div>
           <label class="block font-semibold text-slate-300 mb-1">Full Name</label>
-          <input type="text" id="newFullName" required class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-white" />
+          <input type="text" id="newFullName" required class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-sky-500" />
         </div>
         <div>
           <label class="block font-semibold text-slate-300 mb-1">Email Address</label>
-          <input type="email" id="newEmail" required class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-white" />
+          <input type="email" id="newEmail" required class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-sky-500" />
         </div>
         <div>
           <label class="block font-semibold text-slate-300 mb-1">Password</label>
-          <input type="password" id="newPassword" required class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-white" />
+          <input type="password" id="newPassword" required minlength="6" class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-sky-500" />
         </div>
         <div>
           <label class="block font-semibold text-slate-300 mb-1">User Type</label>
-          <select id="newUserType" class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-white">
+          <select id="newUserType" class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-sky-500">
             <option value="USER">Standard User (USER)</option>
             <option value="SUB_ADMIN">Sub-Administrator (SUB_ADMIN)</option>
             <option value="ADMIN">Super Administrator (ADMIN)</option>
@@ -463,13 +509,49 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
         </div>
         <div>
           <label class="block font-semibold text-slate-300 mb-1">Assign Role</label>
-          <select id="newUserRoleId" class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-white">
+          <select id="newUserRoleId" class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-sky-500">
             <option value="">Select role...</option>
           </select>
         </div>
         <div class="flex justify-end gap-2 pt-2">
           <button type="button" onclick="closeCreateUserModal()" class="btn px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300">Cancel</button>
-          <button type="submit" class="btn px-4 py-2 bg-sky-500 hover:bg-sky-400 text-white">Save User</button>
+          <button type="submit" class="btn px-4 py-2 bg-sky-500 hover:bg-sky-400 text-white font-semibold">Save User</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL: EDIT USER -->
+  <div id="editUserModal" class="modal-overlay" onclick="handleModalBackdropClick(event, 'editUserModal')">
+    <div class="w-full max-w-md bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-4 shadow-2xl" onclick="event.stopPropagation()">
+      <div class="flex items-center justify-between">
+        <h3 class="text-sm font-bold text-white flex items-center gap-2">
+          <i class="fa-solid fa-user-gear text-sky-400"></i> Edit User & Role Assignment
+        </h3>
+        <button onclick="closeEditUserModal()" type="button" class="text-slate-500 hover:text-slate-300 cursor-pointer"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <form id="editUserForm" class="space-y-3 text-xs">
+        <input type="hidden" id="editUserId" />
+        <div>
+          <label class="block font-semibold text-slate-300 mb-1">Username</label>
+          <input type="text" id="editUsernameDisplay" disabled class="w-full px-3 py-2 bg-slate-950/60 border border-slate-800 rounded-lg text-slate-400 font-mono" />
+        </div>
+        <div>
+          <label class="block font-semibold text-slate-300 mb-1">Assign Role</label>
+          <select id="editUserRoleId" class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-sky-500">
+            <option value="">No role assigned</option>
+          </select>
+        </div>
+        <div>
+          <label class="block font-semibold text-slate-300 mb-1">Account Status</label>
+          <select id="editUserActive" class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-sky-500">
+            <option value="true">Active</option>
+            <option value="false">Suspended</option>
+          </select>
+        </div>
+        <div class="flex justify-end gap-2 pt-2">
+          <button type="button" onclick="closeEditUserModal()" class="btn px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300">Cancel</button>
+          <button type="submit" class="btn px-4 py-2 bg-sky-500 hover:bg-sky-400 text-white font-semibold">Update User</button>
         </div>
       </form>
     </div>
@@ -487,15 +569,15 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
       <form id="createRoleForm" class="space-y-3 text-xs">
         <div>
           <label class="block font-semibold text-slate-300 mb-1">Role Code (Uppercase Identifier)</label>
-          <input type="text" id="newRoleCode" required placeholder="e.g. AUDITOR or FIELD_TECH" class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-white uppercase font-mono" />
+          <input type="text" id="newRoleCode" required placeholder="e.g. AUDITOR or FIELD_TECH" class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-white uppercase font-mono focus:outline-none focus:border-amber-500" />
         </div>
         <div>
           <label class="block font-semibold text-slate-300 mb-1">Display Name</label>
-          <input type="text" id="newRoleName" required placeholder="e.g. Field Technician" class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-white" />
+          <input type="text" id="newRoleName" required placeholder="e.g. Field Technician" class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-amber-500" />
         </div>
         <div>
           <label class="block font-semibold text-slate-300 mb-1">Description</label>
-          <input type="text" id="newRoleDescription" placeholder="Description of role privileges" class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-white" />
+          <input type="text" id="newRoleDescription" placeholder="Description of role privileges" class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-amber-500" />
         </div>
         <div>
           <label class="block font-semibold text-slate-300 mb-1">Assign Permissions</label>
@@ -528,11 +610,11 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
         </div>
         <div>
           <label class="block font-semibold text-slate-300 mb-1">Display Name</label>
-          <input type="text" id="editRoleName" required class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-white" />
+          <input type="text" id="editRoleName" required class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-sky-500" />
         </div>
         <div>
           <label class="block font-semibold text-slate-300 mb-1">Description</label>
-          <input type="text" id="editRoleDescription" class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-white" />
+          <input type="text" id="editRoleDescription" class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-sky-500" />
         </div>
         <div>
           <label class="block font-semibold text-slate-300 mb-1">Permissions Matrix</label>
@@ -551,12 +633,55 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
   <script>
     var allAvailablePermissions = [];
     var allAvailableRoles = [];
+    var allLoadedUsers = [];
+
+    function showToast(msg, type) {
+      var container = document.getElementById("toastContainer");
+      if (!container) return;
+      var el = document.createElement("div");
+      var isError = type === "error";
+      var isSuccess = type === "success";
+      var bgClass = isError ? "bg-red-950 border border-red-500/50 text-red-200" : (isSuccess ? "bg-emerald-950 border border-emerald-500/50 text-emerald-200" : "bg-sky-950 border border-sky-500/50 text-sky-200");
+      var icon = isError ? '<i class="fa-solid fa-circle-exclamation text-red-400"></i>' : (isSuccess ? '<i class="fa-solid fa-circle-check text-emerald-400"></i>' : '<i class="fa-solid fa-circle-info text-sky-400"></i>');
+      
+      el.className = "toast-item " + bgClass;
+      el.innerHTML = icon + '<span class="flex-1">' + msg + '</span>';
+      container.appendChild(el);
+      setTimeout(function() {
+        el.style.opacity = "0";
+        setTimeout(function() { if (el.parentNode) el.parentNode.removeChild(el); }, 200);
+      }, 3500);
+    }
+    window.showToast = showToast;
+
+    function copyToClipboard(text) {
+      if (navigator.clipboard) {
+        navigator.clipboard.writeText(text).then(function() {
+          showToast("Copied to clipboard!", "success");
+        }).catch(function() {
+          showToast("Copy failed", "error");
+        });
+      } else {
+        var ta = document.createElement("textarea");
+        ta.value = text;
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand("copy");
+        document.body.removeChild(ta);
+        showToast("Copied to clipboard!", "success");
+      }
+    }
+    window.copyToClipboard = copyToClipboard;
 
     function getAuthToken() {
       var token = localStorage.getItem("lorawan_token");
-      if (!token) {
-        var match = document.cookie.match(new RegExp("(^| )access_token=([^;]+)"));
-        if (match) token = match[2];
+      if (!token || token === "undefined" || token === "null") {
+        var match = document.cookie.match(/(?:^|;\\s*)access_token=([^;]*)/);
+        if (match && match[1] && match[1] !== "undefined" && match[1] !== "null") {
+          token = decodeURIComponent(match[1]);
+        } else {
+          token = null;
+        }
       }
       return token;
     }
@@ -577,10 +702,14 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
       var nameEl = document.getElementById("navFullName");
       if (nameEl) nameEl.textContent = user.fullName || user.username || "Admin User";
       
-      var isSuper = user.userType === "ADMIN" || (user.roles && user.roles.some(function(r) { return r === "SUPER_ADMIN" || (r && r.code === "SUPER_ADMIN"); }));
+      var isSuper = user.userType === "ADMIN" || 
+                    String(user.userType).toUpperCase() === "ADMIN" ||
+                    user.username === "admin" ||
+                    (user.roles && user.roles.some(function(r) { return r === "SUPER_ADMIN" || (r && r.code === "SUPER_ADMIN"); }));
       var badgeEl = document.getElementById("navRoleBadge");
       if (badgeEl) {
-        badgeEl.textContent = isSuper ? "SUPER_ADMIN" : (user.roles && user.roles[0] ? (user.roles[0].name || user.roles[0]) : (user.userType || "USER"));
+        badgeEl.textContent = isSuper ? "SUPER_ADMIN" : (user.roles && user.roles[0] ? (user.roles[0].name || user.roles[0].code || user.roles[0]) : (user.userType || "USER"));
+        badgeEl.className = isSuper ? "text-[10px] text-emerald-400 font-mono font-bold" : "text-[10px] text-sky-400 font-mono font-medium";
       }
     }
 
@@ -622,23 +751,35 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
 
     async function handleLogout() {
       try {
-        await fetch("/auth/logout", { method: "POST", credentials: "same-origin" });
+        await fetch("/auth/logout", { method: "POST", headers: authHeaders(), credentials: "include" });
+      } catch (e) {}
+      try {
+        await fetch("/auth/logout", { method: "GET", credentials: "include" });
       } catch (e) {}
       localStorage.removeItem("lorawan_token");
       localStorage.removeItem("lorawan_user");
-      document.cookie = "access_token=; Path=/; Expires=Thu, 01 Jan 1970 00:00:01 GMT;";
-      window.location.href = "/login";
+      sessionStorage.clear();
+      document.cookie = "access_token=; Path=/; Expires=Thu, 01 Jan 1970 00:00:01 GMT; Max-Age=0; SameSite=Lax;";
+      document.cookie = "lorawan_token=; Path=/; Expires=Thu, 01 Jan 1970 00:00:01 GMT; Max-Age=0; SameSite=Lax;";
+      document.cookie = "access_token=; Path=/; Expires=Thu, 01 Jan 1970 00:00:01 GMT; Max-Age=0;";
+      document.cookie = "lorawan_token=; Path=/; Expires=Thu, 01 Jan 1970 00:00:01 GMT; Max-Age=0;";
+      window.location.replace("/login?logout=1");
     }
     window.handleLogout = handleLogout;
 
     async function loadUsers() {
       try {
-        var res = await fetch("/users", { headers: authHeaders(), credentials: "same-origin" });
+        var res = await fetch("/users", { headers: authHeaders(), credentials: "include" });
+        if (res.status === 401) {
+          handleLogout();
+          return;
+        }
         if (!res.ok) {
           throw new Error("HTTP " + res.status);
         }
         var users = await res.json();
         if (!Array.isArray(users)) throw new Error("Invalid response format");
+        allLoadedUsers = users;
         
         var totalEl = document.getElementById("metricTotalUsers");
         if (totalEl) totalEl.textContent = users.length;
@@ -653,18 +794,21 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
 
         for (var i = 0; i < users.length; i++) {
           var u = users[i];
-          var isSuper = u.userType === "ADMIN" || (u.roles && u.roles.some(function(r) { return r.code === "SUPER_ADMIN"; }));
+          var isSuper = u.userType === "ADMIN" || 
+                        String(u.userType).toUpperCase() === "ADMIN" ||
+                        u.username === "admin" ||
+                        (u.roles && u.roles.some(function(r) { return r.code === "SUPER_ADMIN"; }));
           var typeBadge = isSuper
-            ? '<span class="px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[10px] font-mono">ADMIN</span>'
+            ? '<span class="px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[10px] font-mono font-bold">ADMIN</span>'
             : '<span class="px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 text-[10px] font-mono">' + u.userType + '</span>';
           
           var rolesBadges = u.roles && u.roles.length > 0
-            ? u.roles.map(function(r) { return '<span class="px-1.5 py-0.5 rounded bg-sky-500/10 text-sky-300 border border-sky-500/20 text-[10px] font-mono mr-1">' + r.name + '</span>'; }).join("")
+            ? u.roles.map(function(r) { return '<span class="px-1.5 py-0.5 rounded bg-sky-500/10 text-sky-300 border border-sky-500/20 text-[10px] font-mono mr-1">' + (r.name || r.code) + '</span>'; }).join("")
             : '<span class="text-slate-500 text-[10px]">None</span>';
 
-          var deleteBtn = !isSuper 
-            ? '<button onclick="deleteUser(\'' + u.id + '\')" type="button" class="btn text-red-400 hover:text-red-300 text-xs px-2 py-1 rounded bg-red-500/10 border border-red-500/20"><i class="fa-solid fa-trash"></i></button>'
-            : '<span class="text-slate-600 text-[11px]"><i class="fa-solid fa-lock"></i> Protected</span>';
+          var actions = isSuper 
+            ? '<span class="text-slate-600 text-[11px]"><i class="fa-solid fa-lock"></i> Protected</span>'
+            : '<div class="flex items-center justify-end gap-1.5"><button onclick="openEditUserModal(\'' + u.id + '\')" type="button" class="btn text-sky-400 hover:text-sky-300 text-xs px-2.5 py-1 rounded bg-sky-500/10 border border-sky-500/20">Edit</button><button onclick="deleteUser(\'' + u.id + '\')" type="button" class="btn text-red-400 hover:text-red-300 text-xs px-2 py-1 rounded bg-red-500/10 border border-red-500/20" title="Delete User"><i class="fa-solid fa-trash"></i></button></div>';
 
           var tr = document.createElement("tr");
           tr.className = "hover:bg-slate-950/40 transition";
@@ -674,7 +818,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
             '<td class="py-3 px-4">' + typeBadge + '</td>' +
             '<td class="py-3 px-4">' + rolesBadges + '</td>' +
             '<td class="py-3 px-4"><span class="inline-flex items-center gap-1.5 ' + (u.isActive ? "text-emerald-400" : "text-red-400") + '"><span class="w-1.5 h-1.5 rounded-full ' + (u.isActive ? "bg-emerald-500" : "bg-red-500") + '"></span>' + (u.isActive ? "Active" : "Suspended") + '</span></td>' +
-            '<td class="py-3 px-4 text-right">' + deleteBtn + '</td>';
+            '<td class="py-3 px-4 text-right">' + actions + '</td>';
           tbody.appendChild(tr);
         }
       } catch (err) {
@@ -688,9 +832,14 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
     async function loadRoles() {
       try {
         var results = await Promise.all([
-          fetch("/roles", { headers: authHeaders(), credentials: "same-origin" }),
-          fetch("/roles/permissions", { headers: authHeaders(), credentials: "same-origin" })
+          fetch("/roles", { headers: authHeaders(), credentials: "include" }),
+          fetch("/roles/permissions", { headers: authHeaders(), credentials: "include" })
         ]);
+
+        if (results[0].status === 401 || results[1].status === 401) {
+          handleLogout();
+          return;
+        }
 
         if (!results[0].ok || !results[1].ok) {
           throw new Error("HTTP " + results[0].status + " / " + results[1].status);
@@ -728,13 +877,13 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
         var isSuper = r.code === "SUPER_ADMIN";
         var editBtn = isSuper 
           ? '<span class="text-emerald-400/80 font-mono text-[10px]"><i class="fa-solid fa-lock"></i> Core System Role</span>'
-          : '<button onclick="openEditRoleModal(\'' + r.id + '\')" type="button" class="btn text-sky-400 hover:text-sky-300 font-medium">Edit</button>';
+          : '<button onclick="openEditRoleModal(\'' + r.id + '\')" type="button" class="btn text-sky-400 hover:text-sky-300 font-medium text-xs">Edit</button>';
 
         var card = document.createElement("div");
         card.className = "bg-slate-950/60 border border-slate-800 rounded-xl p-4 space-y-2";
         card.innerHTML = '<div class="flex items-center justify-between">' +
           '<span class="font-bold ' + (isSuper ? "text-emerald-400" : "text-sky-400") + ' flex items-center gap-1.5"><i class="fa-solid ' + (isSuper ? "fa-crown" : "fa-user-shield") + '"></i> ' + r.name + '</span>' +
-          '<span class="px-2 py-0.5 rounded text-[10px] font-mono ' + (isSuper ? "bg-emerald-500/10 text-emerald-300 border border-emerald-500/20" : "bg-slate-800 text-slate-400") + '">' + r.code + '</span>' +
+          '<span class="px-2 py-0.5 rounded text-[10px] font-mono ' + (isSuper ? "bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 font-bold" : "bg-slate-800 text-slate-400") + '">' + r.code + '</span>' +
           '</div>' +
           '<p class="text-slate-400 text-[11px]">' + (r.description || "No description provided") + '</p>' +
           '<div class="pt-2 border-t border-slate-800/80 flex items-center justify-between text-[11px] text-slate-500">' +
@@ -779,7 +928,11 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
 
     async function loadDatabaseHealth() {
       try {
-        var res = await fetch("/database/health", { headers: authHeaders(), credentials: "same-origin" });
+        var res = await fetch("/database/health", { headers: authHeaders(), credentials: "include" });
+        if (res.status === 401) {
+          handleLogout();
+          return;
+        }
         if (!res.ok) throw new Error("HTTP " + res.status);
         var data = await res.json();
 
@@ -838,13 +991,13 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
         var res = await fetch("/database/reload", {
           method: "POST",
           headers: authHeaders(),
-          credentials: "same-origin"
+          credentials: "include"
         });
         var data = await res.json();
-        alert(data.message || "Database configuration reloaded");
+        showToast(data.message || "Database configuration reloaded successfully", "success");
         loadDatabaseHealth();
       } catch (err) {
-        alert("Failed to reload database config: " + err.message);
+        showToast("Failed to reload database config: " + err.message, "error");
       }
     }
     window.reloadDbConfig = reloadDbConfig;
@@ -853,7 +1006,8 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
       if (event.target.id === modalId) {
         var modal = document.getElementById(modalId);
         if (modal) {
-          modal.style.setProperty("display", "none", "important");
+          modal.classList.remove("active");
+          modal.style.display = "none";
         }
       }
     }
@@ -870,7 +1024,8 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
       }
       var modal = document.getElementById("createUserModal");
       if (modal) {
-        modal.style.setProperty("display", "flex", "important");
+        modal.classList.add("active");
+        modal.style.display = "flex";
       }
     }
     window.openCreateUserModal = openCreateUserModal;
@@ -878,10 +1033,74 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
     function closeCreateUserModal() {
       var modal = document.getElementById("createUserModal");
       if (modal) {
-        modal.style.setProperty("display", "none", "important");
+        modal.classList.remove("active");
+        modal.style.display = "none";
       }
     }
     window.closeCreateUserModal = closeCreateUserModal;
+
+    function openEditUserModal(userId) {
+      var user = (allLoadedUsers || []).find(function(u) { return u.id === userId; });
+      if (!user) return;
+
+      document.getElementById("editUserId").value = user.id;
+      document.getElementById("editUsernameDisplay").value = user.username + " (" + (user.email || "") + ")";
+      document.getElementById("editUserActive").value = user.isActive ? "true" : "false";
+
+      var select = document.getElementById("editUserRoleId");
+      select.innerHTML = '<option value="">No role assigned</option>';
+      var currentRoleId = user.roles && user.roles[0] ? user.roles[0].id : "";
+
+      if (Array.isArray(allAvailableRoles)) {
+        for (var i = 0; i < allAvailableRoles.length; i++) {
+          var r = allAvailableRoles[i];
+          var isSelected = r.id === currentRoleId ? " selected" : "";
+          select.innerHTML += '<option value="' + r.id + '"' + isSelected + '>' + r.name + ' (' + r.code + ')</option>';
+        }
+      }
+
+      var modal = document.getElementById("editUserModal");
+      if (modal) {
+        modal.classList.add("active");
+        modal.style.display = "flex";
+      }
+    }
+    window.openEditUserModal = openEditUserModal;
+
+    function closeEditUserModal() {
+      var modal = document.getElementById("editUserModal");
+      if (modal) {
+        modal.classList.remove("active");
+        modal.style.display = "none";
+      }
+    }
+    window.closeEditUserModal = closeEditUserModal;
+
+    document.getElementById("editUserForm").addEventListener("submit", async function(e) {
+      e.preventDefault();
+      var id = document.getElementById("editUserId").value;
+      var roleId = document.getElementById("editUserRoleId").value;
+      var isActive = document.getElementById("editUserActive").value === "true";
+
+      try {
+        var res = await fetch("/users/" + id + "/permissions", {
+          method: "PUT",
+          headers: authHeaders(),
+          credentials: "include",
+          body: JSON.stringify({
+            isActive: isActive,
+            roleIds: roleId ? [roleId] : []
+          })
+        });
+        var data = await res.json();
+        if (!res.ok) throw new Error(data.message || "Failed to update user");
+        showToast("User updated successfully", "success");
+        closeEditUserModal();
+        loadUsers();
+      } catch (err) {
+        showToast(err.message, "error");
+      }
+    });
 
     document.getElementById("createUserForm").addEventListener("submit", async function(e) {
       e.preventDefault();
@@ -896,7 +1115,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
         var res = await fetch("/users", {
           method: "POST",
           headers: authHeaders(),
-          credentials: "same-origin",
+          credentials: "include",
           body: JSON.stringify({
             username: username,
             fullName: fullName,
@@ -908,10 +1127,12 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
         });
         var data = await res.json();
         if (!res.ok) throw new Error(data.message || "Failed to create user");
+        showToast("User account '" + username + "' created successfully", "success");
         closeCreateUserModal();
+        document.getElementById("createUserForm").reset();
         loadUsers();
       } catch (err) {
-        alert(err.message);
+        showToast(err.message, "error");
       }
     });
 
@@ -921,15 +1142,16 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
         var res = await fetch("/users/" + id, {
           method: "DELETE",
           headers: authHeaders(),
-          credentials: "same-origin"
+          credentials: "include"
         });
         if (!res.ok) {
           var data = await res.json();
           throw new Error(data.message || "Delete failed");
         }
+        showToast("User removed successfully", "success");
         loadUsers();
       } catch (err) {
-        alert(err.message);
+        showToast(err.message, "error");
       }
     }
     window.deleteUser = deleteUser;
@@ -949,7 +1171,8 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
       }
       var modal = document.getElementById("createRoleModal");
       if (modal) {
-        modal.style.setProperty("display", "flex", "important");
+        modal.classList.add("active");
+        modal.style.display = "flex";
       }
     }
     window.openCreateRoleModal = openCreateRoleModal;
@@ -957,7 +1180,8 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
     function closeCreateRoleModal() {
       var modal = document.getElementById("createRoleModal");
       if (modal) {
-        modal.style.setProperty("display", "none", "important");
+        modal.classList.remove("active");
+        modal.style.display = "none";
       }
     }
     window.closeCreateRoleModal = closeCreateRoleModal;
@@ -977,15 +1201,17 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
         var res = await fetch("/roles", {
           method: "POST",
           headers: authHeaders(),
-          credentials: "same-origin",
+          credentials: "include",
           body: JSON.stringify({ code: code, name: name, description: description, permissionIds: checkedPerms })
         });
         var data = await res.json();
         if (!res.ok) throw new Error(data.message || "Failed to create role");
+        showToast("Role '" + name + "' created successfully", "success");
         closeCreateRoleModal();
+        document.getElementById("createRoleForm").reset();
         loadRoles();
       } catch (err) {
-        alert(err.message);
+        showToast(err.message, "error");
       }
     });
 
@@ -1024,7 +1250,8 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
 
       var modal = document.getElementById("editRoleModal");
       if (modal) {
-        modal.style.setProperty("display", "flex", "important");
+        modal.classList.add("active");
+        modal.style.display = "flex";
       }
     }
     window.openEditRoleModal = openEditRoleModal;
@@ -1032,7 +1259,8 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
     function closeEditRoleModal() {
       var modal = document.getElementById("editRoleModal");
       if (modal) {
-        modal.style.setProperty("display", "none", "important");
+        modal.classList.remove("active");
+        modal.style.display = "none";
       }
     }
     window.closeEditRoleModal = closeEditRoleModal;
@@ -1052,15 +1280,16 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
         var res = await fetch("/roles/" + id, {
           method: "PUT",
           headers: authHeaders(),
-          credentials: "same-origin",
+          credentials: "include",
           body: JSON.stringify({ name: name, description: description, permissionIds: checkedPerms })
         });
         var data = await res.json();
         if (!res.ok) throw new Error(data.message || "Failed to update role");
+        showToast("Role '" + name + "' updated successfully", "success");
         closeEditRoleModal();
         loadRoles();
       } catch (err) {
-        alert(err.message);
+        showToast(err.message, "error");
       }
     });
 
@@ -1070,15 +1299,16 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
         var res = await fetch("/roles/" + id, {
           method: "DELETE",
           headers: authHeaders(),
-          credentials: "same-origin"
+          credentials: "include"
         });
         if (!res.ok) {
           var data = await res.json();
           throw new Error(data.message || "Delete role failed");
         }
+        showToast("Role deleted successfully", "success");
         loadRoles();
       } catch (err) {
-        alert(err.message);
+        showToast(err.message, "error");
       }
     }
     window.deleteRole = deleteRole;
@@ -1123,6 +1353,13 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
     async function initPage() {
       bindTabListeners();
 
+      var token = getAuthToken();
+      if (!token) {
+        // If neither localStorage nor cookie has token, redirect to login
+        window.location.replace("/login?logout=1");
+        return;
+      }
+
       try {
         var rawUser = localStorage.getItem("lorawan_user");
         if (rawUser && rawUser.startsWith("{")) {
@@ -1130,11 +1367,14 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
           if (storedUser) updateUserNav(storedUser);
         }
 
-        var res = await fetch("/auth/session", { headers: authHeaders(), credentials: "same-origin" });
+        var res = await fetch("/auth/session", { headers: authHeaders(), credentials: "include" });
         if (res.ok) {
           var user = await res.json();
           localStorage.setItem("lorawan_user", JSON.stringify(user));
           updateUserNav(user);
+        } else if (res.status === 401) {
+          handleLogout();
+          return;
         }
       } catch (err) {
         console.warn("Session check notice:", err);

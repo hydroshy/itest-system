@@ -1,8 +1,10 @@
 import { Controller, Post, Body, Get, Res, UseGuards, HttpException, HttpStatus } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
-import { Response } from 'express';
+import { Request, Response } from 'express';
+import { Req } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
+import { InitSuperAdminDto } from './dto/init-superadmin.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { User } from '../users/entities/user.entity';
@@ -32,10 +34,15 @@ export class AuthController {
   @Get('logout')
   @Post('logout')
   @ApiOperation({ summary: 'Logout and clear session cookie' })
-  async logout(@Res({ passthrough: true }) res: Response) {
+  async logout(@Req() req: Request, @Res() res: Response) {
+    res.clearCookie('access_token', { path: '/', sameSite: 'lax', httpOnly: false });
+    res.clearCookie('lorawan_token', { path: '/', sameSite: 'lax', httpOnly: false });
     res.clearCookie('access_token', { path: '/' });
     res.clearCookie('lorawan_token', { path: '/' });
-    return { success: true, message: 'Logged out successfully' };
+    if (req.method === 'GET') {
+      return res.redirect('/login?logout=1');
+    }
+    return res.json({ success: true, message: 'Logged out successfully' });
   }
 
   @Get('session')
@@ -56,7 +63,7 @@ export class AuthController {
 
   @Post('init-superadmin')
   @ApiOperation({ summary: 'Khởi tạo hoặc cập nhật tài khoản Super Admin (Mặc định: admin / Dvt@123)' })
-  async initSuperAdmin(@Body() body?: { username?: string; email?: string; pass?: string }) {
+  async initSuperAdmin(@Body() body?: InitSuperAdminDto) {
     try {
       return await this.authService.registerInitialAdmin(
         body?.username || 'admin',

@@ -299,7 +299,8 @@ export class DynamicDatabaseService implements OnModuleInit, OnModuleDestroy {
     }
 
     // Measure table row counts
-    for (const [table, connKey] of Object.entries(this.routingConfig.table_routes)) {
+    const routes = this.routingConfig?.table_routes || {};
+    for (const [table, connKey] of Object.entries(routes)) {
       try {
         const ds = this.dataSources.get(connKey);
         if (ds && ds.isInitialized) {
