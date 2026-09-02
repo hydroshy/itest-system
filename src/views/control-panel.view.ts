@@ -223,17 +223,6 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
             </button>
           </div>
         </div>
-
-        <!-- SIDEBAR FOOTER -->
-        <div class="pt-3 border-t border-slate-800/80 space-y-2 text-xs">
-          <div class="p-2.5 rounded-xl bg-slate-950/80 border border-slate-800/80 space-y-1">
-            <div class="flex items-center justify-between text-[11px] text-slate-400">
-              <span>Database Pool</span>
-              <span class="text-emerald-400 font-mono font-bold">ONLINE</span>
-            </div>
-            <div class="text-[10px] text-slate-500 font-mono truncate">PostgreSQL &bull; core_db</div>
-          </div>
-        </div>
       </aside>
 
       <!-- MAIN CONTENT AREA -->
@@ -272,13 +261,13 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
               <div class="text-[11px] text-slate-500">{{ modulesList.filter(m => m.isActive !== false).length }} Active on User Portal</div>
             </div>
 
-            <div @click="switchTab('database')" class="glass-card rounded-xl p-4 space-y-1 cursor-pointer hover:border-indigo-500/40 transition">
+            <div @click="switchTab('roles')" class="glass-card rounded-xl p-4 space-y-1 cursor-pointer hover:border-amber-500/40 transition">
               <div class="flex items-center justify-between text-xs text-slate-400 font-medium">
-                <span>Database Pool</span>
-                <i class="fa-solid fa-database text-indigo-400 text-sm"></i>
+                <span>System Roles</span>
+                <i class="fa-solid fa-shield-halved text-amber-400 text-sm"></i>
               </div>
-              <div class="text-xl font-extrabold text-white pt-1">{{ dbHealth.totalConnections || 1 }}</div>
-              <div class="text-[11px] text-slate-500 font-mono">core_db (dvt)</div>
+              <div class="text-xl font-extrabold text-white pt-1">{{ rolesList.length || '--' }}</div>
+              <div class="text-[11px] text-slate-500">RBAC Role Definitions</div>
             </div>
           </div>
 
