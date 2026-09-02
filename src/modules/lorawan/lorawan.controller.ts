@@ -1,7 +1,7 @@
 import { Controller, Post, Put, Get, Body, Param, Query, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
 import { LorawanService } from './lorawan.service';
-import { RegisterDeviceDto, UplinkPayloadDto, TestPayloadFormatterDto } from './dto/lorawan.dto';
+import { RegisterDeviceDto, RegisterGatewayDto, UplinkPayloadDto, TestPayloadFormatterDto } from './dto/lorawan.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../common/guards/permissions.guard';
 import { RequirePermissions } from '../../common/decorators/permissions.decorator';
@@ -15,9 +15,18 @@ export class LorawanController {
   @UseGuards(JwtAuthGuard, PermissionsGuard)
   @RequirePermissions('lorawan:device:manage')
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Đăng ký thiết bị LoRaWAN mới (DevEUI, OTAA/ABP)' })
+  @ApiOperation({ summary: 'Đăng ký thiết bị LoRaWAN mới (DevEUI, OTAA/ABP, Network Server)' })
   async registerDevice(@Body() body: RegisterDeviceDto) {
     return await this.lorawanService.registerDevice(body);
+  }
+
+  @Post('gateways')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermissions('lorawan:gateway:manage')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Đăng ký Gateway LoRaWAN mới' })
+  async registerGateway(@Body() body: RegisterGatewayDto) {
+    return await this.lorawanService.registerGateway(body);
   }
 
   @Put('devices/:devEUI/payload-formatter')
@@ -82,4 +91,3 @@ export class LorawanController {
     return await this.lorawanService.getTelemetry(devEUI, limit ? Number(limit) : 50);
   }
 }
-

@@ -1,4 +1,5 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, ManyToOne, JoinColumn } from 'typeorm';
+import { NetworkServerEntity } from '../../network-servers/entities/network-server.entity';
 
 @Entity('devices')
 export class DeviceEntity {
@@ -13,6 +14,16 @@ export class DeviceEntity {
 
   @Column({ nullable: true })
   appId: string;
+
+  @Column({ nullable: true })
+  networkServerId: string;
+
+  @Column({ nullable: true })
+  regionProfileId: string;
+
+  @ManyToOne(() => NetworkServerEntity, { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'networkServerId' })
+  networkServer?: NetworkServerEntity;
 
   @Column({ default: 'OTAA' })
   activationMode: string;

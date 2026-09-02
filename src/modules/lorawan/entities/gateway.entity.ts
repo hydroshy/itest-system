@@ -1,4 +1,5 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, ManyToOne, JoinColumn } from 'typeorm';
+import { NetworkServerEntity } from '../../network-servers/entities/network-server.entity';
 
 @Entity('gateways')
 export class GatewayEntity {
@@ -10,6 +11,16 @@ export class GatewayEntity {
 
   @Column()
   name: string;
+
+  @Column({ nullable: true })
+  networkServerId: string;
+
+  @Column({ nullable: true })
+  regionProfileId: string;
+
+  @ManyToOne(() => NetworkServerEntity, { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'networkServerId' })
+  networkServer?: NetworkServerEntity;
 
   @Column({ type: 'float', nullable: true })
   latitude: number;

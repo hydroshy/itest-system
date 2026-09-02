@@ -94,10 +94,15 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
         </a>
       </div>
 
-      <!-- Center / Horizontal Pill Tabs (All Admin Tabs including Feature Modules) -->
+      <!-- Center / Horizontal Pill Tabs (All Admin Tabs including Network Servers & Feature Modules) -->
       <nav class="hidden md:flex items-center gap-1 overflow-x-auto custom-scroll py-1">
         <button @click="activeTab = 'overview'" :class="{ active: activeTab === 'overview' }" class="tab-btn">
           <i class="fa-solid fa-chart-pie text-xs"></i> <span>Overview</span>
+        </button>
+
+        <button @click="activeTab = 'network-servers'" :class="{ active: activeTab === 'network-servers' }" class="tab-btn">
+          <i class="fa-solid fa-tower-broadcast text-xs text-sky-400"></i> <span>Network Servers</span>
+          <span v-if="networkServersList.length" class="ml-1 px-1.5 py-0.2 rounded-full bg-sky-500/20 text-sky-300 text-[10px] font-mono">{{ networkServersList.length }}</span>
         </button>
 
         <button @click="activeTab = 'modules'" :class="{ active: activeTab === 'modules' }" class="tab-btn">
@@ -159,6 +164,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
     <!-- MOBILE NAVIGATION TABS -->
     <div class="md:hidden flex items-center gap-1 overflow-x-auto custom-scroll p-2 bg-slate-950/80 border-b border-slate-800">
       <button @click="activeTab = 'overview'" :class="{ active: activeTab === 'overview' }" class="tab-btn text-xs py-1 px-2.5">Overview</button>
+      <button @click="activeTab = 'network-servers'" :class="{ active: activeTab === 'network-servers' }" class="tab-btn text-xs py-1 px-2.5">Network Servers</button>
       <button @click="activeTab = 'modules'" :class="{ active: activeTab === 'modules' }" class="tab-btn text-xs py-1 px-2.5">Modules</button>
       <button @click="activeTab = 'roles'" :class="{ active: activeTab === 'roles' }" class="tab-btn text-xs py-1 px-2.5">Roles</button>
       <button @click="activeTab = 'users'" :class="{ active: activeTab === 'users' }" class="tab-btn text-xs py-1 px-2.5">Users</button>
@@ -175,7 +181,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
       <!-- TAB 1: OVERVIEW -->
       <div v-show="activeTab === 'overview'" class="space-y-6">
         <!-- Metric Cards -->
-        <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+        <div class="grid grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4">
           <div class="glass-card rounded-xl p-4 space-y-1">
             <div class="flex items-center justify-between text-xs text-slate-400 font-medium">
               <span>Platform Runtime</span>
@@ -185,6 +191,17 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
               <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span> ONLINE
             </div>
             <div class="text-[11px] text-slate-500">NestJS Core Engine</div>
+          </div>
+
+          <div class="glass-card rounded-xl p-4 space-y-1 cursor-pointer hover:border-sky-500/40 transition" @click="activeTab = 'network-servers'">
+            <div class="flex items-center justify-between text-xs text-slate-400 font-medium">
+              <span>Network Servers</span>
+              <i class="fa-solid fa-tower-broadcast text-sky-400 text-sm"></i>
+            </div>
+            <div class="text-xl font-extrabold text-white pt-1">{{ networkServersList.length || '--' }}</div>
+            <div class="text-[11px] text-slate-500">
+              TP: {{ networkServersList.filter(s => s.type === 'THINGPARK').length }} | CS: {{ networkServersList.filter(s => s.type === 'CHIRPSTACK').length }}
+            </div>
           </div>
 
           <div class="glass-card rounded-xl p-4 space-y-1">
@@ -219,19 +236,19 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
           <div class="glass-card rounded-xl p-5 space-y-3">
             <div class="flex items-center gap-2 text-sm font-bold text-white">
-              <i class="fa-solid fa-bolt text-sky-400"></i> Platform Architecture
+              <i class="fa-solid fa-bolt text-sky-400"></i> Platform Architecture &amp; Connectivity
             </div>
             <p class="text-xs text-slate-400 leading-relaxed">
-              Daviteq LoRaWAN Application Server provides enterprise-grade telemetry ingestion, dynamic PostgreSQL table routing, and modular feature registries with role-based access control.
+              Daviteq LoRaWAN Application Server provides enterprise-grade telemetry ingestion, dynamic PostgreSQL table routing, and seamless integration with ThingPark Wireless and ChirpStack Network Servers.
             </p>
             <div class="grid grid-cols-2 gap-2.5 pt-2">
               <div class="p-3 bg-slate-950/70 rounded-lg border border-slate-800">
-                <span class="text-[11px] text-slate-500 block">Access Control</span>
-                <span class="text-xs font-bold text-emerald-400 mt-0.5 block">5-Table RBAC Model</span>
+                <span class="text-[11px] text-slate-500 block">Network Servers</span>
+                <span class="text-xs font-bold text-sky-400 mt-0.5 block">ThingPark &amp; ChirpStack</span>
               </div>
               <div class="p-3 bg-slate-950/70 rounded-lg border border-slate-800">
-                <span class="text-[11px] text-slate-500 block">Module Engine</span>
-                <span class="text-xs font-bold text-sky-400 mt-0.5 block">Pluggable Feature Registry</span>
+                <span class="text-[11px] text-slate-500 block">Access Control</span>
+                <span class="text-xs font-bold text-emerald-400 mt-0.5 block">5-Table RBAC Model</span>
               </div>
             </div>
           </div>
@@ -241,18 +258,194 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
               <i class="fa-solid fa-link text-emerald-400"></i> Quick Admin Actions
             </div>
             <div class="space-y-2 text-xs">
+              <button @click="activeTab = 'network-servers'" class="w-full flex items-center justify-between p-2.5 rounded-lg bg-slate-950/70 border border-slate-800 hover:border-sky-500/40 transition cursor-pointer text-slate-300 font-medium">
+                <span class="flex items-center gap-2"><i class="fa-solid fa-tower-broadcast text-sky-400"></i> Manage Network Servers &amp; Region Profiles (ThingPark / ChirpStack)</span>
+                <i class="fa-solid fa-arrow-right text-slate-500 text-[10px]"></i>
+              </button>
               <button @click="activeTab = 'modules'" class="w-full flex items-center justify-between p-2.5 rounded-lg bg-slate-950/70 border border-slate-800 hover:border-sky-500/40 transition cursor-pointer text-slate-300 font-medium">
-                <span class="flex items-center gap-2"><i class="fa-solid fa-cubes text-sky-400"></i> Manage Dashboard Modules & Role Access</span>
+                <span class="flex items-center gap-2"><i class="fa-solid fa-cubes text-sky-400"></i> Manage Dashboard Modules &amp; Role Access</span>
                 <i class="fa-solid fa-arrow-right text-slate-500 text-[10px]"></i>
               </button>
               <button @click="activeTab = 'roles'" class="w-full flex items-center justify-between p-2.5 rounded-lg bg-slate-950/70 border border-slate-800 hover:border-amber-500/40 transition cursor-pointer text-slate-300 font-medium">
-                <span class="flex items-center gap-2"><i class="fa-solid fa-shield-halved text-amber-400"></i> Role & Permissions Matrix (RBAC)</span>
+                <span class="flex items-center gap-2"><i class="fa-solid fa-shield-halved text-amber-400"></i> Role &amp; Permissions Matrix (RBAC)</span>
                 <i class="fa-solid fa-arrow-right text-slate-500 text-[10px]"></i>
               </button>
               <button @click="activeTab = 'users'" class="w-full flex items-center justify-between p-2.5 rounded-lg bg-slate-950/70 border border-slate-800 hover:border-emerald-500/40 transition cursor-pointer text-slate-300 font-medium">
-                <span class="flex items-center gap-2"><i class="fa-solid fa-users text-emerald-400"></i> User Accounts & Role Assignment</span>
+                <span class="flex items-center gap-2"><i class="fa-solid fa-users text-emerald-400"></i> User Accounts &amp; Role Assignment</span>
                 <i class="fa-solid fa-arrow-right text-slate-500 text-[10px]"></i>
               </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB: NETWORK SERVERS MANAGEMENT (ThingPark & ChirpStack) -->
+      <div v-show="activeTab === 'network-servers'" class="space-y-4">
+        <div class="glass-card rounded-xl p-5 space-y-4">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <div class="flex items-center gap-2">
+                <h2 class="text-sm font-bold text-white flex items-center gap-2">
+                  <i class="fa-solid fa-tower-broadcast text-sky-400"></i> LoRaWAN Network Server Management
+                </h2>
+                <span class="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-sky-500/10 text-sky-400 border border-sky-500/25">
+                  {{ networkServersList.length }} Configured
+                </span>
+              </div>
+              <p class="text-[11px] text-slate-400 mt-0.5">
+                Configure ThingPark Wireless and ChirpStack Network Servers with API endpoints, Route References, and Region Profiles.
+              </p>
+            </div>
+            <div class="flex items-center gap-2">
+              <button @click="fetchNetworkServers" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 text-xs font-semibold flex items-center gap-1.5 cursor-pointer">
+                <i class="fa-solid fa-arrows-rotate"></i> Refresh
+              </button>
+              <button @click="openCreateNetworkServerDialog" class="px-3.5 py-1.5 rounded-lg bg-sky-500 hover:bg-sky-400 text-white text-xs font-bold shadow-lg shadow-sky-500/20 flex items-center gap-1.5 cursor-pointer">
+                <i class="fa-solid fa-plus"></i> Add Network Server
+              </button>
+            </div>
+          </div>
+
+          <!-- Filters & Search Bar -->
+          <div class="flex flex-col sm:flex-row items-center justify-between gap-3 pt-1 border-t border-slate-800/80">
+            <div class="flex items-center gap-1.5 w-full sm:w-auto">
+              <span class="text-xs text-slate-400 mr-1">Filter Type:</span>
+              <button @click="filterServerType = 'ALL'" :class="filterServerType === 'ALL' ? 'bg-sky-500 text-white font-bold' : 'bg-slate-900 text-slate-400 border border-slate-800 hover:text-white'" class="px-2.5 py-1 rounded-md text-xs transition cursor-pointer">
+                All ({{ networkServersList.length }})
+              </button>
+              <button @click="filterServerType = 'THINGPARK'" :class="filterServerType === 'THINGPARK' ? 'bg-cyan-600 text-white font-bold' : 'bg-slate-900 text-slate-400 border border-slate-800 hover:text-white'" class="px-2.5 py-1 rounded-md text-xs transition cursor-pointer flex items-center gap-1">
+                <i class="fa-solid fa-satellite text-[10px]"></i> ThingPark ({{ networkServersList.filter(s => s.type === 'THINGPARK').length }})
+              </button>
+              <button @click="filterServerType = 'CHIRPSTACK'" :class="filterServerType === 'CHIRPSTACK' ? 'bg-emerald-600 text-white font-bold' : 'bg-slate-900 text-slate-400 border border-slate-800 hover:text-white'" class="px-2.5 py-1 rounded-md text-xs transition cursor-pointer flex items-center gap-1">
+                <i class="fa-solid fa-signal text-[10px]"></i> ChirpStack ({{ networkServersList.filter(s => s.type === 'CHIRPSTACK').length }})
+              </button>
+            </div>
+
+            <div class="w-full sm:w-64">
+              <input v-model="searchServerQuery" type="text" placeholder="Search servers or regions..." class="w-full px-3 py-1.5 bg-slate-950 border border-slate-800 rounded-lg text-xs text-white placeholder-slate-500 focus:outline-none focus:border-sky-500" />
+            </div>
+          </div>
+        </div>
+
+        <!-- Network Server Cards Grid -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <div v-if="filteredNetworkServers.length === 0" class="col-span-full p-8 text-center glass-card rounded-xl text-slate-500 space-y-2">
+            <i class="fa-solid fa-tower-broadcast text-3xl text-slate-600"></i>
+            <div class="text-sm font-semibold text-slate-400">No Network Servers Found</div>
+            <div class="text-xs">Click "Add Network Server" above to configure your first ThingPark or ChirpStack server.</div>
+          </div>
+
+          <div v-for="srv in filteredNetworkServers" :key="srv.id" class="glass-card rounded-xl p-5 space-y-4 border transition hover:border-slate-700">
+            <!-- Header of Card -->
+            <div class="flex items-start justify-between gap-3">
+              <div class="flex items-start gap-3">
+                <div class="w-10 h-10 rounded-xl flex items-center justify-center text-lg shrink-0 shadow-inner" :class="srv.type === 'THINGPARK' ? 'bg-cyan-500/15 border border-cyan-500/30 text-cyan-400' : 'bg-emerald-500/15 border border-emerald-500/30 text-emerald-400'">
+                  <i :class="srv.type === 'THINGPARK' ? 'fa-solid fa-satellite' : 'fa-solid fa-signal'"></i>
+                </div>
+                <div>
+                  <div class="flex items-center gap-2">
+                    <h3 class="font-bold text-white text-sm">{{ srv.name }}</h3>
+                    <span v-if="srv.isDefault" class="px-2 py-0.2 rounded-full text-[9px] font-bold bg-amber-500/15 text-amber-300 border border-amber-500/30">DEFAULT</span>
+                  </div>
+                  <div class="text-xs text-slate-400 mt-0.5">{{ srv.description || (srv.type === 'THINGPARK' ? 'Actility ThingPark Wireless Integration' : 'ChirpStack v4 LNS Integration') }}</div>
+                </div>
+              </div>
+
+              <div class="flex flex-col items-end gap-1">
+                <span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider" :class="srv.type === 'THINGPARK' ? 'bg-cyan-500/15 text-cyan-300 border border-cyan-500/30' : 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30'">
+                  {{ srv.type === 'THINGPARK' ? 'ThingPark' : 'ChirpStack' }}
+                </span>
+                <span class="text-[10px] font-mono" :class="srv.status === 'ONLINE' ? 'text-emerald-400' : 'text-slate-400'">
+                  <span class="inline-block w-1.5 h-1.5 rounded-full mr-1" :class="srv.status === 'ONLINE' ? 'bg-emerald-500' : 'bg-slate-500'"></span>{{ srv.status || 'ONLINE' }}
+                </span>
+              </div>
+            </div>
+
+            <!-- Server Details Grid -->
+            <div class="p-3.5 bg-slate-950/80 rounded-xl border border-slate-800/80 space-y-2 text-xs">
+              <div class="flex items-center justify-between">
+                <span class="text-slate-400">API Endpoint:</span>
+                <span class="font-mono text-slate-200 truncate max-w-[220px]" :title="srv.apiUrl">{{ srv.apiUrl || '(None / Webhook-only)' }}</span>
+              </div>
+
+              <!-- Specific ThingPark vs ChirpStack Routing Details -->
+              <div v-if="srv.type === 'THINGPARK'" class="flex items-center justify-between">
+                <span class="text-slate-400">Default RouteRef:</span>
+                <span class="font-mono text-cyan-400 font-bold">{{ srv.routeRef || 'DAVITEQ_TP_DEFAULT' }}</span>
+              </div>
+              <div v-else class="flex items-center justify-between">
+                <span class="text-slate-400">API Token:</span>
+                <span class="font-mono text-emerald-400">{{ srv.apiKey ? '••••••••••••• (Configured)' : '(Not set)' }}</span>
+              </div>
+
+              <!-- Connected Fleet Stats -->
+              <div class="flex items-center justify-between pt-1 border-t border-slate-800/60">
+                <span class="text-slate-400">Linked Fleet:</span>
+                <div class="flex items-center gap-2 font-mono text-[11px]">
+                  <span class="px-2 py-0.5 rounded bg-sky-500/10 text-sky-300 border border-sky-500/20"><i class="fa-solid fa-microchip mr-1"></i>{{ srv.deviceCount || 0 }} Devices</span>
+                  <span class="px-2 py-0.5 rounded bg-indigo-500/10 text-indigo-300 border border-indigo-500/20"><i class="fa-solid fa-tower-cell mr-1"></i>{{ srv.gatewayCount || 0 }} Gateways</span>
+                </div>
+              </div>
+
+              <!-- Webhook Receiver URL -->
+              <div class="pt-1 border-t border-slate-800/60">
+                <div class="flex items-center justify-between text-[11px]">
+                  <span class="text-slate-400">Ingestion Webhook:</span>
+                  <button @click="copyUrl(srv.type === 'THINGPARK' ? '/lorawan/webhook/thingpark' : '/lorawan/webhook/chirpstack')" class="text-sky-400 hover:text-sky-300 cursor-pointer flex items-center gap-1">
+                    <i class="fa-solid fa-copy text-[10px]"></i> Copy Ingestion URL
+                  </button>
+                </div>
+                <div class="mt-1 px-2.5 py-1 bg-slate-900 rounded font-mono text-[10px] text-slate-300 flex items-center justify-between">
+                  <span>POST {{ srv.type === 'THINGPARK' ? '/lorawan/webhook/thingpark' : '/lorawan/webhook/chirpstack' }}</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Region Profiles Section -->
+            <div class="space-y-2">
+              <div class="flex items-center justify-between">
+                <div class="text-xs font-bold text-slate-300 flex items-center gap-1.5">
+                  <i class="fa-solid fa-globe text-sky-400 text-xs"></i>
+                  <span>Region Profiles ({{ srv.regionProfiles?.length || 0 }}):</span>
+                </div>
+              </div>
+
+              <div class="space-y-1.5 max-h-40 overflow-y-auto custom-scroll pr-1">
+                <div v-if="!srv.regionProfiles || srv.regionProfiles.length === 0" class="text-[11px] text-slate-500 italic p-2 text-center bg-slate-950/40 rounded-lg">
+                  No region profiles configured. Click Edit to add region profiles.
+                </div>
+                <div v-for="rp in srv.regionProfiles" :key="rp.id" class="p-2 bg-slate-950/60 rounded-lg border border-slate-800/80 flex items-center justify-between text-xs">
+                  <div class="flex items-center gap-2">
+                    <span class="px-1.5 py-0.5 rounded bg-sky-500/15 text-sky-300 font-mono text-[10px] font-bold">{{ rp.region }}</span>
+                    <div class="leading-tight">
+                      <div class="font-semibold text-slate-200 text-xs">{{ rp.name }}</div>
+                      <div class="text-[10px] text-slate-400 font-mono">
+                        <span v-if="srv.type === 'THINGPARK'" class="text-cyan-400">RouteRef: {{ rp.routeRef || srv.routeRef || 'N/A' }}</span>
+                        <span v-else class="text-emerald-400">Profile ID: {{ rp.profileId || 'N/A' }}</span>
+                        <span v-if="rp.frequencyBand" class="text-slate-500 ml-1.5">({{ rp.frequencyBand }})</span>
+                      </div>
+                    </div>
+                  </div>
+                  <span class="w-2 h-2 rounded-full" :class="rp.isActive !== false ? 'bg-emerald-500' : 'bg-slate-600'" :title="rp.isActive !== false ? 'Active' : 'Disabled'"></span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="flex items-center justify-between pt-2 border-t border-slate-800">
+              <button @click="testNetworkServerConnection(srv)" :disabled="testingServerId === srv.id" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition disabled:opacity-50">
+                <i :class="testingServerId === srv.id ? 'fa-solid fa-spinner fa-spin text-sky-400' : 'fa-solid fa-plug-circle-check text-sky-400'"></i>
+                <span>{{ testingServerId === srv.id ? 'Testing...' : 'Test Connection' }}</span>
+              </button>
+
+              <div class="flex items-center gap-2">
+                <button @click="openEditNetworkServerDialog(srv)" class="px-3 py-1.5 rounded-lg bg-sky-500/10 hover:bg-sky-500/20 text-sky-400 border border-sky-500/25 text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition">
+                  <i class="fa-solid fa-pen-to-square"></i> Edit
+                </button>
+                <button @click="deleteNetworkServer(srv.id)" class="px-2.5 py-1.5 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 text-xs font-semibold flex items-center gap-1 cursor-pointer transition" title="Delete Network Server">
+                  <i class="fa-solid fa-trash"></i>
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -642,6 +835,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
                 <tr>
                   <th class="py-2.5 px-3.5">DevEUI</th>
                   <th class="py-2.5 px-3.5">Device Name</th>
+                  <th class="py-2.5 px-3.5">Network Server</th>
                   <th class="py-2.5 px-3.5">Activation</th>
                   <th class="py-2.5 px-3.5">Decoder Script</th>
                   <th class="py-2.5 px-3.5">Status</th>
@@ -650,12 +844,18 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
               </thead>
               <tbody class="divide-y divide-slate-800/60">
                 <tr v-if="devicesList.length === 0">
-                  <td colspan="6" class="py-6 text-center text-slate-500">No LoRaWAN devices registered.</td>
+                  <td colspan="7" class="py-6 text-center text-slate-500">No LoRaWAN devices registered.</td>
                 </tr>
                 <tr v-for="d in devicesList" :key="d.id || d.devEUI" class="hover:bg-slate-800/30 transition">
                   <td class="py-2.5 px-3.5 font-mono font-bold text-sky-400">{{ d.devEUI }}</td>
                   <td class="py-2.5 px-3.5 font-bold text-white">{{ d.name || '--' }}</td>
-                  <td class="py-2.5 px-3.5"><span class="px-2 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20 text-[10px] font-mono">{{ d.activationType || 'OTAA' }}</span></td>
+                  <td class="py-2.5 px-3.5">
+                    <span v-if="d.networkServer" class="px-2 py-0.5 rounded text-[10px] font-bold" :class="d.networkServer.type === 'THINGPARK' ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/20' : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'">
+                      {{ d.networkServer.name }}
+                    </span>
+                    <span v-else class="text-slate-500 text-[11px]">Unassigned</span>
+                  </td>
+                  <td class="py-2.5 px-3.5"><span class="px-2 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20 text-[10px] font-mono">{{ d.activationMode || d.activationType || 'OTAA' }}</span></td>
                   <td class="py-2.5 px-3.5">
                     <span :class="d.payloadFormatterScript ? 'text-emerald-400' : 'text-slate-500'" class="text-[11px] font-medium">
                       <i :class="d.payloadFormatterScript ? 'fa-code' : 'fa-minus'" class="fa-solid mr-1"></i>
@@ -792,6 +992,233 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
       </div>
 
     </main>
+
+    <!-- MODAL: ADD / EDIT NETWORK SERVER (ThingPark & ChirpStack) -->
+    <div v-if="networkServerDialog" class="fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop">
+      <div class="w-full max-w-2xl bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-4 shadow-2xl max-h-[90vh] overflow-y-auto custom-scroll">
+        <div class="flex items-center justify-between pb-2 border-b border-slate-800">
+          <h3 class="text-sm font-bold text-white flex items-center gap-2">
+            <i class="fa-solid fa-tower-broadcast text-sky-400"></i>
+            {{ isEditingNetworkServer ? 'Configure Network Server' : 'Add New LoRaWAN Network Server' }}
+          </h3>
+          <button @click="networkServerDialog = false" class="text-slate-500 hover:text-white cursor-pointer"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+
+        <form @submit.prevent="submitNetworkServerForm" class="space-y-4 text-xs">
+          <!-- Step 1: Name & Type Selector -->
+          <div class="space-y-2">
+            <label class="block font-semibold text-slate-200">Network Server Type</label>
+            <div class="grid grid-cols-2 gap-3">
+              <!-- ThingPark Option Card -->
+              <div @click="setServerType('THINGPARK')" :class="currentNetworkServer.type === 'THINGPARK' ? 'border-cyan-500 bg-cyan-950/30 shadow-lg shadow-cyan-500/10' : 'border-slate-800 bg-slate-950/60 opacity-70 hover:opacity-100'" class="p-3.5 rounded-xl border-2 cursor-pointer transition flex items-center gap-3">
+                <div class="w-9 h-9 rounded-lg bg-cyan-500/20 text-cyan-400 flex items-center justify-center text-lg">
+                  <i class="fa-solid fa-satellite"></i>
+                </div>
+                <div>
+                  <div class="font-bold text-white text-xs">ThingPark Wireless</div>
+                  <div class="text-[10px] text-slate-400">Actility Connector &amp; RouteRef</div>
+                </div>
+              </div>
+
+              <!-- ChirpStack Option Card -->
+              <div @click="setServerType('CHIRPSTACK')" :class="currentNetworkServer.type === 'CHIRPSTACK' ? 'border-emerald-500 bg-emerald-950/30 shadow-lg shadow-emerald-500/10' : 'border-slate-800 bg-slate-950/60 opacity-70 hover:opacity-100'" class="p-3.5 rounded-xl border-2 cursor-pointer transition flex items-center gap-3">
+                <div class="w-9 h-9 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center text-lg">
+                  <i class="fa-solid fa-signal"></i>
+                </div>
+                <div>
+                  <div class="font-bold text-white text-xs">ChirpStack LNS</div>
+                  <div class="text-[10px] text-slate-400">v3 / v4 Device Profiles</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label class="block font-semibold text-slate-300 mb-1">Server Display Name <span class="text-red-400">*</span></label>
+              <input v-model="currentNetworkServer.name" type="text" required placeholder="e.g. ThingPark Production EU868" class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-sky-500" />
+            </div>
+
+            <div>
+              <label class="block font-semibold text-slate-300 mb-1">Server Status</label>
+              <select v-model="currentNetworkServer.status" class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-sky-500">
+                <option value="ONLINE">ONLINE (Active)</option>
+                <option value="CONFIGURED">CONFIGURED (Standby)</option>
+                <option value="INACTIVE">INACTIVE</option>
+              </select>
+            </div>
+          </div>
+
+          <div>
+            <label class="block font-semibold text-slate-300 mb-1">Description</label>
+            <input v-model="currentNetworkServer.description" type="text" placeholder="Detailed notes regarding this network server deployment..." class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-sky-500" />
+          </div>
+
+          <!-- Step 2: API & Routing Settings -->
+          <div class="p-3.5 bg-slate-950 rounded-xl border border-slate-800 space-y-3">
+            <div class="font-bold text-slate-200 text-xs flex items-center justify-between">
+              <span class="flex items-center gap-1.5">
+                <i class="fa-solid fa-gear text-sky-400"></i> API &amp; Routing Configuration
+              </span>
+              <span class="text-[10px] font-mono" :class="currentNetworkServer.type === 'THINGPARK' ? 'text-cyan-400' : 'text-emerald-400'">
+                Mode: {{ currentNetworkServer.type }}
+              </span>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label class="block font-semibold text-slate-300 mb-1">API Base URL</label>
+                <input v-model="currentNetworkServer.apiUrl" type="text" :placeholder="currentNetworkServer.type === 'THINGPARK' ? 'https://community.thingpark.io/thingpark/wireless/rest/v1' : 'http://chirpstack.mas.local:8080'" class="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white font-mono text-xs focus:outline-none focus:border-sky-500" />
+              </div>
+
+              <div>
+                <label class="block font-semibold text-slate-300 mb-1">API Key / Token / Secret</label>
+                <input v-model="currentNetworkServer.apiKey" type="password" placeholder="API Key or Bearer Token..." class="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white font-mono text-xs focus:outline-none focus:border-sky-500" />
+              </div>
+            </div>
+
+            <!-- Conditional RouteRef field for ThingPark -->
+            <div v-if="currentNetworkServer.type === 'THINGPARK'">
+              <label class="block font-semibold text-cyan-300 mb-1">
+                Default Route Reference (<span class="font-mono">routeRef</span>)
+              </label>
+              <input v-model="currentNetworkServer.routeRef" type="text" placeholder="e.g. DAVITEQ_TP_EU868_ROUTE" class="w-full px-3 py-2 bg-slate-900 border border-cyan-500/40 rounded-lg text-white font-mono text-xs focus:outline-none focus:border-cyan-400" />
+              <p class="text-[10px] text-slate-400 mt-1">
+                ThingPark routes uplink payloads matching this RouteRef to endpoint: <span class="font-mono text-cyan-300">POST /lorawan/webhook/thingpark</span>
+              </p>
+            </div>
+
+            <!-- Helpful Webhook Ingestion tip for ChirpStack -->
+            <div v-if="currentNetworkServer.type === 'CHIRPSTACK'" class="p-2.5 bg-emerald-950/20 border border-emerald-500/20 rounded-lg text-[11px] text-slate-300 space-y-1">
+              <div class="font-semibold text-emerald-400">ChirpStack Integration Note:</div>
+              <div>Configure HTTP Integration in ChirpStack Application pointing to: <span class="font-mono text-white bg-slate-900 px-1.5 py-0.5 rounded">POST /lorawan/webhook/chirpstack</span></div>
+            </div>
+          </div>
+
+          <!-- Step 3: Dynamic Region Profiles Table -->
+          <div class="space-y-2">
+            <div class="flex items-center justify-between">
+              <label class="font-bold text-slate-200 flex items-center gap-1.5">
+                <i class="fa-solid fa-globe text-sky-400"></i>
+                <span>Region Profiles</span>
+                <span class="text-[10px] text-slate-400">({{ currentNetworkServer.regionProfiles.length }} profiles)</span>
+              </label>
+              <button type="button" @click="addRegionRow" class="px-2.5 py-1 rounded bg-sky-500/15 hover:bg-sky-500/25 text-sky-400 border border-sky-500/30 text-xs font-semibold cursor-pointer flex items-center gap-1">
+                <i class="fa-solid fa-plus text-[10px]"></i> Add Region Profile
+              </button>
+            </div>
+
+            <div class="p-3 bg-slate-950 border border-slate-800 rounded-xl space-y-2.5 max-h-56 overflow-y-auto custom-scroll">
+              <div v-if="currentNetworkServer.regionProfiles.length === 0" class="text-center py-4 text-slate-500 text-xs">
+                No region profiles added yet. Click "Add Region Profile" to configure frequency regions.
+              </div>
+
+              <div v-for="(rp, idx) in currentNetworkServer.regionProfiles" :key="rp.id || idx" class="p-2.5 bg-slate-900/80 border border-slate-800 rounded-lg space-y-2">
+                <div class="grid grid-cols-12 gap-2 items-center">
+                  <!-- Region Select -->
+                  <div class="col-span-3">
+                    <label class="block text-[10px] text-slate-400 mb-0.5">Region</label>
+                    <select v-model="rp.region" class="w-full px-2 py-1.5 bg-slate-950 border border-slate-700 rounded text-white font-mono text-xs focus:outline-none focus:border-sky-500">
+                      <option value="AS923-1">AS923-1 (VN/SG/MY)</option>
+                      <option value="AS923-2">AS923-2 (ID/BN)</option>
+                      <option value="AS923-3">AS923-3</option>
+                      <option value="AS923-4">AS923-4</option>
+                      <option value="EU868">EU868 (Europe)</option>
+                      <option value="US915">US915 (USA)</option>
+                      <option value="AU915">AU915 (Australia)</option>
+                      <option value="IN865">IN865 (India)</option>
+                      <option value="KR920">KR920 (Korea)</option>
+                      <option value="VN920">VN920 (Vietnam)</option>
+                      <option value="CUSTOM">Custom</option>
+                    </select>
+                  </div>
+
+                  <!-- Profile Name -->
+                  <div class="col-span-4">
+                    <label class="block text-[10px] text-slate-400 mb-0.5">Profile Name</label>
+                    <input v-model="rp.name" type="text" placeholder="e.g. Vietnam Standard" class="w-full px-2 py-1.5 bg-slate-950 border border-slate-700 rounded text-white text-xs focus:outline-none focus:border-sky-500" />
+                  </div>
+
+                  <!-- Specific field: RouteRef for ThingPark vs Profile ID for ChirpStack -->
+                  <div class="col-span-4">
+                    <label class="block text-[10px] font-bold mb-0.5" :class="currentNetworkServer.type === 'THINGPARK' ? 'text-cyan-400' : 'text-emerald-400'">
+                      {{ currentNetworkServer.type === 'THINGPARK' ? 'Route Ref' : 'Device Profile ID' }}
+                    </label>
+                    <input v-if="currentNetworkServer.type === 'THINGPARK'" v-model="rp.routeRef" type="text" placeholder="TP_VN_AS923_01" class="w-full px-2 py-1.5 bg-slate-950 border border-cyan-500/30 rounded text-cyan-300 font-mono text-xs focus:outline-none focus:border-cyan-400" />
+                    <input v-else v-model="rp.profileId" type="text" placeholder="dp_as923_001" class="w-full px-2 py-1.5 bg-slate-950 border border-emerald-500/30 rounded text-emerald-300 font-mono text-xs focus:outline-none focus:border-emerald-400" />
+                  </div>
+
+                  <!-- Delete Row Button -->
+                  <div class="col-span-1 text-right pt-3">
+                    <button type="button" @click="removeRegionRow(idx)" class="text-red-400 hover:text-red-300 p-1 cursor-pointer" title="Remove Profile">
+                      <i class="fa-solid fa-trash-can"></i>
+                    </button>
+                  </div>
+                </div>
+
+                <!-- Frequency band metadata -->
+                <div class="grid grid-cols-2 gap-2 text-[10px]">
+                  <div>
+                    <input v-model="rp.frequencyBand" type="text" placeholder="Frequency Plan (e.g. 920-925 MHz)" class="w-full px-2 py-1 bg-slate-950/60 border border-slate-800 rounded text-slate-300 font-mono focus:outline-none focus:border-sky-500" />
+                  </div>
+                  <div>
+                    <input v-model="rp.description" type="text" placeholder="Optional notes for this region" class="w-full px-2 py-1 bg-slate-950/60 border border-slate-800 rounded text-slate-300 focus:outline-none focus:border-sky-500" />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Default Toggle -->
+          <div class="flex items-center justify-between pt-1">
+            <label class="flex items-center gap-2 text-slate-300 cursor-pointer select-none">
+              <input type="checkbox" v-model="currentNetworkServer.isDefault" class="rounded border-slate-700 bg-slate-800 text-amber-500 focus:ring-0" />
+              <span>Set as Default Network Server for new devices</span>
+            </label>
+
+            <div class="flex gap-2">
+              <button type="button" @click="networkServerDialog = false" class="px-3.5 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold cursor-pointer">Cancel</button>
+              <button type="submit" :disabled="savingNetworkServer" class="px-4 py-2 rounded-lg bg-sky-500 hover:bg-sky-400 text-white font-bold cursor-pointer transition disabled:opacity-50">
+                {{ savingNetworkServer ? 'Saving...' : (isEditingNetworkServer ? 'Update Server' : 'Create Server') }}
+              </button>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- MODAL: TEST CONNECTION RESULT -->
+    <div v-if="testResultDialog" class="fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop">
+      <div class="w-full max-w-md bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-4 shadow-2xl">
+        <div class="flex items-center justify-between">
+          <h3 class="text-sm font-bold text-white flex items-center gap-2">
+            <i class="fa-solid fa-plug-circle-check text-sky-400"></i> Connection Diagnostic Result
+          </h3>
+          <button @click="testResultDialog = false" class="text-slate-500 hover:text-white cursor-pointer"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+
+        <div v-if="testResult" class="space-y-3 text-xs font-mono">
+          <div class="p-3 rounded-xl border flex items-center justify-between" :class="testResult.success ? 'bg-emerald-950/40 border-emerald-500/30 text-emerald-300' : 'bg-amber-950/40 border-amber-500/30 text-amber-300'">
+            <span class="font-bold font-sans">{{ testResult.success ? '✓ Diagnostic Passed' : '⚠️ Verified for Webhooks' }}</span>
+            <span>{{ testResult.latencyMs }} ms</span>
+          </div>
+
+          <div class="p-3 bg-slate-950 rounded-xl border border-slate-800 space-y-1.5 text-slate-300">
+            <div>Server: <strong class="text-white">{{ testResult.serverName }}</strong> ({{ testResult.serverType }})</div>
+            <div class="text-[11px] text-slate-400 font-sans mt-1">{{ testResult.message }}</div>
+          </div>
+
+          <div v-if="testResult.details" class="p-3 bg-slate-950 rounded-xl border border-slate-800 space-y-1 text-[11px] text-slate-400">
+            <div class="text-slate-200 font-bold font-sans mb-1">Configuration Summary:</div>
+            <pre class="text-emerald-400 text-[10px] overflow-x-auto">{{ JSON.stringify(testResult.details, null, 2) }}</pre>
+          </div>
+        </div>
+
+        <div class="flex justify-end pt-2">
+          <button @click="testResultDialog = false" class="px-4 py-2 rounded-lg bg-sky-500 hover:bg-sky-400 text-white font-bold cursor-pointer text-xs">Close</button>
+        </div>
+      </div>
+    </div>
 
     <!-- MODAL: CREATE / EDIT FEATURE MODULE -->
     <div v-if="moduleDialog" class="fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop">
@@ -1035,7 +1462,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
       </div>
     </div>
 
-    <!-- MODAL: REGISTER DEVICE -->
+    <!-- MODAL: REGISTER DEVICE (Upgraded with Network Server & Region Profile selection) -->
     <div v-if="registerDeviceDialog" class="fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop">
       <div class="w-full max-w-md bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-4 shadow-2xl">
         <div class="flex items-center justify-between">
@@ -1046,13 +1473,36 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
         </div>
         <form @submit.prevent="submitRegisterDevice" class="space-y-3 text-xs">
           <div>
-            <label class="block font-semibold text-slate-300 mb-1">DevEUI (16 Hex Characters)</label>
+            <label class="block font-semibold text-slate-300 mb-1">DevEUI (16 Hex Characters) <span class="text-red-400">*</span></label>
             <input v-model="newDevice.devEUI" type="text" required placeholder="0018B20000000001" maxlength="16" class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-white font-mono uppercase focus:outline-none focus:border-sky-500" />
           </div>
           <div>
-            <label class="block font-semibold text-slate-300 mb-1">Device Name</label>
+            <label class="block font-semibold text-slate-300 mb-1">Device Name <span class="text-red-400">*</span></label>
             <input v-model="newDevice.name" type="text" required placeholder="e.g. Temperature Sensor 01" class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-sky-500" />
           </div>
+
+          <!-- Network Server Selection -->
+          <div>
+            <label class="block font-semibold text-slate-300 mb-1">Network Server</label>
+            <select v-model="newDevice.networkServerId" class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-sky-500">
+              <option value="">-- Standalone / Unassigned --</option>
+              <option v-for="ns in networkServersList" :key="ns.id" :value="ns.id">
+                [{{ ns.type }}] {{ ns.name }}
+              </option>
+            </select>
+          </div>
+
+          <!-- Dynamic Region Profile Selection for Selected Network Server -->
+          <div v-if="selectedServerRegionProfiles.length > 0">
+            <label class="block font-semibold text-slate-300 mb-1">Region Profile</label>
+            <select v-model="newDevice.regionProfileId" class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-sky-500">
+              <option value="">-- Default Profile --</option>
+              <option v-for="rp in selectedServerRegionProfiles" :key="rp.id" :value="rp.id">
+                {{ rp.name }} ({{ rp.region }}) {{ rp.routeRef ? '- RouteRef: ' + rp.routeRef : (rp.profileId ? '- Profile ID: ' + rp.profileId : '') }}
+              </option>
+            </select>
+          </div>
+
           <div>
             <label class="block font-semibold text-slate-300 mb-1">Activation Mode</label>
             <select v-model="newDevice.activationType" class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-sky-500">
@@ -1098,6 +1548,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
         const activeTab = ref('overview');
         const currentUser = ref(getStoredUser());
         const modulesList = ref([]);
+        const networkServersList = ref([]);
         const usersList = ref([]);
         const rolesList = ref([]);
         const allPermissions = ref([]);
@@ -1111,17 +1562,41 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
         const savingRole = ref(false);
         const savingUser = ref(false);
         const savingDevice = ref(false);
+        const savingNetworkServer = ref(false);
+        const testingServerId = ref(null);
 
         // Modals
         const moduleDialog = ref(false);
         const isEditingModule = ref(false);
+        const networkServerDialog = ref(false);
+        const isEditingNetworkServer = ref(false);
+        const testResultDialog = ref(false);
+        const testResult = ref(null);
         const roleDialog = ref(false);
         const isEditingRole = ref(false);
         const createUserDialog = ref(false);
         const editUserDialog = ref(false);
         const registerDeviceDialog = ref(false);
 
+        // Filters
+        const filterServerType = ref('ALL');
+        const searchServerQuery = ref('');
+
         // Form Models
+        const currentNetworkServer = ref({
+          id: '',
+          name: '',
+          type: 'THINGPARK',
+          description: '',
+          apiUrl: '',
+          apiKey: '',
+          routeRef: '',
+          regionProfiles: [],
+          status: 'ONLINE',
+          isDefault: false,
+          metadata: {}
+        });
+
         const currentModule = ref({
           id: '',
           code: '',
@@ -1147,7 +1622,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
 
         const newUser = ref({ username: '', fullName: '', email: '', password: '', userType: 'USER', roleId: '' });
         const editUser = ref({ id: '', username: '', roleId: '', isActive: true });
-        const newDevice = ref({ devEUI: '', name: '', activationType: 'OTAA', appKey: '' });
+        const newDevice = ref({ devEUI: '', name: '', activationType: 'OTAA', appKey: '', networkServerId: '', regionProfileId: '' });
 
         // Decoder Sandbox
         const sandboxCode = ref("function decodeUplink(bytes, fPort) {\\n  var temperature = ((bytes[0] << 8) | bytes[1]) / 100;\\n  var humidity = bytes[2];\\n  return { temperature, humidity };\\n}");
@@ -1175,8 +1650,34 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
           return true;
         });
 
+        const filteredNetworkServers = computed(() => {
+          let list = networkServersList.value;
+          if (filterServerType.value !== 'ALL') {
+            list = list.filter(s => s.type === filterServerType.value);
+          }
+          if (searchServerQuery.value.trim()) {
+            const q = searchServerQuery.value.toLowerCase().trim();
+            list = list.filter(s => {
+              const nameMatch = s.name?.toLowerCase().includes(q);
+              const descMatch = s.description?.toLowerCase().includes(q);
+              const typeMatch = s.type?.toLowerCase().includes(q);
+              const routeMatch = s.routeRef?.toLowerCase().includes(q);
+              const regionMatch = s.regionProfiles?.some(rp => rp.name?.toLowerCase().includes(q) || rp.region?.toLowerCase().includes(q) || rp.routeRef?.toLowerCase().includes(q) || rp.profileId?.toLowerCase().includes(q));
+              return nameMatch || descMatch || typeMatch || routeMatch || regionMatch;
+            });
+          }
+          return list;
+        });
+
+        const selectedServerRegionProfiles = computed(() => {
+          if (!newDevice.value.networkServerId) return [];
+          const srv = networkServersList.value.find(s => s.id === newDevice.value.networkServerId);
+          return srv && Array.isArray(srv.regionProfiles) ? srv.regionProfiles : [];
+        });
+
         const groupedPermissions = computed(() => {
           const groups = {
+            '🌐 Network Server Management': [],
             '👥 User Management': [],
             '🛡️ RBAC Role Management': [],
             '🗄️ Database Operations': [],
@@ -1186,7 +1687,8 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
             '💻 Payload Decoder Sandbox': []
           };
           allPermissions.value.forEach(p => {
-            if (p.name.startsWith('users:')) groups['👥 User Management'].push(p);
+            if (p.name.startsWith('network_server:')) groups['🌐 Network Server Management'].push(p);
+            else if (p.name.startsWith('users:')) groups['👥 User Management'].push(p);
             else if (p.name.startsWith('roles:')) groups['🛡️ RBAC Role Management'].push(p);
             else if (p.name.startsWith('database:')) groups['🗄️ Database Operations'].push(p);
             else if (p.name.startsWith('lorawan:device:') || p.name.startsWith('lorawan:app:') || p.name.startsWith('lorawan:gateway:')) groups['📡 LoRaWAN Fleet & Gateways'].push(p);
@@ -1278,6 +1780,17 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
         };
 
         // Fetchers
+        const fetchNetworkServers = async () => {
+          try {
+            const res = await fetch('/api/network-servers', { headers: authHeaders(), credentials: 'include' });
+            if (res.ok) {
+              networkServersList.value = await res.json();
+            }
+          } catch(e) {
+            console.error('Failed to fetch network servers', e);
+          }
+        };
+
         const fetchModules = async () => {
           try {
             const res = await fetch('/api/features/all', { headers: authHeaders(), credentials: 'include' });
@@ -1389,6 +1902,140 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
             sessionStorage.clear();
             window.location.replace('/login');
             return false;
+          }
+        };
+
+        // Network Server CRUD & Region Operations
+        const setServerType = (type) => {
+          currentNetworkServer.value.type = type;
+          if (type === 'THINGPARK' && !currentNetworkServer.value.routeRef) {
+            currentNetworkServer.value.routeRef = 'DAVITEQ_TP_DEFAULT_ROUTE';
+          }
+        };
+
+        const openCreateNetworkServerDialog = () => {
+          isEditingNetworkServer.value = false;
+          currentNetworkServer.value = {
+            id: '',
+            name: '',
+            type: 'THINGPARK',
+            description: '',
+            apiUrl: 'https://community.thingpark.io/thingpark/wireless/rest/v1',
+            apiKey: '',
+            routeRef: 'DAVITEQ_TP_DEFAULT_ROUTE',
+            regionProfiles: [
+              {
+                id: 'prof-vn920-' + Date.now(),
+                name: 'Vietnam AS923-1 Standard Plan',
+                region: 'AS923-1',
+                routeRef: 'TP_VN_AS923_01',
+                profileId: 'dp_as923_vn',
+                frequencyBand: '920-925 MHz',
+                description: 'Default frequency plan for Vietnam',
+                isActive: true
+              }
+            ],
+            status: 'ONLINE',
+            isDefault: false,
+            metadata: {}
+          };
+          networkServerDialog.value = true;
+        };
+
+        const openEditNetworkServerDialog = (srv) => {
+          isEditingNetworkServer.value = true;
+          currentNetworkServer.value = JSON.parse(JSON.stringify(srv));
+          if (!Array.isArray(currentNetworkServer.value.regionProfiles)) {
+            currentNetworkServer.value.regionProfiles = [];
+          }
+          networkServerDialog.value = true;
+        };
+
+        const addRegionRow = () => {
+          const isTP = currentNetworkServer.value.type === 'THINGPARK';
+          const defaultRegion = 'AS923-1';
+          currentNetworkServer.value.regionProfiles.push({
+            id: 'prof-' + Date.now(),
+            name: (isTP ? 'ThingPark ' : 'ChirpStack ') + defaultRegion + ' Profile',
+            region: defaultRegion,
+            routeRef: isTP ? 'TP_AS923_ROUTE_' + (currentNetworkServer.value.regionProfiles.length + 1) : '',
+            profileId: !isTP ? 'dp_as923_profile_' + (currentNetworkServer.value.regionProfiles.length + 1) : '',
+            frequencyBand: '920-925 MHz',
+            description: '',
+            isActive: true
+          });
+        };
+
+        const removeRegionRow = (index) => {
+          currentNetworkServer.value.regionProfiles.splice(index, 1);
+        };
+
+        const submitNetworkServerForm = async () => {
+          savingNetworkServer.value = true;
+          try {
+            const url = isEditingNetworkServer.value ? '/api/network-servers/' + currentNetworkServer.value.id : '/api/network-servers';
+            const method = isEditingNetworkServer.value ? 'PUT' : 'POST';
+
+            const payload = {
+              name: currentNetworkServer.value.name.trim(),
+              type: currentNetworkServer.value.type,
+              description: currentNetworkServer.value.description?.trim(),
+              apiUrl: currentNetworkServer.value.apiUrl?.trim(),
+              apiKey: currentNetworkServer.value.apiKey?.trim(),
+              routeRef: currentNetworkServer.value.routeRef?.trim(),
+              regionProfiles: currentNetworkServer.value.regionProfiles,
+              status: currentNetworkServer.value.status,
+              isDefault: Boolean(currentNetworkServer.value.isDefault),
+              metadata: currentNetworkServer.value.metadata || {}
+            };
+
+            const res = await fetch(url, {
+              method,
+              headers: authHeaders(),
+              credentials: 'include',
+              body: JSON.stringify(payload)
+            });
+
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.message || "Failed to save network server");
+
+            showToast(isEditingNetworkServer.value ? "Network Server updated successfully!" : "Network Server created successfully!", "success");
+            networkServerDialog.value = false;
+            fetchNetworkServers();
+          } catch(e) {
+            showToast(e.message, "error");
+          } finally {
+            savingNetworkServer.value = false;
+          }
+        };
+
+        const deleteNetworkServer = async (id) => {
+          if (!confirm("Are you sure you want to delete this Network Server? All associated devices will be unlinked.")) return;
+          try {
+            const res = await fetch('/api/network-servers/' + id, { method: 'DELETE', headers: authHeaders(), credentials: 'include' });
+            if (!res.ok) throw new Error("Delete failed");
+            showToast("Network Server removed successfully", "success");
+            fetchNetworkServers();
+          } catch(e) {
+            showToast(e.message, "error");
+          }
+        };
+
+        const testNetworkServerConnection = async (srv) => {
+          testingServerId.value = srv.id;
+          try {
+            const res = await fetch('/api/network-servers/' + srv.id + '/test', {
+              method: 'POST',
+              headers: authHeaders(),
+              credentials: 'include'
+            });
+            const data = await res.json();
+            testResult.value = data;
+            testResultDialog.value = true;
+          } catch(e) {
+            showToast("Connection test error: " + e.message, "error");
+          } finally {
+            testingServerId.value = null;
           }
         };
 
@@ -1632,7 +2279,15 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
 
         // Device CRUD
         const openRegisterDeviceDialog = () => {
-          newDevice.value = { devEUI: '', name: '', activationType: 'OTAA', appKey: '' };
+          const defaultServer = networkServersList.value.find(s => s.isDefault) || networkServersList.value[0];
+          newDevice.value = {
+            devEUI: '',
+            name: '',
+            activationType: 'OTAA',
+            appKey: '',
+            networkServerId: defaultServer ? defaultServer.id : '',
+            regionProfileId: ''
+          };
           registerDeviceDialog.value = true;
         };
 
@@ -1647,7 +2302,9 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
                 devEUI: newDevice.value.devEUI.trim().toUpperCase(),
                 name: newDevice.value.name.trim(),
                 activationType: newDevice.value.activationType,
-                appKey: newDevice.value.appKey ? newDevice.value.appKey.trim() : undefined
+                appKey: newDevice.value.appKey ? newDevice.value.appKey.trim() : undefined,
+                networkServerId: newDevice.value.networkServerId || undefined,
+                regionProfileId: newDevice.value.regionProfileId || undefined
               })
             });
             const data = await res.json();
@@ -1655,6 +2312,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
             showToast("Device registered successfully!", "success");
             registerDeviceDialog.value = false;
             fetchDevices();
+            fetchNetworkServers();
           } catch(e) {
             showToast(e.message, "error");
           } finally {
@@ -1687,11 +2345,15 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
           try {
             window.history.replaceState(null, null, '#' + newTab);
           } catch(e) {}
+          if (newTab === 'network-servers') fetchNetworkServers();
           if (newTab === 'modules') fetchModules();
           if (newTab === 'roles') fetchRoles();
           if (newTab === 'users') fetchUsers();
           if (newTab === 'database') fetchDbHealth();
-          if (newTab === 'devices') fetchDevices();
+          if (newTab === 'devices') {
+            fetchDevices();
+            fetchNetworkServers();
+          }
           if (newTab === 'telemetry') fetchTelemetry();
         });
 
@@ -1699,6 +2361,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
           const ok = await fetchSession();
           if (!ok) return;
 
+          fetchNetworkServers();
           fetchModules();
           fetchRoles();
           fetchUsers();
@@ -1727,6 +2390,11 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
           currentUser,
           isSuperAdmin,
           modulesList,
+          networkServersList,
+          filteredNetworkServers,
+          selectedServerRegionProfiles,
+          filterServerType,
+          searchServerQuery,
           rolesList,
           usersList,
           allPermissions,
@@ -1743,6 +2411,12 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
           savingRole,
           savingUser,
           savingDevice,
+          savingNetworkServer,
+          testingServerId,
+          networkServerDialog,
+          isEditingNetworkServer,
+          testResultDialog,
+          testResult,
           moduleDialog,
           isEditingModule,
           roleDialog,
@@ -1750,6 +2424,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
           createUserDialog,
           editUserDialog,
           registerDeviceDialog,
+          currentNetworkServer,
           currentModule,
           currentRole,
           newUser,
@@ -1763,6 +2438,15 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
           copyUrl,
           formatTime,
           formatDecoded,
+          fetchNetworkServers,
+          openCreateNetworkServerDialog,
+          openEditNetworkServerDialog,
+          setServerType,
+          addRegionRow,
+          removeRegionRow,
+          submitNetworkServerForm,
+          deleteNetworkServer,
+          testNetworkServerConnection,
           fetchModules,
           fetchRoles,
           fetchUsers,

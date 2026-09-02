@@ -5,6 +5,7 @@ import * as path from 'path';
 import { User } from '../users/entities/user.entity';
 import { Role } from '../roles-permissions/entities/role.entity';
 import { Permission } from '../roles-permissions/entities/permission.entity';
+import { NetworkServerEntity } from '../network-servers/entities/network-server.entity';
 import { ApplicationEntity } from '../lorawan/entities/application.entity';
 import { DeviceEntity } from '../lorawan/entities/device.entity';
 import { GatewayEntity } from '../lorawan/entities/gateway.entity';
@@ -14,6 +15,7 @@ export const ALL_DATABASE_ENTITIES = [
   User,
   Role,
   Permission,
+  NetworkServerEntity,
   ApplicationEntity,
   DeviceEntity,
   GatewayEntity,
@@ -121,7 +123,7 @@ export class DynamicDatabaseService implements OnModuleInit, OnModuleDestroy {
       try {
         await dataSource.initialize();
 
-        // 1. Guarantee that the 5 core tables exist in PostgreSQL with exact DDL
+        // 1. Guarantee that the core tables exist in PostgreSQL with exact DDL
         await this.ensureCoreTablesExist(dataSource);
 
         // 2. TypeORM schema synchronize if enabled
@@ -217,7 +219,26 @@ export class DynamicDatabaseService implements OnModuleInit, OnModuleDestroy {
         );
       `);
 
-      // 6. applications table
+      // 6. network_servers table
+      await dataSource.query(`
+        CREATE TABLE IF NOT EXISTS "network_servers" (
+          "id" UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          "name" VARCHAR(255) NOT NULL,
+          "type" VARCHAR(50) NOT NULL DEFAULT 'THINGPARK',
+          "description" TEXT,
+          "apiUrl" VARCHAR(500),
+          "apiKey" TEXT,
+          "routeRef" VARCHAR(255),
+          "regionProfiles" JSONB NOT NULL DEFAULT '[]'::jsonb,
+          "status" VARCHAR(50) NOT NULL DEFAULT 'ONLINE',
+          "isDefault" BOOLEAN NOT NULL DEFAULT false,
+          "metadata" JSONB,
+          "createdAt" TIMESTAMP NOT NULL DEFAULT now(),
+          "updatedAt" TIMESTAMP NOT NULL DEFAULT now()
+        );
+      `);
+
+      // 7. applications table
       await dataSource.query(`
         CREATE TABLE IF NOT EXISTS "applications" (
           "id" UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -230,13 +251,15 @@ export class DynamicDatabaseService implements OnModuleInit, OnModuleDestroy {
         );
       `);
 
-      // 7. devices table
+      // 8. devices table
       await dataSource.query(`
         CREATE TABLE IF NOT EXISTS "devices" (
           "id" UUID PRIMARY KEY DEFAULT gen_random_uuid(),
           "devEUI" VARCHAR(255) UNIQUE NOT NULL,
           "name" VARCHAR(255) NOT NULL,
           "appId" VARCHAR(255),
+          "networkServerId" UUID,
+          "regionProfileId" VARCHAR(100),
           "activationMode" VARCHAR(50) NOT NULL DEFAULT 'OTAA',
           "appKey" VARCHAR(255),
           "nwkSKey" VARCHAR(255),
@@ -247,13 +270,17 @@ export class DynamicDatabaseService implements OnModuleInit, OnModuleDestroy {
           "updatedAt" TIMESTAMP NOT NULL DEFAULT now()
         );
       `);
+      await dataSource.query(`ALTER TABLE "devices" ADD COLUMN IF NOT EXISTS "networkServerId" UUID;`).catch(() => {});
+      await dataSource.query(`ALTER TABLE "devices" ADD COLUMN IF NOT EXISTS "regionProfileId" VARCHAR(100);`).catch(() => {});
 
-      // 8. gateways table
+      // 9. gateways table
       await dataSource.query(`
         CREATE TABLE IF NOT EXISTS "gateways" (
           "id" UUID PRIMARY KEY DEFAULT gen_random_uuid(),
           "gatewayEUI" VARCHAR(255) UNIQUE NOT NULL,
           "name" VARCHAR(255) NOT NULL,
+          "networkServerId" UUID,
+          "regionProfileId" VARCHAR(100),
           "latitude" DOUBLE PRECISION,
           "longitude" DOUBLE PRECISION,
           "altitude" DOUBLE PRECISION,
@@ -263,8 +290,10 @@ export class DynamicDatabaseService implements OnModuleInit, OnModuleDestroy {
           "updatedAt" TIMESTAMP NOT NULL DEFAULT now()
         );
       `);
+      await dataSource.query(`ALTER TABLE "gateways" ADD COLUMN IF NOT EXISTS "networkServerId" UUID;`).catch(() => {});
+      await dataSource.query(`ALTER TABLE "gateways" ADD COLUMN IF NOT EXISTS "regionProfileId" VARCHAR(100);`).catch(() => {});
 
-      // 9. uplink_telemetry table
+      // 10. uplink_telemetry table
       await dataSource.query(`
         CREATE TABLE IF NOT EXISTS "uplink_telemetry" (
           "id" UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -277,7 +306,7 @@ export class DynamicDatabaseService implements OnModuleInit, OnModuleDestroy {
         );
       `);
 
-      // 10. Clean orphaned join records
+      // 11. Clean orphaned join records
       await dataSource.query(`
         DELETE FROM "role_permissions"
         WHERE "role_id" NOT IN (SELECT "id" FROM "roles")
@@ -290,7 +319,91 @@ export class DynamicDatabaseService implements OnModuleInit, OnModuleDestroy {
            OR "role_id" NOT IN (SELECT "id" FROM "roles");
       `).catch(() => {});
 
-      this.logger.log('✅ Guaranteed presence of all 9 core RBAC & LoRaWAN tables in PostgreSQL');
+      // 12. Seed default permissions for network server
+      await dataSource.query(`
+        INSERT INTO "permission" ("name", "description", "module", "action")
+        VALUES 
+          ('network_server:read', 'View network server configurations', 'network_server', 'read'),
+          ('network_server:manage', 'Create, edit, delete network servers and region profiles', 'network_server', 'manage')
+        ON CONFLICT ("name") DO NOTHING;
+      `).catch(() => {});
+
+      // 13. Seed default Network Servers if empty
+      const nsCountRes = await dataSource.query(`SELECT count(*)::int as count FROM "network_servers";`).catch(() => [{ count: 0 }]);
+      if (nsCountRes && nsCountRes[0] && nsCountRes[0].count === 0) {
+        const defaultThingParkRegions = JSON.stringify([
+          {
+            id: 'tp-prof-vn920',
+            name: 'Vietnam AS923-1 Plan',
+            region: 'AS923-1',
+            routeRef: 'TP_VN_AS923_DEFAULT',
+            frequencyBand: '920-925 MHz',
+            description: 'Default ThingPark routing profile for Vietnam market',
+            isActive: true,
+          },
+          {
+            id: 'tp-prof-eu868',
+            name: 'Europe EU868 Standard',
+            region: 'EU868',
+            routeRef: 'TP_EU868_DEFAULT',
+            frequencyBand: '863-870 MHz',
+            description: 'Actility ThingPark EU868 Band routing profile',
+            isActive: true,
+          },
+          {
+            id: 'tp-prof-us915',
+            name: 'US915 North America',
+            region: 'US915',
+            routeRef: 'TP_US915_DEFAULT',
+            frequencyBand: '902-928 MHz',
+            description: 'ThingPark US915 Channel routing profile',
+            isActive: true,
+          },
+        ]);
+
+        const defaultChirpStackRegions = JSON.stringify([
+          {
+            id: 'cs-prof-as923',
+            name: 'ChirpStack AS923-1 Profile',
+            region: 'AS923-1',
+            profileId: 'dp_as923_vn_001',
+            frequencyBand: '920-925 MHz',
+            description: 'ChirpStack Device Profile for AS923-1',
+            isActive: true,
+          },
+          {
+            id: 'cs-prof-eu868',
+            name: 'ChirpStack EU868 Standard',
+            region: 'EU868',
+            profileId: 'dp_eu868_std_001',
+            frequencyBand: '863-870 MHz',
+            description: 'ChirpStack Device Profile for EU868',
+            isActive: true,
+          },
+          {
+            id: 'cs-prof-us915',
+            name: 'ChirpStack US915 Sub-band 2',
+            region: 'US915',
+            profileId: 'dp_us915_sb2_001',
+            frequencyBand: '902-928 MHz',
+            description: 'ChirpStack Device Profile for US915',
+            isActive: true,
+          },
+        ]);
+
+        await dataSource.query(`
+          INSERT INTO "network_servers" ("name", "type", "description", "apiUrl", "apiKey", "routeRef", "regionProfiles", "status", "isDefault", "metadata")
+          VALUES
+            ('ThingPark Wireless Enterprise', 'THINGPARK', 'Actility ThingPark Wireless Cloud / On-Premises Server', 'https://community.thingpark.io/thingpark/wireless/rest/v1', 'tp_api_key_demo_token', 'DAVITEQ_TP_DEFAULT_ROUTE', $1, 'ONLINE', true, '{"webhookUrl": "/lorawan/webhook/thingpark"}'::jsonb),
+            ('ChirpStack LoRaWAN Network Server', 'CHIRPSTACK', 'ChirpStack v4 Open-source LoRaWAN Network Server', 'http://chirpstack.mas.local:8080', 'cs_api_token_secret_demo', NULL, $2, 'ONLINE', false, '{"webhookUrl": "/lorawan/webhook/chirpstack", "tenantId": "52f14cd4-c6f1-4fbd-8f87-4025e1d49242"}'::jsonb);
+        `, [defaultThingParkRegions, defaultChirpStackRegions]).catch((err) => {
+          this.logger.warn(`Could not seed default network servers: ${err.message}`);
+        });
+
+        this.logger.log('🌱 Seeded default ThingPark and ChirpStack Network Servers into database');
+      }
+
+      this.logger.log('✅ Guaranteed presence of all 10 core RBAC & LoRaWAN tables (including network_servers) in PostgreSQL');
     } catch (err: any) {
       this.logger.warn(`Auto-table verification notice: ${err.message}`);
     }
@@ -431,4 +544,3 @@ export class DynamicDatabaseService implements OnModuleInit, OnModuleDestroy {
     };
   }
 }
-

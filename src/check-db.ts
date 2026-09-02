@@ -78,6 +78,7 @@ async function runDatabaseDiagnostics() {
       'roles',
       'role_permissions',
       'permission',
+      'network_servers',
       'applications',
       'devices',
       'gateways',
@@ -88,7 +89,7 @@ async function runDatabaseDiagnostics() {
     if (missingTables.length > 0) {
       console.warn(`\n⚠️  Missing tables: ${missingTables.join(', ')}`);
     } else {
-      console.log('\n✅ All 9 core tables exist: users, user_role, roles, role_permissions, permission, applications, devices, gateways, uplink_telemetry.');
+      console.log('\n✅ All 10 core tables exist: users, user_role, roles, role_permissions, permission, network_servers, applications, devices, gateways, uplink_telemetry.');
     }
 
     // 2. Check Permissions
@@ -103,6 +104,8 @@ async function runDatabaseDiagnostics() {
         { name: 'users:create', module: 'users', action: 'create', description: 'Create user or subadmin' },
         { name: 'users:permissions:update', module: 'users', action: 'update', description: 'Update permissions' },
         { name: 'users:delete', module: 'users', action: 'delete', description: 'Delete user' },
+        { name: 'network_server:read', module: 'network_server', action: 'read', description: 'View network server configurations' },
+        { name: 'network_server:manage', module: 'network_server', action: 'manage', description: 'Create, edit and delete network servers & region profiles' },
         { name: 'lorawan:app:read', module: 'lorawan', action: 'read', description: 'Read applications' },
         { name: 'lorawan:app:manage', module: 'lorawan', action: 'manage', description: 'Create/edit applications' },
         { name: 'lorawan:device:read', module: 'lorawan', action: 'read', description: 'Read devices' },
@@ -144,8 +147,8 @@ async function runDatabaseDiagnostics() {
         {
           code: 'LORAWAN_OPERATOR',
           name: 'LoRaWAN Operator',
-          description: 'Manage applications, devices, and gateways',
-          permissions: allPerms.filter((p) => p.module === 'lorawan'),
+          description: 'Manage applications, devices, gateways, and network servers',
+          permissions: allPerms.filter((p) => p.module === 'lorawan' || p.module === 'network_server'),
         },
       ];
       await roleRepo.save(roleRepo.create(defaultRoles));

@@ -36,6 +36,11 @@ export class LorawanService {
     return await this.deviceRepo.save(device);
   }
 
+  async registerGateway(data: Partial<GatewayEntity>): Promise<GatewayEntity> {
+    const gateway = this.gatewayRepo.create(data);
+    return await this.gatewayRepo.save(gateway);
+  }
+
   async updatePayloadFormatter(devEUI: string, script: string): Promise<DeviceEntity> {
     const device = await this.deviceRepo.findOne({ where: { devEUI } });
     if (!device) {
@@ -183,11 +188,15 @@ export class LorawanService {
   }
 
   async listDevices(): Promise<DeviceEntity[]> {
-    return await this.deviceRepo.find();
+    return await this.deviceRepo.find({
+      relations: ['networkServer'],
+    });
   }
 
   async listGateways(): Promise<GatewayEntity[]> {
-    return await this.gatewayRepo.find();
+    return await this.gatewayRepo.find({
+      relations: ['networkServer'],
+    });
   }
 
   async getTelemetry(devEUI?: string, limit: number = 50): Promise<TelemetryEntity[]> {

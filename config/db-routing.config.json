@@ -18,6 +18,7 @@
     "role_permissions": "core_db",
     "permission": "core_db",
     "permissions": "core_db",
+    "network_servers": "core_db",
     "applications": "core_db",
     "devices": "core_db",
     "gateways": "core_db",

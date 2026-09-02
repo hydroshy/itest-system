@@ -23,7 +23,49 @@ export class RegisterDeviceDto {
 
   @IsString()
   @IsOptional()
+  networkServerId?: string;
+
+  @IsString()
+  @IsOptional()
+  regionProfileId?: string;
+
+  @IsString()
+  @IsOptional()
   payloadFormatterScript?: string;
+}
+
+export class RegisterGatewayDto {
+  @IsString()
+  @IsNotEmpty()
+  gatewayEUI: string;
+
+  @IsString()
+  @IsNotEmpty()
+  name: string;
+
+  @IsOptional()
+  @IsNumber()
+  latitude?: number;
+
+  @IsOptional()
+  @IsNumber()
+  longitude?: number;
+
+  @IsOptional()
+  @IsNumber()
+  altitude?: number;
+
+  @IsString()
+  @IsOptional()
+  status?: string;
+
+  @IsString()
+  @IsOptional()
+  networkServerId?: string;
+
+  @IsString()
+  @IsOptional()
+  regionProfileId?: string;
 }
 
 export class UplinkPayloadDto {
