@@ -246,30 +246,6 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
 
       <!-- MODE 2: ACTIVE FEATURE MODULE VIEW -->
       <div v-else class="space-y-4">
-        <!-- Feature Header Banner -->
-        <div class="glass-card rounded-xl p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div class="flex items-center gap-3.5">
-            <button
-              @click="returnToHome"
-              class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold transition flex items-center gap-1.5 cursor-pointer"
-            >
-              <i class="fa-solid fa-arrow-left"></i> Back to Dashboard
-            </button>
-            <div>
-              <h2 class="text-sm sm:text-base font-bold text-white flex items-center gap-2">
-                <i :class="activeFeature.icon" class="text-sky-400"></i> {{ activeFeature.title }}
-              </h2>
-              <p class="text-xs text-slate-400 mt-0.5">{{ activeFeature.description }}</p>
-            </div>
-          </div>
-
-          <div class="flex items-center gap-2">
-            <span class="px-2.5 py-1 rounded-full text-xs font-mono font-bold bg-sky-500/10 text-sky-400 border border-sky-500/20">
-              Module: {{ activeFeature.code }}
-            </span>
-          </div>
-        </div>
-
         <!-- Feature Content Container -->
         <div class="glass-card rounded-2xl p-6 sm:p-8 space-y-6">
           
@@ -278,6 +254,9 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
             <!-- Action Toolbar & Search -->
             <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-900/60 p-4 rounded-xl border border-slate-800">
               <div class="flex items-center gap-3">
+                <button @click="returnToHome" title="Back to Dashboard" class="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white text-xs font-semibold cursor-pointer">
+                  <i class="fa-solid fa-arrow-left"></i>
+                </button>
                 <div class="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/25 flex items-center justify-center text-emerald-400 text-lg shadow-inner">
                   <i class="fa-solid fa-microchip"></i>
                 </div>
