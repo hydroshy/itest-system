@@ -410,16 +410,15 @@ export class LorawanService {
 
       if (serverHealth.lastSeenAt) {
         device.lastSeenAt = new Date(serverHealth.lastSeenAt);
+      } else {
+        device.lastSeenAt = null;
       }
       device.syncDetails = {
         ...device.syncDetails,
         lastHealthCheckAt: new Date().toISOString(),
-        lastSeenAt: serverHealth.lastSeenAt || device.syncDetails?.lastSeenAt,
-        deviceStatus: serverHealth.deviceStatus,
+        lastSeenAt: serverHealth.lastSeenAt || null,
+        deviceStatus: serverHealth.deviceStatus || null,
       };
-      if (serverHealth.isOnline && device.isActive) {
-        device.syncStatus = 'SYNCED';
-      }
       await this.deviceRepo.save(device);
     }
 
@@ -474,6 +473,14 @@ export class LorawanService {
       }
     }
 
+    if (device) {
+      device.lastSeenAt = new Date();
+      if (device.syncDetails) {
+        device.syncDetails.lastSeenAt = device.lastSeenAt.toISOString();
+      }
+      await this.deviceRepo.save(device);
+    }
+
     const telemetry = this.telemetryRepo.create({
       devEUI: devEUI.toUpperCase(),
       payloadHex,
@@ -512,8 +519,16 @@ export class LorawanService {
 
     let decodedData = body.object || (body.objectJSON ? (typeof body.objectJSON === 'string' ? JSON.parse(body.objectJSON) : body.objectJSON) : null);
 
+    const device = await this.deviceRepo.findOne({ where: { devEUI: devEUI.toUpperCase() } });
+    if (device) {
+      device.lastSeenAt = new Date();
+      if (device.syncDetails) {
+        device.syncDetails.lastSeenAt = device.lastSeenAt.toISOString();
+      }
+      await this.deviceRepo.save(device);
+    }
+
     if (!decodedData || Object.keys(decodedData).length === 0) {
-      const device = await this.deviceRepo.findOne({ where: { devEUI: devEUI.toUpperCase() } });
       if (device && payloadHex) {
         const script = await this.getDecoderScript(device);
         if (script) {
@@ -566,6 +581,14 @@ export class LorawanService {
     let decodedData = uplink.DriverCfg || null;
 
     const device = await this.deviceRepo.findOne({ where: { devEUI: devEUI.toUpperCase() } });
+    if (device) {
+      device.lastSeenAt = new Date();
+      if (device.syncDetails) {
+        device.syncDetails.lastSeenAt = device.lastSeenAt.toISOString();
+      }
+      await this.deviceRepo.save(device);
+    }
+
     if (device && payloadHex) {
       const script = await this.getDecoderScript(device);
       if (script) {
@@ -630,8 +653,17 @@ export class LorawanService {
         }
       }
 
+      const lastSeen = d.lastSeenAt || (d.syncDetails?.lastSeenAt ? new Date(d.syncDetails.lastSeenAt) : null);
+      const isOnline = Boolean(
+        d.isActive &&
+        lastSeen &&
+        !isNaN(new Date(lastSeen).getTime()) &&
+        (Date.now() - new Date(lastSeen).getTime() < 24 * 60 * 60 * 1000)
+      );
+
       return {
         ...d,
+        isOnline,
         regionProfileName: regionProfileName || d.regionProfileId || '',
         owner: d.owner ? {
           id: d.owner.id,

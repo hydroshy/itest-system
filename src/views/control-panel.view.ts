@@ -968,22 +968,25 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
                       <span v-else class="text-slate-500 text-[11px]">Default</span>
                     </td>
                     <td class="py-2.5 px-3.5">
-                      <span v-if="!d.isActive" class="px-2 py-0.5 rounded-full text-[10px] font-bold border bg-red-500/10 text-red-400 border-red-500/25 flex items-center gap-1 w-max">
-                        <span class="w-1.5 h-1.5 rounded-full bg-red-400"></span>
+                      <span v-if="!d.isActive" class="px-2 py-0.5 rounded-full text-[10px] font-bold border bg-slate-800 text-slate-400 border-slate-700 flex items-center gap-1 w-max" title="Device is disabled">
+                        <span class="w-1.5 h-1.5 rounded-full bg-slate-500"></span>
                         <span>DISABLED</span>
                       </span>
-                      <span v-else-if="d.syncStatus === 'SYNCED'" class="px-2 py-0.5 rounded-full text-[10px] font-bold border bg-emerald-500/10 text-emerald-400 border-emerald-500/25 flex items-center gap-1 w-max">
+                      <span v-else-if="isDeviceOnline(d)" class="px-2 py-0.5 rounded-full text-[10px] font-bold border bg-emerald-500/10 text-emerald-400 border-emerald-500/25 flex items-center gap-1 w-max" title="Actively transmitting packets">
                         <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
                         <span>ONLINE</span>
                       </span>
-                      <span v-else class="px-2 py-0.5 rounded-full text-[10px] font-bold border bg-amber-500/10 text-amber-400 border-amber-500/25 flex items-center gap-1 w-max">
-                        <span class="w-1.5 h-1.5 rounded-full bg-amber-400"></span>
-                        <span>LOCAL</span>
+                      <span v-else class="px-2 py-0.5 rounded-full text-[10px] font-bold border bg-rose-500/10 text-rose-400 border-rose-500/25 flex items-center gap-1 w-max" :title="(d.lastSeenAt || d.syncDetails?.lastSeenAt) ? 'Inactive for > 24 hours' : 'Device has not joined or transmitted packets yet'">
+                        <span class="w-1.5 h-1.5 rounded-full bg-rose-400"></span>
+                        <span>OFFLINE</span>
                       </span>
                     </td>
                     <td class="py-2.5 px-3.5 font-mono text-[11px]">
-                      <span :class="(d.lastSeenAt || d.syncDetails?.lastSeenAt) ? 'text-emerald-400 font-semibold' : 'text-slate-500'">
+                      <span v-if="d.lastSeenAt || d.syncDetails?.lastSeenAt" class="text-emerald-400 font-semibold" :title="new Date(d.lastSeenAt || d.syncDetails?.lastSeenAt).toLocaleString()">
                         {{ formatLastSeen(d.lastSeenAt || d.syncDetails?.lastSeenAt) }}
+                      </span>
+                      <span v-else class="text-slate-500 italic text-[10px]" title="Device has not transmitted any packets yet">
+                        Never joined
                       </span>
                     </td>
                     <td class="py-2.5 px-3.5">
@@ -2941,6 +2944,15 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
 
         const checkingHealthDevEUI = ref(null);
 
+        const isDeviceOnline = (d) => {
+          if (!d || d.isActive === false) return false;
+          const lastSeen = d.lastSeenAt || (d.syncDetails && d.syncDetails.lastSeenAt);
+          if (!lastSeen) return false;
+          const t = new Date(lastSeen).getTime();
+          if (isNaN(t)) return false;
+          return (Date.now() - t) < 24 * 60 * 60 * 1000;
+        };
+
         const checkDeviceHealth = async (device) => {
           checkingHealthDevEUI.value = device.devEUI;
           try {
@@ -2955,8 +2967,12 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
             if (data.device) {
               Object.assign(device, data.device);
             }
-            if (data.health?.lastSeenAt) {
-              device.lastSeenAt = data.health.lastSeenAt;
+            if (data.health) {
+              device.lastSeenAt = data.health.lastSeenAt || null;
+              if (device.syncDetails) {
+                device.syncDetails.lastSeenAt = data.health.lastSeenAt || null;
+              }
+              device.isOnline = Boolean(data.health.isOnline);
             }
 
             showToast(data.health?.message || "Device health check completed", data.health?.isOnline ? "success" : "info");
@@ -2968,10 +2984,10 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
         };
 
         const formatLastSeen = (ts) => {
-          if (!ts) return 'Never';
+          if (!ts) return 'Never joined';
           try {
             const d = new Date(ts);
-            if (isNaN(d.getTime())) return 'Never';
+            if (isNaN(d.getTime())) return 'Never joined';
             const diffSec = Math.floor((Date.now() - d.getTime()) / 1000);
             if (diffSec < 0) return 'Just now';
             if (diffSec < 60) return 'Just now';
@@ -2979,7 +2995,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
             if (diffSec < 86400) return Math.floor(diffSec / 3600) + 'h ago';
             return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
           } catch(e) {
-            return 'Never';
+            return 'Never joined';
           }
         };
 
@@ -3409,6 +3425,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
           checkingHealthDevEUI,
           checkDeviceHealth,
           formatLastSeen,
+          isDeviceOnline,
           syncDevice,
           testDevice,
           runSandboxDecode,

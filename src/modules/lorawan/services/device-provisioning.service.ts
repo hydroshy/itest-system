@@ -728,13 +728,18 @@ export class DeviceProvisioningService {
         if (res && (res.ok || res.status === 200)) {
           const data: any = await res.json().catch(() => ({}));
           const lastSeenAt = data.lastPacketTime || data.lastSeenAt || null;
+          let isOnline = false;
+          if (lastSeenAt) {
+            const lastSeenTime = new Date(lastSeenAt).getTime();
+            isOnline = !isNaN(lastSeenTime) && (Date.now() - lastSeenTime < 24 * 60 * 60 * 1000);
+          }
           return {
             success: true,
-            isOnline: !!lastSeenAt,
+            isOnline,
             lastSeenAt,
             message: lastSeenAt
               ? `Device last seen: ${new Date(lastSeenAt).toLocaleString()}`
-              : 'Device has no recorded packet activity on ThingPark.',
+              : 'Device has not transmitted any packets to ThingPark yet.',
           };
         } else {
           return {
