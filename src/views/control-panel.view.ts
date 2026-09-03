@@ -290,8 +290,9 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
             <button @click="switchTab('decoder')" :class="{ active: activeTab === 'decoder' }" class="nav-item">
               <span class="flex items-center gap-2.5">
                 <i class="fa-solid fa-code w-4 text-center text-xs text-purple-400"></i>
-                <span>Decoder Sandbox</span>
+                <span>Decoder Manager</span>
               </span>
+              <span v-if="decodersList.length" class="px-1.5 py-0.2 rounded-full bg-purple-500/15 text-purple-300 text-[10px] font-mono">{{ decodersList.length }}</span>
             </button>
           </div>
         </div>
@@ -1054,30 +1055,234 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
           </div>
         </div>
 
-        <!-- TAB 9: DECODER SANDBOX -->
-        <div v-show="activeTab === 'decoder'" class="space-y-4">
-          <div class="glass-card rounded-xl p-5 space-y-4">
-            <div>
-              <h2 class="text-sm font-bold text-white flex items-center gap-2">
-                <i class="fa-solid fa-code text-purple-400"></i> Payload Formatter Sandbox
-              </h2>
-              <p class="text-[11px] text-slate-400 mt-0.5">Test JavaScript decoder functions on raw hex bytes:</p>
+        <!-- TAB 9: DECODER MANAGER -->
+        <div v-show="activeTab === 'decoder'" class="space-y-5">
+          <!-- Top Bar -->
+          <div class="glass-card rounded-2xl p-5 sm:p-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div class="space-y-1">
+              <div class="flex items-center gap-2.5">
+                <div class="w-8 h-8 rounded-lg bg-purple-500/10 border border-purple-500/30 flex items-center justify-center text-purple-400">
+                  <i class="fa-solid fa-code text-sm"></i>
+                </div>
+                <div>
+                  <h2 class="text-base font-bold text-white flex items-center gap-2">
+                    Decoder Manager
+                    <span class="px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300 text-[10px] font-mono font-medium border border-purple-500/30">C_MOD_DECODER</span>
+                  </h2>
+                  <p class="text-xs text-slate-400">Manage LoRaWAN JavaScript decoders by Product SKU & Firmware Version (1 - 32). Composite ID: <code class="text-purple-300 bg-purple-950/50 px-1 py-0.5 rounded font-mono">[SKU]_[FIRMWARE]</code>.</p>
+                </div>
+              </div>
+            </div>
+
+            <div class="flex items-center gap-2.5 flex-wrap">
+              <div class="relative">
+                <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-xs"></i>
+                <input
+                  v-model="decoderSearchQuery"
+                  type="text"
+                  placeholder="Filter SKU or ID..."
+                  class="pl-8 pr-3 py-1.5 bg-slate-950 border border-slate-800 rounded-xl text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-purple-500 font-mono w-44 sm:w-56"
+                />
+              </div>
+
+              <button
+                @click="fetchDecoders"
+                title="Refresh Decoders"
+                class="p-2 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-300 border border-slate-700 text-xs cursor-pointer transition"
+              >
+                <i class="fa-solid fa-rotate" :class="{ 'fa-spin': loadingDecoders }"></i>
+              </button>
+
+              <button
+                @click="openAddDecoderModal"
+                class="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-semibold text-xs flex items-center gap-2 shadow-lg shadow-purple-600/25 cursor-pointer transition"
+              >
+                <i class="fa-solid fa-plus text-[11px]"></i>
+                <span>Add Decoder</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Decoders List Table Card -->
+          <div class="glass-card rounded-2xl overflow-hidden border border-slate-800">
+            <div class="p-4 sm:p-5 border-b border-slate-800/80 flex items-center justify-between">
+              <div class="flex items-center gap-2">
+                <h3 class="text-xs font-bold text-slate-200 uppercase tracking-wider">Registered Payload Decoders</h3>
+                <span class="px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 text-[10px] font-mono">{{ filteredDecoders.length }}</span>
+              </div>
+              <div class="text-[11px] text-slate-400">Database table: <code class="text-emerald-400 font-mono">decoder</code></div>
+            </div>
+
+            <div v-if="loadingDecoders" class="p-12 text-center text-slate-400 text-xs">
+              <i class="fa-solid fa-circle-notch fa-spin text-purple-400 text-xl mb-2"></i>
+              <p>Loading decoders from database...</p>
+            </div>
+
+            <div v-else-if="filteredDecoders.length === 0" class="p-12 text-center space-y-3">
+              <div class="w-12 h-12 rounded-2xl bg-purple-500/10 border border-purple-500/20 text-purple-400 flex items-center justify-center mx-auto text-xl">
+                <i class="fa-solid fa-file-code"></i>
+              </div>
+              <div class="space-y-1">
+                <p class="text-sm font-semibold text-slate-300">No Decoders Registered</p>
+                <p class="text-xs text-slate-500 max-w-sm mx-auto">Get started by adding a LoRaWAN payload decoder for your sensors with their product SKU and firmware version.</p>
+              </div>
+              <button
+                @click="openAddDecoderModal"
+                class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-xs font-semibold shadow-lg shadow-purple-600/20 cursor-pointer transition"
+              >
+                <i class="fa-solid fa-plus text-[11px]"></i> Add First Decoder
+              </button>
+            </div>
+
+            <div v-else class="overflow-x-auto">
+              <table class="w-full text-left text-xs">
+                <thead>
+                  <tr class="border-b border-slate-800/80 bg-slate-950/40 text-slate-400 font-medium uppercase text-[10px] tracking-wider">
+                    <th class="py-3 px-4">Decoder ID</th>
+                    <th class="py-3 px-4">Product SKU</th>
+                    <th class="py-3 px-4">Firmware</th>
+                    <th class="py-3 px-4">Code Structure</th>
+                    <th class="py-3 px-4">Description</th>
+                    <th class="py-3 px-4">Updated At</th>
+                    <th class="py-3 px-4 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-800/50">
+                  <tr v-for="dec in filteredDecoders" :key="dec.id" class="hover:bg-slate-800/30 transition">
+                    <td class="py-3 px-4 font-mono font-bold text-white">
+                      <div class="flex items-center gap-2">
+                        <span class="px-2 py-0.5 rounded-md bg-purple-500/15 border border-purple-500/30 text-purple-300 font-mono text-[11px]">{{ dec.id }}</span>
+                      </div>
+                    </td>
+                    <td class="py-3 px-4 font-mono text-slate-300 font-semibold">
+                      {{ dec.sku }}
+                    </td>
+                    <td class="py-3 px-4">
+                      <span class="px-2 py-0.5 rounded bg-indigo-500/10 border border-indigo-500/30 text-indigo-300 font-mono text-[11px]">FW v{{ dec.firmwareVersion }}</span>
+                    </td>
+                    <td class="py-3 px-4 text-slate-400">
+                      <div class="flex items-center gap-2">
+                        <span class="text-[11px] font-mono text-slate-300">{{ (dec.decoderCode || '').length }} chars</span>
+                        <span v-if="getSubfunctionCount(dec.decoderCode) > 0" class="px-1.5 py-0.2 rounded bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 text-[10px]">
+                          +{{ getSubfunctionCount(dec.decoderCode) }} subfunctions
+                        </span>
+                      </div>
+                    </td>
+                    <td class="py-3 px-4 text-slate-400 max-w-xs truncate" :title="dec.description || ''">
+                      {{ dec.description || '—' }}
+                    </td>
+                    <td class="py-3 px-4 text-slate-500 font-mono text-[11px]">
+                      {{ formatDateTime(dec.updatedAt) }}
+                    </td>
+                    <td class="py-3 px-4 text-right">
+                      <div class="flex items-center justify-end gap-1.5">
+                        <button
+                          @click="loadDecoderIntoSandbox(dec)"
+                          title="Test in JavaScript Sandbox"
+                          class="px-2.5 py-1 rounded-lg bg-purple-500/10 hover:bg-purple-500/20 text-purple-300 border border-purple-500/30 text-[11px] font-semibold flex items-center gap-1 cursor-pointer transition"
+                        >
+                          <i class="fa-solid fa-play text-[9px]"></i> Test
+                        </button>
+                        <button
+                          @click="openEditDecoderModal(dec)"
+                          title="Edit Decoder"
+                          class="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 text-[11px] cursor-pointer transition"
+                        >
+                          <i class="fa-solid fa-pen-to-square"></i>
+                        </button>
+                        <button
+                          @click="confirmDeleteDecoder(dec)"
+                          title="Delete Decoder"
+                          class="p-1.5 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 text-[11px] cursor-pointer transition"
+                        >
+                          <i class="fa-solid fa-trash-can"></i>
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- JavaScript Decoder Sandbox & Debugger -->
+          <div id="decoder-sandbox-section" class="glass-card rounded-2xl p-5 space-y-4 border border-slate-800">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-800/80 pb-3">
+              <div>
+                <h3 class="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-2">
+                  <i class="fa-solid fa-terminal text-purple-400"></i> Interactive Payload Sandbox & Debugger
+                </h3>
+                <p class="text-[11px] text-slate-400 mt-0.5">Test any decoder JavaScript function against real hex byte payloads with sub-function support.</p>
+              </div>
+
+              <div class="flex items-center gap-2">
+                <label class="text-[11px] text-slate-400">Quick load:</label>
+                <select
+                  v-model="selectedSandboxDecoderId"
+                  @change="onSelectSandboxDecoder"
+                  class="px-2.5 py-1 bg-slate-950 border border-slate-700 rounded-lg text-xs text-white font-mono focus:outline-none focus:border-purple-500"
+                >
+                  <option value="">-- Choose saved decoder --</option>
+                  <option v-for="d in decodersList" :key="d.id" :value="d.id">{{ d.id }} (FW v{{ d.firmwareVersion }})</option>
+                </select>
+              </div>
             </div>
 
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 text-xs font-mono">
               <div class="space-y-1.5">
-                <label class="block text-xs font-sans font-semibold text-slate-300">JavaScript Decoder Function</label>
-                <textarea v-model="sandboxCode" rows="9" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-slate-200 focus:outline-none focus:border-purple-500 font-mono text-xs"></textarea>
+                <div class="flex items-center justify-between">
+                  <label class="block text-xs font-sans font-semibold text-slate-300">JavaScript Decoder Function</label>
+                  <span class="text-[10px] font-sans text-slate-400">Entry: <code class="text-purple-300">decodeUplink(input)</code> or <code class="text-purple-300">Decoder(bytes, fPort)</code></span>
+                </div>
+                <textarea
+                  v-model="sandboxCode"
+                  rows="12"
+                  class="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-slate-200 focus:outline-none focus:border-purple-500 font-mono text-xs leading-relaxed"
+                ></textarea>
               </div>
 
-              <div class="space-y-1.5">
-                <label class="block text-xs font-sans font-semibold text-slate-300">Test Hex String</label>
-                <div class="flex gap-2">
-                  <input v-model="sandboxHex" type="text" class="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-slate-200 focus:outline-none focus:border-purple-500 font-mono text-xs" />
-                  <button @click="runSandboxDecode" class="px-4 py-2 bg-purple-600 hover:bg-purple-500 text-white font-sans font-bold rounded-xl transition cursor-pointer">Decode</button>
+              <div class="space-y-2 font-sans">
+                <div class="space-y-1">
+                  <label class="block text-xs font-semibold text-slate-300">Test Hex String Payload & fPort</label>
+                  <div class="flex gap-2 font-mono text-xs">
+                    <input
+                      v-model="sandboxHex"
+                      type="text"
+                      placeholder="e.g. 09C441"
+                      class="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-slate-200 focus:outline-none focus:border-purple-500 font-mono text-xs"
+                    />
+                    <div class="flex items-center gap-1 bg-slate-950 border border-slate-800 rounded-xl px-2.5 py-1 text-slate-400 text-xs">
+                      <span class="text-[10px] text-slate-500 uppercase">Port:</span>
+                      <input
+                        v-model.number="sandboxFPort"
+                        type="number"
+                        min="1"
+                        max="223"
+                        class="w-10 bg-transparent text-white font-mono text-xs text-center focus:outline-none"
+                      />
+                    </div>
+                    <button
+                      @click="runSandboxDecode"
+                      class="px-4 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-sans font-bold rounded-xl transition cursor-pointer shadow-lg shadow-purple-600/20"
+                    >
+                      Decode
+                    </button>
+                  </div>
                 </div>
-                <label class="block text-xs font-sans font-semibold text-slate-300 pt-1">Decoded JSON Output</label>
-                <pre class="w-full h-36 bg-slate-950 border border-slate-800 rounded-xl p-3 text-emerald-400 overflow-auto text-xs">{{ sandboxResult }}</pre>
+
+                <div class="space-y-1">
+                  <div class="flex items-center justify-between">
+                    <label class="block text-xs font-semibold text-slate-300 pt-1">Decoded Output (JSON)</label>
+                    <button
+                      v-if="sandboxResult"
+                      @click="sandboxResult = ''"
+                      class="text-[10px] text-slate-500 hover:text-slate-300 cursor-pointer"
+                    >
+                      Clear
+                    </button>
+                  </div>
+                  <pre class="w-full h-44 bg-slate-950 border border-slate-800 rounded-xl p-3 text-emerald-400 overflow-auto text-xs font-mono">{{ sandboxResult || '{\n  // Decoded JSON output will appear here\n}' }}</pre>
+                </div>
               </div>
             </div>
           </div>
@@ -1594,6 +1799,276 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
       </div>
     </div>
 
+    <!-- MODAL: ADD DECODER -->
+    <div v-if="addDecoderDialog" class="fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop" style="background: rgba(2, 6, 23, 0.85); backdrop-filter: blur(8px);">
+      <div class="w-full max-w-3xl bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-4 shadow-2xl max-h-[92vh] overflow-y-auto custom-scroll">
+        <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+          <div class="flex items-center gap-2.5">
+            <div class="w-8 h-8 rounded-lg bg-purple-500/10 border border-purple-500/30 flex items-center justify-center text-purple-400">
+              <i class="fa-solid fa-code text-sm"></i>
+            </div>
+            <div>
+              <h3 class="text-sm font-bold text-white flex items-center gap-2">
+                Add New Decoder
+                <span v-if="newDecoder.sku && newDecoder.firmwareVersion" class="px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300 text-[10px] font-mono font-bold border border-purple-500/30">
+                  ID: {{ newDecoder.sku.trim() }}_{{ newDecoder.firmwareVersion }}
+                </span>
+              </h3>
+              <p class="text-[11px] text-slate-400">Đăng ký decoder giải mã LoRaWAN theo mã SKU và Firmware version (1 - 32)</p>
+            </div>
+          </div>
+          <button @click="closeAddDecoderModal" class="text-slate-500 hover:text-white cursor-pointer"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+
+        <form @submit.prevent="promptSubmitAddDecoder" class="space-y-4 text-xs">
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+            <!-- SKU Input (Empty by default) -->
+            <div>
+              <label class="block font-semibold text-slate-300 mb-1">
+                Product SKU <span class="text-red-400">*</span>
+              </label>
+              <input
+                v-model="newDecoder.sku"
+                type="text"
+                required
+                placeholder="e.g. WSLRW-V1A"
+                class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-white font-mono text-xs focus:outline-none focus:border-purple-500"
+              />
+              <p class="text-[10px] text-slate-500 mt-1">Mã định danh model phần cứng (Hardware SKU)</p>
+            </div>
+
+            <!-- Firmware Version Dropdown (1 - 32, Empty by default) -->
+            <div>
+              <label class="block font-semibold text-slate-300 mb-1">
+                Firmware Version (1 - 32) <span class="text-red-400">*</span>
+              </label>
+              <select
+                v-model="newDecoder.firmwareVersion"
+                required
+                class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-white font-mono text-xs focus:outline-none focus:border-purple-500"
+              >
+                <option value="" disabled selected>-- Select Firmware Version (1 - 32) --</option>
+                <option v-for="v in 32" :key="v" :value="v">Firmware v{{ v }}</option>
+              </select>
+              <p class="text-[10px] text-slate-500 mt-1">Phiên bản Firmware của thiết bị từ 1 đến 32</p>
+            </div>
+          </div>
+
+          <!-- Description (Optional, Empty by default) -->
+          <div>
+            <label class="block font-semibold text-slate-300 mb-1">Description (Mô tả)</label>
+            <input
+              v-model="newDecoder.description"
+              type="text"
+              placeholder="e.g. Decoder for WSLRW-V1A Ambient Temperature & Humidity Sensor"
+              class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-white text-xs focus:outline-none focus:border-purple-500"
+            />
+          </div>
+
+          <!-- Decoder JavaScript Code (Empty by default) -->
+          <div>
+            <div class="flex items-center justify-between mb-1">
+              <label class="block font-semibold text-slate-300">
+                Decoder JavaScript Code <span class="text-red-400">*</span>
+              </label>
+              <button
+                type="button"
+                @click="loadSampleDecoderTemplate"
+                class="text-[11px] text-purple-400 hover:text-purple-300 underline cursor-pointer"
+              >
+                Insert Sample Template (Sub-functions & Main)
+              </button>
+            </div>
+            <textarea
+              v-model="newDecoder.decoderCode"
+              rows="12"
+              required
+              placeholder="// Nhập code JavaScript decoder tại đây...
+// Hỗ trợ các hàm con (sub-functions) kết hợp cùng hàm giải mã chính (decodeUplink hoặc Decoder)
+// Ví dụ:
+// function parseTemp(raw) { return raw / 100; }
+// function decodeUplink(input) {
+//   var bytes = input.bytes;
+//   return { data: { temp: parseTemp((bytes[0] << 8) | bytes[1]) } };
+// }"
+              class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-slate-200 font-mono text-xs leading-relaxed focus:outline-none focus:border-purple-500"
+            ></textarea>
+            <p class="text-[10px] text-slate-500 mt-1">Hỗ trợ các subfunction con kết hợp cùng hàm giải mã chính <code class="text-purple-300">decodeUplink(input)</code> hoặc <code class="text-purple-300">Decoder(bytes, fPort)</code>.</p>
+          </div>
+
+          <!-- Buttons -->
+          <div class="flex justify-end gap-3 pt-3 border-t border-slate-800">
+            <button
+              type="button"
+              @click="closeAddDecoderModal"
+              class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold cursor-pointer transition"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              class="px-5 py-2 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white text-xs font-bold shadow-lg shadow-purple-600/30 flex items-center gap-1.5 cursor-pointer transition"
+            >
+              <i class="fa-solid fa-check"></i>
+              <span>Submit</span>
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- MODAL: CONFIRM ADD DECODER TO DATABASE -->
+    <div v-if="addDecoderConfirmDialog" class="fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop" style="background: rgba(2, 6, 23, 0.85); backdrop-filter: blur(8px);">
+      <div class="w-full max-w-md bg-slate-900 border border-purple-500/30 rounded-2xl p-6 space-y-4 shadow-2xl">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-full bg-purple-500/15 border border-purple-500/30 text-purple-400 flex items-center justify-center text-lg flex-shrink-0">
+            <i class="fa-solid fa-circle-question"></i>
+          </div>
+          <div>
+            <h3 class="text-sm font-bold text-white">Xác nhận thêm Decoder vào Database</h3>
+            <p class="text-xs text-slate-400 mt-0.5">Vui lòng kiểm tra lại thông tin trước khi ghi vào CSDL</p>
+          </div>
+        </div>
+
+        <div class="p-3.5 bg-slate-950 border border-slate-800 rounded-xl space-y-2 text-xs">
+          <p class="text-slate-300 font-medium">Bạn có chắc chắn muốn thêm decoder này vào database không?</p>
+          <div class="space-y-1 font-mono text-[11px] pt-1">
+            <div class="flex justify-between py-1 border-b border-slate-800/60">
+              <span class="text-slate-500">Mã SKU:</span>
+              <span class="text-white font-bold">{{ newDecoder.sku }}</span>
+            </div>
+            <div class="flex justify-between py-1 border-b border-slate-800/60">
+              <span class="text-slate-500">Firmware Version:</span>
+              <span class="text-indigo-300 font-bold">v{{ newDecoder.firmwareVersion }}</span>
+            </div>
+            <div class="flex justify-between py-1 border-b border-slate-800/60">
+              <span class="text-slate-500">Composite ID:</span>
+              <span class="text-purple-400 font-bold">{{ newDecoder.sku ? newDecoder.sku.trim() : '' }}_{{ newDecoder.firmwareVersion }}</span>
+            </div>
+            <div class="flex justify-between py-1">
+              <span class="text-slate-500">Bảng Database:</span>
+              <span class="text-emerald-400 font-bold">decoder</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="flex justify-end gap-3 pt-2">
+          <button
+            type="button"
+            @click="addDecoderConfirmDialog = false"
+            :disabled="savingDecoder"
+            class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold cursor-pointer transition"
+          >
+            Cancel / Hủy
+          </button>
+          <button
+            type="button"
+            @click="submitAddDecoder"
+            :disabled="savingDecoder"
+            class="px-5 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold shadow-lg shadow-purple-600/30 flex items-center gap-1.5 cursor-pointer transition"
+          >
+            <i v-if="savingDecoder" class="fa-solid fa-circle-notch fa-spin"></i>
+            <i v-else class="fa-solid fa-cloud-arrow-up"></i>
+            <span>{{ savingDecoder ? 'Saving...' : 'Có, Thêm vào Database' }}</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL: EDIT DECODER -->
+    <div v-if="editDecoderDialog" class="fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop" style="background: rgba(2, 6, 23, 0.85); backdrop-filter: blur(8px);">
+      <div class="w-full max-w-3xl bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-4 shadow-2xl max-h-[92vh] overflow-y-auto custom-scroll">
+        <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+          <div>
+            <h3 class="text-sm font-bold text-white flex items-center gap-2">
+              <i class="fa-solid fa-pen-to-square text-purple-400"></i> Edit Decoder: {{ currentDecoder.id }}
+            </h3>
+            <p class="text-[11px] text-slate-400">SKU: {{ currentDecoder.sku }} | Firmware: v{{ currentDecoder.firmwareVersion }}</p>
+          </div>
+          <button @click="editDecoderDialog = false" class="text-slate-500 hover:text-white cursor-pointer"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+
+        <form @submit.prevent="submitEditDecoder" class="space-y-4 text-xs">
+          <div>
+            <label class="block font-semibold text-slate-300 mb-1">Description</label>
+            <input
+              v-model="currentDecoder.description"
+              type="text"
+              class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-white text-xs focus:outline-none focus:border-purple-500"
+            />
+          </div>
+
+          <div>
+            <label class="block font-semibold text-slate-300 mb-1">JavaScript Decoder Function</label>
+            <textarea
+              v-model="currentDecoder.decoderCode"
+              rows="12"
+              required
+              class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-slate-200 font-mono text-xs leading-relaxed focus:outline-none focus:border-purple-500"
+            ></textarea>
+          </div>
+
+          <div class="flex justify-end gap-3 pt-3 border-t border-slate-800">
+            <button
+              type="button"
+              @click="editDecoderDialog = false"
+              class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold cursor-pointer transition"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              :disabled="savingDecoder"
+              class="px-5 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold shadow-lg shadow-purple-600/30 flex items-center gap-1.5 cursor-pointer transition"
+            >
+              <i v-if="savingDecoder" class="fa-solid fa-circle-notch fa-spin"></i>
+              <span>{{ savingDecoder ? 'Updating...' : 'Save Changes' }}</span>
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- MODAL: DELETE DECODER CONFIRM -->
+    <div v-if="deleteDecoderConfirmDialog" class="fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop" style="background: rgba(2, 6, 23, 0.85); backdrop-filter: blur(8px);">
+      <div class="w-full max-w-md bg-slate-900 border border-red-500/30 rounded-2xl p-6 space-y-4 shadow-2xl">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-full bg-red-500/15 border border-red-500/30 text-red-400 flex items-center justify-center text-lg flex-shrink-0">
+            <i class="fa-solid fa-triangle-exclamation"></i>
+          </div>
+          <div>
+            <h3 class="text-sm font-bold text-white">Xóa Decoder</h3>
+            <p class="text-xs text-slate-400 mt-0.5">Hành động này không thể hoàn tác</p>
+          </div>
+        </div>
+
+        <p class="text-xs text-slate-300 leading-relaxed">
+          Bạn có chắc chắn muốn xóa decoder <code class="font-mono text-purple-300 font-bold">{{ decoderToDelete?.id }}</code> khỏi database không?
+        </p>
+
+        <div class="flex justify-end gap-3 pt-2">
+          <button
+            type="button"
+            @click="deleteDecoderConfirmDialog = false"
+            :disabled="savingDecoder"
+            class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold cursor-pointer transition"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            @click="submitDeleteDecoder"
+            :disabled="savingDecoder"
+            class="px-4 py-2 rounded-xl bg-red-600 hover:bg-red-500 text-white text-xs font-bold shadow-lg shadow-red-600/30 flex items-center gap-1.5 cursor-pointer transition"
+          >
+            <i v-if="savingDecoder" class="fa-solid fa-circle-notch fa-spin"></i>
+            <i v-else class="fa-solid fa-trash-can"></i>
+            <span>{{ savingDecoder ? 'Deleting...' : 'Delete Decoder' }}</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
     <!-- TOAST NOTIFICATION -->
     <div v-if="toast.show" class="fixed top-4 right-4 z-50 flex items-center gap-2 px-4 py-3 rounded-xl shadow-2xl text-xs font-semibold" :class="toast.type === 'error' ? 'bg-red-950 border border-red-500 text-red-200' : (toast.type === 'success' ? 'bg-emerald-950 border border-emerald-500 text-emerald-200' : 'bg-sky-950 border border-sky-500 text-sky-200')">
       <i :class="toast.type === 'error' ? 'fa-solid fa-circle-exclamation text-red-400' : (toast.type === 'success' ? 'fa-solid fa-circle-check text-emerald-400' : 'fa-solid fa-circle-info text-sky-400')"></i>
@@ -1738,10 +2213,50 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
           }
         };
 
-        // Decoder Sandbox
-        const sandboxCode = ref("function decodeUplink(bytes, fPort) {\\n  var temperature = ((bytes[0] << 8) | bytes[1]) / 100;\\n  var humidity = bytes[2];\\n  return { temperature, humidity };\\n}");
+        // Decoder Manager & Sandbox State
+        const decodersList = ref([]);
+        const loadingDecoders = ref(false);
+        const savingDecoder = ref(false);
+        const decoderSearchQuery = ref('');
+        const addDecoderDialog = ref(false);
+        const addDecoderConfirmDialog = ref(false);
+        const editDecoderDialog = ref(false);
+        const deleteDecoderConfirmDialog = ref(false);
+        const decoderToDelete = ref(null);
+        const currentDecoder = ref({ id: '', sku: '', firmwareVersion: 1, decoderCode: '', description: '' });
+        const newDecoder = ref({ sku: '', firmwareVersion: '', decoderCode: '', description: '' });
+        const selectedSandboxDecoderId = ref('');
+        const sandboxFPort = ref(1);
+        const sandboxCode = ref("function parseTemperature(raw) {\\n  return raw / 100;\\n}\\n\\nfunction decodeUplink(input) {\\n  var bytes = input.bytes || input;\\n  var temp = parseTemperature((bytes[0] << 8) | bytes[1]);\\n  var hum = bytes[2];\\n  return {\\n    data: {\\n      temperature: temp,\\n      humidity: hum\\n    }\\n  };\\n}");
         const sandboxHex = ref("09C441");
         const sandboxResult = ref('{\\n  "ready": true\\n}');
+
+        const formatDateTime = (dateStr) => {
+          if (!dateStr) return '—';
+          try {
+            const d = new Date(dateStr);
+            return d.toLocaleString();
+          } catch(e) {
+            return String(dateStr);
+          }
+        };
+
+        const getSubfunctionCount = (code) => {
+          if (!code) return 0;
+          const matches = code.match(/function\\s+[a-zA-Z0-9_$]+\\s*\\(/g);
+          if (!matches) return 0;
+          return Math.max(0, matches.length - 1);
+        };
+
+        const filteredDecoders = computed(() => {
+          const q = (decoderSearchQuery.value || '').trim().toLowerCase();
+          if (!q) return decodersList.value;
+          return decodersList.value.filter(d =>
+            (d.id && d.id.toLowerCase().includes(q)) ||
+            (d.sku && d.sku.toLowerCase().includes(q)) ||
+            (d.description && d.description.toLowerCase().includes(q))
+          );
+        });
 
         // Toast
         const toast = ref({ show: false, text: '', type: 'info' });
@@ -1774,7 +2289,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
             case 'database': return 'Database Health';
             case 'devices': return 'Device Fleet';
             case 'webhooks': return 'Webhook Ingestion';
-            case 'decoder': return 'Decoder Sandbox';
+            case 'decoder': return 'Decoder Manager';
             default: return activeTab.value;
           }
         });
@@ -1792,7 +2307,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
             '🗄️ Database Operations': [],
             '📡 LoRaWAN Fleet & Gateways': [],
             '🔌 Webhook Ingestion': [],
-            '💻 Payload Decoder Sandbox': []
+            '💻 Decoder Manager & Sandbox': []
           };
           allPermissions.value.forEach(p => {
             if (p.name.startsWith('network_server:')) groups['📡 Network Server Management'].push(p);
@@ -1801,7 +2316,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
             else if (p.name.startsWith('database:')) groups['🗄️ Database Operations'].push(p);
             else if (p.name.startsWith('lorawan:device:') || p.name.startsWith('lorawan:app:') || p.name.startsWith('lorawan:gateway:')) groups['📡 LoRaWAN Fleet & Gateways'].push(p);
             else if (p.name.startsWith('lorawan:webhooks:')) groups['🔌 Webhook Ingestion'].push(p);
-            else if (p.name.startsWith('lorawan:decoder:')) groups['💻 Payload Decoder Sandbox'].push(p);
+            else if (p.name.startsWith('lorawan:decoder:')) groups['💻 Decoder Manager & Sandbox'].push(p);
             else groups['📡 LoRaWAN Fleet & Gateways'].push(p);
           });
           return groups;
@@ -2537,18 +3052,246 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
 
         const testDevice = (d) => {
           sandboxHex.value = "09C441";
+          if (d.payloadFormatterScript) {
+            sandboxCode.value = d.payloadFormatterScript;
+          }
           switchTab('decoder');
+        };
+
+        const fetchDecoders = async () => {
+          loadingDecoders.value = true;
+          try {
+            const res = await fetch('/api/decoders', {
+              headers: authHeaders(),
+              credentials: 'include'
+            });
+            if (res.ok) {
+              decodersList.value = await res.json();
+            } else {
+              const err = await res.json().catch(() => ({}));
+              console.warn("Could not fetch decoders:", err.message);
+            }
+          } catch(e) {
+            console.warn("fetchDecoders error:", e.message);
+          } finally {
+            loadingDecoders.value = false;
+          }
+        };
+
+        const openAddDecoderModal = () => {
+          newDecoder.value = {
+            sku: '',
+            firmwareVersion: '',
+            decoderCode: '',
+            description: ''
+          };
+          addDecoderDialog.value = true;
+        };
+
+        const closeAddDecoderModal = () => {
+          addDecoderDialog.value = false;
+          addDecoderConfirmDialog.value = false;
+          newDecoder.value = {
+            sku: '',
+            firmwareVersion: '',
+            decoderCode: '',
+            description: ''
+          };
+        };
+
+        const loadSampleDecoderTemplate = () => {
+          newDecoder.value.decoderCode = [
+            "// Sub-functions helper",
+            "function parseTemperature(raw) {",
+            "  return ((raw << 16) >> 16) / 100;",
+            "}",
+            "",
+            "function parseHumidity(raw) {",
+            "  return raw / 2;",
+            "}",
+            "",
+            "function parseBattery(raw) {",
+            "  return raw / 10;",
+            "}",
+            "",
+            "// Main decoder entry function",
+            "function decodeUplink(input) {",
+            "  var bytes = input.bytes || input;",
+            "  var fPort = input.fPort || 1;",
+            "  if (bytes.length < 3) {",
+            "    return { errors: [\"Payload too short\"] };",
+            "  }",
+            "  var tempRaw = (bytes[0] << 8) | bytes[1];",
+            "  var humRaw = bytes[2];",
+            "  var batRaw = bytes.length > 3 ? bytes[3] : 30;",
+            "  return {",
+            "    data: {",
+            "      temperature: parseTemperature(tempRaw),",
+            "      humidity: parseHumidity(humRaw),",
+            "      battery: parseBattery(batRaw)",
+            "    }",
+            "  };",
+            "}"
+          ].join("\\n");
+          showToast("Sample decoder template loaded!", "info");
+        };
+
+        const promptSubmitAddDecoder = () => {
+          const sku = (newDecoder.value.sku || '').trim();
+          if (!sku) {
+            showToast("Vui lòng nhập mã Product SKU!", "error");
+            return;
+          }
+          const fw = parseInt(newDecoder.value.firmwareVersion, 10);
+          if (isNaN(fw) || fw < 1 || fw > 32) {
+            showToast("Vui lòng chọn Firmware Version từ 1 đến 32!", "error");
+            return;
+          }
+          const code = (newDecoder.value.decoderCode || '').trim();
+          if (!code) {
+            showToast("Vui lòng nhập mã code JavaScript cho Decoder!", "error");
+            return;
+          }
+
+          // Open confirmation dialog asking user to confirm adding to DB
+          addDecoderConfirmDialog.value = true;
+        };
+
+        const submitAddDecoder = async () => {
+          savingDecoder.value = true;
+          try {
+            const sku = newDecoder.value.sku.trim();
+            const firmwareVersion = parseInt(newDecoder.value.firmwareVersion, 10);
+            const decoderCode = newDecoder.value.decoderCode;
+            const description = (newDecoder.value.description || '').trim() || undefined;
+
+            const res = await fetch('/api/decoders', {
+              method: 'POST',
+              headers: {
+                ...authHeaders(),
+                'Content-Type': 'application/json'
+              },
+              credentials: 'include',
+              body: JSON.stringify({
+                sku,
+                firmwareVersion,
+                decoderCode,
+                description
+              })
+            });
+
+            const data = await res.json();
+            if (!res.ok) {
+              throw new Error(data.message || 'Thêm decoder thất bại');
+            }
+
+            showToast('Decoder ' + data.id + ' đã được thêm thành công vào database!', 'success');
+            addDecoderConfirmDialog.value = false;
+            addDecoderDialog.value = false;
+            newDecoder.value = { sku: '', firmwareVersion: '', decoderCode: '', description: '' };
+            fetchDecoders();
+          } catch(err) {
+            showToast(err.message, 'error');
+          } finally {
+            savingDecoder.value = false;
+          }
+        };
+
+        const openEditDecoderModal = (dec) => {
+          currentDecoder.value = {
+            id: dec.id,
+            sku: dec.sku,
+            firmwareVersion: dec.firmwareVersion,
+            decoderCode: dec.decoderCode,
+            description: dec.description || ''
+          };
+          editDecoderDialog.value = true;
+        };
+
+        const submitEditDecoder = async () => {
+          savingDecoder.value = true;
+          try {
+            const res = await fetch('/api/decoders/' + encodeURIComponent(currentDecoder.value.id), {
+              method: 'PUT',
+              headers: {
+                ...authHeaders(),
+                'Content-Type': 'application/json'
+              },
+              credentials: 'include',
+              body: JSON.stringify({
+                decoderCode: currentDecoder.value.decoderCode,
+                description: currentDecoder.value.description
+              })
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.message || 'Cập nhật thất bại');
+            showToast('Decoder ' + currentDecoder.value.id + ' đã cập nhật thành công!', 'success');
+            editDecoderDialog.value = false;
+            fetchDecoders();
+          } catch(err) {
+            showToast(err.message, 'error');
+          } finally {
+            savingDecoder.value = false;
+          }
+        };
+
+        const confirmDeleteDecoder = (dec) => {
+          decoderToDelete.value = dec;
+          deleteDecoderConfirmDialog.value = true;
+        };
+
+        const submitDeleteDecoder = async () => {
+          if (!decoderToDelete.value) return;
+          savingDecoder.value = true;
+          try {
+            const res = await fetch('/api/decoders/' + encodeURIComponent(decoderToDelete.value.id), {
+              method: 'DELETE',
+              headers: authHeaders(),
+              credentials: 'include'
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.message || 'Xóa decoder thất bại');
+            showToast('Decoder ' + decoderToDelete.value.id + ' đã được xóa!', 'success');
+            deleteDecoderConfirmDialog.value = false;
+            decoderToDelete.value = null;
+            fetchDecoders();
+          } catch(err) {
+            showToast(err.message, 'error');
+          } finally {
+            savingDecoder.value = false;
+          }
+        };
+
+        const loadDecoderIntoSandbox = (dec) => {
+          sandboxCode.value = dec.decoderCode;
+          selectedSandboxDecoderId.value = dec.id;
+          showToast('Đã nạp mã decoder ' + dec.id + ' vào Sandbox!', 'info');
+          const el = document.getElementById('decoder-sandbox-section');
+          if (el) el.scrollIntoView({ behavior: 'smooth' });
+        };
+
+        const onSelectSandboxDecoder = () => {
+          if (!selectedSandboxDecoderId.value) return;
+          const found = decodersList.value.find(d => d.id === selectedSandboxDecoderId.value);
+          if (found) {
+            sandboxCode.value = found.decoderCode;
+            showToast('Loaded ' + found.id + ' code into sandbox', 'info');
+          }
         };
 
         const runSandboxDecode = () => {
           try {
             const hex = sandboxHex.value.trim().replace(/\\s+/g, "");
+            if (!hex) throw new Error("Hex payload is empty");
+            if (hex.length % 2 !== 0) throw new Error("Hex payload length must be even");
             const bytes = [];
             for (let c = 0; c < hex.length; c += 2) {
               bytes.push(parseInt(hex.substr(c, 2), 16));
             }
-            const fn = new Function("bytes", "fPort", sandboxCode.value + "; return decodeUplink(bytes, fPort);");
-            const output = fn(bytes, 1);
+            const fPort = sandboxFPort.value || 1;
+            const fullCode = sandboxCode.value + "\\nif (typeof decodeUplink === 'function') { return decodeUplink({ bytes: bytes, fPort: fPort }); } else if (typeof Decoder === 'function') { return Decoder(bytes, fPort); } else { throw new Error('No entry function found. Please define decodeUplink(input) or Decoder(bytes, fPort)'); }";
+            const fn = new Function("bytes", "fPort", fullCode);
+            const output = fn(bytes, fPort);
             sandboxResult.value = JSON.stringify(output, null, 2);
             showToast("Decoder executed successfully!", "success");
           } catch(e) {
@@ -2567,6 +3310,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
           if (newTab === 'users') fetchUsers();
           if (newTab === 'database') fetchDbHealth();
           if (newTab === 'devices') fetchDevices();
+          if (newTab === 'decoder') fetchDecoders();
         });
 
         const initControlPanel = async () => {
@@ -2579,6 +3323,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
           fetchUsers();
           fetchDbHealth();
           fetchDevices();
+          fetchDecoders();
           
           const hash = window.location.hash.replace('#', '').trim();
           if (hash && hash !== 'telemetry') {
@@ -2692,7 +3437,35 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
           formatLastSeen,
           syncDevice,
           testDevice,
-          runSandboxDecode
+          runSandboxDecode,
+          decodersList,
+          loadingDecoders,
+          savingDecoder,
+          decoderSearchQuery,
+          filteredDecoders,
+          addDecoderDialog,
+          addDecoderConfirmDialog,
+          editDecoderDialog,
+          deleteDecoderConfirmDialog,
+          decoderToDelete,
+          currentDecoder,
+          newDecoder,
+          selectedSandboxDecoderId,
+          sandboxFPort,
+          formatDateTime,
+          getSubfunctionCount,
+          fetchDecoders,
+          openAddDecoderModal,
+          closeAddDecoderModal,
+          loadSampleDecoderTemplate,
+          promptSubmitAddDecoder,
+          submitAddDecoder,
+          openEditDecoderModal,
+          submitEditDecoder,
+          confirmDeleteDecoder,
+          submitDeleteDecoder,
+          loadDecoderIntoSandbox,
+          onSelectSandboxDecoder
         };
       }
     }).mount('#app');

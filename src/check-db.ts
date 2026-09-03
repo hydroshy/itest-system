@@ -83,6 +83,7 @@ async function runDatabaseDiagnostics() {
       'devices',
       'gateways',
       'uplink_telemetry',
+      'decoder',
     ];
 
     const missingTables = expectedTables.filter((t) => !existingTables.includes(t));

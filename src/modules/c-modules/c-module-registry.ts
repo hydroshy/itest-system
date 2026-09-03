@@ -96,8 +96,8 @@ export const C_MODULES_REGISTRY: CModule[] = [
   {
     id: 'c-decoder-admin',
     code: 'C_MOD_DECODER',
-    title: 'Payload Formatter Sandbox',
-    description: 'Interactive JavaScript testing environment to execute and debug uplink hex payload transformations.',
+    title: 'Decoder Manager',
+    description: 'Manage LoRaWAN JavaScript payload decoders by SKU and firmware version with interactive test sandbox.',
     icon: 'fa-solid fa-code',
     category: 'Developer',
     routeHash: '#decoder',

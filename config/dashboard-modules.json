@@ -1,0 +1,15 @@
+[
+  {
+    "id": "device-manager",
+    "code": "D_MOD_DEVICE_MANAGER",
+    "title": "DEVICE MANAGER",
+    "description": "Manage registered end-devices, DevEUIs, activation keys (OTAA/ABP), and battery status with Card Grid.",
+    "icon": "fa-solid fa-microchip",
+    "color": "from-emerald-500 to-teal-600",
+    "badge": "Fleet",
+    "category": "Fleet",
+    "requiredPermission": "lorawan:device:read",
+    "status": "active",
+    "isActive": true
+  }
+]

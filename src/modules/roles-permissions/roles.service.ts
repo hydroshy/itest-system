@@ -71,7 +71,8 @@ export class RolesService implements OnModuleInit, OnApplicationBootstrap {
 
         { name: 'lorawan:telemetry:read', module: 'lorawan', action: 'read', description: 'View Live Telemetry Uplinks' },
         { name: 'lorawan:webhooks:read', module: 'lorawan', action: 'read', description: 'View Webhook Ingestion URLs' },
-        { name: 'lorawan:decoder:read', module: 'lorawan', action: 'read', description: 'Access Payload Formatter Sandbox' },
+        { name: 'lorawan:decoder:read', module: 'lorawan', action: 'read', description: 'Access Payload Formatter Sandbox and View Decoders' },
+        { name: 'lorawan:decoder:manage', module: 'lorawan', action: 'manage', description: 'Create, Edit and Delete Payload Decoders' },
       ];
 
       // 1. Insert or update default permissions atomically

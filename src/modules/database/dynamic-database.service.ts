@@ -10,6 +10,7 @@ import { ApplicationEntity } from '../lorawan/entities/application.entity';
 import { DeviceEntity } from '../lorawan/entities/device.entity';
 import { GatewayEntity } from '../lorawan/entities/gateway.entity';
 import { TelemetryEntity } from '../lorawan/entities/telemetry.entity';
+import { DecoderEntity } from '../c-modules/decoder-admin/entities/decoder.entity';
 
 export const ALL_DATABASE_ENTITIES = [
   User,
@@ -20,6 +21,7 @@ export const ALL_DATABASE_ENTITIES = [
   DeviceEntity,
   GatewayEntity,
   TelemetryEntity,
+  DecoderEntity,
 ];
 
 export interface DbConnectionConfig {
@@ -92,7 +94,7 @@ export class DynamicDatabaseService implements OnModuleInit, OnModuleDestroy {
 
     // Build fallback candidate hosts in case DNS (e.g. mas.local) cannot be resolved inside Docker
     const candidateHosts: string[] = [configuredHost];
-    const standardFallbacks = ['postgres_db', 'postgres', 'postgresql', 'host.docker.internal', 'localhost', '127.0.0.1'];
+    const standardFallbacks = ['172.21.0.1', 'postgres_db', 'postgres', 'postgresql', 'host.docker.internal', 'localhost', '127.0.0.1'];
     for (const fb of standardFallbacks) {
       if (!candidateHosts.includes(fb)) {
         candidateHosts.push(fb);
@@ -316,6 +318,21 @@ export class DynamicDatabaseService implements OnModuleInit, OnModuleDestroy {
         );
       `);
 
+      // 10b. decoder table (Decoder Manager - C-Module)
+      await dataSource.query(`
+        CREATE TABLE IF NOT EXISTS "decoder" (
+          "id" VARCHAR(255) PRIMARY KEY,
+          "sku" VARCHAR(255) NOT NULL,
+          "firmwareVersion" INT NOT NULL,
+          "decoderCode" TEXT NOT NULL,
+          "description" TEXT,
+          "author" VARCHAR(255),
+          "createdAt" TIMESTAMP NOT NULL DEFAULT now(),
+          "updatedAt" TIMESTAMP NOT NULL DEFAULT now()
+        );
+      `);
+      await dataSource.query(`CREATE INDEX IF NOT EXISTS "idx_decoder_sku" ON "decoder" ("sku");`).catch(() => {});
+
       // 11. Clean orphaned join records
       await dataSource.query(`
         DELETE FROM "role_permissions"
@@ -329,12 +346,14 @@ export class DynamicDatabaseService implements OnModuleInit, OnModuleDestroy {
            OR "role_id" NOT IN (SELECT "id" FROM "roles");
       `).catch(() => {});
 
-      // 12. Seed default permissions for network server
+      // 12. Seed default permissions for network server and decoder
       await dataSource.query(`
         INSERT INTO "permission" ("name", "description", "module", "action")
         VALUES 
           ('network_server:read', 'View network server configurations', 'network_server', 'read'),
-          ('network_server:manage', 'Create, edit, delete network servers and region profiles', 'network_server', 'manage')
+          ('network_server:manage', 'Create, edit, delete network servers and region profiles', 'network_server', 'manage'),
+          ('lorawan:decoder:read', 'Access Payload Formatter Sandbox and View Decoders', 'lorawan', 'read'),
+          ('lorawan:decoder:manage', 'Create, edit, and delete LoRaWAN payload decoders', 'lorawan', 'manage')
         ON CONFLICT ("name") DO NOTHING;
       `).catch(() => {});
 

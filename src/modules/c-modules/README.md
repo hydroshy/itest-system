@@ -19,7 +19,7 @@ Thư mục này chứa toàn bộ các **Module quản trị, hạ tầng và gi
 | **`database-routing/`** | `C_MOD_DATABASE` | **Database Health & Routing** | Giám sát kết nối PostgreSQL và định tuyến đa cơ sở dữ liệu động theo bảng. |
 | **`device-fleet-admin/`** | `C_MOD_DEVICE_FLEET` | **Device Fleet Oversight** | Giám sát toàn bộ thiết bị trong hệ thống, xem thông tin người tạo (`Created By`). |
 | **`webhook-admin/`** | `C_MOD_WEBHOOKS` | **Webhook Endpoints** | Quản lý và kiểm tra các endpoint nhận webhook từ Network Servers. |
-| **`decoder-admin/`** | `C_MOD_DECODER` | **Decoder Sandbox** | Trình kiểm thử giải mã JavaScript sandbox hệ thống. |
+| **`decoder-admin/`** | `C_MOD_DECODER` | **Decoder Manager** | Quản lý decoder theo SKU & Firmware version (1-32), lưu trữ code JavaScript và kiểm thử sandbox. |
 
 ---
 
