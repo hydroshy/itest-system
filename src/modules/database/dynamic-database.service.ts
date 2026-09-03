@@ -313,14 +313,55 @@ export class DynamicDatabaseService implements OnModuleInit, OnModuleDestroy {
       await dataSource.query(`
         CREATE TABLE IF NOT EXISTS "uplink_telemetry" (
           "id" UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-          "devEUI" VARCHAR(255) NOT NULL,
+          "timestamp" TIMESTAMP WITH TIME ZONE DEFAULT now(),
+          "devEui" VARCHAR(50) NOT NULL,
           "fPort" INT NOT NULL DEFAULT 1,
-          "fCnt" INT NOT NULL DEFAULT 1,
-          "payloadHex" TEXT NOT NULL,
+          "fCnt" INT NOT NULL DEFAULT 0,
+          "dr" INT,
+          "adr" BOOLEAN,
+          "data" TEXT,
+          "payloadHex" TEXT NOT NULL DEFAULT '',
+          "gatewayId" VARCHAR(100),
+          "rssi" DOUBLE PRECISION,
+          "snr" DOUBLE PRECISION,
+          "channel" INT,
+          "frequency" BIGINT,
+          "bandwidth" INT,
+          "spreadingFactor" INT,
+          "tenantId" VARCHAR(100),
+          "applicationId" VARCHAR(100),
+          "deviceName" VARCHAR(255),
+          "deviceProfileName" VARCHAR(255),
+          "devAddr" VARCHAR(50),
+          "object" JSONB,
           "decodedData" JSONB,
-          "receivedAt" TIMESTAMP NOT NULL DEFAULT now()
+          "serverType" VARCHAR(50) DEFAULT 'CHIRPSTACK',
+          "receivedAt" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now()
         );
       `);
+      await dataSource.query(`ALTER TABLE "uplink_telemetry" ADD COLUMN IF NOT EXISTS "timestamp" TIMESTAMP WITH TIME ZONE DEFAULT now();`).catch(() => {});
+      await dataSource.query(`ALTER TABLE "uplink_telemetry" ADD COLUMN IF NOT EXISTS "devEui" VARCHAR(50);`).catch(() => {});
+      await dataSource.query(`ALTER TABLE "uplink_telemetry" ADD COLUMN IF NOT EXISTS "dr" INT;`).catch(() => {});
+      await dataSource.query(`ALTER TABLE "uplink_telemetry" ADD COLUMN IF NOT EXISTS "adr" BOOLEAN;`).catch(() => {});
+      await dataSource.query(`ALTER TABLE "uplink_telemetry" ADD COLUMN IF NOT EXISTS "data" TEXT;`).catch(() => {});
+      await dataSource.query(`ALTER TABLE "uplink_telemetry" ADD COLUMN IF NOT EXISTS "gatewayId" VARCHAR(100);`).catch(() => {});
+      await dataSource.query(`ALTER TABLE "uplink_telemetry" ADD COLUMN IF NOT EXISTS "rssi" DOUBLE PRECISION;`).catch(() => {});
+      await dataSource.query(`ALTER TABLE "uplink_telemetry" ADD COLUMN IF NOT EXISTS "snr" DOUBLE PRECISION;`).catch(() => {});
+      await dataSource.query(`ALTER TABLE "uplink_telemetry" ADD COLUMN IF NOT EXISTS "channel" INT;`).catch(() => {});
+      await dataSource.query(`ALTER TABLE "uplink_telemetry" ADD COLUMN IF NOT EXISTS "frequency" BIGINT;`).catch(() => {});
+      await dataSource.query(`ALTER TABLE "uplink_telemetry" ADD COLUMN IF NOT EXISTS "bandwidth" INT;`).catch(() => {});
+      await dataSource.query(`ALTER TABLE "uplink_telemetry" ADD COLUMN IF NOT EXISTS "spreadingFactor" INT;`).catch(() => {});
+      await dataSource.query(`ALTER TABLE "uplink_telemetry" ADD COLUMN IF NOT EXISTS "tenantId" VARCHAR(100);`).catch(() => {});
+      await dataSource.query(`ALTER TABLE "uplink_telemetry" ADD COLUMN IF NOT EXISTS "applicationId" VARCHAR(100);`).catch(() => {});
+      await dataSource.query(`ALTER TABLE "uplink_telemetry" ADD COLUMN IF NOT EXISTS "deviceName" VARCHAR(255);`).catch(() => {});
+      await dataSource.query(`ALTER TABLE "uplink_telemetry" ADD COLUMN IF NOT EXISTS "deviceProfileName" VARCHAR(255);`).catch(() => {});
+      await dataSource.query(`ALTER TABLE "uplink_telemetry" ADD COLUMN IF NOT EXISTS "devAddr" VARCHAR(50);`).catch(() => {});
+      await dataSource.query(`ALTER TABLE "uplink_telemetry" ADD COLUMN IF NOT EXISTS "object" JSONB;`).catch(() => {});
+      await dataSource.query(`ALTER TABLE "uplink_telemetry" ADD COLUMN IF NOT EXISTS "serverType" VARCHAR(50) DEFAULT 'CHIRPSTACK';`).catch(() => {});
+      await dataSource.query(`UPDATE "uplink_telemetry" SET "devEui" = "devEUI" WHERE "devEui" IS NULL AND "devEUI" IS NOT NULL;`).catch(() => {});
+      await dataSource.query(`CREATE INDEX IF NOT EXISTS "idx_telemetry_deveui_time" ON "uplink_telemetry" ("devEui", "timestamp" DESC);`).catch(() => {});
+      await dataSource.query(`CREATE INDEX IF NOT EXISTS "idx_telemetry_time" ON "uplink_telemetry" ("timestamp" DESC);`).catch(() => {});
+      await dataSource.query(`CREATE INDEX IF NOT EXISTS "idx_telemetry_gateway" ON "uplink_telemetry" ("gatewayId");`).catch(() => {});
 
       // 10b. decoder table (Decoder Manager - C-Module)
       await dataSource.query(`

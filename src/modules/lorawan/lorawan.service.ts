@@ -508,6 +508,26 @@ export class LorawanService {
     }
   }
 
+  private extractBestGateway(rxInfo?: any[]): { gatewayId: string | null; rssi: number | null; snr: number | null; channel: number | null } {
+    if (!Array.isArray(rxInfo) || rxInfo.length === 0) {
+      return { gatewayId: null, rssi: null, snr: null, channel: null };
+    }
+    let best = rxInfo[0];
+    for (let i = 1; i < rxInfo.length; i++) {
+      const g = rxInfo[i];
+      // Higher RSSI (closer to 0 dBm) indicates stronger signal, then higher SNR
+      if (g.rssi != null && (best.rssi == null || Number(g.rssi) > Number(best.rssi) || (Number(g.rssi) === Number(best.rssi) && Number(g.snr) > Number(best.snr)))) {
+        best = g;
+      }
+    }
+    return {
+      gatewayId: best.gatewayId ? String(best.gatewayId) : null,
+      rssi: best.rssi != null ? Number(best.rssi) : null,
+      snr: best.snr != null ? Number(best.snr) : null,
+      channel: best.channel != null ? Number(best.channel) : null,
+    };
+  }
+
   async handleUplink(devEUI: string, payloadHex: string, fPort: number = 1, fCnt: number = 1) {
     const cleanDevEUI = devEUI.trim().toUpperCase();
     const device = await this.deviceRepo.findOne({ where: { devEUI: cleanDevEUI } });
@@ -533,11 +553,13 @@ export class LorawanService {
     }
 
     const telemetry = this.telemetryRepo.create({
-      devEUI: cleanDevEUI,
+      timestamp: new Date(),
+      devEui: cleanDevEUI,
       payloadHex,
       fPort,
       fCnt,
       decodedData,
+      serverType: 'GENERIC',
     });
 
     await this.telemetryRepo.save(telemetry);
@@ -562,6 +584,7 @@ export class LorawanService {
   }
 
   async handleChirpstackWebhook(body: any) {
+    const timestamp = body.time ? new Date(body.time) : new Date();
     const devEUI = (
       body.deviceInfo?.devEui ||
       body.devEUI ||
@@ -571,15 +594,34 @@ export class LorawanService {
       'UNKNOWN_CHIRPSTACK_DEVICE'
     ).trim().toUpperCase();
 
+    const fPort = Number(body.fPort ?? body.f_port ?? 1);
+    const fCnt = Number(body.fCnt ?? body.f_cnt ?? 0);
+    const dr = body.dr != null ? Number(body.dr) : undefined;
+    const adr = body.adr != null ? Boolean(body.adr) : undefined;
+    const data = body.data || body.payloadHex || undefined;
+
     let payloadHex = '';
     if (body.data) {
-      payloadHex = Buffer.from(body.data, 'base64').toString('hex');
+      try {
+        payloadHex = Buffer.from(body.data, 'base64').toString('hex');
+      } catch (e) {
+        payloadHex = '';
+      }
     } else if (body.payloadHex) {
       payloadHex = body.payloadHex;
     }
 
-    const fPort = Number(body.fPort || body.f_port || 1);
-    const fCnt = Number(body.fCnt || body.f_cnt || 0);
+    const bestGw = this.extractBestGateway(body.rxInfo);
+
+    const frequency = body.txInfo?.frequency ? Number(body.txInfo.frequency) : undefined;
+    const bandwidth = body.txInfo?.modulation?.lora?.bandwidth != null ? Number(body.txInfo.modulation.lora.bandwidth) : undefined;
+    const spreadingFactor = body.txInfo?.modulation?.lora?.spreadingFactor != null ? Number(body.txInfo.modulation.lora.spreadingFactor) : undefined;
+
+    const tenantId = body.deviceInfo?.tenantId || undefined;
+    const applicationId = body.deviceInfo?.applicationId || undefined;
+    const deviceName = body.deviceInfo?.deviceName || undefined;
+    const deviceProfileName = body.deviceInfo?.deviceProfileName || undefined;
+    const devAddr = body.devAddr || undefined;
 
     let decodedData = body.object || (body.objectJSON ? (typeof body.objectJSON === 'string' ? JSON.parse(body.objectJSON) : body.objectJSON) : null);
 
@@ -606,11 +648,29 @@ export class LorawanService {
     }
 
     const telemetry = this.telemetryRepo.create({
-      devEUI,
-      payloadHex: payloadHex || '00',
+      timestamp,
+      devEui: devEUI,
       fPort,
       fCnt,
+      dr,
+      adr,
+      data,
+      payloadHex: payloadHex || '00',
+      gatewayId: bestGw.gatewayId || undefined,
+      rssi: bestGw.rssi != null ? bestGw.rssi : undefined,
+      snr: bestGw.snr != null ? bestGw.snr : undefined,
+      channel: bestGw.channel != null ? bestGw.channel : undefined,
+      frequency,
+      bandwidth,
+      spreadingFactor,
+      tenantId,
+      applicationId,
+      deviceName,
+      deviceProfileName,
+      devAddr,
+      object: body.object || undefined,
       decodedData: decodedData || {},
+      serverType: 'CHIRPSTACK',
     });
 
     await this.telemetryRepo.save(telemetry);
@@ -628,33 +688,74 @@ export class LorawanService {
       errorMessage: decodedData?.error || undefined,
     }).catch(() => {});
 
-    this.logger.log(`📥 Processed ChirpStack Webhook: DevEUI=${devEUI}, Port=${fPort}, FCnt=${fCnt}`);
+    this.logger.log(`📥 Processed ChirpStack Webhook: DevEUI=${devEUI}, Port=${fPort}, FCnt=${fCnt}, RSSI=${bestGw.rssi}, SNR=${bestGw.snr}, Freq=${frequency}`);
     return {
       success: true,
       source: 'ChirpStack',
       devEUI,
       fPort,
       fCnt,
+      dr,
+      adr,
+      data,
       payloadHex,
+      gatewayId: bestGw.gatewayId,
+      rssi: bestGw.rssi,
+      snr: bestGw.snr,
+      channel: bestGw.channel,
+      frequency,
+      bandwidth,
+      spreadingFactor,
       decodedData,
       telemetryId: telemetry.id,
+      timestamp: telemetry.timestamp,
       receivedAt: telemetry.receivedAt,
     };
   }
 
   async handleThingparkWebhook(body: any) {
     const uplink = body.DevEUI_uplink || body;
+    const timestamp = uplink.Time ? new Date(uplink.Time) : new Date();
     const devEUI = (uplink.DevEUI || uplink.devEUI || uplink.devEui || 'UNKNOWN_THINGPARK_DEVICE').trim().toUpperCase();
 
     let payloadHex = '';
     if (uplink.payload_hex) {
       payloadHex = uplink.payload_hex;
     } else if (uplink.payload) {
-      payloadHex = Buffer.from(uplink.payload, 'base64').toString('hex');
+      try {
+        payloadHex = Buffer.from(uplink.payload, 'base64').toString('hex');
+      } catch (e) {
+        payloadHex = '';
+      }
     }
 
     const fPort = Number(uplink.FPort || uplink.fPort || 1);
     const fCnt = Number(uplink.FCntUp || uplink.fCnt || 0);
+    const dr = uplink.SpFact ? Number(uplink.SpFact) : undefined;
+    const adr = uplink.ADRBit != null ? Boolean(uplink.ADRBit) : undefined;
+    const data = uplink.payload || uplink.payload_hex || undefined;
+
+    // ThingPark Best Gateway Extraction from Lrrs
+    let bestGwId: string | null = null;
+    let bestRssi: number | null = uplink.LrrRSSI != null ? Number(uplink.LrrRSSI) : null;
+    let bestSnr: number | null = uplink.LrrSNR != null ? Number(uplink.LrrSNR) : null;
+    let channel: number | null = uplink.Channel != null ? Number(uplink.Channel) : null;
+
+    if (uplink.Lrrs && Array.isArray(uplink.Lrrs.Lrr)) {
+      for (const lrr of uplink.Lrrs.Lrr) {
+        const r = lrr.LrrRSSI != null ? Number(lrr.LrrRSSI) : null;
+        const s = lrr.LrrSNR != null ? Number(lrr.LrrSNR) : null;
+        if (r != null && (bestRssi == null || r > bestRssi)) {
+          bestRssi = r;
+          bestSnr = s;
+          bestGwId = lrr.Lrrid ? String(lrr.Lrrid) : null;
+        }
+      }
+    }
+
+    const frequency = uplink.Frequency ? Math.round(Number(uplink.Frequency) * 1000000) : undefined;
+    const spreadingFactor = uplink.SpFact != null ? Number(uplink.SpFact) : undefined;
+    const devAddr = uplink.DevAddr || undefined;
 
     let decodedData = uplink.DriverCfg || null;
 
@@ -679,11 +780,23 @@ export class LorawanService {
     }
 
     const telemetry = this.telemetryRepo.create({
-      devEUI,
-      payloadHex: payloadHex || '00',
+      timestamp,
+      devEui: devEUI,
       fPort,
       fCnt,
+      dr,
+      adr,
+      data,
+      payloadHex: payloadHex || '00',
+      gatewayId: bestGwId || undefined,
+      rssi: bestRssi != null ? bestRssi : undefined,
+      snr: bestSnr != null ? bestSnr : undefined,
+      channel: channel != null ? channel : undefined,
+      frequency,
+      spreadingFactor,
+      devAddr,
       decodedData: decodedData || {},
+      serverType: 'THINGPARK',
     });
 
     await this.telemetryRepo.save(telemetry);
@@ -711,6 +824,7 @@ export class LorawanService {
       payloadHex,
       decodedData,
       telemetryId: telemetry.id,
+      timestamp: telemetry.timestamp,
       receivedAt: telemetry.receivedAt,
     };
   }
@@ -736,6 +850,9 @@ export class LorawanService {
       });
     }
 
+    const activeThreshold = 24 * 60 * 60 * 1000;
+    const now = Date.now();
+
     return devices.map((d) => {
       let regionProfileName = '';
       if (d.networkServer && d.regionProfileId && Array.isArray(d.networkServer.regionProfiles)) {
@@ -746,16 +863,17 @@ export class LorawanService {
       }
 
       const lastSeen = d.lastSeenAt || (d.syncDetails?.lastSeenAt ? new Date(d.syncDetails.lastSeenAt) : null);
+      const lastSeenTime = lastSeen ? new Date(lastSeen).getTime() : 0;
       const isOnline = Boolean(
         d.isActive &&
-        lastSeen &&
-        !isNaN(new Date(lastSeen).getTime()) &&
-        (Date.now() - new Date(lastSeen).getTime() < 24 * 60 * 60 * 1000)
+        lastSeenTime > 0 &&
+        (now - lastSeenTime < activeThreshold)
       );
 
       return {
         ...d,
         isOnline,
+        neverJoined: lastSeenTime === 0,
         regionProfileName: regionProfileName || d.regionProfileId || '',
         owner: d.owner ? {
           id: d.owner.id,
@@ -781,6 +899,20 @@ export class LorawanService {
     return device;
   }
 
+  async getDevice(id: string): Promise<DeviceEntity | null> {
+    const device = await this.deviceRepo.findOne({
+      where: { id },
+      relations: ['networkServer'],
+    });
+    if (device) {
+      const lastSeen = device.lastSeenAt ? new Date(device.lastSeenAt).getTime() : 0;
+      const now = Date.now();
+      (device as any).isOnline = Boolean(device.isActive && lastSeen > 0 && (now - lastSeen) < (24 * 60 * 60 * 1000));
+      (device as any).neverJoined = lastSeen === 0;
+    }
+    return device;
+  }
+
   async listGateways(): Promise<GatewayEntity[]> {
     return await this.gatewayRepo.find({
       relations: ['networkServer'],
@@ -789,14 +921,13 @@ export class LorawanService {
 
   async getTelemetry(devEUI?: string, limit: number = 50): Promise<TelemetryEntity[]> {
     const qb = this.telemetryRepo.createQueryBuilder('telemetry')
-      .orderBy('telemetry.receivedAt', 'DESC')
+      .orderBy('telemetry.timestamp', 'DESC')
       .take(limit);
 
     if (devEUI) {
-      qb.where('telemetry.devEUI = :devEUI', { devEUI: devEUI.toUpperCase() });
+      qb.where('UPPER(telemetry.devEui) = :devEUI', { devEUI: devEUI.toUpperCase() });
     }
 
     return await qb.getMany();
   }
 }
-
