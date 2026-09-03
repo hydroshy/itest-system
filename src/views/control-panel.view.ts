@@ -9,12 +9,17 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
   <title>Control Panel - Daviteq LoRaWAN Platform</title>
   <link rel="icon" type="image/png" href="/images/favicon.png" />
   <link rel="shortcut icon" href="/images/favicon.png" />
+  <link rel="prefetch" href="/dashboard" />
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
   <style>
+    @keyframes pageFadeIn {
+      from { opacity: 0; transform: translateY(4px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
     body {
       background-color: #030712;
       font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
@@ -23,6 +28,13 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
       color: #f1f5f9;
       font-size: 13.5px;
       overflow-x: hidden;
+      animation: pageFadeIn 0.22s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+      transition: opacity 0.15s ease, transform 0.15s ease;
+    }
+    body.page-transitioning {
+      opacity: 0;
+      transform: translateY(-4px);
+      pointer-events: none;
     }
     .font-mono { font-family: 'JetBrains Mono', monospace !important; }
     .custom-scroll::-webkit-scrollbar { width: 5px; height: 5px; }
@@ -90,23 +102,30 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
           <i class="fa-solid fa-bars text-sm"></i>
         </button>
 
-        <a href="/control-panel" class="flex items-center gap-2.5 text-white font-extrabold text-sm tracking-tight text-decoration-none">
+        <button
+          @click="switchTab('overview')"
+          title="Return to Overview Home"
+          class="flex items-center gap-2.5 text-white font-extrabold text-sm tracking-tight text-decoration-none hover:opacity-90 transition cursor-pointer"
+        >
           <div class="w-8 h-8 rounded-lg bg-sky-500/10 border border-sky-500/30 flex items-center justify-center p-0.5 shadow-inner overflow-hidden">
             <img src="/images/logo-navbar.png" onerror="this.onerror=null; this.src='/images/logo-full.png'; this.onerror=function(){this.src='/images/favicon.png';};" class="w-full h-full object-contain rounded-md" alt="Daviteq Logo" />
           </div>
-          <div class="leading-none">
+          <div class="leading-none text-left">
             <div class="flex items-center gap-1.5">
               <span><span class="text-sky-400">DAVITEQ</span> IoT</span>
               <span class="px-1.5 py-0.2 rounded text-[9px] font-bold bg-sky-500/15 text-sky-300 border border-sky-500/30">Admin</span>
             </div>
             <span class="text-[10px] text-slate-400 font-normal">Control Panel</span>
           </div>
-        </a>
+        </button>
 
         <!-- Breadcrumb Active Section Indicator -->
-        <div class="hidden sm:flex items-center gap-2 pl-3 border-l border-slate-800 text-xs text-slate-400">
+        <div v-if="activeTab !== 'overview'" class="hidden sm:flex items-center gap-2 pl-3 border-l border-slate-800 text-xs text-slate-400">
+          <button @click="switchTab('overview')" class="hover:text-white transition flex items-center gap-1 font-medium cursor-pointer">
+            <i class="fa-solid fa-chart-pie text-[11px] text-sky-400"></i> Overview
+          </button>
           <span class="text-slate-500">/</span>
-          <span class="text-slate-200 font-semibold capitalize">{{ activeTabLabel }}</span>
+          <span class="text-sky-400 font-semibold capitalize">{{ activeTabLabel }}</span>
         </div>
       </div>
 
@@ -145,13 +164,13 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
             <div class="space-y-1 text-xs pb-3 border-b border-slate-800">
               <div class="text-[10px] font-bold uppercase tracking-wider text-slate-500 pb-1">Switch View</div>
               
-              <a
-                href="/dashboard"
-                class="w-full py-2 px-3 rounded-lg text-xs font-semibold text-slate-200 hover:text-white bg-slate-800/80 hover:bg-slate-700/80 transition flex items-center justify-between cursor-pointer text-decoration-none"
+              <button
+                @click="navigateTo('/dashboard')"
+                class="w-full py-2 px-3 rounded-lg text-xs font-semibold text-slate-200 hover:text-white bg-slate-800/80 hover:bg-slate-700/80 transition flex items-center justify-between cursor-pointer"
               >
                 <span class="flex items-center gap-2"><i class="fa-solid fa-layer-group text-sky-400"></i> User Dashboard</span>
                 <i class="fa-solid fa-arrow-right text-[10px] text-slate-500"></i>
-              </a>
+              </button>
 
               <div class="w-full py-2 px-3 rounded-lg text-xs font-semibold text-sky-400 bg-sky-500/10 border border-sky-500/20 flex items-center justify-between">
                 <span class="flex items-center gap-2"><i class="fa-solid fa-sliders"></i> Control Panel</span>
@@ -1566,6 +1585,14 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
         const handleGlobalClick = () => {
           userMenuOpen.value = false;
         };
+
+        const navigateTo = (url) => {
+          userMenuOpen.value = false;
+          document.body.classList.add('page-transitioning');
+          setTimeout(() => {
+            window.location.href = url;
+          }, 120);
+        };
         const networkServersList = ref([]);
         const modulesList = ref([]);
         const usersList = ref([]);
@@ -2451,6 +2478,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
           userMenuOpen,
           userInitials,
           handleGlobalClick,
+          navigateTo,
           activeTabLabel,
           currentUser,
           isSuperAdmin,

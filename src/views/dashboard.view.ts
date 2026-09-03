@@ -9,12 +9,17 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
   <title>Dashboard - Daviteq LoRaWAN</title>
   <link rel="icon" type="image/png" href="/images/favicon.png" />
   <link rel="shortcut icon" href="/images/favicon.png" />
+  <link rel="prefetch" href="/control-panel" />
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
   <style>
+    @keyframes pageFadeIn {
+      from { opacity: 0; transform: translateY(4px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
     body {
       background-color: #030712;
       font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
@@ -23,6 +28,13 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
       color: #f1f5f9;
       font-size: 13.5px;
       overflow-x: hidden;
+      animation: pageFadeIn 0.22s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+      transition: opacity 0.15s ease, transform 0.15s ease;
+    }
+    body.page-transitioning {
+      opacity: 0;
+      transform: translateY(-4px);
+      pointer-events: none;
     }
     .font-mono { font-family: 'JetBrains Mono', monospace !important; }
     .custom-scroll::-webkit-scrollbar { width: 5px; height: 5px; }
@@ -132,14 +144,14 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
                 <span class="text-[9px] font-mono font-bold uppercase bg-sky-500/20 px-1.5 py-0.5 rounded text-sky-300">Active</span>
               </div>
 
-              <a
+              <button
                 v-if="isSuperAdmin"
-                href="/control-panel"
-                class="w-full py-2 px-3 rounded-lg text-xs font-semibold text-slate-200 hover:text-white bg-slate-800/80 hover:bg-slate-700/80 transition flex items-center justify-between cursor-pointer text-decoration-none"
+                @click="navigateTo('/control-panel')"
+                class="w-full py-2 px-3 rounded-lg text-xs font-semibold text-slate-200 hover:text-white bg-slate-800/80 hover:bg-slate-700/80 transition flex items-center justify-between cursor-pointer"
               >
                 <span class="flex items-center gap-2"><i class="fa-solid fa-sliders text-sky-400"></i> Admin Control Panel</span>
                 <i class="fa-solid fa-arrow-right text-[10px] text-slate-500"></i>
-              </a>
+              </button>
             </div>
 
             <!-- App Version -->
@@ -632,6 +644,14 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
           return name.slice(0, 2).toUpperCase();
         });
 
+        const navigateTo = (url) => {
+          userMenuOpen.value = false;
+          document.body.classList.add('page-transitioning');
+          setTimeout(() => {
+            window.location.href = url;
+          }, 120);
+        };
+
         const isSuperAdmin = computed(() => {
           const user = currentUser.value;
           if (!user) return false;
@@ -924,6 +944,7 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
           activeFeature,
           userMenuOpen,
           userInitials,
+          navigateTo,
           isSuperAdmin,
           telemetryList,
           devicesList,
