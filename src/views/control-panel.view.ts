@@ -1281,7 +1281,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
                       Clear
                     </button>
                   </div>
-                  <pre class="w-full h-44 bg-slate-950 border border-slate-800 rounded-xl p-3 text-emerald-400 overflow-auto text-xs font-mono">{{ sandboxResult || '{\n  // Decoded JSON output will appear here\n}' }}</pre>
+                  <pre class="w-full h-44 bg-slate-950 border border-slate-800 rounded-xl p-3 text-emerald-400 overflow-auto text-xs font-mono">{{ sandboxDisplayOutput }}</pre>
                 </div>
               </div>
             </div>
@@ -2230,6 +2230,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
         const sandboxCode = ref("function parseTemperature(raw) {\\n  return raw / 100;\\n}\\n\\nfunction decodeUplink(input) {\\n  var bytes = input.bytes || input;\\n  var temp = parseTemperature((bytes[0] << 8) | bytes[1]);\\n  var hum = bytes[2];\\n  return {\\n    data: {\\n      temperature: temp,\\n      humidity: hum\\n    }\\n  };\\n}");
         const sandboxHex = ref("09C441");
         const sandboxResult = ref('{\\n  "ready": true\\n}');
+        const sandboxDisplayOutput = computed(() => sandboxResult.value || '{\\n  // Decoded JSON output will appear here\\n}');
 
         const formatDateTime = (dateStr) => {
           if (!dateStr) return '—';
@@ -3465,7 +3466,8 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
           confirmDeleteDecoder,
           submitDeleteDecoder,
           loadDecoderIntoSandbox,
-          onSelectSandboxDecoder
+          onSelectSandboxDecoder,
+          sandboxDisplayOutput
         };
       }
     }).mount('#app');
