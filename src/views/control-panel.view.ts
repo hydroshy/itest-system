@@ -1455,15 +1455,15 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
         <form @submit.prevent="submitDeviceForm" class="space-y-3.5 text-xs">
           <!-- Provisioning Mode Selector (Only on Register) -->
           <div v-if="!isEditingDevice">
-            <label class="block font-semibold text-slate-300 mb-1.5 text-xs">Chế độ tạo thiết bị <span class="text-red-400">*</span></label>
+            <label class="block font-semibold text-slate-300 mb-1.5 text-xs">Provisioning Mode <span class="text-red-400">*</span></label>
             <div class="grid grid-cols-2 gap-2.5">
               <button type="button" @click="newDevice.provisionTarget = 'SERVER'" :class="newDevice.provisionTarget !== 'LOCAL' ? 'bg-teal-500/10 border-teal-500/40 text-teal-300 ring-1 ring-teal-500/30' : 'bg-slate-950 border-slate-800 text-slate-400'" class="p-2.5 rounded-xl border text-left cursor-pointer transition">
                 <div class="font-bold text-xs flex items-center gap-1.5"><i class="fa-solid fa-cloud-arrow-up text-teal-400"></i> Network Server</div>
-                <div class="text-[10px] text-slate-400 mt-0.5">Tạo trực tiếp trên Server</div>
+                <div class="text-[10px] text-slate-400 mt-0.5">Provision directly on server</div>
               </button>
               <button type="button" @click="newDevice.provisionTarget = 'LOCAL'" :class="newDevice.provisionTarget === 'LOCAL' ? 'bg-sky-500/10 border-sky-500/40 text-sky-300 ring-1 ring-sky-500/30' : 'bg-slate-950 border-slate-800 text-slate-400'" class="p-2.5 rounded-xl border text-left cursor-pointer transition">
                 <div class="font-bold text-xs flex items-center gap-1.5"><i class="fa-solid fa-laptop-code text-sky-400"></i> Local Fleet Only</div>
-                <div class="text-[10px] text-slate-400 mt-0.5">Tạo nội bộ / decoder test</div>
+                <div class="text-[10px] text-slate-400 mt-0.5">Offline / decoder testing</div>
               </button>
             </div>
           </div>
@@ -1471,8 +1471,8 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
           <!-- Device Status Switch (Only on Edit) -->
           <div v-if="isEditingDevice" class="flex items-center justify-between p-3 bg-slate-950 border border-slate-800 rounded-xl">
             <div>
-              <label class="font-semibold text-slate-300 block text-xs">Trạng thái thiết bị</label>
-              <p class="text-[10px] text-slate-400">Tắt (Disable) thiết bị để ngưng nhận dữ liệu từ cảm biến</p>
+              <label class="font-semibold text-slate-300 block text-xs">Device Status</label>
+              <p class="text-[10px] text-slate-400">Disable device to suspend data ingestion from sensor</p>
             </div>
             <button type="button" @click="newDevice.isActive = !newDevice.isActive" :class="newDevice.isActive ? 'bg-teal-500' : 'bg-slate-700'" class="relative inline-flex h-6 w-11 items-center rounded-full transition-colors cursor-pointer flex-shrink-0">
               <span :class="newDevice.isActive ? 'translate-x-6' : 'translate-x-1'" class="inline-block h-4 w-4 transform rounded-full bg-white transition-transform"></span>
@@ -2399,15 +2399,15 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
 
         const submitDeviceForm = async () => {
           if (!newDevice.value.name.trim()) {
-            showToast("Vui lòng nhập tên thiết bị", "error");
+            showToast("Please enter device name", "error");
             return;
           }
           if (!newDevice.value.devEUI.trim()) {
-            showToast("Vui lòng nhập DevEUI (16 ký tự Hex)", "error");
+            showToast("Please enter DevEUI (16 Hex characters)", "error");
             return;
           }
           if (!isEditingDevice.value && newDevice.value.provisionTarget !== 'LOCAL' && !newDevice.value.networkServerId) {
-            showToast("Vui lòng chọn Network Server hoặc chuyển sang chế độ Local Fleet", "error");
+            showToast("Please select a Network Server or switch to Local Fleet mode", "error");
             return;
           }
 
@@ -2435,8 +2435,8 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
               })
             });
             const data = await res.json();
-            if (!res.ok) throw new Error(data.message || (isEdit ? "Cập nhật thiết bị thất bại" : "Tạo thiết bị thất bại"));
-            showToast(data.message || (isEdit ? "Cập nhật thiết bị thành công!" : "Tạo thiết bị thành công!"), "success");
+            if (!res.ok) throw new Error(data.message || (isEdit ? "Failed to update device" : "Failed to register device"));
+            showToast(data.message || (isEdit ? "Device updated successfully!" : "Device registered successfully!"), "success");
             registerDeviceDialog.value = false;
             fetchDevices();
           } catch(e) {

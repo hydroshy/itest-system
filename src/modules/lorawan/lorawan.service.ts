@@ -93,7 +93,7 @@ export class LorawanService {
     // If online provisioning requested
     if (!isLocal) {
       if (!networkServer) {
-        throw new BadRequestException('Vui lòng chọn Network Server để tạo thiết bị hoặc chọn chế độ Local Fleet.');
+        throw new BadRequestException('Please select a Network Server or choose Local Fleet mode.');
       }
 
       this.logger.log(
@@ -167,7 +167,7 @@ export class LorawanService {
       provisioning: provisioningResult,
       message: provisioningResult
         ? provisioningResult.summaryMessage
-        : `Thiết bị ${saved.name} (${saved.devEUI}) đã được tạo thành công trong hệ thống (Local Fleet).`,
+        : `Device ${saved.name} (${saved.devEUI}) registered successfully in Local Fleet.`,
     };
   }
 
@@ -252,7 +252,7 @@ export class LorawanService {
       provisioning: provisioningResult,
       message: provisioningResult
         ? provisioningResult.summaryMessage
-        : `Đã cập nhật thiết bị ${saved.name} thành công.`,
+        : `Device ${saved.name} (${saved.devEUI}) updated successfully.`,
     };
   }
 

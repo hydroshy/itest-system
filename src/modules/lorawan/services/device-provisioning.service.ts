@@ -268,30 +268,69 @@ export class DeviceProvisioningService {
           payload: step1Payload,
           response: res1Json,
         });
-      } else if (res1.status === 409 || res1Text.includes('already exists')) {
-        step1Success = true;
-        steps.push({
-          step: 1,
-          stepName: 'Create ChirpStack Device',
-          endpoint,
-          method: 'POST',
-          status: 'SUCCESS',
-          httpStatus: res1.status,
-          message: `Device ${devEui} already exists in ChirpStack. Updating keys.`,
-          payload: step1Payload,
-          response: res1Json,
-        });
+      } else if (
+        res1.status === 409 ||
+        res1Text.includes('already exists') ||
+        res1Text.includes('duplicate key') ||
+        res1Text.includes('device_pkey') ||
+        res1Text.includes('unique constraint')
+      ) {
+        // Device already exists on ChirpStack -> Update it via PUT /api/devices/{devEui}
+        const putEndpoints = [
+          `${baseUrl}/api/devices/${devEui}`,
+          `${baseUrl}/api/v4/devices/${devEui}`,
+        ];
+        let putSuccess = false;
+        let putResJson: any = {};
+        let lastPutStatus = 0;
+
+        for (const putEp of putEndpoints) {
+          const putRes = await fetch(putEp, {
+            method: 'PUT',
+            headers,
+            body: JSON.stringify(step1Payload),
+          }).catch(() => null);
+
+          if (putRes && (putRes.ok || putRes.status === 200 || putRes.status === 204)) {
+            putSuccess = true;
+            lastPutStatus = putRes.status;
+            step1Success = true;
+            steps.push({
+              step: 1,
+              stepName: 'Update ChirpStack Device',
+              endpoint: putEp,
+              method: 'PUT',
+              status: 'SUCCESS',
+              httpStatus: putRes.status,
+              message: `Device ${devEui} configuration updated on ChirpStack`,
+              payload: step1Payload,
+            });
+            break;
+          } else if (putRes && putRes.status !== 404) {
+            lastPutStatus = putRes.status;
+            const putText = await putRes.text().catch(() => '');
+            try {
+              putResJson = JSON.parse(putText);
+            } catch (e) {
+              putResJson = { raw: putText };
+            }
+          }
+        }
+
+        if (!putSuccess) {
+          step1ErrorMessage = `ChirpStack: Device already exists but update failed (HTTP ${lastPutStatus}): ${putResJson.message || 'Update rejected'}`;
+        }
       } else if (res1.status === 404) {
-        step1ErrorMessage = `ChirpStack: Endpoint ${endpoint} không tồn tại trên máy chủ (HTTP 404).`;
+        step1ErrorMessage = `ChirpStack: Endpoint ${endpoint} not found on server (HTTP 404).`;
       } else if (res1.status === 401 || res1.status === 403) {
-        step1ErrorMessage = `ChirpStack: API Key không hợp lệ hoặc không có quyền truy cập (HTTP ${res1.status}).`;
+        step1ErrorMessage = `ChirpStack: Invalid API Key or Unauthorized (HTTP ${res1.status}).`;
       } else if (res1.status === 500 && (res1Text.includes('Record not found') || res1Text.includes('record not found'))) {
-        step1ErrorMessage = `ChirpStack: Application ID (${applicationId}) hoặc Device Profile ID (${deviceProfileId}) không tồn tại trên máy chủ.`;
+        step1ErrorMessage = `ChirpStack: Application ID (${applicationId}) or Device Profile ID (${deviceProfileId}) does not exist on ChirpStack server.`;
       } else {
-        step1ErrorMessage = `ChirpStack: Lỗi tạo thiết bị (HTTP ${res1.status}): ${res1Json.message || res1Text || 'Yêu cầu bị từ chối'}`;
+        step1ErrorMessage = `ChirpStack: Device provisioning error (HTTP ${res1.status}): ${res1Json.message || res1Text || 'Request rejected'}`;
       }
     } catch (err: any) {
-      step1ErrorMessage = `ChirpStack: Không thể kết nối tới máy chủ (${err.message}).`;
+      step1ErrorMessage = `ChirpStack: Cannot connect to server (${err.message}).`;
     }
 
     if (!step1Success) {
@@ -303,9 +342,9 @@ export class DeviceProvisioningService {
         steps: [
           {
             step: 1,
-            stepName: 'Create ChirpStack Device',
+            stepName: 'Create/Update ChirpStack Device',
             endpoint: `${baseUrl}/api/devices`,
-            method: 'POST',
+            method: 'POST/PUT',
             status: 'FAILED',
             message: step1ErrorMessage,
             payload: step1Payload,
@@ -365,7 +404,13 @@ export class DeviceProvisioningService {
           payload: step2Payload,
           response: res2Json,
         });
-      } else if (res2.status === 409 || res2Text.includes('already exists')) {
+      } else if (
+        res2.status === 409 ||
+        res2Text.includes('already exists') ||
+        res2Text.includes('duplicate key') ||
+        res2Text.includes('unique constraint') ||
+        res2Text.includes('device_keys_pkey')
+      ) {
         // If keys already exist, update them via PUT
         const res2Put = await fetch(`${baseUrl}/api/devices/${devEui}/keys`, {
           method: 'PUT',
@@ -373,7 +418,7 @@ export class DeviceProvisioningService {
           body: JSON.stringify(step2Payload),
         }).catch(() => null);
 
-        if (res2Put && (res2Put.ok || res2Put.status === 200)) {
+        if (res2Put && (res2Put.ok || res2Put.status === 200 || res2Put.status === 204)) {
           step2Success = true;
           steps.push({
             step: 2,
@@ -382,17 +427,17 @@ export class DeviceProvisioningService {
             method: 'PUT',
             status: 'SUCCESS',
             httpStatus: res2Put.status,
-            message: `AppKey updated for existing device`,
+            message: `AppKey updated successfully for existing device`,
             payload: step2Payload,
           });
         } else {
-          step2ErrorMessage = `ChirpStack: Không thể cập nhật AppKey (${res2Json.message || res2Text})`;
+          step2ErrorMessage = `ChirpStack: Failed to update AppKey (${res2Json.message || res2Text})`;
         }
       } else {
-        step2ErrorMessage = `ChirpStack: Không thể cấu hình AppKey (HTTP ${res2.status}): ${res2Json.message || res2Text || 'Yêu cầu bị từ chối'}`;
+        step2ErrorMessage = `ChirpStack: Failed to set AppKey (HTTP ${res2.status}): ${res2Json.message || res2Text || 'Request rejected'}`;
       }
     } catch (err: any) {
-      step2ErrorMessage = `ChirpStack: Không thể kết nối khi cấu hình AppKey (${err.message}).`;
+      step2ErrorMessage = `ChirpStack: Connection error while configuring AppKey (${err.message}).`;
     }
 
     if (!step2Success) {
@@ -407,7 +452,7 @@ export class DeviceProvisioningService {
             step: 2,
             stepName: 'Set ChirpStack Device AppKey',
             endpoint: `${baseUrl}/api/devices/${devEui}/keys`,
-            method: 'POST',
+            method: 'POST/PUT',
             status: 'FAILED',
             message: step2ErrorMessage,
             payload: step2Payload,
@@ -419,7 +464,7 @@ export class DeviceProvisioningService {
       };
     }
 
-    const summaryMessage = `Thiết bị ${dto.name} đã được tạo và kích hoạt thành công trên máy chủ ChirpStack.`;
+    const summaryMessage = `Device ${dto.name} (${devEui}) provisioned and synchronized successfully on ChirpStack.`;
     return {
       success: true,
       serverType: NetworkServerType.CHIRPSTACK,
@@ -501,7 +546,7 @@ export class DeviceProvisioningService {
         resJson = { raw: resText };
       }
 
-      if (res.ok || res.status === 200 || res.status === 201 || res.status === 409) {
+      if (res.ok || res.status === 200 || res.status === 201) {
         stepSuccess = true;
         steps.push({
           step: 1,
@@ -514,11 +559,46 @@ export class DeviceProvisioningService {
           payload: tpPayload,
           response: resJson,
         });
+      } else if (res.status === 409 || resText.includes('already exists') || resText.includes('duplicate')) {
+        // Attempt update via PUT
+        const putEp = `${targetEndpoint}/${devEui}`;
+        const putRes = await fetch(putEp, {
+          method: 'PUT',
+          headers,
+          body: JSON.stringify(tpPayload),
+        }).catch(() => null);
+
+        if (putRes && (putRes.ok || putRes.status === 200 || putRes.status === 204)) {
+          stepSuccess = true;
+          steps.push({
+            step: 1,
+            stepName: 'Update ThingPark Device',
+            endpoint: putEp,
+            method: 'PUT',
+            status: 'SUCCESS',
+            httpStatus: putRes.status,
+            message: `Device ${devEui} updated on ThingPark Wireless`,
+            payload: tpPayload,
+          });
+        } else {
+          stepSuccess = true;
+          steps.push({
+            step: 1,
+            stepName: 'ThingPark Device Provisioning',
+            endpoint: targetEndpoint,
+            method: 'POST',
+            status: 'SUCCESS',
+            httpStatus: res.status,
+            message: `Device ${devEui} already exists in ThingPark network`,
+            payload: tpPayload,
+            response: resJson,
+          });
+        }
       } else {
-        errorMessage = `ThingPark: Lỗi tạo thiết bị (HTTP ${res.status}): ${resJson.message || resText || 'Yêu cầu bị từ chối'}`;
+        errorMessage = `ThingPark: Device creation error (HTTP ${res.status}): ${resJson.message || resText || 'Request rejected'}`;
       }
     } catch (err: any) {
-      errorMessage = `ThingPark: Không thể kết nối tới máy chủ (${err.message}).`;
+      errorMessage = `ThingPark: Cannot connect to server (${err.message}).`;
     }
 
     if (!stepSuccess) {
@@ -544,7 +624,7 @@ export class DeviceProvisioningService {
       };
     }
 
-    const summaryMessage = `Thiết bị ${dto.name} đã được tạo và kích hoạt thành công trên ThingPark Wireless.`;
+    const summaryMessage = `Device ${dto.name} (${devEui}) provisioned and synchronized successfully on ThingPark Wireless.`;
     return {
       success: true,
       serverType: NetworkServerType.THINGPARK,
