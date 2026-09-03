@@ -3119,7 +3119,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
             "  var bytes = input.bytes || input;",
             "  var fPort = input.fPort || 1;",
             "  if (bytes.length < 3) {",
-            "    return { errors: [\"Payload too short\"] };",
+            "    return { errors: ['Payload too short'] };",
             "  }",
             "  var tempRaw = (bytes[0] << 8) | bytes[1];",
             "  var humRaw = bytes[2];",
