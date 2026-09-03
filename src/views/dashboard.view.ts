@@ -1042,7 +1042,6 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
           submitDeviceForm,
           deleteDevice,
           confirmDeleteDevice,
-          syncDevice,
           checkingHealthDevEUI,
           checkDeviceHealth,
           formatLastSeen,
