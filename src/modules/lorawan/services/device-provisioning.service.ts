@@ -20,8 +20,9 @@ export interface ProvisioningResult {
   serverName: string;
   totalSteps: number;
   steps: ProvisioningStepResult[];
-  syncStatus: 'SYNCED' | 'LOCAL_SAVED' | 'SYNC_FAILED';
+  syncStatus: 'SYNCED' | 'LOCAL' | 'FAILED';
   summaryMessage: string;
+  errorMessage?: string;
 }
 
 @Injectable()
@@ -167,7 +168,7 @@ export class DeviceProvisioningService {
         description: `Daviteq IoT Sensor - ${dto.name.trim()}`,
         devEui: devEui,
         deviceProfileId: dpId,
-        isDisabled: false,
+        isDisabled: dto.isActive !== undefined ? !dto.isActive : false,
         joinEui: appEui,
         name: dto.name.trim(),
         skipFcntCheck: true,
@@ -181,12 +182,12 @@ export class DeviceProvisioningService {
 
     let step1Payload = buildStep1Payload(applicationId, deviceProfileId);
     let step1Success = false;
-    let step1Message = '';
+    let step1ErrorMessage = '';
 
     try {
-      this.logger.log(`[ChirpStack 2-Step] Step 1/2: Registering device ${devEui} to ${baseUrl}/api/devices`);
+      this.logger.log(`[ChirpStack] Registering device ${devEui} to ${baseUrl}/api/devices`);
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 4000);
+      const timeoutId = setTimeout(() => controller.abort(), 5000);
 
       // Attempt primary endpoint
       let endpoint = `${baseUrl}/api/devices`;
@@ -256,7 +257,6 @@ export class DeviceProvisioningService {
 
       if (res1.ok || res1.status === 200 || res1.status === 201) {
         step1Success = true;
-        step1Message = `Step 1 OK: Device ${devEui} registered on ChirpStack with AppEUI (JoinEUI) ${appEui}`;
         steps.push({
           step: 1,
           stepName: 'Create ChirpStack Device',
@@ -264,13 +264,12 @@ export class DeviceProvisioningService {
           method: 'POST',
           status: 'SUCCESS',
           httpStatus: res1.status,
-          message: step1Message,
+          message: `Device ${devEui} registered on ChirpStack`,
           payload: step1Payload,
           response: res1Json,
         });
       } else if (res1.status === 409 || res1Text.includes('already exists')) {
         step1Success = true;
-        step1Message = `Step 1 Notice: Device ${devEui} already exists in ChirpStack. Proceeding to update keys.`;
         steps.push({
           step: 1,
           stepName: 'Create ChirpStack Device',
@@ -278,74 +277,44 @@ export class DeviceProvisioningService {
           method: 'POST',
           status: 'SUCCESS',
           httpStatus: res1.status,
-          message: step1Message,
+          message: `Device ${devEui} already exists in ChirpStack. Updating keys.`,
           payload: step1Payload,
           response: res1Json,
         });
       } else if (res1.status === 404) {
-        step1Message = `ChirpStack REST endpoint (${endpoint}) returned HTTP 404. Ensure REST API is enabled on ChirpStack server.`;
-        steps.push({
-          step: 1,
-          stepName: 'Create ChirpStack Device',
-          endpoint,
-          method: 'POST',
-          status: 'WARNING',
-          httpStatus: res1.status,
-          message: step1Message,
-          payload: step1Payload,
-          response: res1Json,
-        });
+        step1ErrorMessage = `ChirpStack: Endpoint ${endpoint} không tồn tại trên máy chủ (HTTP 404).`;
       } else if (res1.status === 401 || res1.status === 403) {
-        step1Message = `ChirpStack authentication rejected (HTTP ${res1.status}). Please check API Key in Network Server settings.`;
-        steps.push({
-          step: 1,
-          stepName: 'Create ChirpStack Device',
-          endpoint,
-          method: 'POST',
-          status: 'WARNING',
-          httpStatus: res1.status,
-          message: step1Message,
-          payload: step1Payload,
-          response: res1Json,
-        });
+        step1ErrorMessage = `ChirpStack: API Key không hợp lệ hoặc không có quyền truy cập (HTTP ${res1.status}).`;
       } else if (res1.status === 500 && (res1Text.includes('Record not found') || res1Text.includes('record not found'))) {
-        step1Message = `ChirpStack Notice: Application ID (${applicationId}) or Device Profile ID (${deviceProfileId}) does not exist on ChirpStack. Please configure valid UUIDs in Network Server settings (Control Panel -> Network Servers).`;
-        steps.push({
-          step: 1,
-          stepName: 'Create ChirpStack Device',
-          endpoint,
-          method: 'POST',
-          status: 'WARNING',
-          httpStatus: res1.status,
-          message: step1Message,
-          payload: step1Payload,
-          response: res1Json,
-        });
+        step1ErrorMessage = `ChirpStack: Application ID (${applicationId}) hoặc Device Profile ID (${deviceProfileId}) không tồn tại trên máy chủ.`;
       } else {
-        step1Message = `ChirpStack response (HTTP ${res1.status}): ${res1Json.message || res1Text || 'Device creation rejected'}`;
-        steps.push({
-          step: 1,
-          stepName: 'Create ChirpStack Device',
-          endpoint,
-          method: 'POST',
-          status: 'WARNING',
-          httpStatus: res1.status,
-          message: step1Message,
-          payload: step1Payload,
-          response: res1Json,
-        });
+        step1ErrorMessage = `ChirpStack: Lỗi tạo thiết bị (HTTP ${res1.status}): ${res1Json.message || res1Text || 'Yêu cầu bị từ chối'}`;
       }
     } catch (err: any) {
-      step1Message = `ChirpStack remote host notice: ${err.message || 'Offline/Simulated mode'}. Device saved locally.`;
-      steps.push({
-        step: 1,
-        stepName: 'Create ChirpStack Device',
-        endpoint: `${baseUrl}/api/devices`,
-        method: 'POST',
-        status: 'WARNING',
-        message: step1Message,
-        payload: step1Payload,
-      });
+      step1ErrorMessage = `ChirpStack: Không thể kết nối tới máy chủ (${err.message}).`;
+    }
+
+    if (!step1Success) {
+      return {
+        success: false,
+        serverType: NetworkServerType.CHIRPSTACK,
+        serverName: server.name,
+        totalSteps: 2,
+        steps: [
+          {
+            step: 1,
+            stepName: 'Create ChirpStack Device',
+            endpoint: `${baseUrl}/api/devices`,
+            method: 'POST',
+            status: 'FAILED',
+            message: step1ErrorMessage,
+            payload: step1Payload,
+          },
+        ],
+        syncStatus: 'FAILED',
+        summaryMessage: step1ErrorMessage,
+        errorMessage: step1ErrorMessage,
+      };
     }
 
     // Step 2: Set AppKey / Device Keys (POST /api/devices/{devEui}/keys)
@@ -358,137 +327,106 @@ export class DeviceProvisioningService {
     };
 
     let step2Success = false;
-    let step2Message = '';
+    let step2ErrorMessage = '';
 
-    if (step1Success) {
+    try {
+      this.logger.log(`[ChirpStack] Setting AppKey for device ${devEui}`);
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000);
+
+      let res2 = await fetch(`${baseUrl}/api/devices/${devEui}/keys`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(step2Payload),
+        signal: controller.signal,
+      }).catch((err) => {
+        throw err;
+      });
+      clearTimeout(timeoutId);
+
+      const res2Text = await res2.text().catch(() => '');
+      let res2Json: any = {};
       try {
-        this.logger.log(`[ChirpStack 2-Step] Step 2/2: Setting AppKey for device ${devEui} to ${baseUrl}/api/devices/${devEui}/keys`);
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 4000);
+        res2Json = JSON.parse(res2Text);
+      } catch (e) {
+        res2Json = { raw: res2Text };
+      }
 
-        let res2 = await fetch(`${baseUrl}/api/devices/${devEui}/keys`, {
-          method: 'POST',
-          headers,
-          body: JSON.stringify(step2Payload),
-          signal: controller.signal,
-        }).catch((err) => {
-          throw err;
-        });
-        clearTimeout(timeoutId);
-
-        const res2Text = await res2.text().catch(() => '');
-        let res2Json: any = {};
-        try {
-          res2Json = JSON.parse(res2Text);
-        } catch (e) {
-          res2Json = { raw: res2Text };
-        }
-
-        if (res2.ok || res2.status === 200 || res2.status === 201) {
-          step2Success = true;
-          step2Message = `Step 2 OK: AppKey successfully configured for OTAA authentication`;
-          steps.push({
-            step: 2,
-            stepName: 'Set ChirpStack Device AppKey',
-            endpoint: `${baseUrl}/api/devices/${devEui}/keys`,
-            method: 'POST',
-            status: 'SUCCESS',
-            httpStatus: res2.status,
-            message: step2Message,
-            payload: step2Payload,
-            response: res2Json,
-          });
-        } else if (res2.status === 409 || res2Text.includes('already exists')) {
-          // If keys already exist, update them via PUT
-          const res2Put = await fetch(`${baseUrl}/api/devices/${devEui}/keys`, {
-            method: 'PUT',
-            headers,
-            body: JSON.stringify(step2Payload),
-          }).catch(() => null);
-
-          if (res2Put && (res2Put.ok || res2Put.status === 200)) {
-            step2Success = true;
-            step2Message = `Step 2 OK: AppKey updated via PUT for existing device`;
-            steps.push({
-              step: 2,
-              stepName: 'Update ChirpStack Device AppKey',
-              endpoint: `${baseUrl}/api/devices/${devEui}/keys`,
-              method: 'PUT',
-              status: 'SUCCESS',
-              httpStatus: res2Put.status,
-              message: step2Message,
-              payload: step2Payload,
-            });
-          } else {
-            step2Message = `Step 2 Notice: AppKey exists or update notice (${res2Json.message || res2Text})`;
-            steps.push({
-              step: 2,
-              stepName: 'Set ChirpStack Device AppKey',
-              endpoint: `${baseUrl}/api/devices/${devEui}/keys`,
-              method: 'POST',
-              status: 'WARNING',
-              httpStatus: res2.status,
-              message: step2Message,
-              payload: step2Payload,
-            });
-          }
-        } else {
-          step2Message = `Step 2 Notice (HTTP ${res2.status}): ${res2Json.message || res2Text || 'Keys configuration response'}`;
-          steps.push({
-            step: 2,
-            stepName: 'Set ChirpStack Device AppKey',
-            endpoint: `${baseUrl}/api/devices/${devEui}/keys`,
-            method: 'POST',
-            status: 'WARNING',
-            httpStatus: res2.status,
-            message: step2Message,
-            payload: step2Payload,
-            response: res2Json,
-          });
-        }
-      } catch (err: any) {
-        step2Message = `Step 2 Notice: AppKey registered in local database. Remote sync notice: ${err.message || 'Offline/Simulated mode'}`;
+      if (res2.ok || res2.status === 200 || res2.status === 201) {
+        step2Success = true;
         steps.push({
           step: 2,
           stepName: 'Set ChirpStack Device AppKey',
           endpoint: `${baseUrl}/api/devices/${devEui}/keys`,
           method: 'POST',
-          status: 'WARNING',
-          message: step2Message,
+          status: 'SUCCESS',
+          httpStatus: res2.status,
+          message: `AppKey configured successfully`,
           payload: step2Payload,
+          response: res2Json,
         });
+      } else if (res2.status === 409 || res2Text.includes('already exists')) {
+        // If keys already exist, update them via PUT
+        const res2Put = await fetch(`${baseUrl}/api/devices/${devEui}/keys`, {
+          method: 'PUT',
+          headers,
+          body: JSON.stringify(step2Payload),
+        }).catch(() => null);
+
+        if (res2Put && (res2Put.ok || res2Put.status === 200)) {
+          step2Success = true;
+          steps.push({
+            step: 2,
+            stepName: 'Update ChirpStack Device AppKey',
+            endpoint: `${baseUrl}/api/devices/${devEui}/keys`,
+            method: 'PUT',
+            status: 'SUCCESS',
+            httpStatus: res2Put.status,
+            message: `AppKey updated for existing device`,
+            payload: step2Payload,
+          });
+        } else {
+          step2ErrorMessage = `ChirpStack: Không thể cập nhật AppKey (${res2Json.message || res2Text})`;
+        }
+      } else {
+        step2ErrorMessage = `ChirpStack: Không thể cấu hình AppKey (HTTP ${res2.status}): ${res2Json.message || res2Text || 'Yêu cầu bị từ chối'}`;
       }
-    } else {
-      // Step 1 was not confirmed on remote host -> Skip step 2 gracefully
-      step2Message = `Step 2 Skipped: Remote device creation was not confirmed on ChirpStack server (${baseUrl}). AppKey saved locally.`;
-      steps.push({
-        step: 2,
-        stepName: 'Set ChirpStack Device AppKey',
-        endpoint: `${baseUrl}/api/devices/${devEui}/keys`,
-        method: 'POST',
-        status: 'SKIPPED',
-        message: step2Message,
-        payload: step2Payload,
-      });
+    } catch (err: any) {
+      step2ErrorMessage = `ChirpStack: Không thể kết nối khi cấu hình AppKey (${err.message}).`;
     }
 
-    const fullySynced = step1Success && step2Success;
-    let summaryMessage = '';
-    if (fullySynced) {
-      summaryMessage = `ChirpStack 2-Step Provisioning Succeeded (Step 1: Device Created + Step 2: AppKey Configured)`;
-    } else if (step1Success) {
-      summaryMessage = `Device registered on ChirpStack. Step 2 (AppKey): ${step2Message}`;
-    } else {
-      summaryMessage = `Device saved in local fleet. Remote ChirpStack notice: ${step1Message}`;
+    if (!step2Success) {
+      return {
+        success: false,
+        serverType: NetworkServerType.CHIRPSTACK,
+        serverName: server.name,
+        totalSteps: 2,
+        steps: [
+          ...steps,
+          {
+            step: 2,
+            stepName: 'Set ChirpStack Device AppKey',
+            endpoint: `${baseUrl}/api/devices/${devEui}/keys`,
+            method: 'POST',
+            status: 'FAILED',
+            message: step2ErrorMessage,
+            payload: step2Payload,
+          },
+        ],
+        syncStatus: 'FAILED',
+        summaryMessage: step2ErrorMessage,
+        errorMessage: step2ErrorMessage,
+      };
     }
 
+    const summaryMessage = `Thiết bị ${dto.name} đã được tạo và kích hoạt thành công trên máy chủ ChirpStack.`;
     return {
       success: true,
       serverType: NetworkServerType.CHIRPSTACK,
       serverName: server.name,
       totalSteps: 2,
       steps,
-      syncStatus: fullySynced ? 'SYNCED' : 'LOCAL_SAVED',
+      syncStatus: 'SYNCED',
       summaryMessage,
     };
   }
@@ -537,10 +475,12 @@ export class DeviceProvisioningService {
     };
 
     let stepSuccess = false;
+    let errorMessage = '';
+
     try {
-      this.logger.log(`[ThingPark 1-Step] Provisioning device ${devEui} to ${baseUrl}/devices`);
+      this.logger.log(`[ThingPark] Provisioning device ${devEui} to ${baseUrl}/devices`);
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 4000);
+      const timeoutId = setTimeout(() => controller.abort(), 5000);
 
       const targetEndpoint = baseUrl.endsWith('/devices') ? baseUrl : `${baseUrl}/devices`;
       const res = await fetch(targetEndpoint, {
@@ -561,67 +501,58 @@ export class DeviceProvisioningService {
         resJson = { raw: resText };
       }
 
-      if (res.ok || res.status === 200 || res.status === 201) {
+      if (res.ok || res.status === 200 || res.status === 201 || res.status === 409) {
         stepSuccess = true;
         steps.push({
           step: 1,
-          stepName: '1-Step ThingPark Device Provisioning',
+          stepName: 'ThingPark Device Provisioning',
           endpoint: targetEndpoint,
           method: 'POST',
           status: 'SUCCESS',
           httpStatus: res.status,
-          message: `1-Step OK: Device ${devEui}, AppEUI ${appEui} and AppKey successfully provisioned on ThingPark Wireless`,
-          payload: tpPayload,
-          response: resJson,
-        });
-      } else if (res.status === 409 || resText.includes('already exists')) {
-        stepSuccess = true;
-        steps.push({
-          step: 1,
-          stepName: '1-Step ThingPark Device Provisioning',
-          endpoint: targetEndpoint,
-          method: 'POST',
-          status: 'WARNING',
-          httpStatus: res.status,
-          message: `ThingPark Notice: Device ${devEui} already exists in ThingPark network. Record updated locally.`,
+          message: `Device ${devEui} provisioned on ThingPark Wireless`,
           payload: tpPayload,
           response: resJson,
         });
       } else {
-        steps.push({
-          step: 1,
-          stepName: '1-Step ThingPark Device Provisioning',
-          endpoint: targetEndpoint,
-          method: 'POST',
-          status: 'WARNING',
-          httpStatus: res.status,
-          message: `ThingPark Notice (HTTP ${res.status}): ${resJson.message || resText || 'Saved locally with webhook routing'}`,
-          payload: tpPayload,
-          response: resJson,
-        });
+        errorMessage = `ThingPark: Lỗi tạo thiết bị (HTTP ${res.status}): ${resJson.message || resText || 'Yêu cầu bị từ chối'}`;
       }
     } catch (err: any) {
-      steps.push({
-        step: 1,
-        stepName: '1-Step ThingPark Device Provisioning',
-        endpoint: `${baseUrl}/devices`,
-        method: 'POST',
-        status: 'WARNING',
-        message: `ThingPark Notice: Device registered in local fleet with webhook ingestion. Remote notice: ${err.message || 'Offline/Simulated mode'}`,
-        payload: tpPayload,
-      });
+      errorMessage = `ThingPark: Không thể kết nối tới máy chủ (${err.message}).`;
     }
 
+    if (!stepSuccess) {
+      return {
+        success: false,
+        serverType: NetworkServerType.THINGPARK,
+        serverName: server.name,
+        totalSteps: 1,
+        steps: [
+          {
+            step: 1,
+            stepName: 'ThingPark Device Provisioning',
+            endpoint: `${baseUrl}/devices`,
+            method: 'POST',
+            status: 'FAILED',
+            message: errorMessage,
+            payload: tpPayload,
+          },
+        ],
+        syncStatus: 'FAILED',
+        summaryMessage: errorMessage,
+        errorMessage,
+      };
+    }
+
+    const summaryMessage = `Thiết bị ${dto.name} đã được tạo và kích hoạt thành công trên ThingPark Wireless.`;
     return {
       success: true,
       serverType: NetworkServerType.THINGPARK,
       serverName: server.name,
       totalSteps: 1,
       steps,
-      syncStatus: stepSuccess ? 'SYNCED' : 'LOCAL_SAVED',
-      summaryMessage: stepSuccess
-        ? `ThingPark 1-Step Provisioning Succeeded (Device, AppEUI & AppKey registered in 1 step)`
-        : `Device saved in local fleet. ThingPark 1-Step pipeline processed (${steps[0]?.status || 'PROCESSED'})`,
+      syncStatus: 'SYNCED',
+      summaryMessage,
     };
   }
 

@@ -32,6 +32,13 @@ export class RegisterDeviceDto {
   @IsString()
   @IsOptional()
   payloadFormatterScript?: string;
+
+  @IsString()
+  @IsOptional()
+  provisionTarget?: 'SERVER' | 'LOCAL';
+
+  @IsOptional()
+  isActive?: boolean;
 }
 
 export class RegisterGatewayDto {

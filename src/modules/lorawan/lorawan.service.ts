@@ -65,6 +65,8 @@ export class LorawanService {
     const appKey = (dto.appKey || '0102030405060708090A0B0C0D0E0F10').trim().toUpperCase();
     const activationMode = dto.activationType || 'OTAA';
     const ownerId = user?.id || undefined;
+    const isActive = dto.isActive !== undefined ? Boolean(dto.isActive) : true;
+    const isLocal = dto.provisionTarget === 'LOCAL';
 
     if (!devEUI || devEUI.length < 16) {
       throw new BadRequestException('DevEUI must be at least 16 Hexadecimal characters.');
@@ -81,20 +83,33 @@ export class LorawanService {
     }
 
     let provisioningResult: ProvisioningResult | undefined;
-    let syncStatus = 'SYNCED';
+    let syncStatus = isLocal ? 'LOCAL' : 'SYNCED';
     let syncDetails: Record<string, any> = {
       registeredAt: new Date().toISOString(),
-      networkServerName: networkServer?.name || 'Unassigned',
+      networkServerName: networkServer?.name || 'Local Fleet',
       networkServerType: networkServer?.type || 'LOCAL',
     };
 
-    // If a Network Server is assigned, execute the provisioning pipeline
-    if (networkServer) {
+    // If online provisioning requested
+    if (!isLocal) {
+      if (!networkServer) {
+        throw new BadRequestException('Vui lòng chọn Network Server để tạo thiết bị hoặc chọn chế độ Local Fleet.');
+      }
+
       this.logger.log(
         `Provisioning device [${devEUI}] '${name}' to Network Server [${networkServer.name}] (${networkServer.type})`,
       );
-      provisioningResult = await this.provisioningService.provisionDevice(networkServer, regionProfile, dto);
-      syncStatus = provisioningResult.syncStatus;
+      provisioningResult = await this.provisioningService.provisionDevice(networkServer, regionProfile, {
+        ...dto,
+        isActive,
+      });
+
+      // STRICT RULE: If network server failed to provision, DO NOT create device in database!
+      if (!provisioningResult.success) {
+        throw new BadRequestException(provisioningResult.errorMessage || provisioningResult.summaryMessage);
+      }
+
+      syncStatus = 'SYNCED';
       syncDetails = {
         ...syncDetails,
         serverType: networkServer.type,
@@ -120,7 +135,7 @@ export class LorawanService {
         payloadFormatterScript: dto.payloadFormatterScript || undefined,
         syncStatus,
         syncDetails,
-        isActive: true,
+        isActive,
       });
     } else {
       if (!isUserSuperAdmin(user) && device.ownerId && user?.id && device.ownerId !== user.id) {
@@ -140,7 +155,7 @@ export class LorawanService {
       }
       device.syncStatus = syncStatus;
       device.syncDetails = syncDetails;
-      device.isActive = true;
+      device.isActive = isActive;
     }
 
     const saved = await this.deviceRepo.save(device);
@@ -152,7 +167,7 @@ export class LorawanService {
       provisioning: provisioningResult,
       message: provisioningResult
         ? provisioningResult.summaryMessage
-        : `Device ${saved.name} (${saved.devEUI}) registered successfully.`,
+        : `Thiết bị ${saved.name} (${saved.devEUI}) đã được tạo thành công trong hệ thống (Local Fleet).`,
     };
   }
 
@@ -179,6 +194,7 @@ export class LorawanService {
     if (dto.appKey !== undefined) device.appKey = dto.appKey.trim().toUpperCase();
     if (dto.activationType !== undefined) device.activationMode = dto.activationType;
     if (dto.payloadFormatterScript !== undefined) device.payloadFormatterScript = dto.payloadFormatterScript;
+    if (dto.isActive !== undefined) device.isActive = Boolean(dto.isActive);
 
     if (dto.networkServerId !== undefined) {
       device.networkServerId = (dto.networkServerId ? dto.networkServerId : undefined) as any;
@@ -198,7 +214,7 @@ export class LorawanService {
     }
 
     let provisioningResult: ProvisioningResult | undefined;
-    if (networkServer) {
+    if (dto.provisionTarget !== 'LOCAL' && networkServer) {
       this.logger.log(
         `Auto-syncing updated device [${cleanDevEUI}] '${device.name}' to Network Server [${networkServer.name}] (${networkServer.type})`,
       );
@@ -210,9 +226,13 @@ export class LorawanService {
         activationType: device.activationMode,
         networkServerId: device.networkServerId,
         regionProfileId: device.regionProfileId,
+        isActive: device.isActive,
       };
       provisioningResult = await this.provisioningService.provisionDevice(networkServer, regionProfile, provDto);
-      device.syncStatus = provisioningResult.syncStatus;
+      if (!provisioningResult.success) {
+        throw new BadRequestException(provisioningResult.errorMessage || provisioningResult.summaryMessage);
+      }
+      device.syncStatus = 'SYNCED';
       device.syncDetails = {
         ...device.syncDetails,
         lastUpdatedAndSyncedAt: new Date().toISOString(),
@@ -224,16 +244,15 @@ export class LorawanService {
       };
     }
 
-    const updated = await this.deviceRepo.save(device);
-    this.logger.log(`✅ Updated device [${updated.devEUI}] '${updated.name}'. SyncStatus=${updated.syncStatus}`);
-
+    const saved = await this.deviceRepo.save(device);
+    this.logger.log(`✅ Updated device [${saved.devEUI}] '${saved.name}'. SyncStatus=${saved.syncStatus}`);
     return {
       success: true,
-      device: updated,
+      device: saved,
       provisioning: provisioningResult,
       message: provisioningResult
         ? provisioningResult.summaryMessage
-        : `Device ${updated.name} (${updated.devEUI}) updated successfully.`,
+        : `Đã cập nhật thiết bị ${saved.name} thành công.`,
     };
   }
 

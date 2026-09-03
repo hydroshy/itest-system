@@ -959,24 +959,32 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
                     </td>
                     <td class="py-2.5 px-3.5">
                       <span v-if="d.networkServer" class="px-2 py-0.5 rounded bg-sky-500/10 text-sky-300 border border-sky-500/20 text-[10px] font-mono">
-                        {{ d.networkServer.name }} ({{ d.networkServer.type }})
+                        {{ d.networkServer.name }}
                       </span>
-                      <span v-else class="text-slate-500 text-[11px]">Unassigned</span>
+                      <span v-else class="text-slate-500 text-[11px] italic">Local Fleet</span>
                     </td>
                     <td class="py-2.5 px-3.5">
                       <span v-if="d.regionProfileName" class="px-2 py-0.5 rounded bg-indigo-500/10 text-indigo-300 border border-indigo-500/20 text-[10px] font-mono">
                         {{ d.regionProfileName }}
                       </span>
-                      <span v-else class="text-slate-500 text-[11px]">--</span>
+                      <span v-else class="text-slate-500 text-[11px]">Default</span>
                     </td>
                     <td class="py-2.5 px-3.5 font-mono text-slate-300 text-[11px]">{{ d.appEUI || '0102030405060708' }}</td>
                     <td class="py-2.5 px-3.5 font-mono text-slate-400 text-[11px]">
                       <span :title="d.appKey">{{ d.appKey ? d.appKey.slice(0, 6) + '...' + d.appKey.slice(-6) : '010203...0F10' }}</span>
                     </td>
                     <td class="py-2.5 px-3.5">
-                      <span :class="d.syncStatus === 'SYNCED' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/25' : 'bg-amber-500/10 text-amber-400 border-amber-500/25'" class="px-2 py-0.5 rounded-full text-[10px] font-bold border flex items-center gap-1 w-max">
-                        <span class="w-1.5 h-1.5 rounded-full" :class="d.syncStatus === 'SYNCED' ? 'bg-emerald-400' : 'bg-amber-400'"></span>
-                        <span>{{ d.syncStatus || 'SYNCED' }}</span>
+                      <span v-if="!d.isActive" class="px-2 py-0.5 rounded-full text-[10px] font-bold border bg-red-500/10 text-red-400 border-red-500/25 flex items-center gap-1 w-max">
+                        <span class="w-1.5 h-1.5 rounded-full bg-red-400"></span>
+                        <span>DISABLED</span>
+                      </span>
+                      <span v-else-if="d.syncStatus === 'SYNCED'" class="px-2 py-0.5 rounded-full text-[10px] font-bold border bg-emerald-500/10 text-emerald-400 border-emerald-500/25 flex items-center gap-1 w-max">
+                        <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                        <span>ONLINE</span>
+                      </span>
+                      <span v-else class="px-2 py-0.5 rounded-full text-[10px] font-bold border bg-amber-500/10 text-amber-400 border-amber-500/25 flex items-center gap-1 w-max">
+                        <span class="w-1.5 h-1.5 rounded-full bg-amber-400"></span>
+                        <span>LOCAL</span>
                       </span>
                     </td>
                     <td class="py-2.5 px-3.5">
@@ -1445,6 +1453,32 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
         </div>
 
         <form @submit.prevent="submitDeviceForm" class="space-y-3.5 text-xs">
+          <!-- Provisioning Mode Selector (Only on Register) -->
+          <div v-if="!isEditingDevice">
+            <label class="block font-semibold text-slate-300 mb-1.5 text-xs">Chế độ tạo thiết bị <span class="text-red-400">*</span></label>
+            <div class="grid grid-cols-2 gap-2.5">
+              <button type="button" @click="newDevice.provisionTarget = 'SERVER'" :class="newDevice.provisionTarget !== 'LOCAL' ? 'bg-teal-500/10 border-teal-500/40 text-teal-300 ring-1 ring-teal-500/30' : 'bg-slate-950 border-slate-800 text-slate-400'" class="p-2.5 rounded-xl border text-left cursor-pointer transition">
+                <div class="font-bold text-xs flex items-center gap-1.5"><i class="fa-solid fa-cloud-arrow-up text-teal-400"></i> Network Server</div>
+                <div class="text-[10px] text-slate-400 mt-0.5">Tạo trực tiếp trên Server</div>
+              </button>
+              <button type="button" @click="newDevice.provisionTarget = 'LOCAL'" :class="newDevice.provisionTarget === 'LOCAL' ? 'bg-sky-500/10 border-sky-500/40 text-sky-300 ring-1 ring-sky-500/30' : 'bg-slate-950 border-slate-800 text-slate-400'" class="p-2.5 rounded-xl border text-left cursor-pointer transition">
+                <div class="font-bold text-xs flex items-center gap-1.5"><i class="fa-solid fa-laptop-code text-sky-400"></i> Local Fleet Only</div>
+                <div class="text-[10px] text-slate-400 mt-0.5">Tạo nội bộ / decoder test</div>
+              </button>
+            </div>
+          </div>
+
+          <!-- Device Status Switch (Only on Edit) -->
+          <div v-if="isEditingDevice" class="flex items-center justify-between p-3 bg-slate-950 border border-slate-800 rounded-xl">
+            <div>
+              <label class="font-semibold text-slate-300 block text-xs">Trạng thái thiết bị</label>
+              <p class="text-[10px] text-slate-400">Tắt (Disable) thiết bị để ngưng nhận dữ liệu từ cảm biến</p>
+            </div>
+            <button type="button" @click="newDevice.isActive = !newDevice.isActive" :class="newDevice.isActive ? 'bg-teal-500' : 'bg-slate-700'" class="relative inline-flex h-6 w-11 items-center rounded-full transition-colors cursor-pointer flex-shrink-0">
+              <span :class="newDevice.isActive ? 'translate-x-6' : 'translate-x-1'" class="inline-block h-4 w-4 transform rounded-full bg-white transition-transform"></span>
+            </button>
+          </div>
+
           <!-- Device Name -->
           <div>
             <label class="block font-semibold text-slate-300 mb-1">Device Name <span class="text-red-400">*</span></label>
@@ -1461,17 +1495,17 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
           <!-- 2 Columns: Network Server & Region Profile -->
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label class="block font-semibold text-slate-300 mb-1">Network Server <span class="text-red-400">*</span></label>
-              <select v-model="newDevice.networkServerId" @change="onDeviceNetworkServerChange" required class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-teal-500">
-                <option value="" disabled>-- Select Network Server --</option>
-                <option v-for="ns in networkServersList" :key="ns.id" :value="ns.id">{{ ns.name }} ({{ ns.type }})</option>
+              <label class="block font-semibold text-slate-300 mb-1">Network Server <span v-if="newDevice.provisionTarget !== 'LOCAL'" class="text-red-400">*</span></label>
+              <select v-model="newDevice.networkServerId" @change="onDeviceNetworkServerChange" :required="newDevice.provisionTarget !== 'LOCAL'" class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-teal-500">
+                <option value="" :disabled="newDevice.provisionTarget !== 'LOCAL'">-- Select Network Server --</option>
+                <option v-for="ns in networkServersList" :key="ns.id" :value="ns.id">{{ ns.name }}</option>
               </select>
             </div>
             <div>
-              <label class="block font-semibold text-slate-300 mb-1">Region Profile <span class="text-red-400">*</span></label>
-              <select v-model="newDevice.regionProfileId" required class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-teal-500">
-                <option value="" disabled>{{ selectedDeviceNetworkServer ? '-- Select Region --' : 'Select a Network Server first' }}</option>
-                <option v-for="rp in availableDeviceRegions" :key="rp.id" :value="rp.id">{{ rp.name }} ({{ rp.region }})</option>
+              <label class="block font-semibold text-slate-300 mb-1">Region Profile</label>
+              <select v-model="newDevice.regionProfileId" class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-teal-500">
+                <option value="">{{ selectedDeviceNetworkServer ? '-- Select Region --' : 'Default Profile' }}</option>
+                <option v-for="rp in availableDeviceRegions" :key="rp.id" :value="rp.id">{{ rp.name }}</option>
               </select>
             </div>
           </div>
@@ -1493,7 +1527,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
             <button type="submit" :disabled="savingDevice" class="px-4 py-2 rounded-lg bg-teal-500 hover:bg-teal-400 text-slate-950 font-bold flex items-center gap-1.5 cursor-pointer">
               <i v-if="savingDevice" class="fa-solid fa-circle-notch fa-spin"></i>
               <i v-else :class="isEditingDevice ? 'fa-solid fa-floppy-disk' : 'fa-solid fa-plus'"></i>
-              <span>{{ savingDevice ? (isEditingDevice ? 'Saving & Syncing...' : 'Registering...') : (isEditingDevice ? 'Save & Sync Device' : 'Register Device') }}</span>
+              <span>{{ savingDevice ? (isEditingDevice ? 'Saving...' : 'Registering...') : (isEditingDevice ? 'Save Changes' : 'Register Device') }}</span>
             </button>
           </div>
         </form>
@@ -2332,6 +2366,8 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
             appEUI: '0102030405060708',
             appKey: '0102030405060708090A0B0C0D0E0F10',
             activationType: 'OTAA',
+            provisionTarget: 'SERVER',
+            isActive: true,
           };
           registerDeviceDialog.value = true;
         };
@@ -2355,19 +2391,26 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
             appEUI: d.appEUI || '0102030405060708',
             appKey: d.appKey || '0102030405060708090A0B0C0D0E0F10',
             activationType: d.activationMode || 'OTAA',
+            provisionTarget: d.syncStatus === 'LOCAL' ? 'LOCAL' : 'SERVER',
+            isActive: d.isActive !== undefined ? d.isActive : true,
           };
           registerDeviceDialog.value = true;
         };
 
         const submitDeviceForm = async () => {
           if (!newDevice.value.name.trim()) {
-            showToast("Please enter device name", "error");
+            showToast("Vui lòng nhập tên thiết bị", "error");
             return;
           }
           if (!newDevice.value.devEUI.trim()) {
-            showToast("Please enter DevEUI (16 Hex characters)", "error");
+            showToast("Vui lòng nhập DevEUI (16 ký tự Hex)", "error");
             return;
           }
+          if (!isEditingDevice.value && newDevice.value.provisionTarget !== 'LOCAL' && !newDevice.value.networkServerId) {
+            showToast("Vui lòng chọn Network Server hoặc chuyển sang chế độ Local Fleet", "error");
+            return;
+          }
+
           savingDevice.value = true;
           try {
             const isEdit = isEditingDevice.value;
@@ -2387,11 +2430,13 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
                 appEUI: newDevice.value.appEUI ? newDevice.value.appEUI.trim().toUpperCase() : '0102030405060708',
                 appKey: newDevice.value.appKey ? newDevice.value.appKey.trim().toUpperCase() : '0102030405060708090A0B0C0D0E0F10',
                 activationType: newDevice.value.activationType || 'OTAA',
+                provisionTarget: newDevice.value.provisionTarget || 'SERVER',
+                isActive: Boolean(newDevice.value.isActive),
               })
             });
             const data = await res.json();
-            if (!res.ok) throw new Error(data.message || (isEdit ? "Failed to update device" : "Failed to register device"));
-            showToast(data.message || (isEdit ? "Device updated & synced successfully!" : "Device registered & provisioned successfully!"), "success");
+            if (!res.ok) throw new Error(data.message || (isEdit ? "Cập nhật thiết bị thất bại" : "Tạo thiết bị thất bại"));
+            showToast(data.message || (isEdit ? "Cập nhật thiết bị thành công!" : "Tạo thiết bị thành công!"), "success");
             registerDeviceDialog.value = false;
             fetchDevices();
           } catch(e) {
