@@ -108,6 +108,15 @@ export class LorawanController {
     return await this.lorawanService.syncDeviceToNetworkServer(devEUI, user);
   }
 
+  @Post('devices/:devEUI/health')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermissions('lorawan:device:read')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Kiểm tra trạng thái trực tuyến / sức khỏe thiết bị từ Network Server API' })
+  async checkDeviceHealth(@Param('devEUI') devEUI: string, @CurrentUser() user: any) {
+    return await this.lorawanService.checkDeviceHealth(devEUI, user);
+  }
+
   @Get('gateways')
   @UseGuards(JwtAuthGuard, PermissionsGuard)
   @RequirePermissions('lorawan:gateway:read')

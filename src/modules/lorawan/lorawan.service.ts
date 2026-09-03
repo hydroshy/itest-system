@@ -99,10 +99,15 @@ export class LorawanService {
       this.logger.log(
         `Provisioning device [${devEUI}] '${name}' to Network Server [${networkServer.name}] (${networkServer.type})`,
       );
-      provisioningResult = await this.provisioningService.provisionDevice(networkServer, regionProfile, {
-        ...dto,
-        isActive,
-      });
+      provisioningResult = await this.provisioningService.provisionDevice(
+        networkServer,
+        regionProfile,
+        {
+          ...dto,
+          isActive,
+        },
+        false, // isEdit = false for registration
+      );
 
       // STRICT RULE: If network server failed to provision, DO NOT create device in database!
       if (!provisioningResult.success) {
@@ -216,7 +221,7 @@ export class LorawanService {
     let provisioningResult: ProvisioningResult | undefined;
     if (dto.provisionTarget !== 'LOCAL' && networkServer) {
       this.logger.log(
-        `Auto-syncing updated device [${cleanDevEUI}] '${device.name}' to Network Server [${networkServer.name}] (${networkServer.type})`,
+        `Auto-syncing updated device [${cleanDevEUI}] '${device.name}' to Network Server [${networkServer.name}] (${networkServer.type}) via PUT`,
       );
       const provDto: RegisterDeviceDto = {
         devEUI: cleanDevEUI,
@@ -228,7 +233,8 @@ export class LorawanService {
         regionProfileId: device.regionProfileId,
         isActive: device.isActive,
       };
-      provisioningResult = await this.provisioningService.provisionDevice(networkServer, regionProfile, provDto);
+      // isEdit = true -> always uses PUT
+      provisioningResult = await this.provisioningService.provisionDevice(networkServer, regionProfile, provDto, true);
       if (!provisioningResult.success) {
         throw new BadRequestException(provisioningResult.errorMessage || provisioningResult.summaryMessage);
       }
@@ -309,9 +315,10 @@ export class LorawanService {
       activationType: device.activationMode,
       networkServerId: device.networkServerId,
       regionProfileId: device.regionProfileId,
+      isActive: device.isActive,
     };
 
-    const provisioning = await this.provisioningService.provisionDevice(device.networkServer, regionProfile, dto);
+    const provisioning = await this.provisioningService.provisionDevice(device.networkServer, regionProfile, dto, true);
     device.syncStatus = provisioning.syncStatus;
     device.syncDetails = {
       ...device.syncDetails,
@@ -322,6 +329,66 @@ export class LorawanService {
 
     const updated = await this.deviceRepo.save(device);
     return { success: true, provisioning, device: updated };
+  }
+
+  async checkDeviceHealth(devEUI: string, user?: any): Promise<{
+    success: boolean;
+    device: DeviceEntity;
+    health: {
+      isOnline: boolean;
+      lastSeenAt: string | null;
+      deviceStatus?: any;
+      message: string;
+    };
+  }> {
+    const cleanDevEUI = devEUI.trim().toUpperCase();
+    const device = await this.deviceRepo.findOne({
+      where: { devEUI: cleanDevEUI },
+      relations: ['networkServer'],
+    });
+    if (!device) {
+      throw new NotFoundException(`Device with DevEUI ${cleanDevEUI} not found`);
+    }
+    if (!isUserSuperAdmin(user) && device.ownerId && user?.id && device.ownerId !== user.id) {
+      throw new ForbiddenException('You do not have permission to inspect this device.');
+    }
+
+    let healthResult = {
+      isOnline: false,
+      lastSeenAt: device.lastSeenAt ? new Date(device.lastSeenAt).toISOString() : (device.syncDetails?.lastSeenAt || null),
+      deviceStatus: device.syncDetails?.deviceStatus || null,
+      message: device.lastSeenAt ? `Last seen: ${new Date(device.lastSeenAt).toLocaleString()}` : 'No packet activity recorded.',
+    };
+
+    if (device.networkServer) {
+      const serverHealth = await this.provisioningService.checkDeviceHealth(device.networkServer, cleanDevEUI);
+      healthResult = {
+        isOnline: serverHealth.isOnline,
+        lastSeenAt: serverHealth.lastSeenAt || healthResult.lastSeenAt,
+        deviceStatus: serverHealth.deviceStatus || healthResult.deviceStatus,
+        message: serverHealth.message,
+      };
+
+      if (serverHealth.lastSeenAt) {
+        device.lastSeenAt = new Date(serverHealth.lastSeenAt);
+      }
+      device.syncDetails = {
+        ...device.syncDetails,
+        lastHealthCheckAt: new Date().toISOString(),
+        lastSeenAt: serverHealth.lastSeenAt || device.syncDetails?.lastSeenAt,
+        deviceStatus: serverHealth.deviceStatus,
+      };
+      if (serverHealth.isOnline && device.isActive) {
+        device.syncStatus = 'SYNCED';
+      }
+      await this.deviceRepo.save(device);
+    }
+
+    return {
+      success: true,
+      device,
+      health: healthResult,
+    };
   }
 
   async registerGateway(data: Partial<GatewayEntity>): Promise<GatewayEntity> {

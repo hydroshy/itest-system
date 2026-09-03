@@ -60,6 +60,9 @@ export class DeviceEntity {
   @Column({ default: true })
   isActive: boolean;
 
+  @Column({ type: 'timestamptz', nullable: true })
+  lastSeenAt?: Date | null;
+
   @CreateDateColumn()
   createdAt: Date;
 

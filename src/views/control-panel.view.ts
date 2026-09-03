@@ -936,16 +936,15 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
                     <th class="py-2.5 px-3.5">Created By</th>
                     <th class="py-2.5 px-3.5">Network Server</th>
                     <th class="py-2.5 px-3.5">Region Profile</th>
-                    <th class="py-2.5 px-3.5">AppEUI</th>
-                    <th class="py-2.5 px-3.5">AppKey</th>
-                    <th class="py-2.5 px-3.5">Sync Status</th>
+                    <th class="py-2.5 px-3.5">Status</th>
+                    <th class="py-2.5 px-3.5">Last Seen</th>
                     <th class="py-2.5 px-3.5">Decoder</th>
                     <th class="py-2.5 px-3.5 text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody class="divide-y divide-slate-800/60">
                   <tr v-if="devicesList.length === 0">
-                    <td colspan="10" class="py-6 text-center text-slate-500">No LoRaWAN devices registered. Click "Register Device" to provision a device.</td>
+                    <td colspan="9" class="py-6 text-center text-slate-500">No LoRaWAN devices registered. Click "Register Device" to provision a device.</td>
                   </tr>
                   <tr v-for="d in devicesList" :key="d.id || d.devEUI" class="hover:bg-slate-800/30 transition">
                     <td class="py-2.5 px-3.5 font-mono font-bold text-sky-400">{{ d.devEUI }}</td>
@@ -969,10 +968,6 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
                       </span>
                       <span v-else class="text-slate-500 text-[11px]">Default</span>
                     </td>
-                    <td class="py-2.5 px-3.5 font-mono text-slate-300 text-[11px]">{{ d.appEUI || '0102030405060708' }}</td>
-                    <td class="py-2.5 px-3.5 font-mono text-slate-400 text-[11px]">
-                      <span :title="d.appKey">{{ d.appKey ? d.appKey.slice(0, 6) + '...' + d.appKey.slice(-6) : '010203...0F10' }}</span>
-                    </td>
                     <td class="py-2.5 px-3.5">
                       <span v-if="!d.isActive" class="px-2 py-0.5 rounded-full text-[10px] font-bold border bg-red-500/10 text-red-400 border-red-500/25 flex items-center gap-1 w-max">
                         <span class="w-1.5 h-1.5 rounded-full bg-red-400"></span>
@@ -987,6 +982,11 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
                         <span>LOCAL</span>
                       </span>
                     </td>
+                    <td class="py-2.5 px-3.5 font-mono text-[11px]">
+                      <span :class="(d.lastSeenAt || d.syncDetails?.lastSeenAt) ? 'text-emerald-400 font-semibold' : 'text-slate-500'">
+                        {{ formatLastSeen(d.lastSeenAt || d.syncDetails?.lastSeenAt) }}
+                      </span>
+                    </td>
                     <td class="py-2.5 px-3.5">
                       <span :class="d.payloadFormatterScript ? 'text-emerald-400' : 'text-slate-500'" class="text-[11px] font-medium">
                         <i :class="d.payloadFormatterScript ? 'fa-code' : 'fa-minus'" class="fa-solid mr-1"></i>
@@ -995,13 +995,13 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
                     </td>
                     <td class="py-2.5 px-3.5 text-right">
                       <div class="flex items-center justify-end gap-1.5">
-                        <button v-if="d.networkServer" @click="syncDevice(d)" title="Re-sync Provisioning to Network Server" class="p-1.5 rounded bg-sky-500/10 hover:bg-sky-500/20 text-sky-400 border border-sky-500/20 text-xs cursor-pointer">
-                          <i class="fa-solid fa-arrows-rotate"></i>
+                        <button @click="checkDeviceHealth(d)" :disabled="checkingHealthDevEUI === d.devEUI" title="Check Health & Online Status from Network Server API" class="p-1.5 rounded bg-teal-500/10 hover:bg-teal-500/20 text-teal-400 border border-teal-500/20 text-xs cursor-pointer disabled:opacity-50">
+                          <i class="fa-solid fa-heart-pulse" :class="checkingHealthDevEUI === d.devEUI ? 'animate-spin' : ''"></i>
                         </button>
-                        <button @click="openEditDeviceDialog(d)" title="Edit Device & Sync" class="p-1.5 rounded bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 border border-indigo-500/20 text-xs cursor-pointer">
+                        <button @click="openEditDeviceDialog(d)" title="Edit Device" class="p-1.5 rounded bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 border border-indigo-500/20 text-xs cursor-pointer">
                           <i class="fa-solid fa-pen-to-square"></i>
                         </button>
-                        <button @click="testDevice(d)" title="Test JavaScript Decoder" class="p-1.5 rounded bg-teal-500/10 hover:bg-teal-500/20 text-teal-400 border border-teal-500/20 text-xs cursor-pointer">
+                        <button @click="testDevice(d)" title="Test JavaScript Decoder" class="p-1.5 rounded bg-sky-500/10 hover:bg-sky-500/20 text-sky-400 border border-sky-500/20 text-xs cursor-pointer">
                           <i class="fa-solid fa-code"></i>
                         </button>
                         <button @click="deleteDevice(d)" title="Delete Device" class="p-1.5 rounded bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 text-xs cursor-pointer">
@@ -2474,6 +2474,50 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
           }
         };
 
+        const checkingHealthDevEUI = ref(null);
+
+        const checkDeviceHealth = async (device) => {
+          checkingHealthDevEUI.value = device.devEUI;
+          try {
+            const res = await fetch('/lorawan/devices/' + device.devEUI + '/health', {
+              method: 'POST',
+              headers: authHeaders(),
+              credentials: 'include'
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.message || "Health check failed");
+
+            if (data.device) {
+              Object.assign(device, data.device);
+            }
+            if (data.health?.lastSeenAt) {
+              device.lastSeenAt = data.health.lastSeenAt;
+            }
+
+            showToast(data.health?.message || "Device health check completed", data.health?.isOnline ? "success" : "info");
+          } catch(e) {
+            showToast(e.message, "error");
+          } finally {
+            checkingHealthDevEUI.value = null;
+          }
+        };
+
+        const formatLastSeen = (ts) => {
+          if (!ts) return 'Never';
+          try {
+            const d = new Date(ts);
+            if (isNaN(d.getTime())) return 'Never';
+            const diffSec = Math.floor((Date.now() - d.getTime()) / 1000);
+            if (diffSec < 0) return 'Just now';
+            if (diffSec < 60) return 'Just now';
+            if (diffSec < 3600) return Math.floor(diffSec / 60) + 'm ago';
+            if (diffSec < 86400) return Math.floor(diffSec / 3600) + 'h ago';
+            return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+          } catch(e) {
+            return 'Never';
+          }
+        };
+
         const syncDevice = async (d) => {
           try {
             showToast("Provisioning " + d.devEUI + " to Network Server...", "info");
@@ -2643,6 +2687,9 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
           deletingDevice,
           deleteDevice,
           confirmDeleteDevice,
+          checkingHealthDevEUI,
+          checkDeviceHealth,
+          formatLastSeen,
           syncDevice,
           testDevice,
           runSandboxDecode

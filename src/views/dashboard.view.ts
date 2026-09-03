@@ -404,14 +404,18 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
 
                 <!-- Card Footer (Actions) -->
                 <div class="pt-3.5 border-t border-slate-800/80 flex items-center justify-between text-xs">
-                  <div class="text-[11px] text-slate-400 font-medium">
-                    <span class="text-slate-500">Mode:</span> <span class="font-mono text-sky-400 font-bold">OTAA</span>
+                  <div class="text-[11px] text-slate-400 font-medium flex items-center gap-1.5">
+                    <i class="fa-solid fa-clock-rotate-left text-slate-500"></i>
+                    <span class="text-slate-500">Last Seen:</span>
+                    <span class="font-mono text-xs" :class="(d.lastSeenAt || d.syncDetails?.lastSeenAt) ? 'text-emerald-400 font-bold' : 'text-slate-500'">
+                      {{ formatLastSeen(d.lastSeenAt || d.syncDetails?.lastSeenAt) }}
+                    </span>
                   </div>
                   <div class="flex items-center gap-2">
-                    <button v-if="d.networkServer" @click="syncDevice(d)" title="Re-sync Provisioning to Network Server" class="px-3 py-1.5 rounded-xl bg-sky-500/10 hover:bg-sky-500/20 text-sky-300 border border-sky-500/20 text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition">
-                      <i class="fa-solid fa-arrows-rotate"></i> <span>Sync</span>
+                    <button @click="checkDeviceHealth(d)" :disabled="checkingHealthDevEUI === d.devEUI" title="Check Health & Online Status from Network Server API" class="px-3 py-1.5 rounded-xl bg-teal-500/10 hover:bg-teal-500/20 text-teal-300 border border-teal-500/20 text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition disabled:opacity-50">
+                      <i class="fa-solid fa-heart-pulse" :class="checkingHealthDevEUI === d.devEUI ? 'animate-spin' : ''"></i> <span>Health</span>
                     </button>
-                    <button @click="openEditDeviceDialog(d)" title="Edit Device & Sync" class="px-3 py-1.5 rounded-xl bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 border border-indigo-500/20 text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition">
+                    <button @click="openEditDeviceDialog(d)" title="Edit Device" class="px-3 py-1.5 rounded-xl bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 border border-indigo-500/20 text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition">
                       <i class="fa-solid fa-pen-to-square"></i> <span>Edit</span>
                     </button>
                     <button @click="deleteDevice(d)" title="Delete Device" class="p-2 rounded-xl bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 text-xs cursor-pointer transition flex items-center justify-center">
@@ -945,20 +949,47 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
           }
         };
 
-        const syncDevice = async (d) => {
+        const checkingHealthDevEUI = ref(null);
+
+        const checkDeviceHealth = async (device) => {
+          checkingHealthDevEUI.value = device.devEUI;
           try {
-            showToast("Provisioning " + d.devEUI + " to Network Server...", "info");
-            const res = await fetch('/lorawan/devices/' + d.devEUI + '/sync', {
+            const res = await fetch('/lorawan/devices/' + device.devEUI + '/health', {
               method: 'POST',
               headers: authHeaders(),
               credentials: 'include'
             });
             const data = await res.json();
-            if (!res.ok) throw new Error(data.message || "Sync failed");
-            showToast(data.provisioning?.summaryMessage || ("Device " + d.devEUI + " synced successfully"), "success");
-            fetchDevices();
+            if (!res.ok) throw new Error(data.message || "Health check failed");
+            
+            if (data.device) {
+              Object.assign(device, data.device);
+            }
+            if (data.health?.lastSeenAt) {
+              device.lastSeenAt = data.health.lastSeenAt;
+            }
+            
+            showToast(data.health?.message || "Device health check completed", data.health?.isOnline ? "success" : "info");
           } catch(e) {
             showToast(e.message, "error");
+          } finally {
+            checkingHealthDevEUI.value = null;
+          }
+        };
+
+        const formatLastSeen = (ts) => {
+          if (!ts) return 'Never';
+          try {
+            const d = new Date(ts);
+            if (isNaN(d.getTime())) return 'Never';
+            const diffSec = Math.floor((Date.now() - d.getTime()) / 1000);
+            if (diffSec < 0) return 'Just now';
+            if (diffSec < 60) return 'Just now';
+            if (diffSec < 3600) return Math.floor(diffSec / 60) + 'm ago';
+            if (diffSec < 86400) return Math.floor(diffSec / 3600) + 'h ago';
+            return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+          } catch(e) {
+            return 'Never';
           }
         };
 
@@ -1012,6 +1043,9 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
           deleteDevice,
           confirmDeleteDevice,
           syncDevice,
+          checkingHealthDevEUI,
+          checkDeviceHealth,
+          formatLastSeen,
           toast,
           handleGlobalClick,
           returnToHome,

@@ -32,25 +32,21 @@ export class DeviceProvisioningService {
   /**
    * Provision device according to network server type:
    * - THINGPARK: 1-step provisioning (Device + AppEUI + AppKey in single payload)
-   * - CHIRPSTACK: 2-step provisioning (Step 1: Create device with AppEUI/JoinEUI -> Step 2: Set AppKey)
+   * - CHIRPSTACK: 2-step provisioning (Step 1: Create/Update device -> Step 2: Set/Update AppKey)
    */
   async provisionDevice(
     server: NetworkServerEntity,
     regionProfile: RegionProfile | undefined,
     dto: RegisterDeviceDto,
+    isEdit: boolean = false,
   ): Promise<ProvisioningResult> {
     if (server.type === NetworkServerType.CHIRPSTACK) {
-      return await this.provisionChirpstack(server, regionProfile, dto);
+      return await this.provisionChirpstack(server, regionProfile, dto, isEdit);
     } else {
-      return await this.provisionThingpark(server, regionProfile, dto);
+      return await this.provisionThingpark(server, regionProfile, dto, isEdit);
     }
   }
 
-  /**
-   * ChirpStack v4 API (2-Step Device Provisioning)
-   * Step 1: POST /api/devices (Creates device with DevEUI, Name, DeviceProfileId, JoinEUI/AppEUI)
-   * Step 2: POST /api/devices/{devEui}/keys (Sets AppKey / NwkKey)
-   */
   /**
    * Helper to auto-discover Application ID from ChirpStack
    */
@@ -106,13 +102,14 @@ export class DeviceProvisioningService {
 
   /**
    * ChirpStack v4 API (2-Step Device Provisioning)
-   * Step 1: POST /api/devices (Creates device with DevEUI, Name, DeviceProfileId, JoinEUI/AppEUI)
-   * Step 2: POST /api/devices/{devEui}/keys (Sets AppKey / NwkKey)
+   * - When creating (isEdit = false): uses POST to detect if device already exists.
+   * - When editing (isEdit = true): always uses PUT to update existing device and keys.
    */
   private async provisionChirpstack(
     server: NetworkServerEntity,
     regionProfile: RegionProfile | undefined,
     dto: RegisterDeviceDto,
+    isEdit: boolean = false,
   ): Promise<ProvisioningResult> {
     const rawApiUrl = server.apiUrl?.trim() || 'https://chirpstack-test.globiots.com';
     const baseUrl = rawApiUrl.replace(/\/+$/, '');
@@ -185,149 +182,162 @@ export class DeviceProvisioningService {
     let step1ErrorMessage = '';
 
     try {
-      this.logger.log(`[ChirpStack] Registering device ${devEui} to ${baseUrl}/api/devices`);
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 5000);
 
-      // Attempt primary endpoint
-      let endpoint = `${baseUrl}/api/devices`;
-      let res1 = await fetch(endpoint, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify(step1Payload),
-        signal: controller.signal,
-      }).catch((err) => {
-        throw err;
-      });
-      clearTimeout(timeoutId);
-
-      // Fallback endpoint test if primary is 404
-      if (res1.status === 404) {
-        const altEndpoint = `${baseUrl}/api/v4/devices`;
-        const altRes = await fetch(altEndpoint, {
-          method: 'POST',
+      if (isEdit) {
+        // ALWAYS PUT on edit
+        this.logger.log(`[ChirpStack] Updating device ${devEui} via PUT ${baseUrl}/api/devices/${devEui}`);
+        let putEndpoint = `${baseUrl}/api/devices/${devEui}`;
+        let resPut = await fetch(putEndpoint, {
+          method: 'PUT',
           headers,
           body: JSON.stringify(step1Payload),
-        }).catch(() => null);
-        if (altRes && altRes.status !== 404) {
-          res1 = altRes;
-          endpoint = altEndpoint;
-        }
-      }
-
-      let res1Text = await res1.text().catch(() => '');
-      let res1Json: any = {};
-      try {
-        res1Json = JSON.parse(res1Text);
-      } catch (e) {
-        res1Json = { raw: res1Text };
-      }
-
-      // If "Record not found" / HTTP 500, attempt one auto-discovery retry
-      if (res1.status === 500 && (res1Text.includes('Record not found') || res1Text.includes('record not found'))) {
-        const discoveredApp = await this.discoverChirpstackApplicationId(baseUrl, headers);
-        const discoveredDp = await this.discoverChirpstackDeviceProfileId(
-          baseUrl,
-          headers,
-          regionProfile?.region || regionProfile?.name,
-        );
-
-        if (discoveredApp && discoveredDp && (discoveredApp !== applicationId || discoveredDp !== deviceProfileId)) {
-          applicationId = discoveredApp;
-          deviceProfileId = discoveredDp;
-          step1Payload = buildStep1Payload(applicationId, deviceProfileId);
-
-          const retryRes = await fetch(endpoint, {
-            method: 'POST',
-            headers,
-            body: JSON.stringify(step1Payload),
-          }).catch(() => null);
-
-          if (retryRes) {
-            res1 = retryRes;
-            res1Text = await res1.text().catch(() => '');
-            try {
-              res1Json = JSON.parse(res1Text);
-            } catch (e) {
-              res1Json = { raw: res1Text };
-            }
-          }
-        }
-      }
-
-      if (res1.ok || res1.status === 200 || res1.status === 201) {
-        step1Success = true;
-        steps.push({
-          step: 1,
-          stepName: 'Create ChirpStack Device',
-          endpoint,
-          method: 'POST',
-          status: 'SUCCESS',
-          httpStatus: res1.status,
-          message: `Device ${devEui} registered on ChirpStack`,
-          payload: step1Payload,
-          response: res1Json,
+          signal: controller.signal,
+        }).catch((err) => {
+          throw err;
         });
-      } else if (
-        res1.status === 409 ||
-        res1Text.includes('already exists') ||
-        res1Text.includes('duplicate key') ||
-        res1Text.includes('device_pkey') ||
-        res1Text.includes('unique constraint')
-      ) {
-        // Device already exists on ChirpStack -> Update it via PUT /api/devices/{devEui}
-        const putEndpoints = [
-          `${baseUrl}/api/devices/${devEui}`,
-          `${baseUrl}/api/v4/devices/${devEui}`,
-        ];
-        let putSuccess = false;
-        let putResJson: any = {};
-        let lastPutStatus = 0;
+        clearTimeout(timeoutId);
 
-        for (const putEp of putEndpoints) {
-          const putRes = await fetch(putEp, {
+        if (resPut.status === 404) {
+          const altPut = `${baseUrl}/api/v4/devices/${devEui}`;
+          const altRes = await fetch(altPut, {
             method: 'PUT',
             headers,
             body: JSON.stringify(step1Payload),
           }).catch(() => null);
+          if (altRes && altRes.status !== 404) {
+            resPut = altRes;
+            putEndpoint = altPut;
+          }
+        }
 
-          if (putRes && (putRes.ok || putRes.status === 200 || putRes.status === 204)) {
-            putSuccess = true;
-            lastPutStatus = putRes.status;
-            step1Success = true;
-            steps.push({
-              step: 1,
-              stepName: 'Update ChirpStack Device',
-              endpoint: putEp,
-              method: 'PUT',
-              status: 'SUCCESS',
-              httpStatus: putRes.status,
-              message: `Device ${devEui} configuration updated on ChirpStack`,
-              payload: step1Payload,
-            });
-            break;
-          } else if (putRes && putRes.status !== 404) {
-            lastPutStatus = putRes.status;
-            const putText = await putRes.text().catch(() => '');
-            try {
-              putResJson = JSON.parse(putText);
-            } catch (e) {
-              putResJson = { raw: putText };
+        const resPutText = await resPut.text().catch(() => '');
+        let resPutJson: any = {};
+        try {
+          resPutJson = JSON.parse(resPutText);
+        } catch (e) {
+          resPutJson = { raw: resPutText };
+        }
+
+        if (resPut.ok || resPut.status === 200 || resPut.status === 204) {
+          step1Success = true;
+          steps.push({
+            step: 1,
+            stepName: 'Update ChirpStack Device',
+            endpoint: putEndpoint,
+            method: 'PUT',
+            status: 'SUCCESS',
+            httpStatus: resPut.status,
+            message: `Device ${devEui} updated successfully on ChirpStack`,
+            payload: step1Payload,
+            response: resPutJson,
+          });
+        } else if (resPut.status === 404) {
+          step1ErrorMessage = `ChirpStack: Device ${devEui} not found on server (HTTP 404).`;
+        } else if (resPut.status === 401 || resPut.status === 403) {
+          step1ErrorMessage = `ChirpStack: Invalid API Key or Unauthorized (HTTP ${resPut.status}).`;
+        } else {
+          step1ErrorMessage = `ChirpStack: Failed to update device (HTTP ${resPut.status}): ${resPutJson.message || resPutText || 'Update rejected'}`;
+        }
+      } else {
+        // ALWAYS POST on create (to detect duplicate DevEUI)
+        this.logger.log(`[ChirpStack] Registering device ${devEui} via POST ${baseUrl}/api/devices`);
+        let endpoint = `${baseUrl}/api/devices`;
+        let res1 = await fetch(endpoint, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify(step1Payload),
+          signal: controller.signal,
+        }).catch((err) => {
+          throw err;
+        });
+        clearTimeout(timeoutId);
+
+        if (res1.status === 404) {
+          const altEndpoint = `${baseUrl}/api/v4/devices`;
+          const altRes = await fetch(altEndpoint, {
+            method: 'POST',
+            headers,
+            body: JSON.stringify(step1Payload),
+          }).catch(() => null);
+          if (altRes && altRes.status !== 404) {
+            res1 = altRes;
+            endpoint = altEndpoint;
+          }
+        }
+
+        let res1Text = await res1.text().catch(() => '');
+        let res1Json: any = {};
+        try {
+          res1Json = JSON.parse(res1Text);
+        } catch (e) {
+          res1Json = { raw: res1Text };
+        }
+
+        // Auto-discovery retry for 500 Record not found
+        if (res1.status === 500 && (res1Text.includes('Record not found') || res1Text.includes('record not found'))) {
+          const discoveredApp = await this.discoverChirpstackApplicationId(baseUrl, headers);
+          const discoveredDp = await this.discoverChirpstackDeviceProfileId(
+            baseUrl,
+            headers,
+            regionProfile?.region || regionProfile?.name,
+          );
+
+          if (discoveredApp && discoveredDp && (discoveredApp !== applicationId || discoveredDp !== deviceProfileId)) {
+            applicationId = discoveredApp;
+            deviceProfileId = discoveredDp;
+            step1Payload = buildStep1Payload(applicationId, deviceProfileId);
+
+            const retryRes = await fetch(endpoint, {
+              method: 'POST',
+              headers,
+              body: JSON.stringify(step1Payload),
+            }).catch(() => null);
+
+            if (retryRes) {
+              res1 = retryRes;
+              res1Text = await res1.text().catch(() => '');
+              try {
+                res1Json = JSON.parse(res1Text);
+              } catch (e) {
+                res1Json = { raw: res1Text };
+              }
             }
           }
         }
 
-        if (!putSuccess) {
-          step1ErrorMessage = `ChirpStack: Device already exists but update failed (HTTP ${lastPutStatus}): ${putResJson.message || 'Update rejected'}`;
+        if (res1.ok || res1.status === 200 || res1.status === 201) {
+          step1Success = true;
+          steps.push({
+            step: 1,
+            stepName: 'Create ChirpStack Device',
+            endpoint,
+            method: 'POST',
+            status: 'SUCCESS',
+            httpStatus: res1.status,
+            message: `Device ${devEui} registered on ChirpStack`,
+            payload: step1Payload,
+            response: res1Json,
+          });
+        } else if (
+          res1.status === 409 ||
+          res1Text.includes('already exists') ||
+          res1Text.includes('duplicate key') ||
+          res1Text.includes('device_pkey') ||
+          res1Text.includes('unique constraint')
+        ) {
+          // STRICT RULE ON CREATE: Reject duplicate device!
+          step1ErrorMessage = `ChirpStack: Device with DevEUI ${devEui} already exists on ChirpStack server.`;
+        } else if (res1.status === 404) {
+          step1ErrorMessage = `ChirpStack: Endpoint ${endpoint} not found on server (HTTP 404).`;
+        } else if (res1.status === 401 || res1.status === 403) {
+          step1ErrorMessage = `ChirpStack: Invalid API Key or Unauthorized (HTTP ${res1.status}).`;
+        } else if (res1.status === 500 && (res1Text.includes('Record not found') || res1Text.includes('record not found'))) {
+          step1ErrorMessage = `ChirpStack: Application ID (${applicationId}) or Device Profile ID (${deviceProfileId}) does not exist on ChirpStack server.`;
+        } else {
+          step1ErrorMessage = `ChirpStack: Device creation error (HTTP ${res1.status}): ${res1Json.message || res1Text || 'Request rejected'}`;
         }
-      } else if (res1.status === 404) {
-        step1ErrorMessage = `ChirpStack: Endpoint ${endpoint} not found on server (HTTP 404).`;
-      } else if (res1.status === 401 || res1.status === 403) {
-        step1ErrorMessage = `ChirpStack: Invalid API Key or Unauthorized (HTTP ${res1.status}).`;
-      } else if (res1.status === 500 && (res1Text.includes('Record not found') || res1Text.includes('record not found'))) {
-        step1ErrorMessage = `ChirpStack: Application ID (${applicationId}) or Device Profile ID (${deviceProfileId}) does not exist on ChirpStack server.`;
-      } else {
-        step1ErrorMessage = `ChirpStack: Device provisioning error (HTTP ${res1.status}): ${res1Json.message || res1Text || 'Request rejected'}`;
       }
     } catch (err: any) {
       step1ErrorMessage = `ChirpStack: Cannot connect to server (${err.message}).`;
@@ -342,9 +352,9 @@ export class DeviceProvisioningService {
         steps: [
           {
             step: 1,
-            stepName: 'Create/Update ChirpStack Device',
-            endpoint: `${baseUrl}/api/devices`,
-            method: 'POST/PUT',
+            stepName: isEdit ? 'Update ChirpStack Device' : 'Create ChirpStack Device',
+            endpoint: `${baseUrl}/api/devices${isEdit ? '/' + devEui : ''}`,
+            method: isEdit ? 'PUT' : 'POST',
             status: 'FAILED',
             message: step1ErrorMessage,
             payload: step1Payload,
@@ -356,7 +366,7 @@ export class DeviceProvisioningService {
       };
     }
 
-    // Step 2: Set AppKey / Device Keys (POST /api/devices/{devEui}/keys)
+    // Step 2: Set / Update AppKey / Device Keys
     const step2Payload = {
       deviceKeys: {
         devEui: devEui,
@@ -369,12 +379,13 @@ export class DeviceProvisioningService {
     let step2ErrorMessage = '';
 
     try {
-      this.logger.log(`[ChirpStack] Setting AppKey for device ${devEui}`);
+      this.logger.log(`[ChirpStack] Configuring AppKey for device ${devEui}`);
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 5000);
 
+      const method = isEdit ? 'PUT' : 'POST';
       let res2 = await fetch(`${baseUrl}/api/devices/${devEui}/keys`, {
-        method: 'POST',
+        method,
         headers,
         body: JSON.stringify(step2Payload),
         signal: controller.signal,
@@ -391,27 +402,21 @@ export class DeviceProvisioningService {
         res2Json = { raw: res2Text };
       }
 
-      if (res2.ok || res2.status === 200 || res2.status === 201) {
+      if (res2.ok || res2.status === 200 || res2.status === 201 || res2.status === 204) {
         step2Success = true;
         steps.push({
           step: 2,
-          stepName: 'Set ChirpStack Device AppKey',
+          stepName: isEdit ? 'Update ChirpStack Device AppKey' : 'Set ChirpStack Device AppKey',
           endpoint: `${baseUrl}/api/devices/${devEui}/keys`,
-          method: 'POST',
+          method,
           status: 'SUCCESS',
           httpStatus: res2.status,
           message: `AppKey configured successfully`,
           payload: step2Payload,
           response: res2Json,
         });
-      } else if (
-        res2.status === 409 ||
-        res2Text.includes('already exists') ||
-        res2Text.includes('duplicate key') ||
-        res2Text.includes('unique constraint') ||
-        res2Text.includes('device_keys_pkey')
-      ) {
-        // If keys already exist, update them via PUT
+      } else if (!isEdit && (res2.status === 409 || res2Text.includes('already exists') || res2Text.includes('duplicate key'))) {
+        // If keys already exist on create, update via PUT
         const res2Put = await fetch(`${baseUrl}/api/devices/${devEui}/keys`, {
           method: 'PUT',
           headers,
@@ -427,14 +432,37 @@ export class DeviceProvisioningService {
             method: 'PUT',
             status: 'SUCCESS',
             httpStatus: res2Put.status,
-            message: `AppKey updated successfully for existing device`,
+            message: `AppKey updated successfully for device`,
             payload: step2Payload,
           });
         } else {
           step2ErrorMessage = `ChirpStack: Failed to update AppKey (${res2Json.message || res2Text})`;
         }
+      } else if (isEdit && res2.status === 404) {
+        // If keys did not exist previously, create them via POST
+        const res2Post = await fetch(`${baseUrl}/api/devices/${devEui}/keys`, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify(step2Payload),
+        }).catch(() => null);
+
+        if (res2Post && (res2Post.ok || res2Post.status === 200 || res2Post.status === 201)) {
+          step2Success = true;
+          steps.push({
+            step: 2,
+            stepName: 'Set ChirpStack Device AppKey',
+            endpoint: `${baseUrl}/api/devices/${devEui}/keys`,
+            method: 'POST',
+            status: 'SUCCESS',
+            httpStatus: res2Post.status,
+            message: `AppKey created successfully`,
+            payload: step2Payload,
+          });
+        } else {
+          step2ErrorMessage = `ChirpStack: Failed to configure AppKey (${res2Json.message || res2Text})`;
+        }
       } else {
-        step2ErrorMessage = `ChirpStack: Failed to set AppKey (HTTP ${res2.status}): ${res2Json.message || res2Text || 'Request rejected'}`;
+        step2ErrorMessage = `ChirpStack: Failed to configure AppKey (HTTP ${res2.status}): ${res2Json.message || res2Text || 'Request rejected'}`;
       }
     } catch (err: any) {
       step2ErrorMessage = `ChirpStack: Connection error while configuring AppKey (${err.message}).`;
@@ -452,7 +480,7 @@ export class DeviceProvisioningService {
             step: 2,
             stepName: 'Set ChirpStack Device AppKey',
             endpoint: `${baseUrl}/api/devices/${devEui}/keys`,
-            method: 'POST/PUT',
+            method: isEdit ? 'PUT' : 'POST',
             status: 'FAILED',
             message: step2ErrorMessage,
             payload: step2Payload,
@@ -464,7 +492,10 @@ export class DeviceProvisioningService {
       };
     }
 
-    const summaryMessage = `Device ${dto.name} (${devEui}) provisioned and synchronized successfully on ChirpStack.`;
+    const summaryMessage = isEdit
+      ? `Device ${dto.name} (${devEui}) updated and synchronized successfully on ChirpStack.`
+      : `Device ${dto.name} (${devEui}) provisioned and synchronized successfully on ChirpStack.`;
+
     return {
       success: true,
       serverType: NetworkServerType.CHIRPSTACK,
@@ -478,12 +509,14 @@ export class DeviceProvisioningService {
 
   /**
    * ThingPark Wireless DX API (1-Step Device Provisioning)
-   * Step 1: POST /devices or /rest/devices (Single request containing EUI, Name, AppEUI, AppKey, RouteRef)
+   * - When creating (isEdit = false): uses POST.
+   * - When editing (isEdit = true): uses PUT.
    */
   private async provisionThingpark(
     server: NetworkServerEntity,
     regionProfile: RegionProfile | undefined,
     dto: RegisterDeviceDto,
+    isEdit: boolean = false,
   ): Promise<ProvisioningResult> {
     const rawApiUrl = server.apiUrl?.trim() || 'https://community.thingpark.io/thingpark/wireless/rest/v1';
     const baseUrl = rawApiUrl.replace(/\/+$/, '');
@@ -504,7 +537,6 @@ export class DeviceProvisioningService {
       headers['X-API-KEY'] = apiKey;
     }
 
-    // 1-Step ThingPark Payload
     const tpPayload = {
       EUI: devEui,
       name: dto.name.trim(),
@@ -523,13 +555,17 @@ export class DeviceProvisioningService {
     let errorMessage = '';
 
     try {
-      this.logger.log(`[ThingPark] Provisioning device ${devEui} to ${baseUrl}/devices`);
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 5000);
 
-      const targetEndpoint = baseUrl.endsWith('/devices') ? baseUrl : `${baseUrl}/devices`;
+      const targetEndpoint = isEdit
+        ? `${baseUrl}/devices/${devEui}`
+        : baseUrl.endsWith('/devices') ? baseUrl : `${baseUrl}/devices`;
+      const method = isEdit ? 'PUT' : 'POST';
+
+      this.logger.log(`[ThingPark] ${isEdit ? 'Updating' : 'Provisioning'} device ${devEui} to ${targetEndpoint}`);
       const res = await fetch(targetEndpoint, {
-        method: 'POST',
+        method,
         headers,
         body: JSON.stringify(tpPayload),
         signal: controller.signal,
@@ -546,56 +582,23 @@ export class DeviceProvisioningService {
         resJson = { raw: resText };
       }
 
-      if (res.ok || res.status === 200 || res.status === 201) {
+      if (res.ok || res.status === 200 || res.status === 201 || res.status === 204) {
         stepSuccess = true;
         steps.push({
           step: 1,
-          stepName: 'ThingPark Device Provisioning',
+          stepName: isEdit ? 'Update ThingPark Device' : 'ThingPark Device Provisioning',
           endpoint: targetEndpoint,
-          method: 'POST',
+          method,
           status: 'SUCCESS',
           httpStatus: res.status,
-          message: `Device ${devEui} provisioned on ThingPark Wireless`,
+          message: `Device ${devEui} ${isEdit ? 'updated' : 'provisioned'} on ThingPark Wireless`,
           payload: tpPayload,
           response: resJson,
         });
-      } else if (res.status === 409 || resText.includes('already exists') || resText.includes('duplicate')) {
-        // Attempt update via PUT
-        const putEp = `${targetEndpoint}/${devEui}`;
-        const putRes = await fetch(putEp, {
-          method: 'PUT',
-          headers,
-          body: JSON.stringify(tpPayload),
-        }).catch(() => null);
-
-        if (putRes && (putRes.ok || putRes.status === 200 || putRes.status === 204)) {
-          stepSuccess = true;
-          steps.push({
-            step: 1,
-            stepName: 'Update ThingPark Device',
-            endpoint: putEp,
-            method: 'PUT',
-            status: 'SUCCESS',
-            httpStatus: putRes.status,
-            message: `Device ${devEui} updated on ThingPark Wireless`,
-            payload: tpPayload,
-          });
-        } else {
-          stepSuccess = true;
-          steps.push({
-            step: 1,
-            stepName: 'ThingPark Device Provisioning',
-            endpoint: targetEndpoint,
-            method: 'POST',
-            status: 'SUCCESS',
-            httpStatus: res.status,
-            message: `Device ${devEui} already exists in ThingPark network`,
-            payload: tpPayload,
-            response: resJson,
-          });
-        }
+      } else if (!isEdit && (res.status === 409 || resText.includes('already exists') || resText.includes('duplicate'))) {
+        errorMessage = `ThingPark: Device with DevEUI ${devEui} already exists on ThingPark Wireless.`;
       } else {
-        errorMessage = `ThingPark: Device creation error (HTTP ${res.status}): ${resJson.message || resText || 'Request rejected'}`;
+        errorMessage = `ThingPark: Device ${isEdit ? 'update' : 'creation'} error (HTTP ${res.status}): ${resJson.message || resText || 'Request rejected'}`;
       }
     } catch (err: any) {
       errorMessage = `ThingPark: Cannot connect to server (${err.message}).`;
@@ -610,9 +613,9 @@ export class DeviceProvisioningService {
         steps: [
           {
             step: 1,
-            stepName: 'ThingPark Device Provisioning',
+            stepName: isEdit ? 'Update ThingPark Device' : 'ThingPark Device Provisioning',
             endpoint: `${baseUrl}/devices`,
-            method: 'POST',
+            method: isEdit ? 'PUT' : 'POST',
             status: 'FAILED',
             message: errorMessage,
             payload: tpPayload,
@@ -624,7 +627,7 @@ export class DeviceProvisioningService {
       };
     }
 
-    const summaryMessage = `Device ${dto.name} (${devEui}) provisioned and synchronized successfully on ThingPark Wireless.`;
+    const summaryMessage = `Device ${dto.name} (${devEui}) ${isEdit ? 'updated' : 'provisioned'} and synchronized successfully on ThingPark Wireless.`;
     return {
       success: true,
       serverType: NetworkServerType.THINGPARK,
@@ -634,6 +637,122 @@ export class DeviceProvisioningService {
       syncStatus: 'SYNCED',
       summaryMessage,
     };
+  }
+
+  /**
+   * Check Device Health & Online Status directly from Network Server API
+   */
+  async checkDeviceHealth(
+    server: NetworkServerEntity,
+    devEui: string,
+  ): Promise<{
+    success: boolean;
+    isOnline: boolean;
+    lastSeenAt: string | null;
+    deviceStatus?: any;
+    message: string;
+  }> {
+    const rawApiUrl = server.apiUrl?.trim() || '';
+    const baseUrl = rawApiUrl.replace(/\/+$/, '');
+    const apiKey = server.apiKey?.trim() || '';
+    const cleanDevEui = devEui.trim().toLowerCase();
+
+    if (!baseUrl) {
+      return {
+        success: false,
+        isOnline: false,
+        lastSeenAt: null,
+        message: 'No Network Server API URL configured.',
+      };
+    }
+
+    const headers: Record<string, string> = {
+      'Accept': 'application/json',
+    };
+    if (apiKey) {
+      headers['Authorization'] = `Bearer ${apiKey}`;
+      headers['X-API-KEY'] = apiKey;
+    }
+
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000);
+
+      if (server.type === NetworkServerType.CHIRPSTACK) {
+        let endpoint = `${baseUrl}/api/devices/${cleanDevEui}`;
+        let res = await fetch(endpoint, { headers, signal: controller.signal }).catch(() => null);
+        clearTimeout(timeoutId);
+
+        if (!res || res.status === 404) {
+          endpoint = `${baseUrl}/api/v4/devices/${cleanDevEui}`;
+          res = await fetch(endpoint, { headers }).catch(() => null);
+        }
+
+        if (res && (res.ok || res.status === 200)) {
+          const data: any = await res.json().catch(() => ({}));
+          const lastSeenAt = data.lastSeenAt || null;
+          const deviceStatus = data.deviceStatus || null;
+          const isDisabled = data.device?.isDisabled || false;
+
+          let isOnline = false;
+          if (lastSeenAt && !isDisabled) {
+            const lastSeenTime = new Date(lastSeenAt).getTime();
+            const now = Date.now();
+            // Online if seen within last 24 hours
+            isOnline = now - lastSeenTime < 24 * 60 * 60 * 1000;
+          }
+
+          return {
+            success: true,
+            isOnline,
+            lastSeenAt,
+            deviceStatus,
+            message: lastSeenAt
+              ? `Device last seen: ${new Date(lastSeenAt).toLocaleString()}`
+              : 'Device has not transmitted any packets to ChirpStack yet.',
+          };
+        } else {
+          return {
+            success: false,
+            isOnline: false,
+            lastSeenAt: null,
+            message: `ChirpStack query returned HTTP ${res?.status || 'ERR'}`,
+          };
+        }
+      } else {
+        // ThingPark Wireless
+        const endpoint = `${baseUrl}/devices/${cleanDevEui.toUpperCase()}`;
+        const res = await fetch(endpoint, { headers, signal: controller.signal }).catch(() => null);
+        clearTimeout(timeoutId);
+
+        if (res && (res.ok || res.status === 200)) {
+          const data: any = await res.json().catch(() => ({}));
+          const lastSeenAt = data.lastPacketTime || data.lastSeenAt || null;
+          return {
+            success: true,
+            isOnline: !!lastSeenAt,
+            lastSeenAt,
+            message: lastSeenAt
+              ? `Device last seen: ${new Date(lastSeenAt).toLocaleString()}`
+              : 'Device has no recorded packet activity on ThingPark.',
+          };
+        } else {
+          return {
+            success: false,
+            isOnline: false,
+            lastSeenAt: null,
+            message: `ThingPark query returned HTTP ${res?.status || 'ERR'}`,
+          };
+        }
+      }
+    } catch (err: any) {
+      return {
+        success: false,
+        isOnline: false,
+        lastSeenAt: null,
+        message: `Health check connection error: ${err.message}`,
+      };
+    }
   }
 
   /**
