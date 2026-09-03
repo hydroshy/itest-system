@@ -43,6 +43,9 @@ export class NetworkServerEntity {
   @Column({ length: 255, nullable: true })
   routeRef: string;
 
+  @Column({ length: 255, nullable: true })
+  applicationId: string;
+
   @Column({ type: 'jsonb', default: () => "'[]'" })
   regionProfiles: RegionProfile[];
 

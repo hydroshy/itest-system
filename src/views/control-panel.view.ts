@@ -545,6 +545,10 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
                       <span class="text-slate-500 text-[11px]">Default RouteRef:</span>
                       <span class="text-emerald-400 font-bold">{{ ns.routeRef }}</span>
                     </div>
+                    <div v-if="ns.applicationId" class="flex items-center justify-between">
+                      <span class="text-slate-500 text-[11px]">Application ID:</span>
+                      <span class="text-cyan-400 font-mono text-[11px] truncate max-w-xs">{{ ns.applicationId }}</span>
+                    </div>
                     <div class="flex items-center justify-between">
                       <span class="text-slate-500 text-[11px]">Webhook Endpoint:</span>
                       <button @click="copyUrl(ns.type === 'THINGPARK' ? '/lorawan/webhook/thingpark' : '/lorawan/webhook/chirpstack')" class="text-sky-400 hover:text-sky-300 text-[11px] font-sans font-semibold cursor-pointer">
@@ -1101,17 +1105,23 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
           <div class="grid grid-cols-2 gap-3">
             <div>
               <label class="block font-semibold text-slate-300 mb-1">Base API URL</label>
-              <input v-model="currentNetworkServer.apiUrl" type="text" placeholder="https://api.thingpark.com/v1" class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-white font-mono text-xs focus:outline-none focus:border-sky-500" />
+              <input v-model="currentNetworkServer.apiUrl" type="text" placeholder="e.g. http://mas.local:8080 or https://api.thingpark.com" class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-white font-mono text-xs focus:outline-none focus:border-sky-500" />
             </div>
             <div>
-              <label class="block font-semibold text-slate-300 mb-1">API Key / Token / Secret</label>
-              <input v-model="currentNetworkServer.apiKey" type="password" placeholder="Enter API Token or Secret" class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-white font-mono text-xs focus:outline-none focus:border-sky-500" />
+              <label class="block font-semibold text-slate-300 mb-1">API Key / Token (Bearer Token)</label>
+              <input v-model="currentNetworkServer.apiKey" type="password" placeholder="Enter API Bearer Token" class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-white font-mono text-xs focus:outline-none focus:border-sky-500" />
             </div>
           </div>
 
           <div v-if="currentNetworkServer.type === 'THINGPARK'">
             <label class="block font-semibold text-slate-300 mb-1">Default Route Reference (ThingPark)</label>
             <input v-model="currentNetworkServer.routeRef" type="text" placeholder="e.g. DAVITEQ_DEFAULT_ROUTE" class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-white font-mono uppercase focus:outline-none focus:border-sky-500" />
+          </div>
+
+          <div v-if="currentNetworkServer.type === 'CHIRPSTACK'">
+            <label class="block font-semibold text-slate-300 mb-1">ChirpStack Application ID / UUID (Optional)</label>
+            <input v-model="currentNetworkServer.applicationId" type="text" placeholder="e.g. 018e69d7-8947-79b8-a764-96d552bd3b8e" class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-white font-mono focus:outline-none focus:border-sky-500" />
+            <p class="text-[10px] text-slate-500 mt-0.5">Leave blank to test using /api/tenants, or provide Application UUID to target a specific ChirpStack application.</p>
           </div>
 
           <div>
@@ -1958,6 +1968,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
             apiUrl: '',
             apiKey: '',
             routeRef: '',
+            applicationId: '',
             description: '',
             isDefault: false,
             regionProfiles: [
@@ -2002,6 +2013,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
               apiUrl: (currentNetworkServer.value.apiUrl || '').trim(),
               apiKey: (currentNetworkServer.value.apiKey || '').trim(),
               routeRef: (currentNetworkServer.value.routeRef || '').trim(),
+              applicationId: (currentNetworkServer.value.applicationId || '').trim(),
               isDefault: Boolean(currentNetworkServer.value.isDefault),
               status: currentNetworkServer.value.status || 'ONLINE',
               regionProfiles: (currentNetworkServer.value.regionProfiles || []).map((rp, idx) => ({
@@ -2042,11 +2054,12 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
               credentials: 'include'
             });
             const data = await res.json();
-            if (data.isSuccess || data.status === 'ONLINE') {
-              showToast("Connected to " + ns.name + " (" + (data.latencyMs || 25) + "ms) - ONLINE", "success");
+            if (data.success && (data.details?.httpStatus === undefined || data.details?.httpStatus < 400)) {
+              showToast("✅ " + data.message, "success");
             } else {
-              showToast(data.message || "Connection test completed", "info");
+              showToast("❌ " + (data.message || "Connection test failed (Offline)"), "error");
             }
+            fetchNetworkServers();
           } catch(e) {
             showToast("Connection test error: " + e.message, "error");
           }

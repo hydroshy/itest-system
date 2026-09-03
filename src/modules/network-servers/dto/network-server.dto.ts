@@ -75,13 +75,18 @@ export class CreateNetworkServerDto {
   @IsOptional()
   routeRef?: string;
 
+  @ApiPropertyOptional({ description: 'Application ID / UUID (cho ChirpStack hoặc ThingPark)', example: '018e69d7-8947-79b8-a764-96d552bd3b8e' })
+  @IsString()
+  @IsOptional()
+  applicationId?: string;
+
   @ApiPropertyOptional({ description: 'Danh sách Region Profiles', type: [RegionProfileDto] })
   @IsArray()
   @IsOptional()
   @ValidateNested({ each: true })
   @Type(() => RegionProfileDto)
   regionProfiles?: RegionProfileDto[];
-
+  
   @ApiPropertyOptional({ description: 'Trạng thái hoạt động', example: 'ONLINE' })
   @IsString()
   @IsOptional()
@@ -127,6 +132,11 @@ export class UpdateNetworkServerDto {
   @IsString()
   @IsOptional()
   routeRef?: string;
+
+  @ApiPropertyOptional({ description: 'Application ID / UUID (cho ChirpStack)' })
+  @IsString()
+  @IsOptional()
+  applicationId?: string;
 
   @ApiPropertyOptional({ description: 'Danh sách Region Profiles', type: [RegionProfileDto] })
   @IsArray()

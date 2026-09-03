@@ -229,6 +229,7 @@ export class DynamicDatabaseService implements OnModuleInit, OnModuleDestroy {
           "apiUrl" VARCHAR(500),
           "apiKey" TEXT,
           "routeRef" VARCHAR(255),
+          "applicationId" VARCHAR(255),
           "regionProfiles" JSONB NOT NULL DEFAULT '[]'::jsonb,
           "status" VARCHAR(50) NOT NULL DEFAULT 'ONLINE',
           "isDefault" BOOLEAN NOT NULL DEFAULT false,
@@ -237,6 +238,7 @@ export class DynamicDatabaseService implements OnModuleInit, OnModuleDestroy {
           "updatedAt" TIMESTAMP NOT NULL DEFAULT now()
         );
       `);
+      await dataSource.query(`ALTER TABLE "network_servers" ADD COLUMN IF NOT EXISTS "applicationId" VARCHAR(255);`).catch(() => {});
 
       // 7. applications table
       await dataSource.query(`
