@@ -1032,26 +1032,21 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
                 <h2 class="text-sm font-bold text-white flex items-center gap-2">
                   <i class="fa-solid fa-satellite-dish text-sky-400"></i> Webhook Manager
                 </h2>
-                <p class="text-[11px] text-slate-400 mt-0.5">Real-time incoming packet logging from ChirpStack & ThingPark with automated retention control.</p>
+                <p class="text-[11px] text-slate-400 mt-0.5">Real-time incoming LoRaWAN webhook packet logging from ChirpStack & ThingPark with automated retention control.</p>
               </div>
               <div class="flex items-center gap-2 flex-wrap">
-                <!-- Auto-Refresh Toggle -->
-                <button
-                  @click="toggleWebhookAutoRefresh"
-                  :class="webhookAutoRefresh ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-400' : 'bg-slate-900 border-slate-700 text-slate-400 hover:text-white'"
-                  class="px-3 py-1.5 rounded-lg border text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition"
-                  title="Toggle 3s live polling"
-                >
-                  <span class="w-2 h-2 rounded-full" :class="webhookAutoRefresh ? 'bg-emerald-400 animate-pulse' : 'bg-slate-600'"></span>
-                  <span>{{ webhookAutoRefresh ? 'Live Stream (3s)' : 'Live Paused' }}</span>
-                </button>
+                <!-- AJAX Live Status Badge -->
+                <span class="px-2.5 py-1.5 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-xs font-semibold flex items-center gap-1.5 shadow-sm" title="Real-time AJAX stream automatically active on this tab">
+                  <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                  <span>Live Stream (AJAX)</span>
+                </span>
 
                 <!-- Refresh Button -->
                 <button
-                  @click="fetchWebhookLogs"
+                  @click="fetchWebhookLogs(false)"
                   :disabled="loadingWebhookLogs"
                   class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition disabled:opacity-50"
-                  title="Refresh Packet Stream"
+                  title="Manual Refresh Packet Stream"
                 >
                   <i class="fa-solid fa-arrows-rotate" :class="{ 'fa-spin': loadingWebhookLogs }"></i>
                   <span>Refresh</span>
@@ -1172,54 +1167,45 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
                 </button>
               </div>
 
-              <!-- Search Bar & Status Filter -->
+              <!-- Search Bar -->
               <div class="flex items-center gap-2">
                 <div class="relative">
                   <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-xs"></i>
                   <input
                     v-model="webhookSearchQuery"
                     type="text"
-                    placeholder="Search DevEUI or Hex..."
-                    class="pl-8 pr-3 py-1.5 bg-slate-950 border border-slate-700 rounded-lg text-xs text-white placeholder-slate-500 focus:outline-none focus:border-sky-500 font-mono w-44 sm:w-56"
+                    placeholder="Search DevEUI, Hex, or JSON..."
+                    class="pl-8 pr-3 py-1.5 bg-slate-950 border border-slate-700 rounded-lg text-xs text-white placeholder-slate-500 focus:outline-none focus:border-sky-500 font-mono w-56 sm:w-72"
                   />
                 </div>
-                <select
-                  v-model="webhookStatusFilter"
-                  class="px-2.5 py-1.5 bg-slate-950 border border-slate-700 rounded-lg text-xs text-slate-300 focus:outline-none focus:border-sky-500"
-                >
-                  <option value="ALL">All Status</option>
-                  <option value="SUCCESS">Success Only</option>
-                  <option value="ERROR">Errors Only</option>
-                </select>
               </div>
             </div>
 
             <!-- Packet Stream Table / Log Window -->
-            <div class="overflow-x-auto rounded-xl border border-slate-800 bg-slate-950/60 max-h-[560px] overflow-y-auto custom-scroll">
+            <div class="overflow-x-auto rounded-xl border border-slate-800 bg-slate-950/60 max-h-[580px] overflow-y-auto custom-scroll">
               <table class="w-full text-left text-xs border-collapse">
                 <thead class="bg-slate-900/90 text-slate-400 font-semibold border-b border-slate-800 sticky top-0 z-10 backdrop-blur-md">
                   <tr>
-                    <th class="py-2.5 px-3.5">Source Server</th>
-                    <th class="py-2.5 px-3.5">Time</th>
-                    <th class="py-2.5 px-3.5">DevEUI</th>
-                    <th class="py-2.5 px-3.5">Port / Frame</th>
-                    <th class="py-2.5 px-3.5">Payload Hex</th>
-                    <th class="py-2.5 px-3.5">Decoded Output</th>
-                    <th class="py-2.5 px-3.5 text-right">Details</th>
+                    <th class="py-2.5 px-3.5 w-32">Server</th>
+                    <th class="py-2.5 px-3.5 w-28">Time</th>
+                    <th class="py-2.5 px-3.5 w-44">DevEUI</th>
+                    <th class="py-2.5 px-3.5 w-36">Port / FCnt</th>
+                    <th class="py-2.5 px-3.5">Raw Webhook JSON Payload</th>
+                    <th class="py-2.5 px-3.5 text-right w-24">Actions</th>
                   </tr>
                 </thead>
                 <tbody class="divide-y divide-slate-800/60">
                   <tr v-if="loadingWebhookLogs && filteredWebhookLogs.length === 0">
-                    <td colspan="7" class="py-12 text-center text-slate-500">
+                    <td colspan="6" class="py-12 text-center text-slate-500">
                       <i class="fa-solid fa-circle-notch fa-spin text-lg text-sky-400 mb-2"></i>
                       <p>Loading incoming packet stream...</p>
                     </td>
                   </tr>
                   <tr v-else-if="filteredWebhookLogs.length === 0">
-                    <td colspan="7" class="py-12 text-center text-slate-500">
+                    <td colspan="6" class="py-12 text-center text-slate-500">
                       <i class="fa-solid fa-satellite-dish text-2xl text-slate-600 mb-2 block"></i>
                       <p class="font-medium text-slate-400">No webhook packets in log buffer</p>
-                      <p class="text-[11px] text-slate-500 mt-1">Packets received by webhook endpoints will appear here in real-time.</p>
+                      <p class="text-[11px] text-slate-500 mt-1">Packets received by webhook endpoints will appear here automatically in real-time.</p>
                       <button @click="openSimulatePacketModal" class="mt-3 px-3 py-1.5 rounded-lg bg-sky-500/10 hover:bg-sky-500/20 text-sky-300 border border-sky-500/30 text-xs font-semibold cursor-pointer">
                         <i class="fa-solid fa-paper-plane mr-1"></i> Send Simulated Packet
                       </button>
@@ -1227,7 +1213,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
                   </tr>
                   <tr v-for="log in filteredWebhookLogs" :key="log.id" class="hover:bg-slate-800/30 transition">
                     <!-- Source Server -->
-                    <td class="py-2.5 px-3.5">
+                    <td class="py-2.5 px-3.5 align-top">
                       <span v-if="log.serverType === 'CHIRPSTACK'" class="px-2 py-0.5 rounded-full bg-sky-500/10 text-sky-300 border border-sky-500/25 text-[10px] font-bold inline-flex items-center gap-1 font-mono">
                         <span class="w-1.5 h-1.5 rounded-full bg-sky-400"></span>
                         <span>ChirpStack</span>
@@ -1242,53 +1228,53 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
                     </td>
 
                     <!-- Timestamp -->
-                    <td class="py-2.5 px-3.5 font-mono text-[11px] text-slate-300 whitespace-nowrap" :title="new Date(log.receivedAt).toISOString()">
+                    <td class="py-2.5 px-3.5 font-mono text-[11px] text-slate-300 whitespace-nowrap align-top" :title="new Date(log.receivedAt).toISOString()">
                       {{ formatLogTime(log.receivedAt) }}
                     </td>
 
                     <!-- DevEUI -->
-                    <td class="py-2.5 px-3.5 font-mono font-bold text-sky-400">
+                    <td class="py-2.5 px-3.5 font-mono font-bold text-sky-400 whitespace-nowrap align-top">
                       {{ log.devEUI }}
                     </td>
 
                     <!-- Port / FCnt -->
-                    <td class="py-2.5 px-3.5 font-mono text-[11px] text-slate-400">
+                    <td class="py-2.5 px-3.5 font-mono text-[11px] text-slate-400 whitespace-nowrap align-top">
                       <span>Port {{ log.fPort }}</span>
                       <span class="text-slate-600 mx-1">•</span>
                       <span class="text-slate-500">FCnt #{{ log.fCnt }}</span>
                     </td>
 
-                    <!-- Payload Hex -->
-                    <td class="py-2.5 px-3.5">
-                      <span class="px-2 py-0.5 rounded bg-slate-900 border border-slate-700 text-purple-300 font-mono text-xs font-semibold">
-                        {{ log.payloadHex || '00' }}
-                      </span>
-                    </td>
-
-                    <!-- Decoded Output -->
-                    <td class="py-2.5 px-3.5 max-w-[280px]">
-                      <div v-if="log.status === 'ERROR'" class="text-red-400 font-mono text-[11px] truncate flex items-center gap-1">
-                        <i class="fa-solid fa-triangle-exclamation"></i>
-                        <span>{{ log.errorMessage || 'Decode Error' }}</span>
-                      </div>
-                      <div v-else-if="log.decodedData && Object.keys(log.decodedData).length" class="font-mono text-[11px] text-slate-300 truncate" :title="JSON.stringify(log.decodedData)">
-                        {{ formatDecodedPreview(log.decodedData) }}
-                      </div>
-                      <div v-else class="text-slate-500 italic text-[11px]">
-                        No decoder output
+                    <!-- Raw Webhook JSON Payload -->
+                    <td class="py-2.5 px-3.5 align-top">
+                      <div class="p-2 bg-slate-950/90 border border-slate-800/90 rounded-lg font-mono text-[11px] text-slate-300 relative group max-h-24 overflow-y-auto custom-scroll leading-relaxed">
+                        <pre class="whitespace-pre-wrap break-all">{{ formatRawJson(log.rawPayload || log) }}</pre>
+                        <div class="absolute right-1.5 top-1.5 opacity-0 group-hover:opacity-100 transition">
+                          <button @click.stop="copyJson(log.rawPayload || log)" class="px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-200 text-[10px] font-sans font-semibold border border-slate-700 shadow-sm cursor-pointer" title="Copy JSON">
+                            <i class="fa-solid fa-copy mr-1 text-sky-400"></i>Copy
+                          </button>
+                        </div>
                       </div>
                     </td>
 
-                    <!-- Details Action -->
-                    <td class="py-2.5 px-3.5 text-right">
-                      <button
-                        @click="inspectWebhookLog(log)"
-                        class="px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px] font-semibold inline-flex items-center gap-1 cursor-pointer transition"
-                        title="View complete raw JSON payload"
-                      >
-                        <i class="fa-solid fa-eye text-sky-400"></i>
-                        <span>Raw JSON</span>
-                      </button>
+                    <!-- Actions -->
+                    <td class="py-2.5 px-3.5 text-right whitespace-nowrap align-top">
+                      <div class="flex items-center justify-end gap-1.5">
+                        <button
+                          @click="copyJson(log.rawPayload || log)"
+                          class="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs cursor-pointer transition"
+                          title="Copy JSON Payload"
+                        >
+                          <i class="fa-solid fa-copy text-slate-400"></i>
+                        </button>
+                        <button
+                          @click="inspectWebhookLog(log)"
+                          class="px-2.5 py-1 rounded-lg bg-sky-500/10 hover:bg-sky-500/20 text-sky-300 border border-sky-500/20 text-[11px] font-semibold flex items-center gap-1 cursor-pointer transition"
+                          title="Inspect JSON modal"
+                        >
+                          <i class="fa-solid fa-expand text-[10px]"></i>
+                          <span>Expand</span>
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 </tbody>
@@ -3715,9 +3701,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
         const loadingWebhookLogs = ref(false);
         const webhookServerFilter = ref('ALL');
         const webhookSearchQuery = ref('');
-        const webhookStatusFilter = ref('ALL');
-        const webhookAutoRefresh = ref(false);
-        let webhookInterval = null;
+        let webhookPollingTimer = null;
 
         const rawPayloadModal = ref(false);
         const inspectedWebhookLog = ref(null);
@@ -3740,22 +3724,19 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
           if (webhookServerFilter.value && webhookServerFilter.value !== 'ALL') {
             list = list.filter(l => (l.serverType || '').toUpperCase() === webhookServerFilter.value.toUpperCase());
           }
-          if (webhookStatusFilter.value && webhookStatusFilter.value !== 'ALL') {
-            list = list.filter(l => (l.status || '').toUpperCase() === webhookStatusFilter.value.toUpperCase());
-          }
           if (webhookSearchQuery.value && webhookSearchQuery.value.trim()) {
             const q = webhookSearchQuery.value.trim().toLowerCase();
             list = list.filter(l => 
               (l.devEUI && l.devEUI.toLowerCase().includes(q)) ||
               (l.payloadHex && l.payloadHex.toLowerCase().includes(q)) ||
-              (l.decodedData && JSON.stringify(l.decodedData).toLowerCase().includes(q))
+              (l.rawPayload && JSON.stringify(l.rawPayload).toLowerCase().includes(q))
             );
           }
           return list;
         });
 
-        const fetchWebhookLogs = async () => {
-          loadingWebhookLogs.value = true;
+        const fetchWebhookLogs = async (silent = false) => {
+          if (!silent) loadingWebhookLogs.value = true;
           try {
             const res = await fetch('/api/webhooks/logs?limit=200', {
               headers: authHeaders(),
@@ -3771,9 +3752,9 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
               if (data.retentionLimit) webhookStats.value.retentionLimit = data.retentionLimit;
             }
           } catch(e) {
-            // silent during auto-refresh
+            // silent during background AJAX polling
           } finally {
-            loadingWebhookLogs.value = false;
+            if (!silent) loadingWebhookLogs.value = false;
           }
         };
 
@@ -3791,26 +3772,59 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
           } catch(e) {}
         };
 
-        const toggleWebhookAutoRefresh = () => {
-          webhookAutoRefresh.value = !webhookAutoRefresh.value;
-          if (webhookAutoRefresh.value) {
-            fetchWebhookLogs();
-            webhookInterval = setInterval(() => {
-              fetchWebhookLogs();
-            }, 3000);
-            showToast("Live stream polling enabled (3s)", "info");
-          } else {
-            if (webhookInterval) {
-              clearInterval(webhookInterval);
-              webhookInterval = null;
+        const startWebhookPolling = () => {
+          stopWebhookPolling();
+          fetchWebhookLogs(false);
+          fetchWebhookStats();
+          webhookPollingTimer = setInterval(() => {
+            if (activeTab.value === 'webhooks') {
+              fetchWebhookLogs(true);
+              fetchWebhookStats();
+            } else {
+              stopWebhookPolling();
             }
-            showToast("Live stream polling paused", "info");
+          }, 2500);
+        };
+
+        const stopWebhookPolling = () => {
+          if (webhookPollingTimer) {
+            clearInterval(webhookPollingTimer);
+            webhookPollingTimer = null;
           }
         };
 
         const inspectWebhookLog = (log) => {
           inspectedWebhookLog.value = log;
           rawPayloadModal.value = true;
+        };
+
+        const copyJson = async (payload) => {
+          try {
+            const text = typeof payload === 'string' ? payload : JSON.stringify(payload, null, 2);
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+              await navigator.clipboard.writeText(text);
+            } else {
+              const ta = document.createElement('textarea');
+              ta.value = text;
+              document.body.appendChild(ta);
+              ta.select();
+              document.execCommand('copy');
+              document.body.removeChild(ta);
+            }
+            showToast("JSON copied to clipboard!", "success");
+          } catch(e) {
+            showToast("Failed to copy JSON", "error");
+          }
+        };
+
+        const formatRawJson = (payload) => {
+          if (!payload) return '{}';
+          if (typeof payload === 'string') return payload;
+          try {
+            return JSON.stringify(payload, null, 2);
+          } catch(e) {
+            return String(payload);
+          }
         };
 
         const openSimulatePacketModal = () => {
@@ -3834,7 +3848,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
             
             showToast(data.message || "Simulated packet logged successfully!", "success");
             simulatePacketModal.value = false;
-            await fetchWebhookLogs();
+            await fetchWebhookLogs(false);
             await fetchWebhookStats();
           } catch(e) {
             showToast(e.message, "error");
@@ -3866,7 +3880,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
             showToast(data.message || "Retention limit updated", "success");
             webhookStats.value.retentionLimit = data.retentionLimit;
             retentionModal.value = false;
-            await fetchWebhookLogs();
+            await fetchWebhookLogs(false);
             await fetchWebhookStats();
           } catch(e) {
             showToast(e.message, "error");
@@ -3892,7 +3906,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
             
             showToast(data.message || "Logs cleared", "success");
             clearLogsConfirmModal.value = false;
-            await fetchWebhookLogs();
+            await fetchWebhookLogs(false);
             await fetchWebhookStats();
           } catch(e) {
             showToast(e.message, "error");
@@ -3909,13 +3923,6 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
           }
         };
 
-        const formatDecodedPreview = (obj) => {
-          if (!obj || typeof obj !== 'object') return '';
-          const entries = Object.entries(obj);
-          if (entries.length === 0) return '{}';
-          return entries.map(([k, v]) => k + ': ' + (typeof v === 'object' ? JSON.stringify(v) : v)).join(' | ');
-        };
-
         watch(activeTab, (newTab) => {
           try {
             window.history.replaceState(null, null, '#' + newTab);
@@ -3928,8 +3935,9 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
           if (newTab === 'devices') fetchDevices();
           if (newTab === 'decoder') fetchDecoders();
           if (newTab === 'webhooks') {
-            fetchWebhookLogs();
-            fetchWebhookStats();
+            startWebhookPolling();
+          } else {
+            stopWebhookPolling();
           }
         });
 
@@ -3945,11 +3953,13 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
           fetchDevices();
           fetchDecoders();
           fetchWebhookStats();
-          fetchWebhookLogs();
           
           const hash = window.location.hash.replace('#', '').trim();
           if (hash && hash !== 'telemetry') {
             activeTab.value = hash;
+            if (hash === 'webhooks') {
+              startWebhookPolling();
+            }
           } else {
             activeTab.value = 'overview';
           }
@@ -4095,8 +4105,6 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
           loadingWebhookLogs,
           webhookServerFilter,
           webhookSearchQuery,
-          webhookStatusFilter,
-          webhookAutoRefresh,
           filteredWebhookLogs,
           rawPayloadModal,
           inspectedWebhookLog,
@@ -4109,16 +4117,16 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
           clearLogsConfirmModal,
           fetchWebhookLogs,
           fetchWebhookStats,
-          toggleWebhookAutoRefresh,
           inspectWebhookLog,
+          copyJson,
+          formatRawJson,
           openSimulatePacketModal,
           submitSimulatePacket,
           openRetentionModal,
           submitUpdateRetention,
           openClearLogsModal,
           submitClearLogs,
-          formatLogTime,
-          formatDecodedPreview
+          formatLogTime
         };
       }
     }).mount('#app');
