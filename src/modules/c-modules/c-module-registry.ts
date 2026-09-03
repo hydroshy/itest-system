@@ -86,8 +86,8 @@ export const C_MODULES_REGISTRY: CModule[] = [
   {
     id: 'c-webhook-admin',
     code: 'C_MOD_WEBHOOKS',
-    title: 'Webhook Ingestion Endpoints',
-    description: 'Configure and monitor HTTP ingestion endpoints for ChirpStack and ThingPark Wireless DX uplinks.',
+    title: 'Webhook Manager',
+    description: 'Monitor live packet streams from ChirpStack & ThingPark webhooks with automated log retention.',
     icon: 'fa-solid fa-satellite-dish',
     category: 'Infrastructure',
     routeHash: '#webhooks',

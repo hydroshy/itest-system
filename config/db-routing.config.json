@@ -23,6 +23,7 @@
     "devices": "core_db",
     "gateways": "core_db",
     "uplink_telemetry": "core_db",
-    "decoder": "core_db"
+    "decoder": "core_db",
+    "webhook_logs": "core_db"
   }
 }

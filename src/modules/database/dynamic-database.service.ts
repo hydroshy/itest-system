@@ -335,6 +335,25 @@ export class DynamicDatabaseService implements OnModuleInit, OnModuleDestroy {
       `);
       await dataSource.query(`CREATE INDEX IF NOT EXISTS "idx_decoder_sku" ON "decoder" ("sku");`).catch(() => {});
 
+      // 10c. webhook_logs table (Webhook Manager - C-Module)
+      await dataSource.query(`
+        CREATE TABLE IF NOT EXISTS "webhook_logs" (
+          "id" UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          "serverType" VARCHAR(50) NOT NULL,
+          "devEUI" VARCHAR(255) NOT NULL,
+          "fPort" INT NOT NULL DEFAULT 1,
+          "fCnt" INT NOT NULL DEFAULT 0,
+          "payloadHex" TEXT NOT NULL DEFAULT '',
+          "decodedData" JSONB,
+          "rawPayload" JSONB,
+          "status" VARCHAR(50) NOT NULL DEFAULT 'SUCCESS',
+          "errorMessage" TEXT,
+          "receivedAt" TIMESTAMP NOT NULL DEFAULT now()
+        );
+      `);
+      await dataSource.query(`CREATE INDEX IF NOT EXISTS "idx_webhook_logs_server" ON "webhook_logs" ("serverType", "receivedAt" DESC);`).catch(() => {});
+      await dataSource.query(`CREATE INDEX IF NOT EXISTS "idx_webhook_logs_deveui" ON "webhook_logs" ("devEUI");`).catch(() => {});
+
       // 11. Clean orphaned join records
       await dataSource.query(`
         DELETE FROM "role_permissions"

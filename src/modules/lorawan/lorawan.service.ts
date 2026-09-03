@@ -8,6 +8,7 @@ import { GatewayEntity } from './entities/gateway.entity';
 import { TelemetryEntity } from './entities/telemetry.entity';
 import { NetworkServerEntity } from '../network-servers/entities/network-server.entity';
 import { DecoderEntity } from '../c-modules/decoder-admin/entities/decoder.entity';
+import { WebhookLogEntity } from '../c-modules/webhook-admin/entities/webhook-log.entity';
 import { RegisterDeviceDto, RegisterGatewayDto } from './dto/lorawan.dto';
 
 function isUserSuperAdmin(user?: any): boolean {
@@ -40,6 +41,10 @@ export class LorawanService {
 
   private get decoderRepo() {
     return this.dbService.getRepositoryForTable('decoder', DecoderEntity);
+  }
+
+  private get webhookLogRepo() {
+    return this.dbService.getRepositoryForTable('webhook_logs', WebhookLogEntity);
   }
 
   private get appRepo() {
@@ -458,8 +463,54 @@ export class LorawanService {
     return null;
   }
 
+  private async recordWebhookLog(data: {
+    serverType: string;
+    devEUI: string;
+    fPort: number;
+    fCnt: number;
+    payloadHex: string;
+    decodedData?: any;
+    rawPayload?: any;
+    status?: string;
+    errorMessage?: string;
+  }) {
+    try {
+      const repo = this.webhookLogRepo;
+      const log = repo.create({
+        serverType: data.serverType,
+        devEUI: (data.devEUI || 'UNKNOWN').toUpperCase(),
+        fPort: Number(data.fPort) || 1,
+        fCnt: Number(data.fCnt) || 0,
+        payloadHex: (data.payloadHex || '').toUpperCase(),
+        decodedData: data.decodedData || null,
+        rawPayload: data.rawPayload || null,
+        status: data.status || (data.decodedData?.error ? 'ERROR' : 'SUCCESS'),
+        errorMessage: data.errorMessage || (data.decodedData?.error ? String(data.decodedData.error) : null),
+      });
+      await repo.save(log);
+
+      // Auto-prune excess beyond 200 packets per server
+      const count = await repo.count({ where: { serverType: data.serverType } });
+      if (count > 200) {
+        const excess = count - 200;
+        const oldest = await repo.find({
+          where: { serverType: data.serverType },
+          order: { receivedAt: 'ASC' },
+          take: excess,
+          select: ['id'],
+        });
+        if (oldest.length > 0) {
+          await repo.delete(oldest.map(r => r.id));
+        }
+      }
+    } catch (err: any) {
+      this.logger.warn(`Failed to record webhook log: ${err.message}`);
+    }
+  }
+
   async handleUplink(devEUI: string, payloadHex: string, fPort: number = 1, fCnt: number = 1) {
-    const device = await this.deviceRepo.findOne({ where: { devEUI: devEUI.toUpperCase() } });
+    const cleanDevEUI = devEUI.trim().toUpperCase();
+    const device = await this.deviceRepo.findOne({ where: { devEUI: cleanDevEUI } });
     let decodedData = {};
 
     if (device) {
@@ -482,7 +533,7 @@ export class LorawanService {
     }
 
     const telemetry = this.telemetryRepo.create({
-      devEUI: devEUI.toUpperCase(),
+      devEUI: cleanDevEUI,
       payloadHex,
       fPort,
       fCnt,
@@ -490,22 +541,35 @@ export class LorawanService {
     });
 
     await this.telemetryRepo.save(telemetry);
+
+    // Save to Webhook Manager Log
+    this.recordWebhookLog({
+      serverType: 'GENERIC',
+      devEUI: cleanDevEUI,
+      fPort,
+      fCnt,
+      payloadHex,
+      decodedData,
+      rawPayload: { devEUI: cleanDevEUI, payloadHex, fPort, fCnt },
+    }).catch(() => {});
+
     return {
       success: true,
-      devEUI: devEUI.toUpperCase(),
+      devEUI: cleanDevEUI,
       decodedData,
       telemetry,
     };
   }
 
   async handleChirpstackWebhook(body: any) {
-    const devEUI =
+    const devEUI = (
       body.deviceInfo?.devEui ||
       body.devEUI ||
       body.devEui ||
       body.deviceInfo?.devEUI ||
       body.devAddr ||
-      'UNKNOWN_CHIRPSTACK_DEVICE';
+      'UNKNOWN_CHIRPSTACK_DEVICE'
+    ).trim().toUpperCase();
 
     let payloadHex = '';
     if (body.data) {
@@ -519,7 +583,7 @@ export class LorawanService {
 
     let decodedData = body.object || (body.objectJSON ? (typeof body.objectJSON === 'string' ? JSON.parse(body.objectJSON) : body.objectJSON) : null);
 
-    const device = await this.deviceRepo.findOne({ where: { devEUI: devEUI.toUpperCase() } });
+    const device = await this.deviceRepo.findOne({ where: { devEUI } });
     if (device) {
       device.lastSeenAt = new Date();
       if (device.syncDetails) {
@@ -542,7 +606,7 @@ export class LorawanService {
     }
 
     const telemetry = this.telemetryRepo.create({
-      devEUI: devEUI.toUpperCase(),
+      devEUI,
       payloadHex: payloadHex || '00',
       fPort,
       fCnt,
@@ -550,11 +614,25 @@ export class LorawanService {
     });
 
     await this.telemetryRepo.save(telemetry);
+
+    // Save to Webhook Manager Log
+    this.recordWebhookLog({
+      serverType: 'CHIRPSTACK',
+      devEUI,
+      fPort,
+      fCnt,
+      payloadHex: payloadHex || '',
+      decodedData: decodedData || {},
+      rawPayload: body,
+      status: decodedData?.error ? 'ERROR' : 'SUCCESS',
+      errorMessage: decodedData?.error || undefined,
+    }).catch(() => {});
+
     this.logger.log(`📥 Processed ChirpStack Webhook: DevEUI=${devEUI}, Port=${fPort}, FCnt=${fCnt}`);
     return {
       success: true,
       source: 'ChirpStack',
-      devEUI: devEUI.toUpperCase(),
+      devEUI,
       fPort,
       fCnt,
       payloadHex,
@@ -566,7 +644,7 @@ export class LorawanService {
 
   async handleThingparkWebhook(body: any) {
     const uplink = body.DevEUI_uplink || body;
-    const devEUI = uplink.DevEUI || uplink.devEUI || uplink.devEui || 'UNKNOWN_THINGPARK_DEVICE';
+    const devEUI = (uplink.DevEUI || uplink.devEUI || uplink.devEui || 'UNKNOWN_THINGPARK_DEVICE').trim().toUpperCase();
 
     let payloadHex = '';
     if (uplink.payload_hex) {
@@ -580,7 +658,7 @@ export class LorawanService {
 
     let decodedData = uplink.DriverCfg || null;
 
-    const device = await this.deviceRepo.findOne({ where: { devEUI: devEUI.toUpperCase() } });
+    const device = await this.deviceRepo.findOne({ where: { devEUI } });
     if (device) {
       device.lastSeenAt = new Date();
       if (device.syncDetails) {
@@ -601,7 +679,7 @@ export class LorawanService {
     }
 
     const telemetry = this.telemetryRepo.create({
-      devEUI: devEUI.toUpperCase(),
+      devEUI,
       payloadHex: payloadHex || '00',
       fPort,
       fCnt,
@@ -609,11 +687,25 @@ export class LorawanService {
     });
 
     await this.telemetryRepo.save(telemetry);
+
+    // Save to Webhook Manager Log
+    this.recordWebhookLog({
+      serverType: 'THINGPARK',
+      devEUI,
+      fPort,
+      fCnt,
+      payloadHex: payloadHex || '',
+      decodedData: decodedData || {},
+      rawPayload: body,
+      status: decodedData?.error ? 'ERROR' : 'SUCCESS',
+      errorMessage: decodedData?.error || undefined,
+    }).catch(() => {});
+
     this.logger.log(`📥 Processed ThingPark Webhook: DevEUI=${devEUI}, Port=${fPort}, FCnt=${fCnt}`);
     return {
       success: true,
       source: 'ThingPark',
-      devEUI: devEUI.toUpperCase(),
+      devEUI,
       fPort,
       fCnt,
       payloadHex,

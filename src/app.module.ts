@@ -10,6 +10,7 @@ import { AdminPanelModule } from './modules/admin-panel/admin-panel.module';
 import { UserPanelModule } from './modules/user-panel/user-panel.module';
 import { DModulesModule } from './modules/d-modules/d-modules.module';
 import { DecoderModule } from './modules/c-modules/decoder-admin/decoder.module';
+import { WebhookAdminModule } from './modules/c-modules/webhook-admin/webhook-admin.module';
 import { AppController } from './app.controller';
 
 @Module({
@@ -27,6 +28,7 @@ import { AppController } from './app.controller';
     UserPanelModule,
     DModulesModule,
     DecoderModule,
+    WebhookAdminModule,
   ],
   controllers: [AppController],
 })

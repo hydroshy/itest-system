@@ -281,8 +281,9 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
             <button @click="switchTab('webhooks')" :class="{ active: activeTab === 'webhooks' }" class="nav-item">
               <span class="flex items-center gap-2.5">
                 <i class="fa-solid fa-satellite-dish w-4 text-center text-xs text-sky-400"></i>
-                <span>Webhook Ingestion</span>
+                <span>Webhook Manager</span>
               </span>
+              <span v-if="webhookStats.totalCount" class="px-1.5 py-0.2 rounded-full bg-sky-500/15 text-sky-300 text-[10px] font-mono">{{ webhookStats.totalCount }}</span>
             </button>
 
             <button @click="switchTab('decoder')" :class="{ active: activeTab === 'decoder' }" class="nav-item">
@@ -1022,40 +1023,285 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
           </div>
         </div>
 
-        <!-- TAB 8: WEBHOOKS -->
+        <!-- TAB 8: WEBHOOK MANAGER -->
         <div v-show="activeTab === 'webhooks'" class="space-y-4">
+          <!-- TOP CARD: WEBHOOK ENDPOINTS (2 SERVERS) & CONTROLS -->
           <div class="glass-card rounded-xl p-5 space-y-4">
-            <div>
-              <h2 class="text-sm font-bold text-white flex items-center gap-2">
-                <i class="fa-solid fa-satellite-dish text-sky-400"></i> Network Server Webhook Ingestion
-              </h2>
-              <p class="text-[11px] text-slate-400 mt-0.5">Configure these HTTP endpoints on your Network Server (ChirpStack v4 or ThingPark Wireless):</p>
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800 pb-3.5">
+              <div>
+                <h2 class="text-sm font-bold text-white flex items-center gap-2">
+                  <i class="fa-solid fa-satellite-dish text-sky-400"></i> Webhook Manager
+                </h2>
+                <p class="text-[11px] text-slate-400 mt-0.5">Real-time incoming packet logging from ChirpStack & ThingPark with automated retention control.</p>
+              </div>
+              <div class="flex items-center gap-2 flex-wrap">
+                <!-- Auto-Refresh Toggle -->
+                <button
+                  @click="toggleWebhookAutoRefresh"
+                  :class="webhookAutoRefresh ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-400' : 'bg-slate-900 border-slate-700 text-slate-400 hover:text-white'"
+                  class="px-3 py-1.5 rounded-lg border text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition"
+                  title="Toggle 3s live polling"
+                >
+                  <span class="w-2 h-2 rounded-full" :class="webhookAutoRefresh ? 'bg-emerald-400 animate-pulse' : 'bg-slate-600'"></span>
+                  <span>{{ webhookAutoRefresh ? 'Live Stream (3s)' : 'Live Paused' }}</span>
+                </button>
+
+                <!-- Refresh Button -->
+                <button
+                  @click="fetchWebhookLogs"
+                  :disabled="loadingWebhookLogs"
+                  class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition disabled:opacity-50"
+                  title="Refresh Packet Stream"
+                >
+                  <i class="fa-solid fa-arrows-rotate" :class="{ 'fa-spin': loadingWebhookLogs }"></i>
+                  <span>Refresh</span>
+                </button>
+
+                <!-- Simulate Packet Button -->
+                <button
+                  @click="openSimulatePacketModal"
+                  class="px-3 py-1.5 rounded-lg bg-sky-500/10 hover:bg-sky-500/20 text-sky-300 border border-sky-500/30 text-xs font-bold flex items-center gap-1.5 cursor-pointer transition shadow-sm"
+                  title="Simulate incoming webhook packet from ChirpStack or ThingPark"
+                >
+                  <i class="fa-solid fa-paper-plane"></i>
+                  <span>Simulate Packet</span>
+                </button>
+
+                <!-- Retention Settings Button -->
+                <button
+                  @click="openRetentionModal"
+                  class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition"
+                  title="Configure auto-pruning packet limit"
+                >
+                  <i class="fa-solid fa-sliders"></i>
+                  <span>Retention ({{ webhookStats.retentionLimit || 200 }})</span>
+                </button>
+
+                <!-- Clear Logs Button -->
+                <button
+                  @click="openClearLogsModal"
+                  :disabled="!webhookLogs.length"
+                  class="px-3 py-1.5 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition disabled:opacity-40"
+                  title="Clear all webhook packet logs"
+                >
+                  <i class="fa-solid fa-trash-can"></i>
+                  <span>Clear</span>
+                </button>
+              </div>
             </div>
 
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs font-mono">
-              <div class="bg-slate-950/70 border border-slate-800 rounded-xl p-4 space-y-2">
-                <div class="flex items-center justify-between text-sky-400 font-bold font-sans">
-                  <span>ChirpStack v4 Ingestion</span>
-                  <span class="px-2 py-0.5 rounded bg-sky-500/10 border border-sky-500/20 text-[10px]">POST / JSON</span>
+            <!-- 2 Server Ingestion Cards -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3.5 text-xs font-mono">
+              <!-- ChirpStack Endpoint Card -->
+              <div class="bg-slate-950/70 border border-slate-800/90 rounded-xl p-3.5 space-y-2">
+                <div class="flex items-center justify-between font-sans">
+                  <div class="flex items-center gap-2">
+                    <div class="w-7 h-7 rounded-lg bg-sky-500/10 border border-sky-500/20 flex items-center justify-center text-sky-400">
+                      <i class="fa-solid fa-tower-broadcast text-xs"></i>
+                    </div>
+                    <div>
+                      <h4 class="text-xs font-bold text-white">ChirpStack v4 Ingestion</h4>
+                      <p class="text-[10px] text-slate-400">Uplink HTTP Integration</p>
+                    </div>
+                  </div>
+                  <span class="px-2 py-0.5 rounded-full bg-sky-500/10 text-sky-300 border border-sky-500/20 text-[10px] font-bold">
+                    {{ webhookStats.chirpstackCount || 0 }} logged
+                  </span>
                 </div>
-                <div class="p-2.5 bg-slate-900 rounded-lg border border-slate-800 text-slate-200 flex items-center justify-between">
-                  <span>POST /lorawan/webhook/chirpstack</span>
-                  <button @click="copyUrl('/lorawan/webhook/chirpstack')" class="text-sky-400 hover:text-sky-300 ml-2 cursor-pointer font-sans text-xs">Copy</button>
+                <div class="p-2 bg-slate-900 rounded-lg border border-slate-800 text-slate-200 flex items-center justify-between text-xs">
+                  <span class="truncate font-mono text-[11px] text-sky-300">POST /lorawan/webhook/chirpstack</span>
+                  <button @click="copyUrl('/lorawan/webhook/chirpstack')" class="text-sky-400 hover:text-sky-300 ml-2 cursor-pointer font-sans text-[11px] font-semibold flex-shrink-0">Copy URL</button>
                 </div>
-                <p class="text-[11px] text-slate-400 font-sans">Supports ChirpStack uplink events, deduplication, and payload parsing.</p>
               </div>
 
-              <div class="bg-slate-950/70 border border-slate-800 rounded-xl p-4 space-y-2">
-                <div class="flex items-center justify-between text-emerald-400 font-bold font-sans">
-                  <span>ThingPark Wireless Ingestion</span>
-                  <span class="px-2 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/20 text-[10px]">POST / JSON</span>
+              <!-- ThingPark Endpoint Card -->
+              <div class="bg-slate-950/70 border border-slate-800/90 rounded-xl p-3.5 space-y-2">
+                <div class="flex items-center justify-between font-sans">
+                  <div class="flex items-center gap-2">
+                    <div class="w-7 h-7 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
+                      <i class="fa-solid fa-satellite-dish text-xs"></i>
+                    </div>
+                    <div>
+                      <h4 class="text-xs font-bold text-white">ThingPark Wireless Ingestion</h4>
+                      <p class="text-[10px] text-slate-400">DX Application Routing</p>
+                    </div>
+                  </div>
+                  <span class="px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[10px] font-bold">
+                    {{ webhookStats.thingparkCount || 0 }} logged
+                  </span>
                 </div>
-                <div class="p-2.5 bg-slate-900 rounded-lg border border-slate-800 text-slate-200 flex items-center justify-between">
-                  <span>POST /lorawan/webhook/thingpark</span>
-                  <button @click="copyUrl('/lorawan/webhook/thingpark')" class="text-emerald-400 hover:text-emerald-300 ml-2 cursor-pointer font-sans text-xs">Copy</button>
+                <div class="p-2 bg-slate-900 rounded-lg border border-slate-800 text-slate-200 flex items-center justify-between text-xs">
+                  <span class="truncate font-mono text-[11px] text-emerald-300">POST /lorawan/webhook/thingpark</span>
+                  <button @click="copyUrl('/lorawan/webhook/thingpark')" class="text-emerald-400 hover:text-emerald-300 ml-2 cursor-pointer font-sans text-[11px] font-semibold flex-shrink-0">Copy URL</button>
                 </div>
-                <p class="text-[11px] text-slate-400 font-sans">Supports Actility ThingPark Wireless DX packets and hex payloads.</p>
               </div>
+            </div>
+          </div>
+
+          <!-- LOG WINDOW CARD: PACKET STREAM -->
+          <div class="glass-card rounded-xl p-5 space-y-4">
+            <!-- Filter & Server Tabs Toolbar -->
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <!-- Server Filter Tabs -->
+              <div class="flex items-center gap-1.5 p-1 bg-slate-950 border border-slate-800 rounded-xl text-xs">
+                <button
+                  @click="webhookServerFilter = 'ALL'"
+                  :class="webhookServerFilter === 'ALL' ? 'bg-slate-800 text-white font-bold shadow-sm' : 'text-slate-400 hover:text-slate-200'"
+                  class="px-3 py-1.5 rounded-lg transition cursor-pointer flex items-center gap-1.5"
+                >
+                  <span>All Servers</span>
+                  <span class="px-1.5 py-0.2 rounded-full bg-slate-700 text-slate-300 text-[10px]">{{ webhookStats.totalCount || 0 }}</span>
+                </button>
+                <button
+                  @click="webhookServerFilter = 'CHIRPSTACK'"
+                  :class="webhookServerFilter === 'CHIRPSTACK' ? 'bg-sky-500/20 text-sky-300 font-bold border border-sky-500/30' : 'text-slate-400 hover:text-slate-200'"
+                  class="px-3 py-1.5 rounded-lg transition cursor-pointer flex items-center gap-1.5"
+                >
+                  <i class="fa-solid fa-tower-broadcast text-[10px] text-sky-400"></i>
+                  <span>ChirpStack</span>
+                  <span class="px-1.5 py-0.2 rounded-full bg-sky-500/20 text-sky-300 text-[10px]">{{ webhookStats.chirpstackCount || 0 }}</span>
+                </button>
+                <button
+                  @click="webhookServerFilter = 'THINGPARK'"
+                  :class="webhookServerFilter === 'THINGPARK' ? 'bg-emerald-500/20 text-emerald-300 font-bold border border-emerald-500/30' : 'text-slate-400 hover:text-slate-200'"
+                  class="px-3 py-1.5 rounded-lg transition cursor-pointer flex items-center gap-1.5"
+                >
+                  <i class="fa-solid fa-satellite-dish text-[10px] text-emerald-400"></i>
+                  <span>ThingPark</span>
+                  <span class="px-1.5 py-0.2 rounded-full bg-emerald-500/20 text-emerald-300 text-[10px]">{{ webhookStats.thingparkCount || 0 }}</span>
+                </button>
+              </div>
+
+              <!-- Search Bar & Status Filter -->
+              <div class="flex items-center gap-2">
+                <div class="relative">
+                  <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-xs"></i>
+                  <input
+                    v-model="webhookSearchQuery"
+                    type="text"
+                    placeholder="Search DevEUI or Hex..."
+                    class="pl-8 pr-3 py-1.5 bg-slate-950 border border-slate-700 rounded-lg text-xs text-white placeholder-slate-500 focus:outline-none focus:border-sky-500 font-mono w-44 sm:w-56"
+                  />
+                </div>
+                <select
+                  v-model="webhookStatusFilter"
+                  class="px-2.5 py-1.5 bg-slate-950 border border-slate-700 rounded-lg text-xs text-slate-300 focus:outline-none focus:border-sky-500"
+                >
+                  <option value="ALL">All Status</option>
+                  <option value="SUCCESS">Success Only</option>
+                  <option value="ERROR">Errors Only</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- Packet Stream Table / Log Window -->
+            <div class="overflow-x-auto rounded-xl border border-slate-800 bg-slate-950/60 max-h-[560px] overflow-y-auto custom-scroll">
+              <table class="w-full text-left text-xs border-collapse">
+                <thead class="bg-slate-900/90 text-slate-400 font-semibold border-b border-slate-800 sticky top-0 z-10 backdrop-blur-md">
+                  <tr>
+                    <th class="py-2.5 px-3.5">Source Server</th>
+                    <th class="py-2.5 px-3.5">Time</th>
+                    <th class="py-2.5 px-3.5">DevEUI</th>
+                    <th class="py-2.5 px-3.5">Port / Frame</th>
+                    <th class="py-2.5 px-3.5">Payload Hex</th>
+                    <th class="py-2.5 px-3.5">Decoded Output</th>
+                    <th class="py-2.5 px-3.5 text-right">Details</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-800/60">
+                  <tr v-if="loadingWebhookLogs && filteredWebhookLogs.length === 0">
+                    <td colspan="7" class="py-12 text-center text-slate-500">
+                      <i class="fa-solid fa-circle-notch fa-spin text-lg text-sky-400 mb-2"></i>
+                      <p>Loading incoming packet stream...</p>
+                    </td>
+                  </tr>
+                  <tr v-else-if="filteredWebhookLogs.length === 0">
+                    <td colspan="7" class="py-12 text-center text-slate-500">
+                      <i class="fa-solid fa-satellite-dish text-2xl text-slate-600 mb-2 block"></i>
+                      <p class="font-medium text-slate-400">No webhook packets in log buffer</p>
+                      <p class="text-[11px] text-slate-500 mt-1">Packets received by webhook endpoints will appear here in real-time.</p>
+                      <button @click="openSimulatePacketModal" class="mt-3 px-3 py-1.5 rounded-lg bg-sky-500/10 hover:bg-sky-500/20 text-sky-300 border border-sky-500/30 text-xs font-semibold cursor-pointer">
+                        <i class="fa-solid fa-paper-plane mr-1"></i> Send Simulated Packet
+                      </button>
+                    </td>
+                  </tr>
+                  <tr v-for="log in filteredWebhookLogs" :key="log.id" class="hover:bg-slate-800/30 transition">
+                    <!-- Source Server -->
+                    <td class="py-2.5 px-3.5">
+                      <span v-if="log.serverType === 'CHIRPSTACK'" class="px-2 py-0.5 rounded-full bg-sky-500/10 text-sky-300 border border-sky-500/25 text-[10px] font-bold inline-flex items-center gap-1 font-mono">
+                        <span class="w-1.5 h-1.5 rounded-full bg-sky-400"></span>
+                        <span>ChirpStack</span>
+                      </span>
+                      <span v-else-if="log.serverType === 'THINGPARK'" class="px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/25 text-[10px] font-bold inline-flex items-center gap-1 font-mono">
+                        <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                        <span>ThingPark</span>
+                      </span>
+                      <span v-else class="px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-300 border border-purple-500/25 text-[10px] font-bold inline-flex items-center gap-1 font-mono">
+                        <span>{{ log.serverType }}</span>
+                      </span>
+                    </td>
+
+                    <!-- Timestamp -->
+                    <td class="py-2.5 px-3.5 font-mono text-[11px] text-slate-300 whitespace-nowrap" :title="new Date(log.receivedAt).toISOString()">
+                      {{ formatLogTime(log.receivedAt) }}
+                    </td>
+
+                    <!-- DevEUI -->
+                    <td class="py-2.5 px-3.5 font-mono font-bold text-sky-400">
+                      {{ log.devEUI }}
+                    </td>
+
+                    <!-- Port / FCnt -->
+                    <td class="py-2.5 px-3.5 font-mono text-[11px] text-slate-400">
+                      <span>Port {{ log.fPort }}</span>
+                      <span class="text-slate-600 mx-1">•</span>
+                      <span class="text-slate-500">FCnt #{{ log.fCnt }}</span>
+                    </td>
+
+                    <!-- Payload Hex -->
+                    <td class="py-2.5 px-3.5">
+                      <span class="px-2 py-0.5 rounded bg-slate-900 border border-slate-700 text-purple-300 font-mono text-xs font-semibold">
+                        {{ log.payloadHex || '00' }}
+                      </span>
+                    </td>
+
+                    <!-- Decoded Output -->
+                    <td class="py-2.5 px-3.5 max-w-[280px]">
+                      <div v-if="log.status === 'ERROR'" class="text-red-400 font-mono text-[11px] truncate flex items-center gap-1">
+                        <i class="fa-solid fa-triangle-exclamation"></i>
+                        <span>{{ log.errorMessage || 'Decode Error' }}</span>
+                      </div>
+                      <div v-else-if="log.decodedData && Object.keys(log.decodedData).length" class="font-mono text-[11px] text-slate-300 truncate" :title="JSON.stringify(log.decodedData)">
+                        {{ formatDecodedPreview(log.decodedData) }}
+                      </div>
+                      <div v-else class="text-slate-500 italic text-[11px]">
+                        No decoder output
+                      </div>
+                    </td>
+
+                    <!-- Details Action -->
+                    <td class="py-2.5 px-3.5 text-right">
+                      <button
+                        @click="inspectWebhookLog(log)"
+                        class="px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px] font-semibold inline-flex items-center gap-1 cursor-pointer transition"
+                        title="View complete raw JSON payload"
+                      >
+                        <i class="fa-solid fa-eye text-sky-400"></i>
+                        <span>Raw JSON</span>
+                      </button>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <!-- Auto-pruning info note -->
+            <div class="flex items-center justify-between text-[11px] text-slate-500 pt-1">
+              <span class="flex items-center gap-1.5">
+                <i class="fa-solid fa-circle-info text-sky-400"></i>
+                <span>Automated Log Retention: System keeps the last <strong>{{ webhookStats.retentionLimit || 200 }}</strong> packets per server. Oldest logs are automatically pruned.</span>
+              </span>
+              <span>Showing {{ filteredWebhookLogs.length }} of {{ webhookLogs.length }} buffered logs</span>
             </div>
           </div>
         </div>
@@ -2019,6 +2265,173 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
       </div>
     </div>
 
+    <!-- MODAL: INSPECT RAW WEBHOOK PAYLOAD -->
+    <div v-if="rawPayloadModal && inspectedWebhookLog" class="fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop" style="background: rgba(2, 6, 23, 0.85); backdrop-filter: blur(8px);">
+      <div class="w-full max-w-2xl bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-4 shadow-2xl max-h-[90vh] flex flex-col">
+        <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+          <div class="flex items-center gap-2.5">
+            <div class="w-8 h-8 rounded-lg bg-sky-500/10 border border-sky-500/30 flex items-center justify-center text-sky-400">
+              <i class="fa-solid fa-file-code text-sm"></i>
+            </div>
+            <div>
+              <h3 class="text-sm font-bold text-white flex items-center gap-2">
+                Webhook Packet Inspector
+                <span class="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold border" :class="inspectedWebhookLog.serverType === 'CHIRPSTACK' ? 'bg-sky-500/20 text-sky-300 border-sky-500/30' : 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'">
+                  {{ inspectedWebhookLog.serverType }}
+                </span>
+              </h3>
+              <p class="text-[11px] text-slate-400">DevEUI: {{ inspectedWebhookLog.devEUI }} | Time: {{ new Date(inspectedWebhookLog.receivedAt).toLocaleString() }}</p>
+            </div>
+          </div>
+          <button @click="rawPayloadModal = false" class="text-slate-500 hover:text-white cursor-pointer"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+
+        <div class="space-y-3 overflow-y-auto custom-scroll flex-1 text-xs">
+          <!-- Summary chips -->
+          <div class="grid grid-cols-3 gap-2 text-[11px] font-mono">
+            <div class="p-2 bg-slate-950 rounded-lg border border-slate-800">
+              <span class="text-slate-500 block text-[10px]">DevEUI:</span>
+              <span class="text-sky-400 font-bold">{{ inspectedWebhookLog.devEUI }}</span>
+            </div>
+            <div class="p-2 bg-slate-950 rounded-lg border border-slate-800">
+              <span class="text-slate-500 block text-[10px]">fPort / fCnt:</span>
+              <span class="text-slate-200">Port {{ inspectedWebhookLog.fPort }} / #{{ inspectedWebhookLog.fCnt }}</span>
+            </div>
+            <div class="p-2 bg-slate-950 rounded-lg border border-slate-800">
+              <span class="text-slate-500 block text-[10px]">Payload Hex:</span>
+              <span class="text-purple-400 font-bold">{{ inspectedWebhookLog.payloadHex || '00' }}</span>
+            </div>
+          </div>
+
+          <!-- Decoded Data JSON -->
+          <div>
+            <label class="block font-semibold text-slate-300 mb-1">Decoded Data Output</label>
+            <pre class="p-3 bg-slate-950 border border-slate-800 rounded-xl font-mono text-[11px] text-emerald-400 overflow-x-auto leading-relaxed">{{ JSON.stringify(inspectedWebhookLog.decodedData, null, 2) || '{}' }}</pre>
+          </div>
+
+          <!-- Raw Ingestion Payload -->
+          <div>
+            <label class="block font-semibold text-slate-300 mb-1">Raw Webhook Ingestion Payload</label>
+            <pre class="p-3 bg-slate-950 border border-slate-800 rounded-xl font-mono text-[11px] text-slate-300 overflow-x-auto leading-relaxed max-h-60">{{ JSON.stringify(inspectedWebhookLog.rawPayload, null, 2) || '{}' }}</pre>
+          </div>
+        </div>
+
+        <div class="flex justify-end pt-2 border-t border-slate-800">
+          <button @click="rawPayloadModal = false" class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold cursor-pointer">Close</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL: SIMULATE WEBHOOK PACKET -->
+    <div v-if="simulatePacketModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop" style="background: rgba(2, 6, 23, 0.85); backdrop-filter: blur(8px);">
+      <div class="w-full max-w-md bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-4 shadow-2xl">
+        <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+          <div class="flex items-center gap-2">
+            <i class="fa-solid fa-paper-plane text-sky-400"></i>
+            <h3 class="text-sm font-bold text-white">Simulate Webhook Packet</h3>
+          </div>
+          <button @click="simulatePacketModal = false" class="text-slate-500 hover:text-white cursor-pointer"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+
+        <form @submit.prevent="submitSimulatePacket" class="space-y-3 text-xs">
+          <div>
+            <label class="block font-semibold text-slate-300 mb-1">Target Network Server</label>
+            <select v-model="simulatePacketForm.serverType" class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-white font-mono text-xs focus:outline-none focus:border-sky-500">
+              <option value="CHIRPSTACK">ChirpStack v4 Ingestion (/lorawan/webhook/chirpstack)</option>
+              <option value="THINGPARK">ThingPark Wireless Ingestion (/lorawan/webhook/thingpark)</option>
+            </select>
+          </div>
+
+          <div>
+            <label class="block font-semibold text-slate-300 mb-1">Device DevEUI (16 Hex)</label>
+            <input v-model="simulatePacketForm.devEUI" type="text" required maxlength="16" minlength="16" placeholder="0018B20000000001" class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-white font-mono uppercase text-xs focus:outline-none focus:border-sky-500" />
+          </div>
+
+          <div class="grid grid-cols-2 gap-2">
+            <div>
+              <label class="block font-semibold text-slate-300 mb-1">fPort</label>
+              <input v-model.number="simulatePacketForm.fPort" type="number" min="1" max="223" required class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-white font-mono text-xs focus:outline-none focus:border-sky-500" />
+            </div>
+            <div>
+              <label class="block font-semibold text-slate-300 mb-1">fCnt</label>
+              <input v-model.number="simulatePacketForm.fCnt" type="number" min="0" required class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-white font-mono text-xs focus:outline-none focus:border-sky-500" />
+            </div>
+          </div>
+
+          <div>
+            <label class="block font-semibold text-slate-300 mb-1">Raw Payload Hex</label>
+            <input v-model="simulatePacketForm.payloadHex" type="text" required placeholder="09C441" class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-white font-mono uppercase text-xs focus:outline-none focus:border-sky-500" />
+            <p class="text-[10px] text-slate-500 mt-1">e.g. 09C441 (Temp: 25.0°C, Humidity: 65%)</p>
+          </div>
+
+          <div class="flex justify-end gap-2 pt-2 border-t border-slate-800">
+            <button type="button" @click="simulatePacketModal = false" class="px-3.5 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold cursor-pointer">Cancel</button>
+            <button type="submit" :disabled="simulatingPacket" class="px-4 py-2 rounded-lg bg-sky-500 hover:bg-sky-400 text-slate-950 font-bold flex items-center gap-1.5 cursor-pointer">
+              <i v-if="simulatingPacket" class="fa-solid fa-circle-notch fa-spin"></i>
+              <i v-else class="fa-solid fa-paper-plane"></i>
+              <span>{{ simulatingPacket ? 'Sending...' : 'Send Packet' }}</span>
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- MODAL: RETENTION SETTINGS -->
+    <div v-if="retentionModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop" style="background: rgba(2, 6, 23, 0.85); backdrop-filter: blur(8px);">
+      <div class="w-full max-w-md bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-4 shadow-2xl">
+        <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+          <div class="flex items-center gap-2">
+            <i class="fa-solid fa-sliders text-sky-400"></i>
+            <h3 class="text-sm font-bold text-white">Log Retention & Auto-Pruning</h3>
+          </div>
+          <button @click="retentionModal = false" class="text-slate-500 hover:text-white cursor-pointer"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+
+        <div class="space-y-3 text-xs">
+          <p class="text-slate-300">Configure maximum number of webhook packets retained per server. When incoming packets exceed this threshold, oldest packets are automatically deleted to optimize storage and system performance.</p>
+
+          <div>
+            <label class="block font-semibold text-slate-300 mb-1">Max Packets per Server</label>
+            <select v-model.number="newRetentionLimit" class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-white font-mono text-xs focus:outline-none focus:border-sky-500">
+              <option :value="50">50 packets (Minimal storage)</option>
+              <option :value="100">100 packets</option>
+              <option :value="200">200 packets (Recommended default)</option>
+              <option :value="500">500 packets</option>
+              <option :value="1000">1,000 packets (High retention)</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="flex justify-end gap-2 pt-2 border-t border-slate-800">
+          <button type="button" @click="retentionModal = false" class="px-3.5 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold cursor-pointer">Cancel</button>
+          <button type="button" @click="submitUpdateRetention" :disabled="savingRetention" class="px-4 py-2 rounded-lg bg-sky-500 hover:bg-sky-400 text-slate-950 font-bold flex items-center gap-1.5 cursor-pointer">
+            <i v-if="savingRetention" class="fa-solid fa-circle-notch fa-spin"></i>
+            <span>{{ savingRetention ? 'Saving...' : 'Save Retention Limit' }}</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL: CLEAR LOGS CONFIRM -->
+    <div v-if="clearLogsConfirmModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop" style="background: rgba(2, 6, 23, 0.85); backdrop-filter: blur(8px);">
+      <div class="w-full max-w-md bg-slate-900 border border-red-500/30 rounded-2xl p-6 space-y-4 shadow-2xl">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-full bg-red-500/15 border border-red-500/30 text-red-400 flex items-center justify-center text-lg flex-shrink-0">
+            <i class="fa-solid fa-trash-can"></i>
+          </div>
+          <div>
+            <h3 class="text-sm font-bold text-white">Clear Webhook Packet Logs</h3>
+            <p class="text-xs text-slate-400 mt-0.5">Are you sure you want to clear all buffered webhook logs?</p>
+          </div>
+        </div>
+
+        <div class="flex justify-end gap-2 pt-2 border-t border-slate-800">
+          <button type="button" @click="clearLogsConfirmModal = false" class="px-3.5 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold cursor-pointer">Cancel</button>
+          <button type="button" @click="submitClearLogs" class="px-4 py-2 rounded-lg bg-red-600 hover:bg-red-500 text-white font-bold cursor-pointer">Yes, Clear Logs</button>
+        </div>
+      </div>
+    </div>
+
     <!-- TOAST NOTIFICATION -->
     <div v-if="toast.show" class="fixed top-4 right-4 z-50 flex items-center gap-2 px-4 py-3 rounded-xl shadow-2xl text-xs font-semibold" :class="toast.type === 'error' ? 'bg-red-950 border border-red-500 text-red-200' : (toast.type === 'success' ? 'bg-emerald-950 border border-emerald-500 text-emerald-200' : 'bg-sky-950 border border-sky-500 text-sky-200')">
       <i :class="toast.type === 'error' ? 'fa-solid fa-circle-exclamation text-red-400' : (toast.type === 'success' ? 'fa-solid fa-circle-check text-emerald-400' : 'fa-solid fa-circle-info text-sky-400')"></i>
@@ -2239,7 +2652,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
             case 'users': return 'User Directory';
             case 'database': return 'Database Health';
             case 'devices': return 'Device Fleet';
-            case 'webhooks': return 'Webhook Ingestion';
+            case 'webhooks': return 'Webhook Manager';
             case 'decoder': return 'Decoder Manager';
             default: return activeTab.value;
           }
@@ -2257,7 +2670,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
             '🛡️ RBAC Role Management': [],
             '🗄️ Database Operations': [],
             '📡 LoRaWAN Fleet & Gateways': [],
-            '🔌 Webhook Ingestion': [],
+            '🔌 Webhook Manager': [],
             '💻 Decoder Manager & Sandbox': []
           };
           allPermissions.value.forEach(p => {
@@ -2266,7 +2679,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
             else if (p.name.startsWith('roles:')) groups['🛡️ RBAC Role Management'].push(p);
             else if (p.name.startsWith('database:')) groups['🗄️ Database Operations'].push(p);
             else if (p.name.startsWith('lorawan:device:') || p.name.startsWith('lorawan:app:') || p.name.startsWith('lorawan:gateway:')) groups['📡 LoRaWAN Fleet & Gateways'].push(p);
-            else if (p.name.startsWith('lorawan:webhooks:')) groups['🔌 Webhook Ingestion'].push(p);
+            else if (p.name.startsWith('lorawan:webhooks:')) groups['🔌 Webhook Manager'].push(p);
             else if (p.name.startsWith('lorawan:decoder:')) groups['💻 Decoder Manager & Sandbox'].push(p);
             else groups['📡 LoRaWAN Fleet & Gateways'].push(p);
           });
@@ -3290,6 +3703,219 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
           }
         };
 
+        // ==================== WEBHOOK MANAGER LOGIC ====================
+        const webhookLogs = ref([]);
+        const webhookStats = ref({
+          totalCount: 0,
+          chirpstackCount: 0,
+          thingparkCount: 0,
+          genericCount: 0,
+          retentionLimit: 200
+        });
+        const loadingWebhookLogs = ref(false);
+        const webhookServerFilter = ref('ALL');
+        const webhookSearchQuery = ref('');
+        const webhookStatusFilter = ref('ALL');
+        const webhookAutoRefresh = ref(false);
+        let webhookInterval = null;
+
+        const rawPayloadModal = ref(false);
+        const inspectedWebhookLog = ref(null);
+        const simulatePacketModal = ref(false);
+        const simulatingPacket = ref(false);
+        const simulatePacketForm = ref({
+          serverType: 'CHIRPSTACK',
+          devEUI: '0018B20000000001',
+          payloadHex: '09C441',
+          fPort: 1,
+          fCnt: 1
+        });
+        const retentionModal = ref(false);
+        const savingRetention = ref(false);
+        const newRetentionLimit = ref(200);
+        const clearLogsConfirmModal = ref(false);
+
+        const filteredWebhookLogs = computed(() => {
+          let list = webhookLogs.value || [];
+          if (webhookServerFilter.value && webhookServerFilter.value !== 'ALL') {
+            list = list.filter(l => (l.serverType || '').toUpperCase() === webhookServerFilter.value.toUpperCase());
+          }
+          if (webhookStatusFilter.value && webhookStatusFilter.value !== 'ALL') {
+            list = list.filter(l => (l.status || '').toUpperCase() === webhookStatusFilter.value.toUpperCase());
+          }
+          if (webhookSearchQuery.value && webhookSearchQuery.value.trim()) {
+            const q = webhookSearchQuery.value.trim().toLowerCase();
+            list = list.filter(l => 
+              (l.devEUI && l.devEUI.toLowerCase().includes(q)) ||
+              (l.payloadHex && l.payloadHex.toLowerCase().includes(q)) ||
+              (l.decodedData && JSON.stringify(l.decodedData).toLowerCase().includes(q))
+            );
+          }
+          return list;
+        });
+
+        const fetchWebhookLogs = async () => {
+          loadingWebhookLogs.value = true;
+          try {
+            const res = await fetch('/api/webhooks/logs?limit=200', {
+              headers: authHeaders(),
+              credentials: 'include'
+            });
+            const data = await res.json();
+            if (res.ok && Array.isArray(data.logs)) {
+              webhookLogs.value = data.logs;
+              webhookStats.value.totalCount = data.total || data.logs.length;
+              webhookStats.value.chirpstackCount = data.chirpstackCount || 0;
+              webhookStats.value.thingparkCount = data.thingparkCount || 0;
+              webhookStats.value.genericCount = data.genericCount || 0;
+              if (data.retentionLimit) webhookStats.value.retentionLimit = data.retentionLimit;
+            }
+          } catch(e) {
+            // silent during auto-refresh
+          } finally {
+            loadingWebhookLogs.value = false;
+          }
+        };
+
+        const fetchWebhookStats = async () => {
+          try {
+            const res = await fetch('/api/webhooks/stats', {
+              headers: authHeaders(),
+              credentials: 'include'
+            });
+            const data = await res.json();
+            if (res.ok) {
+              webhookStats.value = { ...webhookStats.value, ...data };
+              if (data.retentionLimit) newRetentionLimit.value = data.retentionLimit;
+            }
+          } catch(e) {}
+        };
+
+        const toggleWebhookAutoRefresh = () => {
+          webhookAutoRefresh.value = !webhookAutoRefresh.value;
+          if (webhookAutoRefresh.value) {
+            fetchWebhookLogs();
+            webhookInterval = setInterval(() => {
+              fetchWebhookLogs();
+            }, 3000);
+            showToast("Live stream polling enabled (3s)", "info");
+          } else {
+            if (webhookInterval) {
+              clearInterval(webhookInterval);
+              webhookInterval = null;
+            }
+            showToast("Live stream polling paused", "info");
+          }
+        };
+
+        const inspectWebhookLog = (log) => {
+          inspectedWebhookLog.value = log;
+          rawPayloadModal.value = true;
+        };
+
+        const openSimulatePacketModal = () => {
+          simulatePacketModal.value = true;
+        };
+
+        const submitSimulatePacket = async () => {
+          simulatingPacket.value = true;
+          try {
+            const res = await fetch('/api/webhooks/simulate', {
+              method: 'POST',
+              headers: {
+                ...authHeaders(),
+                'Content-Type': 'application/json'
+              },
+              credentials: 'include',
+              body: JSON.stringify(simulatePacketForm.value)
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.message || "Failed to simulate packet");
+            
+            showToast(data.message || "Simulated packet logged successfully!", "success");
+            simulatePacketModal.value = false;
+            await fetchWebhookLogs();
+            await fetchWebhookStats();
+          } catch(e) {
+            showToast(e.message, "error");
+          } finally {
+            simulatingPacket.value = false;
+          }
+        };
+
+        const openRetentionModal = () => {
+          newRetentionLimit.value = webhookStats.value.retentionLimit || 200;
+          retentionModal.value = true;
+        };
+
+        const submitUpdateRetention = async () => {
+          savingRetention.value = true;
+          try {
+            const res = await fetch('/api/webhooks/retention', {
+              method: 'PUT',
+              headers: {
+                ...authHeaders(),
+                'Content-Type': 'application/json'
+              },
+              credentials: 'include',
+              body: JSON.stringify({ limit: newRetentionLimit.value })
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.message || "Failed to update retention limit");
+            
+            showToast(data.message || "Retention limit updated", "success");
+            webhookStats.value.retentionLimit = data.retentionLimit;
+            retentionModal.value = false;
+            await fetchWebhookLogs();
+            await fetchWebhookStats();
+          } catch(e) {
+            showToast(e.message, "error");
+          } finally {
+            savingRetention.value = false;
+          }
+        };
+
+        const openClearLogsModal = () => {
+          clearLogsConfirmModal.value = true;
+        };
+
+        const submitClearLogs = async () => {
+          try {
+            const target = webhookServerFilter.value && webhookServerFilter.value !== 'ALL' ? webhookServerFilter.value : 'ALL';
+            const res = await fetch('/api/webhooks/logs?serverType=' + target, {
+              method: 'DELETE',
+              headers: authHeaders(),
+              credentials: 'include'
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.message || "Failed to clear logs");
+            
+            showToast(data.message || "Logs cleared", "success");
+            clearLogsConfirmModal.value = false;
+            await fetchWebhookLogs();
+            await fetchWebhookStats();
+          } catch(e) {
+            showToast(e.message, "error");
+          }
+        };
+
+        const formatLogTime = (ts) => {
+          if (!ts) return '--';
+          try {
+            const d = new Date(ts);
+            return d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', second: '2-digit', fractionalSecondDigits: 3 });
+          } catch(e) {
+            return String(ts);
+          }
+        };
+
+        const formatDecodedPreview = (obj) => {
+          if (!obj || typeof obj !== 'object') return '';
+          const entries = Object.entries(obj);
+          if (entries.length === 0) return '{}';
+          return entries.map(([k, v]) => k + ': ' + (typeof v === 'object' ? JSON.stringify(v) : v)).join(' | ');
+        };
+
         watch(activeTab, (newTab) => {
           try {
             window.history.replaceState(null, null, '#' + newTab);
@@ -3301,6 +3927,10 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
           if (newTab === 'database') fetchDbHealth();
           if (newTab === 'devices') fetchDevices();
           if (newTab === 'decoder') fetchDecoders();
+          if (newTab === 'webhooks') {
+            fetchWebhookLogs();
+            fetchWebhookStats();
+          }
         });
 
         const initControlPanel = async () => {
@@ -3314,6 +3944,8 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
           fetchDbHealth();
           fetchDevices();
           fetchDecoders();
+          fetchWebhookStats();
+          fetchWebhookLogs();
           
           const hash = window.location.hash.replace('#', '').trim();
           if (hash && hash !== 'telemetry') {
@@ -3457,7 +4089,36 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
           submitDeleteDecoder,
           loadDecoderIntoSandbox,
           onSelectSandboxDecoder,
-          sandboxDisplayOutput
+          sandboxDisplayOutput,
+          webhookLogs,
+          webhookStats,
+          loadingWebhookLogs,
+          webhookServerFilter,
+          webhookSearchQuery,
+          webhookStatusFilter,
+          webhookAutoRefresh,
+          filteredWebhookLogs,
+          rawPayloadModal,
+          inspectedWebhookLog,
+          simulatePacketModal,
+          simulatingPacket,
+          simulatePacketForm,
+          retentionModal,
+          savingRetention,
+          newRetentionLimit,
+          clearLogsConfirmModal,
+          fetchWebhookLogs,
+          fetchWebhookStats,
+          toggleWebhookAutoRefresh,
+          inspectWebhookLog,
+          openSimulatePacketModal,
+          submitSimulatePacket,
+          openRetentionModal,
+          submitUpdateRetention,
+          openClearLogsModal,
+          submitClearLogs,
+          formatLogTime,
+          formatDecodedPreview
         };
       }
     }).mount('#app');
