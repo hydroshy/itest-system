@@ -80,7 +80,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
   </style>
 </head>
 <body class="min-h-screen flex flex-col antialiased">
-  <div id="app" v-cloak class="flex-1 flex flex-col min-h-screen">
+  <div id="app" v-cloak class="flex-1 flex flex-col min-h-screen" @click="handleGlobalClick">
     
     <!-- TOP APP BAR -->
     <header class="glass-header sticky top-0 z-40 px-4 sm:px-6 h-14 flex items-center justify-between">
@@ -110,25 +110,76 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
         </div>
       </div>
 
-      <!-- Right User Profile & Switch to Dashboard & Logout -->
-      <div class="flex items-center gap-3">
-        <a href="/dashboard" class="px-3 py-1.5 rounded-lg text-xs font-semibold text-sky-400 bg-sky-500/10 border border-sky-500/25 hover:bg-sky-500/20 transition flex items-center gap-1.5 text-decoration-none">
-          <i class="fa-solid fa-layer-group text-xs"></i>
-          <span class="hidden sm:inline">User Portal</span>
-          <span class="sm:hidden">Portal</span>
-        </a>
+      <!-- Right Actions & User Menu Dropdown -->
+      <div class="flex items-center gap-2.5">
+        <div class="relative">
+          <button
+            @click.stop="userMenuOpen = !userMenuOpen"
+            class="flex items-center gap-2.5 px-3 py-1.5 rounded-xl bg-slate-900/90 border border-slate-800 hover:border-slate-700 transition cursor-pointer select-none"
+          >
+            <div class="w-6 h-6 rounded-full bg-sky-500/20 text-sky-400 border border-sky-500/30 flex items-center justify-center font-bold text-xs">
+              {{ userInitials }}
+            </div>
+            <span class="text-xs font-bold text-slate-200 hidden sm:inline">{{ currentUser.fullName || currentUser.username || 'Administrator' }}</span>
+            <i :class="userMenuOpen ? 'rotate-180' : ''" class="fa-solid fa-chevron-down text-[10px] text-slate-500 transition-transform duration-150"></i>
+          </button>
 
-        <div class="hidden sm:block text-right leading-tight">
-          <div class="text-xs font-bold text-slate-200">{{ currentUser.fullName || currentUser.username || 'Administrator' }}</div>
-          <div class="text-[10px] font-mono font-bold text-emerald-400">
-            {{ isSuperAdmin ? 'SUPER_ADMIN' : (currentUser.userType || 'ADMIN') }}
+          <!-- Dropdown Menu Card -->
+          <div
+            v-if="userMenuOpen"
+            @click.stop
+            class="absolute right-0 mt-2 w-64 rounded-2xl bg-slate-900 border border-slate-800 shadow-2xl p-4 space-y-3 z-50 animate-in fade-in"
+          >
+            <!-- User Profile Info -->
+            <div class="space-y-1 pb-3 border-b border-slate-800">
+              <div class="text-xs font-bold text-white">{{ currentUser.fullName || currentUser.username || 'Administrator' }}</div>
+              <div class="text-[11px] font-mono text-slate-400">@{{ currentUser.username || 'admin' }}</div>
+              <div class="pt-1">
+                <span class="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                  {{ isSuperAdmin ? 'SUPER_ADMIN' : (currentUser.userType || 'ADMIN') }}
+                </span>
+              </div>
+            </div>
+
+            <!-- Portal Switch Navigation Links -->
+            <div class="space-y-1 text-xs pb-3 border-b border-slate-800">
+              <div class="text-[10px] font-bold uppercase tracking-wider text-slate-500 pb-1">Switch View</div>
+              
+              <a
+                href="/dashboard"
+                class="w-full py-2 px-3 rounded-lg text-xs font-semibold text-slate-200 hover:text-white bg-slate-800/80 hover:bg-slate-700/80 transition flex items-center justify-between cursor-pointer text-decoration-none"
+              >
+                <span class="flex items-center gap-2"><i class="fa-solid fa-layer-group text-sky-400"></i> User Dashboard</span>
+                <i class="fa-solid fa-arrow-right text-[10px] text-slate-500"></i>
+              </a>
+
+              <div class="w-full py-2 px-3 rounded-lg text-xs font-semibold text-sky-400 bg-sky-500/10 border border-sky-500/20 flex items-center justify-between">
+                <span class="flex items-center gap-2"><i class="fa-solid fa-sliders"></i> Control Panel</span>
+                <span class="text-[9px] font-mono font-bold uppercase bg-sky-500/20 px-1.5 py-0.5 rounded text-sky-300">Active</span>
+              </div>
+            </div>
+
+            <!-- Platform Info -->
+            <div class="space-y-1 text-xs text-slate-400 pb-3 border-b border-slate-800">
+              <div class="flex items-center justify-between text-[11px]">
+                <span>Platform:</span>
+                <strong class="text-slate-200">Daviteq LoRaWAN</strong>
+              </div>
+              <div class="flex items-center justify-between text-[11px]">
+                <span>Core Engine:</span>
+                <strong class="text-emerald-400 font-mono">v1.0.0 (NestJS)</strong>
+              </div>
+            </div>
+
+            <!-- Logout Button -->
+            <button
+              @click="handleLogout"
+              class="w-full py-2 px-3 rounded-lg text-xs font-bold text-red-400 bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 transition flex items-center justify-center gap-2 cursor-pointer"
+            >
+              <i class="fa-solid fa-right-from-bracket"></i> Sign Out
+            </button>
           </div>
         </div>
-
-        <button @click="handleLogout" title="Logout" class="px-3 py-1.5 rounded-lg text-xs font-semibold text-red-400 bg-red-500/10 border border-red-500/20 hover:bg-red-500/20 transition flex items-center gap-1.5 cursor-pointer">
-          <i class="fa-solid fa-right-from-bracket text-xs"></i>
-          <span class="hidden sm:inline">Logout</span>
-        </button>
       </div>
     </header>
 
@@ -1503,7 +1554,18 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
       setup() {
         const activeTab = ref('overview');
         const sidebarOpen = ref(false);
+        const userMenuOpen = ref(false);
         const currentUser = ref(getStoredUser());
+
+        const userInitials = computed(() => {
+          const user = currentUser.value;
+          const name = user.fullName || user.username || 'Admin';
+          return name.substring(0, 2).toUpperCase();
+        });
+
+        const handleGlobalClick = () => {
+          userMenuOpen.value = false;
+        };
         const networkServersList = ref([]);
         const modulesList = ref([]);
         const usersList = ref([]);
@@ -2386,6 +2448,9 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
         return {
           activeTab,
           sidebarOpen,
+          userMenuOpen,
+          userInitials,
+          handleGlobalClick,
           activeTabLabel,
           currentUser,
           isSuperAdmin,

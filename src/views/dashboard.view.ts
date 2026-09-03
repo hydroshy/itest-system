@@ -93,16 +93,6 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
 
       <!-- Right Actions & User Menu -->
       <div class="flex items-center gap-2.5">
-        <!-- Direct Control Panel Button for Super Admin -->
-        <a
-          v-if="isSuperAdmin"
-          href="/control-panel"
-          class="px-3 py-1.5 rounded-xl bg-sky-500/10 hover:bg-sky-500/20 text-sky-400 border border-sky-500/25 transition text-xs font-bold flex items-center gap-1.5 cursor-pointer text-decoration-none"
-        >
-          <i class="fa-solid fa-sliders text-xs"></i>
-          <span class="hidden sm:inline">Control Panel</span>
-        </a>
-
         <!-- User Menu Dropdown Button -->
         <div class="relative">
           <button
@@ -112,57 +102,66 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
             <div class="w-6 h-6 rounded-full bg-sky-500/20 text-sky-400 border border-sky-500/30 flex items-center justify-center font-bold text-xs">
               {{ userInitials }}
             </div>
-            <span class="text-xs font-bold text-slate-200">{{ currentUser.fullName || currentUser.username || 'User' }}</span>
+            <span class="text-xs font-bold text-slate-200 hidden sm:inline">{{ currentUser.fullName || currentUser.username || 'User' }}</span>
             <i :class="userMenuOpen ? 'rotate-180' : ''" class="fa-solid fa-chevron-down text-[10px] text-slate-500 transition-transform duration-150"></i>
           </button>
 
-        <!-- Dropdown Menu Card -->
-        <div
-          v-if="userMenuOpen"
-          @click.stop
-          class="absolute right-0 mt-2 w-64 rounded-2xl bg-slate-900 border border-slate-800 shadow-2xl p-4 space-y-3 z-50 animate-in fade-in"
-        >
-          <!-- User Profile Info -->
-          <div class="space-y-1 pb-3 border-b border-slate-800">
-            <div class="text-xs font-bold text-white">{{ currentUser.fullName || currentUser.username }}</div>
-            <div class="text-[11px] font-mono text-slate-400">@{{ currentUser.username }}</div>
-            <div class="pt-1">
-              <span class="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-sky-500/10 text-sky-400 border border-sky-500/20">
-                {{ isSuperAdmin ? 'SUPER_ADMIN' : (currentUser.roles?.[0]?.name || currentUser.userType || 'USER') }}
-              </span>
-            </div>
-          </div>
-
-          <!-- App Version -->
-          <div class="space-y-1 text-xs text-slate-400 pb-3 border-b border-slate-800">
-            <div class="flex items-center justify-between text-[11px]">
-              <span>Platform:</span>
-              <strong class="text-slate-200">Daviteq LoRaWAN</strong>
-            </div>
-            <div class="flex items-center justify-between text-[11px]">
-              <span>System Version:</span>
-              <strong class="text-emerald-400 font-mono">v1.0.0 (NestJS)</strong>
-            </div>
-          </div>
-
-          <!-- Admin Control Panel Link (if admin) -->
-          <div v-if="isSuperAdmin" class="pt-0.5">
-            <a
-              href="/control-panel"
-              class="w-full py-1.5 px-3 rounded-lg text-xs font-semibold text-slate-300 hover:text-white bg-slate-800/80 hover:bg-slate-700/80 transition flex items-center justify-between cursor-pointer text-decoration-none"
-            >
-              <span class="flex items-center gap-2"><i class="fa-solid fa-sliders text-sky-400"></i> Control Panel</span>
-              <i class="fa-solid fa-arrow-up-right-from-square text-[10px] text-slate-500"></i>
-            </a>
-          </div>
-
-          <!-- Logout Button -->
-          <button
-            @click="handleLogout"
-            class="w-full py-1.5 px-3 rounded-lg text-xs font-bold text-red-400 bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 transition flex items-center justify-center gap-2 cursor-pointer"
+          <!-- Dropdown Menu Card -->
+          <div
+            v-if="userMenuOpen"
+            @click.stop
+            class="absolute right-0 mt-2 w-64 rounded-2xl bg-slate-900 border border-slate-800 shadow-2xl p-4 space-y-3 z-50 animate-in fade-in"
           >
-            <i class="fa-solid fa-right-from-bracket"></i> Sign Out
-          </button>
+            <!-- User Profile Info -->
+            <div class="space-y-1 pb-3 border-b border-slate-800">
+              <div class="text-xs font-bold text-white">{{ currentUser.fullName || currentUser.username }}</div>
+              <div class="text-[11px] font-mono text-slate-400">@{{ currentUser.username }}</div>
+              <div class="pt-1">
+                <span class="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-sky-500/10 text-sky-400 border border-sky-500/20">
+                  {{ isSuperAdmin ? 'SUPER_ADMIN' : (currentUser.roles?.[0]?.name || currentUser.userType || 'USER') }}
+                </span>
+              </div>
+            </div>
+
+            <!-- Portal Switch Navigation Links -->
+            <div class="space-y-1 text-xs pb-3 border-b border-slate-800">
+              <div class="text-[10px] font-bold uppercase tracking-wider text-slate-500 pb-1">Switch View</div>
+              
+              <div class="w-full py-2 px-3 rounded-lg text-xs font-semibold text-sky-400 bg-sky-500/10 border border-sky-500/20 flex items-center justify-between">
+                <span class="flex items-center gap-2"><i class="fa-solid fa-layer-group"></i> User Dashboard</span>
+                <span class="text-[9px] font-mono font-bold uppercase bg-sky-500/20 px-1.5 py-0.5 rounded text-sky-300">Active</span>
+              </div>
+
+              <a
+                v-if="isSuperAdmin"
+                href="/control-panel"
+                class="w-full py-2 px-3 rounded-lg text-xs font-semibold text-slate-200 hover:text-white bg-slate-800/80 hover:bg-slate-700/80 transition flex items-center justify-between cursor-pointer text-decoration-none"
+              >
+                <span class="flex items-center gap-2"><i class="fa-solid fa-sliders text-sky-400"></i> Admin Control Panel</span>
+                <i class="fa-solid fa-arrow-right text-[10px] text-slate-500"></i>
+              </a>
+            </div>
+
+            <!-- App Version -->
+            <div class="space-y-1 text-xs text-slate-400 pb-3 border-b border-slate-800">
+              <div class="flex items-center justify-between text-[11px]">
+                <span>Platform:</span>
+                <strong class="text-slate-200">Daviteq LoRaWAN</strong>
+              </div>
+              <div class="flex items-center justify-between text-[11px]">
+                <span>Core Engine:</span>
+                <strong class="text-emerald-400 font-mono">v1.0.0 (NestJS)</strong>
+              </div>
+            </div>
+
+            <!-- Logout Button -->
+            <button
+              @click="handleLogout"
+              class="w-full py-2 px-3 rounded-lg text-xs font-bold text-red-400 bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 transition flex items-center justify-center gap-2 cursor-pointer"
+            >
+              <i class="fa-solid fa-right-from-bracket"></i> Sign Out
+            </button>
+          </div>
         </div>
       </div>
     </header>
