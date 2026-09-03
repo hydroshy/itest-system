@@ -40,6 +40,17 @@ export class DecoderService {
     return decoder;
   }
 
+  private validateJavaScriptCode(code: string): void {
+    if (!code || !code.trim()) {
+      throw new BadRequestException('Mã JavaScript của Decoder không được để trống');
+    }
+    try {
+      new vm.Script(code);
+    } catch (err: any) {
+      throw new BadRequestException(`Lỗi cú pháp JavaScript trong decoder: ${err.message}`);
+    }
+  }
+
   async create(dto: CreateDecoderDto, author?: string): Promise<DecoderEntity> {
     const repo = this.getRepository();
     const sku = dto.sku.trim();
@@ -49,6 +60,9 @@ export class DecoderService {
     if (dto.firmwareVersion < 1 || dto.firmwareVersion > 32) {
       throw new BadRequestException('Firmware version must be an integer between 1 and 32');
     }
+
+    // Validate JS syntax before saving to database
+    this.validateJavaScriptCode(dto.decoderCode);
 
     // Standardized composite ID: `${sku}_${firmwareVersion}`
     const id = `${sku}_${dto.firmwareVersion}`;
@@ -79,6 +93,7 @@ export class DecoderService {
     const decoder = await this.findOne(id);
 
     if (dto.decoderCode !== undefined) {
+      this.validateJavaScriptCode(dto.decoderCode);
       decoder.decoderCode = dto.decoderCode;
     }
     if (dto.description !== undefined) {

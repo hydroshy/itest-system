@@ -55,9 +55,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
       background: rgba(15, 23, 42, 0.65);
       backdrop-filter: blur(8px);
       border: 1px solid rgba(30, 41, 59, 0.8);
-    }
-    .glass-card:hover {
-      border-color: rgba(56, 189, 248, 0.3);
+      transition: border-color 0.15s ease;
     }
     .nav-item {
       padding: 0.55rem 0.85rem;
@@ -1056,144 +1054,84 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
         </div>
 
         <!-- TAB 9: DECODER MANAGER -->
-        <div v-show="activeTab === 'decoder'" class="space-y-5">
-          <!-- Top Bar -->
-          <div class="glass-card rounded-2xl p-5 sm:p-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
-            <div class="space-y-1">
-              <div class="flex items-center gap-2.5">
-                <div class="w-8 h-8 rounded-lg bg-purple-500/10 border border-purple-500/30 flex items-center justify-center text-purple-400">
-                  <i class="fa-solid fa-code text-sm"></i>
+        <div v-show="activeTab === 'decoder'" class="space-y-4">
+          <div class="glass-card rounded-xl p-5 space-y-4">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <h2 class="text-sm font-bold text-white flex items-center gap-2">
+                  <i class="fa-solid fa-code text-purple-400"></i> LoRaWAN Decoder Manager
+                </h2>
+                <p class="text-[11px] text-slate-400 mt-0.5">Manage JavaScript decoders by Product SKU & Firmware Version (1 - 32)</p>
+              </div>
+              <div class="flex items-center gap-2 flex-wrap">
+                <div class="relative">
+                  <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-xs"></i>
+                  <input
+                    v-model="decoderSearchQuery"
+                    type="text"
+                    placeholder="Search SKU or ID..."
+                    class="pl-8 pr-3 py-1.5 bg-slate-950 border border-slate-700 rounded-lg text-xs text-white placeholder-slate-500 focus:outline-none focus:border-purple-500 font-mono w-40 sm:w-52"
+                  />
                 </div>
-                <div>
-                  <h2 class="text-base font-bold text-white flex items-center gap-2">
-                    Decoder Manager
-                    <span class="px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300 text-[10px] font-mono font-medium border border-purple-500/30">C_MOD_DECODER</span>
-                  </h2>
-                  <p class="text-xs text-slate-400">Manage LoRaWAN JavaScript decoders by Product SKU & Firmware Version (1 - 32). Composite ID: <code class="text-purple-300 bg-purple-950/50 px-1 py-0.5 rounded font-mono">[SKU]_[FIRMWARE]</code>.</p>
-                </div>
+                <button @click="fetchDecoders" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 text-xs font-semibold flex items-center gap-1.5 cursor-pointer">
+                  <i class="fa-solid fa-arrows-rotate" :class="{ 'fa-spin': loadingDecoders }"></i> Refresh
+                </button>
+                <button @click="openAddDecoderModal" class="px-3.5 py-1.5 rounded-lg bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold shadow-lg shadow-purple-600/20 flex items-center gap-1.5 cursor-pointer">
+                  <i class="fa-solid fa-plus"></i> Add Decoder
+                </button>
               </div>
             </div>
 
-            <div class="flex items-center gap-2.5 flex-wrap">
-              <div class="relative">
-                <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-xs"></i>
-                <input
-                  v-model="decoderSearchQuery"
-                  type="text"
-                  placeholder="Filter SKU or ID..."
-                  class="pl-8 pr-3 py-1.5 bg-slate-950 border border-slate-800 rounded-xl text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-purple-500 font-mono w-44 sm:w-56"
-                />
-              </div>
-
-              <button
-                @click="fetchDecoders"
-                title="Refresh Decoders"
-                class="p-2 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-300 border border-slate-700 text-xs cursor-pointer transition"
-              >
-                <i class="fa-solid fa-rotate" :class="{ 'fa-spin': loadingDecoders }"></i>
-              </button>
-
-              <button
-                @click="openAddDecoderModal"
-                class="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-semibold text-xs flex items-center gap-2 shadow-lg shadow-purple-600/25 cursor-pointer transition"
-              >
-                <i class="fa-solid fa-plus text-[11px]"></i>
-                <span>Add Decoder</span>
-              </button>
-            </div>
-          </div>
-
-          <!-- Decoders List Table Card -->
-          <div class="glass-card rounded-2xl overflow-hidden border border-slate-800">
-            <div class="p-4 sm:p-5 border-b border-slate-800/80 flex items-center justify-between">
-              <div class="flex items-center gap-2">
-                <h3 class="text-xs font-bold text-slate-200 uppercase tracking-wider">Registered Payload Decoders</h3>
-                <span class="px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 text-[10px] font-mono">{{ filteredDecoders.length }}</span>
-              </div>
-              <div class="text-[11px] text-slate-400">Database table: <code class="text-emerald-400 font-mono">decoder</code></div>
-            </div>
-
-            <div v-if="loadingDecoders" class="p-12 text-center text-slate-400 text-xs">
-              <i class="fa-solid fa-circle-notch fa-spin text-purple-400 text-xl mb-2"></i>
-              <p>Loading decoders from database...</p>
-            </div>
-
-            <div v-else-if="filteredDecoders.length === 0" class="p-12 text-center space-y-3">
-              <div class="w-12 h-12 rounded-2xl bg-purple-500/10 border border-purple-500/20 text-purple-400 flex items-center justify-center mx-auto text-xl">
-                <i class="fa-solid fa-file-code"></i>
-              </div>
-              <div class="space-y-1">
-                <p class="text-sm font-semibold text-slate-300">No Decoders Registered</p>
-                <p class="text-xs text-slate-500 max-w-sm mx-auto">Get started by adding a LoRaWAN payload decoder for your sensors with their product SKU and firmware version.</p>
-              </div>
-              <button
-                @click="openAddDecoderModal"
-                class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-xs font-semibold shadow-lg shadow-purple-600/20 cursor-pointer transition"
-              >
-                <i class="fa-solid fa-plus text-[11px]"></i> Add First Decoder
-              </button>
-            </div>
-
-            <div v-else class="overflow-x-auto">
+            <div class="overflow-x-auto custom-scroll border border-slate-800 rounded-lg">
               <table class="w-full text-left text-xs">
-                <thead>
-                  <tr class="border-b border-slate-800/80 bg-slate-950/40 text-slate-400 font-medium uppercase text-[10px] tracking-wider">
-                    <th class="py-3 px-4">Decoder ID</th>
-                    <th class="py-3 px-4">Product SKU</th>
-                    <th class="py-3 px-4">Firmware</th>
-                    <th class="py-3 px-4">Code Structure</th>
-                    <th class="py-3 px-4">Description</th>
-                    <th class="py-3 px-4">Updated At</th>
-                    <th class="py-3 px-4 text-right">Actions</th>
+                <thead class="bg-slate-950/80 text-slate-400 font-semibold border-b border-slate-800">
+                  <tr>
+                    <th class="py-2.5 px-3.5">Decoder ID</th>
+                    <th class="py-2.5 px-3.5">Product SKU</th>
+                    <th class="py-2.5 px-3.5">Firmware</th>
+                    <th class="py-2.5 px-3.5">Description</th>
+                    <th class="py-2.5 px-3.5">Updated At</th>
+                    <th class="py-2.5 px-3.5 text-right">Actions</th>
                   </tr>
                 </thead>
-                <tbody class="divide-y divide-slate-800/50">
+                <tbody class="divide-y divide-slate-800/60">
+                  <tr v-if="filteredDecoders.length === 0">
+                    <td colspan="6" class="py-6 text-center text-slate-500">
+                      {{ loadingDecoders ? 'Loading decoders...' : 'No decoders registered. Click "Add Decoder" to create one.' }}
+                    </td>
+                  </tr>
                   <tr v-for="dec in filteredDecoders" :key="dec.id" class="hover:bg-slate-800/30 transition">
-                    <td class="py-3 px-4 font-mono font-bold text-white">
-                      <div class="flex items-center gap-2">
-                        <span class="px-2 py-0.5 rounded-md bg-purple-500/15 border border-purple-500/30 text-purple-300 font-mono text-[11px]">{{ dec.id }}</span>
-                      </div>
+                    <td class="py-2.5 px-3.5 font-mono font-bold text-purple-300">{{ dec.id }}</td>
+                    <td class="py-2.5 px-3.5 font-bold text-white">{{ dec.sku }}</td>
+                    <td class="py-2.5 px-3.5">
+                      <span class="px-2 py-0.5 rounded bg-indigo-500/10 text-indigo-300 border border-indigo-500/20 text-[11px] font-mono font-bold">{{ dec.firmwareVersion }}</span>
                     </td>
-                    <td class="py-3 px-4 font-mono text-slate-300 font-semibold">
-                      {{ dec.sku }}
-                    </td>
-                    <td class="py-3 px-4">
-                      <span class="px-2 py-0.5 rounded bg-indigo-500/10 border border-indigo-500/30 text-indigo-300 font-mono text-[11px]">FW v{{ dec.firmwareVersion }}</span>
-                    </td>
-                    <td class="py-3 px-4 text-slate-400">
-                      <div class="flex items-center gap-2">
-                        <span class="text-[11px] font-mono text-slate-300">{{ (dec.decoderCode || '').length }} chars</span>
-                        <span v-if="getSubfunctionCount(dec.decoderCode) > 0" class="px-1.5 py-0.2 rounded bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 text-[10px]">
-                          +{{ getSubfunctionCount(dec.decoderCode) }} subfunctions
-                        </span>
-                      </div>
-                    </td>
-                    <td class="py-3 px-4 text-slate-400 max-w-xs truncate" :title="dec.description || ''">
+                    <td class="py-2.5 px-3.5 text-slate-400 max-w-xs truncate" :title="dec.description || ''">
                       {{ dec.description || '—' }}
                     </td>
-                    <td class="py-3 px-4 text-slate-500 font-mono text-[11px]">
+                    <td class="py-2.5 px-3.5 text-slate-500 font-mono text-[11px]">
                       {{ formatDateTime(dec.updatedAt) }}
                     </td>
-                    <td class="py-3 px-4 text-right">
+                    <td class="py-2.5 px-3.5 text-right">
                       <div class="flex items-center justify-end gap-1.5">
                         <button
                           @click="loadDecoderIntoSandbox(dec)"
                           title="Test in JavaScript Sandbox"
-                          class="px-2.5 py-1 rounded-lg bg-purple-500/10 hover:bg-purple-500/20 text-purple-300 border border-purple-500/30 text-[11px] font-semibold flex items-center gap-1 cursor-pointer transition"
+                          class="p-1.5 rounded bg-purple-500/10 hover:bg-purple-500/20 text-purple-300 border border-purple-500/20 text-xs cursor-pointer"
                         >
-                          <i class="fa-solid fa-play text-[9px]"></i> Test
+                          <i class="fa-solid fa-play"></i>
                         </button>
                         <button
                           @click="openEditDecoderModal(dec)"
                           title="Edit Decoder"
-                          class="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 text-[11px] cursor-pointer transition"
+                          class="p-1.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 text-xs cursor-pointer"
                         >
                           <i class="fa-solid fa-pen-to-square"></i>
                         </button>
                         <button
                           @click="confirmDeleteDecoder(dec)"
                           title="Delete Decoder"
-                          class="p-1.5 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 text-[11px] cursor-pointer transition"
+                          class="p-1.5 rounded bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 text-xs cursor-pointer"
                         >
                           <i class="fa-solid fa-trash-can"></i>
                         </button>
@@ -1206,13 +1144,13 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
           </div>
 
           <!-- JavaScript Decoder Sandbox & Debugger -->
-          <div id="decoder-sandbox-section" class="glass-card rounded-2xl p-5 space-y-4 border border-slate-800">
+          <div id="decoder-sandbox-section" class="glass-card rounded-xl p-5 space-y-4">
             <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-800/80 pb-3">
               <div>
                 <h3 class="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-2">
                   <i class="fa-solid fa-terminal text-purple-400"></i> Interactive Payload Sandbox & Debugger
                 </h3>
-                <p class="text-[11px] text-slate-400 mt-0.5">Test any decoder JavaScript function against real hex byte payloads with sub-function support.</p>
+                <p class="text-[11px] text-slate-400 mt-0.5">Test decoder JavaScript against hex payloads with sub-function support.</p>
               </div>
 
               <div class="flex items-center gap-2">
@@ -1223,7 +1161,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
                   class="px-2.5 py-1 bg-slate-950 border border-slate-700 rounded-lg text-xs text-white font-mono focus:outline-none focus:border-purple-500"
                 >
                   <option value="">-- Choose saved decoder --</option>
-                  <option v-for="d in decodersList" :key="d.id" :value="d.id">{{ d.id }} (FW v{{ d.firmwareVersion }})</option>
+                  <option v-for="d in decodersList" :key="d.id" :value="d.id">{{ d.id }} (FW: {{ d.firmwareVersion }})</option>
                 </select>
               </div>
             </div>
@@ -1236,14 +1174,14 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
                 </div>
                 <textarea
                   v-model="sandboxCode"
-                  rows="12"
+                  rows="10"
                   class="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-slate-200 focus:outline-none focus:border-purple-500 font-mono text-xs leading-relaxed"
                 ></textarea>
               </div>
 
               <div class="space-y-2 font-sans">
                 <div class="space-y-1">
-                  <label class="block text-xs font-semibold text-slate-300">Test Hex String Payload & fPort</label>
+                  <label class="block text-xs font-semibold text-slate-300">Test Hex String Payload</label>
                   <div class="flex gap-2 font-mono text-xs">
                     <input
                       v-model="sandboxHex"
@@ -1251,16 +1189,6 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
                       placeholder="e.g. 09C441"
                       class="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-slate-200 focus:outline-none focus:border-purple-500 font-mono text-xs"
                     />
-                    <div class="flex items-center gap-1 bg-slate-950 border border-slate-800 rounded-xl px-2.5 py-1 text-slate-400 text-xs">
-                      <span class="text-[10px] text-slate-500 uppercase">Port:</span>
-                      <input
-                        v-model.number="sandboxFPort"
-                        type="number"
-                        min="1"
-                        max="223"
-                        class="w-10 bg-transparent text-white font-mono text-xs text-center focus:outline-none"
-                      />
-                    </div>
                     <button
                       @click="runSandboxDecode"
                       class="px-4 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-sans font-bold rounded-xl transition cursor-pointer shadow-lg shadow-purple-600/20"
@@ -1281,7 +1209,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
                       Clear
                     </button>
                   </div>
-                  <pre class="w-full h-44 bg-slate-950 border border-slate-800 rounded-xl p-3 text-emerald-400 overflow-auto text-xs font-mono">{{ sandboxDisplayOutput }}</pre>
+                  <pre class="w-full h-36 bg-slate-950 border border-slate-800 rounded-xl p-3 text-emerald-400 overflow-auto text-xs font-mono">{{ sandboxDisplayOutput }}</pre>
                 </div>
               </div>
             </div>
@@ -1847,10 +1775,10 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
                 required
                 class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-white font-mono text-xs focus:outline-none focus:border-purple-500"
               >
-                <option value="" disabled selected>-- Select Firmware Version (1 - 32) --</option>
-                <option v-for="v in 32" :key="v" :value="v">Firmware v{{ v }}</option>
+                <option value="" disabled selected>-- Select Firmware (1 - 32) --</option>
+                <option v-for="v in 32" :key="v" :value="v">{{ v }}</option>
               </select>
-              <p class="text-[10px] text-slate-500 mt-1">Phiên bản Firmware của thiết bị từ 1 đến 32</p>
+              <p class="text-[10px] text-slate-500 mt-1">Phiên bản Firmware từ 1 đến 32</p>
             </div>
           </div>
 
@@ -1939,7 +1867,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
             </div>
             <div class="flex justify-between py-1 border-b border-slate-800/60">
               <span class="text-slate-500">Firmware Version:</span>
-              <span class="text-indigo-300 font-bold">v{{ newDecoder.firmwareVersion }}</span>
+              <span class="text-indigo-300 font-bold">{{ newDecoder.firmwareVersion }}</span>
             </div>
             <div class="flex justify-between py-1 border-b border-slate-800/60">
               <span class="text-slate-500">Composite ID:</span>
@@ -1983,7 +1911,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
             <h3 class="text-sm font-bold text-white flex items-center gap-2">
               <i class="fa-solid fa-pen-to-square text-purple-400"></i> Edit Decoder: {{ currentDecoder.id }}
             </h3>
-            <p class="text-[11px] text-slate-400">SKU: {{ currentDecoder.sku }} | Firmware: v{{ currentDecoder.firmwareVersion }}</p>
+            <p class="text-[11px] text-slate-400">SKU: {{ currentDecoder.sku }} | Firmware: {{ currentDecoder.firmwareVersion }}</p>
           </div>
           <button @click="editDecoderDialog = false" class="text-slate-500 hover:text-white cursor-pointer"><i class="fa-solid fa-xmark"></i></button>
         </div>
@@ -3137,6 +3065,19 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
           showToast("Sample decoder template loaded!", "info");
         };
 
+        const validateDecoderCode = (code) => {
+          const trimmed = (code || '').trim();
+          if (!trimmed) {
+            return { valid: false, message: 'Vui lòng nhập mã code JavaScript cho Decoder!' };
+          }
+          try {
+            new Function(trimmed);
+            return { valid: true };
+          } catch(e) {
+            return { valid: false, message: 'Lỗi cú pháp JavaScript trong mã decoder: ' + e.message };
+          }
+        };
+
         const promptSubmitAddDecoder = () => {
           const sku = (newDecoder.value.sku || '').trim();
           if (!sku) {
@@ -3148,9 +3089,9 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
             showToast("Vui lòng chọn Firmware Version từ 1 đến 32!", "error");
             return;
           }
-          const code = (newDecoder.value.decoderCode || '').trim();
-          if (!code) {
-            showToast("Vui lòng nhập mã code JavaScript cho Decoder!", "error");
+          const val = validateDecoderCode(newDecoder.value.decoderCode);
+          if (!val.valid) {
+            showToast(val.message, "error");
             return;
           }
 
@@ -3210,6 +3151,11 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
         };
 
         const submitEditDecoder = async () => {
+          const val = validateDecoderCode(currentDecoder.value.decoderCode);
+          if (!val.valid) {
+            showToast(val.message, "error");
+            return;
+          }
           savingDecoder.value = true;
           try {
             const res = await fetch('/api/decoders/' + encodeURIComponent(currentDecoder.value.id), {
@@ -3289,7 +3235,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
             for (let c = 0; c < hex.length; c += 2) {
               bytes.push(parseInt(hex.substr(c, 2), 16));
             }
-            const fPort = sandboxFPort.value || 1;
+            const fPort = 1;
             const fullCode = sandboxCode.value + "\\nif (typeof decodeUplink === 'function') { return decodeUplink({ bytes: bytes, fPort: fPort }); } else if (typeof Decoder === 'function') { return Decoder(bytes, fPort); } else { throw new Error('No entry function found. Please define decodeUplink(input) or Decoder(bytes, fPort)'); }";
             const fn = new Function("bytes", "fPort", fullCode);
             const output = fn(bytes, fPort);
