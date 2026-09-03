@@ -54,6 +54,9 @@ export class DeviceEntity {
   @Column({ type: 'jsonb', nullable: true })
   syncDetails: Record<string, any>;
 
+  @Column({ nullable: true })
+  decoderId?: string;
+
   @Column({ type: 'text', nullable: true })
   payloadFormatterScript: string;
 

@@ -272,6 +272,7 @@ export class DynamicDatabaseService implements OnModuleInit, OnModuleDestroy {
           "appSKey" VARCHAR(255),
           "syncStatus" VARCHAR(50) DEFAULT 'SYNCED',
           "syncDetails" JSONB DEFAULT '{}'::jsonb,
+          "decoderId" VARCHAR(255),
           "payloadFormatterScript" TEXT,
           "isActive" BOOLEAN NOT NULL DEFAULT true,
           "createdAt" TIMESTAMP NOT NULL DEFAULT now(),
@@ -282,6 +283,7 @@ export class DynamicDatabaseService implements OnModuleInit, OnModuleDestroy {
       await dataSource.query(`ALTER TABLE "devices" ADD COLUMN IF NOT EXISTS "appEUI" VARCHAR(255) DEFAULT '0102030405060708';`).catch(() => {});
       await dataSource.query(`ALTER TABLE "devices" ADD COLUMN IF NOT EXISTS "networkServerId" UUID;`).catch(() => {});
       await dataSource.query(`ALTER TABLE "devices" ADD COLUMN IF NOT EXISTS "regionProfileId" VARCHAR(100);`).catch(() => {});
+      await dataSource.query(`ALTER TABLE "devices" ADD COLUMN IF NOT EXISTS "decoderId" VARCHAR(255);`).catch(() => {});
       await dataSource.query(`ALTER TABLE "devices" ADD COLUMN IF NOT EXISTS "syncStatus" VARCHAR(50) DEFAULT 'SYNCED';`).catch(() => {});
       await dataSource.query(`ALTER TABLE "devices" ADD COLUMN IF NOT EXISTS "syncDetails" JSONB;`).catch(() => {});
 

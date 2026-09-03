@@ -7,6 +7,7 @@ import { ApplicationEntity } from './entities/application.entity';
 import { GatewayEntity } from './entities/gateway.entity';
 import { TelemetryEntity } from './entities/telemetry.entity';
 import { NetworkServerEntity } from '../network-servers/entities/network-server.entity';
+import { DecoderEntity } from '../c-modules/decoder-admin/entities/decoder.entity';
 import { RegisterDeviceDto, RegisterGatewayDto } from './dto/lorawan.dto';
 
 function isUserSuperAdmin(user?: any): boolean {
@@ -35,6 +36,10 @@ export class LorawanService {
 
   private get serverRepo() {
     return this.dbService.getRepositoryForTable('network_servers', NetworkServerEntity);
+  }
+
+  private get decoderRepo() {
+    return this.dbService.getRepositoryForTable('decoder', DecoderEntity);
   }
 
   private get appRepo() {
@@ -125,6 +130,19 @@ export class LorawanService {
       };
     }
 
+    let payloadFormatterScript = dto.payloadFormatterScript || undefined;
+    const decoderId = dto.decoderId ? dto.decoderId.trim() : undefined;
+    if (decoderId && !payloadFormatterScript) {
+      try {
+        const dec = await this.decoderRepo.findOne({ where: { id: decoderId } });
+        if (dec && dec.decoderCode) {
+          payloadFormatterScript = dec.decoderCode;
+        }
+      } catch (err) {
+        this.logger.warn(`Could not resolve decoder '${decoderId}': ${err.message}`);
+      }
+    }
+
     // Check if device already exists in DB
     let device = await this.deviceRepo.findOne({ where: { devEUI } });
     if (!device) {
@@ -137,7 +155,8 @@ export class LorawanService {
         ownerId,
         networkServerId: dto.networkServerId || undefined,
         regionProfileId: dto.regionProfileId || undefined,
-        payloadFormatterScript: dto.payloadFormatterScript || undefined,
+        decoderId: decoderId || undefined,
+        payloadFormatterScript,
         syncStatus,
         syncDetails,
         isActive,
@@ -155,8 +174,11 @@ export class LorawanService {
       }
       device.networkServerId = dto.networkServerId || undefined as any;
       device.regionProfileId = dto.regionProfileId || undefined as any;
-      if (dto.payloadFormatterScript !== undefined) {
-        device.payloadFormatterScript = dto.payloadFormatterScript;
+      if (decoderId !== undefined) {
+        device.decoderId = decoderId;
+      }
+      if (payloadFormatterScript !== undefined) {
+        device.payloadFormatterScript = payloadFormatterScript;
       }
       device.syncStatus = syncStatus;
       device.syncDetails = syncDetails;
@@ -164,7 +186,7 @@ export class LorawanService {
     }
 
     const saved = await this.deviceRepo.save(device);
-    this.logger.log(`✅ Saved device [${saved.devEUI}] '${saved.name}' in database. SyncStatus=${syncStatus}`);
+    this.logger.log(`✅ Saved device [${saved.devEUI}] '${saved.name}' in database. Decoder=${saved.decoderId || 'none'}, SyncStatus=${syncStatus}`);
 
     return {
       success: true,
@@ -200,6 +222,23 @@ export class LorawanService {
     if (dto.activationType !== undefined) device.activationMode = dto.activationType;
     if (dto.payloadFormatterScript !== undefined) device.payloadFormatterScript = dto.payloadFormatterScript;
     if (dto.isActive !== undefined) device.isActive = Boolean(dto.isActive);
+
+    if (dto.decoderId !== undefined) {
+      const cleanDecoderId = dto.decoderId ? dto.decoderId.trim() : null;
+      device.decoderId = cleanDecoderId as any;
+      if (cleanDecoderId && !dto.payloadFormatterScript) {
+        try {
+          const dec = await this.decoderRepo.findOne({ where: { id: cleanDecoderId } });
+          if (dec && dec.decoderCode) {
+            device.payloadFormatterScript = dec.decoderCode;
+          }
+        } catch (err) {
+          this.logger.warn(`Could not resolve decoder '${cleanDecoderId}': ${err.message}`);
+        }
+      } else if (cleanDecoderId === null && dto.payloadFormatterScript === undefined) {
+        device.payloadFormatterScript = null as any;
+      }
+    }
 
     if (dto.networkServerId !== undefined) {
       device.networkServerId = (dto.networkServerId ? dto.networkServerId : undefined) as any;
@@ -405,15 +444,33 @@ export class LorawanService {
     return await this.deviceRepo.save(device);
   }
 
+  private async getDecoderScript(device: DeviceEntity): Promise<string | null> {
+    if (device.payloadFormatterScript) return device.payloadFormatterScript;
+    if (device.decoderId) {
+      try {
+        const dec = await this.decoderRepo.findOne({ where: { id: device.decoderId } });
+        if (dec && dec.decoderCode) {
+          return dec.decoderCode;
+        }
+      } catch (err: any) {
+        this.logger.warn(`Could not load decoder '${device.decoderId}': ${err.message}`);
+      }
+    }
+    return null;
+  }
+
   async handleUplink(devEUI: string, payloadHex: string, fPort: number = 1, fCnt: number = 1) {
     const device = await this.deviceRepo.findOne({ where: { devEUI: devEUI.toUpperCase() } });
     let decodedData = {};
 
-    if (device && device.payloadFormatterScript) {
-      try {
-        decodedData = this.payloadFormatterService.decodePayload(device.payloadFormatterScript, payloadHex, fPort);
-      } catch (err: any) {
-        decodedData = { error: err.message };
+    if (device) {
+      const script = await this.getDecoderScript(device);
+      if (script) {
+        try {
+          decodedData = this.payloadFormatterService.decodePayload(script, payloadHex, fPort);
+        } catch (err: any) {
+          decodedData = { error: err.message };
+        }
       }
     }
 
@@ -457,11 +514,14 @@ export class LorawanService {
 
     if (!decodedData || Object.keys(decodedData).length === 0) {
       const device = await this.deviceRepo.findOne({ where: { devEUI: devEUI.toUpperCase() } });
-      if (device && device.payloadFormatterScript && payloadHex) {
-        try {
-          decodedData = this.payloadFormatterService.decodePayload(device.payloadFormatterScript, payloadHex, fPort);
-        } catch (e: any) {
-          decodedData = { error: e.message };
+      if (device && payloadHex) {
+        const script = await this.getDecoderScript(device);
+        if (script) {
+          try {
+            decodedData = this.payloadFormatterService.decodePayload(script, payloadHex, fPort);
+          } catch (e: any) {
+            decodedData = { error: e.message };
+          }
         }
       }
     }
@@ -506,11 +566,14 @@ export class LorawanService {
     let decodedData = uplink.DriverCfg || null;
 
     const device = await this.deviceRepo.findOne({ where: { devEUI: devEUI.toUpperCase() } });
-    if (device && device.payloadFormatterScript && payloadHex) {
-      try {
-        decodedData = this.payloadFormatterService.decodePayload(device.payloadFormatterScript, payloadHex, fPort);
-      } catch (e: any) {
-        decodedData = { error: e.message };
+    if (device && payloadHex) {
+      const script = await this.getDecoderScript(device);
+      if (script) {
+        try {
+          decodedData = this.payloadFormatterService.decodePayload(script, payloadHex, fPort);
+        } catch (e: any) {
+          decodedData = { error: e.message };
+        }
       }
     }
 

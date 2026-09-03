@@ -31,6 +31,10 @@ export class RegisterDeviceDto {
 
   @IsString()
   @IsOptional()
+  decoderId?: string;
+
+  @IsString()
+  @IsOptional()
   payloadFormatterScript?: string;
 
   @IsString()

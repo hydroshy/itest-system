@@ -987,10 +987,14 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
                       </span>
                     </td>
                     <td class="py-2.5 px-3.5">
-                      <span :class="d.payloadFormatterScript ? 'text-emerald-400' : 'text-slate-500'" class="text-[11px] font-medium">
-                        <i :class="d.payloadFormatterScript ? 'fa-code' : 'fa-minus'" class="fa-solid mr-1"></i>
-                        {{ d.payloadFormatterScript ? 'Configured' : 'None' }}
+                      <span v-if="d.decoderId" class="px-2 py-0.5 rounded bg-purple-500/15 text-purple-300 border border-purple-500/30 text-[11px] font-mono font-bold inline-flex items-center gap-1">
+                        <i class="fa-solid fa-code text-[10px]"></i>
+                        {{ d.decoderId }}
                       </span>
+                      <span v-else-if="d.payloadFormatterScript" class="text-emerald-400 text-[11px] font-medium inline-flex items-center gap-1">
+                        <i class="fa-solid fa-code mr-1"></i> Custom
+                      </span>
+                      <span v-else class="text-slate-500 text-[11px] italic">None</span>
                     </td>
                     <td class="py-2.5 px-3.5 text-right">
                       <div class="flex items-center justify-end gap-1.5">
@@ -1655,6 +1659,21 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
             <input v-model="newDevice.appKey" type="text" required maxlength="32" minlength="32" class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-white font-mono uppercase focus:outline-none focus:border-teal-500" />
           </div>
 
+          <!-- Payload Decoder Selection (SKU_ID) -->
+          <div>
+            <label class="block font-semibold text-slate-300 mb-1 flex items-center justify-between">
+              <span>Payload Decoder (SKU_ID)</span>
+              <span v-if="newDevice.decoderId" class="text-purple-400 font-mono text-[10px]">Selected: {{ newDevice.decoderId }}</span>
+            </label>
+            <select v-model="newDevice.decoderId" class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-white font-mono text-xs focus:outline-none focus:border-teal-500">
+              <option value="">-- None (No Decoder) --</option>
+              <option v-for="dec in decodersList" :key="dec.id" :value="dec.id">
+                {{ dec.id }} (SKU: {{ dec.sku }}, FW: {{ dec.firmwareVersion }})
+              </option>
+            </select>
+            <p class="text-[10px] text-slate-500 mt-1">Assign a registered LoRaWAN payload decoder to this device by SKU_ID (e.g. WSLRW-V1A_9)</p>
+          </div>
+
           <div class="flex items-center justify-end gap-2 pt-2 border-t border-slate-800">
             <button type="button" @click="registerDeviceDialog = false" class="px-3.5 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold cursor-pointer">Cancel</button>
             <button type="submit" :disabled="savingDevice" class="px-4 py-2 rounded-lg bg-teal-500 hover:bg-teal-400 text-slate-950 font-bold flex items-center gap-1.5 cursor-pointer">
@@ -1742,7 +1761,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
                   ID: {{ newDecoder.sku.trim() }}_{{ newDecoder.firmwareVersion }}
                 </span>
               </h3>
-              <p class="text-[11px] text-slate-400">Đăng ký decoder giải mã LoRaWAN theo mã SKU và Firmware version (1 - 32)</p>
+              <p class="text-[11px] text-slate-400">Register a LoRaWAN payload decoder by Product SKU and Firmware Version (1 - 32)</p>
             </div>
           </div>
           <button @click="closeAddDecoderModal" class="text-slate-500 hover:text-white cursor-pointer"><i class="fa-solid fa-xmark"></i></button>
@@ -1762,7 +1781,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
                 placeholder="e.g. WSLRW-V1A"
                 class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-white font-mono text-xs focus:outline-none focus:border-purple-500"
               />
-              <p class="text-[10px] text-slate-500 mt-1">Mã định danh model phần cứng (Hardware SKU)</p>
+              <p class="text-[10px] text-slate-500 mt-1">Hardware model identifier (Product SKU)</p>
             </div>
 
             <!-- Firmware Version Dropdown (1 - 32, Empty by default) -->
@@ -1778,13 +1797,13 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
                 <option value="" disabled selected>-- Select Firmware (1 - 32) --</option>
                 <option v-for="v in 32" :key="v" :value="v">{{ v }}</option>
               </select>
-              <p class="text-[10px] text-slate-500 mt-1">Phiên bản Firmware từ 1 đến 32</p>
+              <p class="text-[10px] text-slate-500 mt-1">Device firmware version number from 1 to 32</p>
             </div>
           </div>
 
           <!-- Description (Optional, Empty by default) -->
           <div>
-            <label class="block font-semibold text-slate-300 mb-1">Description (Mô tả)</label>
+            <label class="block font-semibold text-slate-300 mb-1">Description</label>
             <input
               v-model="newDecoder.description"
               type="text"
@@ -1811,9 +1830,9 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
               v-model="newDecoder.decoderCode"
               rows="12"
               required
-              placeholder="// Nhập code JavaScript decoder tại đây...
-// Hỗ trợ các hàm con (sub-functions) kết hợp cùng hàm giải mã chính (decodeUplink hoặc Decoder)
-// Ví dụ:
+              placeholder="// Enter JavaScript decoder code here...
+// Supports helper sub-functions alongside main entry function (decodeUplink or Decoder)
+// Example:
 // function parseTemp(raw) { return raw / 100; }
 // function decodeUplink(input) {
 //   var bytes = input.bytes;
@@ -1821,7 +1840,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
 // }"
               class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-slate-200 font-mono text-xs leading-relaxed focus:outline-none focus:border-purple-500"
             ></textarea>
-            <p class="text-[10px] text-slate-500 mt-1">Hỗ trợ các subfunction con kết hợp cùng hàm giải mã chính <code class="text-purple-300">decodeUplink(input)</code> hoặc <code class="text-purple-300">Decoder(bytes, fPort)</code>.</p>
+            <p class="text-[10px] text-slate-500 mt-1">Supports modular sub-functions alongside main entry function <code class="text-purple-300">decodeUplink(input)</code> or <code class="text-purple-300">Decoder(bytes, fPort)</code>.</p>
           </div>
 
           <!-- Buttons -->
@@ -1853,16 +1872,16 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
             <i class="fa-solid fa-circle-question"></i>
           </div>
           <div>
-            <h3 class="text-sm font-bold text-white">Xác nhận thêm Decoder vào Database</h3>
-            <p class="text-xs text-slate-400 mt-0.5">Vui lòng kiểm tra lại thông tin trước khi ghi vào CSDL</p>
+            <h3 class="text-sm font-bold text-white">Confirm Adding Decoder to Database</h3>
+            <p class="text-xs text-slate-400 mt-0.5">Please review decoder configuration before committing</p>
           </div>
         </div>
 
         <div class="p-3.5 bg-slate-950 border border-slate-800 rounded-xl space-y-2 text-xs">
-          <p class="text-slate-300 font-medium">Bạn có chắc chắn muốn thêm decoder này vào database không?</p>
+          <p class="text-slate-300 font-medium">Are you sure you want to add this decoder to the database?</p>
           <div class="space-y-1 font-mono text-[11px] pt-1">
             <div class="flex justify-between py-1 border-b border-slate-800/60">
-              <span class="text-slate-500">Mã SKU:</span>
+              <span class="text-slate-500">Product SKU:</span>
               <span class="text-white font-bold">{{ newDecoder.sku }}</span>
             </div>
             <div class="flex justify-between py-1 border-b border-slate-800/60">
@@ -1874,7 +1893,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
               <span class="text-purple-400 font-bold">{{ newDecoder.sku ? newDecoder.sku.trim() : '' }}_{{ newDecoder.firmwareVersion }}</span>
             </div>
             <div class="flex justify-between py-1">
-              <span class="text-slate-500">Bảng Database:</span>
+              <span class="text-slate-500">Database Table:</span>
               <span class="text-emerald-400 font-bold">decoder</span>
             </div>
           </div>
@@ -1887,7 +1906,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
             :disabled="savingDecoder"
             class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold cursor-pointer transition"
           >
-            Cancel / Hủy
+            Cancel
           </button>
           <button
             type="button"
@@ -1897,7 +1916,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
           >
             <i v-if="savingDecoder" class="fa-solid fa-circle-notch fa-spin"></i>
             <i v-else class="fa-solid fa-cloud-arrow-up"></i>
-            <span>{{ savingDecoder ? 'Saving...' : 'Có, Thêm vào Database' }}</span>
+            <span>{{ savingDecoder ? 'Saving...' : 'Yes, Add to Database' }}</span>
           </button>
         </div>
       </div>
@@ -1965,13 +1984,13 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
             <i class="fa-solid fa-triangle-exclamation"></i>
           </div>
           <div>
-            <h3 class="text-sm font-bold text-white">Xóa Decoder</h3>
-            <p class="text-xs text-slate-400 mt-0.5">Hành động này không thể hoàn tác</p>
+            <h3 class="text-sm font-bold text-white">Delete Decoder Confirmation</h3>
+            <p class="text-xs text-slate-400 mt-0.5">This action cannot be undone</p>
           </div>
         </div>
 
         <p class="text-xs text-slate-300 leading-relaxed">
-          Bạn có chắc chắn muốn xóa decoder <code class="font-mono text-purple-300 font-bold">{{ decoderToDelete?.id }}</code> khỏi database không?
+          Are you sure you want to permanently delete decoder <code class="font-mono text-purple-300 font-bold">{{ decoderToDelete?.id }}</code> from the database?
         </p>
 
         <div class="flex justify-end gap-3 pt-2">
@@ -2807,6 +2826,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
             devEUI: '',
             networkServerId: defaultNsId,
             regionProfileId: defaultRegionId,
+            decoderId: '',
             appEUI: '0102030405060708',
             appKey: '0102030405060708090A0B0C0D0E0F10',
             activationType: 'OTAA',
@@ -2832,6 +2852,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
             devEUI: d.devEUI || '',
             networkServerId: nsId,
             regionProfileId: regId,
+            decoderId: d.decoderId || '',
             appEUI: d.appEUI || '0102030405060708',
             appKey: d.appKey || '0102030405060708090A0B0C0D0E0F10',
             activationType: d.activationMode || 'OTAA',
@@ -2871,6 +2892,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
                 devEUI: cleanDevEUI,
                 networkServerId: newDevice.value.networkServerId || undefined,
                 regionProfileId: newDevice.value.regionProfileId || undefined,
+                decoderId: newDevice.value.decoderId || undefined,
                 appEUI: newDevice.value.appEUI ? newDevice.value.appEUI.trim().toUpperCase() : '0102030405060708',
                 appKey: newDevice.value.appKey ? newDevice.value.appKey.trim().toUpperCase() : '0102030405060708090A0B0C0D0E0F10',
                 activationType: newDevice.value.activationType || 'OTAA',
@@ -2898,16 +2920,15 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
         const confirmDeleteDevice = async () => {
           if (!deviceToDelete.value) return;
           deletingDevice.value = true;
-          const d = deviceToDelete.value;
           try {
-            const res = await fetch('/lorawan/devices/' + d.devEUI, {
+            const res = await fetch('/lorawan/devices/' + deviceToDelete.value.devEUI, {
               method: 'DELETE',
               headers: authHeaders(),
               credentials: 'include'
             });
             const data = await res.json();
             if (!res.ok) throw new Error(data.message || "Failed to delete device");
-            showToast("Device " + (d.name || d.devEUI) + " deleted successfully", "success");
+            showToast(data.message || "Device deleted successfully", "success");
             deleteConfirmDialog.value = false;
             deviceToDelete.value = null;
             fetchDevices();
@@ -2981,7 +3002,13 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
 
         const testDevice = (d) => {
           sandboxHex.value = "09C441";
-          if (d.payloadFormatterScript) {
+          if (d.decoderId) {
+            selectedSandboxDecoderId.value = d.decoderId;
+            const found = decodersList.value.find(item => item.id === d.decoderId);
+            if (found && found.decoderCode) {
+              sandboxCode.value = found.decoderCode;
+            }
+          } else if (d.payloadFormatterScript) {
             sandboxCode.value = d.payloadFormatterScript;
           }
           switchTab('decoder');
@@ -3068,25 +3095,25 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
         const validateDecoderCode = (code) => {
           const trimmed = (code || '').trim();
           if (!trimmed) {
-            return { valid: false, message: 'Vui lòng nhập mã code JavaScript cho Decoder!' };
+            return { valid: false, message: 'Please enter JavaScript code for the Decoder!' };
           }
           try {
             new Function(trimmed);
             return { valid: true };
           } catch(e) {
-            return { valid: false, message: 'Lỗi cú pháp JavaScript trong mã decoder: ' + e.message };
+            return { valid: false, message: 'JavaScript syntax error in decoder code: ' + e.message };
           }
         };
 
         const promptSubmitAddDecoder = () => {
           const sku = (newDecoder.value.sku || '').trim();
           if (!sku) {
-            showToast("Vui lòng nhập mã Product SKU!", "error");
+            showToast("Please enter Product SKU!", "error");
             return;
           }
           const fw = parseInt(newDecoder.value.firmwareVersion, 10);
           if (isNaN(fw) || fw < 1 || fw > 32) {
-            showToast("Vui lòng chọn Firmware Version từ 1 đến 32!", "error");
+            showToast("Please select Firmware Version from 1 to 32!", "error");
             return;
           }
           const val = validateDecoderCode(newDecoder.value.decoderCode);
@@ -3124,10 +3151,10 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
 
             const data = await res.json();
             if (!res.ok) {
-              throw new Error(data.message || 'Thêm decoder thất bại');
+              throw new Error(data.message || 'Failed to create decoder');
             }
 
-            showToast('Decoder ' + data.id + ' đã được thêm thành công vào database!', 'success');
+            showToast('Decoder ' + data.id + ' was added successfully to database!', 'success');
             addDecoderConfirmDialog.value = false;
             addDecoderDialog.value = false;
             newDecoder.value = { sku: '', firmwareVersion: '', decoderCode: '', description: '' };
@@ -3171,8 +3198,8 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
               })
             });
             const data = await res.json();
-            if (!res.ok) throw new Error(data.message || 'Cập nhật thất bại');
-            showToast('Decoder ' + currentDecoder.value.id + ' đã cập nhật thành công!', 'success');
+            if (!res.ok) throw new Error(data.message || 'Failed to update decoder');
+            showToast('Decoder ' + currentDecoder.value.id + ' updated successfully!', 'success');
             editDecoderDialog.value = false;
             fetchDecoders();
           } catch(err) {
@@ -3197,8 +3224,8 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
               credentials: 'include'
             });
             const data = await res.json();
-            if (!res.ok) throw new Error(data.message || 'Xóa decoder thất bại');
-            showToast('Decoder ' + decoderToDelete.value.id + ' đã được xóa!', 'success');
+            if (!res.ok) throw new Error(data.message || 'Failed to delete decoder');
+            showToast('Decoder ' + decoderToDelete.value.id + ' was deleted successfully!', 'success');
             deleteDecoderConfirmDialog.value = false;
             decoderToDelete.value = null;
             fetchDecoders();
@@ -3212,7 +3239,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
         const loadDecoderIntoSandbox = (dec) => {
           sandboxCode.value = dec.decoderCode;
           selectedSandboxDecoderId.value = dec.id;
-          showToast('Đã nạp mã decoder ' + dec.id + ' vào Sandbox!', 'info');
+          showToast('Loaded decoder ' + dec.id + ' into Sandbox!', 'info');
           const el = document.getElementById('decoder-sandbox-section');
           if (el) el.scrollIntoView({ behavior: 'smooth' });
         };
