@@ -73,7 +73,7 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
   <div id="app" v-cloak class="flex-1 flex flex-col" @click="handleGlobalClick">
     
     <!-- TOP APP BAR -->
-    <header class="glass-header sticky top-0 z-40 px-4 sm:px-8 h-14 flex items-center justify-between">
+    <header class="glass-header sticky top-0 z-40 px-4 sm:px-6 h-14 flex items-center justify-between">
       <!-- Left Logo & Menu (Click to return to Dashboard) -->
       <div class="flex items-center gap-3">
         <button

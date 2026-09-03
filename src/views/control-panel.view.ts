@@ -96,12 +96,9 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
     
     <!-- TOP APP BAR -->
     <header class="glass-header sticky top-0 z-40 px-4 sm:px-6 h-14 flex items-center justify-between">
-      <!-- Left Brand & Mobile Toggle -->
+      <!-- Left Brand & Navigation -->
       <div class="flex items-center gap-3">
-        <button @click="sidebarOpen = !sidebarOpen" class="md:hidden p-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition cursor-pointer">
-          <i class="fa-solid fa-bars text-sm"></i>
-        </button>
-
+        <!-- Logo Button (Locked at identical position with Dashboard) -->
         <button
           @click="switchTab('overview')"
           title="Return to Overview Home"
@@ -117,6 +114,11 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
             </div>
             <span class="text-[10px] text-slate-400 font-normal">Control Panel</span>
           </div>
+        </button>
+
+        <!-- Mobile Sidebar Toggle Button -->
+        <button @click="sidebarOpen = !sidebarOpen" class="md:hidden p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition cursor-pointer" title="Toggle Sidebar">
+          <i class="fa-solid fa-bars text-sm"></i>
         </button>
 
         <!-- Breadcrumb Active Section Indicator -->
