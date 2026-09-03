@@ -51,6 +51,59 @@ export class DeviceProvisioningService {
    * Step 2: POST /api/devices/{devEui}/keys (Sets AppKey / NwkKey)
    */
   /**
+   * Helper to auto-discover Application ID from ChirpStack
+   */
+  private async discoverChirpstackApplicationId(baseUrl: string, headers: Record<string, string>): Promise<string | null> {
+    try {
+      const endpoints = [`${baseUrl}/api/applications?limit=50`, `${baseUrl}/api/v4/applications?limit=50`];
+      for (const ep of endpoints) {
+        const res = await fetch(ep, { headers }).catch(() => null);
+        if (res && (res.ok || res.status === 200)) {
+          const data: any = await res.json().catch(() => ({}));
+          const list = data.result || data.applications || [];
+          if (Array.isArray(list) && list.length > 0 && list[0].id) {
+            return String(list[0].id).trim();
+          }
+        }
+      }
+    } catch (e) {}
+    return null;
+  }
+
+  /**
+   * Helper to auto-discover Device Profile ID from ChirpStack
+   */
+  private async discoverChirpstackDeviceProfileId(
+    baseUrl: string,
+    headers: Record<string, string>,
+    regionHint?: string,
+  ): Promise<string | null> {
+    try {
+      const endpoints = [`${baseUrl}/api/device-profiles?limit=50`, `${baseUrl}/api/v4/device-profiles?limit=50`];
+      for (const ep of endpoints) {
+        const res = await fetch(ep, { headers }).catch(() => null);
+        if (res && (res.ok || res.status === 200)) {
+          const data: any = await res.json().catch(() => ({}));
+          const list = data.result || data.deviceProfiles || [];
+          if (Array.isArray(list) && list.length > 0) {
+            if (regionHint) {
+              const cleanedHint = regionHint.toLowerCase().replace(/[^a-z0-9]/g, '');
+              const matched = list.find((dp: any) => {
+                const name = (dp.name || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+                const reg = (dp.region || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+                return name.includes(cleanedHint) || reg.includes(cleanedHint);
+              });
+              if (matched && matched.id) return String(matched.id).trim();
+            }
+            if (list[0].id) return String(list[0].id).trim();
+          }
+        }
+      }
+    } catch (e) {}
+    return null;
+  }
+
+  /**
    * ChirpStack v4 API (2-Step Device Provisioning)
    * Step 1: POST /api/devices (Creates device with DevEUI, Name, DeviceProfileId, JoinEUI/AppEUI)
    * Step 2: POST /api/devices/{devEui}/keys (Sets AppKey / NwkKey)
@@ -67,17 +120,8 @@ export class DeviceProvisioningService {
     const appEui = (dto.appEUI || '0102030405060708').trim().toLowerCase();
     const appKey = (dto.appKey || '0102030405060708090A0B0C0D0E0F10').trim().toLowerCase();
 
-    // In ChirpStack v4, applicationId and deviceProfileId must be valid UUIDs
     const isUUID = (val: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val);
-    const applicationId = server.metadata?.applicationId && isUUID(server.metadata.applicationId)
-      ? server.metadata.applicationId
-      : '00000000-0000-0000-0000-000000000001';
 
-    const deviceProfileId = regionProfile?.profileId && isUUID(regionProfile.profileId)
-      ? regionProfile.profileId
-      : (regionProfile?.id && isUUID(regionProfile.id) ? regionProfile.id : '00000000-0000-0000-0000-000000000001');
-
-    const steps: ProvisioningStepResult[] = [];
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
       'Accept': 'application/json',
@@ -86,24 +130,56 @@ export class DeviceProvisioningService {
       headers['Authorization'] = `Bearer ${apiKey}`;
     }
 
-    // Step 1: Create Device (POST /api/devices)
-    const step1Payload = {
+    // 1. Resolve Application ID
+    let applicationId = (server.applicationId || server.metadata?.applicationId || '').trim();
+    if (!applicationId || !isUUID(applicationId)) {
+      const discoveredApp = await this.discoverChirpstackApplicationId(baseUrl, headers);
+      if (discoveredApp) {
+        applicationId = discoveredApp;
+      }
+    }
+    if (!applicationId || !isUUID(applicationId)) {
+      applicationId = '00000000-0000-0000-0000-000000000001';
+    }
+
+    // 2. Resolve Device Profile ID
+    let deviceProfileId = (regionProfile?.profileId || regionProfile?.id || '').trim();
+    if (!deviceProfileId || !isUUID(deviceProfileId)) {
+      const discoveredDp = await this.discoverChirpstackDeviceProfileId(
+        baseUrl,
+        headers,
+        regionProfile?.region || regionProfile?.name,
+      );
+      if (discoveredDp) {
+        deviceProfileId = discoveredDp;
+      }
+    }
+    if (!deviceProfileId || !isUUID(deviceProfileId)) {
+      deviceProfileId = '00000000-0000-0000-0000-000000000001';
+    }
+
+    const steps: ProvisioningStepResult[] = [];
+
+    // Step 1 Payload Builder
+    const buildStep1Payload = (appId: string, dpId: string) => ({
       device: {
-        devEui: devEui,
-        name: dto.name.trim(),
+        applicationId: appId,
         description: `Daviteq IoT Sensor - ${dto.name.trim()}`,
-        applicationId: applicationId,
-        deviceProfileId: deviceProfileId,
+        devEui: devEui,
+        deviceProfileId: dpId,
         isDisabled: false,
-        skipFcntCheck: false,
         joinEui: appEui,
+        name: dto.name.trim(),
+        skipFcntCheck: true,
         tags: {
           managedBy: 'DaviteqPlatform',
           region: regionProfile?.region || 'AS923-1',
         },
+        variables: {},
       },
-    };
+    });
 
+    let step1Payload = buildStep1Payload(applicationId, deviceProfileId);
     let step1Success = false;
     let step1Message = '';
 
@@ -138,12 +214,44 @@ export class DeviceProvisioningService {
         }
       }
 
-      const res1Text = await res1.text().catch(() => '');
+      let res1Text = await res1.text().catch(() => '');
       let res1Json: any = {};
       try {
         res1Json = JSON.parse(res1Text);
       } catch (e) {
         res1Json = { raw: res1Text };
+      }
+
+      // If "Record not found" / HTTP 500, attempt one auto-discovery retry
+      if (res1.status === 500 && (res1Text.includes('Record not found') || res1Text.includes('record not found'))) {
+        const discoveredApp = await this.discoverChirpstackApplicationId(baseUrl, headers);
+        const discoveredDp = await this.discoverChirpstackDeviceProfileId(
+          baseUrl,
+          headers,
+          regionProfile?.region || regionProfile?.name,
+        );
+
+        if (discoveredApp && discoveredDp && (discoveredApp !== applicationId || discoveredDp !== deviceProfileId)) {
+          applicationId = discoveredApp;
+          deviceProfileId = discoveredDp;
+          step1Payload = buildStep1Payload(applicationId, deviceProfileId);
+
+          const retryRes = await fetch(endpoint, {
+            method: 'POST',
+            headers,
+            body: JSON.stringify(step1Payload),
+          }).catch(() => null);
+
+          if (retryRes) {
+            res1 = retryRes;
+            res1Text = await res1.text().catch(() => '');
+            try {
+              res1Json = JSON.parse(res1Text);
+            } catch (e) {
+              res1Json = { raw: res1Text };
+            }
+          }
+        }
       }
 
       if (res1.ok || res1.status === 200 || res1.status === 201) {
@@ -189,6 +297,19 @@ export class DeviceProvisioningService {
         });
       } else if (res1.status === 401 || res1.status === 403) {
         step1Message = `ChirpStack authentication rejected (HTTP ${res1.status}). Please check API Key in Network Server settings.`;
+        steps.push({
+          step: 1,
+          stepName: 'Create ChirpStack Device',
+          endpoint,
+          method: 'POST',
+          status: 'WARNING',
+          httpStatus: res1.status,
+          message: step1Message,
+          payload: step1Payload,
+          response: res1Json,
+        });
+      } else if (res1.status === 500 && (res1Text.includes('Record not found') || res1Text.includes('record not found'))) {
+        step1Message = `ChirpStack Notice: Application ID (${applicationId}) or Device Profile ID (${deviceProfileId}) does not exist on ChirpStack. Please configure valid UUIDs in Network Server settings (Control Panel -> Network Servers).`;
         steps.push({
           step: 1,
           stepName: 'Create ChirpStack Device',
