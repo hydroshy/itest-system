@@ -1995,11 +1995,31 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
           try {
             const url = isEditingNetworkServer.value ? '/api/network-servers/' + currentNetworkServer.value.id : '/api/network-servers';
             const method = isEditingNetworkServer.value ? 'PUT' : 'POST';
+            const payload = {
+              name: (currentNetworkServer.value.name || '').trim(),
+              type: currentNetworkServer.value.type || 'THINGPARK',
+              description: (currentNetworkServer.value.description || '').trim(),
+              apiUrl: (currentNetworkServer.value.apiUrl || '').trim(),
+              apiKey: (currentNetworkServer.value.apiKey || '').trim(),
+              routeRef: (currentNetworkServer.value.routeRef || '').trim(),
+              isDefault: Boolean(currentNetworkServer.value.isDefault),
+              status: currentNetworkServer.value.status || 'ONLINE',
+              regionProfiles: (currentNetworkServer.value.regionProfiles || []).map((rp, idx) => ({
+                id: rp.id || ('prof-' + Date.now() + '-' + (idx + 1)),
+                name: (rp.name || '').trim() || ('Region ' + (idx + 1)),
+                region: (rp.region || '').trim() || 'AS923-1',
+                routeRef: rp.routeRef ? String(rp.routeRef).trim() : undefined,
+                profileId: rp.profileId ? String(rp.profileId).trim() : undefined,
+                frequencyBand: rp.frequencyBand ? String(rp.frequencyBand).trim() : '',
+                description: rp.description ? String(rp.description).trim() : '',
+                isActive: rp.isActive !== false
+              }))
+            };
             const res = await fetch(url, {
               method,
               headers: authHeaders(),
               credentials: 'include',
-              body: JSON.stringify(currentNetworkServer.value)
+              body: JSON.stringify(payload)
             });
             const data = await res.json();
             if (!res.ok) throw new Error(data.message || "Failed to save network server");

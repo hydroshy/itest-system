@@ -57,6 +57,9 @@ export class RolesService implements OnModuleInit, OnApplicationBootstrap {
         { name: 'roles:read', module: 'roles', action: 'read', description: 'View Role Matrix' },
         { name: 'roles:manage', module: 'roles', action: 'manage', description: 'Create & Edit Roles' },
 
+        { name: 'network_server:read', module: 'network_servers', action: 'read', description: 'View Network Servers (ThingPark, ChirpStack)' },
+        { name: 'network_server:manage', module: 'network_servers', action: 'manage', description: 'Create & Edit Network Servers and Region Profiles' },
+
         { name: 'database:read', module: 'database', action: 'read', description: 'View Database Health' },
         { name: 'database:manage', module: 'database', action: 'manage', description: 'Hot-Reload Database Config' },
 

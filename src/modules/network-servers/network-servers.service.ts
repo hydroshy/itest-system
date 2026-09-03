@@ -25,30 +25,30 @@ export class NetworkServersService {
 
   async create(dto: CreateNetworkServerDto): Promise<NetworkServerEntity> {
     if (dto.isDefault) {
-      await this.serverRepo.update({}, { isDefault: false });
+      await this.serverRepo.createQueryBuilder().update(NetworkServerEntity).set({ isDefault: false }).execute().catch(() => {});
     }
 
     const regionProfiles: RegionProfile[] = (dto.regionProfiles || []).map((rp, idx) => ({
       id: rp.id || `reg-${Date.now()}-${idx + 1}`,
-      name: rp.name,
-      region: rp.region,
-      routeRef: rp.routeRef,
-      profileId: rp.profileId,
-      frequencyBand: rp.frequencyBand || '',
-      description: rp.description || '',
+      name: rp.name || `Region ${idx + 1}`,
+      region: rp.region || 'AS923-1',
+      routeRef: rp.routeRef ? String(rp.routeRef).trim() : undefined,
+      profileId: rp.profileId ? String(rp.profileId).trim() : undefined,
+      frequencyBand: rp.frequencyBand ? String(rp.frequencyBand).trim() : '',
+      description: rp.description ? String(rp.description).trim() : '',
       isActive: rp.isActive !== false,
     }));
 
     const server = this.serverRepo.create({
-      name: dto.name.trim(),
-      type: dto.type,
-      description: dto.description?.trim(),
-      apiUrl: dto.apiUrl?.trim(),
-      apiKey: dto.apiKey?.trim(),
-      routeRef: dto.routeRef?.trim(),
+      name: dto.name ? String(dto.name).trim() : 'Unnamed Server',
+      type: dto.type || NetworkServerType.THINGPARK,
+      description: dto.description ? String(dto.description).trim() : '',
+      apiUrl: dto.apiUrl ? String(dto.apiUrl).trim() : '',
+      apiKey: dto.apiKey ? String(dto.apiKey).trim() : '',
+      routeRef: dto.routeRef ? String(dto.routeRef).trim() : '',
       regionProfiles,
       status: dto.status || 'ONLINE',
-      isDefault: dto.isDefault || false,
+      isDefault: Boolean(dto.isDefault),
       metadata: dto.metadata || {},
     });
 
@@ -96,28 +96,28 @@ export class NetworkServersService {
     const server = await this.findOne(id);
 
     if (dto.isDefault && !server.isDefault) {
-      await this.serverRepo.update({}, { isDefault: false });
+      await this.serverRepo.createQueryBuilder().update(NetworkServerEntity).set({ isDefault: false }).execute().catch(() => {});
     }
 
-    if (dto.name !== undefined) server.name = dto.name.trim();
-    if (dto.type !== undefined) server.type = dto.type;
-    if (dto.description !== undefined) server.description = dto.description.trim();
-    if (dto.apiUrl !== undefined) server.apiUrl = dto.apiUrl.trim();
-    if (dto.apiKey !== undefined) server.apiKey = dto.apiKey.trim();
-    if (dto.routeRef !== undefined) server.routeRef = dto.routeRef.trim();
-    if (dto.status !== undefined) server.status = dto.status;
-    if (dto.isDefault !== undefined) server.isDefault = dto.isDefault;
-    if (dto.metadata !== undefined) server.metadata = dto.metadata;
+    if (dto.name !== undefined && dto.name !== null) server.name = String(dto.name).trim();
+    if (dto.type !== undefined && dto.type !== null) server.type = dto.type;
+    if (dto.description !== undefined) server.description = dto.description ? String(dto.description).trim() : '';
+    if (dto.apiUrl !== undefined) server.apiUrl = dto.apiUrl ? String(dto.apiUrl).trim() : '';
+    if (dto.apiKey !== undefined) server.apiKey = dto.apiKey ? String(dto.apiKey).trim() : '';
+    if (dto.routeRef !== undefined) server.routeRef = dto.routeRef ? String(dto.routeRef).trim() : '';
+    if (dto.status !== undefined && dto.status !== null) server.status = dto.status;
+    if (dto.isDefault !== undefined && dto.isDefault !== null) server.isDefault = Boolean(dto.isDefault);
+    if (dto.metadata !== undefined) server.metadata = dto.metadata || {};
 
-    if (dto.regionProfiles !== undefined) {
+    if (dto.regionProfiles !== undefined && Array.isArray(dto.regionProfiles)) {
       server.regionProfiles = dto.regionProfiles.map((rp, idx) => ({
         id: rp.id || `reg-${Date.now()}-${idx + 1}`,
-        name: rp.name,
-        region: rp.region,
-        routeRef: rp.routeRef,
-        profileId: rp.profileId,
-        frequencyBand: rp.frequencyBand || '',
-        description: rp.description || '',
+        name: rp.name || `Region ${idx + 1}`,
+        region: rp.region || 'AS923-1',
+        routeRef: rp.routeRef ? String(rp.routeRef).trim() : undefined,
+        profileId: rp.profileId ? String(rp.profileId).trim() : undefined,
+        frequencyBand: rp.frequencyBand ? String(rp.frequencyBand).trim() : '',
+        description: rp.description ? String(rp.description).trim() : '',
         isActive: rp.isActive !== false,
       }));
     }
