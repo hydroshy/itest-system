@@ -230,7 +230,6 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
                 <i class="fa-solid fa-cubes w-4 text-center text-xs text-cyan-400"></i>
                 <span>Feature Modules</span>
               </span>
-              <span v-if="modulesList.length" class="px-1.5 py-0.2 rounded-full bg-sky-500/15 text-sky-300 text-[10px] font-mono">{{ modulesList.length }}</span>
             </button>
 
             <button @click="switchTab('roles')" :class="{ active: activeTab === 'roles' }" class="nav-item">
@@ -238,7 +237,6 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
                 <i class="fa-solid fa-shield-halved w-4 text-center text-xs text-amber-400"></i>
                 <span>Roles & RBAC</span>
               </span>
-              <span v-if="rolesList.length" class="px-1.5 py-0.2 rounded-full bg-amber-500/15 text-amber-300 text-[10px] font-mono">{{ rolesList.length }}</span>
             </button>
 
             <button @click="switchTab('users')" :class="{ active: activeTab === 'users' }" class="nav-item">
@@ -246,7 +244,6 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
                 <i class="fa-solid fa-users w-4 text-center text-xs text-emerald-400"></i>
                 <span>User Accounts</span>
               </span>
-              <span v-if="usersList.length" class="px-1.5 py-0.2 rounded-full bg-emerald-500/15 text-emerald-300 text-[10px] font-mono">{{ usersList.length }}</span>
             </button>
           </div>
 
@@ -259,7 +256,6 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
                 <i class="fa-solid fa-tower-broadcast w-4 text-center text-xs text-sky-400"></i>
                 <span>Network Servers</span>
               </span>
-              <span v-if="networkServersList.length" class="px-1.5 py-0.2 rounded-full bg-sky-500/15 text-sky-300 text-[10px] font-mono">{{ networkServersList.length }}</span>
             </button>
 
             <button @click="switchTab('database')" :class="{ active: activeTab === 'database' }" class="nav-item">
@@ -267,7 +263,6 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
                 <i class="fa-solid fa-database w-4 text-center text-xs text-indigo-400"></i>
                 <span>Database Health</span>
               </span>
-              <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
             </button>
 
             <button @click="switchTab('devices')" :class="{ active: activeTab === 'devices' }" class="nav-item">
@@ -275,7 +270,6 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
                 <i class="fa-solid fa-microchip w-4 text-center text-xs text-teal-400"></i>
                 <span>Device Fleet</span>
               </span>
-              <span v-if="devicesList.length" class="px-1.5 py-0.2 rounded-full bg-teal-500/15 text-teal-300 text-[10px] font-mono">{{ devicesList.length }}</span>
             </button>
 
             <button @click="switchTab('webhooks')" :class="{ active: activeTab === 'webhooks' }" class="nav-item">
@@ -283,7 +277,6 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
                 <i class="fa-solid fa-satellite-dish w-4 text-center text-xs text-sky-400"></i>
                 <span>Webhook Manager</span>
               </span>
-              <span v-if="webhookStats.totalCount" class="px-1.5 py-0.2 rounded-full bg-sky-500/15 text-sky-300 text-[10px] font-mono">{{ webhookStats.totalCount }}</span>
             </button>
 
             <button @click="switchTab('decoder')" :class="{ active: activeTab === 'decoder' }" class="nav-item">
@@ -291,7 +284,6 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
                 <i class="fa-solid fa-code w-4 text-center text-xs text-purple-400"></i>
                 <span>Decoder Manager</span>
               </span>
-              <span v-if="decodersList.length" class="px-1.5 py-0.2 rounded-full bg-purple-500/15 text-purple-300 text-[10px] font-mono">{{ decodersList.length }}</span>
             </button>
           </div>
         </div>
