@@ -588,236 +588,423 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
         <!-- TAB 3: MODULE MANAGER & METABASE-STYLE ROLE LAYOUT CUSTOMIZATION -->
         <div v-show="activeTab === 'modules'" class="space-y-4">
           <div class="glass-card rounded-xl p-5 space-y-4">
-            <!-- Header Bar -->
-            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <!-- Header Bar with Segmented Sub-Tab Switcher -->
+            <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
               <div>
                 <div class="flex items-center gap-2">
                   <h2 class="text-sm font-bold text-white flex items-center gap-2">
                     <i class="fa-solid fa-cubes text-cyan-400"></i> Dashboard module Manager
                   </h2>
                   <span class="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-cyan-500/10 text-cyan-400 border border-cyan-500/25">
-                    {{ modulesList.length }} System Modules
+                    {{ modulesList.length }} Registered Modules
                   </span>
                 </div>
-                <p class="text-[11px] text-slate-400 mt-0.5">Metabase-style visual grid layout: arrange, drag-and-drop, resize tile widths, and configure active modules per role</p>
+                <p class="text-[11px] text-slate-400 mt-0.5">Manage live D-Module engines and customize Metabase-style visual grid layouts per role</p>
               </div>
-              <div class="flex items-center gap-2">
+
+              <!-- Sub-Tab Segmented Selector & Global Actions -->
+              <div class="flex flex-wrap items-center gap-2.5">
+                <!-- Sub-Tab Pills -->
+                <div class="flex items-center p-1 bg-slate-900/90 border border-slate-800 rounded-xl">
+                  <button
+                    @click="moduleManagerSubTab = 'layout'"
+                    :class="moduleManagerSubTab === 'layout' ? 'bg-cyan-500 text-slate-950 font-bold shadow-md shadow-cyan-500/20' : 'text-slate-400 hover:text-slate-200 font-medium'"
+                    class="px-3 py-1.5 rounded-lg text-xs transition flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <i class="fa-solid fa-table-cells-large"></i> Role Layout Grid
+                  </button>
+                  <button
+                    @click="moduleManagerSubTab = 'catalog'"
+                    :class="moduleManagerSubTab === 'catalog' ? 'bg-cyan-500 text-slate-950 font-bold shadow-md shadow-cyan-500/20' : 'text-slate-400 hover:text-slate-200 font-medium'"
+                    class="px-3 py-1.5 rounded-lg text-xs transition flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <i class="fa-solid fa-server"></i> D-MODULE Registry
+                    <span :class="moduleManagerSubTab === 'catalog' ? 'bg-slate-950/30 text-slate-950' : 'bg-slate-800 text-cyan-400 border border-slate-700'" class="px-1.5 py-0.2 rounded-full text-[9px] font-mono font-bold">
+                      {{ modulesList.length }}
+                    </span>
+                  </button>
+                </div>
+
+                <div class="h-6 w-[1px] bg-slate-800 hidden sm:block"></div>
+
                 <button @click="fetchModules" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 text-xs font-semibold flex items-center gap-1.5 cursor-pointer">
                   <i class="fa-solid fa-arrows-rotate"></i> Refresh
                 </button>
-                <button @click="resetModulesDefaults" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 text-xs font-semibold flex items-center gap-1.5 cursor-pointer">
+                <button @click="resetModulesDefaults" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 text-xs font-semibold flex items-center gap-1.5 cursor-pointer" title="Reset layout and modules configuration to defaults">
                   <i class="fa-solid fa-rotate-left"></i> Reset Defaults
                 </button>
-                <button @click="openAddModuleToLayoutModal" class="px-3.5 py-1.5 rounded-lg bg-cyan-500 hover:bg-cyan-400 text-slate-950 text-xs font-bold shadow-lg shadow-cyan-500/20 flex items-center gap-1.5 cursor-pointer">
+              </div>
+            </div>
+
+            <!-- SUB-TAB 1: ROLE LAYOUT GRID CANVAS (METABASE STYLE) -->
+            <div v-if="moduleManagerSubTab === 'layout'" class="space-y-4">
+              <!-- Role Selector & Metabase Layout Toolbar -->
+              <div class="p-4 rounded-xl bg-slate-900/90 border border-slate-800 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <!-- Role Selector -->
+                <div class="flex flex-col sm:flex-row sm:items-center gap-3">
+                  <label class="text-xs font-bold text-slate-300 flex items-center gap-1.5 whitespace-nowrap">
+                    <i class="fa-solid fa-user-shield text-amber-400"></i> Role Layout Customization:
+                  </label>
+                  <select
+                    v-model="selectedLayoutRole"
+                    @change="onLayoutRoleChange"
+                    class="px-3 py-1.5 bg-slate-950 border border-slate-700 rounded-lg text-xs font-semibold text-white focus:outline-none focus:border-cyan-500 cursor-pointer min-w-[240px]"
+                  >
+                    <option value="SUPER_ADMIN">SUPER_ADMIN (Default / Global Layout)</option>
+                    <option v-for="r in rolesList" :key="r.id" :value="r.code || r.name">
+                      {{ r.name }} ({{ r.code }})
+                    </option>
+                  </select>
+                  <span class="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-cyan-500/10 text-cyan-300 border border-cyan-500/20">
+                    {{ currentRoleModuleList.length }} / {{ modulesList.length }} Modules in Grid
+                  </span>
+                </div>
+
+                <!-- Action Controls: Edit, Save, Cancel, Add Module -->
+                <div class="flex items-center gap-2">
+                  <template v-if="!isEditingRoleLayout">
+                    <button
+                      @click="startEditRoleLayout"
+                      class="px-3.5 py-1.5 rounded-lg bg-cyan-500/15 hover:bg-cyan-500/25 text-cyan-300 border border-cyan-500/30 text-xs font-bold flex items-center gap-1.5 cursor-pointer transition shadow-sm"
+                    >
+                      <i class="fa-solid fa-up-down-left-right"></i> Edit Layout (Drag & Drop)
+                    </button>
+                    <button
+                      @click="openAddModuleToLayoutModal"
+                      class="px-3.5 py-1.5 rounded-lg bg-cyan-500 hover:bg-cyan-400 text-slate-950 text-xs font-bold shadow-lg shadow-cyan-500/20 flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <i class="fa-solid fa-plus"></i> Add Module
+                    </button>
+                  </template>
+                  <template v-else>
+                    <button
+                      @click="openAddModuleToLayoutModal"
+                      class="px-3 py-1.5 rounded-lg bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 border border-cyan-500/30 text-xs font-bold flex items-center gap-1.5 cursor-pointer transition"
+                    >
+                      <i class="fa-solid fa-plus"></i> Add Module
+                    </button>
+                    <span class="px-2.5 py-1 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20 text-xs font-semibold flex items-center gap-1.5">
+                      <span class="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span> Edit Grid Mode
+                    </span>
+                    <button
+                      @click="saveRoleLayoutOrder"
+                      :disabled="savingRoleLayout"
+                      class="px-3.5 py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-lg shadow-emerald-500/20 transition disabled:opacity-50"
+                    >
+                      <i class="fa-solid fa-check"></i> {{ savingRoleLayout ? 'Saving...' : 'Save' }}
+                    </button>
+                    <button
+                      @click="cancelEditRoleLayout"
+                      class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition"
+                    >
+                      <i class="fa-solid fa-xmark"></i> Cancel
+                    </button>
+                  </template>
+                </div>
+              </div>
+
+              <!-- Metabase-style Edit Mode Tips -->
+              <div v-if="isEditingRoleLayout" class="p-3 rounded-xl bg-cyan-950/30 border border-cyan-500/20 text-xs text-cyan-300 flex items-center justify-between gap-2">
+                <div class="flex items-center gap-2">
+                  <i class="fa-solid fa-table-cells-large text-cyan-400 text-sm"></i>
+                  <span><strong>Metabase Grid Editor:</strong> Drag cards to reposition. Click <strong>1x / 2x Span</strong> to resize tile width. Click <strong>✕</strong> to remove a module from this role layout.</span>
+                </div>
+                <button @click="openAddModuleToLayoutModal" class="px-2.5 py-1 rounded-lg bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 text-[11px] font-bold border border-cyan-500/30 flex items-center gap-1 cursor-pointer">
+                  <i class="fa-solid fa-plus"></i> Select Module
+                </button>
+              </div>
+
+              <!-- Metabase Responsive Grid Canvas -->
+              <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4 p-4 rounded-2xl bg-slate-950/70 border border-slate-800/80">
+                <div
+                  v-for="(mod, index) in currentRoleModuleList"
+                  :key="mod.id"
+                  :draggable="isEditingRoleLayout"
+                  @dragstart="onDragStart(index, $event)"
+                  @dragover.prevent="onDragOver(index, $event)"
+                  @drop="onDrop(index, $event)"
+                  @dragend="onDragEnd"
+                  class="p-4 bg-slate-900/90 rounded-2xl border transition-all duration-150 flex flex-col justify-between space-y-3 group select-none shadow-md"
+                  :class="[
+                    mod.span === 2 ? 'md:col-span-2' : 'col-span-1',
+                    mod.isActive !== false ? 'border-slate-800 hover:border-cyan-500/40' : 'border-red-500/20 opacity-60 bg-red-950/10',
+                    isEditingRoleLayout ? 'cursor-grab active:cursor-grabbing border-dashed ring-1 ring-cyan-500/30 hover:scale-[1.01]' : '',
+                    dragOverModuleIndex === index && isEditingRoleLayout ? 'border-cyan-400 bg-cyan-950/30 ring-2 ring-cyan-400' : ''
+                  ]"
+                >
+                  <!-- Tile Header -->
+                  <div class="space-y-3">
+                    <div class="flex items-center justify-between">
+                      <div class="flex items-center gap-2.5">
+                        <!-- Drag Handle in Edit Mode -->
+                        <div v-if="isEditingRoleLayout" class="text-slate-500 hover:text-cyan-400 cursor-grab px-0.5" title="Drag tile to reposition">
+                          <i class="fa-solid fa-grip-vertical text-sm"></i>
+                        </div>
+                        <div :class="'bg-gradient-to-br ' + mod.color" class="w-10 h-10 rounded-xl flex items-center justify-center text-white shadow-md text-base flex-shrink-0">
+                          <i :class="mod.icon"></i>
+                        </div>
+                        <div>
+                          <h3 class="text-sm font-bold text-white group-hover:text-cyan-400 transition">{{ mod.title }}</h3>
+                          <div class="text-[10px] font-mono text-slate-500">ID: {{ mod.id }}</div>
+                        </div>
+                      </div>
+                      
+                      <div class="flex items-center gap-1.5">
+                        <!-- Metabase Span Width Switcher in Edit Mode -->
+                        <button
+                          v-if="isEditingRoleLayout"
+                          @click.stop="toggleModuleSpan(index)"
+                          class="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-slate-800 hover:bg-slate-700 text-cyan-300 border border-slate-700 cursor-pointer flex items-center gap-1 transition"
+                          :title="mod.span === 2 ? 'Click to change to 1x Standard tile' : 'Click to expand to 2x Wide tile'"
+                        >
+                          <i class="fa-solid fa-arrows-left-right text-[9px]"></i>
+                          <span>{{ mod.span === 2 ? '2x Wide' : '1x Standard' }}</span>
+                        </button>
+
+                        <!-- Position Badge in Edit Mode -->
+                        <span v-if="isEditingRoleLayout" class="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">
+                          #{{ index + 1 }}
+                        </span>
+
+                        <!-- Remove from Role Layout in Edit Mode -->
+                        <button
+                          v-if="isEditingRoleLayout"
+                          @click.stop="removeModuleFromCurrentRoleLayout(index)"
+                          class="p-1 rounded text-slate-500 hover:text-red-400 hover:bg-red-500/10 cursor-pointer transition"
+                          title="Remove module from this role layout"
+                        >
+                          <i class="fa-solid fa-xmark text-sm"></i>
+                        </button>
+
+                        <!-- Active Toggle in View Mode -->
+                        <button
+                          v-if="!isEditingRoleLayout"
+                          @click.stop="toggleModuleActive(mod)"
+                          :title="mod.isActive !== false ? 'Active (Click to disable)' : 'Inactive (Click to enable)'"
+                          :class="mod.isActive !== false ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' : 'bg-red-500/20 text-red-400 border-red-500/30'"
+                          class="px-2 py-0.5 rounded text-[10px] font-bold border cursor-pointer transition"
+                        >
+                          {{ mod.isActive !== false ? 'ACTIVE' : 'OFF' }}
+                        </button>
+                      </div>
+                    </div>
+
+                    <p class="text-xs text-slate-400 line-clamp-2 leading-relaxed">{{ mod.description }}</p>
+
+                    <!-- Category & Permissions Tag -->
+                    <div class="pt-2 border-t border-slate-800/80 flex items-center justify-between text-[10px]">
+                      <span class="px-2 py-0.5 rounded font-bold font-mono bg-slate-800 text-slate-300 border border-slate-700">
+                        {{ mod.category }}
+                      </span>
+                      <span class="font-mono text-slate-500">{{ mod.requiredPermission || 'Public Access' }}</span>
+                    </div>
+                  </div>
+
+                  <!-- Footer in Edit Mode: Directional Shift Controls -->
+                  <div v-if="isEditingRoleLayout" class="pt-2.5 border-t border-slate-800/80 flex items-center justify-between text-xs">
+                    <div class="flex items-center gap-1">
+                      <button
+                        :disabled="index === 0"
+                        @click.stop="moveModuleOrder(index, -1)"
+                        class="px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition text-xs font-bold"
+                        title="Move Earlier"
+                      >
+                        <i class="fa-solid fa-arrow-left"></i>
+                      </button>
+                      <button
+                        :disabled="index === currentRoleModuleList.length - 1"
+                        @click.stop="moveModuleOrder(index, 1)"
+                        class="px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition text-xs font-bold"
+                        title="Move Later"
+                      >
+                        <i class="fa-solid fa-arrow-right"></i>
+                      </button>
+                    </div>
+                    <span class="text-[11px] font-mono text-cyan-400 font-bold">Slot {{ index + 1 }} of {{ currentRoleModuleList.length }}</span>
+                  </div>
+                </div>
+
+                <!-- Inline Add Module Slot Tile at End of Grid (in Edit Mode) -->
+                <div
+                  v-if="isEditingRoleLayout"
+                  @click="openAddModuleToLayoutModal"
+                  class="p-6 rounded-2xl border-2 border-dashed border-slate-800 hover:border-cyan-500/50 hover:bg-cyan-950/15 transition cursor-pointer flex flex-col items-center justify-center space-y-2 text-slate-500 hover:text-cyan-400 min-h-[160px] group select-none"
+                >
+                  <div class="w-10 h-10 rounded-full bg-slate-900 border border-slate-800 group-hover:border-cyan-500/40 flex items-center justify-center text-slate-400 group-hover:text-cyan-300 text-base">
+                    <i class="fa-solid fa-plus"></i>
+                  </div>
+                  <span class="text-xs font-bold">Add Module to Layout</span>
+                  <span class="text-[10px] text-slate-500">Pick from verified system modules</span>
+                </div>
+              </div>
+
+              <!-- Empty State if no modules visible for role -->
+              <div v-if="currentRoleModuleList.length === 0" class="p-8 text-center bg-slate-900/50 rounded-2xl border border-slate-800 space-y-3">
+                <i class="fa-solid fa-cubes text-3xl text-slate-600"></i>
+                <h3 class="text-sm font-bold text-white">No Modules Added to Role '{{ selectedLayoutRole }}'</h3>
+                <p class="text-xs text-slate-400 max-w-md mx-auto">
+                  No feature modules are currently in this role's layout. Click the button below to pick and add modules to the grid.
+                </p>
+                <button @click="openAddModuleToLayoutModal" class="px-4 py-2 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 text-xs font-bold inline-flex items-center gap-1.5 cursor-pointer shadow-md">
                   <i class="fa-solid fa-plus"></i> Add Module to Layout
                 </button>
               </div>
             </div>
 
-            <!-- Role Selector & Metabase Layout Toolbar -->
-            <div class="p-4 rounded-xl bg-slate-900/90 border border-slate-800 flex flex-col md:flex-row md:items-center justify-between gap-4">
-              <!-- Role Selector -->
-              <div class="flex flex-col sm:flex-row sm:items-center gap-3">
-                <label class="text-xs font-bold text-slate-300 flex items-center gap-1.5 whitespace-nowrap">
-                  <i class="fa-solid fa-user-shield text-amber-400"></i> Role Layout Customization:
-                </label>
-                <select
-                  v-model="selectedLayoutRole"
-                  @change="onLayoutRoleChange"
-                  class="px-3 py-1.5 bg-slate-950 border border-slate-700 rounded-lg text-xs font-semibold text-white focus:outline-none focus:border-cyan-500 cursor-pointer min-w-[240px]"
-                >
-                  <option value="SUPER_ADMIN">SUPER_ADMIN (Default / Global Layout)</option>
-                  <option v-for="r in rolesList" :key="r.id" :value="r.code || r.name">
-                    {{ r.name }} ({{ r.code }})
-                  </option>
-                </select>
-                <span class="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-cyan-500/10 text-cyan-300 border border-cyan-500/20">
-                  {{ currentRoleModuleList.length }} / {{ modulesList.length }} Modules in Grid
-                </span>
-              </div>
-
-              <!-- Action Controls: Edit, Save, Cancel, Add Module -->
-              <div class="flex items-center gap-2">
-                <template v-if="!isEditingRoleLayout">
-                  <button
-                    @click="startEditRoleLayout"
-                    class="px-3.5 py-1.5 rounded-lg bg-cyan-500/15 hover:bg-cyan-500/25 text-cyan-300 border border-cyan-500/30 text-xs font-bold flex items-center gap-1.5 cursor-pointer transition shadow-sm"
-                  >
-                    <i class="fa-solid fa-up-down-left-right"></i> Edit Layout (Drag & Drop)
-                  </button>
-                </template>
-                <template v-else>
-                  <button
-                    @click="openAddModuleToLayoutModal"
-                    class="px-3 py-1.5 rounded-lg bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 border border-cyan-500/30 text-xs font-bold flex items-center gap-1.5 cursor-pointer transition"
-                  >
-                    <i class="fa-solid fa-plus"></i> Add Module
-                  </button>
-                  <span class="px-2.5 py-1 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20 text-xs font-semibold flex items-center gap-1.5">
-                    <span class="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span> Edit Grid Mode
-                  </span>
-                  <button
-                    @click="saveRoleLayoutOrder"
-                    :disabled="savingRoleLayout"
-                    class="px-3.5 py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-lg shadow-emerald-500/20 transition disabled:opacity-50"
-                  >
-                    <i class="fa-solid fa-check"></i> {{ savingRoleLayout ? 'Saving...' : 'Save' }}
-                  </button>
-                  <button
-                    @click="cancelEditRoleLayout"
-                    class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition"
-                  >
-                    <i class="fa-solid fa-xmark"></i> Cancel
-                  </button>
-                </template>
-              </div>
-            </div>
-
-            <!-- Metabase-style Edit Mode Tips -->
-            <div v-if="isEditingRoleLayout" class="p-3 rounded-xl bg-cyan-950/30 border border-cyan-500/20 text-xs text-cyan-300 flex items-center justify-between gap-2">
-              <div class="flex items-center gap-2">
-                <i class="fa-solid fa-table-cells-large text-cyan-400 text-sm"></i>
-                <span><strong>Metabase Grid Editor:</strong> Drag cards to reposition. Click <strong>1x / 2x Span</strong> to resize tile width. Click <strong>✕</strong> to remove a module from this role layout.</span>
-              </div>
-              <button @click="openAddModuleToLayoutModal" class="px-2.5 py-1 rounded-lg bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 text-[11px] font-bold border border-cyan-500/30 flex items-center gap-1 cursor-pointer">
-                <i class="fa-solid fa-plus"></i> Select Module
-              </button>
-            </div>
-
-            <!-- Metabase Responsive Grid Canvas -->
-            <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4 p-4 rounded-2xl bg-slate-950/70 border border-slate-800/80">
-              <div
-                v-for="(mod, index) in currentRoleModuleList"
-                :key="mod.id"
-                :draggable="isEditingRoleLayout"
-                @dragstart="onDragStart(index, $event)"
-                @dragover.prevent="onDragOver(index, $event)"
-                @drop="onDrop(index, $event)"
-                @dragend="onDragEnd"
-                class="p-4 bg-slate-900/90 rounded-2xl border transition-all duration-150 flex flex-col justify-between space-y-3 group select-none shadow-md"
-                :class="[
-                  mod.span === 2 ? 'md:col-span-2' : 'col-span-1',
-                  mod.isActive !== false ? 'border-slate-800 hover:border-cyan-500/40' : 'border-red-500/20 opacity-60 bg-red-950/10',
-                  isEditingRoleLayout ? 'cursor-grab active:cursor-grabbing border-dashed ring-1 ring-cyan-500/30 hover:scale-[1.01]' : '',
-                  dragOverModuleIndex === index && isEditingRoleLayout ? 'border-cyan-400 bg-cyan-950/30 ring-2 ring-cyan-400' : ''
-                ]"
-              >
-                <!-- Tile Header -->
-                <div class="space-y-3">
-                  <div class="flex items-center justify-between">
-                    <div class="flex items-center gap-2.5">
-                      <!-- Drag Handle in Edit Mode -->
-                      <div v-if="isEditingRoleLayout" class="text-slate-500 hover:text-cyan-400 cursor-grab px-0.5" title="Drag tile to reposition">
-                        <i class="fa-solid fa-grip-vertical text-sm"></i>
-                      </div>
-                      <div :class="'bg-gradient-to-br ' + mod.color" class="w-10 h-10 rounded-xl flex items-center justify-center text-white shadow-md text-base flex-shrink-0">
-                        <i :class="mod.icon"></i>
-                      </div>
-                      <div>
-                        <h3 class="text-sm font-bold text-white group-hover:text-cyan-400 transition">{{ mod.title }}</h3>
-                        <div class="text-[10px] font-mono text-slate-500">ID: {{ mod.id }}</div>
-                      </div>
-                    </div>
-                    
-                    <div class="flex items-center gap-1.5">
-                      <!-- Metabase Span Width Switcher in Edit Mode -->
-                      <button
-                        v-if="isEditingRoleLayout"
-                        @click.stop="toggleModuleSpan(index)"
-                        class="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-slate-800 hover:bg-slate-700 text-cyan-300 border border-slate-700 cursor-pointer flex items-center gap-1 transition"
-                        :title="mod.span === 2 ? 'Click to change to 1x Standard tile' : 'Click to expand to 2x Wide tile'"
-                      >
-                        <i class="fa-solid fa-arrows-left-right text-[9px]"></i>
-                        <span>{{ mod.span === 2 ? '2x Wide' : '1x Standard' }}</span>
-                      </button>
-
-                      <!-- Position Badge in Edit Mode -->
-                      <span v-if="isEditingRoleLayout" class="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">
-                        #{{ index + 1 }}
+            <!-- SUB-TAB 2: LIVE CODEBASE D-MODULE REGISTRY FLEET -->
+            <div v-if="moduleManagerSubTab === 'catalog'" class="space-y-4">
+              <!-- Live Core Engine Highlight Banner -->
+              <div class="p-5 rounded-2xl bg-gradient-to-r from-emerald-950/40 via-cyan-950/30 to-slate-900/90 border border-emerald-500/30 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 shadow-lg">
+                <div class="flex items-start gap-4">
+                  <div class="w-12 h-12 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-700 flex items-center justify-center text-white text-xl shadow-lg shadow-emerald-500/20 flex-shrink-0">
+                    <i class="fa-solid fa-microchip"></i>
+                  </div>
+                  <div class="space-y-1">
+                    <div class="flex flex-wrap items-center gap-2">
+                      <h3 class="text-sm font-bold text-white">Core Live Engine: Device Fleet Manager</h3>
+                      <span class="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 flex items-center gap-1">
+                        <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span> FULLY OPERATIONAL
                       </span>
-
-                      <!-- Remove from Role Layout in Edit Mode -->
-                      <button
-                        v-if="isEditingRoleLayout"
-                        @click.stop="removeModuleFromCurrentRoleLayout(index)"
-                        class="p-1 rounded text-slate-500 hover:text-red-400 hover:bg-red-500/10 cursor-pointer transition"
-                        title="Remove module from this role layout"
-                      >
-                        <i class="fa-solid fa-xmark text-sm"></i>
-                      </button>
-
-                      <!-- Active Toggle in View Mode -->
-                      <button
-                        v-if="!isEditingRoleLayout"
-                        @click.stop="toggleModuleActive(mod)"
-                        :title="mod.isActive !== false ? 'Active (Click to disable)' : 'Inactive (Click to enable)'"
-                        :class="mod.isActive !== false ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' : 'bg-red-500/20 text-red-400 border-red-500/30'"
-                        class="px-2 py-0.5 rounded text-[10px] font-bold border cursor-pointer transition"
-                      >
-                        {{ mod.isActive !== false ? 'ACTIVE' : 'OFF' }}
-                      </button>
+                      <span class="px-2 py-0.5 rounded-full text-[10px] font-mono text-cyan-300 bg-cyan-500/10 border border-cyan-500/25">
+                        D_MOD_DEVICE_MANAGER
+                      </span>
+                    </div>
+                    <p class="text-xs text-slate-300 leading-relaxed max-w-2xl">
+                      Complete end-to-end backend D-Module with direct PostgreSQL TypeORM models (<span class="font-mono text-cyan-300">DeviceEntity</span>), OTAA/ABP provisioning, ThingPark Wireless & ChirpStack v4 synchronization, and live JavaScript decoder pipeline execution.
+                    </p>
+                    <div class="pt-1 flex flex-wrap items-center gap-3 text-[11px] text-slate-400 font-mono">
+                      <span class="text-emerald-400"><i class="fa-regular fa-folder-open mr-1"></i>src/modules/d-modules/device-manager/</span>
+                      <span class="text-slate-500">|</span>
+                      <span><i class="fa-solid fa-link mr-1"></i>Route: /dashboard#device-manager</span>
                     </div>
                   </div>
-
-                  <p class="text-xs text-slate-400 line-clamp-2 leading-relaxed">{{ mod.description }}</p>
-
-                  <!-- Category & Permissions Tag -->
-                  <div class="pt-2 border-t border-slate-800/80 flex items-center justify-between text-[10px]">
-                    <span class="px-2 py-0.5 rounded font-bold font-mono bg-slate-800 text-slate-300 border border-slate-700">
-                      {{ mod.category }}
-                    </span>
-                    <span class="font-mono text-slate-500">{{ mod.requiredPermission || 'Public Access' }}</span>
-                  </div>
                 </div>
 
-                <!-- Footer in Edit Mode: Directional Shift Controls -->
-                <div v-if="isEditingRoleLayout" class="pt-2.5 border-t border-slate-800/80 flex items-center justify-between text-xs">
-                  <div class="flex items-center gap-1">
-                    <button
-                      :disabled="index === 0"
-                      @click.stop="moveModuleOrder(index, -1)"
-                      class="px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition text-xs font-bold"
-                      title="Move Earlier"
-                    >
-                      <i class="fa-solid fa-arrow-left"></i>
-                    </button>
-                    <button
-                      :disabled="index === currentRoleModuleList.length - 1"
-                      @click.stop="moveModuleOrder(index, 1)"
-                      class="px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition text-xs font-bold"
-                      title="Move Later"
-                    >
-                      <i class="fa-solid fa-arrow-right"></i>
-                    </button>
-                  </div>
-                  <span class="text-[11px] font-mono text-cyan-400 font-bold">Slot {{ index + 1 }} of {{ currentRoleModuleList.length }}</span>
+                <div class="flex flex-row md:flex-col items-center md:items-end gap-2 flex-shrink-0 w-full md:w-auto">
+                  <button
+                    @click="navigateTo('/dashboard#device-manager')"
+                    class="w-full md:w-auto px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer shadow-lg shadow-emerald-500/20 transition"
+                  >
+                    <i class="fa-solid fa-arrow-up-right-from-square"></i> Open Device Manager
+                  </button>
+                  <span class="text-[10px] text-slate-400">Launch live module UI</span>
                 </div>
               </div>
 
-              <!-- Inline Add Module Slot Tile at End of Grid (in Edit Mode) -->
-              <div
-                v-if="isEditingRoleLayout"
-                @click="openAddModuleToLayoutModal"
-                class="p-6 rounded-2xl border-2 border-dashed border-slate-800 hover:border-cyan-500/50 hover:bg-cyan-950/15 transition cursor-pointer flex flex-col items-center justify-center space-y-2 text-slate-500 hover:text-cyan-400 min-h-[160px] group select-none"
-              >
-                <div class="w-10 h-10 rounded-full bg-slate-900 border border-slate-800 group-hover:border-cyan-500/40 flex items-center justify-center text-slate-400 group-hover:text-cyan-300 text-base">
-                  <i class="fa-solid fa-plus"></i>
+              <!-- Quick Stats Fleet Overview -->
+              <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div class="p-3.5 rounded-xl bg-slate-900/80 border border-slate-800 space-y-1">
+                  <div class="text-[11px] text-slate-400 font-medium">Registered D-Modules</div>
+                  <div class="text-lg font-bold text-white font-mono flex items-center justify-between">
+                    <span>{{ modulesList.length }}</span>
+                    <i class="fa-solid fa-cubes text-cyan-400 text-sm"></i>
+                  </div>
                 </div>
-                <span class="text-xs font-bold">Add Module to Layout</span>
-                <span class="text-[10px] text-slate-500">Pick from verified system modules</span>
+                <div class="p-3.5 rounded-xl bg-slate-900/80 border border-slate-800 space-y-1">
+                  <div class="text-[11px] text-slate-400 font-medium">Active Runtime Modules</div>
+                  <div class="text-lg font-bold text-emerald-400 font-mono flex items-center justify-between">
+                    <span>{{ modulesList.filter(m => m.isActive !== false).length }}</span>
+                    <i class="fa-solid fa-circle-check text-emerald-400 text-sm"></i>
+                  </div>
+                </div>
+                <div class="p-3.5 rounded-xl bg-slate-900/80 border border-slate-800 space-y-1">
+                  <div class="text-[11px] text-slate-400 font-medium">Backend Core Engine</div>
+                  <div class="text-lg font-bold text-cyan-300 font-mono flex items-center justify-between">
+                    <span>1 Live</span>
+                    <i class="fa-solid fa-server text-cyan-400 text-sm"></i>
+                  </div>
+                </div>
+                <div class="p-3.5 rounded-xl bg-slate-900/80 border border-slate-800 space-y-1">
+                  <div class="text-[11px] text-slate-400 font-medium">Configured Role Layouts</div>
+                  <div class="text-lg font-bold text-amber-400 font-mono flex items-center justify-between">
+                    <span>{{ Object.keys(roleLayouts).length }} Roles</span>
+                    <i class="fa-solid fa-users-gear text-amber-400 text-sm"></i>
+                  </div>
+                </div>
               </div>
-            </div>
 
-            <!-- Empty State if no modules visible for role -->
-            <div v-if="currentRoleModuleList.length === 0" class="p-8 text-center bg-slate-900/50 rounded-2xl border border-slate-800 space-y-3">
-              <i class="fa-solid fa-cubes text-3xl text-slate-600"></i>
-              <h3 class="text-sm font-bold text-white">No Modules Added to Role '{{ selectedLayoutRole }}'</h3>
-              <p class="text-xs text-slate-400 max-w-md mx-auto">
-                No feature modules are currently in this role's layout. Click the button below to pick and add modules to the grid.
-              </p>
-              <button @click="openAddModuleToLayoutModal" class="px-4 py-2 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 text-xs font-bold inline-flex items-center gap-1.5 cursor-pointer shadow-md">
-                <i class="fa-solid fa-plus"></i> Add Module to Layout
-              </button>
+              <!-- Detailed Table of Real Registered D-Modules -->
+              <div class="space-y-3">
+                <div class="flex items-center justify-between">
+                  <h3 class="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-2">
+                    <i class="fa-solid fa-list-check text-cyan-400"></i> Registered D-Module Fleet Inventory
+                  </h3>
+                  <span class="text-[11px] text-slate-400 font-mono">
+                    All modules verified & available in registry
+                  </span>
+                </div>
+
+                <div class="overflow-x-auto rounded-xl border border-slate-800 bg-slate-950/60">
+                  <table class="w-full text-left text-xs">
+                    <thead>
+                      <tr class="border-b border-slate-800 bg-slate-900/80 text-slate-400 font-mono text-[11px]">
+                        <th class="py-3 px-4">Module Name & Details</th>
+                        <th class="py-3 px-4">ID & Registry Code</th>
+                        <th class="py-3 px-4">Codebase Directory</th>
+                        <th class="py-3 px-4">Category</th>
+                        <th class="py-3 px-4">RBAC Permission</th>
+                        <th class="py-3 px-4 text-center">Status</th>
+                        <th class="py-3 px-4 text-right">Runtime Toggle</th>
+                      </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-800/60">
+                      <tr v-for="mod in modulesList" :key="mod.id" class="hover:bg-slate-900/40 transition">
+                        <td class="py-3 px-4">
+                          <div class="flex items-center gap-3">
+                            <div :class="'bg-gradient-to-br ' + mod.color" class="w-9 h-9 rounded-xl flex items-center justify-center text-white shadow-md text-sm flex-shrink-0">
+                              <i :class="mod.icon"></i>
+                            </div>
+                            <div>
+                              <div class="font-bold text-white flex items-center gap-1.5">
+                                {{ mod.title }}
+                                <span v-if="mod.id === 'device-manager'" class="px-1.5 py-0.2 rounded text-[9px] font-mono font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                                  LIVE CORE
+                                </span>
+                              </div>
+                              <div class="text-[11px] text-slate-400 line-clamp-1 max-w-sm">{{ mod.description }}</div>
+                            </div>
+                          </div>
+                        </td>
+                        <td class="py-3 px-4 font-mono">
+                          <div class="text-cyan-300 font-bold">{{ mod.id }}</div>
+                          <div class="text-[10px] text-slate-500">{{ mod.code || 'D_MOD_' + mod.id.toUpperCase().replace(/-/g, '_') }}</div>
+                        </td>
+                        <td class="py-3 px-4 font-mono text-[11px]">
+                          <span v-if="mod.id === 'device-manager'" class="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/25 font-bold inline-flex items-center gap-1">
+                            <i class="fa-solid fa-code text-[10px]"></i> src/modules/d-modules/device-manager
+                          </span>
+                          <span v-else class="text-slate-400 font-mono">
+                            src/modules/d-modules/{{ mod.id }}
+                          </span>
+                        </td>
+                        <td class="py-3 px-4">
+                          <span class="px-2 py-0.5 rounded text-[10px] font-bold font-mono bg-slate-800 text-slate-300 border border-slate-700">
+                            {{ mod.category || 'General' }}
+                          </span>
+                        </td>
+                        <td class="py-3 px-4 font-mono text-[11px] text-slate-400">
+                          {{ mod.requiredPermission || 'Public / Role-based' }}
+                        </td>
+                        <td class="py-3 px-4 text-center">
+                          <span :class="mod.isActive !== false ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-red-500/10 text-red-400 border-red-500/20'" class="px-2.5 py-1 rounded-full text-[10px] font-bold font-mono border">
+                            {{ mod.isActive !== false ? 'ACTIVE' : 'DISABLED' }}
+                          </span>
+                        </td>
+                        <td class="py-3 px-4 text-right">
+                          <button
+                            @click="toggleModuleActive(mod)"
+                            :class="mod.isActive !== false ? 'hover:bg-red-500/20 text-slate-400 hover:text-red-400 border-slate-800 hover:border-red-500/30' : 'hover:bg-emerald-500/20 text-slate-400 hover:text-emerald-400 border-slate-800 hover:border-emerald-500/30'"
+                            class="p-2 rounded-lg border text-xs transition cursor-pointer"
+                            :title="mod.isActive !== false ? 'Disable Module' : 'Enable Module'"
+                          >
+                            <i :class="mod.isActive !== false ? 'fa-solid fa-power-off' : 'fa-solid fa-check'"></i>
+                          </button>
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -2582,7 +2769,8 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
         const dbHealth = ref({ totalConnections: 1, connections: {}, tableStats: {} });
         const devicesList = ref([]);
 
-        // Role Layout Customization State
+        // Dashboard Module Manager State
+        const moduleManagerSubTab = ref('layout'); // 'layout' | 'catalog'
         const selectedLayoutRole = ref('SUPER_ADMIN');
         const isEditingRoleLayout = ref(false);
         const savingRoleLayout = ref(false);
@@ -4386,6 +4574,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
           addModuleToCurrentRoleLayout,
           removeModuleFromCurrentRoleLayout,
           toggleModuleSpan,
+          moduleManagerSubTab,
           selectedLayoutRole,
           isEditingRoleLayout,
           savingRoleLayout,
