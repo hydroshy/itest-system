@@ -24,6 +24,7 @@ export interface UpdateDModuleDto extends Partial<CreateDModuleDto> {}
 export interface SaveRoleLayoutDto {
   moduleOrder?: string[];
   moduleIds?: string[];
+  moduleSpans?: Record<string, number>;
   disabledModuleIds?: string[];
 }
 
@@ -135,21 +136,42 @@ export class DModulesService implements OnModuleInit {
     };
   }
 
-  saveRoleLayout(roleCode: string, dto: SaveRoleLayoutDto): RoleLayoutConfig {
+  saveRoleLayout(roleCode: string, dto: SaveRoleLayoutDto | string[]): RoleLayoutConfig {
     const cleanCode = (roleCode || 'SUPER_ADMIN').trim().toUpperCase();
-    const moduleOrder = Array.isArray(dto.moduleOrder) ? dto.moduleOrder : (Array.isArray(dto.moduleIds) ? dto.moduleIds : []);
-    const disabledModuleIds = Array.isArray(dto.disabledModuleIds) ? dto.disabledModuleIds : [];
+    let moduleOrder: string[] = [];
+    let disabledModuleIds: string[] = [];
+    let moduleSpans: Record<string, number> = {};
+
+    if (Array.isArray(dto)) {
+      moduleOrder = dto;
+    } else if (dto && typeof dto === 'object') {
+      if (Array.isArray(dto.moduleOrder)) moduleOrder = dto.moduleOrder;
+      else if (Array.isArray(dto.moduleIds)) moduleOrder = dto.moduleIds;
+      if (Array.isArray(dto.disabledModuleIds)) disabledModuleIds = dto.disabledModuleIds;
+      if (dto.moduleSpans && typeof dto.moduleSpans === 'object') moduleSpans = dto.moduleSpans;
+    }
+
+    // Deduplicate module IDs strictly to avoid any duplicate cards in role layout
+    const seen = new Set<string>();
+    const deduplicatedOrder: string[] = [];
+    for (const id of moduleOrder) {
+      if (typeof id === 'string' && id.trim() && !seen.has(id.trim())) {
+        seen.add(id.trim());
+        deduplicatedOrder.push(id.trim());
+      }
+    }
 
     const config: RoleLayoutConfig = {
       roleCode: cleanCode,
-      moduleOrder,
+      moduleOrder: deduplicatedOrder,
+      moduleSpans,
       disabledModuleIds,
       updatedAt: new Date().toISOString(),
     };
 
     this.roleLayouts[cleanCode] = config;
     this.saveModules();
-    this.logger.log(`Saved customized role layout for [${cleanCode}]: ${moduleOrder.length} modules, ${disabledModuleIds.length} disabled`);
+    this.logger.log(`Saved customized role layout for [${cleanCode}]: ${deduplicatedOrder.length} modules, spans=${Object.keys(moduleSpans).length}`);
     return config;
   }
 
@@ -225,11 +247,16 @@ export class DModulesService implements OnModuleInit {
       orderMap.set(id, idx);
     });
 
-    return filtered.sort((a, b) => {
-      const orderA = orderMap.has(a.id) ? orderMap.get(a.id)! : 999;
-      const orderB = orderMap.has(b.id) ? orderMap.get(b.id)! : 999;
-      return orderA - orderB;
-    });
+    return filtered
+      .sort((a, b) => {
+        const orderA = orderMap.has(a.id) ? orderMap.get(a.id)! : 999;
+        const orderB = orderMap.has(b.id) ? orderMap.get(b.id)! : 999;
+        return orderA - orderB;
+      })
+      .map((m) => ({
+        ...m,
+        span: (roleLayout.moduleSpans && roleLayout.moduleSpans[m.id]) || (m as any).span || 1,
+      }));
   }
 
   createModule(dto: CreateDModuleDto): DModule {

@@ -21,6 +21,7 @@ export interface DModule {
 export interface RoleLayoutConfig {
   roleCode: string;
   moduleOrder: string[]; // array of module IDs in display order
+  moduleSpans?: Record<string, number>; // custom width span per module (1 or 2)
   disabledModuleIds: string[]; // module IDs hidden specifically for this role
   updatedAt?: string;
 }

@@ -214,6 +214,7 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
             :key="feature.id"
             @click="openFeature(feature)"
             class="glass-card rounded-2xl p-5 space-y-3 cursor-pointer group flex flex-col justify-between"
+            :class="feature.span === 2 ? 'sm:col-span-2 md:col-span-2' : 'col-span-1'"
           >
             <!-- Card Header -->
             <div class="space-y-3">

@@ -585,7 +585,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
           </div>
         </div>
 
-        <!-- TAB 3: MODULE MANAGER & ROLE LAYOUT CUSTOMIZATION -->
+        <!-- TAB 3: MODULE MANAGER & METABASE-STYLE ROLE LAYOUT CUSTOMIZATION -->
         <div v-show="activeTab === 'modules'" class="space-y-4">
           <div class="glass-card rounded-xl p-5 space-y-4">
             <!-- Header Bar -->
@@ -596,10 +596,10 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
                     <i class="fa-solid fa-cubes text-cyan-400"></i> Module Manager
                   </h2>
                   <span class="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-cyan-500/10 text-cyan-400 border border-cyan-500/25">
-                    {{ modulesList.length }} Total Modules
+                    {{ modulesList.length }} System Modules
                   </span>
                 </div>
-                <p class="text-[11px] text-slate-400 mt-0.5">Customize dashboard layouts, drag-and-drop arrange module order per role, and configure permissions</p>
+                <p class="text-[11px] text-slate-400 mt-0.5">Metabase-style visual grid layout: arrange, drag-and-drop, resize tile widths, and configure active modules per role</p>
               </div>
               <div class="flex items-center gap-2">
                 <button @click="fetchModules" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 text-xs font-semibold flex items-center gap-1.5 cursor-pointer">
@@ -608,13 +608,13 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
                 <button @click="resetModulesDefaults" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 text-xs font-semibold flex items-center gap-1.5 cursor-pointer">
                   <i class="fa-solid fa-rotate-left"></i> Reset Defaults
                 </button>
-                <button @click="openCreateModuleDialog" class="px-3.5 py-1.5 rounded-lg bg-cyan-500 hover:bg-cyan-400 text-slate-950 text-xs font-bold shadow-lg shadow-cyan-500/20 flex items-center gap-1.5 cursor-pointer">
-                  <i class="fa-solid fa-plus"></i> Add Module
+                <button @click="openAddModuleToLayoutModal" class="px-3.5 py-1.5 rounded-lg bg-cyan-500 hover:bg-cyan-400 text-slate-950 text-xs font-bold shadow-lg shadow-cyan-500/20 flex items-center gap-1.5 cursor-pointer">
+                  <i class="fa-solid fa-plus"></i> Add Module to Layout
                 </button>
               </div>
             </div>
 
-            <!-- Role Selector & Layout Toolbar -->
+            <!-- Role Selector & Metabase Layout Toolbar -->
             <div class="p-4 rounded-xl bg-slate-900/90 border border-slate-800 flex flex-col md:flex-row md:items-center justify-between gap-4">
               <!-- Role Selector -->
               <div class="flex flex-col sm:flex-row sm:items-center gap-3">
@@ -624,19 +624,19 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
                 <select
                   v-model="selectedLayoutRole"
                   @change="onLayoutRoleChange"
-                  class="px-3 py-1.5 bg-slate-950 border border-slate-700 rounded-lg text-xs font-semibold text-white focus:outline-none focus:border-cyan-500 cursor-pointer min-w-[220px]"
+                  class="px-3 py-1.5 bg-slate-950 border border-slate-700 rounded-lg text-xs font-semibold text-white focus:outline-none focus:border-cyan-500 cursor-pointer min-w-[240px]"
                 >
                   <option value="SUPER_ADMIN">SUPER_ADMIN (Default / Global Layout)</option>
                   <option v-for="r in rolesList" :key="r.id" :value="r.code || r.name">
                     {{ r.name }} ({{ r.code }})
                   </option>
                 </select>
-                <span class="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-cyan-500/10 text-cyan-300 border border-cyan-500/20">
-                  {{ currentRoleModuleList.length }} Modules Visible
+                <span class="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-cyan-500/10 text-cyan-300 border border-cyan-500/20">
+                  {{ currentRoleModuleList.length }} / {{ modulesList.length }} Modules in Grid
                 </span>
               </div>
 
-              <!-- Action Controls: Edit, Save, Cancel -->
+              <!-- Action Controls: Edit, Save, Cancel, Add Module -->
               <div class="flex items-center gap-2">
                 <template v-if="!isEditingRoleLayout">
                   <button
@@ -647,8 +647,14 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
                   </button>
                 </template>
                 <template v-else>
+                  <button
+                    @click="openAddModuleToLayoutModal"
+                    class="px-3 py-1.5 rounded-lg bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 border border-cyan-500/30 text-xs font-bold flex items-center gap-1.5 cursor-pointer transition"
+                  >
+                    <i class="fa-solid fa-plus"></i> Add Module
+                  </button>
                   <span class="px-2.5 py-1 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20 text-xs font-semibold flex items-center gap-1.5">
-                    <span class="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span> Edit Mode Active
+                    <span class="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span> Edit Grid Mode
                   </span>
                   <button
                     @click="saveRoleLayoutOrder"
@@ -667,14 +673,19 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
               </div>
             </div>
 
-            <!-- Edit Mode Tip Notice -->
-            <div v-if="isEditingRoleLayout" class="p-3 rounded-xl bg-cyan-950/30 border border-cyan-500/20 text-xs text-cyan-300 flex items-center gap-2">
-              <i class="fa-solid fa-circle-info text-cyan-400 text-sm"></i>
-              <span><strong>Drag & Drop Mode:</strong> Grab any card by the handle or use arrow buttons to reorder how modules will appear on User Dashboard for role <strong>{{ selectedLayoutRole }}</strong>. Click <strong>Save</strong> when done.</span>
+            <!-- Metabase-style Edit Mode Tips -->
+            <div v-if="isEditingRoleLayout" class="p-3 rounded-xl bg-cyan-950/30 border border-cyan-500/20 text-xs text-cyan-300 flex items-center justify-between gap-2">
+              <div class="flex items-center gap-2">
+                <i class="fa-solid fa-table-cells-large text-cyan-400 text-sm"></i>
+                <span><strong>Metabase Grid Editor:</strong> Drag cards to reposition. Click <strong>1x / 2x Span</strong> to resize tile width. Click <strong>✕</strong> to remove a module from this role layout.</span>
+              </div>
+              <button @click="openAddModuleToLayoutModal" class="px-2.5 py-1 rounded-lg bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 text-[11px] font-bold border border-cyan-500/30 flex items-center gap-1 cursor-pointer">
+                <i class="fa-solid fa-plus"></i> Select Module
+              </button>
             </div>
 
-            <!-- Draggable Interactive Module Cards Grid -->
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            <!-- Metabase Responsive Grid Canvas -->
+            <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4 p-4 rounded-2xl bg-slate-950/70 border border-slate-800/80">
               <div
                 v-for="(mod, index) in currentRoleModuleList"
                 :key="mod.id"
@@ -683,35 +694,61 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
                 @dragover.prevent="onDragOver(index, $event)"
                 @drop="onDrop(index, $event)"
                 @dragend="onDragEnd"
-                class="p-4 bg-slate-950/75 rounded-2xl border transition-all duration-150 flex flex-col justify-between space-y-3 group select-none"
+                class="p-4 bg-slate-900/90 rounded-2xl border transition-all duration-150 flex flex-col justify-between space-y-3 group select-none shadow-md"
                 :class="[
+                  mod.span === 2 ? 'md:col-span-2' : 'col-span-1',
                   mod.isActive !== false ? 'border-slate-800 hover:border-cyan-500/40' : 'border-red-500/20 opacity-60 bg-red-950/10',
-                  isEditingRoleLayout ? 'cursor-grab active:cursor-grabbing border-dashed hover:border-cyan-400 hover:scale-[1.01]' : '',
-                  dragOverModuleIndex === index && isEditingRoleLayout ? 'border-cyan-400 bg-cyan-950/20 ring-2 ring-cyan-500/30' : ''
+                  isEditingRoleLayout ? 'cursor-grab active:cursor-grabbing border-dashed ring-1 ring-cyan-500/30 hover:scale-[1.01]' : '',
+                  dragOverModuleIndex === index && isEditingRoleLayout ? 'border-cyan-400 bg-cyan-950/30 ring-2 ring-cyan-400' : ''
                 ]"
               >
-                <!-- Card Header -->
+                <!-- Tile Header -->
                 <div class="space-y-3">
                   <div class="flex items-center justify-between">
-                    <div class="flex items-center gap-2">
+                    <div class="flex items-center gap-2.5">
                       <!-- Drag Handle in Edit Mode -->
-                      <div v-if="isEditingRoleLayout" class="text-slate-500 hover:text-cyan-400 cursor-grab px-1" title="Drag to reorder">
-                        <i class="fa-solid fa-grip-vertical"></i>
+                      <div v-if="isEditingRoleLayout" class="text-slate-500 hover:text-cyan-400 cursor-grab px-0.5" title="Drag tile to reposition">
+                        <i class="fa-solid fa-grip-vertical text-sm"></i>
                       </div>
-                      <div :class="'bg-gradient-to-br ' + mod.color" class="w-10 h-10 rounded-xl flex items-center justify-center text-white shadow-md text-base">
+                      <div :class="'bg-gradient-to-br ' + mod.color" class="w-10 h-10 rounded-xl flex items-center justify-center text-white shadow-md text-base flex-shrink-0">
                         <i :class="mod.icon"></i>
+                      </div>
+                      <div>
+                        <h3 class="text-sm font-bold text-white group-hover:text-cyan-400 transition">{{ mod.title }}</h3>
+                        <div class="text-[10px] font-mono text-slate-500">ID: {{ mod.id }}</div>
                       </div>
                     </div>
                     
                     <div class="flex items-center gap-1.5">
+                      <!-- Metabase Span Width Switcher in Edit Mode -->
+                      <button
+                        v-if="isEditingRoleLayout"
+                        @click.stop="toggleModuleSpan(index)"
+                        class="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-slate-800 hover:bg-slate-700 text-cyan-300 border border-slate-700 cursor-pointer flex items-center gap-1 transition"
+                        :title="mod.span === 2 ? 'Click to change to 1x Standard tile' : 'Click to expand to 2x Wide tile'"
+                      >
+                        <i class="fa-solid fa-arrows-left-right text-[9px]"></i>
+                        <span>{{ mod.span === 2 ? '2x Wide' : '1x Standard' }}</span>
+                      </button>
+
                       <!-- Position Badge in Edit Mode -->
                       <span v-if="isEditingRoleLayout" class="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">
                         #{{ index + 1 }}
                       </span>
-                      <span class="px-2 py-0.5 rounded text-[10px] font-bold font-mono bg-slate-800 text-slate-300 border border-slate-700">
-                        {{ mod.category }}
-                      </span>
+
+                      <!-- Remove from Role Layout in Edit Mode -->
                       <button
+                        v-if="isEditingRoleLayout"
+                        @click.stop="removeModuleFromCurrentRoleLayout(index)"
+                        class="p-1 rounded text-slate-500 hover:text-red-400 hover:bg-red-500/10 cursor-pointer transition"
+                        title="Remove module from this role layout"
+                      >
+                        <i class="fa-solid fa-xmark text-sm"></i>
+                      </button>
+
+                      <!-- Active Toggle in View Mode -->
+                      <button
+                        v-if="!isEditingRoleLayout"
                         @click.stop="toggleModuleActive(mod)"
                         :title="mod.isActive !== false ? 'Active (Click to disable)' : 'Inactive (Click to enable)'"
                         :class="mod.isActive !== false ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' : 'bg-red-500/20 text-red-400 border-red-500/30'"
@@ -722,84 +759,69 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
                     </div>
                   </div>
 
-                  <div>
-                    <h3 class="text-sm font-bold text-white group-hover:text-cyan-400 transition">{{ mod.title }}</h3>
-                    <div class="text-[10px] font-mono text-slate-500 mt-0.5">ID: {{ mod.id }}</div>
-                    <p class="text-xs text-slate-400 mt-1.5 line-clamp-2 leading-relaxed">{{ mod.description }}</p>
-                  </div>
+                  <p class="text-xs text-slate-400 line-clamp-2 leading-relaxed">{{ mod.description }}</p>
 
-                  <!-- Permissions & Roles -->
-                  <div class="pt-2 border-t border-slate-800/80 space-y-1">
-                    <div class="text-[10px] text-slate-500 font-semibold uppercase tracking-wider">Permitted Roles:</div>
-                    <div class="flex flex-wrap gap-1">
-                      <template v-if="mod.allowedRoleCodes && mod.allowedRoleCodes.length">
-                        <span v-for="rc in mod.allowedRoleCodes" :key="rc" class="px-1.5 py-0.2 rounded bg-cyan-500/10 text-cyan-300 border border-cyan-500/20 text-[10px] font-mono font-bold">
-                          {{ rc }}
-                        </span>
-                      </template>
-                      <template v-else-if="mod.requiredPermission">
-                        <span class="px-1.5 py-0.2 rounded bg-amber-500/10 text-amber-300 border border-amber-500/20 text-[10px] font-mono">
-                          {{ mod.requiredPermission }}
-                        </span>
-                      </template>
-                      <span v-else class="px-1.5 py-0.2 rounded bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 text-[10px] font-bold">
-                        All Users
-                      </span>
-                    </div>
+                  <!-- Category & Permissions Tag -->
+                  <div class="pt-2 border-t border-slate-800/80 flex items-center justify-between text-[10px]">
+                    <span class="px-2 py-0.5 rounded font-bold font-mono bg-slate-800 text-slate-300 border border-slate-700">
+                      {{ mod.category }}
+                    </span>
+                    <span class="font-mono text-slate-500">{{ mod.requiredPermission || 'Public Access' }}</span>
                   </div>
                 </div>
 
-                <!-- Footer Actions & Quick Order Shifter -->
-                <div class="pt-3 border-t border-slate-800/80 flex items-center justify-between text-xs">
-                  <!-- In Edit Mode: Quick Arrow Controls -->
-                  <template v-if="isEditingRoleLayout">
-                    <div class="flex items-center gap-1">
-                      <button
-                        :disabled="index === 0"
-                        @click.stop="moveModuleOrder(index, -1)"
-                        class="px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition text-xs font-bold"
-                        title="Move Earlier"
-                      >
-                        <i class="fa-solid fa-arrow-left"></i>
-                      </button>
-                      <button
-                        :disabled="index === currentRoleModuleList.length - 1"
-                        @click.stop="moveModuleOrder(index, 1)"
-                        class="px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition text-xs font-bold"
-                        title="Move Later"
-                      >
-                        <i class="fa-solid fa-arrow-right"></i>
-                      </button>
-                    </div>
-                    <span class="text-[11px] font-mono text-cyan-400 font-bold">#{{ index + 1 }} of {{ currentRoleModuleList.length }}</span>
-                  </template>
-
-                  <!-- In View Mode: Edit & Delete Module Dialogs -->
-                  <template v-else>
-                    <span class="text-[11px] font-mono text-slate-500">{{ mod.badge || mod.status }}</span>
-                    <div class="flex items-center gap-1.5">
-                      <button @click.stop="openEditModuleDialog(mod)" class="px-2.5 py-1 rounded-lg bg-sky-500/10 hover:bg-sky-500/20 text-sky-400 border border-sky-500/25 text-xs font-semibold cursor-pointer">
-                        <i class="fa-solid fa-pen-to-square"></i> Edit
-                      </button>
-                      <button @click.stop="deleteModule(mod.id)" class="px-2.5 py-1 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/25 text-xs font-semibold cursor-pointer">
-                        <i class="fa-solid fa-trash"></i>
-                      </button>
-                    </div>
-                  </template>
+                <!-- Footer in Edit Mode: Directional Shift Controls -->
+                <div v-if="isEditingRoleLayout" class="pt-2.5 border-t border-slate-800/80 flex items-center justify-between text-xs">
+                  <div class="flex items-center gap-1">
+                    <button
+                      :disabled="index === 0"
+                      @click.stop="moveModuleOrder(index, -1)"
+                      class="px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition text-xs font-bold"
+                      title="Move Earlier"
+                    >
+                      <i class="fa-solid fa-arrow-left"></i>
+                    </button>
+                    <button
+                      :disabled="index === currentRoleModuleList.length - 1"
+                      @click.stop="moveModuleOrder(index, 1)"
+                      class="px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition text-xs font-bold"
+                      title="Move Later"
+                    >
+                      <i class="fa-solid fa-arrow-right"></i>
+                    </button>
+                  </div>
+                  <span class="text-[11px] font-mono text-cyan-400 font-bold">Slot {{ index + 1 }} of {{ currentRoleModuleList.length }}</span>
                 </div>
+              </div>
+
+              <!-- Inline Add Module Slot Tile at End of Grid (in Edit Mode) -->
+              <div
+                v-if="isEditingRoleLayout"
+                @click="openAddModuleToLayoutModal"
+                class="p-6 rounded-2xl border-2 border-dashed border-slate-800 hover:border-cyan-500/50 hover:bg-cyan-950/15 transition cursor-pointer flex flex-col items-center justify-center space-y-2 text-slate-500 hover:text-cyan-400 min-h-[160px] group select-none"
+              >
+                <div class="w-10 h-10 rounded-full bg-slate-900 border border-slate-800 group-hover:border-cyan-500/40 flex items-center justify-center text-slate-400 group-hover:text-cyan-300 text-base">
+                  <i class="fa-solid fa-plus"></i>
+                </div>
+                <span class="text-xs font-bold">Add Module to Layout</span>
+                <span class="text-[10px] text-slate-500">Pick from verified system modules</span>
               </div>
             </div>
 
             <!-- Empty State if no modules visible for role -->
-            <div v-if="currentRoleModuleList.length === 0" class="p-8 text-center bg-slate-900/50 rounded-2xl border border-slate-800 space-y-2">
+            <div v-if="currentRoleModuleList.length === 0" class="p-8 text-center bg-slate-900/50 rounded-2xl border border-slate-800 space-y-3">
               <i class="fa-solid fa-cubes text-3xl text-slate-600"></i>
-              <h3 class="text-sm font-bold text-white">No Modules Visible for Role '{{ selectedLayoutRole }}'</h3>
+              <h3 class="text-sm font-bold text-white">No Modules Added to Role '{{ selectedLayoutRole }}'</h3>
               <p class="text-xs text-slate-400 max-w-md mx-auto">
-                No feature modules are currently permitted for this role. You can edit permissions in the Roles matrix or add permitted role codes to modules.
+                No feature modules are currently in this role's layout. Click the button below to pick and add modules to the grid.
               </p>
+              <button @click="openAddModuleToLayoutModal" class="px-4 py-2 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 text-xs font-bold inline-flex items-center gap-1.5 cursor-pointer shadow-md">
+                <i class="fa-solid fa-plus"></i> Add Module to Layout
+              </button>
             </div>
           </div>
         </div>
+
 
         <!-- TAB 4: ROLES & RBAC MATRIX -->
         <div v-show="activeTab === 'roles'" class="space-y-4">
@@ -1679,100 +1701,79 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
       </div>
     </div>
 
-    <!-- MODAL: CREATE / EDIT FEATURE MODULE -->
-    <div v-if="moduleDialog" class="fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop">
-      <div class="w-full max-w-xl bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-4 shadow-2xl">
-        <div class="flex items-center justify-between">
-          <h3 class="text-sm font-bold text-white flex items-center gap-2">
-            <i class="fa-solid fa-cubes text-cyan-400"></i> {{ isEditingModule ? 'Edit Dashboard Feature Module' : 'Create New Feature Module' }}
-          </h3>
-          <button @click="moduleDialog = false" class="text-slate-500 hover:text-white cursor-pointer"><i class="fa-solid fa-xmark"></i></button>
+    <!-- MODAL: ADD VERIFIED SYSTEM MODULE TO LAYOUT -->
+    <div v-if="addModuleToLayoutModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop">
+      <div class="w-full max-w-2xl bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-4 shadow-2xl flex flex-col max-h-[90vh]">
+        <!-- Modal Header -->
+        <div class="flex items-center justify-between pb-3 border-b border-slate-800 flex-shrink-0">
+          <div>
+            <h3 class="text-sm font-bold text-white flex items-center gap-2">
+              <i class="fa-solid fa-layer-group text-cyan-400"></i> Add Module to Layout
+            </h3>
+            <p class="text-xs text-slate-400 mt-0.5">
+              Select from verified system modules to add to role <strong class="text-amber-400 font-mono">{{ selectedLayoutRole }}</strong>
+            </p>
+          </div>
+          <button @click="closeAddModuleToLayoutModal" class="text-slate-500 hover:text-white cursor-pointer p-1 rounded-lg hover:bg-slate-800 transition">
+            <i class="fa-solid fa-xmark text-base"></i>
+          </button>
         </div>
-        <form @submit.prevent="submitModuleForm" class="space-y-3.5 text-xs">
-          <div class="grid grid-cols-2 gap-3">
-            <div>
-              <label class="block font-semibold text-slate-300 mb-1">Module Title</label>
-              <input v-model="currentModule.title" type="text" required placeholder="e.g. Water Level Sensor" class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-cyan-500" />
-            </div>
-            <div>
-              <label class="block font-semibold text-slate-300 mb-1">Module Slug / ID</label>
-              <input v-model="currentModule.id" :disabled="isEditingModule" type="text" required placeholder="e.g. water-level" class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-white font-mono lowercase focus:outline-none focus:border-cyan-500 disabled:opacity-50" />
-            </div>
-          </div>
 
-          <div class="grid grid-cols-2 gap-3">
-            <div>
-              <label class="block font-semibold text-slate-300 mb-1">Category</label>
-              <select v-model="currentModule.category" class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-cyan-500">
-                <option value="Monitoring">Monitoring (Live Data)</option>
-                <option value="Fleet">Fleet (Devices & Gateways)</option>
-                <option value="Analytics">Analytics (Charts & Reports)</option>
-                <option value="System">System (Decoders & Webhooks)</option>
-                <option value="Reports">Reports & Exports</option>
-                <option value="Custom">Custom Feature</option>
-              </select>
-            </div>
-            <div>
-              <label class="block font-semibold text-slate-300 mb-1">Status Badge</label>
-              <input v-model="currentModule.badge" type="text" placeholder="e.g. Real-time, Beta, New" class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-cyan-500" />
-            </div>
-          </div>
-
-          <div class="grid grid-cols-2 gap-3">
-            <div>
-              <label class="block font-semibold text-slate-300 mb-1">Icon (FontAwesome Class)</label>
-              <div class="flex items-center gap-2">
-                <div class="w-8 h-8 rounded-lg bg-slate-950 border border-slate-700 flex items-center justify-center text-cyan-400 text-sm">
-                  <i :class="currentModule.icon || 'fa-solid fa-cube'"></i>
+        <!-- Verified Modules List -->
+        <div class="space-y-2.5 overflow-y-auto custom-scroll pr-1 flex-1 py-1">
+          <div
+            v-for="mod in modulesList"
+            :key="mod.id"
+            class="p-3.5 rounded-xl border transition flex items-center justify-between gap-3"
+            :class="isModuleInCurrentLayout(mod.id) ? 'bg-slate-950/60 border-emerald-500/30 ring-1 ring-emerald-500/20' : 'bg-slate-950/90 border-slate-800 hover:border-cyan-500/40'"
+          >
+            <div class="flex items-center gap-3 min-w-0">
+              <div :class="'bg-gradient-to-br ' + mod.color" class="w-10 h-10 rounded-xl flex items-center justify-center text-white shadow-md text-base flex-shrink-0">
+                <i :class="mod.icon"></i>
+              </div>
+              <div class="min-w-0">
+                <div class="flex items-center gap-2">
+                  <h4 class="text-xs font-bold text-white truncate">{{ mod.title }}</h4>
+                  <span class="px-1.5 py-0.2 rounded text-[9px] font-mono font-bold bg-slate-800 text-slate-400 border border-slate-700">{{ mod.id }}</span>
+                  <span class="px-1.5 py-0.2 rounded text-[9px] font-bold bg-cyan-500/10 text-cyan-300 border border-cyan-500/20">{{ mod.category }}</span>
                 </div>
-                <input v-model="currentModule.icon" type="text" placeholder="fa-solid fa-wave-square" class="flex-1 px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-white font-mono text-xs focus:outline-none focus:border-cyan-500" />
+                <p class="text-[11px] text-slate-400 truncate mt-0.5 max-w-md">{{ mod.description }}</p>
               </div>
             </div>
-            <div>
-              <label class="block font-semibold text-slate-300 mb-1">Gradient Theme</label>
-              <select v-model="currentModule.color" class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-white font-mono text-xs focus:outline-none focus:border-cyan-500">
-                <option value="from-cyan-500 to-blue-600">Cyan to Blue</option>
-                <option value="from-emerald-500 to-teal-600">Emerald to Teal</option>
-                <option value="from-indigo-500 to-purple-600">Indigo to Purple</option>
-                <option value="from-amber-500 to-orange-600">Amber to Orange</option>
-                <option value="from-rose-500 to-pink-600">Rose to Pink</option>
-                <option value="from-sky-500 to-cyan-600">Sky to Cyan</option>
-                <option value="from-fuchsia-500 to-purple-600">Fuchsia to Purple</option>
-                <option value="from-teal-500 to-emerald-600">Teal to Emerald</option>
-              </select>
-            </div>
-          </div>
 
-          <div>
-            <label class="block font-semibold text-slate-300 mb-1">Description</label>
-            <textarea v-model="currentModule.description" rows="2" placeholder="Summary of what this module does..." class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-cyan-500"></textarea>
+            <!-- Action Button / State Badge -->
+            <div class="flex-shrink-0 flex items-center gap-2">
+              <template v-if="isModuleInCurrentLayout(mod.id)">
+                <span class="px-2.5 py-1 rounded-lg bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 text-xs font-bold flex items-center gap-1.5">
+                  <i class="fa-solid fa-check text-xs"></i> Added in Layout
+                </span>
+              </template>
+              <template v-else>
+                <button
+                  @click="addModuleToCurrentRoleLayout(mod)"
+                  class="px-3.5 py-1.5 rounded-lg bg-cyan-500 hover:bg-cyan-400 text-slate-950 text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-md shadow-cyan-500/20 transition active:scale-95"
+                >
+                  <i class="fa-solid fa-plus"></i> Add to Layout
+                </button>
+              </template>
+            </div>
           </div>
+        </div>
 
-          <!-- Role Assignment for this Module -->
-          <div class="space-y-1.5 pt-1">
-            <div class="flex items-center justify-between">
-              <label class="font-bold text-slate-200">Permitted Roles for this Module:</label>
-              <span class="text-[11px] text-slate-500">(Leave empty to allow all logged in users)</span>
-            </div>
-            <div class="p-3 bg-slate-950 border border-slate-800 rounded-xl max-h-36 overflow-y-auto custom-scroll grid grid-cols-2 gap-2">
-              <label v-for="r in rolesList" :key="r.id" class="flex items-center gap-2 p-1.5 rounded hover:bg-slate-900 cursor-pointer select-none">
-                <input type="checkbox" :value="r.code" v-model="currentModule.allowedRoleCodes" class="rounded border-slate-700 bg-slate-800 text-cyan-500 focus:ring-0" />
-                <span class="font-bold text-xs" :class="r.code === 'SUPER_ADMIN' ? 'text-emerald-400' : 'text-slate-300'">{{ r.name }} ({{ r.code }})</span>
-              </label>
-            </div>
+        <!-- Modal Footer -->
+        <div class="pt-3 border-t border-slate-800 flex items-center justify-between flex-shrink-0 text-xs">
+          <div class="text-[11px] text-slate-400">
+            <span>Currently in layout: </span>
+            <strong class="text-cyan-400 font-mono">{{ currentRoleModuleList.length }} / {{ modulesList.length }} modules</strong>
           </div>
-
-          <div class="flex items-center justify-between pt-2">
-            <label class="flex items-center gap-2 text-slate-300 cursor-pointer select-none">
-              <input type="checkbox" v-model="currentModule.isActive" class="rounded border-slate-700 bg-slate-800 text-emerald-500 focus:ring-0" />
-              <span>Enable module on User Dashboard (Active)</span>
-            </label>
-            <div class="flex gap-2">
-              <button type="button" @click="moduleDialog = false" class="px-3.5 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold cursor-pointer">Cancel</button>
-              <button type="submit" :disabled="savingModule" class="px-4 py-2 rounded-lg bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold cursor-pointer">Save Module</button>
-            </div>
-          </div>
-        </form>
+          <button
+            type="button"
+            @click="closeAddModuleToLayoutModal"
+            class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-bold cursor-pointer transition"
+          >
+            Done
+          </button>
+        </div>
       </div>
     </div>
 
@@ -2601,6 +2602,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
         // Modals
         const networkServerDialog = ref(false);
         const isEditingNetworkServer = ref(false);
+        const addModuleToLayoutModal = ref(false);
         const moduleDialog = ref(false);
         const isEditingModule = ref(false);
         const roleDialog = ref(false);
@@ -2892,13 +2894,29 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
               }
               if (m.requiredPermission) {
                 const roleObj = rolesList.value.find(r => (r.code || r.name || '').toUpperCase() === roleCode);
-                return roleObj?.permissions?.some(p => p.name === m.requiredPermission);
+                return roleObj && roleObj.permissions && roleObj.permissions.some(p => p.name === m.requiredPermission);
               }
               return true;
             });
           }
 
-          const layoutOrder = roleLayouts.value[roleCode] || [];
+          const rawLayout = roleLayouts.value[roleCode];
+          let layoutOrder = [];
+          let layoutSpans = {};
+          let disabledIds = [];
+          if (Array.isArray(rawLayout)) {
+            layoutOrder = rawLayout;
+          } else if (rawLayout && typeof rawLayout === 'object') {
+            layoutOrder = rawLayout.moduleOrder || rawLayout.moduleIds || [];
+            layoutSpans = rawLayout.moduleSpans || {};
+            disabledIds = rawLayout.disabledModuleIds || [];
+          }
+
+          if (disabledIds.length > 0) {
+            const disabledSet = new Set(disabledIds);
+            filtered = filtered.filter(m => !disabledSet.has(m.id));
+          }
+
           if (layoutOrder.length > 0) {
             const orderMap = new Map();
             layoutOrder.forEach((id, idx) => orderMap.set(id, idx));
@@ -2909,7 +2927,10 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
             });
           }
 
-          currentRoleModuleList.value = filtered;
+          currentRoleModuleList.value = filtered.map(m => ({
+            ...m,
+            span: layoutSpans[m.id] || m.span || 1
+          }));
         };
 
         const onLayoutRoleChange = () => {
@@ -2932,20 +2953,68 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
           showToast('Layout changes cancelled', 'info');
         };
 
+        const isModuleInCurrentLayout = (moduleId) => {
+          if (!moduleId || !currentRoleModuleList.value) return false;
+          return currentRoleModuleList.value.some(m => m.id === moduleId);
+        };
+
+        const openAddModuleToLayoutModal = () => {
+          addModuleToLayoutModal.value = true;
+        };
+
+        const closeAddModuleToLayoutModal = () => {
+          addModuleToLayoutModal.value = false;
+        };
+
+        const addModuleToCurrentRoleLayout = (mod) => {
+          if (!mod || !mod.id) return;
+          if (isModuleInCurrentLayout(mod.id)) {
+            showToast("Module '" + mod.title + "' is already in this role layout!", "info");
+            return;
+          }
+          const cloned = { ...mod, span: 1 };
+          currentRoleModuleList.value.push(cloned);
+          if (!isEditingRoleLayout.value) {
+            isEditingRoleLayout.value = true;
+          }
+          showToast("Added '" + mod.title + "' to layout. Click 'Save' to persist changes.", "success");
+        };
+
+        const removeModuleFromCurrentRoleLayout = (index) => {
+          if (index < 0 || index >= currentRoleModuleList.value.length) return;
+          const removed = currentRoleModuleList.value.splice(index, 1);
+          if (removed && removed[0]) {
+            showToast("Removed '" + removed[0].title + "' from layout. Click 'Save' to persist.", "info");
+          }
+        };
+
+        const toggleModuleSpan = (index) => {
+          if (index < 0 || index >= currentRoleModuleList.value.length) return;
+          const currentSpan = currentRoleModuleList.value[index].span || 1;
+          currentRoleModuleList.value[index].span = currentSpan === 2 ? 1 : 2;
+        };
+
         const saveRoleLayoutOrder = async () => {
           savingRoleLayout.value = true;
           const roleCode = (selectedLayoutRole.value || 'SUPER_ADMIN').toUpperCase();
-          const moduleIds = currentRoleModuleList.value.map(m => m.id);
+          const moduleOrder = currentRoleModuleList.value.map(m => m.id);
+          const moduleSpans = {};
+          currentRoleModuleList.value.forEach(m => {
+            if (m.span && m.span > 1) {
+              moduleSpans[m.id] = m.span;
+            }
+          });
+
           try {
             const res = await fetch('/api/d-modules/layouts/' + encodeURIComponent(roleCode), {
               method: 'PUT',
               headers: authHeaders(),
               credentials: 'include',
-              body: JSON.stringify({ moduleIds })
+              body: JSON.stringify({ moduleOrder, moduleIds: moduleOrder, moduleSpans })
             });
             const data = await res.json();
             if (!res.ok) throw new Error(data.message || 'Failed to save layout');
-            roleLayouts.value[roleCode] = moduleIds;
+            roleLayouts.value[roleCode] = { roleCode, moduleOrder, moduleSpans, disabledModuleIds: [] };
             isEditingRoleLayout.value = false;
             showToast("Dashboard layout for role '" + roleCode + "' saved successfully!", 'success');
           } catch(e) {
@@ -4307,6 +4376,13 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
           toggleModuleActive,
           deleteModule,
           resetModulesDefaults,
+          addModuleToLayoutModal,
+          isModuleInCurrentLayout,
+          openAddModuleToLayoutModal,
+          closeAddModuleToLayoutModal,
+          addModuleToCurrentRoleLayout,
+          removeModuleFromCurrentRoleLayout,
+          toggleModuleSpan,
           selectedLayoutRole,
           isEditingRoleLayout,
           savingRoleLayout,
