@@ -115,12 +115,8 @@ export class DModulesService implements OnModuleInit {
     return this.roleLayouts;
   }
 
-  getAllRoleLayoutsSimple(): Record<string, string[]> {
-    const result: Record<string, string[]> = {};
-    for (const [code, cfg] of Object.entries(this.roleLayouts)) {
-      result[code] = cfg.moduleOrder || [];
-    }
-    return result;
+  getAllRoleLayoutsSimple(): Record<string, any> {
+    return this.roleLayouts;
   }
 
   getRoleLayout(roleCode: string): RoleLayoutConfig {
@@ -136,7 +132,7 @@ export class DModulesService implements OnModuleInit {
     };
   }
 
-  saveRoleLayout(roleCode: string, dto: SaveRoleLayoutDto | string[]): RoleLayoutConfig {
+  saveRoleLayout(roleCode: string, dto: SaveRoleLayoutDto | any): RoleLayoutConfig {
     const cleanCode = (roleCode || 'SUPER_ADMIN').trim().toUpperCase();
     let moduleOrder: string[] = [];
     let disabledModuleIds: string[] = [];
@@ -224,39 +220,53 @@ export class DModulesService implements OnModuleInit {
       });
     }
 
-    // Determine primary user role for layout ordering
-    let primaryRoleCode = 'SUPER_ADMIN';
-    if (!isSuperAdmin && user.roles && user.roles.length > 0) {
-      primaryRoleCode = (user.roles[0].code || user.roles[0].name || 'END_USER').toUpperCase();
-    } else if (!isSuperAdmin) {
-      primaryRoleCode = String(user.userType || 'END_USER').toUpperCase();
+    // Determine matched layout for user role
+    let matchedLayout: RoleLayoutConfig | undefined;
+    if (isSuperAdmin && this.roleLayouts['SUPER_ADMIN']) {
+      matchedLayout = this.roleLayouts['SUPER_ADMIN'];
+    } else if (user.roles && user.roles.length > 0) {
+      for (const r of user.roles) {
+        const code = (r.code || r.name || '').toUpperCase();
+        if (this.roleLayouts[code]) {
+          matchedLayout = this.roleLayouts[code];
+          break;
+        }
+      }
+    }
+    if (!matchedLayout && this.roleLayouts['SUPER_ADMIN']) {
+      matchedLayout = this.roleLayouts['SUPER_ADMIN'];
     }
 
-    const roleLayout = this.roleLayouts[primaryRoleCode];
-    if (!roleLayout) {
-      return baseAccessible;
-    }
-
-    // Filter out role-specific disabled modules
-    const disabledSet = new Set(roleLayout.disabledModuleIds || []);
-    const filtered = baseAccessible.filter((m) => !disabledSet.has(m.id));
-
-    // Sort by moduleOrder
-    const orderMap = new Map<string, number>();
-    (roleLayout.moduleOrder || []).forEach((id, idx) => {
-      orderMap.set(id, idx);
-    });
-
-    return filtered
-      .sort((a, b) => {
-        const orderA = orderMap.has(a.id) ? orderMap.get(a.id)! : 999;
-        const orderB = orderMap.has(b.id) ? orderMap.get(b.id)! : 999;
-        return orderA - orderB;
-      })
-      .map((m) => ({
+    if (!matchedLayout) {
+      return baseAccessible.map((m) => ({
         ...m,
-        span: (roleLayout.moduleSpans && roleLayout.moduleSpans[m.id]) || (m as any).span || 1,
+        span: (m as any).span || 1,
       }));
+    }
+
+    const moduleMap = new Map<string, DModule>();
+    baseAccessible.forEach((m) => moduleMap.set(m.id, m));
+
+    const disabledSet = new Set(matchedLayout.disabledModuleIds || []);
+    const orderedList: DModule[] = [];
+
+    if (Array.isArray(matchedLayout.moduleOrder)) {
+      for (const modId of matchedLayout.moduleOrder) {
+        if (!disabledSet.has(modId) && moduleMap.has(modId)) {
+          const mod = moduleMap.get(modId)!;
+          orderedList.push({
+            ...mod,
+            span: (matchedLayout.moduleSpans && matchedLayout.moduleSpans[modId]) || mod.span || 1,
+          });
+        }
+      }
+      return orderedList;
+    }
+
+    return baseAccessible.map((m) => ({
+      ...m,
+      span: (m as any).span || 1,
+    }));
   }
 
   createModule(dto: CreateDModuleDto): DModule {
@@ -325,6 +335,9 @@ export class DModulesService implements OnModuleInit {
     for (const rCode of Object.keys(this.roleLayouts)) {
       this.roleLayouts[rCode].moduleOrder = (this.roleLayouts[rCode].moduleOrder || []).filter((mid) => mid !== id);
       this.roleLayouts[rCode].disabledModuleIds = (this.roleLayouts[rCode].disabledModuleIds || []).filter((mid) => mid !== id);
+      if (this.roleLayouts[rCode].moduleSpans) {
+        delete this.roleLayouts[rCode].moduleSpans[id];
+      }
     }
 
     this.saveModules();

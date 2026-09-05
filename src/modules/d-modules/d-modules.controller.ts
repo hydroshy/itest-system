@@ -5,8 +5,8 @@ import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { User } from '../users/entities/user.entity';
 import { DModulesService, CreateDModuleDto, UpdateDModuleDto, SaveRoleLayoutDto } from './d-modules.service';
 
-@ApiTags('Dashboard Module Manager & Role Layout Designer')
-@Controller(['api/d-modules', 'api/features', 'api/module-manager'])
+@ApiTags('Dashboard module Manager & Role Layout Designer')
+@Controller(['api/d-modules', 'api/features', 'api/module-manager', 'api/dashboard-module-manager'])
 @UseGuards(JwtAuthGuard)
 @ApiBearerAuth()
 export class DModulesController {
@@ -27,7 +27,7 @@ export class DModulesController {
   @Get(['layouts', 'roles/layouts'])
   @ApiOperation({ summary: 'Admin: Get all role layout configurations' })
   getAllRoleLayouts() {
-    return this.dModulesService.getAllRoleLayoutsSimple();
+    return this.dModulesService.getAllRoleLayouts();
   }
 
   @Get(['roles/:roleCode/layout', 'layouts/:roleCode'])

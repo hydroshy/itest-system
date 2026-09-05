@@ -228,7 +228,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
             <button @click="switchTab('modules')" :class="{ active: activeTab === 'modules' }" class="nav-item">
               <span class="flex items-center gap-2.5">
                 <i class="fa-solid fa-cubes w-4 text-center text-xs text-cyan-400"></i>
-                <span>Module Manager</span>
+                <span>Dashboard module Manager</span>
               </span>
             </button>
 
@@ -376,7 +376,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
                   </span>
                 </div>
                 <div>
-                  <h3 class="text-sm font-bold text-white group-hover:text-cyan-400 transition">Module Manager</h3>
+                  <h3 class="text-sm font-bold text-white group-hover:text-cyan-400 transition">Dashboard module Manager</h3>
                   <p class="text-xs text-slate-400 mt-1 leading-relaxed">Customize dashboard layouts, drag-and-drop arrange module order per role, and configure permissions.</p>
                 </div>
                 <div class="text-xs text-cyan-400 font-semibold flex items-center gap-1.5 pt-1">
@@ -593,7 +593,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
               <div>
                 <div class="flex items-center gap-2">
                   <h2 class="text-sm font-bold text-white flex items-center gap-2">
-                    <i class="fa-solid fa-cubes text-cyan-400"></i> Module Manager
+                    <i class="fa-solid fa-cubes text-cyan-400"></i> Dashboard module Manager
                   </h2>
                   <span class="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-cyan-500/10 text-cyan-400 border border-cyan-500/25">
                     {{ modulesList.length }} System Modules
@@ -2754,7 +2754,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
           switch(activeTab.value) {
             case 'overview': return 'Overview Hub';
             case 'network-servers': return 'Network Servers';
-            case 'modules': return 'Module Manager';
+            case 'modules': return 'Dashboard module Manager';
             case 'roles': return 'Roles & RBAC';
             case 'users': return 'User Directory';
             case 'database': return 'Database Health';
@@ -2884,53 +2884,56 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
 
         const computeRoleModules = () => {
           const roleCode = (selectedLayoutRole.value || 'SUPER_ADMIN').toUpperCase();
-          let filtered = [];
-          if (roleCode === 'SUPER_ADMIN') {
-            filtered = [...modulesList.value];
-          } else {
-            filtered = modulesList.value.filter(m => {
-              if (m.allowedRoleCodes && m.allowedRoleCodes.length > 0) {
-                return m.allowedRoleCodes.some(c => c.toUpperCase() === roleCode);
-              }
-              if (m.requiredPermission) {
-                const roleObj = rolesList.value.find(r => (r.code || r.name || '').toUpperCase() === roleCode);
-                return roleObj && roleObj.permissions && roleObj.permissions.some(p => p.name === m.requiredPermission);
-              }
-              return true;
-            });
-          }
-
           const rawLayout = roleLayouts.value[roleCode];
-          let layoutOrder = [];
+
+          let layoutOrder = null;
           let layoutSpans = {};
           let disabledIds = [];
           if (Array.isArray(rawLayout)) {
             layoutOrder = rawLayout;
           } else if (rawLayout && typeof rawLayout === 'object') {
-            layoutOrder = rawLayout.moduleOrder || rawLayout.moduleIds || [];
+            layoutOrder = rawLayout.moduleOrder || rawLayout.moduleIds || null;
             layoutSpans = rawLayout.moduleSpans || {};
             disabledIds = rawLayout.disabledModuleIds || [];
           }
 
-          if (disabledIds.length > 0) {
+          if (layoutOrder && Array.isArray(layoutOrder) && layoutOrder.length > 0) {
+            const modulesMap = new Map();
+            modulesList.value.forEach(m => modulesMap.set(m.id, m));
+
+            const orderedList = [];
             const disabledSet = new Set(disabledIds);
-            filtered = filtered.filter(m => !disabledSet.has(m.id));
-          }
-
-          if (layoutOrder.length > 0) {
-            const orderMap = new Map();
-            layoutOrder.forEach((id, idx) => orderMap.set(id, idx));
-            filtered.sort((a, b) => {
-              const orderA = orderMap.has(a.id) ? orderMap.get(a.id) : 9999;
-              const orderB = orderMap.has(b.id) ? orderMap.get(b.id) : 9999;
-              return orderA - orderB;
+            layoutOrder.forEach(id => {
+              if (modulesMap.has(id) && !disabledSet.has(id)) {
+                const mod = modulesMap.get(id);
+                orderedList.push({
+                  ...mod,
+                  span: layoutSpans[id] || mod.span || 1
+                });
+              }
             });
+            currentRoleModuleList.value = orderedList;
+          } else {
+            let filtered = [];
+            if (roleCode === 'SUPER_ADMIN') {
+              filtered = [...modulesList.value];
+            } else {
+              filtered = modulesList.value.filter(m => {
+                if (m.allowedRoleCodes && m.allowedRoleCodes.length > 0) {
+                  return m.allowedRoleCodes.some(c => c.toUpperCase() === roleCode);
+                }
+                if (m.requiredPermission) {
+                  const roleObj = rolesList.value.find(r => (r.code || r.name || '').toUpperCase() === roleCode);
+                  return roleObj && roleObj.permissions && roleObj.permissions.some(p => p.name === m.requiredPermission);
+                }
+                return true;
+              });
+            }
+            currentRoleModuleList.value = filtered.map(m => ({
+              ...m,
+              span: 1
+            }));
           }
-
-          currentRoleModuleList.value = filtered.map(m => ({
-            ...m,
-            span: layoutSpans[m.id] || m.span || 1
-          }));
         };
 
         const onLayoutRoleChange = () => {

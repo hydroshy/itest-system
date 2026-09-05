@@ -201,7 +201,7 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
         <!-- Section Title -->
         <div class="flex items-center justify-between pt-2">
           <div class="flex items-center gap-2">
-            <h2 class="text-sm font-bold text-white uppercase tracking-wider text-slate-300">Operational Feature Modules</h2>
+            <h2 class="text-sm font-bold text-white uppercase tracking-wider text-slate-300">Dashboard Modules</h2>
             <span class="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-slate-800 text-slate-400 border border-slate-700">{{ accessibleFeatures.length }}</span>
           </div>
           <span class="text-xs text-slate-500 font-medium">Click any card to launch module</span>
@@ -249,9 +249,9 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
         <!-- Empty state if no modules assigned -->
         <div v-if="accessibleFeatures.length === 0" class="glass-card rounded-2xl p-8 text-center space-y-2">
           <i class="fa-solid fa-lock text-3xl text-slate-600 mb-2"></i>
-          <h3 class="text-sm font-bold text-white">No Assigned Feature Modules</h3>
+          <h3 class="text-sm font-bold text-white">No Assigned Dashboard Modules</h3>
           <p class="text-xs text-slate-400 max-w-md mx-auto">
-            Your account currently has no feature modules assigned. Please contact your Super Administrator to configure role permissions.
+            Your account currently has no dashboard modules assigned. Please contact your Super Administrator to configure role permissions.
           </p>
         </div>
       </div>

@@ -16,6 +16,7 @@ export interface DModule {
   status?: 'active' | 'ready' | 'beta';
   isActive?: boolean;
   order?: number;
+  span?: number; // Tile width span: 1 (standard) or 2 (wide)
 }
 
 export interface RoleLayoutConfig {
