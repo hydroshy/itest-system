@@ -26,8 +26,8 @@ export const C_MODULES_REGISTRY: CModule[] = [
   {
     id: 'c-d-module-manager',
     code: 'C_MOD_D_MODULES',
-    title: 'Dashboard D-Modules Management',
-    description: 'Manage, customize, and configure role-based access for user-facing D-Modules.',
+    title: 'Module Manager',
+    description: 'Manage, customize, drag-and-drop arrange dashboard layouts per role, and configure access for user-facing D-Modules.',
     icon: 'fa-solid fa-cubes',
     category: 'Governance',
     routeHash: '#modules',

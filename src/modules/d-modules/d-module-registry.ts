@@ -10,11 +10,19 @@ export interface DModule {
   icon: string; // FontAwesome icon class
   color: string; // Tailwind gradient color class
   badge?: string;
-  category: 'Monitoring' | 'Fleet' | 'Analytics' | 'System' | 'Reports' | 'Custom';
+  category: 'Monitoring' | 'Fleet' | 'Analytics' | 'System' | 'Reports' | 'Infrastructure' | 'Custom';
   requiredPermission?: string;
   allowedRoleCodes?: string[];
   status?: 'active' | 'ready' | 'beta';
   isActive?: boolean;
+  order?: number;
+}
+
+export interface RoleLayoutConfig {
+  roleCode: string;
+  moduleOrder: string[]; // array of module IDs in display order
+  disabledModuleIds: string[]; // module IDs hidden specifically for this role
+  updatedAt?: string;
 }
 
 export const DEFAULT_D_MODULES: DModule[] = [
@@ -31,4 +39,56 @@ export const DEFAULT_D_MODULES: DModule[] = [
     status: 'active',
     isActive: true,
   },
+  {
+    id: 'telemetry-live',
+    code: 'D_MOD_TELEMETRY',
+    title: 'LIVE TELEMETRY',
+    description: 'Real-time LoRaWAN uplink stream, signal quality metrics (RSSI, SNR), and payload decoder inspector.',
+    icon: 'fa-solid fa-satellite-dish',
+    color: 'from-cyan-500 to-blue-600',
+    badge: 'Real-time',
+    category: 'Monitoring',
+    requiredPermission: 'lorawan:telemetry:read',
+    status: 'active',
+    isActive: true,
+  },
+  {
+    id: 'gateway-monitor',
+    code: 'D_MOD_GATEWAYS',
+    title: 'GATEWAY MONITOR',
+    description: 'Monitor LoRaWAN gateways, signal coverage, regional frequencies, and connection health.',
+    icon: 'fa-solid fa-tower-broadcast',
+    color: 'from-indigo-500 to-purple-600',
+    badge: 'Network',
+    category: 'Infrastructure',
+    requiredPermission: 'lorawan:device:read',
+    status: 'active',
+    isActive: true,
+  },
+  {
+    id: 'sensor-analytics',
+    code: 'D_MOD_ANALYTICS',
+    title: 'SENSOR ANALYTICS',
+    description: 'Historical telemetry charts, sensor trend visualizations, and threshold monitoring.',
+    icon: 'fa-solid fa-chart-line',
+    color: 'from-amber-500 to-orange-600',
+    badge: 'Metrics',
+    category: 'Analytics',
+    requiredPermission: 'lorawan:telemetry:read',
+    status: 'active',
+    isActive: true,
+  },
+  {
+    id: 'dynamic-reports',
+    code: 'D_MOD_REPORTS',
+    title: 'DYNAMIC DATA REPORTS',
+    description: 'Customizable 12-column drag-and-drop grid data reports, sensor aggregation, and CSV exports.',
+    icon: 'fa-solid fa-file-lines',
+    color: 'from-violet-500 to-fuchsia-600',
+    badge: 'Reports',
+    category: 'Reports',
+    status: 'ready',
+    isActive: true,
+  },
 ];
+

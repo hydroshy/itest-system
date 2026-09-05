@@ -228,7 +228,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
             <button @click="switchTab('modules')" :class="{ active: activeTab === 'modules' }" class="nav-item">
               <span class="flex items-center gap-2.5">
                 <i class="fa-solid fa-cubes w-4 text-center text-xs text-cyan-400"></i>
-                <span>Feature Modules</span>
+                <span>Module Manager</span>
               </span>
             </button>
 
@@ -376,8 +376,8 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
                   </span>
                 </div>
                 <div>
-                  <h3 class="text-sm font-bold text-white group-hover:text-cyan-400 transition">Feature Modules Management</h3>
-                  <p class="text-xs text-slate-400 mt-1 leading-relaxed">Configure feature cards, customize categories, and assign role visibility for User Dashboard.</p>
+                  <h3 class="text-sm font-bold text-white group-hover:text-cyan-400 transition">Module Manager</h3>
+                  <p class="text-xs text-slate-400 mt-1 leading-relaxed">Customize dashboard layouts, drag-and-drop arrange module order per role, and configure permissions.</p>
                 </div>
                 <div class="text-xs text-cyan-400 font-semibold flex items-center gap-1.5 pt-1">
                   <span>Manage Modules</span> <i class="fa-solid fa-arrow-right text-[10px] group-hover:translate-x-1 transition"></i>
@@ -585,20 +585,21 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
           </div>
         </div>
 
-        <!-- TAB 3: MODULES MANAGEMENT -->
+        <!-- TAB 3: MODULE MANAGER & ROLE LAYOUT CUSTOMIZATION -->
         <div v-show="activeTab === 'modules'" class="space-y-4">
           <div class="glass-card rounded-xl p-5 space-y-4">
+            <!-- Header Bar -->
             <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
                 <div class="flex items-center gap-2">
                   <h2 class="text-sm font-bold text-white flex items-center gap-2">
-                    <i class="fa-solid fa-cubes text-cyan-400"></i> Dashboard Feature Modules Management
+                    <i class="fa-solid fa-cubes text-cyan-400"></i> Module Manager
                   </h2>
                   <span class="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-cyan-500/10 text-cyan-400 border border-cyan-500/25">
-                    {{ modulesList.length }} Modules
+                    {{ modulesList.length }} Total Modules
                   </span>
                 </div>
-                <p class="text-[11px] text-slate-400 mt-0.5">Add, customize, and configure role-based access for modules appearing on User Dashboard</p>
+                <p class="text-[11px] text-slate-400 mt-0.5">Customize dashboard layouts, drag-and-drop arrange module order per role, and configure permissions</p>
               </div>
               <div class="flex items-center gap-2">
                 <button @click="fetchModules" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 text-xs font-semibold flex items-center gap-1.5 cursor-pointer">
@@ -613,25 +614,105 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
               </div>
             </div>
 
-            <!-- Module Cards Grid -->
+            <!-- Role Selector & Layout Toolbar -->
+            <div class="p-4 rounded-xl bg-slate-900/90 border border-slate-800 flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <!-- Role Selector -->
+              <div class="flex flex-col sm:flex-row sm:items-center gap-3">
+                <label class="text-xs font-bold text-slate-300 flex items-center gap-1.5 whitespace-nowrap">
+                  <i class="fa-solid fa-user-shield text-amber-400"></i> Role Layout Customization:
+                </label>
+                <select
+                  v-model="selectedLayoutRole"
+                  @change="onLayoutRoleChange"
+                  class="px-3 py-1.5 bg-slate-950 border border-slate-700 rounded-lg text-xs font-semibold text-white focus:outline-none focus:border-cyan-500 cursor-pointer min-w-[220px]"
+                >
+                  <option value="SUPER_ADMIN">SUPER_ADMIN (Default / Global Layout)</option>
+                  <option v-for="r in rolesList" :key="r.id" :value="r.code || r.name">
+                    {{ r.name }} ({{ r.code }})
+                  </option>
+                </select>
+                <span class="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-cyan-500/10 text-cyan-300 border border-cyan-500/20">
+                  {{ currentRoleModuleList.length }} Modules Visible
+                </span>
+              </div>
+
+              <!-- Action Controls: Edit, Save, Cancel -->
+              <div class="flex items-center gap-2">
+                <template v-if="!isEditingRoleLayout">
+                  <button
+                    @click="startEditRoleLayout"
+                    class="px-3.5 py-1.5 rounded-lg bg-cyan-500/15 hover:bg-cyan-500/25 text-cyan-300 border border-cyan-500/30 text-xs font-bold flex items-center gap-1.5 cursor-pointer transition shadow-sm"
+                  >
+                    <i class="fa-solid fa-up-down-left-right"></i> Edit Layout (Drag & Drop)
+                  </button>
+                </template>
+                <template v-else>
+                  <span class="px-2.5 py-1 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20 text-xs font-semibold flex items-center gap-1.5">
+                    <span class="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span> Edit Mode Active
+                  </span>
+                  <button
+                    @click="saveRoleLayoutOrder"
+                    :disabled="savingRoleLayout"
+                    class="px-3.5 py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-lg shadow-emerald-500/20 transition disabled:opacity-50"
+                  >
+                    <i class="fa-solid fa-check"></i> {{ savingRoleLayout ? 'Saving...' : 'Save' }}
+                  </button>
+                  <button
+                    @click="cancelEditRoleLayout"
+                    class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition"
+                  >
+                    <i class="fa-solid fa-xmark"></i> Cancel
+                  </button>
+                </template>
+              </div>
+            </div>
+
+            <!-- Edit Mode Tip Notice -->
+            <div v-if="isEditingRoleLayout" class="p-3 rounded-xl bg-cyan-950/30 border border-cyan-500/20 text-xs text-cyan-300 flex items-center gap-2">
+              <i class="fa-solid fa-circle-info text-cyan-400 text-sm"></i>
+              <span><strong>Drag & Drop Mode:</strong> Grab any card by the handle or use arrow buttons to reorder how modules will appear on User Dashboard for role <strong>{{ selectedLayoutRole }}</strong>. Click <strong>Save</strong> when done.</span>
+            </div>
+
+            <!-- Draggable Interactive Module Cards Grid -->
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
               <div
-                v-for="mod in modulesList"
+                v-for="(mod, index) in currentRoleModuleList"
                 :key="mod.id"
-                class="p-4 bg-slate-950/75 rounded-2xl border transition duration-150 flex flex-col justify-between space-y-3 group"
-                :class="mod.isActive !== false ? 'border-slate-800 hover:border-cyan-500/40' : 'border-red-500/20 opacity-60 bg-red-950/10'"
+                :draggable="isEditingRoleLayout"
+                @dragstart="onDragStart(index, $event)"
+                @dragover.prevent="onDragOver(index, $event)"
+                @drop="onDrop(index, $event)"
+                @dragend="onDragEnd"
+                class="p-4 bg-slate-950/75 rounded-2xl border transition-all duration-150 flex flex-col justify-between space-y-3 group select-none"
+                :class="[
+                  mod.isActive !== false ? 'border-slate-800 hover:border-cyan-500/40' : 'border-red-500/20 opacity-60 bg-red-950/10',
+                  isEditingRoleLayout ? 'cursor-grab active:cursor-grabbing border-dashed hover:border-cyan-400 hover:scale-[1.01]' : '',
+                  dragOverModuleIndex === index && isEditingRoleLayout ? 'border-cyan-400 bg-cyan-950/20 ring-2 ring-cyan-500/30' : ''
+                ]"
               >
+                <!-- Card Header -->
                 <div class="space-y-3">
                   <div class="flex items-center justify-between">
-                    <div :class="'bg-gradient-to-br ' + mod.color" class="w-10 h-10 rounded-xl flex items-center justify-center text-white shadow-md text-base">
-                      <i :class="mod.icon"></i>
+                    <div class="flex items-center gap-2">
+                      <!-- Drag Handle in Edit Mode -->
+                      <div v-if="isEditingRoleLayout" class="text-slate-500 hover:text-cyan-400 cursor-grab px-1" title="Drag to reorder">
+                        <i class="fa-solid fa-grip-vertical"></i>
+                      </div>
+                      <div :class="'bg-gradient-to-br ' + mod.color" class="w-10 h-10 rounded-xl flex items-center justify-center text-white shadow-md text-base">
+                        <i :class="mod.icon"></i>
+                      </div>
                     </div>
+                    
                     <div class="flex items-center gap-1.5">
+                      <!-- Position Badge in Edit Mode -->
+                      <span v-if="isEditingRoleLayout" class="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">
+                        #{{ index + 1 }}
+                      </span>
                       <span class="px-2 py-0.5 rounded text-[10px] font-bold font-mono bg-slate-800 text-slate-300 border border-slate-700">
                         {{ mod.category }}
                       </span>
                       <button
-                        @click="toggleModuleActive(mod)"
+                        @click.stop="toggleModuleActive(mod)"
                         :title="mod.isActive !== false ? 'Active (Click to disable)' : 'Inactive (Click to enable)'"
                         :class="mod.isActive !== false ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' : 'bg-red-500/20 text-red-400 border-red-500/30'"
                         class="px-2 py-0.5 rounded text-[10px] font-bold border cursor-pointer transition"
@@ -647,6 +728,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
                     <p class="text-xs text-slate-400 mt-1.5 line-clamp-2 leading-relaxed">{{ mod.description }}</p>
                   </div>
 
+                  <!-- Permissions & Roles -->
                   <div class="pt-2 border-t border-slate-800/80 space-y-1">
                     <div class="text-[10px] text-slate-500 font-semibold uppercase tracking-wider">Permitted Roles:</div>
                     <div class="flex flex-wrap gap-1">
@@ -667,18 +749,54 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
                   </div>
                 </div>
 
+                <!-- Footer Actions & Quick Order Shifter -->
                 <div class="pt-3 border-t border-slate-800/80 flex items-center justify-between text-xs">
-                  <span class="text-[11px] font-mono text-slate-500">{{ mod.badge || mod.status }}</span>
-                  <div class="flex items-center gap-1.5">
-                    <button @click="openEditModuleDialog(mod)" class="px-2.5 py-1 rounded-lg bg-sky-500/10 hover:bg-sky-500/20 text-sky-400 border border-sky-500/25 text-xs font-semibold cursor-pointer">
-                      <i class="fa-solid fa-pen-to-square"></i> Edit
-                    </button>
-                    <button @click="deleteModule(mod.id)" class="px-2.5 py-1 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/25 text-xs font-semibold cursor-pointer">
-                      <i class="fa-solid fa-trash"></i>
-                    </button>
-                  </div>
+                  <!-- In Edit Mode: Quick Arrow Controls -->
+                  <template v-if="isEditingRoleLayout">
+                    <div class="flex items-center gap-1">
+                      <button
+                        :disabled="index === 0"
+                        @click.stop="moveModuleOrder(index, -1)"
+                        class="px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition text-xs font-bold"
+                        title="Move Earlier"
+                      >
+                        <i class="fa-solid fa-arrow-left"></i>
+                      </button>
+                      <button
+                        :disabled="index === currentRoleModuleList.length - 1"
+                        @click.stop="moveModuleOrder(index, 1)"
+                        class="px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition text-xs font-bold"
+                        title="Move Later"
+                      >
+                        <i class="fa-solid fa-arrow-right"></i>
+                      </button>
+                    </div>
+                    <span class="text-[11px] font-mono text-cyan-400 font-bold">#{{ index + 1 }} of {{ currentRoleModuleList.length }}</span>
+                  </template>
+
+                  <!-- In View Mode: Edit & Delete Module Dialogs -->
+                  <template v-else>
+                    <span class="text-[11px] font-mono text-slate-500">{{ mod.badge || mod.status }}</span>
+                    <div class="flex items-center gap-1.5">
+                      <button @click.stop="openEditModuleDialog(mod)" class="px-2.5 py-1 rounded-lg bg-sky-500/10 hover:bg-sky-500/20 text-sky-400 border border-sky-500/25 text-xs font-semibold cursor-pointer">
+                        <i class="fa-solid fa-pen-to-square"></i> Edit
+                      </button>
+                      <button @click.stop="deleteModule(mod.id)" class="px-2.5 py-1 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/25 text-xs font-semibold cursor-pointer">
+                        <i class="fa-solid fa-trash"></i>
+                      </button>
+                    </div>
+                  </template>
                 </div>
               </div>
+            </div>
+
+            <!-- Empty State if no modules visible for role -->
+            <div v-if="currentRoleModuleList.length === 0" class="p-8 text-center bg-slate-900/50 rounded-2xl border border-slate-800 space-y-2">
+              <i class="fa-solid fa-cubes text-3xl text-slate-600"></i>
+              <h3 class="text-sm font-bold text-white">No Modules Visible for Role '{{ selectedLayoutRole }}'</h3>
+              <p class="text-xs text-slate-400 max-w-md mx-auto">
+                No feature modules are currently permitted for this role. You can edit permissions in the Roles matrix or add permitted role codes to modules.
+              </p>
             </div>
           </div>
         </div>
@@ -2463,6 +2581,15 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
         const dbHealth = ref({ totalConnections: 1, connections: {}, tableStats: {} });
         const devicesList = ref([]);
 
+        // Role Layout Customization State
+        const selectedLayoutRole = ref('SUPER_ADMIN');
+        const isEditingRoleLayout = ref(false);
+        const savingRoleLayout = ref(false);
+        const roleLayouts = ref({});
+        const currentRoleModuleList = ref([]);
+        const draggedModuleIndex = ref(null);
+        const dragOverModuleIndex = ref(null);
+
         const loadingUsers = ref(false);
         const loadingRoles = ref(false);
         const savingNetworkServer = ref(false);
@@ -2625,7 +2752,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
           switch(activeTab.value) {
             case 'overview': return 'Overview Hub';
             case 'network-servers': return 'Network Servers';
-            case 'modules': return 'Feature Modules';
+            case 'modules': return 'Module Manager';
             case 'roles': return 'Roles & RBAC';
             case 'users': return 'User Directory';
             case 'database': return 'Database Health';
@@ -2742,10 +2869,151 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
           }
         };
 
+        const fetchRoleLayouts = async () => {
+          try {
+            const res = await fetch('/api/d-modules/layouts', { headers: authHeaders(), credentials: 'include' });
+            if (res.ok) {
+              roleLayouts.value = await res.json();
+            }
+          } catch(e) {
+            console.error('Error fetching role layouts:', e);
+          }
+        };
+
+        const computeRoleModules = () => {
+          const roleCode = (selectedLayoutRole.value || 'SUPER_ADMIN').toUpperCase();
+          let filtered = [];
+          if (roleCode === 'SUPER_ADMIN') {
+            filtered = [...modulesList.value];
+          } else {
+            filtered = modulesList.value.filter(m => {
+              if (m.allowedRoleCodes && m.allowedRoleCodes.length > 0) {
+                return m.allowedRoleCodes.some(c => c.toUpperCase() === roleCode);
+              }
+              if (m.requiredPermission) {
+                const roleObj = rolesList.value.find(r => (r.code || r.name || '').toUpperCase() === roleCode);
+                return roleObj?.permissions?.some(p => p.name === m.requiredPermission);
+              }
+              return true;
+            });
+          }
+
+          const layoutOrder = roleLayouts.value[roleCode] || [];
+          if (layoutOrder.length > 0) {
+            const orderMap = new Map();
+            layoutOrder.forEach((id, idx) => orderMap.set(id, idx));
+            filtered.sort((a, b) => {
+              const orderA = orderMap.has(a.id) ? orderMap.get(a.id) : 9999;
+              const orderB = orderMap.has(b.id) ? orderMap.get(b.id) : 9999;
+              return orderA - orderB;
+            });
+          }
+
+          currentRoleModuleList.value = filtered;
+        };
+
+        const onLayoutRoleChange = () => {
+          if (isEditingRoleLayout.value) {
+            isEditingRoleLayout.value = false;
+          }
+          computeRoleModules();
+        };
+
+        const startEditRoleLayout = () => {
+          isEditingRoleLayout.value = true;
+          showToast("Drag & drop layout edit mode enabled for '" + selectedLayoutRole.value + "'", 'info');
+        };
+
+        const cancelEditRoleLayout = () => {
+          isEditingRoleLayout.value = false;
+          draggedModuleIndex.value = null;
+          dragOverModuleIndex.value = null;
+          computeRoleModules();
+          showToast('Layout changes cancelled', 'info');
+        };
+
+        const saveRoleLayoutOrder = async () => {
+          savingRoleLayout.value = true;
+          const roleCode = (selectedLayoutRole.value || 'SUPER_ADMIN').toUpperCase();
+          const moduleIds = currentRoleModuleList.value.map(m => m.id);
+          try {
+            const res = await fetch('/api/d-modules/layouts/' + encodeURIComponent(roleCode), {
+              method: 'PUT',
+              headers: authHeaders(),
+              credentials: 'include',
+              body: JSON.stringify({ moduleIds })
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.message || 'Failed to save layout');
+            roleLayouts.value[roleCode] = moduleIds;
+            isEditingRoleLayout.value = false;
+            showToast("Dashboard layout for role '" + roleCode + "' saved successfully!", 'success');
+          } catch(e) {
+            showToast(e.message, 'error');
+          } finally {
+            savingRoleLayout.value = false;
+          }
+        };
+
+        const onDragStart = (index, event) => {
+          if (!isEditingRoleLayout.value) return;
+          draggedModuleIndex.value = index;
+          if (event && event.dataTransfer) {
+            event.dataTransfer.effectAllowed = 'move';
+            event.dataTransfer.setData('text/plain', String(index));
+          }
+        };
+
+        const onDragOver = (index, event) => {
+          if (!isEditingRoleLayout.value) return;
+          if (event) {
+            event.preventDefault();
+            if (event.dataTransfer) {
+              event.dataTransfer.dropEffect = 'move';
+            }
+          }
+          dragOverModuleIndex.value = index;
+        };
+
+        const onDrop = (targetIndex, event) => {
+          if (!isEditingRoleLayout.value) return;
+          if (event) event.preventDefault();
+          const fromIndex = draggedModuleIndex.value;
+          if (fromIndex !== null && fromIndex !== undefined && fromIndex !== targetIndex) {
+            const list = [...currentRoleModuleList.value];
+            const [movedItem] = list.splice(fromIndex, 1);
+            list.splice(targetIndex, 0, movedItem);
+            currentRoleModuleList.value = list;
+          }
+          draggedModuleIndex.value = null;
+          dragOverModuleIndex.value = null;
+        };
+
+        const onDragEnd = () => {
+          draggedModuleIndex.value = null;
+          dragOverModuleIndex.value = null;
+        };
+
+        const moveModuleOrder = (index, direction) => {
+          if (!isEditingRoleLayout.value) return;
+          const targetIndex = index + direction;
+          if (targetIndex < 0 || targetIndex >= currentRoleModuleList.value.length) return;
+          const list = [...currentRoleModuleList.value];
+          const temp = list[index];
+          list[index] = list[targetIndex];
+          list[targetIndex] = temp;
+          currentRoleModuleList.value = list;
+        };
+
         const fetchModules = async () => {
           try {
-            const res = await fetch('/api/features/all', { headers: authHeaders(), credentials: 'include' });
-            if (res.ok) modulesList.value = await res.json();
+            const [modRes, layoutRes] = await Promise.all([
+              fetch('/api/features/all', { headers: authHeaders(), credentials: 'include' }),
+              fetch('/api/d-modules/layouts', { headers: authHeaders(), credentials: 'include' })
+            ]);
+            if (modRes.ok) modulesList.value = await modRes.json();
+            if (layoutRes.ok) roleLayouts.value = await layoutRes.json();
+            computeRoleModules();
           } catch(e) {
             console.error(e);
           }
@@ -4039,6 +4307,24 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
           toggleModuleActive,
           deleteModule,
           resetModulesDefaults,
+          selectedLayoutRole,
+          isEditingRoleLayout,
+          savingRoleLayout,
+          roleLayouts,
+          currentRoleModuleList,
+          draggedModuleIndex,
+          dragOverModuleIndex,
+          fetchRoleLayouts,
+          computeRoleModules,
+          onLayoutRoleChange,
+          startEditRoleLayout,
+          cancelEditRoleLayout,
+          saveRoleLayoutOrder,
+          onDragStart,
+          onDragOver,
+          onDrop,
+          onDragEnd,
+          moveModuleOrder,
           openCreateRoleDialog,
           openEditRoleDialog,
           submitRoleForm,
