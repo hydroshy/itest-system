@@ -67,13 +67,6 @@ export class DModulesService implements OnModuleInit {
           }
         }
 
-        // Ensure all default modules exist
-        for (const defMod of DEFAULT_D_MODULES) {
-          if (!this.modules.some((m) => m.id === defMod.id)) {
-            this.modules.push(JSON.parse(JSON.stringify(defMod)));
-          }
-        }
-
         this.logger.log(`Loaded ${this.modules.length} D-Modules and ${Object.keys(this.roleLayouts).length} Role Layouts from config.`);
         return;
       }
