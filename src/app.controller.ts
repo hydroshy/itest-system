@@ -105,4 +105,18 @@ export class AppController {
     this.clearAllCookies(res);
     return res.redirect('/login?cleared=1');
   }
+
+  @Get('manager')
+  @ApiExcludeEndpoint()
+  getManagerRedirect(@Req() req: Request, @Res() res: Response) {
+    const host = req.hostname || 'localhost';
+    return res.redirect(`http://${host}:3099/manager`);
+  }
+
+  @Get('ops')
+  @ApiExcludeEndpoint()
+  getOpsRedirect(@Req() req: Request, @Res() res: Response) {
+    const host = req.hostname || 'localhost';
+    return res.redirect(`http://${host}:3099/manager`);
+  }
 }

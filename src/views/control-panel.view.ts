@@ -356,6 +356,16 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
 
               <!-- Action Buttons -->
               <div class="flex items-center gap-2">
+                <a
+                  :href="standaloneOpsUrl"
+                  target="_blank"
+                  class="px-3 py-1.5 rounded-lg bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-500/30 text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition shadow-lg shadow-amber-500/10"
+                  title="Open Standalone Ops Console (Port 3099 - Runs independently even when NestJS is down)"
+                >
+                  <i class="fa-solid fa-bolt text-amber-400"></i>
+                  <span>Standalone Ops</span>
+                  <i class="fa-solid fa-arrow-up-right-from-square text-[9px]"></i>
+                </a>
                 <button
                   @click="fetchSystemVersion"
                   :disabled="loadingSystemVersion"
@@ -4648,6 +4658,11 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
           }
         };
 
+        const standaloneOpsUrl = computed(() => {
+          const host = (typeof window !== 'undefined' && window.location.hostname) ? window.location.hostname : 'localhost';
+          return 'http://' + host + ':3099/manager';
+        });
+
         const formatLogTime = (ts) => {
           if (!ts) return '--';
           try {
@@ -5019,7 +5034,8 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
           fetchSystemVersion,
           openRestartConfirmDialog,
           openServerLogsDialog,
-          confirmRestartServer
+          confirmRestartServer,
+          standaloneOpsUrl
         };
       }
     }).mount('#app');

@@ -210,6 +210,8 @@ function sendJson(res, statusCode, body) {
   res.end(JSON.stringify(body, null, 2));
 }
 
+const { MANAGER_HTML } = require('./ui.js');
+
 // HTTP Server
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
@@ -223,6 +225,15 @@ const server = http.createServer(async (req, res) => {
       'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Ops-Token',
     });
     return res.end();
+  }
+
+  // 0. Standalone Web UI (Manager Dashboard)
+  if ((pathname === '/' || pathname === '/manager' || pathname === '/ops') && req.method === 'GET') {
+    res.writeHead(200, {
+      'Content-Type': 'text/html; charset=utf-8',
+      'Cache-Control': 'no-cache, no-store, must-revalidate',
+    });
+    return res.end(MANAGER_HTML);
   }
 
   // 1. Health check
@@ -313,7 +324,57 @@ const server = http.createServer(async (req, res) => {
     }
   }
 
-  // 4. Container Logs
+  // 4. Container Action (start | stop | restart)
+  if (pathname === '/api/container-action' && req.method === 'POST') {
+    if (!isAuthorized(req)) {
+      return sendJson(res, 401, { success: false, error: 'Unauthorized. Invalid or missing X-Ops-Token header.' });
+    }
+
+    let bodyData = {};
+    try {
+      let bodyText = '';
+      for await (const chunk of req) {
+        bodyText += chunk;
+      }
+      if (bodyText) bodyData = JSON.parse(bodyText);
+    } catch (e) {}
+
+    const action = (bodyData.action || 'restart').toLowerCase();
+    const target = await resolveTargetContainer(bodyData.container || url.searchParams.get('container'));
+
+    if (!['start', 'stop', 'restart'].includes(action)) {
+      return sendJson(res, 400, { success: false, error: "Invalid action. Supported actions: 'start', 'stop', 'restart'." });
+    }
+
+    console.log(`[Daviteq Ops Agent] ⚡ Executing '${action}' on container '${target}'...`);
+    const actionResult = await callDockerSocket(`/v1.41/containers/${target}/${action}`, 'POST');
+
+    if (!actionResult.available) {
+      return sendJson(res, 200, {
+        success: false,
+        dockerAvailable: false,
+        error: actionResult.error,
+        message: `Docker socket is not mounted at ${DOCKER_SOCKET}.`,
+      });
+    }
+
+    if (actionResult.statusCode === 204 || actionResult.statusCode === 200 || actionResult.statusCode === 304) {
+      return sendJson(res, 200, {
+        success: true,
+        message: `Container '${target}' executed action '${action}' successfully.`,
+        container: target,
+        action: action,
+        timestamp: new Date().toISOString(),
+      });
+    } else {
+      return sendJson(res, 500, {
+        success: false,
+        error: `Docker Engine returned HTTP ${actionResult.statusCode}: ${JSON.stringify(actionResult.data || actionResult.raw || actionResult.error)}`,
+      });
+    }
+  }
+
+  // 5. Container Logs
   if (pathname === '/api/logs' && req.method === 'GET') {
     if (!isAuthorized(req)) {
       return sendJson(res, 401, { success: false, error: 'Unauthorized. Invalid or missing X-Ops-Token header.' });
@@ -331,8 +392,18 @@ const server = http.createServer(async (req, res) => {
     });
   }
 
+  // 6. List all containers
+  if (pathname === '/api/containers' && req.method === 'GET') {
+    const listRes = await callDockerSocket('/v1.41/containers/json?all=1');
+    return sendJson(res, 200, {
+      success: listRes.available,
+      containers: listRes.data || [],
+      error: listRes.error || null,
+    });
+  }
+
   // 404 fallback
-  return sendJson(res, 404, { error: 'Not found', availableEndpoints: ['/health', '/api/status', '/api/restart-backend', '/api/logs'] });
+  return sendJson(res, 404, { error: 'Not found', availableEndpoints: ['/', '/manager', '/health', '/api/status', '/api/restart-backend', '/api/container-action', '/api/logs', '/api/containers'] });
 });
 
 server.listen(PORT, '0.0.0.0', () => {
