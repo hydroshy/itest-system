@@ -575,10 +575,13 @@ const MANAGER_HTML = `<!DOCTYPE html>
           };
 
           const checkAuth = async () => {
+            if (!sessionToken.value) {
+              isAuthenticated.value = false;
+              return false;
+            }
             try {
               const res = await fetch('/api/auth/me?_t=' + Date.now(), {
-                headers: authHeaders(),
-                credentials: 'include'
+                headers: authHeaders()
               });
               if (res.ok) {
                 const data = await res.json();
@@ -594,6 +597,8 @@ const MANAGER_HTML = `<!DOCTYPE html>
                 }
               }
             } catch(e) {}
+            sessionToken.value = '';
+            localStorage.removeItem('ops_session_token');
             isAuthenticated.value = false;
             return false;
           };
@@ -645,8 +650,7 @@ const MANAGER_HTML = `<!DOCTYPE html>
             refreshing.value = true;
             try {
               const res = await fetch('/api/status?_t=' + Date.now(), {
-                headers: authHeaders(),
-                credentials: 'include'
+                headers: authHeaders()
               });
               if (res.status === 401 || res.status === 403) {
                 handleLogout();
@@ -676,8 +680,7 @@ const MANAGER_HTML = `<!DOCTYPE html>
             loadingLogs.value = true;
             try {
               const res = await fetch('/api/logs?tail=' + logTail.value + '&_t=' + Date.now(), {
-                headers: authHeaders(),
-                credentials: 'include'
+                headers: authHeaders()
               });
               if (res.ok) {
                 const data = await res.json();
@@ -722,7 +725,6 @@ const MANAGER_HTML = `<!DOCTYPE html>
               const res = await fetch('/api/restart-backend', {
                 method: 'POST',
                 headers: authHeaders(),
-                credentials: 'include',
                 body: JSON.stringify({ container: targetContainerName.value })
               });
               const data = await res.json();
@@ -768,7 +770,6 @@ const MANAGER_HTML = `<!DOCTYPE html>
               const res = await fetch('/api/container-action', {
                 method: 'POST',
                 headers: authHeaders(),
-                credentials: 'include',
                 body: JSON.stringify({ container: targetContainerName.value, action })
               });
               const data = await res.json();

@@ -173,23 +173,15 @@ function verifySessionToken(tokenString) {
 }
 
 function extractTokenFromRequest(req) {
-  // Check Authorization Bearer header
+  // 1. Check Authorization Bearer header (explicitly sent by Ops UI or NestJS backend service)
   const authHeader = req.headers['authorization'];
   if (authHeader) return authHeader.replace(/^Bearer\s+/i, '').trim();
 
-  // Check X-Ops-Token header
+  // 2. Check X-Ops-Token header
   const opsToken = req.headers['x-ops-token'];
   if (opsToken) return opsToken.trim();
 
-  // Check Cookie header (access_token or ops_session_token)
-  const cookieHeader = req.headers['cookie'] || '';
-  const cookies = {};
-  cookieHeader.split(';').forEach((c) => {
-    const [k, v] = c.trim().split('=');
-    if (k && v) cookies[k] = decodeURIComponent(v);
-  });
-
-  return cookies['ops_session_token'] || cookies['access_token'] || cookies['lorawan_token'] || null;
+  return null;
 }
 
 function isAuthorized(req) {
