@@ -1,0 +1,12 @@
+{
+  "name": "daviteq-ops-agent",
+  "version": "1.0.0",
+  "description": "Lightweight Ops Agent for Daviteq LoRaWAN Platform - Docker container lifecycle & Git version management",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "keywords": ["ops", "docker", "sidecar", "daviteq"],
+  "author": "Daviteq Platform Team",
+  "license": "MIT"
+}

@@ -335,6 +335,123 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
             </div>
           </div>
 
+          <!-- SYSTEM RUNTIME & DEVOPS LIFECYCLE MANAGEMENT PANEL -->
+          <div class="glass-card rounded-2xl p-6 space-y-4 border border-sky-500/20 bg-gradient-to-br from-slate-900/90 via-slate-900/60 to-sky-950/20">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-800">
+              <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-sky-500 to-blue-700 flex items-center justify-center text-white shadow-lg shadow-sky-500/20 text-base">
+                  <i class="fa-solid fa-server"></i>
+                </div>
+                <div>
+                  <div class="flex items-center gap-2">
+                    <h2 class="text-base font-extrabold text-white">System Runtime & Git Lifecycle Manager</h2>
+                    <span :class="systemVersionInfo.opsAgent?.online ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/25' : 'bg-amber-500/10 text-amber-400 border-amber-500/25'" class="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold border flex items-center gap-1">
+                      <span :class="systemVersionInfo.opsAgent?.online ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'" class="w-1.5 h-1.5 rounded-full"></span>
+                      {{ systemVersionInfo.opsAgent?.online ? 'OPS AGENT ONLINE' : 'STANDALONE MODE' }}
+                    </span>
+                  </div>
+                  <p class="text-xs text-slate-400 mt-0.5">Live Git commit tracking, Docker container orchestration, and server lifecycle operations</p>
+                </div>
+              </div>
+
+              <!-- Action Buttons -->
+              <div class="flex items-center gap-2">
+                <button
+                  @click="fetchSystemVersion"
+                  :disabled="loadingSystemVersion"
+                  class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition disabled:opacity-50"
+                  title="Refresh version and container metrics"
+                >
+                  <i :class="loadingSystemVersion ? 'animate-spin' : ''" class="fa-solid fa-arrows-rotate"></i> Refresh
+                </button>
+                <button
+                  v-if="systemVersionInfo.opsAgent?.online"
+                  @click="openServerLogsDialog"
+                  class="px-3 py-1.5 rounded-lg bg-sky-500/15 hover:bg-sky-500/25 text-sky-300 border border-sky-500/30 text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition"
+                  title="View live container logs"
+                >
+                  <i class="fa-solid fa-terminal"></i> Container Logs
+                </button>
+                <button
+                  @click="openRestartConfirmDialog"
+                  class="px-3.5 py-1.5 rounded-lg bg-red-500 hover:bg-red-400 text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-lg shadow-red-500/20 transition"
+                  title="Restart NestJS server container"
+                >
+                  <i class="fa-solid fa-rotate text-xs"></i> Restart Server
+                </button>
+              </div>
+            </div>
+
+            <!-- Version & Metadata Grid -->
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+              <!-- Git Commit Hash -->
+              <div class="p-3.5 bg-slate-950/80 rounded-xl border border-slate-800/80 space-y-1">
+                <div class="text-[11px] text-slate-400 font-medium flex items-center justify-between">
+                  <span>Git Commit Hash</span>
+                  <span class="px-1.5 py-0.2 rounded text-[9px] font-mono bg-sky-500/20 text-sky-300">{{ systemVersionInfo.git?.branch || 'main' }}</span>
+                </div>
+                <div class="flex items-center justify-between pt-1">
+                  <span class="text-sm font-mono font-bold text-sky-400">#{{ systemVersionInfo.git?.shortHash || 'unknown' }}</span>
+                  <button
+                    @click="copyCommitHash(systemVersionInfo.git?.commitHash)"
+                    class="p-1 rounded text-slate-400 hover:text-white hover:bg-slate-800 transition text-xs cursor-pointer"
+                    title="Copy Full Commit Hash"
+                  >
+                    <i class="fa-regular fa-copy"></i>
+                  </button>
+                </div>
+                <div class="text-[10px] text-slate-500 truncate" :title="systemVersionInfo.git?.commitHash">
+                  {{ systemVersionInfo.git?.commitHash || 'Loading hash...' }}
+                </div>
+              </div>
+
+              <!-- Last Commit Message -->
+              <div class="p-3.5 bg-slate-950/80 rounded-xl border border-slate-800/80 space-y-1">
+                <div class="text-[11px] text-slate-400 font-medium flex items-center justify-between">
+                  <span>Last Commit Message</span>
+                  <i class="fa-solid fa-code-commit text-slate-500 text-xs"></i>
+                </div>
+                <div class="text-xs font-bold text-white line-clamp-1 pt-1" :title="systemVersionInfo.git?.commitMessage">
+                  {{ systemVersionInfo.git?.commitMessage || 'Production build' }}
+                </div>
+                <div class="text-[10px] text-slate-400 flex items-center gap-1.5">
+                  <span><i class="fa-regular fa-user mr-1"></i>{{ systemVersionInfo.git?.author || 'Daviteq Team' }}</span>
+                </div>
+              </div>
+
+              <!-- Server Uptime & Node Runtime -->
+              <div class="p-3.5 bg-slate-950/80 rounded-xl border border-slate-800/80 space-y-1">
+                <div class="text-[11px] text-slate-400 font-medium flex items-center justify-between">
+                  <span>Engine Runtime</span>
+                  <span class="text-emerald-400 font-mono text-[10px] font-bold">Node.js {{ systemVersionInfo.server?.nodeVersion || 'v20' }}</span>
+                </div>
+                <div class="text-sm font-mono font-bold text-white pt-1">
+                  {{ formatUptime(systemVersionInfo.server?.uptimeSeconds) }}
+                </div>
+                <div class="text-[10px] text-slate-500">
+                  Platform: {{ systemVersionInfo.server?.platform || 'linux' }} ({{ systemVersionInfo.server?.environment || 'production' }})
+                </div>
+              </div>
+
+              <!-- Target Container & Orchestration -->
+              <div class="p-3.5 bg-slate-950/80 rounded-xl border border-slate-800/80 space-y-1">
+                <div class="text-[11px] text-slate-400 font-medium flex items-center justify-between">
+                  <span>Target Container</span>
+                  <span :class="systemVersionInfo.opsAgent?.dockerAvailable ? 'text-emerald-400' : 'text-slate-400'" class="font-mono text-[10px] font-bold">
+                    {{ systemVersionInfo.opsAgent?.dockerAvailable ? 'DOCKER ACTIVE' : 'STANDALONE' }}
+                  </span>
+                </div>
+                <div class="text-xs font-mono font-bold text-slate-200 pt-1 flex items-center gap-1.5">
+                  <i class="fa-brands fa-docker text-sky-400 text-sm"></i>
+                  <span>nest_lorawan_app</span>
+                </div>
+                <div class="text-[10px] text-slate-400 truncate">
+                  Port: 3000 | Ops: :3099
+                </div>
+              </div>
+            </div>
+          </div>
+
           <!-- INTERACTIVE MANAGEMENT HUB GRID (Direct access to all sections) -->
           <div class="glass-card rounded-2xl p-6 space-y-4">
             <div>
@@ -2716,6 +2833,89 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
       </div>
     </div>
 
+    <!-- MODAL: RESTART SERVER CONFIRMATION -->
+    <div v-if="restartConfirmDialog" class="fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop" @click="restartConfirmDialog = false">
+      <div class="glass-card rounded-2xl p-6 w-full max-w-md border border-red-500/30 shadow-2xl space-y-4" @click.stop>
+        <div class="flex items-center gap-3">
+          <div class="w-12 h-12 rounded-xl bg-red-500/10 border border-red-500/30 flex items-center justify-center text-red-400 text-xl shadow-inner">
+            <i class="fa-solid fa-rotate"></i>
+          </div>
+          <div>
+            <h3 class="text-base font-bold text-white">Restart NestJS Server</h3>
+            <p class="text-xs text-slate-400">Restart platform backend container</p>
+          </div>
+        </div>
+
+        <div class="p-3.5 bg-red-950/20 border border-red-500/25 rounded-xl text-xs text-red-300 space-y-2">
+          <p><strong>Warning:</strong> Restarting will briefly disconnect active API requests and WebSocket sessions. The NestJS backend container (<code>nest_lorawan_app</code>) will shut down gracefully and restart.</p>
+          <p class="text-[11px] text-slate-400">Current Commit: <span class="font-mono text-cyan-300 font-bold">#{{ systemVersionInfo.git?.shortHash }}</span> ({{ systemVersionInfo.git?.branch }})</p>
+        </div>
+
+        <div class="flex items-center justify-end gap-2.5 pt-2">
+          <button
+            @click="restartConfirmDialog = false"
+            :disabled="restartingServer"
+            class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold cursor-pointer transition disabled:opacity-50"
+          >
+            Cancel
+          </button>
+          <button
+            @click="confirmRestartServer"
+            :disabled="restartingServer"
+            class="px-4 py-2 rounded-xl bg-red-500 hover:bg-red-400 text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-lg shadow-red-500/20 transition disabled:opacity-50"
+          >
+            <i :class="restartingServer ? 'fa-solid fa-spinner animate-spin' : 'fa-solid fa-rotate'"></i>
+            <span>{{ restartingServer ? 'Sending Signal...' : 'Confirm Restart' }}</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL: SERVER CONTAINER LOGS -->
+    <div v-if="serverLogsDialog" class="fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop" @click="serverLogsDialog = false">
+      <div class="glass-card rounded-2xl p-6 w-full max-w-3xl border border-slate-700 shadow-2xl space-y-4 max-h-[85vh] flex flex-col" @click.stop>
+        <div class="flex items-center justify-between pb-3 border-b border-slate-800">
+          <div class="flex items-center gap-2.5">
+            <div class="w-8 h-8 rounded-lg bg-sky-500/10 border border-sky-500/30 flex items-center justify-center text-sky-400 text-sm">
+              <i class="fa-solid fa-terminal"></i>
+            </div>
+            <div>
+              <h3 class="text-sm font-bold text-white">Container Logs (nest_lorawan_app)</h3>
+              <p class="text-[11px] text-slate-400">Recent stdout/stderr output stream</p>
+            </div>
+          </div>
+          <div class="flex items-center gap-2">
+            <button
+              @click="openServerLogsDialog"
+              :disabled="loadingServerLogs"
+              class="px-3 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold flex items-center gap-1 cursor-pointer transition"
+            >
+              <i :class="loadingServerLogs ? 'animate-spin' : ''" class="fa-solid fa-arrows-rotate"></i> Refresh
+            </button>
+            <button
+              @click="serverLogsDialog = false"
+              class="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition cursor-pointer"
+            >
+              <i class="fa-solid fa-xmark text-sm"></i>
+            </button>
+          </div>
+        </div>
+
+        <div class="flex-1 overflow-y-auto custom-scroll bg-slate-950 p-4 rounded-xl border border-slate-800 font-mono text-xs text-slate-300 whitespace-pre-wrap leading-relaxed min-h-[300px]">
+          {{ serverLogs || 'Loading logs...' }}
+        </div>
+      </div>
+    </div>
+
+    <!-- FLOATING RESTART OVERLAY -->
+    <div v-if="restartProgress.active" class="fixed bottom-6 right-6 z-50 p-4 rounded-2xl bg-slate-900 border border-sky-500/40 shadow-2xl flex items-center gap-3">
+      <i class="fa-solid fa-spinner fa-spin text-sky-400 text-xl"></i>
+      <div>
+        <div class="text-xs font-bold text-white">{{ restartProgress.message || 'Restarting Backend Server...' }}</div>
+        <div class="text-[10px] text-slate-400">Reconnecting automatically (Attempt {{ restartProgress.countdown }}s)...</div>
+      </div>
+    </div>
+
     <!-- TOAST NOTIFICATION -->
     <div v-if="toast.show" class="fixed top-4 right-4 z-50 flex items-center gap-2 px-4 py-3 rounded-xl shadow-2xl text-xs font-semibold" :class="toast.type === 'error' ? 'bg-red-950 border border-red-500 text-red-200' : (toast.type === 'success' ? 'bg-emerald-950 border border-emerald-500 text-emerald-200' : 'bg-sky-950 border border-sky-500 text-sky-200')">
       <i :class="toast.type === 'error' ? 'fa-solid fa-circle-exclamation text-red-400' : (toast.type === 'success' ? 'fa-solid fa-circle-check text-emerald-400' : 'fa-solid fa-circle-info text-sky-400')"></i>
@@ -2768,6 +2968,21 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
         const allPermissions = ref([]);
         const dbHealth = ref({ totalConnections: 1, connections: {}, tableStats: {} });
         const devicesList = ref([]);
+
+        // System Ops & Git Lifecycle State
+        const systemVersionInfo = ref({
+          version: '1.0.0',
+          git: { commitHash: '', shortHash: '', branch: 'main', commitMessage: '', author: '', commitDate: '' },
+          opsAgent: { online: false, url: '', containerStatus: '', dockerAvailable: false },
+          server: { uptimeSeconds: 0, nodeVersion: '', platform: '', environment: '' }
+        });
+        const loadingSystemVersion = ref(false);
+        const restartingServer = ref(false);
+        const restartConfirmDialog = ref(false);
+        const serverLogsDialog = ref(false);
+        const serverLogs = ref('');
+        const loadingServerLogs = ref(false);
+        const restartProgress = ref({ active: false, countdown: 0, message: '' });
 
         // Dashboard Module Manager State
         const moduleManagerSubTab = ref('layout'); // 'layout' | 'catalog'
@@ -4443,10 +4658,127 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
           }
         };
 
+        const formatUptime = (sec) => {
+          if (!sec || isNaN(sec)) return '0m';
+          const h = Math.floor(sec / 3600);
+          const m = Math.floor((sec % 3600) / 60);
+          const s = Math.floor(sec % 60);
+          if (h > 0) return h + 'h ' + m + 'm ' + s + 's';
+          if (m > 0) return m + 'm ' + s + 's';
+          return s + 's';
+        };
+
+        const copyCommitHash = (hash) => {
+          if (!hash) return;
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(hash);
+            showToast('Git commit hash copied to clipboard!', 'success');
+          } else {
+            showToast('Commit: ' + hash, 'info');
+          }
+        };
+
+        const fetchSystemVersion = async () => {
+          loadingSystemVersion.value = true;
+          try {
+            const res = await fetch('/api/system/version', { credentials: 'include' });
+            if (res.ok) {
+              const data = await res.json();
+              if (data && data.success) {
+                systemVersionInfo.value = data;
+              }
+            }
+          } catch(e) {
+            console.warn('Could not fetch system version:', e);
+          } finally {
+            loadingSystemVersion.value = false;
+          }
+        };
+
+        const openRestartConfirmDialog = () => {
+          restartConfirmDialog.value = true;
+        };
+
+        const openServerLogsDialog = async () => {
+          serverLogsDialog.value = true;
+          loadingServerLogs.value = true;
+          try {
+            const res = await fetch('/api/system/logs?tail=80', {
+              headers: authHeaders(),
+              credentials: 'include'
+            });
+            if (res.ok) {
+              const data = await res.json();
+              serverLogs.value = data.logs || 'No log output returned from container.';
+            } else {
+              serverLogs.value = 'Failed to fetch logs: HTTP ' + res.status;
+            }
+          } catch(e) {
+            serverLogs.value = 'Error fetching container logs: ' + e.message;
+          } finally {
+            loadingServerLogs.value = false;
+          }
+        };
+
+        const confirmRestartServer = async () => {
+          restartingServer.value = true;
+          try {
+            const res = await fetch('/api/system/restart', {
+              method: 'POST',
+              headers: {
+                ...authHeaders(),
+                'Content-Type': 'application/json'
+              },
+              credentials: 'include'
+            });
+            const data = await res.json();
+            restartConfirmDialog.value = false;
+            
+            if (data && data.success) {
+              showToast('Restart signal sent to NestJS server container!', 'info');
+              restartProgress.value = { active: true, countdown: 1, message: 'Restarting NestJS Backend...' };
+              
+              let attempts = 0;
+              const pollInterval = setInterval(async () => {
+                attempts++;
+                restartProgress.value.countdown = attempts * 2;
+                try {
+                  const check = await fetch('/health?_t=' + Date.now());
+                  if (check.ok) {
+                    clearInterval(pollInterval);
+                    restartProgress.value.active = false;
+                    restartingServer.value = false;
+                    showToast('Backend server restarted successfully and is back ONLINE!', 'success');
+                    fetchSystemVersion();
+                    initControlPanel();
+                  }
+                } catch(e) {}
+                if (attempts > 30) {
+                  clearInterval(pollInterval);
+                  restartProgress.value.active = false;
+                  restartingServer.value = false;
+                  showToast('Restart completed. Please refresh the page.', 'info');
+                }
+              }, 2000);
+            } else {
+              showToast(data.message || 'Restart failed: Ops Agent unavailable.', 'error');
+              restartingServer.value = false;
+            }
+          } catch(e) {
+            showToast('Server is restarting...', 'info');
+            restartConfirmDialog.value = false;
+            restartProgress.value = { active: true, countdown: 1, message: 'Restarting...' };
+            setTimeout(() => {
+              window.location.reload();
+            }, 6000);
+          }
+        };
+
         watch(activeTab, (newTab) => {
           try {
             window.history.replaceState(null, null, '#' + newTab);
           } catch(e) {}
+          if (newTab === 'overview') fetchSystemVersion();
           if (newTab === 'network-servers') fetchNetworkServers();
           if (newTab === 'modules') fetchModules();
           if (newTab === 'roles') fetchRoles();
@@ -4465,6 +4797,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
           const ok = await fetchSession();
           if (!ok) return;
 
+          fetchSystemVersion();
           fetchNetworkServers();
           fetchModules();
           fetchRoles();
@@ -4672,7 +5005,21 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
           submitUpdateRetention,
           openClearLogsModal,
           submitClearLogs,
-          formatLogTime
+          formatLogTime,
+          systemVersionInfo,
+          loadingSystemVersion,
+          restartingServer,
+          restartConfirmDialog,
+          serverLogsDialog,
+          serverLogs,
+          loadingServerLogs,
+          restartProgress,
+          formatUptime,
+          copyCommitHash,
+          fetchSystemVersion,
+          openRestartConfirmDialog,
+          openServerLogsDialog,
+          confirmRestartServer
         };
       }
     }).mount('#app');
