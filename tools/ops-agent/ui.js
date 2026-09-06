@@ -11,36 +11,70 @@ const MANAGER_HTML = `<!DOCTYPE html>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Daviteq Ops Manager | Super-Admin Console</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>⚡</text></svg>">
+  
+  <!-- Tailwind CSS with multiple fallbacks -->
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
-    tailwind.config = {
-      darkMode: 'class',
-      theme: {
-        extend: {
-          colors: {
-            brand: { 50: '#f0f9ff', 500: '#0284c7', 600: '#0369a1', 700: '#075985', 900: '#0c4a6e' },
-            slate: { 850: '#0f172a', 900: '#090d16', 950: '#030712' }
-          },
-          fontFamily: {
-            mono: ['JetBrains Mono', 'Fira Code', 'Menlo', 'Monaco', 'Consolas', 'monospace']
+    if (window.tailwind) {
+      tailwind.config = {
+        darkMode: 'class',
+        theme: {
+          extend: {
+            colors: {
+              brand: { 50: '#f0f9ff', 500: '#0284c7', 600: '#0369a1', 700: '#075985', 900: '#0c4a6e' },
+              slate: { 850: '#0f172a', 900: '#090d16', 950: '#030712' }
+            },
+            fontFamily: {
+              mono: ['JetBrains Mono', 'Fira Code', 'Menlo', 'Monaco', 'Consolas', 'monospace']
+            }
           }
         }
-      }
+      };
     }
   </script>
+
+  <!-- FontAwesome Icons with fallbacks -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-  <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+  
+  <!-- Vue 3 with multiple CDN failover mirrors -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/vue/3.4.21/vue.global.prod.min.js"></script>
+  <script>
+    if (typeof Vue === 'undefined') {
+      document.write('<script src="https://cdn.jsdelivr.net/npm/vue@3.4.21/dist/vue.global.prod.js"><\\/script>');
+    }
+  </script>
+  <script>
+    if (typeof Vue === 'undefined') {
+      document.write('<script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"><\\/script>');
+    }
+  </script>
+
   <style>
-    [v-cloak] { display: none !important; }
+    /* Robust base styling ensuring no blank/black screen even before CSS/Vue hydration */
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      padding: 0;
+      background-color: #030712;
+      color: #f8fafc;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      min-height: 100vh;
+    }
     ::-webkit-scrollbar { width: 6px; height: 6px; }
     ::-webkit-scrollbar-track { background: #030712; }
     ::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 4px; }
     ::-webkit-scrollbar-thumb:hover { background: #334155; }
     .log-line:hover { background-color: rgba(255, 255, 255, 0.03); }
+    @keyframes pulse-slow {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+    .animate-pulse-slow { animation: pulse-slow 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
   </style>
 </head>
 <body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col font-sans selection:bg-sky-500 selection:text-white">
-  <div id="app" v-cloak class="flex flex-col min-h-screen">
+  
+  <div id="app" class="flex flex-col min-h-screen">
     
     <!-- ==================== VIEW 1: SUPER-ADMIN LOGIN ==================== -->
     <div v-if="!isAuthenticated" class="min-h-screen flex items-center justify-center p-4 relative overflow-hidden bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-slate-900 via-slate-950 to-black">
@@ -65,9 +99,9 @@ const MANAGER_HTML = `<!DOCTYPE html>
         </div>
 
         <!-- Login Card -->
-        <div class="bg-slate-900/90 border border-slate-800 backdrop-blur-xl rounded-3xl p-6 sm:p-8 shadow-2xl space-y-5">
+        <div class="bg-slate-900/95 border border-slate-800 backdrop-blur-xl rounded-3xl p-6 sm:p-8 shadow-2xl space-y-5">
           
-          <div v-if="loginError" class="p-3.5 rounded-xl bg-red-950/80 border border-red-500/50 text-red-200 text-xs flex items-start gap-2.5 animate-shake">
+          <div v-if="loginError" class="p-3.5 rounded-xl bg-red-950/80 border border-red-500/50 text-red-200 text-xs flex items-start gap-2.5">
             <i class="fa-solid fa-circle-exclamation text-red-400 mt-0.5 flex-shrink-0"></i>
             <span class="leading-relaxed">{{ loginError }}</span>
           </div>
@@ -124,7 +158,7 @@ const MANAGER_HTML = `<!DOCTYPE html>
           <div class="pt-4 border-t border-slate-800/80 flex items-center justify-between text-[11px] text-slate-500">
             <span class="flex items-center gap-1.5">
               <span class="w-2 h-2 rounded-full" :class="dbConnected ? 'bg-emerald-400' : 'bg-amber-400'"></span>
-              <span>DB Auth: {{ dbConnected ? 'Connected' : 'Connecting...' }}</span>
+              <span>DB Auth: {{ dbConnected ? 'Connected' : 'Ready' }}</span>
             </span>
             <a :href="backendAppUrl" target="_blank" class="text-sky-400 hover:text-sky-300 transition">
               Main App <i class="fa-solid fa-arrow-up-right-from-square text-[9px]"></i>
@@ -312,7 +346,7 @@ const MANAGER_HTML = `<!DOCTYPE html>
                   <i class="fa-solid fa-database text-amber-400"></i> Database & Metrics
                 </span>
                 <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                  DB Connected
+                  DB Ready
                 </span>
               </div>
               <div class="grid grid-cols-2 gap-3 text-xs font-mono">
@@ -458,387 +492,402 @@ const MANAGER_HTML = `<!DOCTYPE html>
   </div>
 
   <script>
-    const { createApp, ref, computed, onMounted, onUnmounted, nextTick } = Vue;
+    (function() {
+      // Fallback check if Vue exists
+      if (typeof Vue === 'undefined') {
+        console.error('Vue 3 library failed to load from CDNs. Please check internet connection.');
+        document.body.innerHTML = '<div style="padding: 40px; text-align: center; color: #f87171; font-family: sans-serif;"><h2>Ops Manager Initialization Error</h2><p>Vue 3 runtime could not be loaded from CDN mirrors. Please ensure server has network access or refresh the page.</p></div>';
+        return;
+      }
 
-    createApp({
-      setup() {
-        const isAuthenticated = ref(false);
-        const currentUser = ref({});
-        const dbConnected = ref(true);
-        const dbHost = ref('');
-        
-        const loginForm = ref({ username: '', password: '' });
-        const loggingIn = ref(false);
-        const loginError = ref('');
-        const showPassword = ref(false);
+      const { createApp, ref, computed, onMounted, onUnmounted, nextTick } = Vue;
 
-        const targetContainerName = ref('nestjs_api');
-        const containerStatus = ref('running');
-        const dockerAvailable = ref(true);
-        const containerInfo = ref({});
-        const gitInfo = ref({ commitHash: '', shortHash: '', branch: 'main', commitMessage: '', author: '', commitDate: '', source: '' });
-        const systemMetrics = ref({ uptimeSeconds: 0, memoryUsage: {}, nodeVersion: '', platform: '' });
-        
-        const logsRaw = ref('');
-        const logTail = ref(100);
-        const logSearchQuery = ref('');
-        const autoScroll = ref(true);
-        const loadingLogs = ref(false);
-        const logContainer = ref(null);
-        const lastLogFetchTime = ref('Never');
-        
-        const refreshing = ref(false);
-        const refreshInterval = ref(3000);
-        let pollTimer = null;
+      const app = createApp({
+        setup() {
+          const isAuthenticated = ref(false);
+          const currentUser = ref({});
+          const dbConnected = ref(true);
+          const dbHost = ref('');
+          
+          const loginForm = ref({ username: '', password: '' });
+          const loggingIn = ref(false);
+          const loginError = ref('');
+          const showPassword = ref(false);
 
-        const showRestartConfirm = ref(false);
-        const sessionToken = ref(localStorage.getItem('ops_session_token') || '');
+          const targetContainerName = ref('nestjs_api');
+          const containerStatus = ref('running');
+          const dockerAvailable = ref(true);
+          const containerInfo = ref({});
+          const gitInfo = ref({ commitHash: '', shortHash: '', branch: 'main', commitMessage: '', author: '', commitDate: '', source: '' });
+          const systemMetrics = ref({ uptimeSeconds: 0, memoryUsage: {}, nodeVersion: '', platform: '' });
+          
+          const logsRaw = ref('');
+          const logTail = ref(100);
+          const logSearchQuery = ref('');
+          const autoScroll = ref(true);
+          const loadingLogs = ref(false);
+          const logContainer = ref(null);
+          const lastLogFetchTime = ref('Never');
+          
+          const refreshing = ref(false);
+          const refreshInterval = ref(3000);
+          let pollTimer = null;
 
-        const restarting = ref(false);
-        const restartAttempt = ref(0);
+          const showRestartConfirm = ref(false);
+          const sessionToken = ref(localStorage.getItem('ops_session_token') || '');
 
-        const toast = ref({ show: false, message: '', type: 'info' });
-        const showToast = (message, type = 'info') => {
-          toast.value = { show: true, message, type };
-          setTimeout(() => { toast.value.show = false; }, 4000);
-        };
+          const restarting = ref(false);
+          const restartAttempt = ref(0);
 
-        const backendAppUrl = computed(() => {
-          return 'http://' + window.location.hostname + ':3000';
-        });
+          const toast = ref({ show: false, message: '', type: 'info' });
+          const showToast = (message, type = 'info') => {
+            toast.value = { show: true, message, type };
+            setTimeout(() => { toast.value.show = false; }, 4000);
+          };
 
-        const filteredLogs = computed(() => {
-          if (!logsRaw.value) return [];
-          const lines = logsRaw.value.split('\n').filter(l => l.trim().length > 0);
-          if (!logSearchQuery.value.trim()) return lines;
-          const q = logSearchQuery.value.toLowerCase();
-          return lines.filter(l => l.toLowerCase().includes(q));
-        });
+          const backendAppUrl = computed(() => {
+            return 'http://' + window.location.hostname + ':3000';
+          });
 
-        const getLogLineClass = (line) => {
-          const l = line.toLowerCase();
-          if (l.includes('error') || l.includes('fail') || l.includes('fatal') || l.includes('exception')) return 'text-red-400 font-bold';
-          if (l.includes('warn')) return 'text-amber-300';
-          if (l.includes('nest') || l.includes('bootstrap') || l.includes('online') || l.includes('ready') || l.includes('success')) return 'text-emerald-300';
-          if (l.includes('>>>') || l.includes('clone') || l.includes('pull') || l.includes('build')) return 'text-sky-300';
-          return 'text-slate-300';
-        };
+          const filteredLogs = computed(() => {
+            if (!logsRaw.value) return [];
+            const lines = logsRaw.value.split('\\n').filter(l => l.trim().length > 0);
+            if (!logSearchQuery.value.trim()) return lines;
+            const q = logSearchQuery.value.toLowerCase();
+            return lines.filter(l => l.toLowerCase().includes(q));
+          });
 
-        const authHeaders = () => {
-          const headers = { 'Content-Type': 'application/json' };
-          if (sessionToken.value) {
-            headers['Authorization'] = 'Bearer ' + sessionToken.value;
-            headers['X-Ops-Token'] = sessionToken.value;
-          }
-          return headers;
-        };
+          const getLogLineClass = (line) => {
+            const l = line.toLowerCase();
+            if (l.includes('error') || l.includes('fail') || l.includes('fatal') || l.includes('exception')) return 'text-red-400 font-bold';
+            if (l.includes('warn')) return 'text-amber-300';
+            if (l.includes('nest') || l.includes('bootstrap') || l.includes('online') || l.includes('ready') || l.includes('success')) return 'text-emerald-300';
+            if (l.includes('>>>') || l.includes('clone') || l.includes('pull') || l.includes('build')) return 'text-sky-300';
+            return 'text-slate-300';
+          };
 
-        const checkAuth = async () => {
-          try {
-            const res = await fetch('/api/auth/me?_t=' + Date.now(), {
-              headers: authHeaders()
-            });
-            if (res.ok) {
+          const authHeaders = () => {
+            const headers = { 'Content-Type': 'application/json' };
+            if (sessionToken.value) {
+              headers['Authorization'] = 'Bearer ' + sessionToken.value;
+            }
+            return headers;
+          };
+
+          const checkAuth = async () => {
+            try {
+              const res = await fetch('/api/auth/me?_t=' + Date.now(), {
+                headers: authHeaders(),
+                credentials: 'include'
+              });
+              if (res.ok) {
+                const data = await res.json();
+                if (data && data.success && data.user) {
+                  currentUser.value = data.user;
+                  isAuthenticated.value = true;
+                  dbConnected.value = true;
+                  dbHost.value = data.dbHost || '';
+                  fetchStatus();
+                  fetchLogs();
+                  setRefreshInterval(refreshInterval.value);
+                  return true;
+                }
+              }
+            } catch(e) {}
+            isAuthenticated.value = false;
+            return false;
+          };
+
+          const handleLogin = async () => {
+            loggingIn.value = true;
+            loginError.value = '';
+            try {
+              const res = await fetch('/api/auth/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  username: loginForm.value.username,
+                  password: loginForm.value.password
+                })
+              });
               const data = await res.json();
-              if (data && data.success && data.user) {
+              if (res.ok && data.success) {
+                sessionToken.value = data.token;
+                localStorage.setItem('ops_session_token', data.token);
                 currentUser.value = data.user;
                 isAuthenticated.value = true;
-                dbConnected.value = true;
-                dbHost.value = data.dbHost || '';
+                showToast('Super Admin authenticated successfully!', 'success');
+                loginForm.value.password = '';
                 fetchStatus();
                 fetchLogs();
                 setRefreshInterval(refreshInterval.value);
-                return true;
+              } else {
+                loginError.value = data.error || data.message || 'Authentication failed. Please verify Super-Admin credentials.';
               }
+            } catch(e) {
+              loginError.value = 'Network or server error during login: ' + e.message;
+            } finally {
+              loggingIn.value = false;
             }
-          } catch(e) {}
-          isAuthenticated.value = false;
-          return false;
-        };
+          };
 
-        const handleLogin = async () => {
-          loggingIn.value = true;
-          loginError.value = '';
-          try {
-            const res = await fetch('/api/auth/login', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                username: loginForm.value.username,
-                password: loginForm.value.password
-              })
-            });
-            const data = await res.json();
-            if (res.ok && data.success) {
-              sessionToken.value = data.token;
-              localStorage.setItem('ops_session_token', data.token);
-              currentUser.value = data.user;
-              isAuthenticated.value = true;
-              showToast('Super Admin authenticated successfully!', 'success');
-              loginForm.value.password = '';
-              fetchStatus();
-              fetchLogs();
-              setRefreshInterval(refreshInterval.value);
-            } else {
-              loginError.value = data.error || data.message || 'Authentication failed. Please verify Super-Admin credentials.';
-            }
-          } catch(e) {
-            loginError.value = 'Network or server error during login: ' + e.message;
-          } finally {
-            loggingIn.value = false;
-          }
-        };
+          const handleLogout = () => {
+            sessionToken.value = '';
+            localStorage.removeItem('ops_session_token');
+            isAuthenticated.value = false;
+            currentUser.value = {};
+            if (pollTimer) clearInterval(pollTimer);
+            showToast('Logged out of Ops Manager', 'info');
+          };
 
-        const handleLogout = () => {
-          sessionToken.value = '';
-          localStorage.removeItem('ops_session_token');
-          isAuthenticated.value = false;
-          currentUser.value = {};
-          if (pollTimer) clearInterval(pollTimer);
-          showToast('Logged out of Ops Manager', 'info');
-        };
-
-        const fetchStatus = async () => {
-          if (!isAuthenticated.value) return;
-          refreshing.value = true;
-          try {
-            const res = await fetch('/api/status?_t=' + Date.now(), {
-              headers: authHeaders()
-            });
-            if (res.status === 401 || res.status === 403) {
-              handleLogout();
-              return;
-            }
-            if (res.ok) {
-              const data = await res.json();
-              if (data && data.success) {
-                targetContainerName.value = data.targetContainer || targetContainerName.value;
-                gitInfo.value = data.git || gitInfo.value;
-                containerInfo.value = data.container || {};
-                containerStatus.value = data.container?.status || 'running';
-                dockerAvailable.value = data.container?.dockerAvailable ?? true;
-                systemMetrics.value = data.system || systemMetrics.value;
-                dbHost.value = data.dbHost || dbHost.value;
+          const fetchStatus = async () => {
+            if (!isAuthenticated.value) return;
+            refreshing.value = true;
+            try {
+              const res = await fetch('/api/status?_t=' + Date.now(), {
+                headers: authHeaders(),
+                credentials: 'include'
+              });
+              if (res.status === 401 || res.status === 403) {
+                handleLogout();
+                return;
               }
-            }
-          } catch(e) {
-            console.warn('Ops Agent fetchStatus error:', e);
-          } finally {
-            refreshing.value = false;
-          }
-        };
-
-        const fetchLogs = async () => {
-          if (!isAuthenticated.value) return;
-          loadingLogs.value = true;
-          try {
-            const res = await fetch('/api/logs?tail=' + logTail.value + '&_t=' + Date.now(), {
-              headers: authHeaders()
-            });
-            if (res.ok) {
-              const data = await res.json();
-              logsRaw.value = data.logs || 'No log output returned from container.';
-              lastLogFetchTime.value = new Date().toLocaleTimeString();
-              if (autoScroll.value) {
-                nextTick(() => {
-                  if (logContainer.value) {
-                    logContainer.value.scrollTop = logContainer.value.scrollHeight;
-                  }
-                });
+              if (res.ok) {
+                const data = await res.json();
+                if (data && data.success) {
+                  targetContainerName.value = data.targetContainer || targetContainerName.value;
+                  gitInfo.value = data.git || gitInfo.value;
+                  containerInfo.value = data.container || {};
+                  containerStatus.value = data.container?.status || 'running';
+                  dockerAvailable.value = data.container?.dockerAvailable ?? true;
+                  systemMetrics.value = data.system || systemMetrics.value;
+                  dbHost.value = data.dbHost || dbHost.value;
+                }
               }
+            } catch(e) {
+              console.warn('Ops Agent fetchStatus error:', e);
+            } finally {
+              refreshing.value = false;
             }
-          } catch(e) {
-            logsRaw.value = 'Failed to fetch logs: ' + e.message;
-          } finally {
-            loadingLogs.value = false;
-          }
-        };
+          };
 
-        const setRefreshInterval = (ms) => {
-          refreshInterval.value = ms;
-          if (pollTimer) clearInterval(pollTimer);
-          if (ms > 0 && isAuthenticated.value) {
-            pollTimer = setInterval(() => {
-              fetchStatus();
-              fetchLogs();
-            }, ms);
-          }
-        };
+          const fetchLogs = async () => {
+            if (!isAuthenticated.value) return;
+            loadingLogs.value = true;
+            try {
+              const res = await fetch('/api/logs?tail=' + logTail.value + '&_t=' + Date.now(), {
+                headers: authHeaders(),
+                credentials: 'include'
+              });
+              if (res.ok) {
+                const data = await res.json();
+                logsRaw.value = data.logs || 'No log output returned from container.';
+                lastLogFetchTime.value = new Date().toLocaleTimeString();
+                if (autoScroll.value) {
+                  nextTick(() => {
+                    if (logContainer.value) {
+                      logContainer.value.scrollTop = logContainer.value.scrollHeight;
+                    }
+                  });
+                }
+              }
+            } catch(e) {
+              logsRaw.value = 'Failed to fetch logs: ' + e.message;
+            } finally {
+              loadingLogs.value = false;
+            }
+          };
 
-        const triggerRestart = () => {
-          showRestartConfirm.value = true;
-        };
-
-        const confirmRestart = async () => {
-          showRestartConfirm.value = false;
-          restarting.value = true;
-          restartAttempt.value = 1;
-
-          try {
-            const res = await fetch('/api/restart-backend', {
-              method: 'POST',
-              headers: authHeaders(),
-              body: JSON.stringify({ container: targetContainerName.value })
-            });
-            const data = await res.json();
-            if (data.success) {
-              showToast('Restart signal sent to ' + targetContainerName.value, 'success');
-              containerStatus.value = 'restarting';
-              
-              let attempts = 0;
-              const checkTimer = setInterval(async () => {
-                attempts++;
-                restartAttempt.value = attempts * 2;
-                fetchLogs();
+          const setRefreshInterval = (ms) => {
+            refreshInterval.value = ms;
+            if (pollTimer) clearInterval(pollTimer);
+            if (ms > 0 && isAuthenticated.value) {
+              pollTimer = setInterval(() => {
                 fetchStatus();
+                fetchLogs();
+              }, ms);
+            }
+          };
 
-                try {
-                  const check = await fetch(backendAppUrl.value + '/health?_t=' + Date.now());
-                  if (check.ok) {
+          const triggerRestart = () => {
+            showRestartConfirm.value = true;
+          };
+
+          const confirmRestart = async () => {
+            showRestartConfirm.value = false;
+            restarting.value = true;
+            restartAttempt.value = 1;
+
+            try {
+              const res = await fetch('/api/restart-backend', {
+                method: 'POST',
+                headers: authHeaders(),
+                credentials: 'include',
+                body: JSON.stringify({ container: targetContainerName.value })
+              });
+              const data = await res.json();
+              if (data.success) {
+                showToast('Restart signal sent to ' + targetContainerName.value, 'success');
+                containerStatus.value = 'restarting';
+                
+                let attempts = 0;
+                const checkTimer = setInterval(async () => {
+                  attempts++;
+                  restartAttempt.value = attempts * 2;
+                  fetchLogs();
+                  fetchStatus();
+
+                  try {
+                    const check = await fetch(backendAppUrl.value + '/health?_t=' + Date.now());
+                    if (check.ok) {
+                      clearInterval(checkTimer);
+                      restarting.value = false;
+                      containerStatus.value = 'running';
+                      showToast('Backend is back ONLINE and ready!', 'success');
+                    }
+                  } catch(e) {}
+
+                  if (attempts > 30) {
                     clearInterval(checkTimer);
                     restarting.value = false;
-                    containerStatus.value = 'running';
-                    showToast('Backend is back ONLINE and ready!', 'success');
+                    showToast('Restart sequence finished. Check logs above.', 'info');
                   }
-                } catch(e) {}
-
-                if (attempts > 30) {
-                  clearInterval(checkTimer);
-                  restarting.value = false;
-                  showToast('Restart sequence finished. Check logs above.', 'info');
-                }
-              }, 2000);
-            } else {
-              showToast(data.error || data.message || 'Restart failed', 'error');
+                }, 2000);
+              } else {
+                showToast(data.error || data.message || 'Restart failed', 'error');
+                restarting.value = false;
+              }
+            } catch(e) {
+              showToast('Error sending restart: ' + e.message, 'error');
               restarting.value = false;
             }
-          } catch(e) {
-            showToast('Error sending restart: ' + e.message, 'error');
-            restarting.value = false;
-          }
-        };
+          };
 
-        const triggerContainerAction = async (action) => {
-          try {
-            const res = await fetch('/api/container-action', {
-              method: 'POST',
-              headers: authHeaders(),
-              body: JSON.stringify({ container: targetContainerName.value, action })
-            });
-            const data = await res.json();
-            if (data.success) {
-              showToast('Container ' + action + ' command executed successfully', 'success');
-              fetchStatus();
-              fetchLogs();
-            } else {
-              showToast(data.error || 'Action failed', 'error');
+          const triggerContainerAction = async (action) => {
+            try {
+              const res = await fetch('/api/container-action', {
+                method: 'POST',
+                headers: authHeaders(),
+                credentials: 'include',
+                body: JSON.stringify({ container: targetContainerName.value, action })
+              });
+              const data = await res.json();
+              if (data.success) {
+                showToast('Container ' + action + ' command executed successfully', 'success');
+                fetchStatus();
+                fetchLogs();
+              } else {
+                showToast(data.error || 'Action failed', 'error');
+              }
+            } catch(e) {
+              showToast('Action failed: ' + e.message, 'error');
             }
-          } catch(e) {
-            showToast('Action failed: ' + e.message, 'error');
-          }
-        };
+          };
 
-        const copyCommitHash = () => {
-          if (gitInfo.value.commitHash && navigator.clipboard) {
-            navigator.clipboard.writeText(gitInfo.value.commitHash);
-            showToast('Git commit hash copied to clipboard!', 'success');
-          }
-        };
+          const copyCommitHash = () => {
+            if (gitInfo.value.commitHash && navigator.clipboard) {
+              navigator.clipboard.writeText(gitInfo.value.commitHash);
+              showToast('Git commit hash copied to clipboard!', 'success');
+            }
+          };
 
-        const copyLogs = () => {
-          if (logsRaw.value && navigator.clipboard) {
-            navigator.clipboard.writeText(logsRaw.value);
-            showToast('Container logs copied to clipboard!', 'success');
-          }
-        };
+          const copyLogs = () => {
+            if (logsRaw.value && navigator.clipboard) {
+              navigator.clipboard.writeText(logsRaw.value);
+              showToast('Container logs copied to clipboard!', 'success');
+            }
+          };
 
-        const formatUptime = (sec) => {
-          if (!sec || isNaN(sec)) return '0m';
-          const h = Math.floor(sec / 3600);
-          const m = Math.floor((sec % 3600) / 60);
-          const s = Math.floor(sec % 60);
-          if (h > 0) return h + 'h ' + m + 'm ' + s + 's';
-          if (m > 0) return m + 'm ' + s + 's';
-          return s + 's';
-        };
+          const formatUptime = (sec) => {
+            if (!sec || isNaN(sec)) return '0m';
+            const h = Math.floor(sec / 3600);
+            const m = Math.floor((sec % 3600) / 60);
+            const s = Math.floor(sec % 60);
+            if (h > 0) return h + 'h ' + m + 'm ' + s + 's';
+            if (m > 0) return m + 'm ' + s + 's';
+            return s + 's';
+          };
 
-        const formatMemory = (bytes) => {
-          if (!bytes) return '0 MB';
-          return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
-        };
+          const formatMemory = (bytes) => {
+            if (!bytes) return '0 MB';
+            return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+          };
 
-        const formatTime = (iso) => {
-          if (!iso) return '';
-          try { return new Date(iso).toLocaleString(); } catch(e) { return iso; }
-        };
+          const formatTime = (iso) => {
+            if (!iso) return '';
+            try { return new Date(iso).toLocaleString(); } catch(e) { return iso; }
+          };
 
-        const formatRelativeTime = (iso) => {
-          if (!iso) return '';
-          try {
-            const diff = Date.now() - new Date(iso).getTime();
-            const mins = Math.floor(diff / 60000);
-            if (mins < 60) return mins + ' mins ago';
-            const hrs = Math.floor(mins / 60);
-            return hrs + ' hours ago';
-          } catch(e) { return iso; }
-        };
+          const formatRelativeTime = (iso) => {
+            if (!iso) return '';
+            try {
+              const diff = Date.now() - new Date(iso).getTime();
+              const mins = Math.floor(diff / 60000);
+              if (mins < 60) return mins + ' mins ago';
+              const hrs = Math.floor(mins / 60);
+              return hrs + ' hours ago';
+            } catch(e) { return iso; }
+          };
 
-        onMounted(async () => {
-          await checkAuth();
-        });
+          onMounted(async () => {
+            await checkAuth();
+          });
 
-        onUnmounted(() => {
-          if (pollTimer) clearInterval(pollTimer);
-        });
+          onUnmounted(() => {
+            if (pollTimer) clearInterval(pollTimer);
+          });
 
-        return {
-          isAuthenticated,
-          currentUser,
-          dbConnected,
-          dbHost,
-          loginForm,
-          loggingIn,
-          loginError,
-          showPassword,
-          targetContainerName,
-          containerStatus,
-          dockerAvailable,
-          containerInfo,
-          gitInfo,
-          systemMetrics,
-          logsRaw,
-          logTail,
-          logSearchQuery,
-          autoScroll,
-          loadingLogs,
-          logContainer,
-          lastLogFetchTime,
-          refreshing,
-          refreshInterval,
-          showRestartConfirm,
-          restarting,
-          restartAttempt,
-          toast,
-          backendAppUrl,
-          filteredLogs,
-          getLogLineClass,
-          handleLogin,
-          handleLogout,
-          fetchStatus,
-          fetchLogs,
-          setRefreshInterval,
-          triggerRestart,
-          confirmRestart,
-          triggerContainerAction,
-          copyCommitHash,
-          copyLogs,
-          formatUptime,
-          formatMemory,
-          formatTime,
-          formatRelativeTime
-        };
-      }
-    }).mount('#app');
+          return {
+            isAuthenticated,
+            currentUser,
+            dbConnected,
+            dbHost,
+            loginForm,
+            loggingIn,
+            loginError,
+            showPassword,
+            targetContainerName,
+            containerStatus,
+            dockerAvailable,
+            containerInfo,
+            gitInfo,
+            systemMetrics,
+            logsRaw,
+            logTail,
+            logSearchQuery,
+            autoScroll,
+            loadingLogs,
+            logContainer,
+            lastLogFetchTime,
+            refreshing,
+            refreshInterval,
+            showRestartConfirm,
+            restarting,
+            restartAttempt,
+            toast,
+            backendAppUrl,
+            filteredLogs,
+            getLogLineClass,
+            handleLogin,
+            handleLogout,
+            fetchStatus,
+            fetchLogs,
+            setRefreshInterval,
+            triggerRestart,
+            confirmRestart,
+            triggerContainerAction,
+            copyCommitHash,
+            copyLogs,
+            formatUptime,
+            formatMemory,
+            formatTime,
+            formatRelativeTime
+          };
+        }
+      });
+
+      app.mount('#app');
+    })();
   </script>
 </body>
 </html>`;
