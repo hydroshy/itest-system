@@ -71,7 +71,7 @@ export const LOGIN_HTML = `<!DOCTYPE html>
               v-model="username"
               type="text"
               required
-              placeholder="Enter username"
+              placeholder="Username"
               autocomplete="username"
               class="w-full pl-10 pr-4 py-2.5 bg-slate-950/80 border border-slate-700/80 rounded-xl text-sm text-white placeholder-slate-500 focus:outline-none input-focus transition"
             />
@@ -88,7 +88,7 @@ export const LOGIN_HTML = `<!DOCTYPE html>
               v-model="password"
               :type="showPassword ? 'text' : 'password'"
               required
-              placeholder="••••••••"
+              placeholder="Password"
               autocomplete="current-password"
               class="w-full pl-10 pr-10 py-2.5 bg-slate-950/80 border border-slate-700/80 rounded-xl text-sm text-white placeholder-slate-500 focus:outline-none input-focus transition"
             />
@@ -127,8 +127,8 @@ export const LOGIN_HTML = `<!DOCTYPE html>
 
     createApp({
       setup() {
-        const username = ref('admin');
-        const password = ref('Dvt@123');
+        const username = ref('');
+        const password = ref('');
         const showPassword = ref(false);
         const rememberMe = ref(true);
         const loading = ref(false);

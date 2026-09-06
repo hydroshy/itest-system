@@ -109,14 +109,14 @@ const MANAGER_HTML = `<!DOCTYPE html>
           <form @submit.prevent="handleLogin" class="space-y-4">
             <div>
               <label class="block text-xs font-semibold text-slate-300 mb-1.5">
-                <i class="fa-regular fa-user text-slate-400 mr-1"></i> Username or Email
+                <i class="fa-regular fa-user text-slate-400 mr-1"></i> Username
               </label>
               <input
                 v-model="loginForm.username"
                 type="text"
                 required
                 autocomplete="username"
-                placeholder="admin or superadmin@daviteq.com"
+                placeholder="Username"
                 class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500 transition font-mono"
               >
             </div>
@@ -131,7 +131,7 @@ const MANAGER_HTML = `<!DOCTYPE html>
                   :type="showPassword ? 'text' : 'password'"
                   required
                   autocomplete="current-password"
-                  placeholder="••••••••••••"
+                  placeholder="Password"
                   class="w-full bg-slate-950 border border-slate-800 rounded-xl pl-3.5 pr-10 py-2.5 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500 transition font-mono"
                 >
                 <button
