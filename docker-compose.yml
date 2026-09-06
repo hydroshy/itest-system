@@ -16,7 +16,6 @@ services:
       - JWT_SECRET=Production_Super_Secret_Key_Change_Me_2025!
       - DB_ROUTING_CONFIG_PATH=/app/config/db-routing.config.json
       - OPS_AGENT_URL=http://ops_agent:3099
-      - OPS_SECRET_TOKEN=daviteq_ops_secret_token_2026
     volumes:
       - ./config:/app/config
     depends_on:
@@ -39,13 +38,11 @@ services:
       - PORT=3099
       - TARGET_CONTAINER_NAME=nest_lorawan_app
       - REPO_DIR=/app/repo
-      - JWT_SECRET=Production_Super_Secret_Key_Change_Me_2025!
       - DB_HOST=postgres_db
       - DB_PORT=5432
       - DB_USERNAME=admin
       - DB_PASSWORD=mason
       - DB_DATABASE=dvt
-      - OPS_SECRET_TOKEN=daviteq_ops_secret_token_2026
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - .:/app/repo:ro

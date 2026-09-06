@@ -9,8 +9,7 @@ const bcrypt = require('bcryptjs');
 const PORT = parseInt(process.env.PORT || '3099', 10);
 const DEFAULT_TARGET_CONTAINER = process.env.TARGET_CONTAINER_NAME || 'nestjs_api';
 const DOCKER_SOCKET = process.env.DOCKER_SOCKET || '/var/run/docker.sock';
-const JWT_SECRET = process.env.JWT_SECRET || 'Production_Super_Secret_Key_Change_Me_2025!';
-const OPS_SECRET_TOKEN = process.env.OPS_SECRET_TOKEN || 'daviteq_ops_secret_token_2026';
+const JWT_SECRET = process.env.JWT_SECRET || 'super_secret_lorawan_key_2025';
 
 const CANDIDATE_REPO_DIRS = [
   process.env.REPO_DIR,
@@ -134,17 +133,7 @@ function verifySessionToken(tokenString) {
   if (!tokenString || typeof tokenString !== 'string') return null;
   const token = tokenString.replace(/^Bearer\s+/i, '').trim();
 
-  // 1. Check for hardcoded service secret token
-  if (token === OPS_SECRET_TOKEN) {
-    return {
-      username: 'service_admin',
-      fullName: 'System Ops Service',
-      userType: 'ADMIN',
-      roles: ['SUPER_ADMIN']
-    };
-  }
-
-  // 2. Validate JWT signature and payload
+  // Validate JWT signature and payload
   const parts = token.split('.');
   if (parts.length !== 3) return null;
 

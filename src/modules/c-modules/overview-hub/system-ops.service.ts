@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import * as fs from 'fs';
 import * as path from 'path';
+import * as crypto from 'crypto';
 import { execSync } from 'child_process';
 import * as http from 'http';
 
@@ -39,13 +40,28 @@ export interface SystemVersionResponse {
 export class SystemOpsService {
   private readonly logger = new Logger(SystemOpsService.name);
   private activeOpsAgentUrl: string | null = null;
-  private readonly opsSecretToken = process.env.OPS_SECRET_TOKEN || 'daviteq_ops_secret_token_2026';
+  private readonly jwtSecret = process.env.JWT_SECRET || 'super_secret_lorawan_key_2025';
   private readonly repoDirs = [
     path.resolve(__dirname, '../../../../'),
     '/app/dvt',
     '/app/repo',
     process.cwd(),
   ];
+
+  private getSuperAdminAuthToken(): string {
+    const header = Buffer.from(JSON.stringify({ alg: 'HS256', typ: 'JWT' })).toString('base64url');
+    const payload = Buffer.from(JSON.stringify({
+      sub: 'nest_system',
+      username: 'admin',
+      userType: 'ADMIN',
+      roles: ['SUPER_ADMIN'],
+      iss: 'daviteq-backend',
+      iat: Math.floor(Date.now() / 1000),
+      exp: Math.floor(Date.now() / 1000) + 3600,
+    })).toString('base64url');
+    const signature = crypto.createHmac('sha256', this.jwtSecret).update(`${header}.${payload}`).digest('base64url');
+    return `${header}.${payload}.${signature}`;
+  }
 
   private get candidateOpsUrls(): string[] {
     const urls: string[] = [];
@@ -247,7 +263,7 @@ export class SystemOpsService {
           method,
           headers: {
             'Content-Type': 'application/json',
-            'X-Ops-Token': this.opsSecretToken,
+            'Authorization': `Bearer ${this.getSuperAdminAuthToken()}`,
           },
           timeout: 2500,
         };
