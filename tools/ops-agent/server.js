@@ -4,18 +4,25 @@ const path = require('path');
 const { execSync } = require('child_process');
 
 const PORT = parseInt(process.env.PORT || '3099', 10);
-const TARGET_CONTAINER = process.env.TARGET_CONTAINER_NAME || 'nest_lorawan_app';
+const DEFAULT_TARGET_CONTAINER = process.env.TARGET_CONTAINER_NAME || 'nestjs_api';
 const DOCKER_SOCKET = process.env.DOCKER_SOCKET || '/var/run/docker.sock';
-const REPO_DIR = process.env.REPO_DIR || path.resolve(__dirname, '../../');
 const OPS_SECRET_TOKEN = process.env.OPS_SECRET_TOKEN || 'daviteq_ops_secret_token_2026';
 
+const CANDIDATE_REPO_DIRS = [
+  process.env.REPO_DIR,
+  '/app/dvt',
+  '/app/repo',
+  path.resolve(__dirname, '../../'),
+  process.cwd()
+].filter(Boolean);
+
 console.log(`[Daviteq Ops Agent] Initializing service...`);
-console.log(`[Daviteq Ops Agent] Target container: ${TARGET_CONTAINER}`);
+console.log(`[Daviteq Ops Agent] Default target container: ${DEFAULT_TARGET_CONTAINER}`);
 console.log(`[Daviteq Ops Agent] Docker socket path: ${DOCKER_SOCKET}`);
-console.log(`[Daviteq Ops Agent] Repo directory: ${REPO_DIR}`);
+console.log(`[Daviteq Ops Agent] Candidate repo directories: ${CANDIDATE_REPO_DIRS.join(', ')}`);
 
 /**
- * Extract Git metadata safely from repo or environment
+ * Extract Git metadata safely from repo candidate directories or environment
  */
 function getGitMetadata() {
   let gitInfo = {
@@ -29,58 +36,60 @@ function getGitMetadata() {
     source: 'env',
   };
 
-  try {
-    if (fs.existsSync(path.join(REPO_DIR, '.git'))) {
-      const logOutput = execSync('git log -1 --format="%H|%h|%s|%an|%ad|%D"', {
-        cwd: REPO_DIR,
-        encoding: 'utf8',
-        timeout: 2000,
-      }).trim();
-
-      const branchOutput = execSync('git rev-parse --abbrev-ref HEAD', {
-        cwd: REPO_DIR,
-        encoding: 'utf8',
-        timeout: 2000,
-      }).trim();
-
-      if (logOutput) {
-        const parts = logOutput.split('|');
-        gitInfo = {
-          commitHash: parts[0] || 'unknown',
-          shortHash: parts[1] || (parts[0] ? parts[0].substring(0, 7) : 'unknown'),
-          commitMessage: parts[2] || '',
-          author: parts[3] || 'Daviteq Team',
-          commitDate: parts[4] || new Date().toISOString(),
-          branch: branchOutput || 'main',
-          tag: parts[5] || '',
-          source: 'git-repo',
-        };
-      }
-    }
-  } catch (err) {
-    // Fallback if git binary not found or inside minimal container without git CLI
+  for (const dir of CANDIDATE_REPO_DIRS) {
     try {
-      const headFile = path.join(REPO_DIR, '.git', 'HEAD');
-      if (fs.existsSync(headFile)) {
-        const headContent = fs.readFileSync(headFile, 'utf8').trim();
-        if (headContent.startsWith('ref: ')) {
-          const refPath = headContent.replace('ref: ', '').trim();
-          gitInfo.branch = refPath.replace('refs/heads/', '');
-          const refFile = path.join(REPO_DIR, '.git', refPath);
-          if (fs.existsSync(refFile)) {
-            const hash = fs.readFileSync(refFile, 'utf8').trim();
-            gitInfo.commitHash = hash;
-            gitInfo.shortHash = hash.substring(0, 7);
-            gitInfo.source = 'git-files';
-          }
-        } else {
-          gitInfo.commitHash = headContent;
-          gitInfo.shortHash = headContent.substring(0, 7);
-          gitInfo.source = 'git-head-detached';
+      if (fs.existsSync(path.join(dir, '.git'))) {
+        const logOutput = execSync('git log -1 --format="%H|%h|%s|%an|%ad|%D"', {
+          cwd: dir,
+          encoding: 'utf8',
+          timeout: 2000,
+        }).trim();
+
+        const branchOutput = execSync('git rev-parse --abbrev-ref HEAD', {
+          cwd: dir,
+          encoding: 'utf8',
+          timeout: 2000,
+        }).trim();
+
+        if (logOutput) {
+          const parts = logOutput.split('|');
+          gitInfo = {
+            commitHash: parts[0] || 'unknown',
+            shortHash: parts[1] || (parts[0] ? parts[0].substring(0, 7) : 'unknown'),
+            commitMessage: parts[2] || '',
+            author: parts[3] || 'Daviteq Team',
+            commitDate: parts[4] || new Date().toISOString(),
+            branch: branchOutput || 'main',
+            tag: parts[5] || '',
+            source: 'git-repo',
+          };
+          return gitInfo;
         }
       }
-    } catch (fallbackErr) {
-      // Keep existing default
+    } catch (err) {
+      try {
+        const headFile = path.join(dir, '.git', 'HEAD');
+        if (fs.existsSync(headFile)) {
+          const headContent = fs.readFileSync(headFile, 'utf8').trim();
+          if (headContent.startsWith('ref: ')) {
+            const refPath = headContent.replace('ref: ', '').trim();
+            gitInfo.branch = refPath.replace('refs/heads/', '');
+            const refFile = path.join(dir, '.git', refPath);
+            if (fs.existsSync(refFile)) {
+              const hash = fs.readFileSync(refFile, 'utf8').trim();
+              gitInfo.commitHash = hash;
+              gitInfo.shortHash = hash.substring(0, 7);
+              gitInfo.source = 'git-files';
+              return gitInfo;
+            }
+          } else {
+            gitInfo.commitHash = headContent;
+            gitInfo.shortHash = headContent.substring(0, 7);
+            gitInfo.source = 'git-head-detached';
+            return gitInfo;
+          }
+        }
+      } catch (fallbackErr) {}
     }
   }
 
@@ -91,7 +100,7 @@ function getGitMetadata() {
  * Call Docker Engine Unix Socket
  */
 function callDockerSocket(apiPath, method = 'GET', postData = null) {
-  return new Promise((resolve, reject) => {
+  return new Promise((resolve) => {
     if (!fs.existsSync(DOCKER_SOCKET)) {
       return resolve({
         available: false,
@@ -143,6 +152,42 @@ function callDockerSocket(apiPath, method = 'GET', postData = null) {
 }
 
 /**
+ * Automatically resolve target container name from Docker or fallback
+ */
+async function resolveTargetContainer(requestedName) {
+  if (requestedName) return requestedName;
+
+  // Try checking direct default
+  if (DEFAULT_TARGET_CONTAINER) {
+    const check = await callDockerSocket(`/v1.41/containers/${DEFAULT_TARGET_CONTAINER}/json`);
+    if (check.available && check.statusCode === 200) {
+      return DEFAULT_TARGET_CONTAINER;
+    }
+  }
+
+  // Fallback candidate search
+  try {
+    const listRes = await callDockerSocket('/v1.41/containers/json?all=1');
+    if (listRes.available && Array.isArray(listRes.data)) {
+      const match = listRes.data.find((c) => {
+        const names = c.Names || [];
+        return names.some((n) =>
+          n.includes('nestjs') ||
+          n.includes('nest_lorawan') ||
+          n.includes('dvt') ||
+          n.includes('backend')
+        );
+      });
+      if (match && match.Names && match.Names[0]) {
+        return match.Names[0].replace(/^\//, '');
+      }
+    }
+  } catch (e) {}
+
+  return DEFAULT_TARGET_CONTAINER || 'nestjs_api';
+}
+
+/**
  * Verify authentication token
  */
 function isAuthorized(req) {
@@ -186,7 +231,7 @@ const server = http.createServer(async (req, res) => {
       status: 'ok',
       service: 'daviteq-ops-agent',
       uptime: Math.round(process.uptime()),
-      targetContainer: TARGET_CONTAINER,
+      defaultTarget: DEFAULT_TARGET_CONTAINER,
       timestamp: new Date().toISOString(),
     });
   }
@@ -194,10 +239,11 @@ const server = http.createServer(async (req, res) => {
   // 2. Status & Version Information
   if (pathname === '/api/status' && req.method === 'GET') {
     const gitInfo = getGitMetadata();
-    const dockerStatus = await callDockerSocket(`/v1.41/containers/${TARGET_CONTAINER}/json`);
-    
+    const target = await resolveTargetContainer(url.searchParams.get('container'));
+    const dockerStatus = await callDockerSocket(`/v1.41/containers/${target}/json`);
+
     let containerInfo = {
-      name: TARGET_CONTAINER,
+      name: target,
       status: dockerStatus.available ? (dockerStatus.data?.State?.Status || 'running') : 'unknown_socket_unmounted',
       state: dockerStatus.data?.State || null,
       created: dockerStatus.data?.Created || null,
@@ -208,7 +254,7 @@ const server = http.createServer(async (req, res) => {
     return sendJson(res, 200, {
       success: true,
       service: 'daviteq-ops-agent',
-      targetContainer: TARGET_CONTAINER,
+      targetContainer: target,
       git: gitInfo,
       container: containerInfo,
       system: {
@@ -227,12 +273,21 @@ const server = http.createServer(async (req, res) => {
       return sendJson(res, 401, { success: false, error: 'Unauthorized. Invalid or missing X-Ops-Token header.' });
     }
 
-    console.log(`[Daviteq Ops Agent] 🔄 Received restart request for container '${TARGET_CONTAINER}'...`);
-    
-    const restartResult = await callDockerSocket(`/v1.41/containers/${TARGET_CONTAINER}/restart?t=5`, 'POST');
+    let bodyData = {};
+    try {
+      let bodyText = '';
+      for await (const chunk of req) {
+        bodyText += chunk;
+      }
+      if (bodyText) bodyData = JSON.parse(bodyText);
+    } catch (e) {}
+
+    const target = await resolveTargetContainer(bodyData.container || url.searchParams.get('container'));
+    console.log(`[Daviteq Ops Agent] 🔄 Received restart request for container '${target}'...`);
+
+    const restartResult = await callDockerSocket(`/v1.41/containers/${target}/restart?t=5`, 'POST');
 
     if (!restartResult.available) {
-      // If docker socket is not mounted, return simulated / fallback notice
       return sendJson(res, 200, {
         success: false,
         dockerAvailable: false,
@@ -242,10 +297,11 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (restartResult.statusCode === 204 || restartResult.statusCode === 200) {
-      console.log(`[Daviteq Ops Agent]  Container '${TARGET_CONTAINER}' restart signal executed successfully.`);
+      console.log(`[Daviteq Ops Agent] Container '${target}' restart signal executed successfully.`);
       return sendJson(res, 200, {
         success: true,
-        message: `Container '${TARGET_CONTAINER}' restarted successfully via Docker Engine API.`,
+        message: `Container '${target}' restarted successfully via Docker Engine API.`,
+        container: target,
         timestamp: new Date().toISOString(),
       });
     } else {
@@ -263,12 +319,13 @@ const server = http.createServer(async (req, res) => {
       return sendJson(res, 401, { success: false, error: 'Unauthorized. Invalid or missing X-Ops-Token header.' });
     }
 
+    const target = await resolveTargetContainer(url.searchParams.get('container'));
     const tail = parseInt(url.searchParams.get('tail') || '50', 10);
-    const logsResult = await callDockerSocket(`/v1.41/containers/${TARGET_CONTAINER}/logs?stdout=1&stderr=1&tail=${tail}&timestamps=1`);
+    const logsResult = await callDockerSocket(`/v1.41/containers/${target}/logs?stdout=1&stderr=1&tail=${tail}&timestamps=1`);
 
     return sendJson(res, 200, {
       success: true,
-      container: TARGET_CONTAINER,
+      container: target,
       logs: logsResult.raw || logsResult.data || logsResult.error || 'No logs available',
       dockerAvailable: logsResult.available,
     });
@@ -279,5 +336,5 @@ const server = http.createServer(async (req, res) => {
 });
 
 server.listen(PORT, '0.0.0.0', () => {
-  console.log(`[Daviteq Ops Agent]  Server listening on http://0.0.0.0:${PORT}`);
+  console.log(`[Daviteq Ops Agent] Server listening on http://0.0.0.0:${PORT}`);
 });
