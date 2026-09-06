@@ -316,13 +316,13 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
               <div class="text-[11px] text-slate-500">ThingPark & ChirpStack v4</div>
             </div>
 
-            <div @click="switchTab('modules')" class="glass-card rounded-xl p-4 space-y-1 cursor-pointer hover:border-cyan-500/40 transition">
+            <div @click="switchTab('devices')" class="glass-card rounded-xl p-4 space-y-1 cursor-pointer hover:border-teal-500/40 transition">
               <div class="flex items-center justify-between text-xs text-slate-400 font-medium">
-                <span>Dashboard Modules</span>
-                <i class="fa-solid fa-cubes text-cyan-400 text-sm"></i>
+                <span>Device Fleet</span>
+                <i class="fa-solid fa-microchip text-teal-400 text-sm"></i>
               </div>
-              <div class="text-xl font-extrabold text-white pt-1">{{ modulesList.length || '--' }}</div>
-              <div class="text-[11px] text-slate-500">{{ modulesList.filter(m => m.isActive !== false).length }} Active on User Portal</div>
+              <div class="text-xl font-extrabold text-white pt-1">{{ devicesList.length || '--' }}</div>
+              <div class="text-[11px] text-slate-500">Registered End-Devices</div>
             </div>
 
             <div @click="switchTab('roles')" class="glass-card rounded-xl p-4 space-y-1 cursor-pointer hover:border-amber-500/40 transition">
@@ -841,8 +841,8 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
                 </button>
               </div>
 
-              <!-- Metabase Responsive Grid Canvas -->
-              <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4 p-4 rounded-2xl bg-slate-950/70 border border-slate-800/80">
+              <!-- Metabase Responsive 12-Column Grid Canvas -->
+              <div class="grid grid-cols-12 gap-5 p-4 rounded-2xl bg-slate-950/70 border border-slate-800/80">
                 <div
                   v-for="(mod, index) in currentRoleModuleList"
                   :key="mod.id"
@@ -853,7 +853,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
                   @dragend="onDragEnd"
                   class="p-4 bg-slate-900/90 rounded-2xl border transition-all duration-150 flex flex-col justify-between space-y-3 group select-none shadow-md"
                   :class="[
-                    mod.span === 2 ? 'md:col-span-2' : 'col-span-1',
+                    mod.span === 2 ? 'col-span-12 md:col-span-12 lg:col-span-8' : 'col-span-12 sm:col-span-6 lg:col-span-4',
                     mod.isActive !== false ? 'border-slate-800 hover:border-cyan-500/40' : 'border-red-500/20 opacity-60 bg-red-950/10',
                     isEditingRoleLayout ? 'cursor-grab active:cursor-grabbing border-dashed ring-1 ring-cyan-500/30 hover:scale-[1.01]' : '',
                     dragOverModuleIndex === index && isEditingRoleLayout ? 'border-cyan-400 bg-cyan-950/30 ring-2 ring-cyan-400' : ''

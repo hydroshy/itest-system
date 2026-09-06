@@ -31,7 +31,7 @@ export interface SaveRoleLayoutDto {
 @Injectable()
 export class DModulesService implements OnModuleInit {
   private readonly logger = new Logger(DModulesService.name);
-  private readonly configPath = path.join(process.cwd(), 'config', 'dashboard-modules.json');
+  private readonly configPath = process.env.DASHBOARD_MODULES_CONFIG_PATH || path.join(process.cwd(), 'config', 'dashboard-modules.json');
   private modules: DModule[] = [];
   private roleLayouts: Record<string, RoleLayoutConfig> = {};
 

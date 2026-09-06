@@ -198,14 +198,14 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
           </div>
         </div>
 
-        <!-- Grid of Action Feature Buttons / Cards -->
-        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-5 gap-6">
+        <!-- Grid of Action Feature Buttons / Cards (12-Column Responsive Layout) -->
+        <div class="grid grid-cols-12 gap-6 sm:gap-8">
           <div
             v-for="feature in accessibleFeatures"
             :key="feature.id"
             @click="openFeature(feature)"
-            class="glass-card rounded-2xl p-5 space-y-3 cursor-pointer group flex flex-col justify-between"
-            :class="feature.span === 2 ? 'sm:col-span-2 md:col-span-2' : 'col-span-1'"
+            class="glass-card rounded-2xl p-5 sm:p-6 space-y-4 cursor-pointer group flex flex-col justify-between hover:border-sky-500/40 hover:shadow-xl hover:shadow-sky-500/5 transition-all duration-200"
+            :class="feature.span === 2 ? 'col-span-12 md:col-span-12 lg:col-span-8' : 'col-span-12 sm:col-span-6 lg:col-span-4'"
           >
             <!-- Card Header -->
             <div class="space-y-3">
