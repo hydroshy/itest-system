@@ -60,7 +60,7 @@ export class RolesService implements OnModuleInit, OnApplicationBootstrap {
         { name: 'network_server:read', module: 'network_servers', action: 'read', description: 'View Network Servers (ThingPark, ChirpStack)' },
         { name: 'network_server:manage', module: 'network_servers', action: 'manage', description: 'Create & Edit Network Servers and Region Profiles' },
 
-        { name: 'database:read', module: 'database', action: 'read', description: 'View Database Health' },
+        { name: 'database:read', module: 'database', action: 'read', description: 'View Database Manager' },
         { name: 'database:manage', module: 'database', action: 'manage', description: 'Hot-Reload Database Config' },
 
         { name: 'lorawan:device:read', module: 'lorawan', action: 'read', description: 'View LoRaWAN Devices' },

@@ -34,6 +34,16 @@ export const C_MODULES_REGISTRY: CModule[] = [
     requiredPermission: 'roles:manage',
   },
   {
+    id: 'c-database-routing',
+    code: 'C_MOD_DATABASE',
+    title: 'Database Manager',
+    description: 'PostgreSQL connection status, real-time pool metrics, table stats, and dynamic multi-DB pool routing.',
+    icon: 'fa-solid fa-database',
+    category: 'Governance',
+    routeHash: '#database',
+    requiredPermission: 'database:read',
+  },
+  {
     id: 'c-roles-rbac',
     code: 'C_MOD_ROLES_RBAC',
     title: 'Roles & RBAC Matrix',
@@ -62,16 +72,6 @@ export const C_MODULES_REGISTRY: CModule[] = [
     category: 'Infrastructure',
     routeHash: '#network-servers',
     requiredPermission: 'network_server:read',
-  },
-  {
-    id: 'c-database-routing',
-    code: 'C_MOD_DATABASE',
-    title: 'Database Health & Table Routing',
-    description: 'Real-time PostgreSQL connection latency, live table statistics, and dynamic multi-DB pool routing.',
-    icon: 'fa-solid fa-database',
-    category: 'Infrastructure',
-    routeHash: '#database',
-    requiredPermission: 'database:read',
   },
   {
     id: 'c-device-fleet-admin',

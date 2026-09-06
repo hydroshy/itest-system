@@ -232,6 +232,13 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
               </span>
             </button>
 
+            <button @click="switchTab('database')" :class="{ active: activeTab === 'database' }" class="nav-item">
+              <span class="flex items-center gap-2.5">
+                <i class="fa-solid fa-database w-4 text-center text-xs text-indigo-400"></i>
+                <span>Database Manager</span>
+              </span>
+            </button>
+
             <button @click="switchTab('roles')" :class="{ active: activeTab === 'roles' }" class="nav-item">
               <span class="flex items-center gap-2.5">
                 <i class="fa-solid fa-shield-halved w-4 text-center text-xs text-amber-400"></i>
@@ -255,13 +262,6 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
               <span class="flex items-center gap-2.5">
                 <i class="fa-solid fa-tower-broadcast w-4 text-center text-xs text-sky-400"></i>
                 <span>Network Servers</span>
-              </span>
-            </button>
-
-            <button @click="switchTab('database')" :class="{ active: activeTab === 'database' }" class="nav-item">
-              <span class="flex items-center gap-2.5">
-                <i class="fa-solid fa-database w-4 text-center text-xs text-indigo-400"></i>
-                <span>Database Health</span>
               </span>
             </button>
 
@@ -511,6 +511,25 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
                 </div>
               </div>
 
+              <!-- Card: Database Manager -->
+              <div @click="switchTab('database')" class="p-4 bg-slate-950/80 hover:bg-slate-900/80 rounded-xl border border-slate-800 hover:border-indigo-500/40 transition cursor-pointer space-y-3 group">
+                <div class="flex items-center justify-between">
+                  <div class="w-10 h-10 rounded-xl bg-indigo-500/10 border border-indigo-500/30 flex items-center justify-center text-indigo-400 text-base shadow-inner group-hover:scale-105 transition">
+                    <i class="fa-solid fa-database"></i>
+                  </div>
+                  <span class="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-emerald-500/10 text-emerald-300 border border-emerald-500/20">
+                    ONLINE
+                  </span>
+                </div>
+                <div>
+                  <h3 class="text-sm font-bold text-white group-hover:text-indigo-400 transition">Database Manager</h3>
+                  <p class="text-xs text-slate-400 mt-1 leading-relaxed">PostgreSQL connection health, real-time pool metrics, table stats, and dynamic multi-DB pool routing.</p>
+                </div>
+                <div class="text-xs text-indigo-400 font-semibold flex items-center gap-1.5 pt-1">
+                  <span>Manage Database</span> <i class="fa-solid fa-arrow-right text-[10px] group-hover:translate-x-1 transition"></i>
+                </div>
+              </div>
+
               <!-- Card: Roles -->
               <div @click="switchTab('roles')" class="p-4 bg-slate-950/80 hover:bg-slate-900/80 rounded-xl border border-slate-800 hover:border-amber-500/40 transition cursor-pointer space-y-3 group">
                 <div class="flex items-center justify-between">
@@ -546,25 +565,6 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
                 </div>
                 <div class="text-xs text-emerald-400 font-semibold flex items-center gap-1.5 pt-1">
                   <span>Manage Users</span> <i class="fa-solid fa-arrow-right text-[10px] group-hover:translate-x-1 transition"></i>
-                </div>
-              </div>
-
-              <!-- Card: Database -->
-              <div @click="switchTab('database')" class="p-4 bg-slate-950/80 hover:bg-slate-900/80 rounded-xl border border-slate-800 hover:border-indigo-500/40 transition cursor-pointer space-y-3 group">
-                <div class="flex items-center justify-between">
-                  <div class="w-10 h-10 rounded-xl bg-indigo-500/10 border border-indigo-500/30 flex items-center justify-center text-indigo-400 text-base shadow-inner group-hover:scale-105 transition">
-                    <i class="fa-solid fa-database"></i>
-                  </div>
-                  <span class="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-emerald-500/10 text-emerald-300 border border-emerald-500/20">
-                    ONLINE
-                  </span>
-                </div>
-                <div>
-                  <h3 class="text-sm font-bold text-white group-hover:text-indigo-400 transition">Database Health & Routing</h3>
-                  <p class="text-xs text-slate-400 mt-1 leading-relaxed">Real-time PostgreSQL connection latency, live table statistics, and dynamic multi-DB pool routing.</p>
-                </div>
-                <div class="text-xs text-indigo-400 font-semibold flex items-center gap-1.5 pt-1">
-                  <span>View Database</span> <i class="fa-solid fa-arrow-right text-[10px] group-hover:translate-x-1 transition"></i>
                 </div>
               </div>
 
@@ -1281,21 +1281,21 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
           </div>
         </div>
 
-        <!-- TAB 6: DATABASE HEALTH -->
+        <!-- TAB: DATABASE MANAGER -->
         <div v-show="activeTab === 'database'" class="space-y-4">
           <div class="glass-card rounded-xl p-5 space-y-4">
             <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
                 <div class="flex items-center gap-3">
                   <h2 class="text-sm font-bold text-white flex items-center gap-2">
-                    <i class="fa-solid fa-heart-pulse text-emerald-400"></i> Visual Database Health & Metrics
+                    <i class="fa-solid fa-database text-indigo-400"></i> Database Manager
                   </h2>
                   <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/25 text-emerald-400 text-[11px] font-mono font-medium">
                     <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
                     core_db &bull; ONLINE
                   </span>
                 </div>
-                <p class="text-[11px] text-slate-400 mt-0.5">Real-time status of PostgreSQL connection pool and latency</p>
+                <p class="text-[11px] text-slate-400 mt-0.5">Real-time status of PostgreSQL connection pools, metrics, and dynamic table routing</p>
               </div>
               <div class="flex items-center gap-2">
                 <button @click="fetchDbHealth" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 text-xs font-semibold flex items-center gap-1.5 cursor-pointer">
@@ -3170,7 +3170,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
             case 'modules': return 'Dashboard module Manager';
             case 'roles': return 'Roles & RBAC';
             case 'users': return 'User Directory';
-            case 'database': return 'Database Health';
+            case 'database': return 'Database Manager';
             case 'devices': return 'Device Fleet';
             case 'webhooks': return 'Webhook Manager';
             case 'decoder': return 'Decoder Manager';
