@@ -48,7 +48,14 @@ export class DModulesService implements OnModuleInit {
 
       if (fs.existsSync(this.configPath)) {
         const raw = fs.readFileSync(this.configPath, 'utf8');
-        const parsed = JSON.parse(raw);
+        let parsed: any;
+        try {
+          parsed = JSON.parse(raw);
+        } catch (parseErr: any) {
+          // JSON parse failed — keep existing in-memory state, do NOT reset to defaults
+          this.logger.error(`Config JSON parse error (keeping in-memory state): ${parseErr.message}`);
+          return;
+        }
 
         // Handle both formats: array or object with modules & roleLayouts
         if (Array.isArray(parsed) && parsed.length > 0) {
@@ -71,17 +78,22 @@ export class DModulesService implements OnModuleInit {
         return;
       }
 
-      // Default fallback
+      // Config file does not exist yet — initialize defaults and save
       this.modules = JSON.parse(JSON.stringify(DEFAULT_D_MODULES));
       this.roleLayouts = {};
       this.saveModules();
       this.logger.log(`Initialized default ${this.modules.length} D-Modules.`);
     } catch (err: any) {
-      this.logger.error(`Error loading D-Modules: ${err.message}`, err.stack);
-      this.modules = JSON.parse(JSON.stringify(DEFAULT_D_MODULES));
-      this.roleLayouts = {};
+      // Only log the error — do NOT overwrite existing in-memory state or reset to defaults
+      this.logger.error(`Error loading D-Modules config: ${err.message}`, err.stack);
+      // Only set defaults if modules is genuinely empty (first load)
+      if (this.modules.length === 0) {
+        this.modules = JSON.parse(JSON.stringify(DEFAULT_D_MODULES));
+        this.roleLayouts = {};
+      }
     }
   }
+
 
   private saveModules() {
     try {

@@ -227,14 +227,11 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
             <h1 class="text-xl sm:text-2xl font-extrabold text-white tracking-tight">
               Welcome back, {{ currentUser.fullName || currentUser.username || 'User' }}
             </h1>
-            <p class="text-xs sm:text-sm text-slate-400 leading-relaxed">
-              Select an operational feature module below to inspect telemetry, manage devices, analyze sensor data, or configure integrations.
-            </p>
           </div>
         </div>
 
         <!-- Grid of Action Feature Buttons / Cards (12-Column Responsive Layout) -->
-        <div class="grid grid-cols-12 gap-6 sm:gap-8">
+        <div class="grid grid-cols-12 gap-4 sm:gap-6">
           <div
             v-for="feature in accessibleFeatures"
             :key="feature.id"
