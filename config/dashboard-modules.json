@@ -12,25 +12,40 @@
       "requiredPermission": "lorawan:device:read",
       "status": "active",
       "isActive": true
+    },
+    {
+      "id": "telemetry-decoder",
+      "code": "D_MOD_TELEMETRY_DECODER",
+      "title": "LIVE TELEMETRY & DECODER",
+      "description": "Inspect live LoRaWAN uplink packets, select created devices via dropdown, and view decoded sensor attributes in tabular format.",
+      "icon": "fa-solid fa-table-list",
+      "color": "from-purple-500 to-indigo-600",
+      "badge": "Telemetry",
+      "category": "Monitoring",
+      "requiredPermission": "lorawan:telemetry:read",
+      "status": "active",
+      "isActive": true
     }
   ],
   "roleLayouts": {
     "SUPER_ADMIN": {
       "roleCode": "SUPER_ADMIN",
       "moduleOrder": [
-        "device-manager"
+        "device-manager",
+        "telemetry-decoder"
       ],
       "disabledModuleIds": [],
-      "updatedAt": "2026-09-05T18:24:00.000Z"
+      "updatedAt": "2026-09-07T02:20:00.000Z"
     },
     "OPERATOR": {
       "roleCode": "OPERATOR",
       "moduleOrder": [
-        "device-manager"
+        "device-manager",
+        "telemetry-decoder"
       ],
       "disabledModuleIds": [],
-      "updatedAt": "2026-09-05T18:24:00.000Z"
+      "updatedAt": "2026-09-07T02:20:00.000Z"
     }
   },
-  "updatedAt": "2026-09-05T18:24:00.000Z"
+  "updatedAt": "2026-09-07T02:20:00.000Z"
 }

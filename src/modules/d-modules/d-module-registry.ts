@@ -41,5 +41,18 @@ export const DEFAULT_D_MODULES: DModule[] = [
     status: 'active',
     isActive: true,
   },
+  {
+    id: 'telemetry-decoder',
+    code: 'D_MOD_TELEMETRY_DECODER',
+    title: 'LIVE TELEMETRY & DECODER',
+    description: 'Inspect live LoRaWAN uplink packets, select created devices via dropdown, and view decoded sensor attributes in tabular format.',
+    icon: 'fa-solid fa-table-list',
+    color: 'from-purple-500 to-indigo-600',
+    badge: 'Telemetry',
+    category: 'Monitoring',
+    requiredPermission: 'lorawan:telemetry:read',
+    status: 'active',
+    isActive: true,
+  },
 ];
 

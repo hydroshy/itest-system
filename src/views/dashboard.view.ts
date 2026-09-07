@@ -421,6 +421,192 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
 
           </div>
 
+          <!-- FEATURE: LIVE TELEMETRY & DECODER -->
+          <div v-else-if="activeFeature.id === 'telemetry-decoder'" class="space-y-5">
+            <!-- Action Toolbar & Filter -->
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-900/60 p-4 rounded-xl border border-slate-800">
+              <div class="flex items-center gap-3">
+                <button @click="returnToHome" title="Back to Dashboard" class="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white text-xs font-semibold cursor-pointer">
+                  <i class="fa-solid fa-arrow-left"></i>
+                </button>
+                <div class="w-10 h-10 rounded-xl bg-purple-500/10 border border-purple-500/25 flex items-center justify-center text-purple-400 text-lg shadow-inner">
+                  <i class="fa-solid fa-table-list"></i>
+                </div>
+                <div>
+                  <div class="flex items-center gap-2">
+                    <h3 class="text-sm font-bold text-white tracking-wide">LIVE TELEMETRY & DECODER</h3>
+                    <span class="px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-400 border border-purple-500/25 text-[10px] font-bold font-mono">
+                      {{ filteredTelemetryList.length }} Packets
+                    </span>
+                  </div>
+                  <p class="text-[11px] text-slate-400 mt-0.5">Inspect real-time LoRaWAN uplink packets and decoded sensor data</p>
+                </div>
+              </div>
+              <div class="flex flex-wrap items-center gap-2.5">
+                <!-- Dropdown: Filter by Device -->
+                <div class="flex items-center gap-1.5 bg-slate-950 p-1 rounded-lg border border-purple-500/30">
+                  <span class="text-[11px] text-purple-300 font-bold px-1.5 flex items-center gap-1">
+                    <i class="fa-solid fa-microchip"></i> Device:
+                  </span>
+                  <select
+                    v-model="selectedTelemetryDeviceEUI"
+                    @change="onSelectTelemetryDevice"
+                    class="px-2.5 py-1 bg-slate-900 border border-slate-700 rounded text-xs text-white font-mono focus:outline-none focus:border-purple-500 max-w-[220px] sm:max-w-[280px]"
+                  >
+                    <option value="">-- All Registered Devices --</option>
+                    <option v-for="dev in devicesList" :key="dev.devEUI" :value="dev.devEUI">
+                      {{ dev.name }} ({{ dev.devEUI }})
+                    </option>
+                  </select>
+                </div>
+
+                <button @click="fetchLiveTelemetry" title="Refresh Telemetry Packets" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 text-xs font-semibold flex items-center gap-1.5 cursor-pointer">
+                  <i class="fa-solid fa-arrows-rotate" :class="{ 'fa-spin': loadingTelemetry }"></i> Refresh
+                </button>
+              </div>
+            </div>
+
+            <!-- Active Selected Packet Strip / Metadata -->
+            <div v-if="activeTelemetryPacket" class="p-4 bg-purple-950/20 border border-purple-500/25 rounded-xl space-y-3">
+              <div class="flex flex-wrap items-center justify-between gap-3 text-xs">
+                <div class="flex items-center gap-3 flex-wrap">
+                  <div class="flex items-center gap-1.5 text-purple-300 font-bold">
+                    <i class="fa-solid fa-satellite-dish text-emerald-400"></i>
+                    <span>Device: {{ activeTelemetryPacket.deviceName || activeTelemetryPacket.devEui }}</span>
+                    <span class="font-mono text-purple-200">({{ activeTelemetryPacket.devEui }})</span>
+                  </div>
+                  <div class="h-4 w-[1px] bg-purple-500/30 hidden sm:block"></div>
+                  <div class="flex items-center gap-2 text-slate-400 font-mono text-[11px]">
+                    <span>FPort: <strong class="text-white">{{ activeTelemetryPacket.fPort || 1 }}</strong></span>
+                    <span>FCnt: <strong class="text-white">#{{ activeTelemetryPacket.fCnt || 0 }}</strong></span>
+                    <span v-if="activeTelemetryPacket.rssi != null">RSSI: <strong class="text-emerald-400">{{ activeTelemetryPacket.rssi }} dBm</strong></span>
+                    <span v-if="activeTelemetryPacket.snr != null">SNR: <strong class="text-sky-400">{{ activeTelemetryPacket.snr }} dB</strong></span>
+                    <span v-if="activeTelemetryPacket.gatewayId">GW: <strong class="text-slate-300">{{ activeTelemetryPacket.gatewayId }}</strong></span>
+                  </div>
+                </div>
+                <div class="text-[11px] font-mono text-slate-400">
+                  <span>Time: {{ formatDateTime(activeTelemetryPacket.timestamp || activeTelemetryPacket.receivedAt) }}</span>
+                </div>
+              </div>
+
+              <!-- Dual View Switcher (Tabular vs Raw JSON) -->
+              <div class="pt-2 border-t border-purple-500/20 space-y-2">
+                <div class="flex items-center justify-between">
+                  <div class="flex items-center gap-1 bg-slate-950 p-0.5 rounded-lg border border-slate-800">
+                    <button
+                      @click="telemetryViewMode = 'tabular'"
+                      :class="telemetryViewMode === 'tabular' ? 'bg-purple-600 text-white font-bold' : 'text-slate-400 hover:text-slate-200'"
+                      class="px-2.5 py-1 rounded text-[11px] transition flex items-center gap-1 cursor-pointer"
+                    >
+                      <i class="fa-solid fa-table"></i> Tabular Sensor Attributes
+                    </button>
+                    <button
+                      @click="telemetryViewMode = 'json'"
+                      :class="telemetryViewMode === 'json' ? 'bg-purple-600 text-white font-bold' : 'text-slate-400 hover:text-slate-200'"
+                      class="px-2.5 py-1 rounded text-[11px] transition flex items-center gap-1 cursor-pointer"
+                    >
+                      <i class="fa-solid fa-code"></i> Raw Decoded JSON
+                    </button>
+                  </div>
+                  <span class="text-[11px] font-mono text-slate-400">
+                    Payload Hex: <strong class="text-purple-300 uppercase">{{ activeTelemetryPacket.payloadHex || activeTelemetryPacket.data || '—' }}</strong>
+                  </span>
+                </div>
+
+                <!-- Tabular View -->
+                <div v-if="telemetryViewMode === 'tabular'" class="bg-slate-950 border border-slate-800 rounded-xl p-3 overflow-x-auto">
+                  <div v-if="activeDecodedFields.length === 0" class="py-6 text-center text-slate-500 text-xs">
+                    <i class="fa-solid fa-circle-info text-base mb-1 block text-slate-600"></i>
+                    <span>No structured sensor attributes decoded in this packet. Raw payload: <code class="text-purple-400">{{ activeTelemetryPacket.payloadHex || activeTelemetryPacket.data }}</code></span>
+                  </div>
+                  <table v-else class="w-full text-left text-xs">
+                    <thead class="text-slate-400 border-b border-slate-800 text-[11px] font-semibold">
+                      <tr>
+                        <th class="pb-2 px-2">Sensor Field</th>
+                        <th class="pb-2 px-2">Decoded Value</th>
+                        <th class="pb-2 px-2 text-right">Data Type</th>
+                      </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-800/60 font-mono text-[11px]">
+                      <tr v-for="f in activeDecodedFields" :key="f.key" class="hover:bg-slate-900/50">
+                        <td class="py-2 px-2 font-bold text-purple-300">{{ f.key }}</td>
+                        <td class="py-2 px-2 text-emerald-400 font-bold break-all">{{ f.value }}</td>
+                        <td class="py-2 px-2 text-right text-slate-500 uppercase text-[10px]">{{ f.type }}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+
+                <!-- Raw JSON View -->
+                <div v-else class="bg-slate-950 border border-slate-800 rounded-xl p-3 max-h-60 overflow-auto custom-scroll">
+                  <pre class="text-emerald-400 text-xs font-mono">{{ JSON.stringify(activeTelemetryPacket.decodedData || activeTelemetryPacket.object || activeTelemetryPacket, null, 2) }}</pre>
+                </div>
+              </div>
+            </div>
+
+            <!-- Telemetry Packets List Table -->
+            <div class="space-y-2">
+              <div class="flex items-center justify-between text-xs">
+                <span class="font-bold text-slate-300 flex items-center gap-1.5">
+                  <i class="fa-solid fa-list-check text-purple-400"></i> Uplink Telemetry Packets Log
+                </span>
+                <span class="text-[11px] font-mono text-slate-500">{{ filteredTelemetryList.length }} packets buffered</span>
+              </div>
+              <div class="overflow-x-auto rounded-xl border border-slate-800 bg-slate-950/70 max-h-96 overflow-y-auto custom-scroll">
+                <div v-if="filteredTelemetryList.length === 0" class="py-12 text-center text-slate-500 text-xs">
+                  <i class="fa-solid fa-satellite-dish text-2xl text-slate-700 mb-2 block"></i>
+                  <span>No uplink telemetry packets received yet.</span>
+                </div>
+                <table v-else class="w-full text-left text-xs border-collapse">
+                  <thead class="bg-slate-900/80 text-slate-400 text-[11px] font-semibold border-b border-slate-800 sticky top-0 z-10">
+                    <tr>
+                      <th class="py-2.5 px-3">Timestamp</th>
+                      <th class="py-2.5 px-3">Device (DevEUI)</th>
+                      <th class="py-2.5 px-3">Port / FCnt</th>
+                      <th class="py-2.5 px-3">Signal (RSSI / SNR)</th>
+                      <th class="py-2.5 px-3">Raw Payload</th>
+                      <th class="py-2.5 px-3">Decoded Attributes</th>
+                      <th class="py-2.5 px-3 text-right">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody class="divide-y divide-slate-800/60 font-mono text-[11px]">
+                    <tr
+                      v-for="(pkt, idx) in filteredTelemetryList"
+                      :key="pkt.id || idx"
+                      :class="activeTelemetryPacket && activeTelemetryPacket.id === pkt.id ? 'bg-purple-950/20' : 'hover:bg-slate-800/40'"
+                      class="transition"
+                    >
+                      <td class="py-2 px-3 text-slate-300 whitespace-nowrap">{{ formatDateTime(pkt.timestamp || pkt.receivedAt) }}</td>
+                      <td class="py-2 px-3">
+                        <div class="font-sans font-bold text-white">{{ pkt.deviceName || 'Device' }}</div>
+                        <div class="text-[10px] text-sky-400">{{ pkt.devEui }}</div>
+                      </td>
+                      <td class="py-2 px-3 text-slate-400">Port {{ pkt.fPort || 1 }} • #{{ pkt.fCnt || 0 }}</td>
+                      <td class="py-2 px-3">
+                        <span v-if="pkt.rssi != null" class="text-emerald-400 font-bold">{{ pkt.rssi }} dBm</span>
+                        <span v-if="pkt.snr != null" class="text-sky-400 ml-1.5">({{ pkt.snr }} dB)</span>
+                        <span v-if="pkt.rssi == null && pkt.snr == null" class="text-slate-500">—</span>
+                      </td>
+                      <td class="py-2 px-3 text-purple-300 font-bold uppercase truncate max-w-[140px]">{{ pkt.payloadHex || pkt.data || '—' }}</td>
+                      <td class="py-2 px-3 text-emerald-400 truncate max-w-[180px]">
+                        {{ formatDecodedSummary(pkt.decodedData || pkt.object) }}
+                      </td>
+                      <td class="py-2 px-3 text-right">
+                        <button
+                          @click="inspectTelemetryPacket(pkt)"
+                          class="px-2.5 py-1 rounded bg-purple-500/15 hover:bg-purple-500/25 text-purple-300 border border-purple-500/30 text-[10px] font-bold cursor-pointer transition flex items-center gap-1 inline-flex"
+                        >
+                          <i class="fa-solid fa-magnifying-glass text-[9px]"></i>
+                          <span>Inspect</span>
+                        </button>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
           <!-- General Module Template for independent module source extension -->
           <div v-else class="text-center py-10 space-y-4">
             <div class="w-16 h-16 rounded-2xl bg-sky-500/10 border border-sky-500/25 flex items-center justify-center text-sky-400 text-2xl mx-auto shadow-inner">
@@ -613,6 +799,79 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
         const telemetryList = ref([]);
         const devicesList = ref([]);
         const networkServersList = ref([]);
+        const selectedTelemetryDeviceEUI = ref('');
+        const loadingTelemetry = ref(false);
+        const activeTelemetryPacket = ref(null);
+        const telemetryViewMode = ref('tabular');
+
+        const filteredTelemetryList = computed(() => {
+          let list = telemetryList.value || [];
+          if (selectedTelemetryDeviceEUI.value) {
+            const eui = selectedTelemetryDeviceEUI.value.toUpperCase();
+            list = list.filter(t => (t.devEui || t.devEUI || '').toUpperCase() === eui);
+          }
+          return list;
+        });
+
+        const activeDecodedFields = computed(() => {
+          if (!activeTelemetryPacket.value) return [];
+          const pkt = activeTelemetryPacket.value;
+          const dataObj = pkt.decodedData || pkt.object || null;
+          if (!dataObj) return [];
+          const res = [];
+          const extractFields = (obj, prefix = '') => {
+            if (!obj || typeof obj !== 'object') return;
+            for (const [k, v] of Object.entries(obj)) {
+              const fullKey = prefix ? prefix + '.' + k : k;
+              if (v === null || v === undefined) {
+                res.push({ key: fullKey, value: 'null', type: 'null' });
+              } else if (typeof v === 'object' && !Array.isArray(v)) {
+                extractFields(v, fullKey);
+              } else if (Array.isArray(v)) {
+                res.push({ key: fullKey, value: JSON.stringify(v), type: 'array' });
+              } else {
+                res.push({ key: fullKey, value: String(v), type: typeof v });
+              }
+            }
+          };
+          if (dataObj.data && typeof dataObj.data === 'object') {
+            extractFields(dataObj.data);
+          } else {
+            extractFields(dataObj);
+          }
+          return res;
+        });
+
+        const onSelectTelemetryDevice = () => {
+          activeTelemetryPacket.value = null;
+          fetchLiveTelemetry();
+        };
+
+        const inspectTelemetryPacket = (pkt) => {
+          activeTelemetryPacket.value = pkt;
+        };
+
+        const formatDecodedSummary = (obj) => {
+          if (!obj) return '—';
+          try {
+            const target = obj.data && typeof obj.data === 'object' ? obj.data : obj;
+            const entries = Object.entries(target).slice(0, 3);
+            if (entries.length === 0) return '—';
+            return entries.map(([k, v]) => k + ': ' + (typeof v === 'object' ? JSON.stringify(v) : v)).join(' • ');
+          } catch(e) {
+            return '—';
+          }
+        };
+
+        const formatDateTime = (dateStr) => {
+          if (!dateStr) return '—';
+          try {
+            const d = new Date(dateStr);
+            return d.toLocaleString();
+          } catch(e) {
+            return String(dateStr);
+          }
+        };
 
         const registerDeviceDialog = ref(false);
         const isEditingDevice = ref(false);
@@ -726,6 +985,9 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
           if (feature.id === 'device-manager' || feature.id === 'device-fleet') {
             fetchDevices();
             fetchNetworkServers();
+          } else if (feature.id === 'telemetry-decoder' || feature.id === 'live-telemetry') {
+            fetchDevices();
+            fetchLiveTelemetry();
           }
         };
 
@@ -787,6 +1049,9 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
                   if (found.id === 'device-manager' || found.id === 'device-fleet') {
                     fetchDevices();
                     fetchNetworkServers();
+                  } else if (found.id === 'telemetry-decoder' || found.id === 'live-telemetry') {
+                    fetchDevices();
+                    fetchLiveTelemetry();
                   }
                 }
               }
@@ -797,10 +1062,23 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
         };
 
         const fetchLiveTelemetry = async () => {
+          loadingTelemetry.value = true;
           try {
-            const res = await fetch('/lorawan/telemetry?limit=25', { headers: authHeaders(), credentials: 'include' });
-            if (res.ok) telemetryList.value = await res.json();
-          } catch(e) {}
+            const url = selectedTelemetryDeviceEUI.value
+              ? '/lorawan/telemetry?devEUI=' + encodeURIComponent(selectedTelemetryDeviceEUI.value) + '&limit=50'
+              : '/lorawan/telemetry?limit=50';
+            const res = await fetch(url, { headers: authHeaders(), credentials: 'include' });
+            if (res.ok) {
+              const data = await res.json();
+              telemetryList.value = Array.isArray(data) ? data : [];
+              if (telemetryList.value.length > 0 && !activeTelemetryPacket.value) {
+                activeTelemetryPacket.value = telemetryList.value[0];
+              }
+            }
+          } catch(e) {
+          } finally {
+            loadingTelemetry.value = false;
+          }
         };
 
         const fetchDevices = async () => {
@@ -1028,6 +1306,16 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
           navigateTo,
           isSuperAdmin,
           telemetryList,
+          selectedTelemetryDeviceEUI,
+          loadingTelemetry,
+          activeTelemetryPacket,
+          telemetryViewMode,
+          filteredTelemetryList,
+          activeDecodedFields,
+          onSelectTelemetryDevice,
+          inspectTelemetryPacket,
+          formatDecodedSummary,
+          formatDateTime,
           devicesList,
           deviceSearchQuery,
           filteredDevices,
