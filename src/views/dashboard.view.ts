@@ -1432,9 +1432,6 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
               const data = await res.json();
               telemetryList.value = Array.isArray(data) ? data : [];
               lastSyncTime.value = new Date();
-              if (telemetryList.value.length > 0 && !activeTelemetryPacket.value) {
-                activeTelemetryPacket.value = telemetryList.value[0];
-              }
             }
           } catch(e) {
           } finally {
