@@ -422,7 +422,8 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
           </div>
 
           <!-- FEATURE: LIVE TELEMETRY & DECODER -->
-          <div v-else-if="activeFeature.id === 'telemetry-decoder'" class="space-y-5">
+          <div v-else-if="activeFeature.id === 'telemetry-decoder'" class="space-y-4">
+
             <!-- Header Toolbar -->
             <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-900/70 p-4 rounded-2xl border border-slate-800 shadow-xl">
               <div class="flex items-center gap-3.5">
@@ -436,19 +437,14 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
                   <div class="flex items-center gap-2 flex-wrap">
                     <h3 class="text-sm font-bold text-white tracking-wide">LIVE TELEMETRY & SENSOR MATRIX</h3>
                     <span class="px-2.5 py-0.5 rounded-full bg-purple-500/10 text-purple-300 border border-purple-500/25 text-[10px] font-bold font-mono">
-                      {{ sortedDashboardMatrixRows.length }} / {{ dashboardMatrixRows.length }} Records
-                    </span>
-                    <span v-if="dashboardSensorColumns.length > 0" class="px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-300 border border-amber-500/25 text-[10px] font-bold font-mono hidden md:inline">
-                      {{ dashboardSensorColumns.length }} Sensor Fields
+                      {{ sortedDashboardMatrixRows.length }} / {{ dashboardMatrixRows.length }} RECORDS
                     </span>
                   </div>
-                  <p class="text-[11px] text-slate-400 mt-0.5">Time-series tabular log: Network metadata and decoded sensor telemetry</p>
+                  <p class="text-[11px] text-slate-400 mt-0.5">Time-series tabular log — network metadata & decoded sensor telemetry</p>
                 </div>
               </div>
-
-              <!-- AJAX Auto-Sync Status & Controls -->
+              <!-- Auto-Sync Controls -->
               <div class="flex items-center gap-2 flex-wrap">
-                <!-- Live Sync Pulsing Status Badge & Toggle -->
                 <button
                   @click="toggleAutoSync"
                   :title="autoSyncEnabled ? 'Click to Pause Auto-Sync' : 'Click to Enable Auto-Sync'"
@@ -459,296 +455,327 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
                     <span v-if="autoSyncEnabled" class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                     <span class="relative inline-flex rounded-full h-2 w-2" :class="autoSyncEnabled ? 'bg-emerald-500' : 'bg-slate-500'"></span>
                   </span>
-                  <span class="font-mono text-[11px] font-bold">
-                    {{ autoSyncEnabled ? 'Live Sync (3s)' : 'Sync Paused' }}
-                  </span>
+                  <span class="font-mono text-[11px] font-bold">{{ autoSyncEnabled ? 'LIVE (3s)' : 'PAUSED' }}</span>
                 </button>
-
-                <!-- Manual AJAX Refresh -->
                 <button
                   @click="fetchLiveTelemetry(false)"
                   title="Manually fetch latest telemetry packets"
                   class="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition"
                 >
                   <i class="fa-solid fa-arrows-rotate" :class="{ 'fa-spin': loadingTelemetry }"></i>
-                  <span>Refresh</span>
+                  <span>REFRESH</span>
                 </button>
               </div>
             </div>
 
-            <!-- Filters & Search Toolbar -->
-            <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-3 bg-slate-900/50 p-3.5 rounded-xl border border-slate-800/80">
-              <div class="flex flex-wrap items-center gap-3">
-                <!-- Filter: Device Dropdown -->
-                <div class="flex items-center gap-1.5 bg-slate-950 px-2.5 py-1.5 rounded-lg border border-purple-500/30">
-                  <i class="fa-solid fa-microchip text-purple-400 text-xs"></i>
-                  <span class="text-[11px] text-purple-300 font-bold hidden sm:inline">Device:</span>
+            <!-- Main 2-Column Layout: Device Info (left) + Table (right) -->
+            <div class="flex gap-4 items-start">
+
+              <!-- LEFT COLUMN: Device Selector + Device Info Card -->
+              <div class="w-72 flex-shrink-0 space-y-3">
+
+                <!-- Device Selector -->
+                <div class="bg-slate-900/70 border border-slate-800 rounded-xl p-3.5 space-y-2.5">
+                  <div class="flex items-center gap-1.5 text-[11px] font-bold text-purple-300 uppercase tracking-wider">
+                    <i class="fa-solid fa-microchip text-purple-400"></i>
+                    <span>DEVICE</span>
+                  </div>
                   <select
                     v-model="selectedTelemetryDeviceEUI"
                     @change="onSelectTelemetryDevice"
-                    class="bg-transparent text-xs text-white font-mono focus:outline-none max-w-[200px] sm:max-w-[260px] cursor-pointer"
+                    class="w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white font-mono focus:outline-none focus:border-purple-500 cursor-pointer"
                   >
-                    <option value="" class="bg-slate-900 text-slate-200">-- All Registered Devices --</option>
+                    <option value="" class="bg-slate-900 text-slate-200">-- ALL DEVICES --</option>
                     <option v-for="dev in devicesList" :key="dev.devEUI" :value="dev.devEUI" class="bg-slate-900 text-slate-200">
-                      {{ dev.name }} ({{ dev.devEUI }})
+                      {{ dev.name }}
                     </option>
                   </select>
                 </div>
 
-                <!-- Filter: Time Preset -->
-                <div class="flex items-center gap-1.5 bg-slate-950 px-2.5 py-1.5 rounded-lg border border-slate-800">
-                  <i class="fa-solid fa-clock text-sky-400 text-xs"></i>
-                  <span class="text-[11px] text-slate-300 font-bold hidden sm:inline">Time Range:</span>
-                  <select
-                    v-model="telemetryTimeFilter"
-                    class="bg-transparent text-xs text-white font-mono focus:outline-none cursor-pointer"
-                  >
-                    <option value="ALL" class="bg-slate-900 text-slate-200">All Time</option>
-                    <option value="15M" class="bg-slate-900 text-slate-200">Last 15 Minutes</option>
-                    <option value="1H" class="bg-slate-900 text-slate-200">Last 1 Hour</option>
-                    <option value="24H" class="bg-slate-900 text-slate-200">Last 24 Hours</option>
-                    <option value="7D" class="bg-slate-900 text-slate-200">Last 7 Days</option>
-                  </select>
+                <!-- Device Info Card -->
+                <div v-if="selectedTelemetryDeviceEUI && devicesList.length > 0"
+                     class="bg-slate-900/70 border border-purple-500/20 rounded-xl p-3.5 space-y-2.5">
+                  <div class="text-[11px] font-bold text-purple-300 uppercase tracking-wider mb-1">DEVICE INFO</div>
+                  <template v-for="dev in devicesList" :key="dev.devEUI">
+                    <template v-if="dev.devEUI === selectedTelemetryDeviceEUI">
+                      <div class="space-y-1.5 text-[11px]">
+                        <div class="flex justify-between gap-2">
+                          <span class="text-slate-500 font-bold uppercase">NAME</span>
+                          <span class="text-white font-mono text-right truncate max-w-[140px]" :title="dev.name">{{ dev.name }}</span>
+                        </div>
+                        <div class="flex justify-between gap-2">
+                          <span class="text-slate-500 font-bold uppercase">DEV EUI</span>
+                          <span class="text-purple-300 font-mono text-right truncate max-w-[140px]" :title="dev.devEUI">{{ dev.devEUI }}</span>
+                        </div>
+                        <div v-if="dev.activationType" class="flex justify-between gap-2">
+                          <span class="text-slate-500 font-bold uppercase">TYPE</span>
+                          <span class="text-sky-300 font-mono">{{ dev.activationType }}</span>
+                        </div>
+                        <div class="flex justify-between gap-2">
+                          <span class="text-slate-500 font-bold uppercase">STATUS</span>
+                          <span :class="dev.isActive !== false ? 'text-emerald-400' : 'text-rose-400'" class="font-bold">
+                            {{ dev.isActive !== false ? 'ACTIVE' : 'INACTIVE' }}
+                          </span>
+                        </div>
+                        <div v-if="dev.networkServer" class="flex justify-between gap-2">
+                          <span class="text-slate-500 font-bold uppercase">SERVER</span>
+                          <span class="text-amber-300 font-mono text-right truncate max-w-[140px]" :title="dev.networkServer.name">{{ dev.networkServer.name }}</span>
+                        </div>
+                        <div class="border-t border-slate-800 pt-1.5 mt-1">
+                          <div class="flex justify-between">
+                            <span class="text-slate-500 font-bold uppercase">PACKETS</span>
+                            <span class="text-white font-bold font-mono">{{ dashboardMatrixRows.length }}</span>
+                          </div>
+                        </div>
+                      </div>
+                    </template>
+                  </template>
                 </div>
-              </div>
 
-              <!-- Search Bar & Clear Filter -->
-              <div class="flex items-center gap-2">
-                <div class="relative flex-1 sm:w-72">
-                  <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-xs"></i>
-                  <input
-                    v-model="telemetrySearchQuery"
-                    type="text"
-                    placeholder="Filter by time, sensor values, FCnt, RSSI..."
-                    class="w-full pl-8 pr-3 py-1.5 bg-slate-950 border border-slate-800 rounded-lg text-xs text-white placeholder-slate-500 focus:outline-none focus:border-purple-500"
-                  />
-                  <button
-                    v-if="telemetrySearchQuery"
-                    @click="telemetrySearchQuery = ''"
-                    class="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white text-xs cursor-pointer"
-                  >
-                    <i class="fa-solid fa-xmark"></i>
-                  </button>
-                </div>
-
-                <button
-                  v-if="isTelemetryFilterActive"
-                  @click="resetTelemetryFilters"
-                  title="Clear all active filters"
-                  class="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold flex items-center gap-1 cursor-pointer transition flex-shrink-0"
-                >
-                  <i class="fa-solid fa-filter-circle-xmark text-slate-400"></i>
-                  <span class="hidden sm:inline">Reset</span>
-                </button>
-              </div>
-            </div>
-
-            <!-- Unified Time-Series Tabular Grid (Time Primary + Network Metadata + Sensor Columns) -->
-            <div class="space-y-3">
-              <div class="overflow-x-auto rounded-xl border border-slate-800 bg-slate-950/80 max-h-[620px] overflow-y-auto custom-scroll shadow-2xl">
-                <div v-if="sortedDashboardMatrixRows.length === 0" class="py-16 text-center text-slate-500 text-xs">
-                  <i class="fa-solid fa-satellite-dish text-3xl text-slate-700 mb-2 block"></i>
-                  <span v-if="dashboardMatrixRows.length === 0">No uplink telemetry packets received yet.</span>
-                  <span v-else>
-                    No telemetry packets match your filter criteria.
-                    <button @click="resetTelemetryFilters" class="text-purple-400 underline ml-1 cursor-pointer">Reset Filters</button>
-                  </span>
-                </div>
-                <table v-else class="w-full text-left text-xs border-collapse">
-                  <thead class="bg-slate-900 text-slate-300 text-[11px] font-bold border-b border-slate-800 sticky top-0 z-10 select-none shadow-md">
-                    <tr>
-                      <!-- Primary Time Column (Sortable) -->
-                      <th
-                        @click="toggleTelemetrySort('time')"
-                        class="py-3 px-3.5 whitespace-nowrap bg-slate-900 border-r border-slate-800 text-purple-300 cursor-pointer hover:bg-slate-800 transition"
-                        title="Click to sort by Time"
-                      >
-                        <div class="flex items-center gap-1.5">
-                          <i class="fa-solid fa-clock text-purple-400"></i>
-                          <span>TIME (Primary)</span>
-                          <i
-                            class="fa-solid text-[10px] ml-1"
-                            :class="telemetrySortKey === 'time' ? (telemetrySortOrder === 'asc' ? 'fa-arrow-up-long text-purple-400' : 'fa-arrow-down-long text-purple-400') : 'fa-sort text-slate-600'"
-                          ></i>
-                        </div>
-                      </th>
-
-                      <!-- Network Metadata Columns (Sortable) -->
-                      <th
-                        @click="toggleTelemetrySort('fPort')"
-                        class="py-3 px-2.5 whitespace-nowrap bg-slate-900 text-slate-300 cursor-pointer hover:bg-slate-800 transition"
-                        title="Click to sort by Port"
-                      >
-                        <div class="flex items-center gap-1">
-                          <span>Port</span>
-                          <i
-                            class="fa-solid text-[9px]"
-                            :class="telemetrySortKey === 'fPort' ? (telemetrySortOrder === 'asc' ? 'fa-arrow-up text-sky-400' : 'fa-arrow-down text-sky-400') : 'fa-sort text-slate-600'"
-                          ></i>
-                        </div>
-                      </th>
-
-                      <th
-                        @click="toggleTelemetrySort('fCnt')"
-                        class="py-3 px-2.5 whitespace-nowrap bg-slate-900 text-slate-300 cursor-pointer hover:bg-slate-800 transition"
-                        title="Click to sort by FCnt"
-                      >
-                        <div class="flex items-center gap-1">
-                          <span>FCnt</span>
-                          <i
-                            class="fa-solid text-[9px]"
-                            :class="telemetrySortKey === 'fCnt' ? (telemetrySortOrder === 'asc' ? 'fa-arrow-up text-sky-400' : 'fa-arrow-down text-sky-400') : 'fa-sort text-slate-600'"
-                          ></i>
-                        </div>
-                      </th>
-
-                      <th
-                        @click="toggleTelemetrySort('rssi')"
-                        class="py-3 px-2.5 whitespace-nowrap bg-slate-900 text-emerald-400 cursor-pointer hover:bg-slate-800 transition"
-                        title="Click to sort by RSSI"
-                      >
-                        <div class="flex items-center gap-1">
-                          <span>RSSI (dBm)</span>
-                          <i
-                            class="fa-solid text-[9px]"
-                            :class="telemetrySortKey === 'rssi' ? (telemetrySortOrder === 'asc' ? 'fa-arrow-up text-emerald-400' : 'fa-arrow-down text-emerald-400') : 'fa-sort text-slate-600'"
-                          ></i>
-                        </div>
-                      </th>
-
-                      <th
-                        @click="toggleTelemetrySort('snr')"
-                        class="py-3 px-2.5 whitespace-nowrap bg-slate-900 text-sky-400 border-r border-slate-800 cursor-pointer hover:bg-slate-800 transition"
-                        title="Click to sort by SNR"
-                      >
-                        <div class="flex items-center gap-1">
-                          <span>SNR (dB)</span>
-                          <i
-                            class="fa-solid text-[9px]"
-                            :class="telemetrySortKey === 'snr' ? (telemetrySortOrder === 'asc' ? 'fa-arrow-up text-sky-400' : 'fa-arrow-down text-sky-400') : 'fa-sort text-slate-600'"
-                          ></i>
-                        </div>
-                      </th>
-
-                      <!-- Dynamic Sensor Field Columns (Sortable) -->
-                      <th
-                        v-for="col in dashboardSensorColumns"
-                        :key="col"
-                        @click="toggleTelemetrySort('sensor:' + col)"
-                        class="py-3 px-3 whitespace-nowrap bg-slate-900 text-amber-300 font-mono capitalize cursor-pointer hover:bg-slate-800 transition"
-                        :title="'Click to sort by ' + col"
-                      >
-                        <div class="flex items-center gap-1.5">
-                          <i class="fa-solid fa-chart-line text-[10px] text-amber-400/70"></i>
-                          <span>{{ col }}</span>
-                          <i
-                            class="fa-solid text-[9px]"
-                            :class="telemetrySortKey === ('sensor:' + col) ? (telemetrySortOrder === 'asc' ? 'fa-arrow-up text-amber-400' : 'fa-arrow-down text-amber-400') : 'fa-sort text-slate-600'"
-                          ></i>
-                        </div>
-                      </th>
-
-                      <!-- Payload Hex & Action -->
-                      <th
-                        @click="toggleTelemetrySort('payloadHex')"
-                        class="py-3 px-3 whitespace-nowrap bg-slate-900 text-slate-400 cursor-pointer hover:bg-slate-800 transition"
-                        title="Click to sort by Payload Hex"
-                      >
-                        <div class="flex items-center gap-1">
-                          <span>Payload Hex</span>
-                          <i
-                            class="fa-solid text-[9px]"
-                            :class="telemetrySortKey === 'payloadHex' ? (telemetrySortOrder === 'asc' ? 'fa-arrow-up text-slate-300' : 'fa-arrow-down text-slate-300') : 'fa-sort text-slate-600'"
-                          ></i>
-                        </div>
-                      </th>
-                      <th class="py-3 px-3 whitespace-nowrap bg-slate-900 text-right">JSON</th>
-                    </tr>
-                  </thead>
-                  <tbody class="divide-y divide-slate-800/60 font-mono text-[11px]">
-                    <tr
-                      v-for="(row, rIdx) in sortedDashboardMatrixRows"
-                      :key="rIdx"
-                      class="hover:bg-slate-800/50 transition group"
-                    >
-                      <!-- Time Cell (Chủ lực) -->
-                      <td class="py-2.5 px-3.5 whitespace-nowrap font-bold text-white bg-slate-950/40 border-r border-slate-800">
-                        <span class="text-purple-300 font-sans font-semibold">{{ formatDateTime(row.time) }}</span>
-                      </td>
-
-                      <!-- Network Metadata Cells -->
-                      <td class="py-2.5 px-2.5 text-slate-400">{{ row.fPort }}</td>
-                      <td class="py-2.5 px-2.5 text-slate-300 font-bold">#{{ row.fCnt }}</td>
-                      <td class="py-2.5 px-2.5">
-                        <span
-                          v-if="row.rssi != null"
-                          class="font-bold"
-                          :class="row.rssi >= -90 ? 'text-emerald-400' : (row.rssi >= -110 ? 'text-amber-400' : 'text-rose-400')"
-                        >
-                          {{ row.rssi }}
-                        </span>
-                        <span v-else class="text-slate-600">—</span>
-                      </td>
-                      <td class="py-2.5 px-2.5 border-r border-slate-800">
-                        <span
-                          v-if="row.snr != null"
-                          class="font-bold"
-                          :class="row.snr >= 5 ? 'text-emerald-400' : (row.snr >= 0 ? 'text-sky-400' : 'text-orange-400')"
-                        >
-                          {{ row.snr }}
-                        </span>
-                        <span v-else class="text-slate-600">—</span>
-                      </td>
-
-                      <!-- Dynamic Sensor Field Value Cells -->
-                      <td
-                        v-for="col in dashboardSensorColumns"
-                        :key="col"
-                        class="py-2.5 px-3 font-bold"
-                        :class="row.sensorValues[col] !== '—' ? 'text-emerald-300 bg-emerald-950/10' : 'text-slate-600'"
-                      >
-                        {{ row.sensorValues[col] }}
-                      </td>
-
-                      <!-- Payload Hex Cell -->
-                      <td class="py-2.5 px-3 text-purple-400 uppercase truncate max-w-[120px]" :title="row.payloadHex">{{ row.payloadHex }}</td>
-
-                      <!-- JSON Inspect Action -->
-                      <td class="py-2.5 px-3 text-right whitespace-nowrap">
-                        <button
-                          @click="inspectTelemetryPacket(row.raw)"
-                          class="px-2.5 py-1 rounded bg-purple-500/15 hover:bg-purple-500/25 text-purple-300 border border-purple-500/30 text-[10px] font-bold cursor-pointer transition inline-flex items-center gap-1"
-                          title="Inspect raw payload JSON"
-                        >
-                          <i class="fa-solid fa-code text-[9px]"></i>
-                          <span>Inspect</span>
-                        </button>
-                      </td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-            </div>
-
-            <!-- Inspect Raw JSON Modal -->
-            <div v-if="activeTelemetryPacket" class="fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop" style="background: rgba(2, 6, 23, 0.85); backdrop-filter: blur(6px);">
-              <div class="w-full max-w-2xl bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-4 shadow-2xl max-h-[85vh] flex flex-col animate-in fade-in">
-                <div class="flex items-center justify-between pb-3 border-b border-slate-800">
-                  <div class="flex items-center gap-2">
-                    <div class="w-8 h-8 rounded-lg bg-purple-500/10 border border-purple-500/30 flex items-center justify-center text-purple-400 text-sm">
-                      <i class="fa-solid fa-code"></i>
+                <!-- All Devices Summary (when no device selected) -->
+                <div v-else class="bg-slate-900/70 border border-slate-800 rounded-xl p-3.5 space-y-2">
+                  <div class="text-[11px] font-bold text-slate-400 uppercase tracking-wider">OVERVIEW</div>
+                  <div class="space-y-1.5 text-[11px]">
+                    <div class="flex justify-between">
+                      <span class="text-slate-500 font-bold uppercase">DEVICES</span>
+                      <span class="text-white font-bold font-mono">{{ devicesList.length }}</span>
                     </div>
-                    <div>
-                      <h4 class="text-sm font-bold text-white">Packet Raw Decoded JSON</h4>
-                      <p class="text-[11px] font-mono text-slate-400">{{ formatDateTime(activeTelemetryPacket.timestamp || activeTelemetryPacket.receivedAt) }} • Port {{ activeTelemetryPacket.fPort }}</p>
+                    <div class="flex justify-between">
+                      <span class="text-slate-500 font-bold uppercase">TOTAL PACKETS</span>
+                      <span class="text-purple-300 font-bold font-mono">{{ dashboardMatrixRows.length }}</span>
+                    </div>
+                    <div class="flex justify-between">
+                      <span class="text-slate-500 font-bold uppercase">VISIBLE</span>
+                      <span class="text-emerald-300 font-bold font-mono">{{ sortedDashboardMatrixRows.length }}</span>
+                    </div>
+                    <div v-if="dashboardSensorColumns.length > 0" class="flex justify-between">
+                      <span class="text-slate-500 font-bold uppercase">SENSOR FIELDS</span>
+                      <span class="text-amber-300 font-bold font-mono">{{ dashboardSensorColumns.length }}</span>
                     </div>
                   </div>
-                  <button @click="activeTelemetryPacket = null" class="text-slate-500 hover:text-white cursor-pointer"><i class="fa-solid fa-xmark"></i></button>
                 </div>
-                <pre class="flex-1 bg-slate-950 border border-slate-800 rounded-xl p-4 text-emerald-400 font-mono text-xs overflow-auto custom-scroll">{{ JSON.stringify(activeTelemetryPacket.decodedData || activeTelemetryPacket.object || activeTelemetryPacket, null, 2) }}</pre>
-                <div class="flex justify-end pt-2 border-t border-slate-800">
-                  <button @click="activeTelemetryPacket = null" class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold cursor-pointer">Close</button>
+
+                <!-- Time Range Filter -->
+                <div class="bg-slate-900/70 border border-slate-800 rounded-xl p-3.5 space-y-2.5">
+                  <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-1.5 text-[11px] font-bold text-sky-300 uppercase tracking-wider">
+                      <i class="fa-solid fa-calendar-days text-sky-400"></i>
+                      <span>TIME RANGE</span>
+                    </div>
+                    <button
+                      v-if="telemetryRangeStart || telemetryRangeEnd"
+                      @click="telemetryRangeStart = ''; telemetryRangeEnd = '';"
+                      class="text-[10px] text-slate-500 hover:text-rose-400 cursor-pointer transition"
+                      title="Clear date range"
+                    ><i class="fa-solid fa-xmark"></i> CLEAR</button>
+                  </div>
+                  <div class="space-y-1.5">
+                    <div>
+                      <label class="block text-[10px] text-slate-500 font-bold mb-1">FROM</label>
+                      <input
+                        v-model="telemetryRangeStart"
+                        type="datetime-local"
+                        class="w-full bg-slate-950 border border-slate-700 rounded-lg px-2 py-1.5 text-[11px] text-white font-mono focus:outline-none focus:border-sky-500"
+                      />
+                    </div>
+                    <div>
+                      <label class="block text-[10px] text-slate-500 font-bold mb-1">TO</label>
+                      <input
+                        v-model="telemetryRangeEnd"
+                        type="datetime-local"
+                        class="w-full bg-slate-950 border border-slate-700 rounded-lg px-2 py-1.5 text-[11px] text-white font-mono focus:outline-none focus:border-sky-500"
+                      />
+                    </div>
+                    <p class="text-[10px] text-slate-600">Leave empty to show all packets</p>
+                  </div>
                 </div>
+
+              </div>
+
+              <!-- RIGHT COLUMN: Search + Column Filter + Table -->
+              <div class="flex-1 min-w-0 space-y-3">
+
+                <!-- Search & Column Filter Toolbar -->
+                <div class="flex items-center gap-2 flex-wrap">
+                  <!-- Search -->
+                  <div class="relative flex-1 min-w-[200px]">
+                    <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-xs"></i>
+                    <input
+                      v-model="telemetrySearchQuery"
+                      type="text"
+                      placeholder="Search packets..."
+                      class="w-full pl-8 pr-8 py-1.5 bg-slate-900 border border-slate-800 rounded-lg text-xs text-white placeholder-slate-500 focus:outline-none focus:border-purple-500"
+                    />
+                    <button
+                      v-if="telemetrySearchQuery"
+                      @click="telemetrySearchQuery = ''"
+                      class="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white text-xs cursor-pointer"
+                    ><i class="fa-solid fa-xmark"></i></button>
+                  </div>
+
+                  <!-- Reset Filter -->
+                  <button
+                    v-if="isTelemetryFilterActive"
+                    @click="resetTelemetryFilters"
+                    title="Clear all filters"
+                    class="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold flex items-center gap-1 cursor-pointer transition flex-shrink-0"
+                  >
+                    <i class="fa-solid fa-filter-circle-xmark text-rose-400"></i>
+                    <span>RESET</span>
+                  </button>
+
+                  <!-- Column Visibility Filter Dropdown -->
+                  <div class="relative flex-shrink-0">
+                    <button
+                      @click="columnFilterOpen = !columnFilterOpen"
+                      class="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-bold flex items-center gap-1.5 cursor-pointer transition"
+                      :class="hiddenSensorColumns.size > 0 ? 'border-amber-500/50 text-amber-300' : ''"
+                    >
+                      <i class="fa-solid fa-sliders"></i>
+                      <span>COLUMNS</span>
+                      <span v-if="hiddenSensorColumns.size > 0" class="bg-amber-500/20 text-amber-300 px-1.5 rounded-full text-[10px]">-{{ hiddenSensorColumns.size }}</span>
+                      <i class="fa-solid fa-chevron-down text-[9px]" :class="columnFilterOpen ? 'rotate-180' : ''" style="transition: transform 0.2s"></i>
+                    </button>
+                    <!-- Dropdown -->
+                    <div
+                      v-if="columnFilterOpen"
+                      @click.stop
+                      class="absolute right-0 top-full mt-1 z-30 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl p-3 min-w-[200px] max-h-[340px] overflow-y-auto custom-scroll"
+                    >
+                      <div class="text-[10px] font-bold text-slate-400 uppercase mb-2 tracking-wider">SENSOR FIELDS</div>
+                      <div v-if="dashboardSensorColumns.length === 0" class="text-[11px] text-slate-600 py-2 text-center">No sensor fields available</div>
+                      <label
+                        v-for="col in dashboardSensorColumns"
+                        :key="col"
+                        class="flex items-center gap-2 py-1.5 px-1 hover:bg-slate-800 rounded cursor-pointer"
+                      >
+                        <input
+                          type="checkbox"
+                          :checked="isSensorColumnVisible(col)"
+                          @change="toggleSensorColumn(col)"
+                          class="accent-purple-500 cursor-pointer"
+                        />
+                        <span class="text-[11px] font-mono text-amber-200 uppercase">{{ col }}</span>
+                      </label>
+                      <div class="border-t border-slate-800 mt-2 pt-2 flex justify-between">
+                        <button @click="hiddenSensorColumns = new Set()" class="text-[10px] text-emerald-400 hover:text-emerald-300 cursor-pointer font-bold">SHOW ALL</button>
+                        <button @click="hiddenSensorColumns = new Set(dashboardSensorColumns)" class="text-[10px] text-slate-500 hover:text-rose-400 cursor-pointer font-bold">HIDE ALL</button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Telemetry Table -->
+                <div class="overflow-x-auto rounded-xl border border-slate-800 bg-slate-950/80 max-h-[680px] overflow-y-auto custom-scroll shadow-2xl" @click="columnFilterOpen = false">
+                  <div v-if="sortedDashboardMatrixRows.length === 0" class="py-16 text-center text-slate-500 text-xs">
+                    <i class="fa-solid fa-satellite-dish text-3xl text-slate-700 mb-2 block"></i>
+                    <span v-if="dashboardMatrixRows.length === 0">No uplink telemetry packets received yet.</span>
+                    <span v-else>
+                      No packets match the current filters.
+                      <button @click="resetTelemetryFilters" class="text-purple-400 underline ml-1 cursor-pointer">RESET</button>
+                    </span>
+                  </div>
+                  <table v-else class="w-full text-left text-xs border-collapse">
+                    <thead class="bg-slate-900 text-slate-300 text-[11px] font-bold border-b border-slate-800 sticky top-0 z-10 select-none">
+                      <tr>
+                        <!-- TIME -->
+                        <th
+                          @click="toggleTelemetrySort('time')"
+                          class="py-3 px-3.5 whitespace-nowrap bg-slate-900 border-r border-slate-800 text-purple-300 cursor-pointer hover:bg-slate-800 transition"
+                        >
+                          <div class="flex items-center gap-1.5">
+                            <i class="fa-solid fa-clock text-purple-400 text-[10px]"></i>
+                            <span>TIME</span>
+                            <i class="fa-solid text-[9px]" :class="telemetrySortKey === 'time' ? (telemetrySortOrder === 'asc' ? 'fa-arrow-up text-purple-400' : 'fa-arrow-down text-purple-400') : 'fa-sort text-slate-600'"></i>
+                          </div>
+                        </th>
+                        <!-- FPORT -->
+                        <th @click="toggleTelemetrySort('fPort')" class="py-3 px-2.5 whitespace-nowrap bg-slate-900 cursor-pointer hover:bg-slate-800 transition">
+                          <div class="flex items-center gap-1">
+                            <span>FPORT</span>
+                            <i class="fa-solid text-[9px]" :class="telemetrySortKey === 'fPort' ? (telemetrySortOrder === 'asc' ? 'fa-arrow-up text-sky-400' : 'fa-arrow-down text-sky-400') : 'fa-sort text-slate-600'"></i>
+                          </div>
+                        </th>
+                        <!-- FCNT -->
+                        <th @click="toggleTelemetrySort('fCnt')" class="py-3 px-2.5 whitespace-nowrap bg-slate-900 cursor-pointer hover:bg-slate-800 transition">
+                          <div class="flex items-center gap-1">
+                            <span>FCNT</span>
+                            <i class="fa-solid text-[9px]" :class="telemetrySortKey === 'fCnt' ? (telemetrySortOrder === 'asc' ? 'fa-arrow-up text-sky-400' : 'fa-arrow-down text-sky-400') : 'fa-sort text-slate-600'"></i>
+                          </div>
+                        </th>
+                        <!-- RSSI -->
+                        <th @click="toggleTelemetrySort('rssi')" class="py-3 px-2.5 whitespace-nowrap bg-slate-900 text-emerald-400 cursor-pointer hover:bg-slate-800 transition">
+                          <div class="flex items-center gap-1">
+                            <span>RSSI</span>
+                            <i class="fa-solid text-[9px]" :class="telemetrySortKey === 'rssi' ? (telemetrySortOrder === 'asc' ? 'fa-arrow-up text-emerald-400' : 'fa-arrow-down text-emerald-400') : 'fa-sort text-slate-600'"></i>
+                          </div>
+                        </th>
+                        <!-- SNR -->
+                        <th @click="toggleTelemetrySort('snr')" class="py-3 px-2.5 whitespace-nowrap bg-slate-900 text-sky-400 border-r border-slate-800 cursor-pointer hover:bg-slate-800 transition">
+                          <div class="flex items-center gap-1">
+                            <span>SNR</span>
+                            <i class="fa-solid text-[9px]" :class="telemetrySortKey === 'snr' ? (telemetrySortOrder === 'asc' ? 'fa-arrow-up text-sky-400' : 'fa-arrow-down text-sky-400') : 'fa-sort text-slate-600'"></i>
+                          </div>
+                        </th>
+                        <!-- Dynamic Sensor Columns (filtered by visibility) -->
+                        <th
+                          v-for="col in dashboardSensorColumns.filter(c => isSensorColumnVisible(c))"
+                          :key="col"
+                          @click="toggleTelemetrySort('sensor:' + col)"
+                          class="py-3 px-3 whitespace-nowrap bg-slate-900 text-amber-300 font-mono cursor-pointer hover:bg-slate-800 transition"
+                        >
+                          <div class="flex items-center gap-1.5">
+                            <span class="uppercase">{{ col }}</span>
+                            <i class="fa-solid text-[9px]" :class="telemetrySortKey === ('sensor:' + col) ? (telemetrySortOrder === 'asc' ? 'fa-arrow-up text-amber-400' : 'fa-arrow-down text-amber-400') : 'fa-sort text-slate-600'"></i>
+                          </div>
+                        </th>
+                        <!-- PAYLOAD HEX -->
+                        <th @click="toggleTelemetrySort('payloadHex')" class="py-3 px-3 whitespace-nowrap bg-slate-900 text-slate-400 cursor-pointer hover:bg-slate-800 transition">
+                          <div class="flex items-center gap-1">
+                            <span>PAYLOAD HEX</span>
+                            <i class="fa-solid text-[9px]" :class="telemetrySortKey === 'payloadHex' ? (telemetrySortOrder === 'asc' ? 'fa-arrow-up text-slate-300' : 'fa-arrow-down text-slate-300') : 'fa-sort text-slate-600'"></i>
+                          </div>
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-800/60 font-mono text-[11px]">
+                      <tr
+                        v-for="(row, rIdx) in sortedDashboardMatrixRows"
+                        :key="rIdx"
+                        class="hover:bg-slate-800/40 transition"
+                      >
+                        <!-- TIME -->
+                        <td class="py-2 px-3.5 whitespace-nowrap bg-slate-950/40 border-r border-slate-800">
+                          <span class="text-purple-300 font-bold">{{ formatDateTime(row.time) }}</span>
+                        </td>
+                        <!-- FPORT -->
+                        <td class="py-2 px-2.5 text-slate-400">{{ row.fPort }}</td>
+                        <!-- FCNT (no #) -->
+                        <td class="py-2 px-2.5 text-slate-300">{{ row.fCnt }}</td>
+                        <!-- RSSI -->
+                        <td class="py-2 px-2.5">
+                          <span v-if="row.rssi != null" class="font-bold" :class="row.rssi >= -90 ? 'text-emerald-400' : (row.rssi >= -110 ? 'text-amber-400' : 'text-rose-400')">{{ row.rssi }}</span>
+                          <span v-else class="text-slate-700">—</span>
+                        </td>
+                        <!-- SNR -->
+                        <td class="py-2 px-2.5 border-r border-slate-800">
+                          <span v-if="row.snr != null" class="font-bold" :class="row.snr >= 5 ? 'text-emerald-400' : (row.snr >= 0 ? 'text-sky-400' : 'text-orange-400')">{{ row.snr }}</span>
+                          <span v-else class="text-slate-700">—</span>
+                        </td>
+                        <!-- Sensor Values (filtered by visibility) -->
+                        <td
+                          v-for="col in dashboardSensorColumns.filter(c => isSensorColumnVisible(c))"
+                          :key="col"
+                          class="py-2 px-3 font-bold"
+                          :class="row.sensorValues[col] !== '—' && row.sensorValues[col] !== undefined ? 'text-emerald-300' : 'text-slate-700'"
+                        >{{ row.sensorValues[col] !== undefined ? row.sensorValues[col] : '—' }}</td>
+                        <!-- PAYLOAD HEX -->
+                        <td class="py-2 px-3 text-purple-400 uppercase truncate max-w-[140px]" :title="row.payloadHex">{{ row.payloadHex }}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+
               </div>
             </div>
           </div>
@@ -952,6 +979,8 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
 
         // Advanced Filtering, Sorting & Auto-Sync state
         const telemetryTimeFilter = ref('ALL');
+        const telemetryRangeStart = ref('');
+        const telemetryRangeEnd = ref('');
         const telemetrySearchQuery = ref('');
         const telemetrySortKey = ref('time');
         const telemetrySortOrder = ref('desc');
@@ -959,6 +988,11 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
         const autoSyncTimer = ref(null);
         const autoSyncInterval = 3000;
         const lastSyncTime = ref(null);
+
+        // Column visibility filter
+        const columnFilterOpen = ref(false);
+        const visibleColumns = ref(new Set(['TIME', 'FPORT', 'FCNT', 'RSSI', 'SNR', 'PAYLOAD_HEX'])); // fixed cols always shown unless toggled
+        const hiddenSensorColumns = ref(new Set()); // sensor columns hidden by user
 
         const filteredTelemetryList = computed(() => {
           let list = telemetryList.value || [];
@@ -1079,9 +1113,17 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
         const filteredDashboardMatrixRows = computed(() => {
           let rows = dashboardMatrixRows.value || [];
 
-          // Filter by time window preset
-          if (telemetryTimeFilter.value && telemetryTimeFilter.value !== 'ALL') {
-            rows = rows.filter(r => passesTimeFilter(r.time, telemetryTimeFilter.value));
+          // Filter by custom date range (start / end)
+          const rangeStart = telemetryRangeStart.value ? new Date(telemetryRangeStart.value).getTime() : null;
+          const rangeEnd = telemetryRangeEnd.value ? new Date(telemetryRangeEnd.value + ':59').getTime() : null;
+          if (rangeStart || rangeEnd) {
+            rows = rows.filter(r => {
+              const t = r.time ? new Date(r.time).getTime() : null;
+              if (!t || isNaN(t)) return false;
+              if (rangeStart && t < rangeStart) return false;
+              if (rangeEnd && t > rangeEnd) return false;
+              return true;
+            });
           }
 
           // Filter by search query
@@ -1091,7 +1133,7 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
               if (r.time && String(r.time).toLowerCase().includes(q)) return true;
               if (formatDateTime(r.time).toLowerCase().includes(q)) return true;
               if (String(r.fPort).toLowerCase().includes(q)) return true;
-              if (String(r.fCnt).toLowerCase().includes(q) || ('#' + r.fCnt).includes(q)) return true;
+              if (String(r.fCnt).toLowerCase().includes(q)) return true;
               if (r.rssi != null && String(r.rssi).includes(q)) return true;
               if (r.snr != null && String(r.snr).includes(q)) return true;
               if (r.payloadHex && r.payloadHex.toLowerCase().includes(q)) return true;
@@ -1156,15 +1198,26 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
 
         const resetTelemetryFilters = () => {
           telemetryTimeFilter.value = 'ALL';
+          telemetryRangeStart.value = '';
+          telemetryRangeEnd.value = '';
           telemetrySearchQuery.value = '';
           telemetrySortKey.value = 'time';
           telemetrySortOrder.value = 'desc';
         };
 
         const isTelemetryFilterActive = computed(() => {
-          return (telemetryTimeFilter.value && telemetryTimeFilter.value !== 'ALL') ||
+          return Boolean(telemetryRangeStart.value) ||
+                 Boolean(telemetryRangeEnd.value) ||
                  Boolean((telemetrySearchQuery.value || '').trim());
         });
+
+        const toggleSensorColumn = (col) => {
+          const s = new Set(hiddenSensorColumns.value);
+          if (s.has(col)) { s.delete(col); } else { s.add(col); }
+          hiddenSensorColumns.value = s;
+        };
+
+        const isSensorColumnVisible = (col) => !hiddenSensorColumns.value.has(col);
 
         const startAutoSync = () => {
           stopAutoSync();
@@ -1203,6 +1256,10 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
           activeTelemetryPacket.value = pkt;
         };
 
+        const closeInspectModal = () => {
+          activeTelemetryPacket.value = null;
+        };
+
         const formatDecodedSummary = (obj) => {
           if (!obj) return '—';
           try {
@@ -1219,7 +1276,14 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
           if (!dateStr) return '—';
           try {
             const d = new Date(dateStr);
-            return d.toLocaleString();
+            if (isNaN(d.getTime())) return String(dateStr);
+            const dd = String(d.getDate()).padStart(2, '0');
+            const mm = String(d.getMonth() + 1).padStart(2, '0');
+            const yyyy = d.getFullYear();
+            const hh = String(d.getHours()).padStart(2, '0');
+            const mn = String(d.getMinutes()).padStart(2, '0');
+            const ss = String(d.getSeconds()).padStart(2, '0');
+            return dd + '/' + mm + '/' + yyyy + ' ' + hh + ':' + mn + ':' + ss;
           } catch(e) {
             return String(dateStr);
           }
@@ -1649,10 +1713,19 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
 
         onMounted(() => {
           initDashboard();
+          // Close inspect modal on ESC key
+          document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && activeTelemetryPacket.value) {
+              closeInspectModal();
+            }
+          });
         });
 
         window.addEventListener('pageshow', (event) => {
-          initDashboard();
+          // Only re-init when restored from browser back-forward cache (bfcache)
+          if (event.persisted) {
+            initDashboard();
+          }
         });
 
         return {
@@ -1675,6 +1748,8 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
           filteredDashboardMatrixRows,
           sortedDashboardMatrixRows,
           telemetryTimeFilter,
+          telemetryRangeStart,
+          telemetryRangeEnd,
           telemetrySearchQuery,
           telemetrySortKey,
           telemetrySortOrder,
@@ -1688,6 +1763,11 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
           toggleAutoSync,
           onSelectTelemetryDevice,
           inspectTelemetryPacket,
+          closeInspectModal,
+          columnFilterOpen,
+          hiddenSensorColumns,
+          toggleSensorColumn,
+          isSensorColumnVisible,
           formatDecodedSummary,
           formatDateTime,
           devicesList,
