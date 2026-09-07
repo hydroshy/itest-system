@@ -760,13 +760,13 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
                     <button
                       @click="columnFilterOpen = !columnFilterOpen"
                       class="px-3 py-2 rounded-xl bg-slate-900 border border-slate-800 hover:border-slate-700 text-xs font-semibold text-slate-300 flex items-center gap-2 cursor-pointer shadow-inner transition"
-                      :class="hiddenSensorColumns.size > 0 ? 'border-amber-500/50 text-amber-300' : ''"
-                      title="Toggle visible sensor columns"
+                      :class="totalHiddenColumnsCount > 0 ? 'border-amber-500/50 text-amber-300' : ''"
+                      title="Toggle visible metadata and sensor columns"
                     >
                       <i class="fa-solid fa-sliders text-purple-400"></i>
                       <span>COLUMNS</span>
-                      <span v-if="hiddenSensorColumns.size > 0" class="bg-amber-500/20 text-amber-300 px-1.5 py-0.5 rounded-full text-[10px] font-mono leading-none">
-                        -{{ hiddenSensorColumns.size }}
+                      <span v-if="totalHiddenColumnsCount > 0" class="bg-amber-500/20 text-amber-300 px-1.5 py-0.5 rounded-full text-[10px] font-mono leading-none">
+                        -{{ totalHiddenColumnsCount }}
                       </span>
                       <i class="fa-solid fa-chevron-down text-[9px] transition-transform duration-200" :class="columnFilterOpen ? 'rotate-180 text-purple-400' : 'text-slate-500'"></i>
                     </button>
@@ -775,15 +775,47 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
                     <div
                       v-if="columnFilterOpen"
                       @click.stop
-                      class="absolute right-0 top-full mt-2 z-30 bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl p-3.5 min-w-[220px] max-h-[340px] overflow-y-auto custom-scroll"
+                      class="absolute right-0 top-full mt-2 z-30 bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl p-3.5 min-w-[250px] max-h-[420px] overflow-y-auto custom-scroll"
                     >
+                      <!-- SECTION 1: METADATA COLUMNS -->
                       <div class="flex items-center justify-between text-[10px] font-bold text-slate-400 uppercase mb-2 tracking-wider pb-1.5 border-b border-slate-800">
-                        <span>SENSOR FIELDS</span>
+                        <span class="flex items-center gap-1.5">
+                          <i class="fa-solid fa-network-wired text-sky-400"></i>
+                          <span>METADATA FIELDS</span>
+                        </span>
+                        <span class="text-slate-500 font-mono text-[9px]">
+                          {{ metadataColumnsList.filter(c => isMetadataColumnVisible(c.key)).length }}/{{ metadataColumnsList.length }}
+                        </span>
+                      </div>
+                      <div class="space-y-1 mb-3">
+                        <label
+                          v-for="col in metadataColumnsList"
+                          :key="col.key"
+                          class="flex items-center gap-2.5 py-1.5 px-2 hover:bg-slate-800/80 rounded-lg cursor-pointer transition select-none"
+                        >
+                          <input
+                            type="checkbox"
+                            :checked="isMetadataColumnVisible(col.key)"
+                            @change="toggleMetadataColumn(col.key)"
+                            class="accent-sky-500 cursor-pointer rounded"
+                          />
+                          <span class="text-[11px] font-mono uppercase" :class="isMetadataColumnVisible(col.key) ? 'text-sky-300 font-bold' : 'text-slate-500 line-through'">
+                            {{ col.label }}
+                          </span>
+                        </label>
+                      </div>
+
+                      <!-- SECTION 2: SENSOR FIELDS -->
+                      <div class="flex items-center justify-between text-[10px] font-bold text-slate-400 uppercase mb-2 tracking-wider pt-2 pb-1.5 border-t border-b border-slate-800">
+                        <span class="flex items-center gap-1.5">
+                          <i class="fa-solid fa-microchip text-amber-400"></i>
+                          <span>SENSOR FIELDS</span>
+                        </span>
                         <span v-if="dashboardSensorColumns.length > 0" class="text-slate-500 font-mono text-[9px]">
                           {{ dashboardSensorColumns.filter(c => isSensorColumnVisible(c)).length }}/{{ dashboardSensorColumns.length }}
                         </span>
                       </div>
-                      <div v-if="dashboardSensorColumns.length === 0" class="text-[11px] text-slate-500 py-3 text-center">
+                      <div v-if="dashboardSensorColumns.length === 0" class="text-[11px] text-slate-500 py-2 text-center">
                         No sensor fields detected
                       </div>
                       <div v-else class="space-y-1">
@@ -803,9 +835,12 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
                           </span>
                         </label>
                       </div>
-                      <div class="border-t border-slate-800 mt-2.5 pt-2 flex items-center justify-between">
-                        <button @click="hiddenSensorColumns = new Set()" class="text-[10px] text-emerald-400 hover:text-emerald-300 cursor-pointer font-bold transition">SHOW ALL</button>
-                        <button @click="hiddenSensorColumns = new Set(dashboardSensorColumns)" class="text-[10px] text-slate-500 hover:text-rose-400 cursor-pointer font-bold transition">HIDE ALL</button>
+
+                      <!-- Global Actions -->
+                      <div class="border-t border-slate-800 mt-3 pt-2.5 flex items-center justify-between">
+                        <button @click="showAllColumns" class="text-[10px] text-emerald-400 hover:text-emerald-300 cursor-pointer font-bold transition">SHOW ALL</button>
+                        <button @click="resetDefaultColumns" class="text-[10px] text-sky-400 hover:text-sky-300 cursor-pointer font-bold transition">RESET DEFAULT</button>
+                        <button @click="hideAllSensorColumns" class="text-[10px] text-slate-500 hover:text-rose-400 cursor-pointer font-bold transition">HIDE SENSORS</button>
                       </div>
                     </div>
                   </div>
@@ -826,7 +861,7 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
                 ></div>
               </div>
 
-              <!-- Full Width Telemetry Table: TIME + ALL SENSOR FIELDS -->
+              <!-- Full Width Telemetry Table: TIME + METADATA + SENSOR FIELDS + PAYLOAD HEX -->
               <div
                 ref="tableScrollRef"
                 @scroll="handleTableScroll"
@@ -856,6 +891,54 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
                         </div>
                       </th>
 
+                      <!-- METADATA: FPORT -->
+                      <th
+                        v-if="isMetadataColumnVisible('fPort')"
+                        @click="toggleTelemetrySort('fPort')"
+                        class="py-3 px-3 whitespace-nowrap bg-slate-900 text-slate-400 cursor-pointer hover:bg-slate-800 transition"
+                      >
+                        <div class="flex items-center gap-1">
+                          <span>FPORT</span>
+                          <i class="fa-solid text-[9px]" :class="telemetrySortKey === 'fPort' ? (telemetrySortOrder === 'asc' ? 'fa-arrow-up text-sky-400' : 'fa-arrow-down text-sky-400') : 'fa-sort text-slate-600'"></i>
+                        </div>
+                      </th>
+
+                      <!-- METADATA: FCNT -->
+                      <th
+                        v-if="isMetadataColumnVisible('fCnt')"
+                        @click="toggleTelemetrySort('fCnt')"
+                        class="py-3 px-3 whitespace-nowrap bg-slate-900 text-slate-400 cursor-pointer hover:bg-slate-800 transition"
+                      >
+                        <div class="flex items-center gap-1">
+                          <span>FCNT</span>
+                          <i class="fa-solid text-[9px]" :class="telemetrySortKey === 'fCnt' ? (telemetrySortOrder === 'asc' ? 'fa-arrow-up text-sky-400' : 'fa-arrow-down text-sky-400') : 'fa-sort text-slate-600'"></i>
+                        </div>
+                      </th>
+
+                      <!-- METADATA: RSSI -->
+                      <th
+                        v-if="isMetadataColumnVisible('rssi')"
+                        @click="toggleTelemetrySort('rssi')"
+                        class="py-3 px-3 whitespace-nowrap bg-slate-900 text-emerald-400 cursor-pointer hover:bg-slate-800 transition"
+                      >
+                        <div class="flex items-center gap-1">
+                          <span>RSSI</span>
+                          <i class="fa-solid text-[9px]" :class="telemetrySortKey === 'rssi' ? (telemetrySortOrder === 'asc' ? 'fa-arrow-up text-emerald-400' : 'fa-arrow-down text-emerald-400') : 'fa-sort text-slate-600'"></i>
+                        </div>
+                      </th>
+
+                      <!-- METADATA: SNR -->
+                      <th
+                        v-if="isMetadataColumnVisible('snr')"
+                        @click="toggleTelemetrySort('snr')"
+                        class="py-3 px-3 whitespace-nowrap bg-slate-900 text-sky-400 border-r border-slate-800 cursor-pointer hover:bg-slate-800 transition"
+                      >
+                        <div class="flex items-center gap-1">
+                          <span>SNR</span>
+                          <i class="fa-solid text-[9px]" :class="telemetrySortKey === 'snr' ? (telemetrySortOrder === 'asc' ? 'fa-arrow-up text-sky-400' : 'fa-arrow-down text-sky-400') : 'fa-sort text-slate-600'"></i>
+                        </div>
+                      </th>
+
                       <!-- ALL SENSOR FIELDS (Filtered by visibility) -->
                       <template v-if="dashboardSensorColumns.length > 0">
                         <th
@@ -870,26 +953,51 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
                           </div>
                         </th>
                       </template>
-                      <template v-else>
-                        <!-- Fallback if device has raw payload but no decoded sensor fields -->
-                        <th @click="toggleTelemetrySort('payloadHex')" class="py-3 px-4 whitespace-nowrap bg-slate-900 text-slate-400 cursor-pointer hover:bg-slate-800 transition">
-                          <div class="flex items-center gap-1.5">
-                            <span>PAYLOAD HEX</span>
-                            <i class="fa-solid text-[9px]" :class="telemetrySortKey === 'payloadHex' ? (telemetrySortOrder === 'asc' ? 'fa-arrow-up text-slate-300' : 'fa-arrow-down text-slate-300') : 'fa-sort text-slate-600'"></i>
-                          </div>
-                        </th>
-                      </template>
+
+                      <!-- PAYLOAD HEX (Metadata or fallback) -->
+                      <th
+                        v-if="isMetadataColumnVisible('payloadHex') || dashboardSensorColumns.length === 0"
+                        @click="toggleTelemetrySort('payloadHex')"
+                        class="py-3 px-4 whitespace-nowrap bg-slate-900 text-slate-400 cursor-pointer hover:bg-slate-800 transition"
+                      >
+                        <div class="flex items-center gap-1.5">
+                          <span>PAYLOAD HEX</span>
+                          <i class="fa-solid text-[9px]" :class="telemetrySortKey === 'payloadHex' ? (telemetrySortOrder === 'asc' ? 'fa-arrow-up text-slate-300' : 'fa-arrow-down text-slate-300') : 'fa-sort text-slate-600'"></i>
+                        </div>
+                      </th>
                     </tr>
                   </thead>
                   <tbody class="divide-y divide-slate-800/60 font-mono text-[11px]">
                     <tr
-                      v-for="(row, rIdx) in sortedDashboardMatrixRows"
+                      v-for="(row, rIdx) in paginatedDashboardMatrixRows"
                       :key="rIdx"
                       class="hover:bg-slate-800/40 transition"
                     >
                       <!-- TIME -->
                       <td class="py-2.5 px-4 whitespace-nowrap bg-slate-950/40 border-r border-slate-800">
                         <span class="text-purple-300 font-bold">{{ formatDateTime(row.time) }}</span>
+                      </td>
+
+                      <!-- FPORT -->
+                      <td v-if="isMetadataColumnVisible('fPort')" class="py-2.5 px-3 text-slate-400 whitespace-nowrap">
+                        {{ row.fPort }}
+                      </td>
+
+                      <!-- FCNT -->
+                      <td v-if="isMetadataColumnVisible('fCnt')" class="py-2.5 px-3 text-slate-300 whitespace-nowrap">
+                        {{ row.fCnt }}
+                      </td>
+
+                      <!-- RSSI -->
+                      <td v-if="isMetadataColumnVisible('rssi')" class="py-2.5 px-3 whitespace-nowrap">
+                        <span v-if="row.rssi != null" class="font-bold" :class="row.rssi >= -90 ? 'text-emerald-400' : (row.rssi >= -110 ? 'text-amber-400' : 'text-rose-400')">{{ row.rssi }}</span>
+                        <span v-else class="text-slate-700">—</span>
+                      </td>
+
+                      <!-- SNR -->
+                      <td v-if="isMetadataColumnVisible('snr')" class="py-2.5 px-3 whitespace-nowrap border-r border-slate-800">
+                        <span v-if="row.snr != null" class="font-bold" :class="row.snr >= 5 ? 'text-emerald-400' : (row.snr >= 0 ? 'text-sky-400' : 'text-orange-400')">{{ row.snr }}</span>
+                        <span v-else class="text-slate-700">—</span>
                       </td>
 
                       <!-- SENSOR VALUES (Filtered by visibility) -->
@@ -903,14 +1011,110 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
                           {{ row.sensorValues[col] !== undefined ? row.sensorValues[col] : '—' }}
                         </td>
                       </template>
-                      <template v-else>
-                        <td class="py-2.5 px-4 text-purple-400 uppercase truncate max-w-[200px]" :title="row.payloadHex">
-                          {{ row.payloadHex }}
-                        </td>
-                      </template>
+
+                      <!-- PAYLOAD HEX -->
+                      <td
+                        v-if="isMetadataColumnVisible('payloadHex') || dashboardSensorColumns.length === 0"
+                        class="py-2.5 px-4 text-purple-400 uppercase truncate max-w-[200px]"
+                        :title="row.payloadHex"
+                      >
+                        {{ row.payloadHex }}
+                      </td>
                     </tr>
                   </tbody>
                 </table>
+              </div>
+
+              <!-- Pagination Controls Bar -->
+              <div
+                v-if="sortedDashboardMatrixRows.length > 0"
+                class="flex items-center justify-between gap-3 flex-wrap bg-slate-900/90 border border-slate-800 rounded-2xl px-4 py-3 shadow-inner select-none"
+              >
+                <!-- Record count info -->
+                <div class="flex items-center gap-2 text-xs text-slate-400 font-mono">
+                  <span>Showing</span>
+                  <span class="text-white font-bold">{{ paginationRangeText }}</span>
+                  <span>of</span>
+                  <span class="text-purple-300 font-bold">{{ sortedDashboardMatrixRows.length }}</span>
+                  <span>records</span>
+                  <span v-if="sortedDashboardMatrixRows.length < dashboardMatrixRows.length" class="text-slate-500 text-[10px]">
+                    (filtered from {{ dashboardMatrixRows.length }} total)
+                  </span>
+                </div>
+
+                <div class="flex items-center gap-3 sm:gap-4 flex-wrap">
+                  <!-- Page Size Selector -->
+                  <div class="flex items-center gap-2 text-xs text-slate-400">
+                    <span class="text-[11px] font-medium">Rows per page:</span>
+                    <select
+                      v-model="telemetryPageSize"
+                      class="bg-slate-950 border border-slate-700 text-white rounded-xl px-2.5 py-1 text-xs focus:outline-none focus:border-purple-500 cursor-pointer shadow-inner"
+                    >
+                      <option :value="25">25</option>
+                      <option :value="50">50</option>
+                      <option :value="100">100</option>
+                      <option :value="250">250</option>
+                      <option :value="500">500</option>
+                      <option value="ALL">All ({{ sortedDashboardMatrixRows.length }})</option>
+                    </select>
+                  </div>
+
+                  <!-- Page navigation buttons -->
+                  <div v-if="telemetryPageSize !== 'ALL' && totalTelemetryPages > 1" class="flex items-center gap-1">
+                    <!-- First Page -->
+                    <button
+                      @click="setTelemetryPage(1)"
+                      :disabled="telemetryPage === 1"
+                      class="w-8 h-8 rounded-xl bg-slate-950 border border-slate-800 hover:border-slate-700 disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center text-xs text-slate-300 hover:text-white transition cursor-pointer"
+                      title="First Page"
+                    >
+                      <i class="fa-solid fa-angles-left text-[10px]"></i>
+                    </button>
+
+                    <!-- Prev Page -->
+                    <button
+                      @click="prevTelemetryPage"
+                      :disabled="telemetryPage === 1"
+                      class="w-8 h-8 rounded-xl bg-slate-950 border border-slate-800 hover:border-slate-700 disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center text-xs text-slate-300 hover:text-white transition cursor-pointer"
+                      title="Previous Page"
+                    >
+                      <i class="fa-solid fa-chevron-left text-[10px]"></i>
+                    </button>
+
+                    <!-- Page Numbers Pill list -->
+                    <template v-for="(p, pIdx) in visiblePageNumbers" :key="pIdx">
+                      <span v-if="p === '...'" class="px-1 text-slate-600 text-xs font-mono">...</span>
+                      <button
+                        v-else
+                        @click="setTelemetryPage(p)"
+                        class="min-w-[32px] h-8 px-2 rounded-xl text-xs font-mono font-bold transition cursor-pointer"
+                        :class="telemetryPage === p ? 'bg-purple-600 text-white shadow-lg shadow-purple-600/30' : 'bg-slate-950 border border-slate-800 text-slate-400 hover:text-white hover:border-slate-700'"
+                      >
+                        {{ p }}
+                      </button>
+                    </template>
+
+                    <!-- Next Page -->
+                    <button
+                      @click="nextTelemetryPage"
+                      :disabled="telemetryPage >= totalTelemetryPages"
+                      class="w-8 h-8 rounded-xl bg-slate-950 border border-slate-800 hover:border-slate-700 disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center text-xs text-slate-300 hover:text-white transition cursor-pointer"
+                      title="Next Page"
+                    >
+                      <i class="fa-solid fa-chevron-right text-[10px]"></i>
+                    </button>
+
+                    <!-- Last Page -->
+                    <button
+                      @click="setTelemetryPage(totalTelemetryPages)"
+                      :disabled="telemetryPage >= totalTelemetryPages"
+                      class="w-8 h-8 rounded-xl bg-slate-950 border border-slate-800 hover:border-slate-700 disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center text-xs text-slate-300 hover:text-white transition cursor-pointer"
+                      title="Last Page"
+                    >
+                      <i class="fa-solid fa-angles-right text-[10px]"></i>
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -1139,8 +1343,45 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
 
         // Column visibility filter
         const columnFilterOpen = ref(false);
-        const visibleColumns = ref(new Set(['TIME', 'FPORT', 'FCNT', 'RSSI', 'SNR', 'PAYLOAD_HEX'])); // fixed cols always shown unless toggled
-        const hiddenSensorColumns = ref(new Set()); // sensor columns hidden by user
+        const metadataColumnsList = [
+          { key: 'fPort', label: 'FPORT' },
+          { key: 'fCnt', label: 'FCNT' },
+          { key: 'rssi', label: 'RSSI' },
+          { key: 'snr', label: 'SNR' },
+          { key: 'payloadHex', label: 'PAYLOAD HEX' },
+        ];
+        const hiddenMetadataColumns = ref(new Set());
+        const hiddenSensorColumns = ref(new Set());
+
+        const toggleMetadataColumn = (key) => {
+          const s = new Set(hiddenMetadataColumns.value);
+          if (s.has(key)) { s.delete(key); } else { s.add(key); }
+          hiddenMetadataColumns.value = s;
+        };
+
+        const isMetadataColumnVisible = (key) => !hiddenMetadataColumns.value.has(key);
+
+        const totalHiddenColumnsCount = computed(() => {
+          return hiddenMetadataColumns.value.size + hiddenSensorColumns.value.size;
+        });
+
+        const showAllColumns = () => {
+          hiddenMetadataColumns.value = new Set();
+          hiddenSensorColumns.value = new Set();
+        };
+
+        const resetDefaultColumns = () => {
+          hiddenMetadataColumns.value = new Set();
+          hiddenSensorColumns.value = new Set();
+        };
+
+        const hideAllSensorColumns = () => {
+          hiddenSensorColumns.value = new Set(dashboardSensorColumns.value);
+        };
+
+        // Pagination state
+        const telemetryPage = ref(1);
+        const telemetryPageSize = ref(50); // 25, 50, 100, 250, 500, 'ALL'
 
         // Synchronized Horizontal Scrollbars state
         const topScrollRef = ref(null);
@@ -1203,18 +1444,33 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
           return res;
         };
 
+        const EXCLUDED_COLUMNS = new Set([
+          'errors', 'warnings', 'fPort', 'fCnt', 'devEUI', 'deviceName', 'gatewayId',
+          'rssi', 'snr', 'devEui', 'dr', 'adr', 'channel', 'frequency', 'bandwidth',
+          'spreadingFactor', 'tenantId', 'applicationId', 'serverType'
+        ]);
+
+        const getFlattenedData = (pkt) => {
+          if (!pkt) return {};
+          if (pkt._cachedFlat) return pkt._cachedFlat;
+          const decoded = pkt.decodedData || pkt.object || null;
+          if (!decoded) {
+            pkt._cachedFlat = {};
+            return pkt._cachedFlat;
+          }
+          const dataObj = decoded.data && typeof decoded.data === 'object' ? decoded.data : decoded;
+          pkt._cachedFlat = flattenDashboardFields(dataObj);
+          return pkt._cachedFlat;
+        };
+
         const dashboardSensorColumns = computed(() => {
           const colSet = new Set();
           const list = filteredTelemetryList.value || [];
-          for (const pkt of list) {
-            const decoded = pkt.decodedData || pkt.object || null;
-            if (decoded) {
-              const dataObj = decoded.data && typeof decoded.data === 'object' ? decoded.data : decoded;
-              const flat = flattenDashboardFields(dataObj);
-              for (const k of Object.keys(flat)) {
-                if (!['errors', 'warnings', 'fPort', 'fCnt', 'devEUI', 'deviceName', 'gatewayId', 'rssi', 'snr', 'devEui', 'dr', 'adr', 'channel', 'frequency', 'bandwidth', 'spreadingFactor', 'tenantId', 'applicationId', 'serverType'].includes(k)) {
-                  colSet.add(k);
-                }
+          for (let i = 0; i < list.length; i++) {
+            const flat = getFlattenedData(list[i]);
+            for (const k of Object.keys(flat)) {
+              if (!EXCLUDED_COLUMNS.has(k)) {
+                colSet.add(k);
               }
             }
           }
@@ -1224,11 +1480,14 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
         const dashboardMatrixRows = computed(() => {
           const list = filteredTelemetryList.value || [];
           const cols = dashboardSensorColumns.value;
-          return list.map(pkt => {
-            const decoded = pkt.decodedData || pkt.object || null;
-            const flat = decoded ? flattenDashboardFields(decoded.data && typeof decoded.data === 'object' ? decoded.data : decoded) : {};
+          const len = list.length;
+          const res = new Array(len);
+          for (let i = 0; i < len; i++) {
+            const pkt = list[i];
+            const flat = getFlattenedData(pkt);
             const sensorValues = {};
-            for (const c of cols) {
+            for (let j = 0; j < cols.length; j++) {
+              const c = cols[j];
               const val = flat[c];
               if (val === undefined || val === null) {
                 sensorValues[c] = '—';
@@ -1240,7 +1499,7 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
                 sensorValues[c] = String(val);
               }
             }
-            return {
+            res[i] = {
               raw: pkt,
               time: pkt.timestamp || pkt.receivedAt,
               fPort: pkt.fPort || 1,
@@ -1250,7 +1509,8 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
               payloadHex: pkt.payloadHex || pkt.data || '—',
               sensorValues: sensorValues
             };
-          });
+          }
+          return res;
         });
 
         const passesTimeFilter = (timestamp, filter) => {
@@ -1344,6 +1604,83 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
           });
         });
 
+        const totalTelemetryPages = computed(() => {
+          if (telemetryPageSize.value === 'ALL') return 1;
+          const sz = Number(telemetryPageSize.value) || 50;
+          const total = sortedDashboardMatrixRows.value.length;
+          return Math.max(1, Math.ceil(total / sz));
+        });
+
+        const paginatedDashboardMatrixRows = computed(() => {
+          const rows = sortedDashboardMatrixRows.value || [];
+          if (telemetryPageSize.value === 'ALL') return rows;
+          const sz = Number(telemetryPageSize.value) || 50;
+          const curPage = Math.min(Math.max(1, telemetryPage.value), totalTelemetryPages.value);
+          const start = (curPage - 1) * sz;
+          return rows.slice(start, start + sz);
+        });
+
+        const paginationRangeText = computed(() => {
+          const total = sortedDashboardMatrixRows.value.length;
+          if (total === 0) return '0';
+          if (telemetryPageSize.value === 'ALL') return '1 – ' + total;
+          const sz = Number(telemetryPageSize.value) || 50;
+          const curPage = Math.min(Math.max(1, telemetryPage.value), totalTelemetryPages.value);
+          const start = (curPage - 1) * sz + 1;
+          const end = Math.min(curPage * sz, total);
+          return start + ' – ' + end;
+        });
+
+        const visiblePageNumbers = computed(() => {
+          const cur = telemetryPage.value;
+          const total = totalTelemetryPages.value;
+          if (total <= 7) {
+            const pages = [];
+            for (let i = 1; i <= total; i++) pages.push(i);
+            return pages;
+          }
+          const pages = [1];
+          if (cur > 3) pages.push('...');
+          const start = Math.max(2, cur - 1);
+          const end = Math.min(total - 1, cur + 1);
+          for (let i = start; i <= end; i++) {
+            pages.push(i);
+          }
+          if (cur < total - 2) pages.push('...');
+          pages.push(total);
+          return pages;
+        });
+
+        const setTelemetryPage = (p) => {
+          const maxP = totalTelemetryPages.value;
+          telemetryPage.value = Math.min(Math.max(1, p), maxP);
+          if (tableScrollRef.value) {
+            tableScrollRef.value.scrollTop = 0;
+          }
+        };
+
+        const nextTelemetryPage = () => {
+          if (telemetryPage.value < totalTelemetryPages.value) {
+            setTelemetryPage(telemetryPage.value + 1);
+          }
+        };
+
+        const prevTelemetryPage = () => {
+          if (telemetryPage.value > 1) {
+            setTelemetryPage(telemetryPage.value - 1);
+          }
+        };
+
+        watch([telemetrySearchQuery, telemetryRangeStart, telemetryRangeEnd, telemetryTimeFilter, selectedTelemetryDeviceEUI], () => {
+          telemetryPage.value = 1;
+        });
+
+        watch(totalTelemetryPages, (newTotal) => {
+          if (telemetryPage.value > newTotal) {
+            telemetryPage.value = Math.max(1, newTotal);
+          }
+        });
+
         const toggleTelemetrySort = (key) => {
           if (telemetrySortKey.value === key) {
             telemetrySortOrder.value = telemetrySortOrder.value === 'asc' ? 'desc' : 'asc';
@@ -1360,6 +1697,7 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
           telemetrySearchQuery.value = '';
           telemetrySortKey.value = 'time';
           telemetrySortOrder.value = 'desc';
+          telemetryPage.value = 1;
         };
 
         const isTelemetryFilterActive = computed(() => {
@@ -1453,24 +1791,30 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
           const dateStr = now.getFullYear() + pad(now.getMonth() + 1) + pad(now.getDate()) + '_' + pad(now.getHours()) + pad(now.getMinutes()) + pad(now.getSeconds());
           const baseFileName = 'telemetry_' + devEui + '_' + dateStr;
 
-          // Headers: TIME + all visible sensor columns (or PAYLOAD HEX if none)
+          // Headers: TIME + visible metadata + visible sensor columns + payload hex
           const visibleSensors = dashboardSensorColumns.value.filter(c => isSensorColumnVisible(c));
           const headers = ['TIME'];
-          if (visibleSensors.length > 0) {
-            visibleSensors.forEach(c => headers.push(c.toUpperCase()));
-          } else {
+          if (isMetadataColumnVisible('fPort')) headers.push('FPORT');
+          if (isMetadataColumnVisible('fCnt')) headers.push('FCNT');
+          if (isMetadataColumnVisible('rssi')) headers.push('RSSI');
+          if (isMetadataColumnVisible('snr')) headers.push('SNR');
+          visibleSensors.forEach(c => headers.push(c.toUpperCase()));
+          if (isMetadataColumnVisible('payloadHex') || visibleSensors.length === 0) {
             headers.push('PAYLOAD_HEX');
           }
 
           // Data rows
           const exportData = rows.map(r => {
             const rowItem = [formatDateTime(r.time)];
-            if (visibleSensors.length > 0) {
-              for (const c of visibleSensors) {
-                const val = r.sensorValues[c];
-                rowItem.push(val !== undefined && val !== null && val !== '—' ? val : '');
-              }
-            } else {
+            if (isMetadataColumnVisible('fPort')) rowItem.push(r.fPort != null ? r.fPort : '');
+            if (isMetadataColumnVisible('fCnt')) rowItem.push(r.fCnt != null ? r.fCnt : '');
+            if (isMetadataColumnVisible('rssi')) rowItem.push(r.rssi != null ? r.rssi : '');
+            if (isMetadataColumnVisible('snr')) rowItem.push(r.snr != null ? r.snr : '');
+            for (const c of visibleSensors) {
+              const val = r.sensorValues[c];
+              rowItem.push(val !== undefined && val !== null && val !== '—' ? val : '');
+            }
+            if (isMetadataColumnVisible('payloadHex') || visibleSensors.length === 0) {
               rowItem.push(r.payloadHex || '');
             }
             return rowItem;
@@ -1551,6 +1895,7 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
           activeTelemetryPacket.value = null;
           telemetryLoaded.value = false;
           telemetryList.value = [];
+          telemetryPage.value = 1;
           stopAutoSync();
         };
 
@@ -1559,6 +1904,7 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
             showToast("Please select a device first", "info");
             return;
           }
+          telemetryPage.value = 1;
           await fetchLiveTelemetry(false);
           telemetryLoaded.value = true;
           nextTick(updateScrollDimensions);
@@ -1572,6 +1918,7 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
           telemetryRangeEnd.value = '';
           telemetrySearchQuery.value = '';
           selectedTelemetryDeviceEUI.value = '';
+          telemetryPage.value = 1;
           stopAutoSync();
         };
 
@@ -1823,7 +2170,22 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
             const res = await fetch(url, { headers: authHeaders(), credentials: 'include' });
             if (res.ok) {
               const data = await res.json();
-              telemetryList.value = Array.isArray(data) ? data : [];
+              const newItems = Array.isArray(data) ? data : [];
+
+              // Smart diffing during auto-sync: skip re-assigning if packets are identical
+              const cur = telemetryList.value;
+              if (silent && cur && cur.length === newItems.length && cur.length > 0) {
+                const curFirst = cur[0]?.id || cur[0]?.timestamp || cur[0]?.receivedAt;
+                const newFirst = newItems[0]?.id || newItems[0]?.timestamp || newItems[0]?.receivedAt;
+                const curLast = cur[cur.length - 1]?.id || cur[cur.length - 1]?.timestamp;
+                const newLast = newItems[newItems.length - 1]?.id || newItems[newItems.length - 1]?.timestamp;
+                if (curFirst === newFirst && curLast === newLast) {
+                  lastSyncTime.value = new Date();
+                  return;
+                }
+              }
+
+              telemetryList.value = newItems;
               lastSyncTime.value = new Date();
               nextTick(updateScrollDimensions);
             }
@@ -2071,7 +2433,7 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
           }
         });
 
-        watch([sortedDashboardMatrixRows, hiddenSensorColumns, telemetryLoaded], () => {
+        watch([paginatedDashboardMatrixRows, hiddenSensorColumns, hiddenMetadataColumns, telemetryLoaded], () => {
           nextTick(updateScrollDimensions);
         });
 
@@ -2107,6 +2469,15 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
           dashboardMatrixRows,
           filteredDashboardMatrixRows,
           sortedDashboardMatrixRows,
+          telemetryPage,
+          telemetryPageSize,
+          totalTelemetryPages,
+          paginatedDashboardMatrixRows,
+          paginationRangeText,
+          visiblePageNumbers,
+          setTelemetryPage,
+          nextTelemetryPage,
+          prevTelemetryPage,
           telemetryTimeFilter,
           telemetryRangeStart,
           telemetryRangeEnd,
@@ -2127,6 +2498,14 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
           exportDropdownOpen,
           exportTelemetry,
           columnFilterOpen,
+          metadataColumnsList,
+          hiddenMetadataColumns,
+          toggleMetadataColumn,
+          isMetadataColumnVisible,
+          totalHiddenColumnsCount,
+          showAllColumns,
+          resetDefaultColumns,
+          hideAllSensorColumns,
           hiddenSensorColumns,
           toggleSensorColumn,
           isSensorColumnVisible,
