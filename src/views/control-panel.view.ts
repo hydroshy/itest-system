@@ -7010,7 +7010,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
 
         const getTagTooltip = (f) => {
           if (!f) return '';
-          return 'Field: ' + (f.key || '') + '\nLabel: ' + (f.label || '') + '\nLatest Value: ' + (f.latestValue ?? '') + (f.unit ? ' ' + f.unit : '') + '\nType: ' + (f.dataType || '');
+          return ['Field: ' + (f.key || ''), 'Label: ' + (f.label || ''), 'Latest Value: ' + (f.latestValue ?? '') + (f.unit ? ' ' + f.unit : ''), 'Type: ' + (f.dataType || '')].join(String.fromCharCode(10));
         };
 
         watch(() => selectedWidgetId.value, () => {
