@@ -301,4 +301,12 @@ export class WebhookAdminService {
       message: `Simulated ${serverType} packet successfully processed and logged!`,
     };
   }
+
+  async handleChirpstackWebhook(body: any) {
+    return await this.lorawanService.handleChirpstackWebhook(body);
+  }
+
+  async handleThingparkWebhook(body: any) {
+    return await this.lorawanService.handleThingparkWebhook(body);
+  }
 }

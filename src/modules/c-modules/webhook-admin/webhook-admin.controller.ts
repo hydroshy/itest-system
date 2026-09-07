@@ -7,12 +7,24 @@ import { RequirePermissions } from '../../../common/decorators/permissions.decor
 
 @ApiTags('C-Module: Webhook Manager')
 @Controller('api/webhooks')
-@UseGuards(JwtAuthGuard, PermissionsGuard)
-@ApiBearerAuth()
 export class WebhookAdminController {
   constructor(private readonly webhookAdminService: WebhookAdminService) {}
 
+  @Post('chirpstack')
+  @ApiOperation({ summary: 'Webhook nhận uplink từ ChirpStack v3/v4 qua Webhook Manager và lưu vào uplink_telemetry' })
+  async handleChirpstackWebhook(@Body() body: any) {
+    return await this.webhookAdminService.handleChirpstackWebhook(body);
+  }
+
+  @Post('thingpark')
+  @ApiOperation({ summary: 'Webhook nhận uplink từ ThingPark Wireless qua Webhook Manager và lưu vào uplink_telemetry' })
+  async handleThingparkWebhook(@Body() body: any) {
+    return await this.webhookAdminService.handleThingparkWebhook(body);
+  }
+
   @Get('logs')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @ApiBearerAuth()
   @RequirePermissions('lorawan:webhooks:read')
   @ApiOperation({ summary: 'Get filtered webhook packet logs from ChirpStack & ThingPark' })
   @ApiQuery({ name: 'serverType', required: false, description: 'CHIRPSTACK, THINGPARK, or ALL' })
@@ -37,6 +49,8 @@ export class WebhookAdminController {
   }
 
   @Get('stats')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @ApiBearerAuth()
   @RequirePermissions('lorawan:webhooks:read')
   @ApiOperation({ summary: 'Get webhook ingestion statistics and auto-pruning status' })
   async getStats() {
@@ -44,6 +58,8 @@ export class WebhookAdminController {
   }
 
   @Delete('logs')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @ApiBearerAuth()
   @RequirePermissions('lorawan:webhooks:read')
   @ApiOperation({ summary: 'Clear webhook packet logs (by serverType or ALL)' })
   @ApiQuery({ name: 'serverType', required: false, description: 'CHIRPSTACK, THINGPARK, or ALL' })
@@ -52,6 +68,8 @@ export class WebhookAdminController {
   }
 
   @Put('retention')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @ApiBearerAuth()
   @RequirePermissions('lorawan:webhooks:read')
   @ApiOperation({ summary: 'Update automated log retention limit per server' })
   async setRetention(@Body('limit') limit: number) {
@@ -59,6 +77,8 @@ export class WebhookAdminController {
   }
 
   @Post('simulate')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @ApiBearerAuth()
   @RequirePermissions('lorawan:webhooks:read')
   @ApiOperation({ summary: 'Simulate an incoming webhook packet for ChirpStack or ThingPark' })
   async simulatePacket(

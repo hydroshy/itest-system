@@ -310,7 +310,6 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
                 <i class="fa-solid fa-palette w-4 text-center text-xs text-amber-400"></i>
                 <span>HMI SCADA Studio</span>
               </span>
-              <span class="px-1.5 py-0.5 text-[9px] font-bold bg-amber-500/20 text-amber-400 rounded border border-amber-500/30">SCADA</span>
             </button>
           </div>
         </div>

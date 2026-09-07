@@ -8,7 +8,7 @@ import { RequirePermissions } from '../../common/decorators/permissions.decorato
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 
 @ApiTags('LoRaWAN & Webhook Ingestion')
-@Controller('lorawan')
+@Controller(['lorawan', 'api/lorawan'])
 export class LorawanController {
   constructor(private readonly lorawanService: LorawanService) {}
 

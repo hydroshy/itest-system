@@ -755,6 +755,7 @@ export class LorawanService {
 
     const frequency = uplink.Frequency ? Math.round(Number(uplink.Frequency) * 1000000) : undefined;
     const spreadingFactor = uplink.SpFact != null ? Number(uplink.SpFact) : undefined;
+    const bandwidth = uplink.Bandwidth ? Math.round(Number(uplink.Bandwidth) < 1000 ? Number(uplink.Bandwidth) * 1000 : Number(uplink.Bandwidth)) : undefined;
     const devAddr = uplink.DevAddr || undefined;
 
     let decodedData = uplink.DriverCfg || null;
@@ -793,8 +794,10 @@ export class LorawanService {
       snr: bestSnr != null ? bestSnr : undefined,
       channel: channel != null ? channel : undefined,
       frequency,
+      bandwidth,
       spreadingFactor,
       devAddr,
+      object: (decodedData && Object.keys(decodedData).length > 0 && !decodedData.error) ? decodedData : (uplink.object || undefined),
       decodedData: decodedData || {},
       serverType: 'THINGPARK',
     });
