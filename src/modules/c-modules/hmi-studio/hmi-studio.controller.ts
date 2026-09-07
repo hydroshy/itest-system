@@ -95,4 +95,11 @@ export class HmiStudioController {
     const author = req.user?.username || req.user?.fullName || 'Admin';
     return await this.hmiStudioService.clone(id, dto, author);
   }
+
+  @Get('devices/:devEUI/telemetry-fields')
+  @ApiOperation({ summary: 'Auto-detect decoded telemetry tags & RF metrics for a device' })
+  async getDeviceTelemetryFields(@Param('devEUI') devEUI: string) {
+    return await this.hmiStudioService.getDeviceTelemetryFields(devEUI);
+  }
 }
+

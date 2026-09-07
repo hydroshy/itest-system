@@ -25,6 +25,19 @@
       "requiredPermission": "lorawan:telemetry:read",
       "status": "active",
       "isActive": true
+    },
+    {
+      "id": "hmi-scada-viewer",
+      "code": "D_MOD_HMI_SCADA",
+      "title": "HMI SCADA MONITOR",
+      "description": "Interactive Wecon-style industrial HMI SCADA mimic diagrams, live tank levels, gauge meters, and downlink actuator switches.",
+      "icon": "fa-solid fa-palette",
+      "color": "from-amber-500 to-orange-600",
+      "badge": "SCADA",
+      "category": "Monitoring",
+      "requiredPermission": "lorawan:telemetry:read",
+      "status": "active",
+      "isActive": true
     }
   ],
   "roleLayouts": {
@@ -32,20 +45,22 @@
       "roleCode": "SUPER_ADMIN",
       "moduleOrder": [
         "device-manager",
-        "telemetry-decoder"
+        "telemetry-decoder",
+        "hmi-scada-viewer"
       ],
       "disabledModuleIds": [],
-      "updatedAt": "2026-09-07T02:20:00.000Z"
+      "updatedAt": "2026-09-07T12:00:00.000Z"
     },
     "OPERATOR": {
       "roleCode": "OPERATOR",
       "moduleOrder": [
         "device-manager",
-        "telemetry-decoder"
+        "telemetry-decoder",
+        "hmi-scada-viewer"
       ],
       "disabledModuleIds": [],
-      "updatedAt": "2026-09-07T02:20:00.000Z"
+      "updatedAt": "2026-09-07T12:00:00.000Z"
     }
   },
-  "updatedAt": "2026-09-07T02:20:00.000Z"
+  "updatedAt": "2026-09-07T12:00:00.000Z"
 }

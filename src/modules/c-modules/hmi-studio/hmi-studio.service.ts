@@ -8,6 +8,7 @@ import {
 import { Repository } from 'typeorm';
 import { DynamicDatabaseService } from '../../database/dynamic-database.service';
 import { HmiScreenEntity, HmiWidget } from './entities/hmi-screen.entity';
+import { TelemetryEntity } from '../../lorawan/entities/telemetry.entity';
 import {
   CreateHmiScreenDto,
   UpdateHmiScreenDto,
@@ -22,6 +23,7 @@ export class HmiStudioService implements OnModuleInit {
   constructor(
     private readonly dynamicDatabaseService: DynamicDatabaseService,
   ) {}
+
 
   async onModuleInit() {
     // Seed default sample screen if repository is available
@@ -203,6 +205,147 @@ export class HmiStudioService implements OnModuleInit {
       message: `Downlink [${body.payloadHex || '01'}] successfully dispatched to device ${body.devEUI || 'System'} on fPort ${body.fPort || 1}`,
     };
   }
+
+  async getDeviceTelemetryFields(devEUI: string): Promise<{
+    devEUI: string;
+    fields: Array<{
+      key: string;
+      label: string;
+      latestValue: any;
+      dataType: string;
+      unit?: string;
+      source: 'decoded_payload' | 'lora_metric' | 'default';
+      lastSeen?: Date | string;
+    }>;
+    lastTelemetryAt?: Date | string;
+    totalRecordsScanned: number;
+  }> {
+    const normEUI = (devEUI || '').trim().toUpperCase();
+    const telemetryRepo = this.dynamicDatabaseService.getRepositoryForTable(
+      'uplink_telemetry',
+      TelemetryEntity,
+    );
+
+    const records = await telemetryRepo.createQueryBuilder('telemetry')
+      .where('UPPER(telemetry.devEui) = :devEUI', { devEUI: normEUI })
+      .orderBy('telemetry.timestamp', 'DESC')
+      .take(30)
+      .getMany();
+
+    const fieldMap = new Map<string, {
+      key: string;
+      label: string;
+      latestValue: any;
+      dataType: string;
+      unit?: string;
+      source: 'decoded_payload' | 'lora_metric' | 'default';
+      lastSeen?: Date | string;
+    }>();
+
+    // Standard LoRaWAN RF metrics
+    const standardLoraFields = [
+      { key: 'battery', label: 'Battery Level', unit: '%', def: 100 },
+      { key: 'rssi', label: 'Signal RSSI', unit: 'dBm', def: -75 },
+      { key: 'snr', label: 'Signal SNR', unit: 'dB', def: 9.5 },
+      { key: 'fCnt', label: 'Frame Counter (fCnt)', unit: '', def: 1 },
+      { key: 'dr', label: 'Data Rate (DR)', unit: '', def: 3 },
+      { key: 'fPort', label: 'fPort', unit: '', def: 1 },
+      { key: 'frequency', label: 'Frequency', unit: 'Hz', def: 868300000 },
+    ];
+
+    for (const sf of standardLoraFields) {
+      fieldMap.set(sf.key, {
+        key: sf.key,
+        label: sf.label,
+        latestValue: sf.def,
+        dataType: 'number',
+        unit: sf.unit,
+        source: 'lora_metric',
+      });
+    }
+
+    let lastTelemetryAt: Date | undefined;
+
+    if (records && records.length > 0) {
+      lastTelemetryAt = records[0].timestamp;
+
+      for (const rec of records) {
+        if (rec.rssi !== undefined && rec.rssi !== null) {
+          fieldMap.set('rssi', { key: 'rssi', label: 'Signal RSSI', latestValue: rec.rssi, dataType: 'number', unit: 'dBm', source: 'lora_metric', lastSeen: rec.timestamp });
+        }
+        if (rec.snr !== undefined && rec.snr !== null) {
+          fieldMap.set('snr', { key: 'snr', label: 'Signal SNR', latestValue: rec.snr, dataType: 'number', unit: 'dB', source: 'lora_metric', lastSeen: rec.timestamp });
+        }
+        if (rec.fCnt !== undefined && rec.fCnt !== null) {
+          fieldMap.set('fCnt', { key: 'fCnt', label: 'Frame Counter', latestValue: rec.fCnt, dataType: 'number', unit: '', source: 'lora_metric', lastSeen: rec.timestamp });
+        }
+        if (rec.dr !== undefined && rec.dr !== null) {
+          fieldMap.set('dr', { key: 'dr', label: 'Data Rate', latestValue: rec.dr, dataType: 'number', unit: '', source: 'lora_metric', lastSeen: rec.timestamp });
+        }
+        if (rec.fPort !== undefined && rec.fPort !== null) {
+          fieldMap.set('fPort', { key: 'fPort', label: 'fPort', latestValue: rec.fPort, dataType: 'number', unit: '', source: 'lora_metric', lastSeen: rec.timestamp });
+        }
+
+        // Scan object and decodedData
+        const objectsToScan = [rec.object, rec.decodedData].filter(Boolean);
+        for (const obj of objectsToScan) {
+          if (typeof obj === 'object') {
+            for (const [k, v] of Object.entries(obj)) {
+              if (v !== undefined && v !== null) {
+                const dataType = typeof v;
+                let unit = '';
+                const lowerK = k.toLowerCase();
+                if (lowerK.includes('temp')) unit = '°C';
+                else if (lowerK.includes('hum')) unit = '%RH';
+                else if (lowerK.includes('press') || lowerK.includes('bar')) unit = 'bar';
+                else if (lowerK.includes('volt')) unit = 'V';
+                else if (lowerK.includes('curr') || lowerK.includes('amp')) unit = 'A';
+                else if (lowerK.includes('kwh') || lowerK.includes('energy')) unit = 'kWh';
+                else if (lowerK.includes('kvarh')) unit = 'kVARh';
+                else if (lowerK.includes('level') || lowerK.includes('tank')) unit = '%';
+                else if (lowerK.includes('flow') || lowerK.includes('speed')) unit = 'm³/h';
+                else if (lowerK.includes('power') || lowerK.includes('watt')) unit = 'W';
+
+                const formattedLabel = k
+                  .replace(/_/g, ' ')
+                  .replace(/([A-Z])/g, ' $1')
+                  .replace(/\s+/g, ' ')
+                  .trim()
+                  .toUpperCase();
+
+                const existing = fieldMap.get(k);
+                if (!existing || existing.source === 'default' || existing.source === 'lora_metric') {
+                  fieldMap.set(k, {
+                    key: k,
+                    label: formattedLabel || k,
+                    latestValue: v,
+                    dataType: typeof v === 'object' ? 'json' : dataType,
+                    unit,
+                    source: 'decoded_payload',
+                    lastSeen: rec.timestamp,
+                  });
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+
+    const fields = Array.from(fieldMap.values()).sort((a, b) => {
+      if (a.source === 'decoded_payload' && b.source !== 'decoded_payload') return -1;
+      if (a.source !== 'decoded_payload' && b.source === 'decoded_payload') return 1;
+      return a.key.localeCompare(b.key);
+    });
+
+    return {
+      devEUI: normEUI,
+      fields,
+      lastTelemetryAt,
+      totalRecordsScanned: records.length,
+    };
+  }
+
 
   private async seedSampleScreen(): Promise<void> {
     const repo = this.getRepository();

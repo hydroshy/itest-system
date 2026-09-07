@@ -137,4 +137,14 @@ export class LorawanController {
     const parsedLimit = limit !== undefined ? Number(limit) : (devEUI ? 0 : 100);
     return await this.lorawanService.getTelemetry(devEUI, parsedLimit);
   }
+
+  @Get('devices/:devEUI/telemetry-fields')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermissions('lorawan:telemetry:read')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Tự nhận diện danh sách các trường Telemetry / Decoded Tags từ payload gần nhất' })
+  async getDeviceTelemetryFields(@Param('devEUI') devEUI: string) {
+    return await this.lorawanService.getDeviceTelemetryFields(devEUI);
+  }
 }
+

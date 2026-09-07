@@ -54,5 +54,19 @@ export const DEFAULT_D_MODULES: DModule[] = [
     status: 'active',
     isActive: true,
   },
+  {
+    id: 'hmi-scada-viewer',
+    code: 'D_MOD_HMI_SCADA',
+    title: 'HMI SCADA MONITOR',
+    description: 'Interactive Wecon-style industrial HMI SCADA mimic diagrams, live tank levels, gauge meters, and downlink actuator switches.',
+    icon: 'fa-solid fa-palette',
+    color: 'from-amber-500 to-orange-600',
+    badge: 'SCADA',
+    category: 'Monitoring',
+    requiredPermission: 'lorawan:telemetry:read',
+    status: 'active',
+    isActive: true,
+  },
 ];
+
 

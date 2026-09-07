@@ -106,6 +106,28 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
     .hmi-blink-anim {
       animation: hmi-blink 1s infinite;
     }
+    /* When in design/editing mode, stop/pause all live animations and transitions */
+    .hmi-design-paused,
+    .hmi-design-paused * {
+      animation: none !important;
+      transition: none !important;
+    }
+    .hmi-resize-handle {
+      position: absolute;
+      width: 10px;
+      height: 10px;
+      background-color: #ffffff;
+      border: 2px solid #0284c7;
+      border-radius: 2px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.6);
+      z-index: 50;
+      transition: transform 0.1s ease, background-color 0.1s ease;
+    }
+    .hmi-resize-handle:hover {
+      background-color: #38bdf8;
+      border-color: #ffffff;
+      transform: scale(1.3);
+    }
   </style>
 </head>
 <body class="min-h-screen flex flex-col antialiased">
@@ -2405,17 +2427,19 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
             <!-- Center: Mode Toggle (Design Mode vs Runtime View) -->
             <div class="flex items-center bg-slate-950 p-1 rounded-xl border border-slate-800">
               <button
-                @click="hmiEditorMode = 'design'"
+                @click="setHmiEditorMode('design')"
                 class="px-3 py-1 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer"
                 :class="hmiEditorMode === 'design' ? 'bg-sky-600 text-white shadow-md' : 'text-slate-400 hover:text-white'"
+                title="Edit Layout & Widgets (Animations & Telemetry Paused)"
               >
                 <i class="fa-solid fa-compass-drafting text-[10px]"></i>
                 <span>Design Mode</span>
               </button>
               <button
-                @click="hmiEditorMode = 'run'"
+                @click="setHmiEditorMode('run')"
                 class="px-3 py-1 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer"
                 :class="hmiEditorMode === 'run' ? 'bg-emerald-600 text-white shadow-md' : 'text-slate-400 hover:text-white'"
+                title="Live SCADA Simulation & Telemetry Streaming"
               >
                 <i class="fa-solid fa-play text-[10px]"></i>
                 <span>Runtime View</span>
@@ -2464,9 +2488,13 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
                 </select>
               </div>
 
-              <div class="flex items-center gap-1.5 px-2 py-1 rounded bg-slate-950 border border-slate-800 text-[10px] font-mono text-emerald-400">
+              <div v-if="hmiEditorMode === 'run'" class="flex items-center gap-1.5 px-2 py-1 rounded bg-emerald-950/70 border border-emerald-800 text-[10px] font-mono text-emerald-300">
                 <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping"></span>
-                <span>Live Telemetry</span>
+                <span>Live Streaming</span>
+              </div>
+              <div v-else class="flex items-center gap-1.5 px-2 py-1 rounded bg-amber-950/70 border border-amber-800 text-[10px] font-mono text-amber-300">
+                <span class="w-1.5 h-1.5 rounded-full bg-amber-400"></span>
+                <span>Editing Paused</span>
               </div>
             </div>
           </div>
@@ -2629,7 +2657,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
 
             <!-- CENTER PANEL: CANVAS WORKSPACE -->
             <div class="flex-1 bg-slate-950 border border-slate-800 rounded-2xl p-4 overflow-auto custom-scroll shadow-2xl relative min-h-[760px] max-h-[820px]"
-                 @click="selectedWidgetId = null">
+                 @click.self="selectedWidgetId = null">
               <div v-if="!currentHmiScreen" class="flex flex-col items-center justify-center h-96 text-slate-500 gap-3">
                 <i class="fa-solid fa-palette text-4xl text-slate-600"></i>
                 <p class="text-sm">No HMI Screen selected. Choose or create a screen to begin.</p>
@@ -2639,7 +2667,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
               <div
                 v-else
                 class="relative transition-transform origin-top-left shadow-2xl border border-slate-700/60 rounded-lg"
-                :class="{ 'hmi-grid-bg': currentHmiScreen.canvasConfig?.showGrid && hmiEditorMode === 'design' }"
+                :class="{ 'hmi-grid-bg': currentHmiScreen.canvasConfig?.showGrid && hmiEditorMode === 'design', 'hmi-design-paused': hmiEditorMode === 'design' }"
                 :style="{
                   width: currentHmiScreen.canvasConfig.width + 'px',
                   height: currentHmiScreen.canvasConfig.height + 'px',
@@ -2666,21 +2694,60 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
                   }"
                   @mousedown.stop="onWidgetMouseDown($event, w)"
                 >
-                  <!-- Selection Badge & Coordinates (Design Mode Only) -->
+                  <!-- Floating Action Toolbar for Selected Widget (Design Mode Only) -->
                   <div
                     v-if="selectedWidgetId === w.id && hmiEditorMode === 'design'"
-                    class="absolute -top-6 left-0 bg-sky-600 text-white font-mono text-[9px] px-1.5 py-0.5 rounded shadow flex items-center gap-1 font-bold pointer-events-none whitespace-nowrap z-40"
+                    class="absolute -top-10 left-0 bg-slate-900/95 border border-sky-500/80 rounded-xl px-2 py-1 shadow-2xl flex items-center gap-1.5 z-50 text-white select-none whitespace-nowrap backdrop-blur-md"
+                    @mousedown.stop
                   >
-                    <span>{{ w.type }}</span>
-                    <span class="text-sky-200">({{ w.x }}, {{ w.y }}) {{ w.w }}×{{ w.h }}</span>
+                    <span class="text-[10px] font-mono font-bold text-sky-400 border-r border-slate-700 pr-1.5">{{ w.type }}</span>
+                    <span class="text-[10px] font-mono text-slate-300 border-r border-slate-700 pr-1.5">({{ w.x }}, {{ w.y }}) {{ w.w }}×{{ w.h }}</span>
+
+                    <!-- Quick Stretch Width / Height -->
+                    <button @click.stop="stretchWidgetWidth(w, 50)" title="Extend width +50px" class="px-1.5 py-0.5 rounded bg-slate-800 hover:bg-sky-600 text-[10px] text-slate-200 transition cursor-pointer font-mono">
+                      ↔+50
+                    </button>
+                    <button @click.stop="stretchWidgetHeight(w, 30)" title="Extend height +30px" class="px-1.5 py-0.5 rounded bg-slate-800 hover:bg-sky-600 text-[10px] text-slate-200 transition cursor-pointer font-mono">
+                      ↕+30
+                    </button>
+
+                    <!-- Layer Ordering -->
+                    <button @click.stop="moveWidgetLayer(1)" title="Bring Forward" class="p-1 rounded hover:bg-slate-800 text-slate-300 hover:text-white text-[10px] transition cursor-pointer">
+                      <i class="fa-solid fa-arrow-up"></i>
+                    </button>
+                    <button @click.stop="moveWidgetLayer(-1)" title="Send Backward" class="p-1 rounded hover:bg-slate-800 text-slate-300 hover:text-white text-[10px] transition cursor-pointer">
+                      <i class="fa-solid fa-arrow-down"></i>
+                    </button>
+
+                    <!-- Duplicate & Delete -->
+                    <button @click.stop="duplicateSelectedWidget" title="Duplicate Widget (Ctrl+D)" class="p-1 rounded hover:bg-slate-800 text-sky-400 hover:text-sky-300 text-[10px] transition cursor-pointer">
+                      <i class="fa-solid fa-copy"></i>
+                    </button>
+                    <button @click.stop="removeSelectedWidget" title="Delete Widget (Delete / Backspace)" class="p-1 rounded hover:bg-red-500/30 text-red-400 hover:text-red-300 text-[10px] transition cursor-pointer">
+                      <i class="fa-solid fa-trash-can"></i>
+                    </button>
                   </div>
 
-                  <!-- Resize Handle (Bottom-Right) -->
-                  <div
-                    v-if="selectedWidgetId === w.id && hmiEditorMode === 'design'"
-                    @mousedown.stop="onResizeMouseDown($event, w)"
-                    class="w-3.5 h-3.5 bg-white border-2 border-sky-600 rounded-sm absolute -bottom-1.5 -right-1.5 cursor-se-resize shadow-md z-40"
-                  ></div>
+                  <!-- 8-Point Multi-Directional Resize Handles (Design Mode Only) -->
+                  <template v-if="selectedWidgetId === w.id && hmiEditorMode === 'design'">
+                    <!-- Top-Left (NW) -->
+                    <div @mousedown.stop="onResizeMouseDown($event, w, 'nw')" class="hmi-resize-handle -top-1.5 -left-1.5 cursor-nwse-resize" title="Resize Top-Left"></div>
+                    <!-- Top-Center (N) -->
+                    <div @mousedown.stop="onResizeMouseDown($event, w, 'n')" class="hmi-resize-handle -top-1.5 left-1/2 -translate-x-1/2 cursor-ns-resize" title="Stretch Height (Top)"></div>
+                    <!-- Top-Right (NE) -->
+                    <div @mousedown.stop="onResizeMouseDown($event, w, 'ne')" class="hmi-resize-handle -top-1.5 -right-1.5 cursor-nesw-resize" title="Resize Top-Right"></div>
+                    <!-- Right-Center (E) -->
+                    <div @mousedown.stop="onResizeMouseDown($event, w, 'e')" class="hmi-resize-handle top-1/2 -translate-y-1/2 -right-1.5 cursor-ew-resize" title="Stretch Width (Right)"></div>
+                    <!-- Bottom-Right (SE) -->
+                    <div @mousedown.stop="onResizeMouseDown($event, w, 'se')" class="hmi-resize-handle -bottom-1.5 -right-1.5 cursor-nwse-resize" title="Resize Bottom-Right"></div>
+                    <!-- Bottom-Center (S) -->
+                    <div @mousedown.stop="onResizeMouseDown($event, w, 's')" class="hmi-resize-handle -bottom-1.5 left-1/2 -translate-x-1/2 cursor-ns-resize" title="Stretch Height (Bottom)"></div>
+                    <!-- Bottom-Left (SW) -->
+                    <div @mousedown.stop="onResizeMouseDown($event, w, 'sw')" class="hmi-resize-handle -bottom-1.5 -left-1.5 cursor-nesw-resize" title="Resize Bottom-Left"></div>
+                    <!-- Left-Center (W) -->
+                    <div @mousedown.stop="onResizeMouseDown($event, w, 'w')" class="hmi-resize-handle top-1/2 -translate-y-1/2 -left-1.5 cursor-ew-resize" title="Stretch Width (Left)"></div>
+                  </template>
+
 
                   <!-- WIDGET TYPE: BIT-LAMP -->
                   <div v-if="w.type === 'bit-lamp'" class="w-full h-full flex items-center justify-between px-3 py-2 bg-slate-900/90 rounded-lg border border-slate-700/80 shadow-inner gap-2">
@@ -2932,9 +2999,12 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
                   </div>
                 </div>
 
-                <!-- Section 1: Geometry -->
+                <!-- Section 1: Geometry & Quick Stretch -->
                 <div class="space-y-2">
-                  <div class="text-[10px] font-extrabold uppercase text-slate-500">Geometry (px)</div>
+                  <div class="flex items-center justify-between">
+                    <span class="text-[10px] font-extrabold uppercase text-slate-500">Geometry (px)</span>
+                    <span class="text-[9px] text-sky-400 font-mono font-bold">{{ selectedWidget.w }} × {{ selectedWidget.h }}</span>
+                  </div>
                   <div class="grid grid-cols-2 gap-2 text-xs">
                     <div>
                       <label class="text-[10px] text-slate-400">X Position</label>
@@ -2951,6 +3021,25 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
                     <div>
                       <label class="text-[10px] text-slate-400">Height</label>
                       <input type="number" v-model.number="selectedWidget.h" class="w-full bg-slate-950 border border-slate-700 rounded px-2 py-1 text-white font-mono" />
+                    </div>
+                  </div>
+
+                  <!-- Quick Resize & Stretch -->
+                  <div class="space-y-1 pt-1">
+                    <div class="text-[9px] text-slate-500 font-bold uppercase">Quick Resize & Stretch</div>
+                    <div class="grid grid-cols-4 gap-1">
+                      <button type="button" @click="stretchWidgetWidth(selectedWidget, 50)" class="py-1 px-1 rounded bg-slate-950 hover:bg-slate-800 border border-slate-700 text-[10px] text-slate-300 font-mono text-center cursor-pointer transition" title="Width +50px">
+                        W +50
+                      </button>
+                      <button type="button" @click="stretchWidgetWidth(selectedWidget, -50)" class="py-1 px-1 rounded bg-slate-950 hover:bg-slate-800 border border-slate-700 text-[10px] text-slate-300 font-mono text-center cursor-pointer transition" title="Width -50px">
+                        W -50
+                      </button>
+                      <button type="button" @click="stretchWidgetHeight(selectedWidget, 30)" class="py-1 px-1 rounded bg-slate-950 hover:bg-slate-800 border border-slate-700 text-[10px] text-slate-300 font-mono text-center cursor-pointer transition" title="Height +30px">
+                        H +30
+                      </button>
+                      <button type="button" @click="stretchWidgetHeight(selectedWidget, -30)" class="py-1 px-1 rounded bg-slate-950 hover:bg-slate-800 border border-slate-700 text-[10px] text-slate-300 font-mono text-center cursor-pointer transition" title="Height -30px">
+                        H -30
+                      </button>
                     </div>
                   </div>
                 </div>
@@ -2994,16 +3083,20 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
                   </div>
                 </div>
 
-                <!-- Section 3: Tag Binding Engine -->
+                <!-- Section 3: Tag Binding Engine (Auto-Detection Enabled) -->
                 <div class="space-y-2 border-t border-slate-800 pt-3">
                   <div class="flex items-center justify-between">
                     <span class="text-[10px] font-extrabold uppercase text-slate-500">LoRaWAN Tag Binding</span>
-                    <span class="text-[9px] px-1.5 py-0.2 rounded bg-emerald-500/10 text-emerald-400 font-mono">Realtime</span>
+                    <span class="text-[9px] px-1.5 py-0.2 rounded bg-emerald-500/10 text-emerald-400 font-mono">Auto-Detect</span>
                   </div>
                   <div class="space-y-2 text-xs">
                     <div>
                       <label class="text-[10px] text-slate-400">Target Device (DevEUI)</label>
-                      <select v-model="selectedWidgetBinding.devEUI" class="w-full bg-slate-950 border border-slate-700 rounded px-2 py-1 text-white text-xs">
+                      <select
+                        v-model="selectedWidgetBinding.devEUI"
+                        @change="fetchDetectedFieldsForSelectedDevice"
+                        class="w-full bg-slate-950 border border-slate-700 rounded px-2 py-1.5 text-white text-xs focus:ring-1 focus:ring-sky-500"
+                      >
                         <option value="">-- Select Device --</option>
                         <option v-for="d in devicesList" :key="d.devEUI" :value="d.devEUI">
                           {{ d.name ? d.name + ' (' + d.devEUI + ')' : d.devEUI }}
@@ -3011,9 +3104,59 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
                       </select>
                     </div>
 
+                    <!-- Auto-detected Decoded Tags Box -->
+                    <div v-if="selectedWidgetBinding.devEUI" class="p-2.5 rounded-xl bg-slate-950/90 border border-slate-800 space-y-2">
+                      <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-1.5 text-[10px] font-bold text-sky-400">
+                          <i class="fa-solid fa-wand-magic-sparkles text-amber-400 text-[10px]"></i>
+                          <span>Decoded Tags ({{ detectedTelemetryFields.length }})</span>
+                        </div>
+                        <button
+                          type="button"
+                          @click="fetchDetectedFieldsForSelectedDevice"
+                          class="text-slate-400 hover:text-white text-[10px] cursor-pointer transition flex items-center gap-1"
+                          title="Refresh detected fields from payload"
+                        >
+                          <i class="fa-solid fa-arrows-rotate" :class="{ 'animate-spin': loadingDetectedFields }"></i>
+                          <span class="text-[9px]">Scan</span>
+                        </button>
+                      </div>
+
+                      <!-- Loading state -->
+                      <div v-if="loadingDetectedFields" class="text-[10px] text-slate-500 font-mono py-1 flex items-center gap-1.5">
+                        <i class="fa-solid fa-spinner animate-spin text-sky-400"></i>
+                        <span>Scanning device payloads...</span>
+                      </div>
+
+                      <!-- Tag Pills / Chips -->
+                      <div v-else-if="detectedTelemetryFields.length > 0" class="flex flex-wrap gap-1 max-h-36 overflow-y-auto custom-scroll pr-1">
+                        <button
+                          v-for="f in detectedTelemetryFields"
+                          :key="f.key"
+                          type="button"
+                          @click="applyDetectedField(f)"
+                          class="px-2 py-0.5 rounded text-[10px] font-mono transition flex items-center gap-1 cursor-pointer border"
+                          :class="selectedWidgetBinding.field === f.key ? 'bg-sky-500/25 border-sky-400 text-sky-200 font-bold shadow-sm' : 'bg-slate-900 hover:bg-slate-800 border-slate-700/80 text-slate-300'"
+                          :title="'Field: ' + f.key + '\nLabel: ' + f.label + '\nLatest Value: ' + f.latestValue + (f.unit ? ' ' + f.unit : '') + '\nType: ' + f.dataType"
+                        >
+                          <span>{{ f.key }}</span>
+                          <span class="text-[9px] text-slate-400 font-normal">({{ f.latestValue }}{{ f.unit ? f.unit : '' }})</span>
+                        </button>
+                      </div>
+
+                      <div v-else class="text-[10px] text-slate-500 italic">
+                        No uplink payloads received yet. You can still manually type a tag below.
+                      </div>
+                    </div>
+
                     <div>
                       <label class="text-[10px] text-slate-400">Telemetry Field (Tag)</label>
-                      <input type="text" v-model="selectedWidgetBinding.field" placeholder="water_level, pressure, temp..." class="w-full bg-slate-950 border border-slate-700 rounded px-2 py-1 text-white font-mono" />
+                      <input
+                        type="text"
+                        v-model="selectedWidgetBinding.field"
+                        placeholder="e.g. water_level, LM_OF_T2_IMP_KWH..."
+                        class="w-full bg-slate-950 border border-slate-700 rounded px-2 py-1 text-white font-mono text-xs focus:ring-1 focus:ring-sky-500"
+                      />
                     </div>
 
                     <div class="grid grid-cols-2 gap-2">
@@ -3059,7 +3202,26 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
                     </div>
                   </div>
                 </div>
+
+                <!-- Bottom Widget Action Controls -->
+                <div class="border-t border-slate-800 pt-3 flex items-center justify-between gap-2">
+                  <button
+                    type="button"
+                    @click="duplicateSelectedWidget"
+                    class="flex-1 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold flex items-center justify-center gap-1.5 cursor-pointer transition border border-slate-700 shadow-sm"
+                  >
+                    <i class="fa-solid fa-copy text-[10px] text-sky-400"></i> Duplicate
+                  </button>
+                  <button
+                    type="button"
+                    @click="removeSelectedWidget"
+                    class="flex-1 py-1.5 rounded-lg bg-red-500/15 hover:bg-red-500/25 text-red-300 border border-red-500/30 text-xs font-semibold flex items-center justify-center gap-1.5 cursor-pointer transition shadow-sm"
+                  >
+                    <i class="fa-solid fa-trash-can text-[10px]"></i> Delete
+                  </button>
+                </div>
               </div>
+
 
               <!-- When no widget is selected: Canvas Inspector -->
               <div v-else class="space-y-3">
@@ -6804,22 +6966,185 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
           window.addEventListener('mouseup', onMouseUp);
         };
 
-        const onResizeMouseDown = (e, widget) => {
+        const detectedTelemetryFields = ref([]);
+        const loadingDetectedFields = ref(false);
+
+        const fetchDetectedFieldsForSelectedDevice = async () => {
+          const devEUI = selectedWidgetBinding.value?.devEUI;
+          if (!devEUI) {
+            detectedTelemetryFields.value = [];
+            return;
+          }
+          loadingDetectedFields.value = true;
+          try {
+            const res = await fetch('/lorawan/devices/' + encodeURIComponent(devEUI) + '/telemetry-fields', {
+              headers: authHeaders(),
+              credentials: 'include',
+            });
+            if (res.ok) {
+              const data = await res.json();
+              detectedTelemetryFields.value = Array.isArray(data?.fields) ? data.fields : [];
+            } else {
+              detectedTelemetryFields.value = [];
+            }
+          } catch (e) {
+            detectedTelemetryFields.value = [];
+          } finally {
+            loadingDetectedFields.value = false;
+          }
+        };
+
+        const applyDetectedField = (fieldObj) => {
+          if (!selectedWidgetBinding.value || !fieldObj) return;
+          selectedWidgetBinding.value.field = fieldObj.key;
+          if (selectedWidget.value?.props) {
+            if (fieldObj.unit && selectedWidget.value.props.unit !== undefined && !selectedWidget.value.props.unit) {
+              selectedWidget.value.props.unit = fieldObj.unit;
+            }
+            if (selectedWidget.value.props.title !== undefined && (!selectedWidget.value.props.title || selectedWidget.value.props.title === 'Lamp' || selectedWidget.value.props.title === 'Storage Tank' || selectedWidget.value.props.title === 'Sensor' || selectedWidget.value.props.title === 'TEMPERATURE' || selectedWidget.value.props.title === 'FLOW RATE')) {
+              selectedWidget.value.props.title = fieldObj.label;
+            }
+          }
+          showToast('Selected Tag: ' + fieldObj.key + ' (' + fieldObj.latestValue + (fieldObj.unit ? ' ' + fieldObj.unit : '') + ')', 'info');
+        };
+
+        watch(() => selectedWidgetId.value, () => {
+          if (selectedWidgetBinding.value?.devEUI) {
+            fetchDetectedFieldsForSelectedDevice();
+          } else {
+            detectedTelemetryFields.value = [];
+          }
+        });
+
+        const stretchWidgetWidth = (widget, amount) => {
+          if (!widget) return;
+          const maxW = currentHmiScreen.value?.canvasConfig?.width || 1920;
+          if (amount === 'full') {
+            widget.x = 0;
+            widget.w = maxW;
+          } else {
+            widget.w = Math.max(40, Math.min(maxW - widget.x, (widget.w || 100) + amount));
+          }
+        };
+
+        const stretchWidgetHeight = (widget, amount) => {
+          if (!widget) return;
+          const maxH = currentHmiScreen.value?.canvasConfig?.height || 1080;
+          widget.h = Math.max(30, Math.min(maxH - widget.y, (widget.h || 60) + amount));
+        };
+
+        const setWidgetPresetSize = (widget, w, h) => {
+          if (!widget) return;
+          const maxW = currentHmiScreen.value?.canvasConfig?.width || 1920;
+          const maxH = currentHmiScreen.value?.canvasConfig?.height || 1080;
+          widget.w = Math.min(w, maxW - widget.x);
+          widget.h = Math.min(h, maxH - widget.y);
+        };
+
+        const setHmiEditorMode = (mode) => {
+          hmiEditorMode.value = mode;
+          if (mode === 'design') {
+            stopHmiTelemetryPolling();
+            showToast('Design Mode: live simulation paused for precise editing', 'info');
+          } else {
+            selectedWidgetId.value = null;
+            startHmiTelemetryPolling();
+            showToast('Runtime View: live telemetry streaming active', 'success');
+          }
+        };
+
+        const handleHmiKeydown = (e) => {
+          if (activeTab.value !== 'hmi-studio' || hmiEditorMode.value !== 'design') return;
+          const tag = (e.target && e.target.tagName) ? e.target.tagName.toLowerCase() : '';
+          if (tag === 'input' || tag === 'textarea' || tag === 'select' || (e.target && e.target.isContentEditable)) {
+            return;
+          }
+
+          if (!selectedWidget.value) return;
+
+          if (e.key === 'Delete' || e.key === 'Backspace') {
+            e.preventDefault();
+            removeSelectedWidget();
+            showToast('Widget deleted', 'info');
+          } else if (e.key === 'd' && (e.ctrlKey || e.metaKey)) {
+            e.preventDefault();
+            duplicateSelectedWidget();
+            showToast('Widget duplicated', 'info');
+          } else if (e.key === 'Escape') {
+            selectedWidgetId.value = null;
+          } else if (e.key === 'ArrowLeft') {
+            e.preventDefault();
+            const step = e.shiftKey ? 10 : (hmiGridSize.value || 1);
+            selectedWidget.value.x = Math.max(0, selectedWidget.value.x - step);
+          } else if (e.key === 'ArrowRight') {
+            e.preventDefault();
+            const step = e.shiftKey ? 10 : (hmiGridSize.value || 1);
+            const maxW = currentHmiScreen.value?.canvasConfig?.width || 1920;
+            selectedWidget.value.x = Math.min(maxW - selectedWidget.value.w, selectedWidget.value.x + step);
+          } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            const step = e.shiftKey ? 10 : (hmiGridSize.value || 1);
+            selectedWidget.value.y = Math.max(0, selectedWidget.value.y - step);
+          } else if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            const step = e.shiftKey ? 10 : (hmiGridSize.value || 1);
+            const maxH = currentHmiScreen.value?.canvasConfig?.height || 1080;
+            selectedWidget.value.y = Math.min(maxH - selectedWidget.value.h, selectedWidget.value.y + step);
+          }
+        };
+
+        const onResizeMouseDown = (e, widget, handle = 'se') => {
           if (hmiEditorMode.value !== 'design') return;
           const startMouseX = e.clientX;
           const startMouseY = e.clientY;
+          const startX = widget.x;
+          const startY = widget.y;
           const startW = widget.w;
           const startH = widget.h;
           const grid = hmiGridSize.value || 1;
+          const maxCanvasW = currentHmiScreen.value?.canvasConfig?.width || 1920;
+          const maxCanvasH = currentHmiScreen.value?.canvasConfig?.height || 1080;
 
           const onMouseMove = (moveEvent) => {
             const scale = (hmiZoom.value || 100) / 100;
-            const dw = (moveEvent.clientX - startMouseX) / scale;
-            const dh = (moveEvent.clientY - startMouseY) / scale;
-            let newW = Math.round((startW + dw) / grid) * grid;
-            let newH = Math.round((startH + dh) / grid) * grid;
-            widget.w = Math.max(40, newW);
-            widget.h = Math.max(30, newH);
+            const dx = (moveEvent.clientX - startMouseX) / scale;
+            const dy = (moveEvent.clientY - startMouseY) / scale;
+
+            let newX = startX;
+            let newY = startY;
+            let newW = startW;
+            let newH = startH;
+
+            // Width & X adjustments
+            if (handle.includes('e')) {
+              newW = Math.max(40, Math.round((startW + dx) / grid) * grid);
+              newW = Math.min(newW, maxCanvasW - startX);
+            } else if (handle.includes('w')) {
+              const snappedDx = Math.round(dx / grid) * grid;
+              const proposedW = startW - snappedDx;
+              if (proposedW >= 40) {
+                newX = Math.max(0, startX + snappedDx);
+                newW = proposedW;
+              }
+            }
+
+            // Height & Y adjustments
+            if (handle.includes('s')) {
+              newH = Math.max(30, Math.round((startH + dy) / grid) * grid);
+              newH = Math.min(newH, maxCanvasH - startY);
+            } else if (handle.includes('n')) {
+              const snappedDy = Math.round(dy / grid) * grid;
+              const proposedH = startH - snappedDy;
+              if (proposedH >= 30) {
+                newY = Math.max(0, startY + snappedDy);
+                newH = proposedH;
+              }
+            }
+
+            widget.x = newX;
+            widget.y = newY;
+            widget.w = newW;
+            widget.h = newH;
           };
 
           const onMouseUp = () => {
@@ -6830,6 +7155,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
           window.addEventListener('mousemove', onMouseMove);
           window.addEventListener('mouseup', onMouseUp);
         };
+
 
         const getWidgetTelemetryValue = (widget) => {
           if (!widget) return '--';
@@ -7216,7 +7542,11 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
           if (newTab === 'hmi-studio') {
             fetchHmiScreens();
             fetchDevices();
-            startHmiTelemetryPolling();
+            if (hmiEditorMode.value === 'run') {
+              startHmiTelemetryPolling();
+            } else {
+              stopHmiTelemetryPolling();
+            }
           } else {
             stopHmiTelemetryPolling();
           }
@@ -7244,7 +7574,12 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
             }
             if (hash === 'hmi-studio') {
               fetchHmiScreens();
-              startHmiTelemetryPolling();
+              fetchDevices();
+              if (hmiEditorMode.value === 'run') {
+                startHmiTelemetryPolling();
+              } else {
+                stopHmiTelemetryPolling();
+              }
             }
           } else {
             activeTab.value = 'overview';
@@ -7253,11 +7588,13 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
 
         onMounted(() => {
           initControlPanel();
+          window.addEventListener('keydown', handleHmiKeydown);
         });
 
         window.addEventListener('pageshow', (event) => {
           initControlPanel();
         });
+
 
         return {
           activeTab,
@@ -7527,7 +7864,16 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
           isWidgetSwitchOn,
           triggerWidgetToggleSwitch,
           triggerWidgetActionButton,
-          getWidgetTrendPath
+          getWidgetTrendPath,
+          detectedTelemetryFields,
+          loadingDetectedFields,
+          fetchDetectedFieldsForSelectedDevice,
+          applyDetectedField,
+          stretchWidgetWidth,
+          stretchWidgetHeight,
+          setWidgetPresetSize,
+          setHmiEditorMode,
+          handleHmiKeydown
         };
       }
     }).mount('#app');
