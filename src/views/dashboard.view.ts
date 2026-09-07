@@ -430,16 +430,16 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
                   <i class="fa-solid fa-arrow-left"></i>
                 </button>
                 <div class="w-10 h-10 rounded-xl bg-purple-500/10 border border-purple-500/25 flex items-center justify-center text-purple-400 text-lg shadow-inner">
-                  <i class="fa-solid fa-table-list"></i>
+                  <i class="fa-solid fa-table-cells"></i>
                 </div>
                 <div>
                   <div class="flex items-center gap-2">
-                    <h3 class="text-sm font-bold text-white tracking-wide">LIVE TELEMETRY & DECODER</h3>
+                    <h3 class="text-sm font-bold text-white tracking-wide">LIVE TELEMETRY & SENSOR MATRIX</h3>
                     <span class="px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-400 border border-purple-500/25 text-[10px] font-bold font-mono">
-                      {{ filteredTelemetryList.length }} Packets
+                      {{ dashboardMatrixRows.length }} Records
                     </span>
                   </div>
-                  <p class="text-[11px] text-slate-400 mt-0.5">Inspect real-time LoRaWAN uplink packets and decoded sensor data</p>
+                  <p class="text-[11px] text-slate-400 mt-0.5">Time-series tabular log: Network metadata and decoded sensor telemetry</p>
                 </div>
               </div>
               <div class="flex flex-wrap items-center gap-2.5">
@@ -466,143 +466,106 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
               </div>
             </div>
 
-            <!-- Active Selected Packet Strip / Metadata -->
-            <div v-if="activeTelemetryPacket" class="p-4 bg-purple-950/20 border border-purple-500/25 rounded-xl space-y-3">
-              <div class="flex flex-wrap items-center justify-between gap-3 text-xs">
-                <div class="flex items-center gap-3 flex-wrap">
-                  <div class="flex items-center gap-1.5 text-purple-300 font-bold">
-                    <i class="fa-solid fa-satellite-dish text-emerald-400"></i>
-                    <span>Device: {{ activeTelemetryPacket.deviceName || activeTelemetryPacket.devEui }}</span>
-                    <span class="font-mono text-purple-200">({{ activeTelemetryPacket.devEui }})</span>
-                  </div>
-                  <div class="h-4 w-[1px] bg-purple-500/30 hidden sm:block"></div>
-                  <div class="flex items-center gap-2 text-slate-400 font-mono text-[11px]">
-                    <span>FPort: <strong class="text-white">{{ activeTelemetryPacket.fPort || 1 }}</strong></span>
-                    <span>FCnt: <strong class="text-white">#{{ activeTelemetryPacket.fCnt || 0 }}</strong></span>
-                    <span v-if="activeTelemetryPacket.rssi != null">RSSI: <strong class="text-emerald-400">{{ activeTelemetryPacket.rssi }} dBm</strong></span>
-                    <span v-if="activeTelemetryPacket.snr != null">SNR: <strong class="text-sky-400">{{ activeTelemetryPacket.snr }} dB</strong></span>
-                    <span v-if="activeTelemetryPacket.gatewayId">GW: <strong class="text-slate-300">{{ activeTelemetryPacket.gatewayId }}</strong></span>
-                  </div>
-                </div>
-                <div class="text-[11px] font-mono text-slate-400">
-                  <span>Time: {{ formatDateTime(activeTelemetryPacket.timestamp || activeTelemetryPacket.receivedAt) }}</span>
-                </div>
-              </div>
-
-              <!-- Dual View Switcher (Tabular vs Raw JSON) -->
-              <div class="pt-2 border-t border-purple-500/20 space-y-2">
-                <div class="flex items-center justify-between">
-                  <div class="flex items-center gap-1 bg-slate-950 p-0.5 rounded-lg border border-slate-800">
-                    <button
-                      @click="telemetryViewMode = 'tabular'"
-                      :class="telemetryViewMode === 'tabular' ? 'bg-purple-600 text-white font-bold' : 'text-slate-400 hover:text-slate-200'"
-                      class="px-2.5 py-1 rounded text-[11px] transition flex items-center gap-1 cursor-pointer"
-                    >
-                      <i class="fa-solid fa-table"></i> Tabular Sensor Attributes
-                    </button>
-                    <button
-                      @click="telemetryViewMode = 'json'"
-                      :class="telemetryViewMode === 'json' ? 'bg-purple-600 text-white font-bold' : 'text-slate-400 hover:text-slate-200'"
-                      class="px-2.5 py-1 rounded text-[11px] transition flex items-center gap-1 cursor-pointer"
-                    >
-                      <i class="fa-solid fa-code"></i> Raw Decoded JSON
-                    </button>
-                  </div>
-                  <span class="text-[11px] font-mono text-slate-400">
-                    Payload Hex: <strong class="text-purple-300 uppercase">{{ activeTelemetryPacket.payloadHex || activeTelemetryPacket.data || '—' }}</strong>
-                  </span>
-                </div>
-
-                <!-- Tabular View -->
-                <div v-if="telemetryViewMode === 'tabular'" class="bg-slate-950 border border-slate-800 rounded-xl p-3 overflow-x-auto">
-                  <div v-if="activeDecodedFields.length === 0" class="py-6 text-center text-slate-500 text-xs">
-                    <i class="fa-solid fa-circle-info text-base mb-1 block text-slate-600"></i>
-                    <span>No structured sensor attributes decoded in this packet. Raw payload: <code class="text-purple-400">{{ activeTelemetryPacket.payloadHex || activeTelemetryPacket.data }}</code></span>
-                  </div>
-                  <table v-else class="w-full text-left text-xs">
-                    <thead class="text-slate-400 border-b border-slate-800 text-[11px] font-semibold">
-                      <tr>
-                        <th class="pb-2 px-2">Sensor Field</th>
-                        <th class="pb-2 px-2">Decoded Value</th>
-                        <th class="pb-2 px-2 text-right">Data Type</th>
-                      </tr>
-                    </thead>
-                    <tbody class="divide-y divide-slate-800/60 font-mono text-[11px]">
-                      <tr v-for="f in activeDecodedFields" :key="f.key" class="hover:bg-slate-900/50">
-                        <td class="py-2 px-2 font-bold text-purple-300">{{ f.key }}</td>
-                        <td class="py-2 px-2 text-emerald-400 font-bold break-all">{{ f.value }}</td>
-                        <td class="py-2 px-2 text-right text-slate-500 uppercase text-[10px]">{{ f.type }}</td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-
-                <!-- Raw JSON View -->
-                <div v-else class="bg-slate-950 border border-slate-800 rounded-xl p-3 max-h-60 overflow-auto custom-scroll">
-                  <pre class="text-emerald-400 text-xs font-mono">{{ JSON.stringify(activeTelemetryPacket.decodedData || activeTelemetryPacket.object || activeTelemetryPacket, null, 2) }}</pre>
-                </div>
-              </div>
-            </div>
-
-            <!-- Telemetry Packets List Table -->
-            <div class="space-y-2">
-              <div class="flex items-center justify-between text-xs">
-                <span class="font-bold text-slate-300 flex items-center gap-1.5">
-                  <i class="fa-solid fa-list-check text-purple-400"></i> Uplink Telemetry Packets Log
-                </span>
-                <span class="text-[11px] font-mono text-slate-500">{{ filteredTelemetryList.length }} packets buffered</span>
-              </div>
-              <div class="overflow-x-auto rounded-xl border border-slate-800 bg-slate-950/70 max-h-96 overflow-y-auto custom-scroll">
-                <div v-if="filteredTelemetryList.length === 0" class="py-12 text-center text-slate-500 text-xs">
-                  <i class="fa-solid fa-satellite-dish text-2xl text-slate-700 mb-2 block"></i>
+            <!-- Unified Time-Series Tabular Grid (Time Primary + Network Metadata + Sensor Columns) -->
+            <div class="space-y-3">
+              <div class="overflow-x-auto rounded-xl border border-slate-800 bg-slate-950/80 max-h-[600px] overflow-y-auto custom-scroll shadow-xl">
+                <div v-if="dashboardMatrixRows.length === 0" class="py-16 text-center text-slate-500 text-xs">
+                  <i class="fa-solid fa-satellite-dish text-3xl text-slate-700 mb-2 block"></i>
                   <span>No uplink telemetry packets received yet.</span>
                 </div>
                 <table v-else class="w-full text-left text-xs border-collapse">
-                  <thead class="bg-slate-900/80 text-slate-400 text-[11px] font-semibold border-b border-slate-800 sticky top-0 z-10">
+                  <thead class="bg-slate-900 text-slate-300 text-[11px] font-bold border-b border-slate-800 sticky top-0 z-10 select-none">
                     <tr>
-                      <th class="py-2.5 px-3">Timestamp</th>
-                      <th class="py-2.5 px-3">Device (DevEUI)</th>
-                      <th class="py-2.5 px-3">Port / FCnt</th>
-                      <th class="py-2.5 px-3">Signal (RSSI / SNR)</th>
-                      <th class="py-2.5 px-3">Raw Payload</th>
-                      <th class="py-2.5 px-3">Decoded Attributes</th>
-                      <th class="py-2.5 px-3 text-right">Action</th>
+                      <!-- Primary Time Column -->
+                      <th class="py-3 px-3.5 whitespace-nowrap bg-slate-900 border-r border-slate-800 text-purple-300">
+                        <i class="fa-solid fa-clock mr-1 text-purple-400"></i> TIME (Primary)
+                      </th>
+                      <!-- Network Metadata Columns -->
+                      <th class="py-3 px-2.5 whitespace-nowrap bg-slate-900 text-slate-300">Port</th>
+                      <th class="py-3 px-2.5 whitespace-nowrap bg-slate-900 text-slate-300">FCnt</th>
+                      <th class="py-3 px-2.5 whitespace-nowrap bg-slate-900 text-emerald-400">RSSI (dBm)</th>
+                      <th class="py-3 px-2.5 whitespace-nowrap bg-slate-900 text-sky-400 border-r border-slate-800">SNR (dB)</th>
+                      <!-- Dynamic Sensor Field Columns -->
+                      <th
+                        v-for="col in dashboardSensorColumns"
+                        :key="col"
+                        class="py-3 px-3 whitespace-nowrap bg-slate-900 text-amber-300 font-mono capitalize"
+                      >
+                        <i class="fa-solid fa-chart-line text-[10px] mr-1 text-amber-400/70"></i>{{ col }}
+                      </th>
+                      <!-- Payload Hex & Action -->
+                      <th class="py-3 px-3 whitespace-nowrap bg-slate-900 text-slate-400">Payload Hex</th>
+                      <th class="py-3 px-3 whitespace-nowrap bg-slate-900 text-right">JSON</th>
                     </tr>
                   </thead>
                   <tbody class="divide-y divide-slate-800/60 font-mono text-[11px]">
                     <tr
-                      v-for="(pkt, idx) in filteredTelemetryList"
-                      :key="pkt.id || idx"
-                      :class="activeTelemetryPacket && activeTelemetryPacket.id === pkt.id ? 'bg-purple-950/20' : 'hover:bg-slate-800/40'"
-                      class="transition"
+                      v-for="(row, rIdx) in dashboardMatrixRows"
+                      :key="rIdx"
+                      class="hover:bg-slate-800/50 transition group"
                     >
-                      <td class="py-2 px-3 text-slate-300 whitespace-nowrap">{{ formatDateTime(pkt.timestamp || pkt.receivedAt) }}</td>
-                      <td class="py-2 px-3">
-                        <div class="font-sans font-bold text-white">{{ pkt.deviceName || 'Device' }}</div>
-                        <div class="text-[10px] text-sky-400">{{ pkt.devEui }}</div>
+                      <!-- Time Cell (Chủ lực) -->
+                      <td class="py-2.5 px-3.5 whitespace-nowrap font-bold text-white bg-slate-950/40 border-r border-slate-800">
+                        <span class="text-purple-300">{{ formatDateTime(row.time) }}</span>
                       </td>
-                      <td class="py-2 px-3 text-slate-400">Port {{ pkt.fPort || 1 }} • #{{ pkt.fCnt || 0 }}</td>
-                      <td class="py-2 px-3">
-                        <span v-if="pkt.rssi != null" class="text-emerald-400 font-bold">{{ pkt.rssi }} dBm</span>
-                        <span v-if="pkt.snr != null" class="text-sky-400 ml-1.5">({{ pkt.snr }} dB)</span>
-                        <span v-if="pkt.rssi == null && pkt.snr == null" class="text-slate-500">—</span>
+                      <!-- Network Metadata Cells -->
+                      <td class="py-2.5 px-2.5 text-slate-400">{{ row.fPort }}</td>
+                      <td class="py-2.5 px-2.5 text-slate-300 font-bold">#{{ row.fCnt }}</td>
+                      <td class="py-2.5 px-2.5">
+                        <span v-if="row.rssi != null" class="text-emerald-400 font-bold">{{ row.rssi }}</span>
+                        <span v-else class="text-slate-600">—</span>
                       </td>
-                      <td class="py-2 px-3 text-purple-300 font-bold uppercase truncate max-w-[140px]">{{ pkt.payloadHex || pkt.data || '—' }}</td>
-                      <td class="py-2 px-3 text-emerald-400 truncate max-w-[180px]">
-                        {{ formatDecodedSummary(pkt.decodedData || pkt.object) }}
+                      <td class="py-2.5 px-2.5 border-r border-slate-800">
+                        <span v-if="row.snr != null" class="text-sky-400 font-bold">{{ row.snr }}</span>
+                        <span v-else class="text-slate-600">—</span>
                       </td>
-                      <td class="py-2 px-3 text-right">
+                      <!-- Dynamic Sensor Field Value Cells -->
+                      <td
+                        v-for="col in dashboardSensorColumns"
+                        :key="col"
+                        class="py-2.5 px-3 font-bold"
+                        :class="row.sensorValues[col] !== '—' ? 'text-emerald-300 bg-emerald-950/10' : 'text-slate-600'"
+                      >
+                        {{ row.sensorValues[col] }}
+                      </td>
+                      <!-- Payload Hex Cell -->
+                      <td class="py-2.5 px-3 text-purple-400 uppercase truncate max-w-[120px]" :title="row.payloadHex">{{ row.payloadHex }}</td>
+                      <!-- JSON Inspect Action -->
+                      <td class="py-2.5 px-3 text-right whitespace-nowrap">
                         <button
-                          @click="inspectTelemetryPacket(pkt)"
-                          class="px-2.5 py-1 rounded bg-purple-500/15 hover:bg-purple-500/25 text-purple-300 border border-purple-500/30 text-[10px] font-bold cursor-pointer transition flex items-center gap-1 inline-flex"
+                          @click="inspectTelemetryPacket(row.raw)"
+                          class="px-2.5 py-1 rounded bg-purple-500/15 hover:bg-purple-500/25 text-purple-300 border border-purple-500/30 text-[10px] font-bold cursor-pointer transition inline-flex items-center gap-1"
+                          title="Inspect raw payload JSON"
                         >
-                          <i class="fa-solid fa-magnifying-glass text-[9px]"></i>
+                          <i class="fa-solid fa-code text-[9px]"></i>
                           <span>Inspect</span>
                         </button>
                       </td>
                     </tr>
                   </tbody>
                 </table>
+              </div>
+            </div>
+
+            <!-- Inspect Raw JSON Modal -->
+            <div v-if="activeTelemetryPacket" class="fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop" style="background: rgba(2, 6, 23, 0.85); backdrop-filter: blur(6px);">
+              <div class="w-full max-w-2xl bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-4 shadow-2xl max-h-[85vh] flex flex-col animate-in fade-in">
+                <div class="flex items-center justify-between pb-3 border-b border-slate-800">
+                  <div class="flex items-center gap-2">
+                    <div class="w-8 h-8 rounded-lg bg-purple-500/10 border border-purple-500/30 flex items-center justify-center text-purple-400 text-sm">
+                      <i class="fa-solid fa-code"></i>
+                    </div>
+                    <div>
+                      <h4 class="text-sm font-bold text-white">Packet Raw Decoded JSON</h4>
+                      <p class="text-[11px] font-mono text-slate-400">{{ formatDateTime(activeTelemetryPacket.timestamp || activeTelemetryPacket.receivedAt) }} • Port {{ activeTelemetryPacket.fPort }}</p>
+                    </div>
+                  </div>
+                  <button @click="activeTelemetryPacket = null" class="text-slate-500 hover:text-white cursor-pointer"><i class="fa-solid fa-xmark"></i></button>
+                </div>
+                <pre class="flex-1 bg-slate-950 border border-slate-800 rounded-xl p-4 text-emerald-400 font-mono text-xs overflow-auto custom-scroll">{{ JSON.stringify(activeTelemetryPacket.decodedData || activeTelemetryPacket.object || activeTelemetryPacket, null, 2) }}</pre>
+                <div class="flex justify-end pt-2 border-t border-slate-800">
+                  <button @click="activeTelemetryPacket = null" class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold cursor-pointer">Close</button>
+                </div>
               </div>
             </div>
           </div>
@@ -840,6 +803,70 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
             extractFields(dataObj);
           }
           return res;
+        });
+
+        const flattenDashboardFields = (obj, prefix = '') => {
+          const res = {};
+          if (!obj || typeof obj !== 'object') return res;
+          for (const [k, v] of Object.entries(obj)) {
+            const fullKey = prefix ? prefix + '.' + k : k;
+            if (v !== null && typeof v === 'object' && !Array.isArray(v)) {
+              Object.assign(res, flattenDashboardFields(v, fullKey));
+            } else {
+              res[fullKey] = v;
+            }
+          }
+          return res;
+        };
+
+        const dashboardSensorColumns = computed(() => {
+          const colSet = new Set();
+          const list = filteredTelemetryList.value || [];
+          for (const pkt of list) {
+            const decoded = pkt.decodedData || pkt.object || null;
+            if (decoded) {
+              const dataObj = decoded.data && typeof decoded.data === 'object' ? decoded.data : decoded;
+              const flat = flattenDashboardFields(dataObj);
+              for (const k of Object.keys(flat)) {
+                if (!['errors', 'warnings', 'fPort', 'fCnt', 'devEUI', 'deviceName', 'gatewayId', 'rssi', 'snr', 'devEui', 'dr', 'adr', 'channel', 'frequency', 'bandwidth', 'spreadingFactor', 'tenantId', 'applicationId', 'serverType'].includes(k)) {
+                  colSet.add(k);
+                }
+              }
+            }
+          }
+          return Array.from(colSet);
+        });
+
+        const dashboardMatrixRows = computed(() => {
+          const list = filteredTelemetryList.value || [];
+          const cols = dashboardSensorColumns.value;
+          return list.map(pkt => {
+            const decoded = pkt.decodedData || pkt.object || null;
+            const flat = decoded ? flattenDashboardFields(decoded.data && typeof decoded.data === 'object' ? decoded.data : decoded) : {};
+            const sensorValues = {};
+            for (const c of cols) {
+              const val = flat[c];
+              if (val === undefined || val === null) {
+                sensorValues[c] = '—';
+              } else if (typeof val === 'object') {
+                sensorValues[c] = JSON.stringify(val);
+              } else if (typeof val === 'number') {
+                sensorValues[c] = Number.isInteger(val) ? val : Number(val.toFixed(3));
+              } else {
+                sensorValues[c] = String(val);
+              }
+            }
+            return {
+              raw: pkt,
+              time: pkt.timestamp || pkt.receivedAt,
+              fPort: pkt.fPort || 1,
+              fCnt: pkt.fCnt || 0,
+              rssi: pkt.rssi != null ? pkt.rssi : null,
+              snr: pkt.snr != null ? pkt.snr : null,
+              payloadHex: pkt.payloadHex || pkt.data || '—',
+              sensorValues: sensorValues
+            };
+          });
         });
 
         const onSelectTelemetryDevice = () => {
@@ -1312,6 +1339,8 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
           telemetryViewMode,
           filteredTelemetryList,
           activeDecodedFields,
+          dashboardSensorColumns,
+          dashboardMatrixRows,
           onSelectTelemetryDevice,
           inspectTelemetryPacket,
           formatDecodedSummary,

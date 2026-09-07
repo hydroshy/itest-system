@@ -2017,45 +2017,95 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
               </div>
             </div>
 
-            <!-- Recent Uplink Telemetry Packets for Selected Device -->
-            <div v-if="selectedSandboxDeviceEUI && sandboxTelemetryList.length > 0" class="pt-3 border-t border-slate-800/80 space-y-2 font-sans">
-              <div class="flex items-center justify-between text-xs">
-                <span class="font-bold text-slate-300 flex items-center gap-1.5">
-                  <i class="fa-solid fa-clock-rotate-left text-purple-400"></i> Recent Uplink Telemetry Packets (Device: {{ selectedSandboxDevice?.name }})
-                </span>
-                <span class="text-[11px] font-mono text-slate-500">{{ sandboxTelemetryList.length }} packets buffered</span>
+            <!-- Unified Time-Series Tabular Grid (Time is Primary Column + Network Metadata + Sensor Columns) -->
+            <div class="pt-3 border-t border-slate-800/80 space-y-3 font-sans">
+              <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div class="flex items-center gap-2">
+                  <span class="font-bold text-white text-xs flex items-center gap-1.5">
+                    <i class="fa-solid fa-table-cells text-purple-400"></i> Unified Telemetry & Decoded Sensor Tabular Log
+                  </span>
+                  <span v-if="selectedSandboxDevice" class="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-purple-500/10 text-purple-300 border border-purple-500/25">
+                    Device: {{ selectedSandboxDevice.name }}
+                  </span>
+                </div>
+                <div class="flex items-center gap-2 text-[11px] font-mono text-slate-400">
+                  <span>{{ matrixRows.length }} records</span>
+                  <span v-if="matrixSensorColumns.length > 0" class="text-emerald-400 font-bold">• {{ matrixSensorColumns.length }} sensor fields</span>
+                </div>
               </div>
-              <div class="overflow-x-auto rounded-lg border border-slate-800 bg-slate-950/70 max-h-48 overflow-y-auto custom-scroll">
-                <table class="w-full text-left text-xs border-collapse">
-                  <thead class="bg-slate-900/80 text-slate-400 text-[11px] font-semibold border-b border-slate-800">
+
+              <!-- Matrix Table Container -->
+              <div class="overflow-x-auto rounded-xl border border-slate-800 bg-slate-950/80 max-h-80 overflow-y-auto custom-scroll shadow-inner">
+                <div v-if="matrixRows.length === 0" class="py-12 text-center text-slate-500 text-xs font-sans">
+                  <i class="fa-solid fa-table-list text-2xl text-slate-700 mb-2 block"></i>
+                  <span>{{ selectedSandboxDeviceEUI ? 'No telemetry packets recorded for this device yet.' : 'Select a device from the dropdown above to view its time-series tabular sensor matrix.' }}</span>
+                </div>
+                <table v-else class="w-full text-left text-xs border-collapse">
+                  <thead class="bg-slate-900 text-slate-300 text-[11px] font-bold border-b border-slate-800 sticky top-0 z-10 select-none">
                     <tr>
-                      <th class="py-2 px-3">Time</th>
-                      <th class="py-2 px-3">Port / FCnt</th>
-                      <th class="py-2 px-3">Best RSSI / SNR</th>
-                      <th class="py-2 px-3">Gateway</th>
-                      <th class="py-2 px-3">Raw Payload Hex</th>
-                      <th class="py-2 px-3 text-right">Action</th>
+                      <!-- Primary Time Column -->
+                      <th class="py-2.5 px-3 whitespace-nowrap bg-slate-900 border-r border-slate-800/80 text-purple-300">
+                        <i class="fa-solid fa-clock mr-1 text-purple-400"></i> TIME (Primary)
+                      </th>
+                      <!-- Network Metadata Columns -->
+                      <th class="py-2.5 px-2.5 whitespace-nowrap bg-slate-900 text-slate-300">Port</th>
+                      <th class="py-2.5 px-2.5 whitespace-nowrap bg-slate-900 text-slate-300">FCnt</th>
+                      <th class="py-2.5 px-2.5 whitespace-nowrap bg-slate-900 text-emerald-400">RSSI (dBm)</th>
+                      <th class="py-2.5 px-2.5 whitespace-nowrap bg-slate-900 text-sky-400 border-r border-slate-800/80">SNR (dB)</th>
+                      <!-- Dynamic Sensor Field Columns -->
+                      <th
+                        v-for="col in matrixSensorColumns"
+                        :key="col"
+                        class="py-2.5 px-3 whitespace-nowrap bg-slate-900 text-amber-300 font-mono capitalize"
+                      >
+                        <i class="fa-solid fa-chart-line text-[10px] mr-1 text-amber-400/70"></i>{{ col }}
+                      </th>
+                      <!-- Payload Hex & Action -->
+                      <th class="py-2.5 px-3 whitespace-nowrap bg-slate-900 text-slate-400">Payload Hex</th>
+                      <th class="py-2.5 px-3 whitespace-nowrap bg-slate-900 text-right">Action</th>
                     </tr>
                   </thead>
                   <tbody class="divide-y divide-slate-800/60 font-mono text-[11px]">
-                    <tr v-for="(pkt, pIdx) in sandboxTelemetryList" :key="pIdx" class="hover:bg-slate-800/40 transition">
-                      <td class="py-1.5 px-3 text-slate-300 whitespace-nowrap">{{ formatDateTime(pkt.timestamp || pkt.receivedAt) }}</td>
-                      <td class="py-1.5 px-3 text-slate-400">Port {{ pkt.fPort || 1 }} • #{{ pkt.fCnt || 0 }}</td>
-                      <td class="py-1.5 px-3">
-                        <span v-if="pkt.rssi != null" class="text-emerald-400 font-bold">{{ pkt.rssi }} dBm</span>
-                        <span v-if="pkt.snr != null" class="text-sky-400 ml-1.5">({{ pkt.snr }} dB)</span>
-                        <span v-if="pkt.rssi == null && pkt.snr == null" class="text-slate-500">—</span>
+                    <tr
+                      v-for="(row, rIdx) in matrixRows"
+                      :key="rIdx"
+                      class="hover:bg-slate-800/50 transition group"
+                    >
+                      <!-- Time Cell (Chủ lực) -->
+                      <td class="py-2 px-3 whitespace-nowrap font-bold text-white bg-slate-950/40 border-r border-slate-800/80">
+                        <span class="text-purple-300">{{ formatDateTime(row.time) }}</span>
                       </td>
-                      <td class="py-1.5 px-3 text-slate-400 truncate max-w-[120px]" :title="pkt.gatewayId || ''">{{ pkt.gatewayId || '—' }}</td>
-                      <td class="py-1.5 px-3 text-purple-300 font-bold uppercase truncate max-w-[160px]">{{ pkt.payloadHex || pkt.data || '—' }}</td>
-                      <td class="py-1.5 px-3 text-right">
+                      <!-- Network Metadata Cells -->
+                      <td class="py-2 px-2.5 text-slate-400">{{ row.fPort }}</td>
+                      <td class="py-2 px-2.5 text-slate-300 font-bold">#{{ row.fCnt }}</td>
+                      <td class="py-2 px-2.5">
+                        <span v-if="row.rssi != null" class="text-emerald-400 font-bold">{{ row.rssi }}</span>
+                        <span v-else class="text-slate-600">—</span>
+                      </td>
+                      <td class="py-2 px-2.5 border-r border-slate-800/80">
+                        <span v-if="row.snr != null" class="text-sky-400 font-bold">{{ row.snr }}</span>
+                        <span v-else class="text-slate-600">—</span>
+                      </td>
+                      <!-- Dynamic Sensor Field Value Cells -->
+                      <td
+                        v-for="col in matrixSensorColumns"
+                        :key="col"
+                        class="py-2 px-3 font-bold"
+                        :class="row.sensorValues[col] !== '—' ? 'text-emerald-300 bg-emerald-950/10' : 'text-slate-600'"
+                      >
+                        {{ row.sensorValues[col] }}
+                      </td>
+                      <!-- Payload Hex Cell -->
+                      <td class="py-2 px-3 text-purple-400 uppercase truncate max-w-[120px]" :title="row.payloadHex">{{ row.payloadHex }}</td>
+                      <!-- Action Cell -->
+                      <td class="py-2 px-3 text-right whitespace-nowrap">
                         <button
-                          @click="loadHistoricalTelemetryPacket(pkt)"
-                          class="px-2.5 py-1 rounded bg-purple-500/15 hover:bg-purple-500/25 text-purple-300 border border-purple-500/30 text-[10px] font-bold cursor-pointer transition flex items-center gap-1 inline-flex"
-                          title="Load this packet into decoder"
+                          @click="loadHistoricalTelemetryPacket(row.raw)"
+                          class="px-2.5 py-1 rounded bg-purple-500/15 hover:bg-purple-500/25 text-purple-300 border border-purple-500/30 text-[10px] font-bold cursor-pointer transition inline-flex items-center gap-1"
+                          title="Load this packet into Sandbox"
                         >
                           <i class="fa-solid fa-play text-[9px]"></i>
-                          <span>Load & Decode</span>
+                          <span>Load & Test</span>
                         </button>
                       </td>
                     </tr>
@@ -3323,6 +3373,94 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
             }
           }
           return res;
+        });
+
+        const decodeHexPayload = (hex, fPort, code) => {
+          if (!hex) return null;
+          try {
+            const cleanHex = String(hex).trim().replace(/\\s+/g, '');
+            if (!cleanHex || cleanHex.length % 2 !== 0) return null;
+            const bytes = [];
+            for (let c = 0; c < cleanHex.length; c += 2) {
+              bytes.push(parseInt(cleanHex.substr(c, 2), 16));
+            }
+            const port = Number(fPort) || 1;
+            const fullCode = (code || '') + "\\nif (typeof decodeUplink === 'function') { return decodeUplink({ bytes: bytes, fPort: fPort }); } else if (typeof Decoder === 'function') { return Decoder(bytes, fPort); } else { return null; }";
+            const fn = new Function('bytes', 'fPort', fullCode);
+            return fn(bytes, port);
+          } catch(e) {
+            return null;
+          }
+        };
+
+        const flattenFields = (obj, prefix = '') => {
+          const res = {};
+          if (!obj || typeof obj !== 'object') return res;
+          for (const [k, v] of Object.entries(obj)) {
+            const fullKey = prefix ? prefix + '.' + k : k;
+            if (v !== null && typeof v === 'object' && !Array.isArray(v)) {
+              Object.assign(res, flattenFields(v, fullKey));
+            } else {
+              res[fullKey] = v;
+            }
+          }
+          return res;
+        };
+
+        const matrixSensorColumns = computed(() => {
+          const colSet = new Set();
+          const list = sandboxTelemetryList.value || [];
+          for (const pkt of list) {
+            let decoded = pkt.decodedData || pkt.object || null;
+            if (!decoded && (pkt.payloadHex || pkt.data) && sandboxCode.value) {
+              decoded = decodeHexPayload(pkt.payloadHex || pkt.data, pkt.fPort, sandboxCode.value);
+            }
+            if (decoded) {
+              const dataObj = decoded.data && typeof decoded.data === 'object' ? decoded.data : decoded;
+              const flat = flattenFields(dataObj);
+              for (const k of Object.keys(flat)) {
+                if (!['errors', 'warnings', 'fPort', 'fCnt', 'devEUI', 'deviceName', 'gatewayId', 'rssi', 'snr', 'devEui', 'dr', 'adr', 'channel', 'frequency', 'bandwidth', 'spreadingFactor', 'tenantId', 'applicationId', 'serverType'].includes(k)) {
+                  colSet.add(k);
+                }
+              }
+            }
+          }
+          return Array.from(colSet);
+        });
+
+        const matrixRows = computed(() => {
+          const list = sandboxTelemetryList.value || [];
+          const cols = matrixSensorColumns.value;
+          return list.map(pkt => {
+            let decoded = pkt.decodedData || pkt.object || null;
+            if (!decoded && (pkt.payloadHex || pkt.data) && sandboxCode.value) {
+              decoded = decodeHexPayload(pkt.payloadHex || pkt.data, pkt.fPort, sandboxCode.value);
+            }
+            const flat = decoded ? flattenFields(decoded.data && typeof decoded.data === 'object' ? decoded.data : decoded) : {};
+            const sensorValues = {};
+            for (const c of cols) {
+              const val = flat[c];
+              if (val === undefined || val === null) {
+                sensorValues[c] = '—';
+              } else if (typeof val === 'object') {
+                sensorValues[c] = JSON.stringify(val);
+              } else if (typeof val === 'number') {
+                sensorValues[c] = Number.isInteger(val) ? val : Number(val.toFixed(3));
+              } else {
+                sensorValues[c] = String(val);
+              }
+            }
+            return {
+              raw: pkt,
+              time: pkt.timestamp || pkt.receivedAt,
+              fPort: pkt.fPort || 1,
+              fCnt: pkt.fCnt || 0,
+              rssi: pkt.rssi != null ? pkt.rssi : null,
+              snr: pkt.snr != null ? pkt.snr : null,
+              payloadHex: pkt.payloadHex || pkt.data || '—',
+              sensorValues: sensorValues
+            };
+          });
         });
 
         const formatDateTime = (dateStr) => {
@@ -5282,6 +5420,8 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
           sandboxViewMode,
           loadingDeviceTelemetry,
           decodedFieldsList,
+          matrixSensorColumns,
+          matrixRows,
           sandboxFPort,
           formatDateTime,
           getSubfunctionCount,
