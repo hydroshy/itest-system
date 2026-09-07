@@ -1781,6 +1781,7 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
             if (e.key === 'Escape' && activeTelemetryPacket.value) {
               closeInspectModal();
             }
+          });
           // Close column filter dropdown when clicking outside
           document.addEventListener('click', (e) => {
             if (columnFilterOpen.value && !e.target.closest('.column-filter-container')) {
