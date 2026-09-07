@@ -3280,15 +3280,15 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
         });
         const selectedSandboxDecoderId = ref('');
         const sandboxFPort = ref(1);
-        const sandboxCode = ref("function parseTemperature(raw) {\n  return raw / 100;\n}\n\nfunction decodeUplink(input) {\n  var bytes = input.bytes || input;\n  var temp = parseTemperature((bytes[0] << 8) | bytes[1]);\n  var hum = bytes[2];\n  return {\n    data: {\n      temperature: temp,\n      humidity: hum\n    }\n  };\n}");
+        const sandboxCode = ref("function parseTemperature(raw) {\\n  return raw / 100;\\n}\\n\\nfunction decodeUplink(input) {\\n  var bytes = input.bytes || input;\\n  var temp = parseTemperature((bytes[0] << 8) | bytes[1]);\\n  var hum = bytes[2];\\n  return {\\n    data: {\\n      temperature: temp,\\n      humidity: hum\\n    }\\n  };\\n}");
         const sandboxHex = ref("09C441");
-        const sandboxResult = ref('{\n  "ready": true\n}');
+        const sandboxResult = ref('{\\n  "ready": true\\n}');
         const sandboxDecodedObject = ref(null);
         const sandboxViewMode = ref('tabular');
         const loadingDeviceTelemetry = ref(false);
         const sandboxTelemetryList = ref([]);
         const sandboxActiveMetadata = ref(null);
-        const sandboxDisplayOutput = computed(() => sandboxResult.value || '{\n  // Decoded JSON output will appear here\n}');
+        const sandboxDisplayOutput = computed(() => sandboxResult.value || '{\\n  // Decoded JSON output will appear here\\n}');
 
         const decodedFieldsList = computed(() => {
           if (!sandboxDecodedObject.value) return [];
@@ -4705,7 +4705,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
 
         const runSandboxDecode = () => {
           try {
-            const hex = sandboxHex.value.trim().replace(/\s+/g, "");
+            const hex = sandboxHex.value.trim().replace(/\\s+/g, "");
             if (!hex) {
               sandboxDecodedObject.value = null;
               sandboxResult.value = '';
@@ -4717,7 +4717,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
               bytes.push(parseInt(hex.substr(c, 2), 16));
             }
             const fPort = sandboxFPort.value || 1;
-            const fullCode = sandboxCode.value + "\nif (typeof decodeUplink === 'function') { return decodeUplink({ bytes: bytes, fPort: fPort }); } else if (typeof Decoder === 'function') { return Decoder(bytes, fPort); } else { throw new Error('No entry function found. Please define decodeUplink(input) or Decoder(bytes, fPort)'); }";
+            const fullCode = sandboxCode.value + "\\nif (typeof decodeUplink === 'function') { return decodeUplink({ bytes: bytes, fPort: fPort }); } else if (typeof Decoder === 'function') { return Decoder(bytes, fPort); } else { throw new Error('No entry function found. Please define decodeUplink(input) or Decoder(bytes, fPort)'); }";
             const fn = new Function("bytes", "fPort", fullCode);
             const output = fn(bytes, fPort);
             sandboxDecodedObject.value = output;
