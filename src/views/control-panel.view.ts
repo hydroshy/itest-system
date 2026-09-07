@@ -2019,73 +2019,244 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
 
             <!-- Unified Time-Series Tabular Grid (Time is Primary Column + Network Metadata + Sensor Columns) -->
             <div class="pt-3 border-t border-slate-800/80 space-y-3 font-sans">
-              <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                <div class="flex items-center gap-2">
+              <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-slate-900/60 p-3 rounded-xl border border-slate-800">
+                <div class="flex items-center gap-2 flex-wrap">
                   <span class="font-bold text-white text-xs flex items-center gap-1.5">
                     <i class="fa-solid fa-table-cells text-purple-400"></i> Unified Telemetry & Decoded Sensor Tabular Log
                   </span>
                   <span v-if="selectedSandboxDevice" class="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-purple-500/10 text-purple-300 border border-purple-500/25">
                     Device: {{ selectedSandboxDevice.name }}
                   </span>
+                  <span class="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-slate-800 text-slate-300 border border-slate-700">
+                    {{ sortedMatrixRows.length }} / {{ matrixRows.length }} records
+                  </span>
+                  <span v-if="matrixSensorColumns.length > 0" class="text-emerald-400 font-bold text-[10px] font-mono">• {{ matrixSensorColumns.length }} sensor fields</span>
                 </div>
-                <div class="flex items-center gap-2 text-[11px] font-mono text-slate-400">
-                  <span>{{ matrixRows.length }} records</span>
-                  <span v-if="matrixSensorColumns.length > 0" class="text-emerald-400 font-bold">• {{ matrixSensorColumns.length }} sensor fields</span>
+
+                <!-- Auto-sync & Refresh -->
+                <div class="flex items-center gap-2">
+                  <button
+                    @click="toggleSandboxAutoSync"
+                    :title="sandboxAutoSync ? 'Click to pause live polling' : 'Click to enable live polling'"
+                    class="px-2.5 py-1 rounded-lg text-xs font-semibold border transition flex items-center gap-1.5 cursor-pointer"
+                    :class="sandboxAutoSync ? 'bg-emerald-950/60 text-emerald-300 border-emerald-500/40 hover:bg-emerald-900/60' : 'bg-slate-800 text-slate-400 border-slate-700 hover:text-slate-200'"
+                  >
+                    <span class="relative flex h-2 w-2">
+                      <span v-if="sandboxAutoSync" class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                      <span class="relative inline-flex rounded-full h-2 w-2" :class="sandboxAutoSync ? 'bg-emerald-500' : 'bg-slate-500'"></span>
+                    </span>
+                    <span class="font-mono text-[10px] font-bold">{{ sandboxAutoSync ? 'Live Sync (3s)' : 'Sync Off' }}</span>
+                  </button>
+
+                  <button
+                    @click="fetchSandboxTelemetry(false)"
+                    title="Refresh Telemetry Packets"
+                    class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 text-xs font-semibold flex items-center gap-1 cursor-pointer"
+                  >
+                    <i class="fa-solid fa-arrows-rotate text-[10px]" :class="{ 'fa-spin': loadingDeviceTelemetry }"></i>
+                    <span>Refresh</span>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Filter Toolbar -->
+              <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 bg-slate-950/60 p-2.5 rounded-xl border border-slate-800/80">
+                <div class="flex items-center gap-2">
+                  <!-- Time Filter -->
+                  <div class="flex items-center gap-1.5 bg-slate-900 px-2 py-1 rounded border border-slate-800 text-xs">
+                    <i class="fa-solid fa-clock text-sky-400 text-[10px]"></i>
+                    <span class="text-[10px] text-slate-400 font-bold hidden sm:inline">Time:</span>
+                    <select
+                      v-model="sandboxTimeFilter"
+                      class="bg-transparent text-xs text-white font-mono focus:outline-none cursor-pointer"
+                    >
+                      <option value="ALL" class="bg-slate-900 text-slate-200">All Time</option>
+                      <option value="15M" class="bg-slate-900 text-slate-200">Last 15 Mins</option>
+                      <option value="1H" class="bg-slate-900 text-slate-200">Last 1 Hour</option>
+                      <option value="24H" class="bg-slate-900 text-slate-200">Last 24 Hours</option>
+                      <option value="7D" class="bg-slate-900 text-slate-200">Last 7 Days</option>
+                    </select>
+                  </div>
+                </div>
+
+                <!-- Search & Reset -->
+                <div class="flex items-center gap-2 flex-1 sm:max-w-xs">
+                  <div class="relative flex-1">
+                    <i class="fa-solid fa-magnifying-glass absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500 text-[10px]"></i>
+                    <input
+                      v-model="sandboxSearchQuery"
+                      type="text"
+                      placeholder="Filter records..."
+                      class="w-full pl-7 pr-2.5 py-1 bg-slate-900 border border-slate-800 rounded text-xs text-white placeholder-slate-500 focus:outline-none focus:border-purple-500 font-mono"
+                    />
+                  </div>
+                  <button
+                    v-if="isSandboxFilterActive"
+                    @click="resetSandboxFilters"
+                    title="Reset Filter"
+                    class="px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold cursor-pointer"
+                  >
+                    Reset
+                  </button>
                 </div>
               </div>
 
               <!-- Matrix Table Container -->
               <div class="overflow-x-auto rounded-xl border border-slate-800 bg-slate-950/80 max-h-80 overflow-y-auto custom-scroll shadow-inner">
-                <div v-if="matrixRows.length === 0" class="py-12 text-center text-slate-500 text-xs font-sans">
+                <div v-if="sortedMatrixRows.length === 0" class="py-12 text-center text-slate-500 text-xs font-sans">
                   <i class="fa-solid fa-table-list text-2xl text-slate-700 mb-2 block"></i>
-                  <span>{{ selectedSandboxDeviceEUI ? 'No telemetry packets recorded for this device yet.' : 'Select a device from the dropdown above to view its time-series tabular sensor matrix.' }}</span>
+                  <span v-if="matrixRows.length === 0">{{ selectedSandboxDeviceEUI ? 'No telemetry packets recorded for this device yet.' : 'Select a device from the dropdown above to view its time-series tabular sensor matrix.' }}</span>
+                  <span v-else>
+                    No telemetry packets match your filter.
+                    <button @click="resetSandboxFilters" class="text-purple-400 underline ml-1 cursor-pointer">Reset Filters</button>
+                  </span>
                 </div>
                 <table v-else class="w-full text-left text-xs border-collapse">
                   <thead class="bg-slate-900 text-slate-300 text-[11px] font-bold border-b border-slate-800 sticky top-0 z-10 select-none">
                     <tr>
-                      <!-- Primary Time Column -->
-                      <th class="py-2.5 px-3 whitespace-nowrap bg-slate-900 border-r border-slate-800/80 text-purple-300">
-                        <i class="fa-solid fa-clock mr-1 text-purple-400"></i> TIME (Primary)
+                      <!-- Primary Time Column (Sortable) -->
+                      <th
+                        @click="toggleSandboxSort('time')"
+                        class="py-2.5 px-3 whitespace-nowrap bg-slate-900 border-r border-slate-800/80 text-purple-300 cursor-pointer hover:bg-slate-800 transition"
+                        title="Click to sort by Time"
+                      >
+                        <div class="flex items-center gap-1">
+                          <i class="fa-solid fa-clock text-purple-400 text-[10px]"></i>
+                          <span>TIME (Primary)</span>
+                          <i
+                            class="fa-solid text-[9px] ml-1"
+                            :class="sandboxSortKey === 'time' ? (sandboxSortOrder === 'asc' ? 'fa-arrow-up-long text-purple-400' : 'fa-arrow-down-long text-purple-400') : 'fa-sort text-slate-600'"
+                          ></i>
+                        </div>
                       </th>
-                      <!-- Network Metadata Columns -->
-                      <th class="py-2.5 px-2.5 whitespace-nowrap bg-slate-900 text-slate-300">Port</th>
-                      <th class="py-2.5 px-2.5 whitespace-nowrap bg-slate-900 text-slate-300">FCnt</th>
-                      <th class="py-2.5 px-2.5 whitespace-nowrap bg-slate-900 text-emerald-400">RSSI (dBm)</th>
-                      <th class="py-2.5 px-2.5 whitespace-nowrap bg-slate-900 text-sky-400 border-r border-slate-800/80">SNR (dB)</th>
-                      <!-- Dynamic Sensor Field Columns -->
+
+                      <!-- Network Metadata Columns (Sortable) -->
+                      <th
+                        @click="toggleSandboxSort('fPort')"
+                        class="py-2.5 px-2.5 whitespace-nowrap bg-slate-900 text-slate-300 cursor-pointer hover:bg-slate-800 transition"
+                        title="Click to sort by Port"
+                      >
+                        <div class="flex items-center gap-1">
+                          <span>Port</span>
+                          <i
+                            class="fa-solid text-[8px]"
+                            :class="sandboxSortKey === 'fPort' ? (sandboxSortOrder === 'asc' ? 'fa-arrow-up text-sky-400' : 'fa-arrow-down text-sky-400') : 'fa-sort text-slate-600'"
+                          ></i>
+                        </div>
+                      </th>
+
+                      <th
+                        @click="toggleSandboxSort('fCnt')"
+                        class="py-2.5 px-2.5 whitespace-nowrap bg-slate-900 text-slate-300 cursor-pointer hover:bg-slate-800 transition"
+                        title="Click to sort by FCnt"
+                      >
+                        <div class="flex items-center gap-1">
+                          <span>FCnt</span>
+                          <i
+                            class="fa-solid text-[8px]"
+                            :class="sandboxSortKey === 'fCnt' ? (sandboxSortOrder === 'asc' ? 'fa-arrow-up text-sky-400' : 'fa-arrow-down text-sky-400') : 'fa-sort text-slate-600'"
+                          ></i>
+                        </div>
+                      </th>
+
+                      <th
+                        @click="toggleSandboxSort('rssi')"
+                        class="py-2.5 px-2.5 whitespace-nowrap bg-slate-900 text-emerald-400 cursor-pointer hover:bg-slate-800 transition"
+                        title="Click to sort by RSSI"
+                      >
+                        <div class="flex items-center gap-1">
+                          <span>RSSI (dBm)</span>
+                          <i
+                            class="fa-solid text-[8px]"
+                            :class="sandboxSortKey === 'rssi' ? (sandboxSortOrder === 'asc' ? 'fa-arrow-up text-emerald-400' : 'fa-arrow-down text-emerald-400') : 'fa-sort text-slate-600'"
+                          ></i>
+                        </div>
+                      </th>
+
+                      <th
+                        @click="toggleSandboxSort('snr')"
+                        class="py-2.5 px-2.5 whitespace-nowrap bg-slate-900 text-sky-400 border-r border-slate-800/80 cursor-pointer hover:bg-slate-800 transition"
+                        title="Click to sort by SNR"
+                      >
+                        <div class="flex items-center gap-1">
+                          <span>SNR (dB)</span>
+                          <i
+                            class="fa-solid text-[8px]"
+                            :class="sandboxSortKey === 'snr' ? (sandboxSortOrder === 'asc' ? 'fa-arrow-up text-sky-400' : 'fa-arrow-down text-sky-400') : 'fa-sort text-slate-600'"
+                          ></i>
+                        </div>
+                      </th>
+
+                      <!-- Dynamic Sensor Field Columns (Sortable) -->
                       <th
                         v-for="col in matrixSensorColumns"
                         :key="col"
-                        class="py-2.5 px-3 whitespace-nowrap bg-slate-900 text-amber-300 font-mono capitalize"
+                        @click="toggleSandboxSort('sensor:' + col)"
+                        class="py-2.5 px-3 whitespace-nowrap bg-slate-900 text-amber-300 font-mono capitalize cursor-pointer hover:bg-slate-800 transition"
+                        :title="'Click to sort by ' + col"
                       >
-                        <i class="fa-solid fa-chart-line text-[10px] mr-1 text-amber-400/70"></i>{{ col }}
+                        <div class="flex items-center gap-1">
+                          <i class="fa-solid fa-chart-line text-[9px] text-amber-400/70"></i>
+                          <span>{{ col }}</span>
+                          <i
+                            class="fa-solid text-[8px]"
+                            :class="sandboxSortKey === ('sensor:' + col) ? (sandboxSortOrder === 'asc' ? 'fa-arrow-up text-amber-400' : 'fa-arrow-down text-amber-400') : 'fa-sort text-slate-600'"
+                          ></i>
+                        </div>
                       </th>
+
                       <!-- Payload Hex & Action -->
-                      <th class="py-2.5 px-3 whitespace-nowrap bg-slate-900 text-slate-400">Payload Hex</th>
+                      <th
+                        @click="toggleSandboxSort('payloadHex')"
+                        class="py-2.5 px-3 whitespace-nowrap bg-slate-900 text-slate-400 cursor-pointer hover:bg-slate-800 transition"
+                        title="Click to sort by Payload Hex"
+                      >
+                        <div class="flex items-center gap-1">
+                          <span>Payload Hex</span>
+                          <i
+                            class="fa-solid text-[8px]"
+                            :class="sandboxSortKey === 'payloadHex' ? (sandboxSortOrder === 'asc' ? 'fa-arrow-up text-slate-300' : 'fa-arrow-down text-slate-300') : 'fa-sort text-slate-600'"
+                          ></i>
+                        </div>
+                      </th>
                       <th class="py-2.5 px-3 whitespace-nowrap bg-slate-900 text-right">Action</th>
                     </tr>
                   </thead>
                   <tbody class="divide-y divide-slate-800/60 font-mono text-[11px]">
                     <tr
-                      v-for="(row, rIdx) in matrixRows"
+                      v-for="(row, rIdx) in sortedMatrixRows"
                       :key="rIdx"
                       class="hover:bg-slate-800/50 transition group"
                     >
                       <!-- Time Cell (Chủ lực) -->
                       <td class="py-2 px-3 whitespace-nowrap font-bold text-white bg-slate-950/40 border-r border-slate-800/80">
-                        <span class="text-purple-300">{{ formatDateTime(row.time) }}</span>
+                        <span class="text-purple-300 font-sans font-semibold">{{ formatDateTime(row.time) }}</span>
                       </td>
+
                       <!-- Network Metadata Cells -->
                       <td class="py-2 px-2.5 text-slate-400">{{ row.fPort }}</td>
                       <td class="py-2 px-2.5 text-slate-300 font-bold">#{{ row.fCnt }}</td>
                       <td class="py-2 px-2.5">
-                        <span v-if="row.rssi != null" class="text-emerald-400 font-bold">{{ row.rssi }}</span>
+                        <span
+                          v-if="row.rssi != null"
+                          class="font-bold"
+                          :class="row.rssi >= -90 ? 'text-emerald-400' : (row.rssi >= -110 ? 'text-amber-400' : 'text-rose-400')"
+                        >
+                          {{ row.rssi }}
+                        </span>
                         <span v-else class="text-slate-600">—</span>
                       </td>
                       <td class="py-2 px-2.5 border-r border-slate-800/80">
-                        <span v-if="row.snr != null" class="text-sky-400 font-bold">{{ row.snr }}</span>
+                        <span
+                          v-if="row.snr != null"
+                          class="font-bold"
+                          :class="row.snr >= 5 ? 'text-emerald-400' : (row.snr >= 0 ? 'text-sky-400' : 'text-orange-400')"
+                        >
+                          {{ row.snr }}
+                        </span>
                         <span v-else class="text-slate-600">—</span>
                       </td>
+
                       <!-- Dynamic Sensor Field Value Cells -->
                       <td
                         v-for="col in matrixSensorColumns"
@@ -2095,8 +2266,10 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
                       >
                         {{ row.sensorValues[col] }}
                       </td>
+
                       <!-- Payload Hex Cell -->
                       <td class="py-2 px-3 text-purple-400 uppercase truncate max-w-[120px]" :title="row.payloadHex">{{ row.payloadHex }}</td>
+
                       <!-- Action Cell -->
                       <td class="py-2 px-3 text-right whitespace-nowrap">
                         <button
@@ -3454,7 +3627,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
               raw: pkt,
               time: pkt.timestamp || pkt.receivedAt,
               fPort: pkt.fPort || 1,
-              fCnt: pkt.fCnt || 0,
+              fCnt: pkt.fCnt !== undefined && pkt.fCnt !== null ? pkt.fCnt : 0,
               rssi: pkt.rssi != null ? pkt.rssi : null,
               snr: pkt.snr != null ? pkt.snr : null,
               payloadHex: pkt.payloadHex || pkt.data || '—',
@@ -3462,6 +3635,137 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
             };
           });
         });
+
+        const sandboxTimeFilter = ref('ALL');
+        const sandboxSearchQuery = ref('');
+        const sandboxSortKey = ref('time');
+        const sandboxSortOrder = ref('desc');
+        const sandboxAutoSync = ref(false);
+        const sandboxAutoSyncTimer = ref(null);
+
+        const passesTimeFilter = (timestamp, filter) => {
+          if (!filter || filter === 'ALL') return true;
+          if (!timestamp) return false;
+          const time = new Date(timestamp).getTime();
+          if (isNaN(time)) return false;
+          const now = Date.now();
+          const diffMs = now - time;
+          if (filter === '15M') return diffMs <= 15 * 60 * 1000;
+          if (filter === '1H') return diffMs <= 60 * 60 * 1000;
+          if (filter === '24H') return diffMs <= 24 * 60 * 60 * 1000;
+          if (filter === '7D') return diffMs <= 7 * 24 * 60 * 60 * 1000;
+          return true;
+        };
+
+        const filteredMatrixRows = computed(() => {
+          let rows = matrixRows.value || [];
+          if (sandboxTimeFilter.value && sandboxTimeFilter.value !== 'ALL') {
+            rows = rows.filter(r => passesTimeFilter(r.time, sandboxTimeFilter.value));
+          }
+          const q = (sandboxSearchQuery.value || '').trim().toLowerCase();
+          if (q) {
+            rows = rows.filter(r => {
+              if (r.time && String(r.time).toLowerCase().includes(q)) return true;
+              if (formatDateTime(r.time).toLowerCase().includes(q)) return true;
+              if (String(r.fPort).toLowerCase().includes(q)) return true;
+              if (String(r.fCnt).toLowerCase().includes(q) || ('#' + r.fCnt).includes(q)) return true;
+              if (r.rssi != null && String(r.rssi).includes(q)) return true;
+              if (r.snr != null && String(r.snr).includes(q)) return true;
+              if (r.payloadHex && r.payloadHex.toLowerCase().includes(q)) return true;
+              for (const [k, v] of Object.entries(r.sensorValues)) {
+                if (k.toLowerCase().includes(q)) return true;
+                if (String(v).toLowerCase().includes(q)) return true;
+              }
+              return false;
+            });
+          }
+          return rows;
+        });
+
+        const sortedMatrixRows = computed(() => {
+          const list = [...filteredMatrixRows.value];
+          const key = sandboxSortKey.value;
+          const order = sandboxSortOrder.value === 'asc' ? 1 : -1;
+          return list.sort((a, b) => {
+            if (key === 'time') {
+              const tA = a.time ? new Date(a.time).getTime() : 0;
+              const tB = b.time ? new Date(b.time).getTime() : 0;
+              return (tA - tB) * order;
+            }
+            if (key === 'fPort' || key === 'fCnt' || key === 'rssi' || key === 'snr') {
+              const vA = a[key] != null ? Number(a[key]) : (order === 1 ? Infinity : -Infinity);
+              const vB = b[key] != null ? Number(b[key]) : (order === 1 ? Infinity : -Infinity);
+              return (vA - vB) * order;
+            }
+            if (key === 'payloadHex') {
+              return String(a.payloadHex || '').localeCompare(String(b.payloadHex || '')) * order;
+            }
+            if (key.startsWith('sensor:')) {
+              const col = key.replace('sensor:', '');
+              const sA = a.sensorValues[col];
+              const sB = b.sensorValues[col];
+              if (sA === '—' && sB === '—') return 0;
+              if (sA === '—') return 1;
+              if (sB === '—') return -1;
+              const numA = Number(sA);
+              const numB = Number(sB);
+              if (!isNaN(numA) && !isNaN(numB)) {
+                return (numA - numB) * order;
+              }
+              return String(sA).localeCompare(String(sB)) * order;
+            }
+            return 0;
+          });
+        });
+
+        const toggleSandboxSort = (key) => {
+          if (sandboxSortKey.value === key) {
+            sandboxSortOrder.value = sandboxSortOrder.value === 'asc' ? 'desc' : 'asc';
+          } else {
+            sandboxSortKey.value = key;
+            sandboxSortOrder.value = key === 'time' ? 'desc' : 'asc';
+          }
+        };
+
+        const resetSandboxFilters = () => {
+          sandboxTimeFilter.value = 'ALL';
+          sandboxSearchQuery.value = '';
+          sandboxSortKey.value = 'time';
+          sandboxSortOrder.value = 'desc';
+        };
+
+        const isSandboxFilterActive = computed(() => {
+          return (sandboxTimeFilter.value && sandboxTimeFilter.value !== 'ALL') ||
+                 Boolean((sandboxSearchQuery.value || '').trim());
+        });
+
+        const startSandboxAutoSync = () => {
+          stopSandboxAutoSync();
+          sandboxAutoSyncTimer.value = setInterval(() => {
+            if (activeTab.value === 'decoder' && sandboxAutoSync.value) {
+              fetchSandboxTelemetry(true);
+            }
+          }, 3000);
+        };
+
+        const stopSandboxAutoSync = () => {
+          if (sandboxAutoSyncTimer.value) {
+            clearInterval(sandboxAutoSyncTimer.value);
+            sandboxAutoSyncTimer.value = null;
+          }
+        };
+
+        const toggleSandboxAutoSync = () => {
+          sandboxAutoSync.value = !sandboxAutoSync.value;
+          if (sandboxAutoSync.value) {
+            startSandboxAutoSync();
+            fetchSandboxTelemetry(false);
+            showToast("Sandbox auto-sync enabled (3s live poll)", "info");
+          } else {
+            stopSandboxAutoSync();
+            showToast("Sandbox auto-sync paused", "info");
+          }
+        };
 
         const formatDateTime = (dateStr) => {
           if (!dateStr) return '—';
@@ -4748,10 +5052,33 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
           if (el) el.scrollIntoView({ behavior: 'smooth' });
         };
 
+        const fetchSandboxTelemetry = async (silent = false) => {
+          if (!silent) loadingDeviceTelemetry.value = true;
+          try {
+            const url = selectedSandboxDeviceEUI.value
+              ? '/lorawan/telemetry?devEUI=' + encodeURIComponent(selectedSandboxDeviceEUI.value) + '&limit=50'
+              : '/lorawan/telemetry?limit=50';
+            const res = await fetch(url, { headers: authHeaders(), credentials: 'include' });
+            if (res.ok) {
+              const data = await res.json();
+              sandboxTelemetryList.value = Array.isArray(data) ? data : [];
+              if (sandboxTelemetryList.value.length > 0 && !sandboxHex.value) {
+                const latest = sandboxTelemetryList.value[0];
+                sandboxHex.value = latest.payloadHex || latest.data || '09C441';
+                sandboxFPort.value = latest.fPort || 1;
+              }
+            }
+          } catch(err) {
+            if (!silent) showToast('Failed to fetch telemetry: ' + err.message, 'error');
+          } finally {
+            if (!silent) loadingDeviceTelemetry.value = false;
+          }
+        };
+
         const onSelectSandboxDevice = async () => {
           if (!selectedSandboxDeviceEUI.value) {
             sandboxActiveMetadata.value = null;
-            sandboxTelemetryList.value = [];
+            await fetchSandboxTelemetry(false);
             return;
           }
           const dev = devicesList.value.find(d => d.devEUI === selectedSandboxDeviceEUI.value);
@@ -4767,49 +5094,35 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
             sandboxCode.value = dev.payloadFormatterScript;
           }
 
-          loadingDeviceTelemetry.value = true;
-          try {
-            const res = await fetch('/lorawan/telemetry?devEUI=' + encodeURIComponent(dev.devEUI) + '&limit=10', {
-              headers: authHeaders(),
-              credentials: 'include'
-            });
-            if (res.ok) {
-              const data = await res.json();
-              sandboxTelemetryList.value = Array.isArray(data) ? data : [];
-              if (sandboxTelemetryList.value.length > 0) {
-                const latest = sandboxTelemetryList.value[0];
-                sandboxHex.value = latest.payloadHex || latest.data || '09C441';
-                sandboxFPort.value = latest.fPort || 1;
-                sandboxActiveMetadata.value = {
-                  deviceName: dev.name || latest.deviceName || dev.devEUI,
-                  devEui: dev.devEUI,
-                  fPort: latest.fPort || 1,
-                  fCnt: latest.fCnt || 0,
-                  rssi: latest.rssi,
-                  snr: latest.snr,
-                  gatewayId: latest.gatewayId,
-                  timestamp: latest.timestamp || latest.receivedAt
-                };
-                if (sandboxHex.value) {
-                  runSandboxDecode();
-                }
-              } else {
-                sandboxActiveMetadata.value = {
-                  deviceName: dev.name,
-                  devEui: dev.devEUI,
-                  fPort: 1,
-                  fCnt: 0,
-                  rssi: null,
-                  snr: null,
-                  gatewayId: null,
-                  timestamp: null
-                };
-              }
+          await fetchSandboxTelemetry(false);
+          if (sandboxTelemetryList.value.length > 0) {
+            const latest = sandboxTelemetryList.value[0];
+            sandboxHex.value = latest.payloadHex || latest.data || '09C441';
+            sandboxFPort.value = latest.fPort || 1;
+            sandboxActiveMetadata.value = {
+              deviceName: dev.name || latest.deviceName || dev.devEUI,
+              devEui: dev.devEUI,
+              fPort: latest.fPort || 1,
+              fCnt: latest.fCnt || 0,
+              rssi: latest.rssi,
+              snr: latest.snr,
+              gatewayId: latest.gatewayId,
+              timestamp: latest.timestamp || latest.receivedAt
+            };
+            if (sandboxHex.value) {
+              runSandboxDecode();
             }
-          } catch(err) {
-            showToast('Failed to fetch device telemetry: ' + err.message, 'error');
-          } finally {
-            loadingDeviceTelemetry.value = false;
+          } else {
+            sandboxActiveMetadata.value = {
+              deviceName: dev.name,
+              devEui: dev.devEUI,
+              fPort: 1,
+              fCnt: 0,
+              rssi: null,
+              snr: null,
+              gatewayId: null,
+              timestamp: null
+            };
           }
         };
 
@@ -5234,7 +5547,16 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
           if (newTab === 'users') fetchUsers();
           if (newTab === 'database') fetchDbHealth();
           if (newTab === 'devices') fetchDevices();
-          if (newTab === 'decoder') fetchDecoders();
+          if (newTab === 'decoder') {
+            fetchDecoders();
+            fetchDevices();
+            fetchSandboxTelemetry(false);
+            if (sandboxAutoSync.value) {
+              startSandboxAutoSync();
+            }
+          } else {
+            stopSandboxAutoSync();
+          }
           if (newTab === 'webhooks') {
             startWebhookPolling();
           } else {
@@ -5422,6 +5744,18 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
           decodedFieldsList,
           matrixSensorColumns,
           matrixRows,
+          filteredMatrixRows,
+          sortedMatrixRows,
+          sandboxTimeFilter,
+          sandboxSearchQuery,
+          sandboxSortKey,
+          sandboxSortOrder,
+          sandboxAutoSync,
+          toggleSandboxSort,
+          resetSandboxFilters,
+          isSandboxFilterActive,
+          toggleSandboxAutoSync,
+          fetchSandboxTelemetry,
           sandboxFPort,
           formatDateTime,
           getSubfunctionCount,
