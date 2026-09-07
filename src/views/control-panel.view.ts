@@ -3137,7 +3137,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
                           @click="applyDetectedField(f)"
                           class="px-2 py-0.5 rounded text-[10px] font-mono transition flex items-center gap-1 cursor-pointer border"
                           :class="selectedWidgetBinding.field === f.key ? 'bg-sky-500/25 border-sky-400 text-sky-200 font-bold shadow-sm' : 'bg-slate-900 hover:bg-slate-800 border-slate-700/80 text-slate-300'"
-                          :title="'Field: ' + f.key + '\nLabel: ' + f.label + '\nLatest Value: ' + f.latestValue + (f.unit ? ' ' + f.unit : '') + '\nType: ' + f.dataType"
+                          :title="getTagTooltip(f)"
                         >
                           <span>{{ f.key }}</span>
                           <span class="text-[9px] text-slate-400 font-normal">({{ f.latestValue }}{{ f.unit ? f.unit : '' }})</span>
@@ -7008,6 +7008,11 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
           showToast('Selected Tag: ' + fieldObj.key + ' (' + fieldObj.latestValue + (fieldObj.unit ? ' ' + fieldObj.unit : '') + ')', 'info');
         };
 
+        const getTagTooltip = (f) => {
+          if (!f) return '';
+          return 'Field: ' + (f.key || '') + '\nLabel: ' + (f.label || '') + '\nLatest Value: ' + (f.latestValue ?? '') + (f.unit ? ' ' + f.unit : '') + '\nType: ' + (f.dataType || '');
+        };
+
         watch(() => selectedWidgetId.value, () => {
           if (selectedWidgetBinding.value?.devEUI) {
             fetchDetectedFieldsForSelectedDevice();
@@ -7873,7 +7878,8 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
           stretchWidgetHeight,
           setWidgetPresetSize,
           setHmiEditorMode,
-          handleHmiKeydown
+          handleHmiKeydown,
+          getTagTooltip
         };
       }
     }).mount('#app');
