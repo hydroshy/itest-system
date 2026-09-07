@@ -630,7 +630,7 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
 
             <div v-else class="space-y-3">
               <!-- Search & Filter Toolbar -->
-              <div class="flex items-center gap-2 flex-wrap">
+              <div class="flex items-center justify-between gap-2 flex-wrap">
                 <!-- Search -->
                 <div class="relative flex-1 min-w-[200px]">
                   <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-xs"></i>
@@ -647,20 +647,80 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
                   ><i class="fa-solid fa-xmark"></i></button>
                 </div>
 
-                <!-- Reset Filter -->
-                <button
-                  v-if="isTelemetryFilterActive"
-                  @click="resetTelemetryFilters"
-                  title="Clear all filters"
-                  class="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold flex items-center gap-1.5 cursor-pointer transition flex-shrink-0"
-                >
-                  <i class="fa-solid fa-filter-circle-xmark text-rose-400"></i>
-                  <span>RESET</span>
-                </button>
+                <div class="flex items-center gap-2 flex-shrink-0">
+                  <!-- Reset Filter -->
+                  <button
+                    v-if="isTelemetryFilterActive"
+                    @click="resetTelemetryFilters"
+                    title="Clear all filters"
+                    class="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold flex items-center gap-1.5 cursor-pointer transition"
+                  >
+                    <i class="fa-solid fa-filter-circle-xmark text-rose-400"></i>
+                    <span>RESET</span>
+                  </button>
+
+                  <!-- Column Visibility Filter Dropdown -->
+                  <div class="relative column-filter-container">
+                    <button
+                      @click="columnFilterOpen = !columnFilterOpen"
+                      class="px-3 py-2 rounded-xl bg-slate-900 border border-slate-800 hover:border-slate-700 text-xs font-semibold text-slate-300 flex items-center gap-2 cursor-pointer shadow-inner transition"
+                      :class="hiddenSensorColumns.size > 0 ? 'border-amber-500/50 text-amber-300' : ''"
+                      title="Toggle visible sensor columns"
+                    >
+                      <i class="fa-solid fa-sliders text-purple-400"></i>
+                      <span>COLUMNS</span>
+                      <span v-if="hiddenSensorColumns.size > 0" class="bg-amber-500/20 text-amber-300 px-1.5 py-0.5 rounded-full text-[10px] font-mono leading-none">
+                        -{{ hiddenSensorColumns.size }}
+                      </span>
+                      <i class="fa-solid fa-chevron-down text-[9px] transition-transform duration-200" :class="columnFilterOpen ? 'rotate-180 text-purple-400' : 'text-slate-500'"></i>
+                    </button>
+
+                    <!-- Dropdown Menu -->
+                    <div
+                      v-if="columnFilterOpen"
+                      @click.stop
+                      class="absolute right-0 top-full mt-2 z-30 bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl p-3.5 min-w-[220px] max-h-[340px] overflow-y-auto custom-scroll"
+                    >
+                      <div class="flex items-center justify-between text-[10px] font-bold text-slate-400 uppercase mb-2 tracking-wider pb-1.5 border-b border-slate-800">
+                        <span>SENSOR FIELDS</span>
+                        <span v-if="dashboardSensorColumns.length > 0" class="text-slate-500 font-mono text-[9px]">
+                          {{ dashboardSensorColumns.filter(c => isSensorColumnVisible(c)).length }}/{{ dashboardSensorColumns.length }}
+                        </span>
+                      </div>
+                      <div v-if="dashboardSensorColumns.length === 0" class="text-[11px] text-slate-500 py-3 text-center">
+                        No sensor fields detected
+                      </div>
+                      <div v-else class="space-y-1">
+                        <label
+                          v-for="col in dashboardSensorColumns"
+                          :key="col"
+                          class="flex items-center gap-2.5 py-1.5 px-2 hover:bg-slate-800/80 rounded-lg cursor-pointer transition select-none"
+                        >
+                          <input
+                            type="checkbox"
+                            :checked="isSensorColumnVisible(col)"
+                            @change="toggleSensorColumn(col)"
+                            class="accent-purple-500 cursor-pointer rounded"
+                          />
+                          <span class="text-[11px] font-mono uppercase" :class="isSensorColumnVisible(col) ? 'text-amber-200 font-bold' : 'text-slate-500 line-through'">
+                            {{ col }}
+                          </span>
+                        </label>
+                      </div>
+                      <div class="border-t border-slate-800 mt-2.5 pt-2 flex items-center justify-between">
+                        <button @click="hiddenSensorColumns = new Set()" class="text-[10px] text-emerald-400 hover:text-emerald-300 cursor-pointer font-bold transition">SHOW ALL</button>
+                        <button @click="hiddenSensorColumns = new Set(dashboardSensorColumns)" class="text-[10px] text-slate-500 hover:text-rose-400 cursor-pointer font-bold transition">HIDE ALL</button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </div>
 
               <!-- Full Width Telemetry Table: TIME + ALL SENSOR FIELDS -->
-              <div class="overflow-x-auto rounded-2xl border border-slate-800 bg-slate-950/80 max-h-[680px] overflow-y-auto custom-scroll shadow-2xl">
+              <div
+                class="overflow-x-auto rounded-2xl border border-slate-800 bg-slate-950/80 max-h-[680px] overflow-y-auto custom-scroll shadow-2xl"
+                @click="columnFilterOpen = false"
+              >
                 <div v-if="sortedDashboardMatrixRows.length === 0" class="py-16 text-center text-slate-500 text-xs">
                   <i class="fa-solid fa-satellite-dish text-3xl text-slate-700 mb-2 block"></i>
                   <span v-if="dashboardMatrixRows.length === 0">No uplink telemetry packets received for this device.</span>
@@ -684,10 +744,10 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
                         </div>
                       </th>
 
-                      <!-- ALL SENSOR FIELDS (All other columns except TIME) -->
+                      <!-- ALL SENSOR FIELDS (Filtered by visibility) -->
                       <template v-if="dashboardSensorColumns.length > 0">
                         <th
-                          v-for="col in dashboardSensorColumns"
+                          v-for="col in dashboardSensorColumns.filter(c => isSensorColumnVisible(c))"
                           :key="col"
                           @click="toggleTelemetrySort('sensor:' + col)"
                           class="py-3 px-4 whitespace-nowrap bg-slate-900 text-amber-300 font-mono cursor-pointer hover:bg-slate-800 transition"
@@ -720,10 +780,10 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
                         <span class="text-purple-300 font-bold">{{ formatDateTime(row.time) }}</span>
                       </td>
 
-                      <!-- SENSOR VALUES (In all columns except TIME) -->
+                      <!-- SENSOR VALUES (Filtered by visibility) -->
                       <template v-if="dashboardSensorColumns.length > 0">
                         <td
-                          v-for="col in dashboardSensorColumns"
+                          v-for="col in dashboardSensorColumns.filter(c => isSensorColumnVisible(c))"
                           :key="col"
                           class="py-2.5 px-4 whitespace-nowrap font-bold"
                           :class="row.sensorValues[col] !== '—' && row.sensorValues[col] !== undefined ? 'text-emerald-300' : 'text-slate-700'"
@@ -1720,6 +1780,11 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
           document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape' && activeTelemetryPacket.value) {
               closeInspectModal();
+            }
+          // Close column filter dropdown when clicking outside
+          document.addEventListener('click', (e) => {
+            if (columnFilterOpen.value && !e.target.closest('.column-filter-container')) {
+              columnFilterOpen.value = false;
             }
           });
         });
