@@ -1828,74 +1828,239 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
             </div>
           </div>
 
-          <!-- JavaScript Decoder Sandbox & Debugger -->
+          <!-- JavaScript Decoder Sandbox & Live Device Decoder Debugger -->
           <div id="decoder-sandbox-section" class="glass-card rounded-xl p-5 space-y-4">
-            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-800/80 pb-3">
+            <!-- Header with Dual Dropdowns: Select Device from Fleet + Quick Load Saved Decoder -->
+            <div class="flex flex-col xl:flex-row xl:items-center justify-between gap-3 border-b border-slate-800/80 pb-3">
               <div>
                 <h3 class="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-2">
-                  <i class="fa-solid fa-terminal text-purple-400"></i> Interactive Payload Sandbox & Debugger
+                  <i class="fa-solid fa-terminal text-purple-400"></i> Interactive Payload Sandbox & Device Decoder
                 </h3>
-                <p class="text-[11px] text-slate-400 mt-0.5">Test decoder JavaScript against hex payloads with sub-function support.</p>
+                <p class="text-[11px] text-slate-400 mt-0.5">Select any registered device or saved decoder to inspect live telemetry decoding and verify payload codecs.</p>
               </div>
 
-              <div class="flex items-center gap-2">
-                <label class="text-[11px] text-slate-400">Quick load:</label>
-                <select
-                  v-model="selectedSandboxDecoderId"
-                  @change="onSelectSandboxDecoder"
-                  class="px-2.5 py-1 bg-slate-950 border border-slate-700 rounded-lg text-xs text-white font-mono focus:outline-none focus:border-purple-500"
+              <div class="flex flex-wrap items-center gap-2.5">
+                <!-- Dropdown: Select Device from Fleet -->
+                <div class="flex items-center gap-1.5 bg-slate-950 p-1 rounded-lg border border-purple-500/30">
+                  <span class="text-[11px] text-purple-300 font-bold px-1.5 flex items-center gap-1">
+                    <i class="fa-solid fa-microchip"></i> Device:
+                  </span>
+                  <select
+                    v-model="selectedSandboxDeviceEUI"
+                    @change="onSelectSandboxDevice"
+                    class="px-2.5 py-1 bg-slate-900 border border-slate-700 rounded text-xs text-white font-mono focus:outline-none focus:border-purple-500 max-w-[220px] sm:max-w-[280px]"
+                  >
+                    <option value="">-- Select Created Device --</option>
+                    <option v-for="dev in devicesList" :key="dev.devEUI" :value="dev.devEUI">
+                      {{ dev.name }} ({{ dev.devEUI }}) [Decoder: {{ dev.decoderId || 'None' }}]
+                    </option>
+                  </select>
+                </div>
+
+                <!-- Dropdown: Quick Load Decoder -->
+                <div class="flex items-center gap-1.5 bg-slate-950 p-1 rounded-lg border border-slate-800">
+                  <span class="text-[11px] text-slate-400 px-1">Decoder:</span>
+                  <select
+                    v-model="selectedSandboxDecoderId"
+                    @change="onSelectSandboxDecoder"
+                    class="px-2.5 py-1 bg-slate-900 border border-slate-700 rounded text-xs text-white font-mono focus:outline-none focus:border-purple-500 max-w-[200px]"
+                  >
+                    <option value="">-- Choose saved decoder --</option>
+                    <option v-for="d in decodersList" :key="d.id" :value="d.id">{{ d.id }} (FW: {{ d.firmwareVersion }})</option>
+                  </select>
+                </div>
+
+                <button
+                  v-if="selectedSandboxDeviceEUI"
+                  @click="onSelectSandboxDevice"
+                  class="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 text-xs font-semibold flex items-center gap-1 cursor-pointer"
+                  title="Reload Latest Device Telemetry"
                 >
-                  <option value="">-- Choose saved decoder --</option>
-                  <option v-for="d in decodersList" :key="d.id" :value="d.id">{{ d.id }} (FW: {{ d.firmwareVersion }})</option>
-                </select>
+                  <i class="fa-solid fa-arrows-rotate" :class="{ 'fa-spin': loadingDeviceTelemetry }"></i>
+                </button>
               </div>
             </div>
 
+            <!-- Active Device Metadata Banner (when device selected) -->
+            <div v-if="sandboxActiveMetadata" class="p-3 bg-purple-950/20 border border-purple-500/25 rounded-xl flex flex-wrap items-center justify-between gap-3 text-xs">
+              <div class="flex items-center gap-3 flex-wrap">
+                <div class="flex items-center gap-1.5 text-purple-300 font-bold">
+                  <i class="fa-solid fa-circle-check text-emerald-400 text-xs"></i>
+                  <span>Target: {{ sandboxActiveMetadata.deviceName }}</span>
+                  <span class="font-mono text-purple-200">({{ sandboxActiveMetadata.devEui }})</span>
+                </div>
+                <div class="h-4 w-[1px] bg-purple-500/30 hidden sm:block"></div>
+                <div class="flex items-center gap-2 text-slate-400 font-mono text-[11px]">
+                  <span>FPort: <strong class="text-white">{{ sandboxActiveMetadata.fPort }}</strong></span>
+                  <span>FCnt: <strong class="text-white">#{{ sandboxActiveMetadata.fCnt }}</strong></span>
+                  <span v-if="sandboxActiveMetadata.rssi != null">RSSI: <strong class="text-emerald-400">{{ sandboxActiveMetadata.rssi }} dBm</strong></span>
+                  <span v-if="sandboxActiveMetadata.snr != null">SNR: <strong class="text-sky-400">{{ sandboxActiveMetadata.snr }} dB</strong></span>
+                  <span v-if="sandboxActiveMetadata.gatewayId">GW: <strong class="text-slate-300">{{ sandboxActiveMetadata.gatewayId }}</strong></span>
+                </div>
+              </div>
+              <div class="text-[11px] font-mono text-slate-400">
+                <span v-if="sandboxActiveMetadata.timestamp">Time: {{ formatDateTime(sandboxActiveMetadata.timestamp) }}</span>
+                <span v-else class="text-amber-400">No live packet recorded yet</span>
+              </div>
+            </div>
+
+            <!-- Main Editor and Decoded Results Grid -->
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 text-xs font-mono">
+              <!-- Column 1: JavaScript Decoder Function -->
               <div class="space-y-1.5">
                 <div class="flex items-center justify-between">
-                  <label class="block text-xs font-sans font-semibold text-slate-300">JavaScript Decoder Function</label>
+                  <label class="block text-xs font-sans font-semibold text-slate-300 flex items-center gap-1.5">
+                    <i class="fa-brands fa-js text-amber-400"></i> JavaScript Decoder Code
+                  </label>
                   <span class="text-[10px] font-sans text-slate-400">Entry: <code class="text-purple-300">decodeUplink(input)</code> or <code class="text-purple-300">Decoder(bytes, fPort)</code></span>
                 </div>
                 <textarea
                   v-model="sandboxCode"
-                  rows="10"
-                  class="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-slate-200 focus:outline-none focus:border-purple-500 font-mono text-xs leading-relaxed"
+                  rows="12"
+                  class="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-slate-200 focus:outline-none focus:border-purple-500 font-mono text-xs leading-relaxed custom-scroll"
                 ></textarea>
               </div>
 
-              <div class="space-y-2 font-sans">
+              <!-- Column 2: Test Hex Payload & Tabular / JSON Output -->
+              <div class="space-y-2.5 font-sans">
                 <div class="space-y-1">
-                  <label class="block text-xs font-semibold text-slate-300">Test Hex String Payload</label>
+                  <div class="flex items-center justify-between">
+                    <label class="block text-xs font-semibold text-slate-300">Test Hex String Payload</label>
+                    <div class="flex items-center gap-2 text-[11px] text-slate-400 font-mono">
+                      <span>FPort:</span>
+                      <input
+                        v-model.number="sandboxFPort"
+                        type="number"
+                        min="1"
+                        max="223"
+                        class="w-14 px-1.5 py-0.5 bg-slate-950 border border-slate-800 rounded text-center text-white text-xs"
+                      />
+                    </div>
+                  </div>
                   <div class="flex gap-2 font-mono text-xs">
                     <input
                       v-model="sandboxHex"
                       type="text"
                       placeholder="e.g. 09C441"
-                      class="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-slate-200 focus:outline-none focus:border-purple-500 font-mono text-xs"
+                      class="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-slate-200 focus:outline-none focus:border-purple-500 font-mono text-xs uppercase"
                     />
                     <button
                       @click="runSandboxDecode"
-                      class="px-4 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-sans font-bold rounded-xl transition cursor-pointer shadow-lg shadow-purple-600/20"
+                      class="px-4 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-sans font-bold rounded-xl transition cursor-pointer shadow-lg shadow-purple-600/20 flex items-center gap-1.5 flex-shrink-0"
                     >
-                      Decode
+                      <i class="fa-solid fa-play text-xs"></i>
+                      <span>Decode</span>
                     </button>
                   </div>
                 </div>
 
-                <div class="space-y-1">
-                  <div class="flex items-center justify-between">
-                    <label class="block text-xs font-semibold text-slate-300 pt-1">Decoded Output (JSON)</label>
+                <!-- Decoded Output View (Tabular vs JSON Switcher) -->
+                <div class="space-y-1.5">
+                  <div class="flex items-center justify-between pt-1">
+                    <div class="flex items-center gap-1 bg-slate-950 p-0.5 rounded-lg border border-slate-800">
+                      <button
+                        @click="sandboxViewMode = 'tabular'"
+                        :class="sandboxViewMode === 'tabular' ? 'bg-purple-600 text-white font-bold' : 'text-slate-400 hover:text-slate-200'"
+                        class="px-2.5 py-1 rounded text-[11px] transition flex items-center gap-1 cursor-pointer"
+                      >
+                        <i class="fa-solid fa-table"></i> Tabular View
+                      </button>
+                      <button
+                        @click="sandboxViewMode = 'json'"
+                        :class="sandboxViewMode === 'json' ? 'bg-purple-600 text-white font-bold' : 'text-slate-400 hover:text-slate-200'"
+                        class="px-2.5 py-1 rounded text-[11px] transition flex items-center gap-1 cursor-pointer"
+                      >
+                        <i class="fa-solid fa-code"></i> Raw JSON
+                      </button>
+                    </div>
+
                     <button
                       v-if="sandboxResult"
-                      @click="sandboxResult = ''"
+                      @click="sandboxResult = ''; sandboxDecodedObject = null"
                       class="text-[10px] text-slate-500 hover:text-slate-300 cursor-pointer"
                     >
                       Clear
                     </button>
                   </div>
-                  <pre class="w-full h-36 bg-slate-950 border border-slate-800 rounded-xl p-3 text-emerald-400 overflow-auto text-xs font-mono">{{ sandboxDisplayOutput }}</pre>
+
+                  <!-- Tabular Output Mode -->
+                  <div v-if="sandboxViewMode === 'tabular'" class="w-full h-44 bg-slate-950 border border-slate-800 rounded-xl p-2.5 overflow-y-auto custom-scroll">
+                    <div v-if="decodedFieldsList.length === 0" class="h-full flex items-center justify-center text-center text-slate-500 text-xs font-sans">
+                      <div>
+                        <i class="fa-solid fa-table-list text-xl mb-1.5 block text-slate-600"></i>
+                        <span>Click <strong>Decode</strong> or select a device with packets to view tabular sensor fields.</span>
+                      </div>
+                    </div>
+                    <table v-else class="w-full text-left text-xs font-sans">
+                      <thead class="text-slate-400 border-b border-slate-800 text-[11px] font-semibold">
+                        <tr>
+                          <th class="pb-1.5 px-2">Sensor Field</th>
+                          <th class="pb-1.5 px-2">Decoded Value</th>
+                          <th class="pb-1.5 px-2 text-right">Data Type</th>
+                        </tr>
+                      </thead>
+                      <tbody class="divide-y divide-slate-800/60 font-mono text-[11px]">
+                        <tr v-for="f in decodedFieldsList" :key="f.key" class="hover:bg-slate-900/50">
+                          <td class="py-1.5 px-2 font-bold text-purple-300">{{ f.key }}</td>
+                          <td class="py-1.5 px-2 text-emerald-400 font-bold break-all">{{ f.value }}</td>
+                          <td class="py-1.5 px-2 text-right text-slate-500 uppercase text-[10px]">{{ f.type }}</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+
+                  <!-- Raw JSON Output Mode -->
+                  <div v-else class="w-full h-44 bg-slate-950 border border-slate-800 rounded-xl p-3 overflow-auto custom-scroll">
+                    <pre class="text-emerald-400 text-xs font-mono">{{ sandboxDisplayOutput }}</pre>
+                  </div>
                 </div>
+              </div>
+            </div>
+
+            <!-- Recent Uplink Telemetry Packets for Selected Device -->
+            <div v-if="selectedSandboxDeviceEUI && sandboxTelemetryList.length > 0" class="pt-3 border-t border-slate-800/80 space-y-2 font-sans">
+              <div class="flex items-center justify-between text-xs">
+                <span class="font-bold text-slate-300 flex items-center gap-1.5">
+                  <i class="fa-solid fa-clock-rotate-left text-purple-400"></i> Recent Uplink Telemetry Packets (Device: {{ selectedSandboxDevice?.name }})
+                </span>
+                <span class="text-[11px] font-mono text-slate-500">{{ sandboxTelemetryList.length }} packets buffered</span>
+              </div>
+              <div class="overflow-x-auto rounded-lg border border-slate-800 bg-slate-950/70 max-h-48 overflow-y-auto custom-scroll">
+                <table class="w-full text-left text-xs border-collapse">
+                  <thead class="bg-slate-900/80 text-slate-400 text-[11px] font-semibold border-b border-slate-800">
+                    <tr>
+                      <th class="py-2 px-3">Time</th>
+                      <th class="py-2 px-3">Port / FCnt</th>
+                      <th class="py-2 px-3">Best RSSI / SNR</th>
+                      <th class="py-2 px-3">Gateway</th>
+                      <th class="py-2 px-3">Raw Payload Hex</th>
+                      <th class="py-2 px-3 text-right">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody class="divide-y divide-slate-800/60 font-mono text-[11px]">
+                    <tr v-for="(pkt, pIdx) in sandboxTelemetryList" :key="pIdx" class="hover:bg-slate-800/40 transition">
+                      <td class="py-1.5 px-3 text-slate-300 whitespace-nowrap">{{ formatDateTime(pkt.timestamp || pkt.receivedAt) }}</td>
+                      <td class="py-1.5 px-3 text-slate-400">Port {{ pkt.fPort || 1 }} • #{{ pkt.fCnt || 0 }}</td>
+                      <td class="py-1.5 px-3">
+                        <span v-if="pkt.rssi != null" class="text-emerald-400 font-bold">{{ pkt.rssi }} dBm</span>
+                        <span v-if="pkt.snr != null" class="text-sky-400 ml-1.5">({{ pkt.snr }} dB)</span>
+                        <span v-if="pkt.rssi == null && pkt.snr == null" class="text-slate-500">—</span>
+                      </td>
+                      <td class="py-1.5 px-3 text-slate-400 truncate max-w-[120px]" :title="pkt.gatewayId || ''">{{ pkt.gatewayId || '—' }}</td>
+                      <td class="py-1.5 px-3 text-purple-300 font-bold uppercase truncate max-w-[160px]">{{ pkt.payloadHex || pkt.data || '—' }}</td>
+                      <td class="py-1.5 px-3 text-right">
+                        <button
+                          @click="loadHistoricalTelemetryPacket(pkt)"
+                          class="px-2.5 py-1 rounded bg-purple-500/15 hover:bg-purple-500/25 text-purple-300 border border-purple-500/30 text-[10px] font-bold cursor-pointer transition flex items-center gap-1 inline-flex"
+                          title="Load this packet into decoder"
+                        >
+                          <i class="fa-solid fa-play text-[9px]"></i>
+                          <span>Load & Decode</span>
+                        </button>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
               </div>
             </div>
           </div>
@@ -3108,12 +3273,57 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
         const decoderToDelete = ref(null);
         const currentDecoder = ref({ id: '', sku: '', firmwareVersion: 1, decoderCode: '', description: '' });
         const newDecoder = ref({ sku: '', firmwareVersion: '', decoderCode: '', description: '' });
+        const selectedSandboxDeviceEUI = ref('');
+        const selectedSandboxDevice = computed(() => {
+          if (!selectedSandboxDeviceEUI.value) return null;
+          return devicesList.value.find(d => d.devEUI === selectedSandboxDeviceEUI.value) || null;
+        });
         const selectedSandboxDecoderId = ref('');
         const sandboxFPort = ref(1);
-        const sandboxCode = ref("function parseTemperature(raw) {\\n  return raw / 100;\\n}\\n\\nfunction decodeUplink(input) {\\n  var bytes = input.bytes || input;\\n  var temp = parseTemperature((bytes[0] << 8) | bytes[1]);\\n  var hum = bytes[2];\\n  return {\\n    data: {\\n      temperature: temp,\\n      humidity: hum\\n    }\\n  };\\n}");
+        const sandboxCode = ref("function parseTemperature(raw) {\n  return raw / 100;\n}\n\nfunction decodeUplink(input) {\n  var bytes = input.bytes || input;\n  var temp = parseTemperature((bytes[0] << 8) | bytes[1]);\n  var hum = bytes[2];\n  return {\n    data: {\n      temperature: temp,\n      humidity: hum\n    }\n  };\n}");
         const sandboxHex = ref("09C441");
-        const sandboxResult = ref('{\\n  "ready": true\\n}');
-        const sandboxDisplayOutput = computed(() => sandboxResult.value || '{\\n  // Decoded JSON output will appear here\\n}');
+        const sandboxResult = ref('{\n  "ready": true\n}');
+        const sandboxDecodedObject = ref(null);
+        const sandboxViewMode = ref('tabular');
+        const loadingDeviceTelemetry = ref(false);
+        const sandboxTelemetryList = ref([]);
+        const sandboxActiveMetadata = ref(null);
+        const sandboxDisplayOutput = computed(() => sandboxResult.value || '{\n  // Decoded JSON output will appear here\n}');
+
+        const decodedFieldsList = computed(() => {
+          if (!sandboxDecodedObject.value) return [];
+          const res = [];
+          const extractFields = (obj, prefix = '') => {
+            if (!obj || typeof obj !== 'object') return;
+            for (const [k, v] of Object.entries(obj)) {
+              const fullKey = prefix ? prefix + '.' + k : k;
+              if (v === null || v === undefined) {
+                res.push({ key: fullKey, value: 'null', type: 'null' });
+              } else if (typeof v === 'object' && !Array.isArray(v)) {
+                extractFields(v, fullKey);
+              } else if (Array.isArray(v)) {
+                res.push({ key: fullKey, value: JSON.stringify(v), type: 'array' });
+              } else {
+                res.push({ key: fullKey, value: String(v), type: typeof v });
+              }
+            }
+          };
+
+          if (typeof sandboxDecodedObject.value === 'object') {
+            if (sandboxDecodedObject.value.data && typeof sandboxDecodedObject.value.data === 'object') {
+              extractFields(sandboxDecodedObject.value.data);
+              if (sandboxDecodedObject.value.errors) {
+                extractFields({ errors: sandboxDecodedObject.value.errors });
+              }
+              if (sandboxDecodedObject.value.warnings) {
+                extractFields({ warnings: sandboxDecodedObject.value.warnings });
+              }
+            } else {
+              extractFields(sandboxDecodedObject.value);
+            }
+          }
+          return res;
+        });
 
         const formatDateTime = (dateStr) => {
           if (!dateStr) return '—';
@@ -4161,17 +4371,13 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
         };
 
         const testDevice = (d) => {
-          sandboxHex.value = "09C441";
-          if (d.decoderId) {
-            selectedSandboxDecoderId.value = d.decoderId;
-            const found = decodersList.value.find(item => item.id === d.decoderId);
-            if (found && found.decoderCode) {
-              sandboxCode.value = found.decoderCode;
-            }
-          } else if (d.payloadFormatterScript) {
-            sandboxCode.value = d.payloadFormatterScript;
-          }
+          selectedSandboxDeviceEUI.value = d.devEUI;
+          onSelectSandboxDevice();
           switchTab('decoder');
+          setTimeout(() => {
+            const el = document.getElementById('decoder-sandbox-section');
+            if (el) el.scrollIntoView({ behavior: 'smooth' });
+          }, 100);
         };
 
         const fetchDecoders = async () => {
@@ -4404,6 +4610,90 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
           if (el) el.scrollIntoView({ behavior: 'smooth' });
         };
 
+        const onSelectSandboxDevice = async () => {
+          if (!selectedSandboxDeviceEUI.value) {
+            sandboxActiveMetadata.value = null;
+            sandboxTelemetryList.value = [];
+            return;
+          }
+          const dev = devicesList.value.find(d => d.devEUI === selectedSandboxDeviceEUI.value);
+          if (!dev) return;
+
+          if (dev.decoderId) {
+            selectedSandboxDecoderId.value = dev.decoderId;
+            const found = decodersList.value.find(d => d.id === dev.decoderId);
+            if (found && found.decoderCode) {
+              sandboxCode.value = found.decoderCode;
+            }
+          } else if (dev.payloadFormatterScript) {
+            sandboxCode.value = dev.payloadFormatterScript;
+          }
+
+          loadingDeviceTelemetry.value = true;
+          try {
+            const res = await fetch('/lorawan/telemetry?devEUI=' + encodeURIComponent(dev.devEUI) + '&limit=10', {
+              headers: authHeaders(),
+              credentials: 'include'
+            });
+            if (res.ok) {
+              const data = await res.json();
+              sandboxTelemetryList.value = Array.isArray(data) ? data : [];
+              if (sandboxTelemetryList.value.length > 0) {
+                const latest = sandboxTelemetryList.value[0];
+                sandboxHex.value = latest.payloadHex || latest.data || '09C441';
+                sandboxFPort.value = latest.fPort || 1;
+                sandboxActiveMetadata.value = {
+                  deviceName: dev.name || latest.deviceName || dev.devEUI,
+                  devEui: dev.devEUI,
+                  fPort: latest.fPort || 1,
+                  fCnt: latest.fCnt || 0,
+                  rssi: latest.rssi,
+                  snr: latest.snr,
+                  gatewayId: latest.gatewayId,
+                  timestamp: latest.timestamp || latest.receivedAt
+                };
+                if (sandboxHex.value) {
+                  runSandboxDecode();
+                }
+              } else {
+                sandboxActiveMetadata.value = {
+                  deviceName: dev.name,
+                  devEui: dev.devEUI,
+                  fPort: 1,
+                  fCnt: 0,
+                  rssi: null,
+                  snr: null,
+                  gatewayId: null,
+                  timestamp: null
+                };
+              }
+            }
+          } catch(err) {
+            showToast('Failed to fetch device telemetry: ' + err.message, 'error');
+          } finally {
+            loadingDeviceTelemetry.value = false;
+          }
+        };
+
+        const loadHistoricalTelemetryPacket = (pkt) => {
+          if (!pkt) return;
+          sandboxHex.value = pkt.payloadHex || pkt.data || '';
+          sandboxFPort.value = pkt.fPort || 1;
+          if (sandboxActiveMetadata.value) {
+            sandboxActiveMetadata.value = {
+              ...sandboxActiveMetadata.value,
+              fPort: pkt.fPort || 1,
+              fCnt: pkt.fCnt || 0,
+              rssi: pkt.rssi,
+              snr: pkt.snr,
+              gatewayId: pkt.gatewayId,
+              timestamp: pkt.timestamp || pkt.receivedAt
+            };
+          }
+          runSandboxDecode();
+          showToast('Loaded packet from ' + formatDateTime(pkt.timestamp || pkt.receivedAt), 'info');
+        };
+
         const onSelectSandboxDecoder = () => {
           if (!selectedSandboxDecoderId.value) return;
           const found = decodersList.value.find(d => d.id === selectedSandboxDecoderId.value);
@@ -4415,20 +4705,26 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
 
         const runSandboxDecode = () => {
           try {
-            const hex = sandboxHex.value.trim().replace(/\\s+/g, "");
-            if (!hex) throw new Error("Hex payload is empty");
+            const hex = sandboxHex.value.trim().replace(/\s+/g, "");
+            if (!hex) {
+              sandboxDecodedObject.value = null;
+              sandboxResult.value = '';
+              throw new Error("Hex payload is empty");
+            }
             if (hex.length % 2 !== 0) throw new Error("Hex payload length must be even");
             const bytes = [];
             for (let c = 0; c < hex.length; c += 2) {
               bytes.push(parseInt(hex.substr(c, 2), 16));
             }
-            const fPort = 1;
-            const fullCode = sandboxCode.value + "\\nif (typeof decodeUplink === 'function') { return decodeUplink({ bytes: bytes, fPort: fPort }); } else if (typeof Decoder === 'function') { return Decoder(bytes, fPort); } else { throw new Error('No entry function found. Please define decodeUplink(input) or Decoder(bytes, fPort)'); }";
+            const fPort = sandboxFPort.value || 1;
+            const fullCode = sandboxCode.value + "\nif (typeof decodeUplink === 'function') { return decodeUplink({ bytes: bytes, fPort: fPort }); } else if (typeof Decoder === 'function') { return Decoder(bytes, fPort); } else { throw new Error('No entry function found. Please define decodeUplink(input) or Decoder(bytes, fPort)'); }";
             const fn = new Function("bytes", "fPort", fullCode);
             const output = fn(bytes, fPort);
+            sandboxDecodedObject.value = output;
             sandboxResult.value = JSON.stringify(output, null, 2);
             showToast("Decoder executed successfully!", "success");
           } catch(e) {
+            sandboxDecodedObject.value = null;
             sandboxResult.value = "Decoder Error: " + e.message;
             showToast("Decoder Error: " + e.message, "error");
           }
@@ -4978,6 +5274,14 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
           currentDecoder,
           newDecoder,
           selectedSandboxDecoderId,
+          selectedSandboxDeviceEUI,
+          selectedSandboxDevice,
+          sandboxTelemetryList,
+          sandboxActiveMetadata,
+          sandboxDecodedObject,
+          sandboxViewMode,
+          loadingDeviceTelemetry,
+          decodedFieldsList,
           sandboxFPort,
           formatDateTime,
           getSubfunctionCount,
@@ -4993,6 +5297,8 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
           submitDeleteDecoder,
           loadDecoderIntoSandbox,
           onSelectSandboxDecoder,
+          onSelectSandboxDevice,
+          loadHistoricalTelemetryPacket,
           sandboxDisplayOutput,
           webhookLogs,
           webhookStats,
