@@ -458,7 +458,7 @@ const MANAGER_HTML = `<!DOCTYPE html>
             </div>
           </div>
           <p class="text-xs text-slate-300 leading-relaxed bg-slate-950 p-3 rounded-xl border border-slate-800">
-            Container restart executes the entrypoint script to automatically pull the newest Git commit (<code class="text-sky-300">git fetch && git reset --hard</code>), rebuild dependencies, and restart the NestJS server.
+            Container restart triggers <code class="text-orange-300">docker restart</code> on the existing container instance. Note that restarting does not pull Git or rebuild the image. To deploy the latest Git commits, run <code class="text-sky-300">./update.sh</code> (or <code class="text-sky-300">git pull && docker compose up -d --build app</code>).
           </p>
           <div class="flex items-center justify-end gap-2 pt-2">
             <button @click="showRestartConfirm = false" class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-300 cursor-pointer">Cancel</button>
