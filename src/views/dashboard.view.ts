@@ -12,6 +12,8 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
   <link rel="prefetch" href="/control-panel" />
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+  <!-- SheetJS for XLSX, XLS, and CSV export -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
@@ -37,9 +39,31 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
       pointer-events: none;
     }
     .font-mono { font-family: 'JetBrains Mono', monospace !important; }
-    .custom-scroll::-webkit-scrollbar { width: 5px; height: 5px; }
-    .custom-scroll::-webkit-scrollbar-track { background: #030712; }
-    .custom-scroll::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 4px; }
+    .custom-scroll::-webkit-scrollbar { width: 6px; height: 10px; }
+    .custom-scroll::-webkit-scrollbar-track { background: #090d16; border-radius: 6px; }
+    .custom-scroll::-webkit-scrollbar-thumb { background: #475569; border-radius: 6px; border: 2px solid #090d16; }
+    .custom-scroll::-webkit-scrollbar-thumb:hover { background: #64748b; }
+
+    /* Top Horizontal Scrollbar */
+    .top-horizontal-scroll {
+      height: 14px;
+      overflow-y: hidden;
+    }
+    .top-horizontal-scroll::-webkit-scrollbar {
+      height: 10px;
+    }
+    .top-horizontal-scroll::-webkit-scrollbar-track {
+      background: #090d16;
+      border-radius: 6px;
+    }
+    .top-horizontal-scroll::-webkit-scrollbar-thumb {
+      background: #7c3aed;
+      border-radius: 6px;
+      border: 2px solid #090d16;
+    }
+    .top-horizontal-scroll::-webkit-scrollbar-thumb:hover {
+      background: #9333ea;
+    }
 
     .glass-header {
       background: rgba(3, 7, 18, 0.85);
@@ -659,6 +683,12 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
                 </div>
 
                 <div class="flex items-center gap-2 flex-shrink-0">
+                  <!-- Row Count Badge -->
+                  <span v-if="sortedDashboardMatrixRows.length > 0" class="text-[11px] font-mono font-bold text-slate-300 bg-slate-900 border border-slate-800 px-3 py-2 rounded-xl flex items-center gap-1.5 shadow-inner">
+                    <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                    <span>{{ sortedDashboardMatrixRows.length }} rows</span>
+                  </span>
+
                   <!-- Reset Filter -->
                   <button
                     v-if="isTelemetryFilterActive"
@@ -669,6 +699,61 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
                     <i class="fa-solid fa-filter-circle-xmark text-rose-400"></i>
                     <span>RESET</span>
                   </button>
+
+                  <!-- Export Dropdown -->
+                  <div class="relative export-dropdown-container">
+                    <button
+                      @click="exportDropdownOpen = !exportDropdownOpen"
+                      :disabled="sortedDashboardMatrixRows.length === 0"
+                      class="px-3 py-2 rounded-xl bg-slate-900 border border-slate-800 hover:border-slate-700 disabled:opacity-40 disabled:cursor-not-allowed text-xs font-semibold text-slate-300 hover:text-emerald-300 flex items-center gap-2 cursor-pointer shadow-inner transition"
+                      title="Export telemetry data to file"
+                    >
+                      <i class="fa-solid fa-file-export text-emerald-400"></i>
+                      <span>EXPORT</span>
+                      <i class="fa-solid fa-chevron-down text-[9px] transition-transform duration-200" :class="exportDropdownOpen ? 'rotate-180 text-emerald-400' : 'text-slate-500'"></i>
+                    </button>
+
+                    <!-- Export Dropdown Menu -->
+                    <div
+                      v-if="exportDropdownOpen"
+                      @click.stop
+                      class="absolute right-0 top-full mt-2 z-30 bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl p-2 min-w-[200px] space-y-1"
+                    >
+                      <div class="text-[10px] font-bold text-slate-400 uppercase px-2.5 py-1 tracking-wider border-b border-slate-800">
+                        EXPORT AS ({{ sortedDashboardMatrixRows.length }} ROWS)
+                      </div>
+                      <button
+                        @click="exportTelemetry('xlsx')"
+                        class="w-full text-left flex items-center gap-2.5 px-2.5 py-2 hover:bg-emerald-500/10 hover:text-emerald-300 rounded-xl text-xs text-slate-200 transition cursor-pointer"
+                      >
+                        <i class="fa-solid fa-file-excel text-emerald-400 w-4 text-center"></i>
+                        <div class="flex flex-col">
+                          <span class="font-bold">Excel (.xlsx)</span>
+                          <span class="text-[10px] text-slate-500">Modern spreadsheet</span>
+                        </div>
+                      </button>
+                      <button
+                        @click="exportTelemetry('xls')"
+                        class="w-full text-left flex items-center gap-2.5 px-2.5 py-2 hover:bg-emerald-500/10 hover:text-emerald-300 rounded-xl text-xs text-slate-200 transition cursor-pointer"
+                      >
+                        <i class="fa-solid fa-file-lines text-teal-400 w-4 text-center"></i>
+                        <div class="flex flex-col">
+                          <span class="font-bold">Excel 97-2004 (.xls)</span>
+                          <span class="text-[10px] text-slate-500">Legacy workbook</span>
+                        </div>
+                      </button>
+                      <button
+                        @click="exportTelemetry('csv')"
+                        class="w-full text-left flex items-center gap-2.5 px-2.5 py-2 hover:bg-sky-500/10 hover:text-sky-300 rounded-xl text-xs text-slate-200 transition cursor-pointer"
+                      >
+                        <i class="fa-solid fa-file-csv text-sky-400 w-4 text-center"></i>
+                        <div class="flex flex-col">
+                          <span class="font-bold">CSV (.csv)</span>
+                          <span class="text-[10px] text-slate-500">Comma-separated values</span>
+                        </div>
+                      </button>
+                    </div>
+                  </div>
 
                   <!-- Column Visibility Filter Dropdown -->
                   <div class="relative column-filter-container">
@@ -727,10 +812,26 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
                 </div>
               </div>
 
+              <!-- Top Horizontal Scrollbar (Synchronized with table) -->
+              <div
+                v-if="sortedDashboardMatrixRows.length > 0 && tableHasHorizontalOverflow"
+                ref="topScrollRef"
+                @scroll="handleTopScroll"
+                class="overflow-x-auto top-horizontal-scroll bg-slate-900/90 border border-slate-800 rounded-xl px-2 py-0.5 shadow-inner select-none transition"
+                title="Horizontal scrollbar (Top)"
+              >
+                <div
+                  :style="{ width: tableScrollWidth + 'px', height: '6px' }"
+                  class="pointer-events-none"
+                ></div>
+              </div>
+
               <!-- Full Width Telemetry Table: TIME + ALL SENSOR FIELDS -->
               <div
+                ref="tableScrollRef"
+                @scroll="handleTableScroll"
                 class="overflow-x-auto rounded-2xl border border-slate-800 bg-slate-950/80 max-h-[680px] overflow-y-auto custom-scroll shadow-2xl"
-                @click="columnFilterOpen = false"
+                @click="columnFilterOpen = false; exportDropdownOpen = false"
               >
                 <div v-if="sortedDashboardMatrixRows.length === 0" class="py-16 text-center text-slate-500 text-xs">
                   <i class="fa-solid fa-satellite-dish text-3xl text-slate-700 mb-2 block"></i>
@@ -740,7 +841,7 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
                     <button @click="resetTelemetryFilters" class="text-purple-400 underline ml-1 cursor-pointer">RESET</button>
                   </span>
                 </div>
-                <table v-else class="w-full text-left text-xs border-collapse">
+                <table v-else ref="telemetryTableRef" class="w-full text-left text-xs border-collapse">
                   <thead class="bg-slate-900 text-slate-300 text-[11px] font-bold border-b border-slate-800 sticky top-0 z-10 select-none">
                     <tr>
                       <!-- TIME COLUMN (First column) -->
@@ -995,7 +1096,7 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
 
   <script src="https://cdn.jsdelivr.net/npm/vue@3.4.31/dist/vue.global.prod.js"></script>
   <script>
-    const { createApp, ref, computed, onMounted } = Vue;
+    const { createApp, ref, computed, onMounted, nextTick, watch } = Vue;
 
     createApp({
       setup() {
@@ -1033,10 +1134,21 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
         const lastSyncTime = ref(null);
         const telemetryLoaded = ref(false); // table stays empty until user clicks SHOW
 
+        // Export Dropdown state
+        const exportDropdownOpen = ref(false);
+
         // Column visibility filter
         const columnFilterOpen = ref(false);
         const visibleColumns = ref(new Set(['TIME', 'FPORT', 'FCNT', 'RSSI', 'SNR', 'PAYLOAD_HEX'])); // fixed cols always shown unless toggled
         const hiddenSensorColumns = ref(new Set()); // sensor columns hidden by user
+
+        // Synchronized Horizontal Scrollbars state
+        const topScrollRef = ref(null);
+        const tableScrollRef = ref(null);
+        const telemetryTableRef = ref(null);
+        const tableScrollWidth = ref(1000);
+        const tableHasHorizontalOverflow = ref(false);
+        let isSyncingScroll = false;
 
         const filteredTelemetryList = computed(() => {
           if (!telemetryLoaded.value) return [];
@@ -1264,6 +1376,144 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
 
         const isSensorColumnVisible = (col) => !hiddenSensorColumns.value.has(col);
 
+        const updateScrollDimensions = () => {
+          if (telemetryTableRef.value && tableScrollRef.value) {
+            const tableWidth = telemetryTableRef.value.scrollWidth || 0;
+            const containerWidth = tableScrollRef.value.clientWidth || 0;
+            tableScrollWidth.value = tableWidth;
+            tableHasHorizontalOverflow.value = tableWidth > containerWidth + 2;
+            if (topScrollRef.value) {
+              topScrollRef.value.scrollLeft = tableScrollRef.value.scrollLeft;
+            }
+          }
+        };
+
+        const handleTopScroll = () => {
+          if (isSyncingScroll) return;
+          isSyncingScroll = true;
+          if (tableScrollRef.value && topScrollRef.value) {
+            tableScrollRef.value.scrollLeft = topScrollRef.value.scrollLeft;
+          }
+          requestAnimationFrame(() => { isSyncingScroll = false; });
+        };
+
+        const handleTableScroll = () => {
+          if (isSyncingScroll) return;
+          isSyncingScroll = true;
+          if (topScrollRef.value && tableScrollRef.value) {
+            topScrollRef.value.scrollLeft = tableScrollRef.value.scrollLeft;
+          }
+          requestAnimationFrame(() => { isSyncingScroll = false; });
+        };
+
+        const downloadBlob = (blob, filename) => {
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = filename;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+        };
+
+        const exportHtmlXlsFallback = (headers, data, filename) => {
+          let tableHtml = '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">';
+          tableHtml += '<head><meta charset="utf-8"><!--[if gte mso 9]><xml><x:ExcelWorkbook><x:ExcelWorksheets><x:ExcelWorksheet><x:Name>Telemetry</x:Name><x:WorksheetOptions><x:DisplayGridlines/></x:WorksheetOptions></x:ExcelWorksheet></x:ExcelWorksheets></x:ExcelWorkbook></xml><![endif]--></head>';
+          tableHtml += '<body><table border="1">';
+          tableHtml += '<thead style="background-color:#0f172a;color:#f8fafc;font-weight:bold;"><tr>';
+          for (const h of headers) {
+            tableHtml += '<th style="padding:6px 12px;background:#0f172a;color:#fff;">' + h + '</th>';
+          }
+          tableHtml += '</tr></thead><tbody>';
+          for (const row of data) {
+            tableHtml += '<tr>';
+            for (const cell of row) {
+              tableHtml += '<td style="padding:4px 8px;">' + (cell !== undefined && cell !== null ? String(cell) : '') + '</td>';
+            }
+            tableHtml += '</tr>';
+          }
+          tableHtml += '</tbody></table></body></html>';
+          const blob = new Blob(['\\uFEFF' + tableHtml], { type: 'application/vnd.ms-excel;charset=utf-8' });
+          downloadBlob(blob, filename);
+          showToast('Exported ' + data.length + ' rows to Excel successfully', 'success');
+        };
+
+        const exportTelemetry = (format = 'xlsx') => {
+          exportDropdownOpen.value = false;
+          const rows = sortedDashboardMatrixRows.value || [];
+          if (rows.length === 0) {
+            showToast('No telemetry data available to export', 'error');
+            return;
+          }
+
+          const devEui = selectedTelemetryDeviceEUI.value || 'ALL';
+          const now = new Date();
+          const pad = (n) => String(n).padStart(2, '0');
+          const dateStr = now.getFullYear() + pad(now.getMonth() + 1) + pad(now.getDate()) + '_' + pad(now.getHours()) + pad(now.getMinutes()) + pad(now.getSeconds());
+          const baseFileName = 'telemetry_' + devEui + '_' + dateStr;
+
+          // Headers: TIME + all visible sensor columns (or PAYLOAD HEX if none)
+          const visibleSensors = dashboardSensorColumns.value.filter(c => isSensorColumnVisible(c));
+          const headers = ['TIME'];
+          if (visibleSensors.length > 0) {
+            visibleSensors.forEach(c => headers.push(c.toUpperCase()));
+          } else {
+            headers.push('PAYLOAD_HEX');
+          }
+
+          // Data rows
+          const exportData = rows.map(r => {
+            const rowItem = [formatDateTime(r.time)];
+            if (visibleSensors.length > 0) {
+              for (const c of visibleSensors) {
+                const val = r.sensorValues[c];
+                rowItem.push(val !== undefined && val !== null && val !== '—' ? val : '');
+              }
+            } else {
+              rowItem.push(r.payloadHex || '');
+            }
+            return rowItem;
+          });
+
+          if (format === 'csv') {
+            const csvLines = [];
+            csvLines.push(headers.map(h => '"' + String(h).replace(/"/g, '""') + '"').join(','));
+            for (const r of exportData) {
+              csvLines.push(r.map(v => '"' + String(v !== undefined && v !== null ? v : '').replace(/"/g, '""') + '"').join(','));
+            }
+            const csvContent = csvLines.join('\\r\\n');
+            const blob = new Blob(['\\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
+            downloadBlob(blob, baseFileName + '.csv');
+            showToast('Exported ' + rows.length + ' rows to CSV successfully', 'success');
+          } else if (format === 'xlsx' || format === 'xls') {
+            if (typeof XLSX !== 'undefined') {
+              try {
+                const aoa = [headers, ...exportData];
+                const ws = XLSX.utils.aoa_to_sheet(aoa);
+                ws['!cols'] = headers.map((h, colIdx) => {
+                  let maxLen = h.length;
+                  for (let i = 0; i < Math.min(exportData.length, 200); i++) {
+                    const cellVal = String(exportData[i][colIdx] || '');
+                    if (cellVal.length > maxLen) maxLen = cellVal.length;
+                  }
+                  return { wch: Math.min(Math.max(maxLen + 3, 12), 45) };
+                });
+                const wb = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(wb, ws, 'Telemetry');
+                const bookType = format === 'xls' ? 'biff8' : 'xlsx';
+                XLSX.writeFile(wb, baseFileName + '.' + format, { bookType });
+                showToast('Exported ' + rows.length + ' rows to ' + format.toUpperCase() + ' successfully', 'success');
+              } catch(err) {
+                console.error('SheetJS export error, using fallback:', err);
+                exportHtmlXlsFallback(headers, exportData, baseFileName + '.' + format);
+              }
+            } else {
+              exportHtmlXlsFallback(headers, exportData, baseFileName + '.' + format);
+            }
+          }
+        };
+
         const startAutoSync = () => {
           stopAutoSync();
           autoSyncTimer.value = setInterval(() => {
@@ -1311,6 +1561,7 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
           }
           await fetchLiveTelemetry(false);
           telemetryLoaded.value = true;
+          nextTick(updateScrollDimensions);
           if (autoSyncEnabled.value) startAutoSync();
         };
 
@@ -1567,13 +1818,14 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
           if (!silent) loadingTelemetry.value = true;
           try {
             const url = selectedTelemetryDeviceEUI.value
-              ? '/lorawan/telemetry?devEUI=' + encodeURIComponent(selectedTelemetryDeviceEUI.value) + '&limit=100'
-              : '/lorawan/telemetry?limit=100';
+              ? '/lorawan/telemetry?devEUI=' + encodeURIComponent(selectedTelemetryDeviceEUI.value) + '&limit=0'
+              : '/lorawan/telemetry?limit=0';
             const res = await fetch(url, { headers: authHeaders(), credentials: 'include' });
             if (res.ok) {
               const data = await res.json();
               telemetryList.value = Array.isArray(data) ? data : [];
               lastSyncTime.value = new Date();
+              nextTick(updateScrollDimensions);
             }
           } catch(e) {
           } finally {
@@ -1797,12 +2049,30 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
               closeInspectModal();
             }
           });
-          // Close column filter dropdown when clicking outside
+          // Close dropdowns when clicking outside
           document.addEventListener('click', (e) => {
             if (columnFilterOpen.value && !e.target.closest('.column-filter-container')) {
               columnFilterOpen.value = false;
             }
+            if (exportDropdownOpen.value && !e.target.closest('.export-dropdown-container')) {
+              exportDropdownOpen.value = false;
+            }
           });
+          // Setup observer and resize listeners for scrollbar synchronization
+          if (typeof window !== 'undefined') {
+            window.addEventListener('resize', updateScrollDimensions);
+            if (window.ResizeObserver) {
+              const ro = new ResizeObserver(() => {
+                updateScrollDimensions();
+              });
+              if (tableScrollRef.value) ro.observe(tableScrollRef.value);
+              if (telemetryTableRef.value) ro.observe(telemetryTableRef.value);
+            }
+          }
+        });
+
+        watch([sortedDashboardMatrixRows, hiddenSensorColumns, telemetryLoaded], () => {
+          nextTick(updateScrollDimensions);
         });
 
         window.addEventListener('pageshow', (event) => {
@@ -1854,10 +2124,19 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
           onSelectTelemetryDevice,
           inspectTelemetryPacket,
           closeInspectModal,
+          exportDropdownOpen,
+          exportTelemetry,
           columnFilterOpen,
           hiddenSensorColumns,
           toggleSensorColumn,
           isSensorColumnVisible,
+          topScrollRef,
+          tableScrollRef,
+          telemetryTableRef,
+          tableScrollWidth,
+          tableHasHorizontalOverflow,
+          handleTopScroll,
+          handleTableScroll,
           formatDecodedSummary,
           formatDateTime,
           devicesList,

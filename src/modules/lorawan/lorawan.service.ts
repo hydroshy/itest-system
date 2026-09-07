@@ -921,8 +921,11 @@ export class LorawanService {
 
   async getTelemetry(devEUI?: string, limit: number = 50): Promise<TelemetryEntity[]> {
     const qb = this.telemetryRepo.createQueryBuilder('telemetry')
-      .orderBy('telemetry.timestamp', 'DESC')
-      .take(limit);
+      .orderBy('telemetry.timestamp', 'DESC');
+
+    if (limit && limit > 0) {
+      qb.take(limit);
+    }
 
     if (devEUI) {
       qb.where('UPPER(telemetry.devEui) = :devEUI', { devEUI: devEUI.toUpperCase() });

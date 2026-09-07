@@ -132,8 +132,9 @@ export class LorawanController {
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Danh sách dữ liệu Telemetry nhận từ Webhook' })
   @ApiQuery({ name: 'devEUI', required: false, description: 'Lọc theo DevEUI' })
-  @ApiQuery({ name: 'limit', required: false, description: 'Số bản ghi tối đa (mặc định 50)' })
+  @ApiQuery({ name: 'limit', required: false, description: 'Số bản ghi tối đa (0 để lấy toàn bộ)' })
   async getTelemetry(@Query('devEUI') devEUI?: string, @Query('limit') limit?: number) {
-    return await this.lorawanService.getTelemetry(devEUI, limit ? Number(limit) : 50);
+    const parsedLimit = limit !== undefined ? Number(limit) : (devEUI ? 0 : 100);
+    return await this.lorawanService.getTelemetry(devEUI, parsedLimit);
   }
 }
