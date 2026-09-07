@@ -152,6 +152,17 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
                 <span class="flex items-center gap-2"><i class="fa-solid fa-sliders text-sky-400"></i> Admin Control Panel</span>
                 <i class="fa-solid fa-arrow-right text-[10px] text-slate-500"></i>
               </button>
+
+              <a
+                v-if="isSuperAdmin"
+                :href="standaloneOpsUrl"
+                target="_blank"
+                class="w-full py-2 px-3 rounded-lg text-xs font-semibold text-amber-300 hover:text-amber-200 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/25 transition flex items-center justify-between cursor-pointer"
+                title="Open DevOps & System Lifecycle Console (Port 3099)"
+              >
+                <span class="flex items-center gap-2"><i class="fa-solid fa-bolt text-amber-400"></i> DevOps Ops Manager</span>
+                <i class="fa-solid fa-arrow-up-right-from-square text-[10px] text-amber-400/80"></i>
+              </a>
             </div>
 
             <!-- App Version -->
@@ -992,6 +1003,10 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
         const accessibleFeatures = ref([]);
         const activeFeature = ref(null);
         const userMenuOpen = ref(false);
+        const standaloneOpsUrl = computed(() => {
+          const host = (typeof window !== 'undefined' && window.location.hostname) ? window.location.hostname : 'localhost';
+          return 'http://' + host + ':3099/manager';
+        });
 
         const telemetryList = ref([]);
         const devicesList = ref([]);
@@ -1805,6 +1820,7 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
           userInitials,
           navigateTo,
           isSuperAdmin,
+          standaloneOpsUrl,
           telemetryList,
           selectedTelemetryDeviceEUI,
           selectedTelemetryDevice,
