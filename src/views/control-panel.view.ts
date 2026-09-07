@@ -87,6 +87,25 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
       background: rgba(2, 6, 23, 0.85);
       backdrop-filter: blur(6px);
     }
+    .hmi-grid-bg {
+      background-size: 20px 20px;
+      background-image: linear-gradient(to right, rgba(255, 255, 255, 0.05) 1px, transparent 1px),
+                        linear-gradient(to bottom, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+    }
+    .hmi-glow-text {
+      text-shadow: 0 0 10px rgba(56, 189, 248, 0.6), 0 0 20px rgba(56, 189, 248, 0.2);
+    }
+    .hmi-needle {
+      transform-origin: 50% 50%;
+      transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    @keyframes hmi-blink {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.25; }
+    }
+    .hmi-blink-anim {
+      animation: hmi-blink 1s infinite;
+    }
   </style>
 </head>
 <body class="min-h-screen flex flex-col antialiased">
@@ -284,6 +303,14 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
                 <i class="fa-solid fa-code w-4 text-center text-xs text-purple-400"></i>
                 <span>Decoder Manager</span>
               </span>
+            </button>
+
+            <button @click="switchTab('hmi-studio')" :class="{ active: activeTab === 'hmi-studio' }" class="nav-item">
+              <span class="flex items-center gap-2.5">
+                <i class="fa-solid fa-palette w-4 text-center text-xs text-amber-400"></i>
+                <span>HMI SCADA Studio</span>
+              </span>
+              <span class="px-1.5 py-0.5 text-[9px] font-bold bg-amber-500/20 text-amber-400 rounded border border-amber-500/30">SCADA</span>
             </button>
           </div>
         </div>
@@ -2289,6 +2316,797 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
           </div>
         </div>
 
+        <!-- TAB: HMI SCADA STUDIO (WECON STYLE DESIGNER & RUNTIME) -->
+        <div v-show="activeTab === 'hmi-studio'" class="space-y-4">
+          <!-- TOP STUDIO TOOLBAR -->
+          <div class="p-3 bg-slate-900 border border-slate-800 rounded-2xl shadow-xl flex flex-wrap items-center justify-between gap-3 select-none">
+            <!-- Left: Screen Selection & Actions -->
+            <div class="flex items-center flex-wrap gap-2">
+              <div class="flex items-center gap-1.5 text-xs font-bold text-slate-300">
+                <i class="fa-solid fa-palette text-amber-400 text-sm"></i>
+                <span class="hidden sm:inline">Screen:</span>
+              </div>
+              <select
+                v-model="selectedHmiScreenId"
+                @change="onSelectHmiScreen"
+                class="bg-slate-950 border border-slate-700 text-xs text-white rounded-lg px-2.5 py-1.5 font-medium focus:ring-1 focus:ring-sky-500 min-w-[200px]"
+              >
+                <option v-for="s in hmiScreensList" :key="s.id" :value="s.id">
+                  {{ s.name }} {{ s.isPublished ? '● Live' : '○ Draft' }}
+                </option>
+              </select>
+
+              <!-- Status Badge -->
+              <span v-if="currentHmiScreen" class="px-2 py-0.5 text-[10px] font-extrabold uppercase rounded-full border"
+                    :class="currentHmiScreen.isPublished ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40' : 'bg-slate-800 text-slate-400 border-slate-700'">
+                {{ currentHmiScreen.isPublished ? 'Live Operator' : 'Design Draft' }}
+              </span>
+
+              <!-- Action buttons -->
+              <button
+                @click="openCreateHmiScreenModal"
+                class="px-2.5 py-1.5 rounded-lg bg-sky-600 hover:bg-sky-500 text-white text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition shadow-md"
+                title="Create New HMI Screen"
+              >
+                <i class="fa-solid fa-plus text-[10px]"></i>
+                <span class="hidden md:inline">New Screen</span>
+              </button>
+
+              <button
+                @click="saveCurrentHmiScreen"
+                :disabled="savingHmiScreen || !currentHmiScreen"
+                class="px-2.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition shadow-md"
+                title="Save Screen Changes"
+              >
+                <i :class="savingHmiScreen ? 'fa-solid fa-spinner animate-spin' : 'fa-solid fa-floppy-disk'" class="text-[10px]"></i>
+                <span class="hidden md:inline">Save</span>
+              </button>
+
+              <button
+                @click="cloneCurrentHmiScreen"
+                :disabled="!currentHmiScreen"
+                class="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 text-xs font-medium flex items-center gap-1 cursor-pointer transition"
+                title="Clone / Duplicate Screen"
+              >
+                <i class="fa-solid fa-copy text-[10px]"></i>
+                <span class="hidden lg:inline">Clone</span>
+              </button>
+
+              <button
+                @click="togglePublishHmiScreen"
+                :disabled="!currentHmiScreen"
+                class="px-2.5 py-1.5 rounded-lg border text-xs font-medium flex items-center gap-1 cursor-pointer transition"
+                :class="currentHmiScreen?.isPublished ? 'bg-amber-500/15 border-amber-500/40 text-amber-300 hover:bg-amber-500/25' : 'bg-emerald-500/15 border-emerald-500/40 text-emerald-300 hover:bg-emerald-500/25'"
+                :title="currentHmiScreen?.isPublished ? 'Unpublish Screen' : 'Publish Screen to Operators'"
+              >
+                <i class="fa-solid fa-bullhorn text-[10px]"></i>
+                <span class="hidden lg:inline">{{ currentHmiScreen?.isPublished ? 'Unpublish' : 'Publish' }}</span>
+              </button>
+
+              <button
+                @click="openHmiRbacModal"
+                :disabled="!currentHmiScreen"
+                class="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 text-xs font-medium flex items-center gap-1 cursor-pointer transition"
+                title="Configure Screen RBAC Role Access"
+              >
+                <i class="fa-solid fa-user-shield text-[10px]"></i>
+                <span class="hidden xl:inline">Access</span>
+              </button>
+
+              <button
+                @click="deleteCurrentHmiScreen"
+                :disabled="!currentHmiScreen || hmiScreensList.length <= 1"
+                class="px-2 py-1.5 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/30 text-xs font-medium cursor-pointer transition disabled:opacity-40"
+                title="Delete this screen"
+              >
+                <i class="fa-solid fa-trash-can text-[10px]"></i>
+              </button>
+            </div>
+
+            <!-- Center: Mode Toggle (Design Mode vs Runtime View) -->
+            <div class="flex items-center bg-slate-950 p-1 rounded-xl border border-slate-800">
+              <button
+                @click="hmiEditorMode = 'design'"
+                class="px-3 py-1 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer"
+                :class="hmiEditorMode === 'design' ? 'bg-sky-600 text-white shadow-md' : 'text-slate-400 hover:text-white'"
+              >
+                <i class="fa-solid fa-compass-drafting text-[10px]"></i>
+                <span>Design Mode</span>
+              </button>
+              <button
+                @click="hmiEditorMode = 'run'"
+                class="px-3 py-1 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer"
+                :class="hmiEditorMode === 'run' ? 'bg-emerald-600 text-white shadow-md' : 'text-slate-400 hover:text-white'"
+              >
+                <i class="fa-solid fa-play text-[10px]"></i>
+                <span>Runtime View</span>
+              </button>
+            </div>
+
+            <!-- Right: Canvas Controls (Resolution, Snap, Zoom) -->
+            <div class="flex items-center flex-wrap gap-2 text-xs text-slate-300">
+              <div v-if="hmiEditorMode === 'design'" class="flex items-center gap-1">
+                <span class="text-slate-500 text-[10px] uppercase font-bold">Size:</span>
+                <select
+                  v-model="canvasPreset"
+                  @change="onCanvasPresetChange"
+                  class="bg-slate-950 border border-slate-700 text-xs text-white rounded-lg px-2 py-1"
+                >
+                  <option value="1920x1080">1920×1080 (1080p)</option>
+                  <option value="1280x720">1280×720 (720p HMI)</option>
+                  <option value="1024x600">1024×600 (7&quot; Wecon)</option>
+                  <option value="800x480">800×480 (4.3&quot; Wecon)</option>
+                </select>
+              </div>
+
+              <div v-if="hmiEditorMode === 'design'" class="flex items-center gap-1">
+                <span class="text-slate-500 text-[10px] uppercase font-bold">Snap:</span>
+                <select
+                  v-model.number="hmiGridSize"
+                  class="bg-slate-950 border border-slate-700 text-xs text-white rounded-lg px-2 py-1"
+                >
+                  <option :value="10">10 px</option>
+                  <option :value="20">20 px</option>
+                  <option :value="5">5 px</option>
+                  <option :value="0">Off</option>
+                </select>
+              </div>
+
+              <div class="flex items-center gap-1">
+                <span class="text-slate-500 text-[10px] uppercase font-bold">Zoom:</span>
+                <select
+                  v-model.number="hmiZoom"
+                  class="bg-slate-950 border border-slate-700 text-xs text-white rounded-lg px-2 py-1"
+                >
+                  <option :value="50">50%</option>
+                  <option :value="75">75%</option>
+                  <option :value="100">100%</option>
+                  <option :value="125">125%</option>
+                </select>
+              </div>
+
+              <div class="flex items-center gap-1.5 px-2 py-1 rounded bg-slate-950 border border-slate-800 text-[10px] font-mono text-emerald-400">
+                <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping"></span>
+                <span>Live Telemetry</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- MAIN WORKSPACE: 3-PANEL STUDIO -->
+          <div class="flex gap-4 items-start min-h-[760px]">
+            <!-- LEFT PANEL: WIDGET TOOLBOX (Wecon-Style Palette) -->
+            <div v-if="hmiEditorMode === 'design'" class="w-56 shrink-0 bg-slate-900 border border-slate-800 rounded-2xl p-3 space-y-4 shadow-xl select-none max-h-[820px] overflow-y-auto custom-scroll">
+              <div class="flex items-center justify-between pb-2 border-b border-slate-800">
+                <span class="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-1.5">
+                  <i class="fa-solid fa-cubes text-sky-400"></i> Toolbox
+                </span>
+                <span class="text-[9px] px-1.5 py-0.5 rounded bg-sky-500/10 text-sky-400 border border-sky-500/20 font-mono">Wecon</span>
+              </div>
+
+              <!-- Category 1: Indicators & Alarms -->
+              <div class="space-y-1.5">
+                <div class="text-[10px] font-extrabold uppercase text-slate-500 px-1">Indicators & Alarms</div>
+                <div class="grid grid-cols-1 gap-1.5">
+                  <button @click="addWidgetToCanvas('bit-lamp')" class="flex items-center gap-2.5 p-2 rounded-xl bg-slate-950/80 hover:bg-slate-800 border border-slate-800 hover:border-sky-500/50 text-left transition group cursor-pointer">
+                    <div class="w-7 h-7 rounded-full bg-emerald-500/20 border border-emerald-500/50 flex items-center justify-center text-emerald-400 text-xs group-hover:scale-110 transition">
+                      <i class="fa-solid fa-lightbulb"></i>
+                    </div>
+                    <div>
+                      <div class="text-xs font-semibold text-slate-200 group-hover:text-sky-300">Bit Lamp</div>
+                      <div class="text-[9px] text-slate-500">2-State LED Indicator</div>
+                    </div>
+                  </button>
+
+                  <button @click="addWidgetToCanvas('multi-state-lamp')" class="flex items-center gap-2.5 p-2 rounded-xl bg-slate-950/80 hover:bg-slate-800 border border-slate-800 hover:border-sky-500/50 text-left transition group cursor-pointer">
+                    <div class="w-7 h-7 rounded-lg bg-amber-500/20 border border-amber-500/50 flex items-center justify-center text-amber-400 text-xs group-hover:scale-110 transition">
+                      <i class="fa-solid fa-traffic-light"></i>
+                    </div>
+                    <div>
+                      <div class="text-xs font-semibold text-slate-200 group-hover:text-sky-300">Multi-State Lamp</div>
+                      <div class="text-[9px] text-slate-500">4-State Status Indicator</div>
+                    </div>
+                  </button>
+
+                  <button @click="addWidgetToCanvas('alarm-banner')" class="flex items-center gap-2.5 p-2 rounded-xl bg-slate-950/80 hover:bg-slate-800 border border-slate-800 hover:border-sky-500/50 text-left transition group cursor-pointer">
+                    <div class="w-7 h-7 rounded-lg bg-red-500/20 border border-red-500/50 flex items-center justify-center text-red-400 text-xs group-hover:scale-110 transition">
+                      <i class="fa-solid fa-triangle-exclamation"></i>
+                    </div>
+                    <div>
+                      <div class="text-xs font-semibold text-slate-200 group-hover:text-sky-300">Alarm Banner</div>
+                      <div class="text-[9px] text-slate-500">Realtime Alert Scroller</div>
+                    </div>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Category 2: Tanks & Vessels -->
+              <div class="space-y-1.5">
+                <div class="text-[10px] font-extrabold uppercase text-slate-500 px-1">Tanks & Vessels</div>
+                <div class="grid grid-cols-1 gap-1.5">
+                  <button @click="addWidgetToCanvas('linear-tank')" class="flex items-center gap-2.5 p-2 rounded-xl bg-slate-950/80 hover:bg-slate-800 border border-slate-800 hover:border-sky-500/50 text-left transition group cursor-pointer">
+                    <div class="w-7 h-7 rounded-lg bg-sky-500/20 border border-sky-500/50 flex items-center justify-center text-sky-400 text-xs group-hover:scale-110 transition">
+                      <i class="fa-solid fa-oil-well"></i>
+                    </div>
+                    <div>
+                      <div class="text-xs font-semibold text-slate-200 group-hover:text-sky-300">Linear Tank</div>
+                      <div class="text-[9px] text-slate-500">Liquid Level Vessel</div>
+                    </div>
+                  </button>
+
+                  <button @click="addWidgetToCanvas('silo-vessel')" class="flex items-center gap-2.5 p-2 rounded-xl bg-slate-950/80 hover:bg-slate-800 border border-slate-800 hover:border-sky-500/50 text-left transition group cursor-pointer">
+                    <div class="w-7 h-7 rounded-lg bg-indigo-500/20 border border-indigo-500/50 flex items-center justify-center text-indigo-400 text-xs group-hover:scale-110 transition">
+                      <i class="fa-solid fa-landmark-dome"></i>
+                    </div>
+                    <div>
+                      <div class="text-xs font-semibold text-slate-200 group-hover:text-sky-300">Silo Vessel</div>
+                      <div class="text-[9px] text-slate-500">Bulk Storage Silo</div>
+                    </div>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Category 3: Gauges & Displays -->
+              <div class="space-y-1.5">
+                <div class="text-[10px] font-extrabold uppercase text-slate-500 px-1">Meters & Gauges</div>
+                <div class="grid grid-cols-1 gap-1.5">
+                  <button @click="addWidgetToCanvas('dial-gauge')" class="flex items-center gap-2.5 p-2 rounded-xl bg-slate-950/80 hover:bg-slate-800 border border-slate-800 hover:border-sky-500/50 text-left transition group cursor-pointer">
+                    <div class="w-7 h-7 rounded-lg bg-emerald-500/20 border border-emerald-500/50 flex items-center justify-center text-emerald-400 text-xs group-hover:scale-110 transition">
+                      <i class="fa-solid fa-gauge"></i>
+                    </div>
+                    <div>
+                      <div class="text-xs font-semibold text-slate-200 group-hover:text-sky-300">Radial Dial Gauge</div>
+                      <div class="text-[9px] text-slate-500">270° Needle Meter</div>
+                    </div>
+                  </button>
+
+                  <button @click="addWidgetToCanvas('led-numeric')" class="flex items-center gap-2.5 p-2 rounded-xl bg-slate-950/80 hover:bg-slate-800 border border-slate-800 hover:border-sky-500/50 text-left transition group cursor-pointer">
+                    <div class="w-7 h-7 rounded-lg bg-teal-500/20 border border-teal-500/50 flex items-center justify-center text-teal-400 text-xs group-hover:scale-110 transition">
+                      <i class="fa-solid fa-calculator"></i>
+                    </div>
+                    <div>
+                      <div class="text-xs font-semibold text-slate-200 group-hover:text-sky-300">LED 7-Segment</div>
+                      <div class="text-[9px] text-slate-500">Digital Glowing Readout</div>
+                    </div>
+                  </button>
+
+                  <button @click="addWidgetToCanvas('mono-box')" class="flex items-center gap-2.5 p-2 rounded-xl bg-slate-950/80 hover:bg-slate-800 border border-slate-800 hover:border-sky-500/50 text-left transition group cursor-pointer">
+                    <div class="w-7 h-7 rounded-lg bg-cyan-500/20 border border-cyan-500/50 flex items-center justify-center text-cyan-400 text-xs group-hover:scale-110 transition">
+                      <i class="fa-solid fa-border-all"></i>
+                    </div>
+                    <div>
+                      <div class="text-xs font-semibold text-slate-200 group-hover:text-sky-300">Mono Box</div>
+                      <div class="text-[9px] text-slate-500">Industrial Metric Tile</div>
+                    </div>
+                  </button>
+
+                  <button @click="addWidgetToCanvas('static-label')" class="flex items-center gap-2.5 p-2 rounded-xl bg-slate-950/80 hover:bg-slate-800 border border-slate-800 hover:border-sky-500/50 text-left transition group cursor-pointer">
+                    <div class="w-7 h-7 rounded-lg bg-slate-800 border border-slate-700 flex items-center justify-center text-slate-300 text-xs group-hover:scale-110 transition">
+                      <i class="fa-solid fa-heading"></i>
+                    </div>
+                    <div>
+                      <div class="text-xs font-semibold text-slate-200 group-hover:text-sky-300">Static Label</div>
+                      <div class="text-[9px] text-slate-500">Section Title & Note</div>
+                    </div>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Category 4: Controls & Trends -->
+              <div class="space-y-1.5">
+                <div class="text-[10px] font-extrabold uppercase text-slate-500 px-1">Controls & Charts</div>
+                <div class="grid grid-cols-1 gap-1.5">
+                  <button @click="addWidgetToCanvas('toggle-switch')" class="flex items-center gap-2.5 p-2 rounded-xl bg-slate-950/80 hover:bg-slate-800 border border-slate-800 hover:border-sky-500/50 text-left transition group cursor-pointer">
+                    <div class="w-7 h-7 rounded-lg bg-sky-500/20 border border-sky-500/50 flex items-center justify-center text-sky-400 text-xs group-hover:scale-110 transition">
+                      <i class="fa-solid fa-toggle-on"></i>
+                    </div>
+                    <div>
+                      <div class="text-xs font-semibold text-slate-200 group-hover:text-sky-300">Toggle Switch</div>
+                      <div class="text-[9px] text-slate-500">Downlink Relay Control</div>
+                    </div>
+                  </button>
+
+                  <button @click="addWidgetToCanvas('action-button')" class="flex items-center gap-2.5 p-2 rounded-xl bg-slate-950/80 hover:bg-slate-800 border border-slate-800 hover:border-sky-500/50 text-left transition group cursor-pointer">
+                    <div class="w-7 h-7 rounded-lg bg-rose-500/20 border border-rose-500/50 flex items-center justify-center text-rose-400 text-xs group-hover:scale-110 transition">
+                      <i class="fa-solid fa-hand-pointer"></i>
+                    </div>
+                    <div>
+                      <div class="text-xs font-semibold text-slate-200 group-hover:text-sky-300">Action Button</div>
+                      <div class="text-[9px] text-slate-500">Pushbutton Downlink</div>
+                    </div>
+                  </button>
+
+                  <button @click="addWidgetToCanvas('realtime-trend')" class="flex items-center gap-2.5 p-2 rounded-xl bg-slate-950/80 hover:bg-slate-800 border border-slate-800 hover:border-sky-500/50 text-left transition group cursor-pointer">
+                    <div class="w-7 h-7 rounded-lg bg-emerald-500/20 border border-emerald-500/50 flex items-center justify-center text-emerald-400 text-xs group-hover:scale-110 transition">
+                      <i class="fa-solid fa-chart-line"></i>
+                    </div>
+                    <div>
+                      <div class="text-xs font-semibold text-slate-200 group-hover:text-sky-300">Realtime Trend</div>
+                      <div class="text-[9px] text-slate-500">Multi-Tag Curve Plotter</div>
+                    </div>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- CENTER PANEL: CANVAS WORKSPACE -->
+            <div class="flex-1 bg-slate-950 border border-slate-800 rounded-2xl p-4 overflow-auto custom-scroll shadow-2xl relative min-h-[760px] max-h-[820px]"
+                 @click="selectedWidgetId = null">
+              <div v-if="!currentHmiScreen" class="flex flex-col items-center justify-center h-96 text-slate-500 gap-3">
+                <i class="fa-solid fa-palette text-4xl text-slate-600"></i>
+                <p class="text-sm">No HMI Screen selected. Choose or create a screen to begin.</p>
+              </div>
+
+              <!-- Canvas Board -->
+              <div
+                v-else
+                class="relative transition-transform origin-top-left shadow-2xl border border-slate-700/60 rounded-lg"
+                :class="{ 'hmi-grid-bg': currentHmiScreen.canvasConfig?.showGrid && hmiEditorMode === 'design' }"
+                :style="{
+                  width: currentHmiScreen.canvasConfig.width + 'px',
+                  height: currentHmiScreen.canvasConfig.height + 'px',
+                  backgroundColor: currentHmiScreen.canvasConfig.background || '#0b0f19',
+                  transform: 'scale(' + (hmiZoom / 100) + ')'
+                }"
+              >
+                <!-- Canvas Widgets Loop -->
+                <div
+                  v-for="w in currentHmiScreen.widgets"
+                  :key="w.id"
+                  class="absolute transition-shadow select-none group"
+                  :class="[
+                    selectedWidgetId === w.id && hmiEditorMode === 'design'
+                      ? 'ring-2 ring-sky-400 border border-sky-300 z-30 shadow-2xl shadow-sky-500/30'
+                      : (hmiEditorMode === 'design' ? 'hover:ring-1 hover:ring-sky-500/50 cursor-move' : '')
+                  ]"
+                  :style="{
+                    left: w.x + 'px',
+                    top: w.y + 'px',
+                    width: w.w + 'px',
+                    height: w.h + 'px',
+                    zIndex: w.zIndex || 1
+                  }"
+                  @mousedown.stop="onWidgetMouseDown($event, w)"
+                >
+                  <!-- Selection Badge & Coordinates (Design Mode Only) -->
+                  <div
+                    v-if="selectedWidgetId === w.id && hmiEditorMode === 'design'"
+                    class="absolute -top-6 left-0 bg-sky-600 text-white font-mono text-[9px] px-1.5 py-0.5 rounded shadow flex items-center gap-1 font-bold pointer-events-none whitespace-nowrap z-40"
+                  >
+                    <span>{{ w.type }}</span>
+                    <span class="text-sky-200">({{ w.x }}, {{ w.y }}) {{ w.w }}×{{ w.h }}</span>
+                  </div>
+
+                  <!-- Resize Handle (Bottom-Right) -->
+                  <div
+                    v-if="selectedWidgetId === w.id && hmiEditorMode === 'design'"
+                    @mousedown.stop="onResizeMouseDown($event, w)"
+                    class="w-3.5 h-3.5 bg-white border-2 border-sky-600 rounded-sm absolute -bottom-1.5 -right-1.5 cursor-se-resize shadow-md z-40"
+                  ></div>
+
+                  <!-- WIDGET TYPE: BIT-LAMP -->
+                  <div v-if="w.type === 'bit-lamp'" class="w-full h-full flex items-center justify-between px-3 py-2 bg-slate-900/90 rounded-lg border border-slate-700/80 shadow-inner gap-2">
+                    <div class="flex items-center gap-2.5 min-w-0">
+                      <div class="relative w-7 h-7 rounded-full flex items-center justify-center border-2 shadow-lg transition-colors duration-300"
+                           :style="getWidgetBitLampStyle(w)">
+                        <div class="w-2.5 h-2.5 rounded-full bg-white/80 opacity-60"></div>
+                      </div>
+                      <div class="min-w-0">
+                        <div class="text-[11px] font-bold text-slate-200 truncate uppercase">{{ w.props.title || 'Lamp' }}</div>
+                        <div class="text-[9px] font-mono" :class="isWidgetBitOn(w) ? 'text-emerald-400 font-bold' : 'text-slate-400'">
+                          {{ isWidgetBitOn(w) ? (w.props.labelOn || 'RUN') : (w.props.labelOff || 'STOP') }}
+                        </div>
+                      </div>
+                    </div>
+                    <span class="w-2 h-2 rounded-full" :class="isWidgetBitOn(w) ? 'bg-emerald-400 animate-ping' : 'bg-slate-700'"></span>
+                  </div>
+
+                  <!-- WIDGET TYPE: MULTI-STATE-LAMP -->
+                  <div v-else-if="w.type === 'multi-state-lamp'" class="w-full h-full flex items-center justify-between px-3 py-2 bg-slate-900/90 rounded-lg border border-slate-700/80 shadow-inner gap-2">
+                    <div class="flex items-center gap-2.5 min-w-0">
+                      <div class="w-7 h-7 rounded-md flex items-center justify-center border-2 font-black text-xs transition-all duration-300"
+                           :style="getWidgetMultiStateStyle(w)">
+                        <i :class="getWidgetMultiStateIcon(w)"></i>
+                      </div>
+                      <div class="min-w-0">
+                        <div class="text-[11px] font-bold text-slate-200 truncate uppercase">{{ w.props.title || 'State Monitor' }}</div>
+                        <div class="text-[9px] font-mono font-bold" :style="{ color: getWidgetMultiStateColor(w) }">
+                          {{ getWidgetMultiStateLabel(w) }}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- WIDGET TYPE: ALARM-BANNER -->
+                  <div v-else-if="w.type === 'alarm-banner'"
+                       class="w-full h-full flex items-center px-3 py-1.5 rounded-lg border gap-2 transition-all duration-300"
+                       :class="getWidgetAlarmClass(w)">
+                    <i :class="isWidgetAlarmActive(w) ? 'fa-solid fa-triangle-exclamation text-red-400 animate-bounce' : 'fa-solid fa-circle-check text-emerald-400'"></i>
+                    <div class="flex-1 min-w-0 font-mono text-xs font-bold truncate">
+                      <span v-if="isWidgetAlarmActive(w)" class="text-red-300 uppercase">
+                        [ALARM] {{ getWidgetAlarmText(w) }}
+                      </span>
+                      <span v-else class="text-emerald-300">
+                        {{ w.props.idleMessage || 'All systems normal. No active alarms.' }}
+                      </span>
+                    </div>
+                    <span v-if="isWidgetAlarmActive(w)" class="px-1.5 py-0.5 text-[9px] font-black uppercase rounded bg-red-500 text-white animate-pulse">
+                      ACTIVE
+                    </span>
+                  </div>
+
+                  <!-- WIDGET TYPE: LINEAR-TANK -->
+                  <div v-else-if="w.type === 'linear-tank'" class="w-full h-full flex flex-col bg-slate-900/90 rounded-lg border border-slate-700/80 p-2 overflow-hidden shadow-inner">
+                    <div class="text-[11px] font-bold text-slate-300 truncate uppercase flex items-center justify-between pb-1 border-b border-slate-800">
+                      <span class="truncate">{{ w.props.title || 'Storage Tank' }}</span>
+                      <span class="text-[9px] px-1 py-0.5 rounded bg-sky-950 text-sky-400 font-mono">{{ getWidgetTelemetryValue(w) }} {{ w.props.unit || '%' }}</span>
+                    </div>
+                    <div class="flex-1 flex items-center gap-2 pt-1 min-h-0">
+                      <div class="relative flex-1 h-full rounded-md border-2 border-slate-600 bg-slate-950 overflow-hidden flex flex-col justify-end shadow-inner">
+                        <div class="absolute top-[15%] left-0 right-0 border-b border-red-500/50 border-dashed z-10 pointer-events-none"></div>
+                        <div class="absolute bottom-[20%] left-0 right-0 border-b border-yellow-500/50 border-dashed z-10 pointer-events-none"></div>
+                        <div class="w-full transition-all duration-700 ease-out relative"
+                             :style="{ height: getWidgetTankHeightPercent(w) + '%', backgroundColor: getWidgetLiquidColor(w) }">
+                          <div class="absolute inset-0 opacity-25 bg-gradient-to-t from-black/40 to-white/40"></div>
+                          <div class="absolute top-0 left-0 right-0 h-1 bg-white/50"></div>
+                        </div>
+                        <div class="absolute inset-0 flex items-center justify-center pointer-events-none">
+                          <span class="text-xs font-black text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.9)] font-mono">
+                            {{ getWidgetTelemetryValue(w) }} {{ w.props.unit || '' }}
+                          </span>
+                        </div>
+                      </div>
+                      <div class="w-7 h-full flex flex-col justify-between text-[8px] font-mono text-slate-400 py-1 select-none">
+                        <span>100%</span>
+                        <span>75%</span>
+                        <span>50%</span>
+                        <span>25%</span>
+                        <span>0%</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- WIDGET TYPE: SILO-VESSEL -->
+                  <div v-else-if="w.type === 'silo-vessel'" class="w-full h-full flex flex-col bg-slate-900/90 rounded-lg border border-slate-700/80 p-2 overflow-hidden shadow-inner">
+                    <div class="text-[11px] font-bold text-slate-300 truncate uppercase flex items-center justify-between pb-1 border-b border-slate-800">
+                      <span class="truncate">{{ w.props.title || 'Storage Silo' }}</span>
+                      <span class="text-[9px] px-1 py-0.5 rounded bg-sky-950 text-sky-400 font-mono">{{ getWidgetTelemetryValue(w) }}%</span>
+                    </div>
+                    <div class="flex-1 flex items-center justify-center pt-1 min-h-0">
+                      <svg viewBox="0 0 100 140" class="w-full h-full max-h-[150px]">
+                        <defs>
+                          <clipPath :id="'siloClip-' + w.id">
+                            <path d="M 20 25 Q 50 10 80 25 L 80 95 L 50 130 L 20 95 Z" />
+                          </clipPath>
+                        </defs>
+                        <path d="M 20 25 Q 50 10 80 25 L 80 95 L 50 130 L 20 95 Z" fill="#020617" stroke="#475569" stroke-width="2" />
+                        <g :clip-path="'url(#siloClip-' + w.id + ')'">
+                          <rect x="15" :y="130 - (getWidgetTankHeightPercent(w) * 1.15)" width="70" height="130" :fill="getWidgetLiquidColor(w)" opacity="0.85" />
+                        </g>
+                        <path d="M 20 25 Q 50 10 80 25" fill="none" stroke="#94a3b8" stroke-width="2" />
+                        <text x="50" y="75" font-size="12" font-weight="bold" fill="#ffffff" font-family="monospace" text-anchor="middle" filter="drop-shadow(0 1px 2px rgba(0,0,0,0.8))">
+                          {{ getWidgetTelemetryValue(w) }}%
+                        </text>
+                      </svg>
+                    </div>
+                  </div>
+
+                  <!-- WIDGET TYPE: DIAL-GAUGE -->
+                  <div v-else-if="w.type === 'dial-gauge'" class="w-full h-full flex flex-col items-center justify-between bg-slate-900/90 rounded-lg border border-slate-700/80 p-2 shadow-inner overflow-hidden">
+                    <div class="text-[11px] font-bold text-slate-300 truncate uppercase text-center w-full pb-1 border-b border-slate-800">
+                      {{ w.props.title || 'Pressure Gauge' }}
+                    </div>
+                    <div class="relative flex-1 w-full flex items-center justify-center min-h-0">
+                      <svg viewBox="0 0 160 160" class="w-full h-full max-h-[140px]">
+                        <circle cx="80" cy="80" r="70" fill="#0f172a" stroke="#334155" stroke-width="6" />
+                        <circle cx="80" cy="80" r="64" fill="#020617" stroke="#1e293b" stroke-width="2" />
+                        <path d="M 30.5 129.5 A 70 70 0 0 1 80 10" fill="none" stroke="#10b981" stroke-width="5" stroke-linecap="round" />
+                        <path d="M 80 10 A 70 70 0 0 1 129.5 30.5" fill="none" stroke="#f59e0b" stroke-width="5" />
+                        <path d="M 129.5 30.5 A 70 70 0 0 1 129.5 129.5" fill="none" stroke="#ef4444" stroke-width="5" stroke-linecap="round" />
+                        <g :style="{ transform: 'rotate(' + getWidgetGaugeAngle(w) + 'deg)', transformOrigin: '80px 80px' }" class="transition-transform duration-500 ease-out">
+                          <polygon points="77,80 80,24 83,80 80,88" fill="#f43f5e" filter="drop-shadow(0 0 3px rgba(244,63,94,0.6))" />
+                          <circle cx="80" cy="80" r="7" fill="#e2e8f0" stroke="#475569" stroke-width="2" />
+                          <circle cx="80" cy="80" r="3" fill="#0f172a" />
+                        </g>
+                        <text x="32" y="142" font-size="9" fill="#94a3b8" font-family="monospace" text-anchor="middle">{{ w.props.min || 0 }}</text>
+                        <text x="128" y="142" font-size="9" fill="#94a3b8" font-family="monospace" text-anchor="middle">{{ w.props.max || 100 }}</text>
+                      </svg>
+                    </div>
+                    <div class="w-full text-center pt-0.5">
+                      <span class="px-2 py-0.5 rounded bg-slate-950 border border-slate-800 text-sky-400 font-mono font-bold text-xs">
+                        {{ getWidgetTelemetryValue(w) }} {{ w.props.unit || '' }}
+                      </span>
+                    </div>
+                  </div>
+
+                  <!-- WIDGET TYPE: LED-NUMERIC -->
+                  <div v-else-if="w.type === 'led-numeric'" class="w-full h-full flex flex-col justify-between bg-slate-950 rounded-lg border-2 border-slate-800 p-2.5 shadow-[inset_0_2px_8px_rgba(0,0,0,0.8)]">
+                    <div class="flex items-center justify-between text-[10px] uppercase font-bold text-slate-400 tracking-wider">
+                      <span class="truncate">{{ w.props.title || 'Digital Readout' }}</span>
+                      <span class="px-1.5 py-0.2 rounded bg-slate-800 text-slate-300 font-mono text-[9px]">{{ w.props.unit || 'VAL' }}</span>
+                    </div>
+                    <div class="flex-1 flex items-center justify-end overflow-hidden px-1">
+                      <span class="font-mono font-black text-2xl tracking-widest hmi-glow-text truncate" :style="{ color: w.props.color || '#38bdf8' }">
+                        {{ getWidgetTelemetryValue(w) }}
+                      </span>
+                    </div>
+                  </div>
+
+                  <!-- WIDGET TYPE: MONO-BOX -->
+                  <div v-else-if="w.type === 'mono-box'" class="w-full h-full flex items-center gap-3 px-3 py-2 bg-slate-900/90 rounded-lg border border-slate-700/80 shadow-inner">
+                    <div class="w-10 h-10 rounded-lg bg-sky-500/10 border border-sky-500/30 flex items-center justify-center text-sky-400 text-lg shrink-0">
+                      <i :class="w.props.icon || 'fa-solid fa-gauge-high'"></i>
+                    </div>
+                    <div class="min-w-0 flex-1">
+                      <div class="text-[10px] uppercase font-bold text-slate-400 truncate">{{ w.props.title || 'Metric' }}</div>
+                      <div class="text-lg font-black font-mono text-white truncate flex items-baseline gap-1">
+                        <span>{{ getWidgetTelemetryValue(w) }}</span>
+                        <span class="text-xs text-slate-400 font-medium">{{ w.props.unit || '' }}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- WIDGET TYPE: STATIC-LABEL -->
+                  <div v-else-if="w.type === 'static-label'" class="w-full h-full flex flex-col justify-center px-2">
+                    <div class="font-extrabold tracking-tight truncate"
+                         :style="{ fontSize: (w.props.fontSize || 16) + 'px', color: w.props.textColor || '#38bdf8' }">
+                      {{ w.props.text || 'Process Area Title' }}
+                    </div>
+                    <div v-if="w.props.subText" class="text-xs text-slate-400 truncate">
+                      {{ w.props.subText }}
+                    </div>
+                  </div>
+
+                  <!-- WIDGET TYPE: TOGGLE-SWITCH -->
+                  <div v-else-if="w.type === 'toggle-switch'" class="w-full h-full flex items-center justify-between px-3 py-2 bg-slate-900/90 rounded-lg border border-slate-700/80 shadow-inner gap-2">
+                    <div class="min-w-0">
+                      <div class="text-[11px] font-bold text-slate-200 truncate uppercase">{{ w.props.title || 'Relay Switch' }}</div>
+                      <div class="text-[9px] font-mono text-slate-400">{{ isWidgetSwitchOn(w) ? (w.props.labelOn || 'ON') : (w.props.labelOff || 'OFF') }}</div>
+                    </div>
+                    <button @click.stop="triggerWidgetToggleSwitch(w)"
+                            :disabled="hmiEditorMode === 'design'"
+                            class="relative w-12 h-6 rounded-full transition-colors duration-200 focus:outline-none p-0.5 cursor-pointer disabled:cursor-default"
+                            :class="isWidgetSwitchOn(w) ? 'bg-sky-600' : 'bg-slate-700'">
+                      <div class="w-5 h-5 rounded-full bg-white shadow-md transform transition-transform duration-200"
+                           :class="isWidgetSwitchOn(w) ? 'translate-x-6' : 'translate-x-0'"></div>
+                    </button>
+                  </div>
+
+                  <!-- WIDGET TYPE: ACTION-BUTTON -->
+                  <div v-else-if="w.type === 'action-button'" class="w-full h-full flex items-center justify-center p-1.5">
+                    <button @click.stop="triggerWidgetActionButton(w)"
+                            :disabled="hmiEditorMode === 'design'"
+                            class="w-full h-full rounded-lg font-bold text-xs uppercase flex items-center justify-center gap-2 shadow-lg transition-all active:scale-95 cursor-pointer disabled:cursor-default disabled:opacity-90 border"
+                            :style="{ backgroundColor: w.props.buttonColor || '#e11d48', borderColor: 'rgba(255,255,255,0.2)', color: '#ffffff' }">
+                      <i :class="w.props.icon || 'fa-solid fa-bolt'"></i>
+                      <span class="truncate">{{ w.props.label || 'EXECUTE' }}</span>
+                    </button>
+                  </div>
+
+                  <!-- WIDGET TYPE: REALTIME-TREND -->
+                  <div v-else-if="w.type === 'realtime-trend'" class="w-full h-full flex flex-col bg-slate-950 rounded-lg border border-slate-800 p-2.5 overflow-hidden shadow-inner">
+                    <div class="flex items-center justify-between pb-1 mb-1 border-b border-slate-800 text-[10px] font-bold text-slate-300 uppercase">
+                      <span class="flex items-center gap-1.5">
+                        <i class="fa-solid fa-chart-line text-sky-400"></i>
+                        <span>{{ w.props.title || 'Live Trend' }}</span>
+                      </span>
+                      <span class="font-mono text-[9px] text-emerald-400 flex items-center gap-1">
+                        <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                        REALTIME
+                      </span>
+                    </div>
+                    <div class="flex-1 w-full min-h-0 relative">
+                      <svg viewBox="0 0 300 120" preserveAspectRatio="none" class="w-full h-full">
+                        <line x1="0" y1="30" x2="300" y2="30" stroke="#1e293b" stroke-width="1" stroke-dasharray="3,3" />
+                        <line x1="0" y1="60" x2="300" y2="60" stroke="#1e293b" stroke-width="1" stroke-dasharray="3,3" />
+                        <line x1="0" y1="90" x2="300" y2="90" stroke="#1e293b" stroke-width="1" stroke-dasharray="3,3" />
+                        <path :d="getWidgetTrendPath(w, 0)" fill="none" stroke="#38bdf8" stroke-width="2" stroke-linecap="round" />
+                        <path :d="getWidgetTrendPath(w, 1)" fill="none" stroke="#10b981" stroke-width="1.5" stroke-linecap="round" stroke-dasharray="4,2" />
+                      </svg>
+                    </div>
+                    <div class="flex items-center gap-3 pt-1 text-[9px] font-mono text-slate-400">
+                      <span class="flex items-center gap-1"><span class="w-2 h-0.5 bg-sky-400"></span> Level</span>
+                      <span class="flex items-center gap-1"><span class="w-2 h-0.5 bg-emerald-400"></span> Pressure</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- RIGHT PANEL: PROPERTY & TAG INSPECTOR -->
+            <div v-if="hmiEditorMode === 'design'" class="w-72 shrink-0 bg-slate-900 border border-slate-800 rounded-2xl p-4 space-y-4 shadow-xl select-none max-h-[820px] overflow-y-auto custom-scroll">
+              <div v-if="selectedWidget" class="space-y-4">
+                <div class="flex items-center justify-between pb-2 border-b border-slate-800">
+                  <div>
+                    <div class="text-xs font-bold text-white uppercase tracking-wider">{{ selectedWidget.type }}</div>
+                    <div class="text-[10px] font-mono text-sky-400">ID: {{ selectedWidget.id }}</div>
+                  </div>
+                  <div class="flex items-center gap-1">
+                    <button @click="moveWidgetLayer(1)" class="p-1.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs cursor-pointer" title="Bring to Front">
+                      <i class="fa-solid fa-layer-group"></i>
+                    </button>
+                    <button @click="duplicateSelectedWidget" class="p-1.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs cursor-pointer" title="Duplicate">
+                      <i class="fa-solid fa-copy"></i>
+                    </button>
+                    <button @click="removeSelectedWidget" class="p-1.5 rounded bg-red-500/10 hover:bg-red-500/20 text-red-400 text-xs cursor-pointer" title="Delete">
+                      <i class="fa-solid fa-trash-can"></i>
+                    </button>
+                  </div>
+                </div>
+
+                <!-- Section 1: Geometry -->
+                <div class="space-y-2">
+                  <div class="text-[10px] font-extrabold uppercase text-slate-500">Geometry (px)</div>
+                  <div class="grid grid-cols-2 gap-2 text-xs">
+                    <div>
+                      <label class="text-[10px] text-slate-400">X Position</label>
+                      <input type="number" v-model.number="selectedWidget.x" class="w-full bg-slate-950 border border-slate-700 rounded px-2 py-1 text-white font-mono" />
+                    </div>
+                    <div>
+                      <label class="text-[10px] text-slate-400">Y Position</label>
+                      <input type="number" v-model.number="selectedWidget.y" class="w-full bg-slate-950 border border-slate-700 rounded px-2 py-1 text-white font-mono" />
+                    </div>
+                    <div>
+                      <label class="text-[10px] text-slate-400">Width</label>
+                      <input type="number" v-model.number="selectedWidget.w" class="w-full bg-slate-950 border border-slate-700 rounded px-2 py-1 text-white font-mono" />
+                    </div>
+                    <div>
+                      <label class="text-[10px] text-slate-400">Height</label>
+                      <input type="number" v-model.number="selectedWidget.h" class="w-full bg-slate-950 border border-slate-700 rounded px-2 py-1 text-white font-mono" />
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Section 2: Properties -->
+                <div class="space-y-2 border-t border-slate-800 pt-3">
+                  <div class="text-[10px] font-extrabold uppercase text-slate-500">Widget Appearance</div>
+                  <div class="space-y-2 text-xs">
+                    <div v-if="selectedWidget.props.title !== undefined">
+                      <label class="text-[10px] text-slate-400">Title / Label</label>
+                      <input type="text" v-model="selectedWidget.props.title" class="w-full bg-slate-950 border border-slate-700 rounded px-2 py-1 text-white" />
+                    </div>
+                    <div v-if="selectedWidget.props.text !== undefined">
+                      <label class="text-[10px] text-slate-400">Header Text</label>
+                      <input type="text" v-model="selectedWidget.props.text" class="w-full bg-slate-950 border border-slate-700 rounded px-2 py-1 text-white" />
+                    </div>
+                    <div v-if="selectedWidget.props.subText !== undefined">
+                      <label class="text-[10px] text-slate-400">Subtitle</label>
+                      <input type="text" v-model="selectedWidget.props.subText" class="w-full bg-slate-950 border border-slate-700 rounded px-2 py-1 text-white" />
+                    </div>
+                    <div v-if="selectedWidget.props.unit !== undefined" class="grid grid-cols-2 gap-2">
+                      <div>
+                        <label class="text-[10px] text-slate-400">Unit</label>
+                        <input type="text" v-model="selectedWidget.props.unit" class="w-full bg-slate-950 border border-slate-700 rounded px-2 py-1 text-white font-mono" />
+                      </div>
+                      <div v-if="selectedWidget.props.digits !== undefined">
+                        <label class="text-[10px] text-slate-400">Digits</label>
+                        <input type="number" v-model.number="selectedWidget.props.digits" class="w-full bg-slate-950 border border-slate-700 rounded px-2 py-1 text-white font-mono" />
+                      </div>
+                    </div>
+                    <div v-if="selectedWidget.props.min !== undefined && selectedWidget.props.max !== undefined" class="grid grid-cols-2 gap-2">
+                      <div>
+                        <label class="text-[10px] text-slate-400">Min</label>
+                        <input type="number" v-model.number="selectedWidget.props.min" class="w-full bg-slate-950 border border-slate-700 rounded px-2 py-1 text-white font-mono" />
+                      </div>
+                      <div>
+                        <label class="text-[10px] text-slate-400">Max</label>
+                        <input type="number" v-model.number="selectedWidget.props.max" class="w-full bg-slate-950 border border-slate-700 rounded px-2 py-1 text-white font-mono" />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Section 3: Tag Binding Engine -->
+                <div class="space-y-2 border-t border-slate-800 pt-3">
+                  <div class="flex items-center justify-between">
+                    <span class="text-[10px] font-extrabold uppercase text-slate-500">LoRaWAN Tag Binding</span>
+                    <span class="text-[9px] px-1.5 py-0.2 rounded bg-emerald-500/10 text-emerald-400 font-mono">Realtime</span>
+                  </div>
+                  <div class="space-y-2 text-xs">
+                    <div>
+                      <label class="text-[10px] text-slate-400">Target Device (DevEUI)</label>
+                      <select v-model="selectedWidgetBinding.devEUI" class="w-full bg-slate-950 border border-slate-700 rounded px-2 py-1 text-white text-xs">
+                        <option value="">-- Select Device --</option>
+                        <option v-for="d in devicesList" :key="d.devEUI" :value="d.devEUI">
+                          {{ d.name ? d.name + ' (' + d.devEUI + ')' : d.devEUI }}
+                        </option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label class="text-[10px] text-slate-400">Telemetry Field (Tag)</label>
+                      <input type="text" v-model="selectedWidgetBinding.field" placeholder="water_level, pressure, temp..." class="w-full bg-slate-950 border border-slate-700 rounded px-2 py-1 text-white font-mono" />
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-2">
+                      <div>
+                        <label class="text-[10px] text-slate-400">Scale Formula</label>
+                        <input type="text" v-model="selectedWidgetBinding.formula" placeholder="val * 1.0" class="w-full bg-slate-950 border border-slate-700 rounded px-2 py-1 text-white font-mono text-[11px]" />
+                      </div>
+                      <div>
+                        <label class="text-[10px] text-slate-400">Decimals</label>
+                        <select v-model.number="selectedWidgetBinding.decimalPlaces" class="w-full bg-slate-950 border border-slate-700 rounded px-2 py-1 text-white font-mono text-xs">
+                          <option :value="0">0 (Integer)</option>
+                          <option :value="1">1 (0.0)</option>
+                          <option :value="2">2 (0.00)</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <!-- Live Tag Value Preview -->
+                    <div class="p-2 rounded bg-slate-950 border border-slate-800 flex items-center justify-between text-xs">
+                      <span class="text-slate-400 text-[10px]">Live Tag Value:</span>
+                      <span class="font-mono font-bold text-sky-400">{{ getWidgetTelemetryValue(selectedWidget) }}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Section 4: Downlink Actions (if switch / action button) -->
+                <div v-if="selectedWidget.type === 'toggle-switch' || selectedWidget.type === 'action-button'" class="space-y-2 border-t border-slate-800 pt-3">
+                  <div class="text-[10px] font-extrabold uppercase text-slate-500">Downlink Action Config</div>
+                  <div class="space-y-2 text-xs">
+                    <div>
+                      <label class="text-[10px] text-slate-400">Target DevEUI</label>
+                      <input type="text" v-model="selectedWidgetAction.devEUI" placeholder="Device DevEUI" class="w-full bg-slate-950 border border-slate-700 rounded px-2 py-1 text-white font-mono" />
+                    </div>
+                    <div class="grid grid-cols-2 gap-2">
+                      <div>
+                        <label class="text-[10px] text-slate-400">fPort</label>
+                        <input type="number" v-model.number="selectedWidgetAction.fPort" class="w-full bg-slate-950 border border-slate-700 rounded px-2 py-1 text-white font-mono" />
+                      </div>
+                      <div>
+                        <label class="text-[10px] text-slate-400">Payload Hex</label>
+                        <input type="text" v-model="selectedWidgetAction.payloadHex" placeholder="0101" class="w-full bg-slate-950 border border-slate-700 rounded px-2 py-1 text-white font-mono" />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- When no widget is selected: Canvas Inspector -->
+              <div v-else class="space-y-3">
+                <div class="pb-2 border-b border-slate-800">
+                  <div class="text-xs font-bold text-white uppercase tracking-wider">Canvas Settings</div>
+                  <div class="text-[10px] text-slate-400">Select a widget to edit properties</div>
+                </div>
+                <div v-if="currentHmiScreen" class="space-y-2.5 text-xs">
+                  <div>
+                    <label class="text-[10px] text-slate-400">Screen Name</label>
+                    <input type="text" v-model="currentHmiScreen.name" class="w-full bg-slate-950 border border-slate-700 rounded px-2 py-1 text-white" />
+                  </div>
+                  <div>
+                    <label class="text-[10px] text-slate-400">Description</label>
+                    <textarea v-model="currentHmiScreen.description" rows="2" class="w-full bg-slate-950 border border-slate-700 rounded px-2 py-1 text-white text-xs"></textarea>
+                  </div>
+                  <div class="grid grid-cols-2 gap-2">
+                    <div>
+                      <label class="text-[10px] text-slate-400">Width (px)</label>
+                      <input type="number" v-model.number="currentHmiScreen.canvasConfig.width" class="w-full bg-slate-950 border border-slate-700 rounded px-2 py-1 text-white font-mono" />
+                    </div>
+                    <div>
+                      <label class="text-[10px] text-slate-400">Height (px)</label>
+                      <input type="number" v-model.number="currentHmiScreen.canvasConfig.height" class="w-full bg-slate-950 border border-slate-700 rounded px-2 py-1 text-white font-mono" />
+                    </div>
+                  </div>
+                  <div>
+                    <label class="text-[10px] text-slate-400">Background Color</label>
+                    <div class="flex items-center gap-2">
+                      <input type="color" v-model="currentHmiScreen.canvasConfig.background" class="w-8 h-8 rounded bg-transparent cursor-pointer border border-slate-700" />
+                      <input type="text" v-model="currentHmiScreen.canvasConfig.background" class="flex-1 bg-slate-950 border border-slate-700 rounded px-2 py-1 text-white font-mono text-xs" />
+                    </div>
+                  </div>
+                  <div class="flex items-center justify-between pt-2">
+                    <label class="text-[11px] text-slate-300">Show Snap Grid</label>
+                    <input type="checkbox" v-model="currentHmiScreen.canvasConfig.showGrid" class="w-4 h-4 rounded text-sky-600 focus:ring-sky-500 bg-slate-950 border-slate-700" />
+                  </div>
+                  <div class="pt-2 text-[10px] text-slate-500">
+                    Total Widgets: <span class="text-sky-400 font-mono font-bold">{{ currentHmiScreen.widgets.length }}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
       </main>
     </div>
 
@@ -3305,6 +4123,96 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
       </div>
     </div>
 
+    <!-- MODAL: CREATE HMI SCREEN -->
+    <div v-if="createHmiModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop">
+      <div class="w-full max-w-md bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-4 shadow-2xl">
+        <div class="flex items-center justify-between pb-3 border-b border-slate-800">
+          <h3 class="text-sm font-bold text-white uppercase flex items-center gap-2">
+            <i class="fa-solid fa-palette text-amber-400"></i>
+            <span>Create New HMI Screen</span>
+          </h3>
+          <button @click="createHmiModal = false" class="text-slate-400 hover:text-white cursor-pointer">
+            <i class="fa-solid fa-xmark"></i>
+          </button>
+        </div>
+
+        <div class="space-y-3 text-xs">
+          <div>
+            <label class="block text-slate-400 font-medium mb-1">Screen Name *</label>
+            <input type="text" v-model="newHmiScreenForm.name" placeholder="e.g. Tank Farm Overview" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white" />
+          </div>
+          <div>
+            <label class="block text-slate-400 font-medium mb-1">Description</label>
+            <textarea v-model="newHmiScreenForm.description" rows="2" placeholder="Process area description..." class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white"></textarea>
+          </div>
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-slate-400 font-medium mb-1">Resolution Preset</label>
+              <select @change="(e) => { const p = e.target.value.split('x'); newHmiScreenForm.width = Number(p[0]); newHmiScreenForm.height = Number(p[1]); }" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white">
+                <option value="1280x720">1280×720 (720p HMI)</option>
+                <option value="1920x1080">1920×1080 (1080p FHD)</option>
+                <option value="1024x600">1024×600 (7&quot; Wecon)</option>
+                <option value="800x480">800×480 (4.3&quot; Wecon)</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-slate-400 font-medium mb-1">Background</label>
+              <div class="flex items-center gap-2">
+                <input type="color" v-model="newHmiScreenForm.background" class="w-8 h-8 rounded bg-transparent border border-slate-700 cursor-pointer" />
+                <input type="text" v-model="newHmiScreenForm.background" class="flex-1 bg-slate-950 border border-slate-700 rounded-lg px-2 py-1 text-white font-mono text-xs" />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="flex items-center justify-end gap-2 pt-3 border-t border-slate-800">
+          <button @click="createHmiModal = false" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold cursor-pointer">
+            Cancel
+          </button>
+          <button @click="submitCreateHmiScreen" class="px-4 py-1.5 rounded-lg bg-sky-600 hover:bg-sky-500 text-white text-xs font-bold cursor-pointer shadow-md">
+            Create Screen
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL: HMI SCREEN RBAC PERMISSIONS -->
+    <div v-if="hmiRbacModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop">
+      <div class="w-full max-w-md bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-4 shadow-2xl">
+        <div class="flex items-center justify-between pb-3 border-b border-slate-800">
+          <h3 class="text-sm font-bold text-white uppercase flex items-center gap-2">
+            <i class="fa-solid fa-user-shield text-sky-400"></i>
+            <span>Screen Access Permissions (RBAC)</span>
+          </h3>
+          <button @click="hmiRbacModal = false" class="text-slate-400 hover:text-white cursor-pointer">
+            <i class="fa-solid fa-xmark"></i>
+          </button>
+        </div>
+
+        <p class="text-xs text-slate-400">
+          Select the roles that are authorized to view and interact with screen
+          <span class="text-sky-300 font-semibold">'{{ currentHmiScreen?.name }}'</span> in Runtime Mode.
+        </p>
+
+        <div class="space-y-2 p-3 bg-slate-950 rounded-xl border border-slate-800 text-xs">
+          <label v-for="r in rolesList" :key="r.id || r.code" class="flex items-center gap-2.5 p-1.5 rounded hover:bg-slate-900 cursor-pointer">
+            <input type="checkbox" :value="r.code || r.name" v-model="selectedScreenRoles" class="w-4 h-4 rounded text-sky-600 focus:ring-sky-500 bg-slate-900 border-slate-700" />
+            <span class="font-semibold text-slate-200">{{ r.name || r.code }}</span>
+            <span class="text-[10px] text-slate-500 font-mono">({{ r.code || r.name }})</span>
+          </label>
+        </div>
+
+        <div class="flex items-center justify-end gap-2 pt-3 border-t border-slate-800">
+          <button @click="hmiRbacModal = false" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold cursor-pointer">
+            Cancel
+          </button>
+          <button @click="saveHmiRbac" class="px-4 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold cursor-pointer shadow-md">
+            Save Permissions
+          </button>
+        </div>
+      </div>
+    </div>
+
     <!-- FLOATING RESTART OVERLAY -->
     <div v-if="restartProgress.active" class="fixed bottom-6 right-6 z-50 p-4 rounded-2xl bg-slate-900 border border-sky-500/40 shadow-2xl flex items-center gap-3">
       <i class="fa-solid fa-spinner fa-spin text-sky-400 text-xl"></i>
@@ -3826,6 +4734,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
             case 'devices': return 'Device Fleet';
             case 'webhooks': return 'Webhook Manager';
             case 'decoder': return 'Decoder Manager';
+            case 'hmi-studio': return 'HMI SCADA Studio';
             default: return activeTab.value;
           }
         });
@@ -5482,6 +6391,749 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
           }
         };
 
+        // --- C-MODULE: HMI SCADA STUDIO STATE & METHODS ---
+        const hmiScreensList = ref([]);
+        const selectedHmiScreenId = ref('');
+        const currentHmiScreen = ref(null);
+        const savingHmiScreen = ref(false);
+        const hmiEditorMode = ref('design'); // 'design' | 'run'
+        const selectedWidgetId = ref(null);
+        const hmiZoom = ref(100);
+        const hmiGridSize = ref(10);
+        const canvasPreset = ref('1280x720');
+        const hmiTelemetryMap = ref({});
+        const hmiTrendHistory = ref([]);
+        const hmiTelemetryTimer = ref(null);
+        const createHmiModal = ref(false);
+        const newHmiScreenForm = ref({
+          name: '',
+          description: '',
+          width: 1280,
+          height: 720,
+          background: '#0b0f19'
+        });
+        const hmiRbacModal = ref(false);
+        const selectedScreenRoles = ref([]);
+        const widgetSwitchStates = ref({});
+
+        const selectedWidget = computed(() => {
+          if (!currentHmiScreen.value || !selectedWidgetId.value) return null;
+          return currentHmiScreen.value.widgets?.find(w => w.id === selectedWidgetId.value) || null;
+        });
+
+        const selectedWidgetBinding = computed(() => {
+          if (!selectedWidget.value) return { devEUI: '', field: '', formula: 'val * 1.0', decimalPlaces: 1 };
+          if (!selectedWidget.value.bindings) selectedWidget.value.bindings = {};
+          if (!selectedWidget.value.bindings.value) {
+            selectedWidget.value.bindings.value = { devEUI: '', field: '', formula: 'val * 1.0', decimalPlaces: 1 };
+          }
+          return selectedWidget.value.bindings.value;
+        });
+
+        const selectedWidgetAction = computed(() => {
+          if (!selectedWidget.value) return { type: 'downlink', fPort: 1, payloadHex: '01' };
+          if (!selectedWidget.value.action) {
+            selectedWidget.value.action = { type: 'downlink', fPort: 1, payloadHex: '01', confirmMessage: '' };
+          }
+          return selectedWidget.value.action;
+        });
+
+        const fetchHmiScreens = async () => {
+          try {
+            const res = await fetch('/api/hmi/screens', { headers: authHeaders(), credentials: 'include' });
+            if (res.ok) {
+              const data = await res.json();
+              hmiScreensList.value = Array.isArray(data) ? data : [];
+              if (hmiScreensList.value.length > 0) {
+                if (!selectedHmiScreenId.value || !hmiScreensList.value.some(s => s.id === selectedHmiScreenId.value)) {
+                  selectedHmiScreenId.value = hmiScreensList.value[0].id;
+                  onSelectHmiScreen();
+                }
+              }
+            }
+          } catch(e) {
+            console.error('Error fetching HMI screens:', e);
+          }
+        };
+
+        const onSelectHmiScreen = () => {
+          const found = hmiScreensList.value.find(s => s.id === selectedHmiScreenId.value);
+          if (found) {
+            currentHmiScreen.value = JSON.parse(JSON.stringify(found));
+            selectedWidgetId.value = null;
+            canvasPreset.value = (currentHmiScreen.value.canvasConfig?.width || 1280) + 'x' + (currentHmiScreen.value.canvasConfig?.height || 720);
+          }
+        };
+
+        const saveCurrentHmiScreen = async () => {
+          if (!currentHmiScreen.value) return;
+          savingHmiScreen.value = true;
+          try {
+            const payload = {
+              name: currentHmiScreen.value.name,
+              description: currentHmiScreen.value.description,
+              canvasConfig: currentHmiScreen.value.canvasConfig,
+              widgets: currentHmiScreen.value.widgets,
+              isPublished: currentHmiScreen.value.isPublished,
+              allowedRoles: currentHmiScreen.value.allowedRoles
+            };
+            const res = await fetch('/api/hmi/screens/' + encodeURIComponent(currentHmiScreen.value.id), {
+              method: 'PUT',
+              headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+              credentials: 'include',
+              body: JSON.stringify(payload)
+            });
+            if (res.ok) {
+              const updated = await res.json();
+              const idx = hmiScreensList.value.findIndex(s => s.id === updated.id);
+              if (idx !== -1) hmiScreensList.value[idx] = updated;
+              showToast('HMI Screen saved successfully', 'success');
+            } else {
+              const err = await res.json();
+              showToast('Save failed: ' + (err.message || 'Unknown error'), 'error');
+            }
+          } catch(e) {
+            showToast('Network error saving screen: ' + e.message, 'error');
+          } finally {
+            savingHmiScreen.value = false;
+          }
+        };
+
+        const openCreateHmiScreenModal = () => {
+          newHmiScreenForm.value = {
+            name: 'New HMI Screen',
+            description: 'Industrial SCADA monitoring screen',
+            width: 1280,
+            height: 720,
+            background: '#0b0f19'
+          };
+          createHmiModal.value = true;
+        };
+
+        const submitCreateHmiScreen = async () => {
+          if (!newHmiScreenForm.value.name) return;
+          try {
+            const payload = {
+              name: newHmiScreenForm.value.name,
+              description: newHmiScreenForm.value.description,
+              canvasConfig: {
+                width: Number(newHmiScreenForm.value.width) || 1280,
+                height: Number(newHmiScreenForm.value.height) || 720,
+                background: newHmiScreenForm.value.background || '#0b0f19',
+                grid: 10,
+                showGrid: true
+              },
+              widgets: [],
+              isPublished: false,
+              allowedRoles: ['ADMIN', 'SUPER_ADMIN', 'OPERATOR', 'VIEWER']
+            };
+            const res = await fetch('/api/hmi/screens', {
+              method: 'POST',
+              headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+              credentials: 'include',
+              body: JSON.stringify(payload)
+            });
+            if (res.ok) {
+              const created = await res.json();
+              hmiScreensList.value.unshift(created);
+              selectedHmiScreenId.value = created.id;
+              currentHmiScreen.value = JSON.parse(JSON.stringify(created));
+              createHmiModal.value = false;
+              showToast('Screen ' + created.name + ' created', 'success');
+            } else {
+              const err = await res.json();
+              showToast('Create failed: ' + (err.message || 'Error'), 'error');
+            }
+          } catch(e) {
+            showToast('Failed to create screen: ' + e.message, 'error');
+          }
+        };
+
+        const cloneCurrentHmiScreen = async () => {
+          if (!currentHmiScreen.value) return;
+          try {
+            const res = await fetch('/api/hmi/screens/' + encodeURIComponent(currentHmiScreen.value.id) + '/clone', {
+              method: 'POST',
+              headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+              credentials: 'include',
+              body: JSON.stringify({ name: currentHmiScreen.value.name + ' (Copy)' })
+            });
+            if (res.ok) {
+              const cloned = await res.json();
+              hmiScreensList.value.unshift(cloned);
+              selectedHmiScreenId.value = cloned.id;
+              currentHmiScreen.value = JSON.parse(JSON.stringify(cloned));
+              showToast('Duplicated as ' + cloned.name, 'success');
+            }
+          } catch(e) {
+            showToast('Failed to duplicate screen', 'error');
+          }
+        };
+
+        const togglePublishHmiScreen = async () => {
+          if (!currentHmiScreen.value) return;
+          const nextState = !currentHmiScreen.value.isPublished;
+          try {
+            const res = await fetch('/api/hmi/screens/' + encodeURIComponent(currentHmiScreen.value.id) + '/publish', {
+              method: 'POST',
+              headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+              credentials: 'include',
+              body: JSON.stringify({ isPublished: nextState })
+            });
+            if (res.ok) {
+              const updated = await res.json();
+              currentHmiScreen.value.isPublished = updated.isPublished;
+              const idx = hmiScreensList.value.findIndex(s => s.id === updated.id);
+              if (idx !== -1) hmiScreensList.value[idx].isPublished = updated.isPublished;
+              showToast(updated.isPublished ? 'Screen published to Operators' : 'Screen moved to Draft', 'success');
+            }
+          } catch(e) {
+            showToast('Failed to toggle publish status', 'error');
+          }
+        };
+
+        const deleteCurrentHmiScreen = async () => {
+          if (!currentHmiScreen.value) return;
+          if (!confirm('Are you sure you want to permanently delete ' + currentHmiScreen.value.name + '?')) return;
+          try {
+            const res = await fetch('/api/hmi/screens/' + encodeURIComponent(currentHmiScreen.value.id), {
+              method: 'DELETE',
+              headers: authHeaders(),
+              credentials: 'include'
+            });
+            if (res.ok) {
+              hmiScreensList.value = hmiScreensList.value.filter(s => s.id !== currentHmiScreen.value.id);
+              if (hmiScreensList.value.length > 0) {
+                selectedHmiScreenId.value = hmiScreensList.value[0].id;
+                onSelectHmiScreen();
+              } else {
+                currentHmiScreen.value = null;
+                selectedHmiScreenId.value = '';
+              }
+              showToast('Screen deleted', 'success');
+            }
+          } catch(e) {
+            showToast('Failed to delete screen', 'error');
+          }
+        };
+
+        const openHmiRbacModal = () => {
+          if (!currentHmiScreen.value) return;
+          selectedScreenRoles.value = [...(currentHmiScreen.value.allowedRoles || ['ADMIN'])];
+          hmiRbacModal.value = true;
+        };
+
+        const saveHmiRbac = () => {
+          if (!currentHmiScreen.value) return;
+          currentHmiScreen.value.allowedRoles = [...selectedScreenRoles.value];
+          hmiRbacModal.value = false;
+          saveCurrentHmiScreen();
+        };
+
+        const onCanvasPresetChange = () => {
+          if (!currentHmiScreen.value) return;
+          const parts = canvasPreset.value.split('x');
+          if (parts.length === 2) {
+            currentHmiScreen.value.canvasConfig.width = Number(parts[0]);
+            currentHmiScreen.value.canvasConfig.height = Number(parts[1]);
+          }
+        };
+
+        const addWidgetToCanvas = (type) => {
+          if (!currentHmiScreen.value) return;
+          if (!currentHmiScreen.value.widgets) currentHmiScreen.value.widgets = [];
+
+          const id = 'w-' + type + '-' + Date.now().toString(36);
+          let defaultProps = {};
+          let defaultW = 160;
+          let defaultH = 80;
+          let bindings = { value: { devEUI: '', field: '', formula: 'val * 1.0', decimalPlaces: 1 } };
+          let states = [];
+          let action = null;
+
+          switch (type) {
+            case 'bit-lamp':
+              defaultW = 140;
+              defaultH = 40;
+              defaultProps = { title: 'MOTOR STATUS', labelOn: 'RUNNING', labelOff: 'STOPPED', colorOn: '#10b981', colorOff: '#475569' };
+              bindings.value.field = 'relay_1';
+              break;
+            case 'multi-state-lamp':
+              defaultW = 160;
+              defaultH = 46;
+              defaultProps = { title: 'CHILLER PUMP', state0: 'OFF', state1: 'RUN', state2: 'WARN', state3: 'FAULT' };
+              bindings.value.field = 'status';
+              break;
+            case 'alarm-banner':
+              defaultW = 420;
+              defaultH = 40;
+              defaultProps = { title: 'PROCESS ALARMS', idleMessage: 'All systems operating within nominal parameters.' };
+              states = [{ condition: 'val > 80', alarmText: 'CRITICAL HIGH THRESHOLD EXCEEDED!' }];
+              break;
+            case 'linear-tank':
+              defaultW = 200;
+              defaultH = 300;
+              defaultProps = { title: 'STORAGE TANK', min: 0, max: 100, unit: 'm³', liquidColor: '#0284c7' };
+              bindings.value.field = 'water_level';
+              states = [
+                { condition: 'val < 20', color: '#ef4444', alarmText: 'Tank Level Critical Low' },
+                { condition: 'val >= 20 && val <= 80', color: '#0284c7' },
+                { condition: 'val > 80', color: '#f59e0b', alarmText: 'Tank Level High Alert' }
+              ];
+              break;
+            case 'silo-vessel':
+              defaultW = 180;
+              defaultH = 260;
+              defaultProps = { title: 'SILO HOPPER', min: 0, max: 100, unit: '%', liquidColor: '#6366f1' };
+              bindings.value.field = 'silo_fill';
+              break;
+            case 'dial-gauge':
+              defaultW = 240;
+              defaultH = 240;
+              defaultProps = { title: 'LINE PRESSURE', min: 0, max: 16, unit: 'Bar' };
+              bindings.value.field = 'pressure';
+              break;
+            case 'led-numeric':
+              defaultW = 220;
+              defaultH = 70;
+              defaultProps = { title: 'FLOW RATE', unit: 'm³/h', color: '#38bdf8' };
+              bindings.value.field = 'flow_rate';
+              break;
+            case 'mono-box':
+              defaultW = 180;
+              defaultH = 76;
+              defaultProps = { title: 'TEMPERATURE', unit: '°C', icon: 'fa-solid fa-temperature-half' };
+              bindings.value.field = 'temperature';
+              break;
+            case 'static-label':
+              defaultW = 320;
+              defaultH = 40;
+              defaultProps = { text: 'SECTION HEADER TITLE', subText: 'Operational Substation 01', fontSize: 16, textColor: '#38bdf8' };
+              break;
+            case 'toggle-switch':
+              defaultW = 180;
+              defaultH = 64;
+              defaultProps = { title: 'VALVE 01 ACTUATOR', labelOn: 'OPEN', labelOff: 'CLOSED' };
+              action = { type: 'downlink', fPort: 1, payloadHex: '0101', confirmMessage: 'Toggle Valve Actuator state?' };
+              break;
+            case 'action-button':
+              defaultW = 160;
+              defaultH = 50;
+              defaultProps = { label: 'EMERGENCY SHUTDOWN', buttonColor: '#e11d48', icon: 'fa-solid fa-power-off' };
+              action = { type: 'downlink', fPort: 1, payloadHex: 'FFFF', confirmMessage: 'Trigger emergency shutdown command?' };
+              break;
+            case 'realtime-trend':
+              defaultW = 480;
+              defaultH = 240;
+              defaultProps = { title: 'REALTIME TELEMETRY TREND' };
+              break;
+          }
+
+          const maxW = currentHmiScreen.value.canvasConfig?.width || 1280;
+          const maxH = currentHmiScreen.value.canvasConfig?.height || 720;
+          const x = Math.min(80 + (currentHmiScreen.value.widgets.length % 5) * 30, maxW - defaultW);
+          const y = Math.min(80 + (currentHmiScreen.value.widgets.length % 5) * 30, maxH - defaultH);
+          const grid = hmiGridSize.value || 10;
+
+          const newWidget = {
+            id,
+            type,
+            x: Math.round(x / grid) * grid,
+            y: Math.round(y / grid) * grid,
+            w: defaultW,
+            h: defaultH,
+            zIndex: currentHmiScreen.value.widgets.length + 1,
+            props: defaultProps,
+            bindings,
+            states,
+            action
+          };
+
+          currentHmiScreen.value.widgets.push(newWidget);
+          selectedWidgetId.value = id;
+        };
+
+        const removeSelectedWidget = () => {
+          if (!currentHmiScreen.value || !selectedWidgetId.value) return;
+          currentHmiScreen.value.widgets = currentHmiScreen.value.widgets.filter(w => w.id !== selectedWidgetId.value);
+          selectedWidgetId.value = null;
+        };
+
+        const duplicateSelectedWidget = () => {
+          if (!currentHmiScreen.value || !selectedWidget.value) return;
+          const copy = JSON.parse(JSON.stringify(selectedWidget.value));
+          copy.id = 'w-' + copy.type + '-' + Date.now().toString(36);
+          copy.x += 20;
+          copy.y += 20;
+          copy.zIndex = (currentHmiScreen.value.widgets.length || 1) + 1;
+          currentHmiScreen.value.widgets.push(copy);
+          selectedWidgetId.value = copy.id;
+        };
+
+        const moveWidgetLayer = (dir) => {
+          if (!selectedWidget.value) return;
+          selectedWidget.value.zIndex = Math.max(1, (selectedWidget.value.zIndex || 1) + dir);
+        };
+
+        const onWidgetMouseDown = (e, widget) => {
+          if (hmiEditorMode.value !== 'design') return;
+          selectedWidgetId.value = widget.id;
+          const startMouseX = e.clientX;
+          const startMouseY = e.clientY;
+          const startX = widget.x;
+          const startY = widget.y;
+          const grid = hmiGridSize.value || 1;
+
+          const onMouseMove = (moveEvent) => {
+            const scale = (hmiZoom.value || 100) / 100;
+            const dx = (moveEvent.clientX - startMouseX) / scale;
+            const dy = (moveEvent.clientY - startMouseY) / scale;
+            let newX = Math.round((startX + dx) / grid) * grid;
+            let newY = Math.round((startY + dy) / grid) * grid;
+            const maxW = currentHmiScreen.value?.canvasConfig?.width || 1920;
+            const maxH = currentHmiScreen.value?.canvasConfig?.height || 1080;
+            widget.x = Math.max(0, Math.min(newX, maxW - widget.w));
+            widget.y = Math.max(0, Math.min(newY, maxH - widget.h));
+          };
+
+          const onMouseUp = () => {
+            window.removeEventListener('mousemove', onMouseMove);
+            window.removeEventListener('mouseup', onMouseUp);
+          };
+
+          window.addEventListener('mousemove', onMouseMove);
+          window.addEventListener('mouseup', onMouseUp);
+        };
+
+        const onResizeMouseDown = (e, widget) => {
+          if (hmiEditorMode.value !== 'design') return;
+          const startMouseX = e.clientX;
+          const startMouseY = e.clientY;
+          const startW = widget.w;
+          const startH = widget.h;
+          const grid = hmiGridSize.value || 1;
+
+          const onMouseMove = (moveEvent) => {
+            const scale = (hmiZoom.value || 100) / 100;
+            const dw = (moveEvent.clientX - startMouseX) / scale;
+            const dh = (moveEvent.clientY - startMouseY) / scale;
+            let newW = Math.round((startW + dw) / grid) * grid;
+            let newH = Math.round((startH + dh) / grid) * grid;
+            widget.w = Math.max(40, newW);
+            widget.h = Math.max(30, newH);
+          };
+
+          const onMouseUp = () => {
+            window.removeEventListener('mousemove', onMouseMove);
+            window.removeEventListener('mouseup', onMouseUp);
+          };
+
+          window.addEventListener('mousemove', onMouseMove);
+          window.addEventListener('mouseup', onMouseUp);
+        };
+
+        const getWidgetTelemetryValue = (widget) => {
+          if (!widget) return '--';
+          const binding = widget.bindings?.value || widget.bindings?.level || widget.bindings?.status;
+          let raw = undefined;
+
+          if (binding?.devEUI && binding?.field) {
+            const key = binding.devEUI + '.' + binding.field;
+            raw = hmiTelemetryMap.value[key];
+          } else if (binding?.field) {
+            for (const k of Object.keys(hmiTelemetryMap.value)) {
+              if (k.endsWith('.' + binding.field)) {
+                raw = hmiTelemetryMap.value[k];
+                break;
+              }
+            }
+          }
+
+          if (raw === undefined || raw === null) {
+            if (widget.type === 'linear-tank') raw = 64.5;
+            else if (widget.type === 'silo-vessel') raw = 82.0;
+            else if (widget.type === 'dial-gauge') raw = 8.6;
+            else if (widget.type === 'led-numeric') raw = 142.8;
+            else if (widget.type === 'mono-box') raw = 28.4;
+            else if (widget.type === 'bit-lamp') raw = 1;
+            else if (widget.type === 'multi-state-lamp') raw = 1;
+            else raw = 0;
+          }
+
+          let val = Number(raw);
+          if (isNaN(val)) return String(raw);
+
+          if (binding?.formula && binding.formula.trim()) {
+            try {
+              const fn = new Function('val', 'return (' + binding.formula + ')');
+              val = fn(val);
+            } catch(e) {}
+          }
+
+          const dec = binding?.decimalPlaces !== undefined ? binding.decimalPlaces : 1;
+          return Number(val).toFixed(dec);
+        };
+
+        const getWidgetTankHeightPercent = (widget) => {
+          const val = Number(getWidgetTelemetryValue(widget)) || 0;
+          const min = widget.props?.min !== undefined ? widget.props.min : 0;
+          const max = widget.props?.max !== undefined ? widget.props.max : 100;
+          if (max <= min) return 0;
+          const pct = ((val - min) / (max - min)) * 100;
+          return Math.min(100, Math.max(0, Math.round(pct)));
+        };
+
+        const getWidgetLiquidColor = (widget) => {
+          const val = Number(getWidgetTelemetryValue(widget)) || 0;
+          if (widget.states && widget.states.length > 0) {
+            for (const st of widget.states) {
+              if (st.condition && st.color) {
+                try {
+                  const fn = new Function('val', 'return (' + st.condition + ')');
+                  if (fn(val)) return st.color;
+                } catch(e) {}
+              }
+            }
+          }
+          return widget.props?.liquidColor || '#0284c7';
+        };
+
+        const getWidgetGaugeAngle = (widget) => {
+          const val = Number(getWidgetTelemetryValue(widget)) || 0;
+          const min = widget.props?.min !== undefined ? widget.props.min : 0;
+          const max = widget.props?.max !== undefined ? widget.props.max : 100;
+          if (max <= min) return -135;
+          const ratio = Math.min(1, Math.max(0, (val - min) / (max - min)));
+          return Math.round(-135 + ratio * 270);
+        };
+
+        const isWidgetBitOn = (widget) => {
+          const v = getWidgetTelemetryValue(widget);
+          return v === '1' || v === 1 || String(v).toLowerCase() === 'true' || Number(v) > 0;
+        };
+
+        const getWidgetBitLampStyle = (widget) => {
+          const on = isWidgetBitOn(widget);
+          const colOn = widget.props?.colorOn || '#10b981';
+          const colOff = widget.props?.colorOff || '#475569';
+          return {
+            backgroundColor: on ? colOn : colOff,
+            borderColor: on ? '#ffffff' : '#334155',
+            boxShadow: on ? '0 0 14px ' + colOn : 'none'
+          };
+        };
+
+        const getWidgetMultiStateLabel = (widget) => {
+          const v = Math.round(Number(getWidgetTelemetryValue(widget)) || 0);
+          if (v === 0) return widget.props?.state0 || 'STOPPED';
+          if (v === 1) return widget.props?.state1 || 'RUNNING';
+          if (v === 2) return widget.props?.state2 || 'WARNING';
+          return widget.props?.state3 || 'FAULT';
+        };
+
+        const getWidgetMultiStateColor = (widget) => {
+          const v = Math.round(Number(getWidgetTelemetryValue(widget)) || 0);
+          if (v === 0) return '#94a3b8';
+          if (v === 1) return '#10b981';
+          if (v === 2) return '#f59e0b';
+          return '#ef4444';
+        };
+
+        const getWidgetMultiStateStyle = (widget) => {
+          const c = getWidgetMultiStateColor(widget);
+          return {
+            backgroundColor: c + '22',
+            borderColor: c,
+            color: c,
+            boxShadow: '0 0 10px ' + c + '44'
+          };
+        };
+
+        const getWidgetMultiStateIcon = (widget) => {
+          const v = Math.round(Number(getWidgetTelemetryValue(widget)) || 0);
+          if (v === 0) return 'fa-solid fa-stop';
+          if (v === 1) return 'fa-solid fa-play';
+          if (v === 2) return 'fa-solid fa-triangle-exclamation';
+          return 'fa-solid fa-radiation';
+        };
+
+        const isWidgetAlarmActive = (widget) => {
+          const val = Number(getWidgetTelemetryValue(widget)) || 0;
+          if (widget.states && widget.states.length > 0) {
+            for (const st of widget.states) {
+              if (st.alarmText && st.condition) {
+                try {
+                  const fn = new Function('val', 'return (' + st.condition + ')');
+                  if (fn(val)) return true;
+                } catch(e) {}
+              }
+            }
+          }
+          return false;
+        };
+
+        const getWidgetAlarmText = (widget) => {
+          const val = Number(getWidgetTelemetryValue(widget)) || 0;
+          if (widget.states && widget.states.length > 0) {
+            for (const st of widget.states) {
+              if (st.alarmText && st.condition) {
+                try {
+                  const fn = new Function('val', 'return (' + st.condition + ')');
+                  if (fn(val)) return st.alarmText;
+                } catch(e) {}
+              }
+            }
+          }
+          return '';
+        };
+
+        const getWidgetAlarmClass = (widget) => {
+          if (isWidgetAlarmActive(widget)) {
+            return 'bg-red-950/80 border-red-500 shadow-[0_0_15px_rgba(239,68,68,0.4)] animate-pulse';
+          }
+          return 'bg-slate-900/90 border-slate-700/80 shadow-inner';
+        };
+
+        const isWidgetSwitchOn = (widget) => {
+          if (widgetSwitchStates.value[widget.id] !== undefined) {
+            return widgetSwitchStates.value[widget.id];
+          }
+          return isWidgetBitOn(widget);
+        };
+
+        const triggerWidgetToggleSwitch = async (widget) => {
+          if (hmiEditorMode.value === 'design') return;
+          const current = isWidgetSwitchOn(widget);
+          const next = !current;
+          const action = widget.action;
+
+          if (action?.confirmMessage) {
+            if (!confirm(action.confirmMessage)) return;
+          }
+
+          widgetSwitchStates.value[widget.id] = next;
+          try {
+            const res = await fetch('/api/hmi/screens/downlink', {
+              method: 'POST',
+              headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+              credentials: 'include',
+              body: JSON.stringify({
+                devEUI: action?.devEUI || widget.bindings?.value?.devEUI || '',
+                fPort: action?.fPort || 1,
+                payloadHex: next ? (action?.payloadHex || '0101') : '0100',
+                actionType: 'toggle'
+              })
+            });
+            if (res.ok) {
+              showToast('Switch ' + (next ? 'ON' : 'OFF') + ' command sent', 'success');
+            }
+          } catch(e) {
+            showToast('Failed to send switch command', 'error');
+          }
+        };
+
+        const triggerWidgetActionButton = async (widget) => {
+          if (hmiEditorMode.value === 'design') return;
+          const action = widget.action;
+          if (action?.confirmMessage) {
+            if (!confirm(action.confirmMessage)) return;
+          }
+          try {
+            const res = await fetch('/api/hmi/screens/downlink', {
+              method: 'POST',
+              headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+              credentials: 'include',
+              body: JSON.stringify({
+                devEUI: action?.devEUI || '',
+                fPort: action?.fPort || 1,
+                payloadHex: action?.payloadHex || '01',
+                actionType: 'pushbutton'
+              })
+            });
+            if (res.ok) {
+              showToast('Action ' + (widget.props.label || 'COMMAND') + ' dispatched', 'success');
+            }
+          } catch(e) {
+            showToast('Failed to dispatch action command', 'error');
+          }
+        };
+
+        const getWidgetTrendPath = (widget, tagIndex) => {
+          const points = hmiTrendHistory.value;
+          if (!points || points.length === 0) {
+            if (tagIndex === 0) return 'M 0 80 Q 75 40 150 60 T 300 30';
+            return 'M 0 50 Q 75 90 150 70 T 300 65';
+          }
+          const w = 300;
+          const h = 120;
+          const step = w / Math.max(1, points.length - 1);
+          let d = '';
+          points.forEach((pt, i) => {
+            const val = tagIndex === 0 ? (pt.level || pt.valA || 50) : (pt.pressure || pt.valB || 30);
+            const y = Math.max(10, Math.min(110, h - (val / 100) * 100));
+            const x = i * step;
+            d += (i === 0 ? ('M ' + x + ' ' + y) : (' L ' + x + ' ' + y));
+          });
+          return d;
+        };
+
+        const updateHmiTelemetryFromData = (records) => {
+          if (!Array.isArray(records)) return;
+          const newMap = { ...hmiTelemetryMap.value };
+          records.forEach(rec => {
+            const dev = rec.devEUI || rec.devEui;
+            if (!dev) return;
+            const decoded = rec.decodedData || rec.decodedPayload || {};
+            for (const [k, v] of Object.entries(decoded)) {
+              if (typeof v === 'number' || typeof v === 'string' || typeof v === 'boolean') {
+                newMap[dev + '.' + k] = v;
+              }
+            }
+          });
+          hmiTelemetryMap.value = newMap;
+
+          if (records.length > 0) {
+            const latest = records[0];
+            const dec = latest.decodedData || latest.decodedPayload || {};
+            const pt = {
+              time: new Date(),
+              level: Number(dec.water_level || dec.level || (50 + Math.sin(Date.now() / 5000) * 15)),
+              pressure: Number(dec.pressure || (8 + Math.cos(Date.now() / 4000) * 2)),
+              valA: Number(dec.water_level || 60),
+              valB: Number(dec.pressure || 8)
+            };
+            hmiTrendHistory.value.push(pt);
+            if (hmiTrendHistory.value.length > 30) {
+              hmiTrendHistory.value.shift();
+            }
+          }
+        };
+
+        const fetchHmiTelemetryOnce = async () => {
+          try {
+            const res = await fetch('/lorawan/telemetry?limit=50', { headers: authHeaders(), credentials: 'include' });
+            if (res.ok) {
+              const data = await res.json();
+              updateHmiTelemetryFromData(data);
+            }
+          } catch(e) {}
+        };
+
+        const startHmiTelemetryPolling = () => {
+          fetchHmiTelemetryOnce();
+          if (!hmiTelemetryTimer.value) {
+            hmiTelemetryTimer.value = setInterval(fetchHmiTelemetryOnce, 4000);
+          }
+        };
+
+        const stopHmiTelemetryPolling = () => {
+          if (hmiTelemetryTimer.value) {
+            clearInterval(hmiTelemetryTimer.value);
+            hmiTelemetryTimer.value = null;
+          }
+        };
+
+
         const confirmRestartServer = async () => {
           restartingServer.value = true;
           try {
@@ -5562,6 +7214,13 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
           } else {
             stopWebhookPolling();
           }
+          if (newTab === 'hmi-studio') {
+            fetchHmiScreens();
+            fetchDevices();
+            startHmiTelemetryPolling();
+          } else {
+            stopHmiTelemetryPolling();
+          }
         });
 
         const initControlPanel = async () => {
@@ -5583,6 +7242,10 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
             activeTab.value = hash;
             if (hash === 'webhooks') {
               startWebhookPolling();
+            }
+            if (hash === 'hmi-studio') {
+              fetchHmiScreens();
+              startHmiTelemetryPolling();
             }
           } else {
             activeTab.value = 'overview';
@@ -5815,7 +7478,57 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
           openRestartConfirmDialog,
           openServerLogsDialog,
           confirmRestartServer,
-          standaloneOpsUrl
+          standaloneOpsUrl,
+          hmiScreensList,
+          selectedHmiScreenId,
+          currentHmiScreen,
+          savingHmiScreen,
+          hmiEditorMode,
+          selectedWidgetId,
+          selectedWidget,
+          selectedWidgetBinding,
+          selectedWidgetAction,
+          hmiZoom,
+          hmiGridSize,
+          canvasPreset,
+          createHmiModal,
+          newHmiScreenForm,
+          hmiRbacModal,
+          selectedScreenRoles,
+          fetchHmiScreens,
+          onSelectHmiScreen,
+          saveCurrentHmiScreen,
+          openCreateHmiScreenModal,
+          submitCreateHmiScreen,
+          cloneCurrentHmiScreen,
+          togglePublishHmiScreen,
+          deleteCurrentHmiScreen,
+          openHmiRbacModal,
+          saveHmiRbac,
+          onCanvasPresetChange,
+          addWidgetToCanvas,
+          removeSelectedWidget,
+          duplicateSelectedWidget,
+          moveWidgetLayer,
+          onWidgetMouseDown,
+          onResizeMouseDown,
+          getWidgetTelemetryValue,
+          getWidgetTankHeightPercent,
+          getWidgetLiquidColor,
+          getWidgetGaugeAngle,
+          isWidgetBitOn,
+          getWidgetBitLampStyle,
+          getWidgetMultiStateLabel,
+          getWidgetMultiStateColor,
+          getWidgetMultiStateStyle,
+          getWidgetMultiStateIcon,
+          isWidgetAlarmActive,
+          getWidgetAlarmText,
+          getWidgetAlarmClass,
+          isWidgetSwitchOn,
+          triggerWidgetToggleSwitch,
+          triggerWidgetActionButton,
+          getWidgetTrendPath
         };
       }
     }).mount('#app');

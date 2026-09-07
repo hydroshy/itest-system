@@ -12,6 +12,7 @@ import { DModulesModule } from './modules/d-modules/d-modules.module';
 import { DecoderModule } from './modules/c-modules/decoder-admin/decoder.module';
 import { WebhookAdminModule } from './modules/c-modules/webhook-admin/webhook-admin.module';
 import { OverviewHubModule } from './modules/c-modules/overview-hub/overview-hub.module';
+import { HmiStudioModule } from './modules/c-modules/hmi-studio/hmi-studio.module';
 import { AppController } from './app.controller';
 
 @Module({
@@ -31,6 +32,7 @@ import { AppController } from './app.controller';
     DecoderModule,
     WebhookAdminModule,
     OverviewHubModule,
+    HmiStudioModule,
   ],
   controllers: [AppController],
 })

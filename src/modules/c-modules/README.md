@@ -20,6 +20,7 @@ Thư mục này chứa toàn bộ các **Module quản trị, hạ tầng và gi
 | **`device-fleet-admin/`** | `C_MOD_DEVICE_FLEET` | **Device Fleet Oversight** | Giám sát toàn bộ thiết bị trong hệ thống, xem thông tin người tạo (`Created By`). |
 | **`webhook-admin/`** | `C_MOD_WEBHOOKS` | **Webhook Endpoints** | Quản lý và kiểm tra các endpoint nhận webhook từ Network Servers. |
 | **`decoder-admin/`** | `C_MOD_DECODER` | **Decoder Manager** | Quản lý decoder theo SKU & Firmware version (1-32), lưu trữ code JavaScript và kiểm thử sandbox. |
+| **`hmi-studio/`** | `C_MOD_HMI_STUDIO` | **HMI SCADA Studio** | Công cụ thiết kế trực quan HMI SCADA chuẩn công nghiệp Wecon, gắn Tag dữ liệu LoRaWAN, kéo thả canvas và phân quyền hiển thị màn hình giám sát. |
 
 ---
 

@@ -12,6 +12,7 @@ import { GatewayEntity } from '../lorawan/entities/gateway.entity';
 import { TelemetryEntity } from '../lorawan/entities/telemetry.entity';
 import { DecoderEntity } from '../c-modules/decoder-admin/entities/decoder.entity';
 import { WebhookLogEntity } from '../c-modules/webhook-admin/entities/webhook-log.entity';
+import { HmiScreenEntity } from '../c-modules/hmi-studio/entities/hmi-screen.entity';
 
 export const ALL_DATABASE_ENTITIES = [
   User,
@@ -24,6 +25,7 @@ export const ALL_DATABASE_ENTITIES = [
   TelemetryEntity,
   DecoderEntity,
   WebhookLogEntity,
+  HmiScreenEntity,
 ];
 
 export interface DbConnectionConfig {

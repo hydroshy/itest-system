@@ -192,3 +192,20 @@ CREATE TABLE IF NOT EXISTS "webhook_logs" (
 
 CREATE INDEX IF NOT EXISTS "idx_webhook_logs_server" ON "webhook_logs" ("serverType", "receivedAt" DESC);
 CREATE INDEX IF NOT EXISTS "idx_webhook_logs_deveui" ON "webhook_logs" ("devEUI");
+
+-- 14. HMI Screens Table (HMI SCADA Studio C-Module)
+CREATE TABLE IF NOT EXISTS "hmi_screens" (
+  "id" VARCHAR(255) PRIMARY KEY,
+  "name" VARCHAR(255) NOT NULL,
+  "description" TEXT,
+  "canvasConfig" JSONB NOT NULL DEFAULT '{"width": 1280, "height": 720, "background": "#0b0f19", "grid": 10, "showGrid": true}',
+  "widgets" JSONB NOT NULL DEFAULT '[]',
+  "isPublished" BOOLEAN NOT NULL DEFAULT false,
+  "allowedRoles" JSONB NOT NULL DEFAULT '["ADMIN", "SUPER_ADMIN", "OPERATOR", "VIEWER"]',
+  "author" VARCHAR(255),
+  "createdAt" TIMESTAMP NOT NULL DEFAULT now(),
+  "updatedAt" TIMESTAMP NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS "idx_hmi_screens_published" ON "hmi_screens" ("isPublished");
+

@@ -103,4 +103,14 @@ export const C_MODULES_REGISTRY: CModule[] = [
     routeHash: '#decoder',
     requiredPermission: 'lorawan:decoder:read',
   },
+  {
+    id: 'c-hmi-studio',
+    code: 'C_MOD_HMI_STUDIO',
+    title: 'HMI SCADA Studio',
+    description: 'Wecon-style industrial drag-and-drop HMI screen builder, SCADA synoptic panels, tag bindings, and runtime operator views.',
+    icon: 'fa-solid fa-palette',
+    category: 'Infrastructure',
+    routeHash: '#hmi-studio',
+    requiredPermission: 'lorawan:device:read',
+  },
 ];
