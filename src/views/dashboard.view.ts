@@ -2620,6 +2620,12 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
                 if (prefix && flat[k] === undefined) {
                   flat[k] = v;
                 }
+                if (fullKey.startsWith('data.')) {
+                  const leaf = fullKey.substring(5);
+                  if (flat[leaf] === undefined) {
+                    flat[leaf] = v;
+                  }
+                }
               }
             }
           };
@@ -2756,16 +2762,34 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
           let raw = undefined;
 
           if (binding?.devEUI && binding?.field) {
-            const key = binding.devEUI.toUpperCase() + '.' + binding.field;
+            const dev = binding.devEUI.trim().toUpperCase();
+            const f = binding.field.trim();
+            const key = dev + '.' + f;
             raw = hmiTelemetryMap.value[key];
             if (raw === undefined) {
-              raw = hmiTelemetryMap.value[binding.field];
+              raw = hmiTelemetryMap.value[f];
             }
-          } else if (binding?.field) {
-            raw = hmiTelemetryMap.value[binding.field];
+            if (raw === undefined && !f.startsWith('data.')) {
+              raw = hmiTelemetryMap.value[dev + '.data.' + f] ?? hmiTelemetryMap.value['data.' + f];
+            }
+            if (raw === undefined && f.startsWith('data.')) {
+              const stripped = f.substring(5);
+              raw = hmiTelemetryMap.value[dev + '.' + stripped] ?? hmiTelemetryMap.value[stripped];
+            }
             if (raw === undefined) {
               for (const k of Object.keys(hmiTelemetryMap.value)) {
-                if (k.endsWith('.' + binding.field)) {
+                if (k.endsWith('.' + f) || (dev && k.startsWith(dev) && k.endsWith(f))) {
+                  raw = hmiTelemetryMap.value[k];
+                  break;
+                }
+              }
+            }
+          } else if (binding?.field) {
+            const f = binding.field.trim();
+            raw = hmiTelemetryMap.value[f];
+            if (raw === undefined) {
+              for (const k of Object.keys(hmiTelemetryMap.value)) {
+                if (k.endsWith('.' + f)) {
                   raw = hmiTelemetryMap.value[k];
                   break;
                 }

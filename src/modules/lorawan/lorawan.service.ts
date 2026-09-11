@@ -1029,47 +1029,88 @@ export class LorawanService {
           fieldMap.set('fPort', { key: 'fPort', label: 'fPort', latestValue: rec.fPort, dataType: 'number', unit: '', source: 'lora_metric', lastSeen: rec.timestamp });
         }
 
-        // Scan object and decodedData
-        const objectsToScan = [rec.object, rec.decodedData].filter(Boolean);
-        for (const obj of objectsToScan) {
-          if (typeof obj === 'object') {
-            for (const [k, v] of Object.entries(obj)) {
-              if (v !== undefined && v !== null) {
-                const dataType = typeof v;
-                let unit = '';
-                const lowerK = k.toLowerCase();
-                if (lowerK.includes('temp')) unit = '°C';
-                else if (lowerK.includes('hum')) unit = '%RH';
-                else if (lowerK.includes('press') || lowerK.includes('bar')) unit = 'bar';
-                else if (lowerK.includes('volt')) unit = 'V';
-                else if (lowerK.includes('curr') || lowerK.includes('amp')) unit = 'A';
-                else if (lowerK.includes('kwh') || lowerK.includes('energy')) unit = 'kWh';
-                else if (lowerK.includes('kvarh')) unit = 'kVARh';
-                else if (lowerK.includes('level') || lowerK.includes('tank')) unit = '%';
-                else if (lowerK.includes('flow') || lowerK.includes('speed')) unit = 'm³/h';
-                else if (lowerK.includes('power') || lowerK.includes('watt')) unit = 'W';
+        // Scan object and decodedData (supports recursive flattening for inner tags e.g. data.HUMIDITY)
+        const parseIfString = (val: any) => {
+          if (typeof val === 'string') {
+            try { return JSON.parse(val); } catch { return null; }
+          }
+          return val;
+        };
 
-                const formattedLabel = k
-                  .replace(/_/g, ' ')
-                  .replace(/([A-Z])/g, ' $1')
-                  .replace(/\s+/g, ' ')
-                  .trim()
-                  .toUpperCase();
+        const detectUnit = (key: string): string => {
+          const lowerK = key.toLowerCase();
+          if (lowerK.includes('temp')) return '°C';
+          if (lowerK.includes('hum')) return '%RH';
+          if (lowerK.includes('press') || lowerK.includes('bar') || lowerK.includes('kpa')) return 'bar';
+          if (lowerK.includes('volt')) return 'V';
+          if (lowerK.includes('curr') || lowerK.includes('amp')) return 'A';
+          if (lowerK.includes('kwh') || lowerK.includes('energy')) return 'kWh';
+          if (lowerK.includes('kvarh')) return 'kVARh';
+          if (lowerK.includes('level') || lowerK.includes('tank')) return '%';
+          if (lowerK.includes('flow') || lowerK.includes('speed')) return 'm³/h';
+          if (lowerK.includes('power') && !lowerK.includes('source') && !lowerK.includes('level')) return 'W';
+          if (lowerK.includes('ppm') || lowerK.includes('co2')) return 'ppm';
+          if (lowerK.includes('lux') || lowerK.includes('light')) return 'lux';
+          if (lowerK.includes('freq') || lowerK.includes('hz')) return 'Hz';
+          if (lowerK.includes('ph')) return 'pH';
+          if (lowerK.includes('conductivity') || lowerK.includes('ec')) return 'µS/cm';
+          return '';
+        };
 
-                const existing = fieldMap.get(k);
-                if (!existing || existing.source === 'default' || existing.source === 'lora_metric') {
-                  fieldMap.set(k, {
-                    key: k,
-                    label: formattedLabel || k,
-                    latestValue: v,
-                    dataType: typeof v === 'object' ? 'json' : dataType,
-                    unit,
-                    source: 'decoded_payload',
-                    lastSeen: rec.timestamp,
-                  });
-                }
+        const formatLabel = (key: string): string => {
+          return key
+            .replace(/_/g, ' ')
+            .replace(/([A-Z])/g, ' $1')
+            .replace(/\s+/g, ' ')
+            .trim()
+            .toUpperCase();
+        };
+
+        const registerField = (tagKey: string, val: any, timestamp?: Date) => {
+          if (val === undefined || val === null) return;
+          const label = formatLabel(tagKey);
+          const unit = detectUnit(tagKey);
+          const dataType = typeof val;
+
+          const existing = fieldMap.get(tagKey);
+          if (!existing || existing.source === 'default' || existing.source === 'lora_metric') {
+            fieldMap.set(tagKey, {
+              key: tagKey,
+              label: label || tagKey,
+              latestValue: val,
+              dataType: typeof val === 'object' ? 'json' : dataType,
+              unit,
+              source: 'decoded_payload',
+              lastSeen: timestamp,
+            });
+          }
+        };
+
+        const scanRecursive = (obj: any, prefix = '', timestamp?: Date) => {
+          if (!obj || typeof obj !== 'object') return;
+          for (const [k, v] of Object.entries(obj)) {
+            if (k === 'error' || k === 'errors' || k === 'warnings') continue;
+            const fullKey = prefix ? `${prefix}.${k}` : k;
+            if (v !== null && typeof v === 'object' && !Array.isArray(v)) {
+              scanRecursive(v, fullKey, timestamp);
+            } else if (v !== undefined && v !== null) {
+              let cleanKey = fullKey;
+              if (cleanKey.startsWith('data.')) {
+                cleanKey = cleanKey.substring(5);
+              }
+              registerField(cleanKey, v, timestamp);
+              if (cleanKey !== k && !fieldMap.has(k)) {
+                registerField(k, v, timestamp);
               }
             }
+          }
+        };
+
+        const objectsToScan = [rec.object, rec.decodedData].filter(Boolean);
+        for (const raw of objectsToScan) {
+          const parsed = parseIfString(raw);
+          if (parsed && typeof parsed === 'object') {
+            scanRecursive(parsed, '', rec.timestamp);
           }
         }
       }

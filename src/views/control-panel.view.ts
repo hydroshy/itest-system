@@ -3129,10 +3129,20 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
                         <span>Scanning device payloads...</span>
                       </div>
 
+                      <!-- Search / Filter input if many tags -->
+                      <div v-if="!loadingDetectedFields && detectedTelemetryFields.length > 5">
+                        <input
+                          v-model="hmiTagFilterQuery"
+                          type="text"
+                          placeholder="Filter tags (e.g. TEMP, HUM, EVENT)..."
+                          class="w-full bg-slate-900 border border-slate-700/80 rounded px-2 py-0.5 text-[10px] text-white font-mono focus:border-sky-500"
+                        />
+                      </div>
+
                       <!-- Tag Pills / Chips -->
-                      <div v-else-if="detectedTelemetryFields.length > 0" class="flex flex-wrap gap-1 max-h-36 overflow-y-auto custom-scroll pr-1">
+                      <div v-if="!loadingDetectedFields && filteredDetectedTelemetryFields.length > 0" class="flex flex-wrap gap-1 max-h-36 overflow-y-auto custom-scroll pr-1">
                         <button
-                          v-for="f in detectedTelemetryFields"
+                          v-for="f in filteredDetectedTelemetryFields"
                           :key="f.key"
                           type="button"
                           @click="applyDetectedField(f)"
@@ -3140,13 +3150,16 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
                           :class="selectedWidgetBinding.field === f.key ? 'bg-sky-500/25 border-sky-400 text-sky-200 font-bold shadow-sm' : 'bg-slate-900 hover:bg-slate-800 border-slate-700/80 text-slate-300'"
                           :title="getTagTooltip(f)"
                         >
-                          <span>{{ f.key }}</span>
+                          <span :class="f.source === 'decoded_payload' ? 'text-emerald-400 font-semibold' : 'text-slate-300'">{{ f.key }}</span>
                           <span class="text-[9px] text-slate-400 font-normal">({{ f.latestValue }}{{ f.unit ? f.unit : '' }})</span>
                         </button>
                       </div>
 
-                      <div v-else class="text-[10px] text-slate-500 italic">
+                      <div v-else-if="!loadingDetectedFields && detectedTelemetryFields.length === 0" class="text-[10px] text-slate-500 italic">
                         No uplink payloads received yet. You can still manually type a tag below.
+                      </div>
+                      <div v-else-if="!loadingDetectedFields && filteredDetectedTelemetryFields.length === 0" class="text-[10px] text-slate-500 italic">
+                        No matching tags for "{{ hmiTagFilterQuery }}".
                       </div>
                     </div>
 
@@ -3155,9 +3168,15 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
                       <input
                         type="text"
                         v-model="selectedWidgetBinding.field"
+                        list="hmi-detected-tags-list"
                         placeholder="e.g. water_level, LM_OF_T2_IMP_KWH..."
                         class="w-full bg-slate-950 border border-slate-700 rounded px-2 py-1 text-white font-mono text-xs focus:ring-1 focus:ring-sky-500"
                       />
+                      <datalist id="hmi-detected-tags-list">
+                        <option v-for="f in detectedTelemetryFields" :key="f.key" :value="f.key">
+                          {{ f.label }} ({{ f.latestValue }}{{ f.unit ? ' ' + f.unit : '' }})
+                        </option>
+                      </datalist>
                     </div>
 
                     <div class="grid grid-cols-2 gap-2">
@@ -6969,6 +6988,18 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
 
         const detectedTelemetryFields = ref([]);
         const loadingDetectedFields = ref(false);
+        const hmiTagFilterQuery = ref('');
+
+        const filteredDetectedTelemetryFields = computed(() => {
+          if (!hmiTagFilterQuery.value || !hmiTagFilterQuery.value.trim()) {
+            return detectedTelemetryFields.value;
+          }
+          const q = hmiTagFilterQuery.value.trim().toLowerCase();
+          return detectedTelemetryFields.value.filter(f =>
+            (f.key && f.key.toLowerCase().includes(q)) ||
+            (f.label && f.label.toLowerCase().includes(q))
+          );
+        });
 
         const fetchDetectedFieldsForSelectedDevice = async () => {
           const devEUI = selectedWidgetBinding.value?.devEUI;
@@ -7169,13 +7200,37 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
           let raw = undefined;
 
           if (binding?.devEUI && binding?.field) {
-            const key = binding.devEUI + '.' + binding.field;
+            const dev = binding.devEUI.trim().toUpperCase();
+            const f = binding.field.trim();
+            const key = dev + '.' + f;
             raw = hmiTelemetryMap.value[key];
+            if (raw === undefined) {
+              raw = hmiTelemetryMap.value[f];
+            }
+            if (raw === undefined && !f.startsWith('data.')) {
+              raw = hmiTelemetryMap.value[dev + '.data.' + f] ?? hmiTelemetryMap.value['data.' + f];
+            }
+            if (raw === undefined && f.startsWith('data.')) {
+              const stripped = f.substring(5);
+              raw = hmiTelemetryMap.value[dev + '.' + stripped] ?? hmiTelemetryMap.value[stripped];
+            }
+            if (raw === undefined) {
+              for (const k of Object.keys(hmiTelemetryMap.value)) {
+                if (k.endsWith('.' + f) || (dev && k.startsWith(dev) && k.endsWith(f))) {
+                  raw = hmiTelemetryMap.value[k];
+                  break;
+                }
+              }
+            }
           } else if (binding?.field) {
-            for (const k of Object.keys(hmiTelemetryMap.value)) {
-              if (k.endsWith('.' + binding.field)) {
-                raw = hmiTelemetryMap.value[k];
-                break;
+            const f = binding.field.trim();
+            raw = hmiTelemetryMap.value[f];
+            if (raw === undefined) {
+              for (const k of Object.keys(hmiTelemetryMap.value)) {
+                if (k.endsWith('.' + f)) {
+                  raw = hmiTelemetryMap.value[k];
+                  break;
+                }
               }
             }
           }
@@ -7455,6 +7510,10 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
               } else if (v !== null && v !== undefined) {
                 flat[fullKey] = v;
                 if (prefix && flat[k] === undefined) flat[k] = v;
+                if (fullKey.startsWith('data.')) {
+                  const leaf = fullKey.substring(5);
+                  if (flat[leaf] === undefined) flat[leaf] = v;
+                }
               }
             }
           };
@@ -7965,6 +8024,8 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
           getWidgetTrendPath,
           detectedTelemetryFields,
           loadingDetectedFields,
+          hmiTagFilterQuery,
+          filteredDetectedTelemetryFields,
           fetchDetectedFieldsForSelectedDevice,
           applyDetectedField,
           stretchWidgetWidth,
