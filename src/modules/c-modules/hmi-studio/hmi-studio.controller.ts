@@ -6,10 +6,11 @@ import {
   Delete,
   Body,
   Param,
+  Query,
   UseGuards,
   Req,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
 import { HmiStudioService } from './hmi-studio.service';
 import {
   CreateHmiScreenDto,
@@ -94,6 +95,32 @@ export class HmiStudioController {
   ) {
     const author = req.user?.username || req.user?.fullName || 'Admin';
     return await this.hmiStudioService.clone(id, dto, author);
+  }
+
+  @Get('telemetry/trend')
+  @ApiOperation({ summary: 'Lấy chuỗi dữ liệu thời gian thực (time-series) cho Trend Widgets' })
+  @ApiQuery({ name: 'devEUIs', required: false, description: 'Danh sách DevEUI (phân cách bằng dấu phẩy)' })
+  @ApiQuery({ name: 'from', required: false, description: 'Từ mốc thời gian ISO' })
+  @ApiQuery({ name: 'to', required: false, description: 'Đến mốc thời gian ISO' })
+  @ApiQuery({ name: 'limit', required: false, description: 'Số điểm tối đa (mặc định 500)' })
+  async getTelemetryTrend(
+    @Query('devEUIs') devEUIs?: string,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+    @Query('limit') limit?: number,
+  ) {
+    const devEUIList = devEUIs
+      ? devEUIs
+          .split(',')
+          .map((s) => s.trim().toUpperCase())
+          .filter(Boolean)
+      : undefined;
+    return await this.hmiStudioService.getTelemetryTrend({
+      devEUIs: devEUIList,
+      from,
+      to,
+      limit: limit !== undefined ? Number(limit) : 500,
+    });
   }
 
   @Get('devices/:devEUI/telemetry-fields')

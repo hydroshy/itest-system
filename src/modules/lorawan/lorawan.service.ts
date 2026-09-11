@@ -939,16 +939,48 @@ export class LorawanService {
     });
   }
 
-  async getTelemetry(devEUI?: string, limit: number = 50): Promise<TelemetryEntity[]> {
-    const qb = this.telemetryRepo.createQueryBuilder('telemetry')
-      .orderBy('telemetry.timestamp', 'DESC');
+  async getTelemetry(
+    devEUI?: string,
+    limit: number = 50,
+    options?: {
+      devEUIs?: string[];
+      from?: string | Date;
+      to?: string | Date;
+      order?: 'ASC' | 'DESC';
+    },
+  ): Promise<TelemetryEntity[]> {
+    const qb = this.telemetryRepo.createQueryBuilder('telemetry');
+
+    const order = options?.order || 'DESC';
+    qb.orderBy('telemetry.timestamp', order);
 
     if (limit && limit > 0) {
       qb.take(limit);
     }
 
-    if (devEUI) {
-      qb.where('UPPER(telemetry.devEui) = :devEUI', { devEUI: devEUI.toUpperCase() });
+    if (options?.devEUIs && options.devEUIs.length > 0) {
+      const upperEUIs = options.devEUIs.map(e => e.trim().toUpperCase()).filter(Boolean);
+      if (upperEUIs.length === 1) {
+        qb.andWhere('UPPER(telemetry.devEui) = :eui', { eui: upperEUIs[0] });
+      } else if (upperEUIs.length > 1) {
+        qb.andWhere('UPPER(telemetry.devEui) IN (:...euis)', { euis: upperEUIs });
+      }
+    } else if (devEUI) {
+      qb.andWhere('UPPER(telemetry.devEui) = :devEUI', { devEUI: devEUI.toUpperCase() });
+    }
+
+    if (options?.from) {
+      const fromDate = new Date(options.from);
+      if (!isNaN(fromDate.getTime())) {
+        qb.andWhere('telemetry.timestamp >= :from', { from: fromDate });
+      }
+    }
+
+    if (options?.to) {
+      const toDate = new Date(options.to);
+      if (!isNaN(toDate.getTime())) {
+        qb.andWhere('telemetry.timestamp <= :to', { to: toDate });
+      }
     }
 
     return await qb.getMany();

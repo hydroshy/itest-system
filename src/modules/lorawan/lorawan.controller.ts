@@ -131,11 +131,33 @@ export class LorawanController {
   @RequirePermissions('lorawan:telemetry:read')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Danh sách dữ liệu Telemetry nhận từ Webhook' })
-  @ApiQuery({ name: 'devEUI', required: false, description: 'Lọc theo DevEUI' })
+  @ApiQuery({ name: 'devEUI', required: false, description: 'Lọc theo 1 DevEUI' })
+  @ApiQuery({ name: 'devEUIs', required: false, description: 'Lọc theo nhiều DevEUI (phân cách bằng dấu phẩy)' })
+  @ApiQuery({ name: 'from', required: false, description: 'Từ mốc thời gian ISO' })
+  @ApiQuery({ name: 'to', required: false, description: 'Đến mốc thời gian ISO' })
+  @ApiQuery({ name: 'order', required: false, enum: ['ASC', 'DESC'], description: 'Sắp xếp thời gian' })
   @ApiQuery({ name: 'limit', required: false, description: 'Số bản ghi tối đa (0 để lấy toàn bộ)' })
-  async getTelemetry(@Query('devEUI') devEUI?: string, @Query('limit') limit?: number) {
-    const parsedLimit = limit !== undefined ? Number(limit) : (devEUI ? 0 : 100);
-    return await this.lorawanService.getTelemetry(devEUI, parsedLimit);
+  async getTelemetry(
+    @Query('devEUI') devEUI?: string,
+    @Query('devEUIs') devEUIs?: string,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+    @Query('order') order?: 'ASC' | 'DESC',
+    @Query('limit') limit?: number,
+  ) {
+    const parsedLimit = limit !== undefined ? Number(limit) : (devEUI || devEUIs ? 0 : 100);
+    const devEUIList = devEUIs
+      ? devEUIs
+          .split(',')
+          .map((s) => s.trim().toUpperCase())
+          .filter(Boolean)
+      : undefined;
+    return await this.lorawanService.getTelemetry(devEUI, parsedLimit, {
+      devEUIs: devEUIList,
+      from,
+      to,
+      order,
+    });
   }
 
   @Get('devices/:devEUI/telemetry-fields')

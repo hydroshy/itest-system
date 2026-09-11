@@ -2949,30 +2949,185 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
                     </button>
                   </div>
 
-                  <!-- WIDGET TYPE: REALTIME-TREND -->
-                  <div v-else-if="w.type === 'realtime-trend'" class="w-full h-full flex flex-col bg-slate-950 rounded-lg border border-slate-800 p-2.5 overflow-hidden shadow-inner">
-                    <div class="flex items-center justify-between pb-1 mb-1 border-b border-slate-800 text-[10px] font-bold text-slate-300 uppercase">
-                      <span class="flex items-center gap-1.5">
-                        <i class="fa-solid fa-chart-line text-sky-400"></i>
-                        <span>{{ w.props.title || 'Live Trend' }}</span>
-                      </span>
-                      <span class="font-mono text-[9px] text-emerald-400 flex items-center gap-1">
-                        <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-                        REALTIME
-                      </span>
+                  <!-- WIDGET TYPE: REALTIME-TREND (METABASE STYLE WITH MULTI-SENSOR Y-AXIS & TIMESTAMP X-AXIS) -->
+                  <div v-else-if="w.type === 'realtime-trend'" class="w-full h-full flex flex-col bg-slate-950/95 rounded-xl border border-slate-800 p-3 overflow-hidden shadow-2xl relative select-none">
+                    <!-- Top Bar: Title + Metabase Time Range Filter + Controls -->
+                    <div class="flex items-center justify-between pb-2 mb-2 border-b border-slate-800/80 gap-2 shrink-0">
+                      <!-- Left: Title & Status -->
+                      <div class="flex items-center gap-2 min-w-0">
+                        <i class="fa-solid fa-chart-line text-sky-400 text-xs"></i>
+                        <span class="text-[11px] font-bold text-white uppercase tracking-wider truncate">{{ w.props?.title || 'REALTIME TELEMETRY TREND' }}</span>
+                        <span class="font-mono text-[9px] text-emerald-400 flex items-center gap-1 bg-emerald-500/10 border border-emerald-500/30 px-1.5 py-0.2 rounded shrink-0">
+                          <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                          LIVE
+                        </span>
+                      </div>
+
+                      <!-- Right: Metabase Time Filter Pills + Add Sensor Button -->
+                      <div class="flex items-center gap-1.5 shrink-0">
+                        <!-- Metabase Time Range Presets -->
+                        <div class="flex items-center bg-slate-900 border border-slate-700/70 rounded-lg p-0.5 text-[9px] font-mono">
+                          <button
+                            v-for="r in ['15m', '1h', '6h', '24h', '7d']"
+                            :key="r"
+                            type="button"
+                            @click.stop="setTrendTimeRange(w, r)"
+                            class="px-1.5 py-0.5 rounded transition font-bold cursor-pointer"
+                            :class="(w.props?.timeRange || '1h') === r ? 'bg-sky-500 text-white shadow-sm' : 'text-slate-400 hover:text-slate-200'"
+                          >
+                            {{ r }}
+                          </button>
+                        </div>
+
+                        <!-- Add Series / Sensor Button -->
+                        <button
+                          type="button"
+                          @click.stop="openAddTrendSeriesModal(w)"
+                          class="px-2 py-1 rounded-lg bg-sky-500/15 hover:bg-sky-500/25 border border-sky-500/30 text-sky-300 text-[10px] font-semibold flex items-center gap-1 cursor-pointer transition"
+                          title="Thêm cảm biến vào biểu đồ (Y-Axis)"
+                        >
+                          <i class="fa-solid fa-plus text-[9px]"></i>
+                          <span>Sensor</span>
+                        </button>
+                      </div>
                     </div>
-                    <div class="flex-1 w-full min-h-0 relative">
-                      <svg viewBox="0 0 300 120" preserveAspectRatio="none" class="w-full h-full">
-                        <line x1="0" y1="30" x2="300" y2="30" stroke="#1e293b" stroke-width="1" stroke-dasharray="3,3" />
-                        <line x1="0" y1="60" x2="300" y2="60" stroke="#1e293b" stroke-width="1" stroke-dasharray="3,3" />
-                        <line x1="0" y1="90" x2="300" y2="90" stroke="#1e293b" stroke-width="1" stroke-dasharray="3,3" />
-                        <path :d="getWidgetTrendPath(w, 0)" fill="none" stroke="#38bdf8" stroke-width="2" stroke-linecap="round" />
-                        <path :d="getWidgetTrendPath(w, 1)" fill="none" stroke="#10b981" stroke-width="1.5" stroke-linecap="round" stroke-dasharray="4,2" />
+
+                    <!-- Main Chart SVG Area: Y-Axis + Grid + Curves + X-Axis (Timestamp) -->
+                    <div
+                      class="flex-1 w-full min-h-0 relative bg-slate-950 rounded-lg border border-slate-900 overflow-hidden"
+                      @mousemove="handleTrendMouseMove($event, w)"
+                      @mouseleave="handleTrendMouseLeave(w)"
+                    >
+                      <svg viewBox="0 0 500 220" preserveAspectRatio="none" class="w-full h-full">
+                        <defs>
+                          <linearGradient v-for="s in getTrendSeries(w)" :key="'grad_' + s.id" :id="'trend_grad_' + w.id + '_' + s.id" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" :stop-color="s.color || '#38bdf8'" stop-opacity="0.25" />
+                            <stop offset="100%" :stop-color="s.color || '#38bdf8'" stop-opacity="0.0" />
+                          </linearGradient>
+                        </defs>
+
+                        <!-- Horizontal Grid Lines & Y-Axis Labels -->
+                        <g v-for="yt in getTrendYBounds(w).ticks" :key="'y_' + yt.y">
+                          <line x1="45" :y1="yt.y" x2="485" :y2="yt.y" stroke="#1e293b" stroke-width="1" stroke-dasharray="3,3" />
+                          <text x="40" :y="yt.y + 3" fill="#64748b" font-size="8" font-family="monospace" text-anchor="end">{{ yt.label }}</text>
+                        </g>
+
+                        <!-- Vertical Grid Lines & X-Axis Timestamp Labels (Metabase style) -->
+                        <g v-for="xt in getTrendXTicks(w)" :key="'x_' + xt.x">
+                          <line :x1="xt.x" y1="16" :x2="xt.x" y2="192" stroke="#1e293b" stroke-width="1" stroke-dasharray="2,2" />
+                          <text :x="xt.x" y="210" fill="#64748b" font-size="8" font-family="monospace" text-anchor="middle">{{ xt.label }}</text>
+                        </g>
+
+                        <!-- Area & Line Paths for each visible Series -->
+                        <template v-for="s in getTrendSeries(w)" :key="'path_' + s.id">
+                          <path
+                            v-if="s.visible !== false"
+                            :d="getTrendSeriesAreaPath(w, s)"
+                            :fill="'url(#trend_grad_' + w.id + '_' + s.id + ')'"
+                          />
+                          <path
+                            v-if="s.visible !== false"
+                            :d="getTrendSeriesPath(w, s)"
+                            fill="none"
+                            :stroke="s.color || '#38bdf8'"
+                            stroke-width="2.5"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                          />
+                          <!-- Latest Point Dot -->
+                          <circle
+                            v-if="s.visible !== false && getTrendLatestPoint(w, s)"
+                            :cx="getTrendLatestPoint(w, s).x"
+                            :cy="getTrendLatestPoint(w, s).y"
+                            r="3.5"
+                            :fill="s.color || '#38bdf8'"
+                            stroke="#0f172a"
+                            stroke-width="1.5"
+                          />
+                        </template>
+
+                        <!-- Interactive Crosshair Hover Line -->
+                        <g v-if="trendHoverState[w.id]?.visible">
+                          <line
+                            :x1="trendHoverState[w.id].x"
+                            y1="16"
+                            :x2="trendHoverState[w.id].x"
+                            y2="192"
+                            stroke="#e2e8f0"
+                            stroke-width="1"
+                            stroke-dasharray="2,2"
+                          />
+                        </g>
                       </svg>
+
+                      <!-- Interactive Hover Tooltip Overlay -->
+                      <div
+                        v-if="trendHoverState[w.id]?.visible"
+                        class="absolute z-20 pointer-events-none bg-slate-900/95 border border-slate-700 p-2 rounded-lg shadow-xl text-[10px] font-mono space-y-1 backdrop-blur"
+                        :style="{ left: Math.min(trendHoverState[w.id].pixelX + 10, 260) + 'px', top: '10px' }"
+                      >
+                        <div class="text-slate-400 font-bold border-b border-slate-800 pb-0.5 flex items-center gap-1">
+                          <i class="fa-solid fa-clock text-sky-400 text-[9px]"></i>
+                          <span>{{ trendHoverState[w.id].timeStr }}</span>
+                        </div>
+                        <div v-for="item in trendHoverState[w.id].values" :key="item.label" class="flex items-center justify-between gap-3">
+                          <span class="flex items-center gap-1">
+                            <span class="w-2 h-2 rounded-full" :style="{ backgroundColor: item.color }"></span>
+                            <span class="text-slate-300">{{ item.label }}:</span>
+                          </span>
+                          <span class="font-bold text-white">{{ item.value }} {{ item.unit }}</span>
+                        </div>
+                      </div>
+
+                      <!-- Empty State when no series configured -->
+                      <div
+                        v-if="getTrendSeries(w).length === 0"
+                        class="absolute inset-0 flex flex-col items-center justify-center p-4 text-center bg-slate-950/80"
+                      >
+                        <i class="fa-solid fa-chart-line text-slate-600 text-2xl mb-1"></i>
+                        <span class="text-slate-400 text-[11px] font-medium">Chưa có cảm biến nào được thêm vào trục Y</span>
+                        <button
+                          type="button"
+                          @click.stop="openAddTrendSeriesModal(w)"
+                          class="mt-2 px-3 py-1 bg-sky-600 hover:bg-sky-500 text-white rounded-lg text-[10px] font-bold flex items-center gap-1.5 cursor-pointer shadow-lg transition"
+                        >
+                          <i class="fa-solid fa-plus"></i>
+                          <span>Thêm Cảm Biến Vào Đồ Thị</span>
+                        </button>
+                      </div>
                     </div>
-                    <div class="flex items-center gap-3 pt-1 text-[9px] font-mono text-slate-400">
-                      <span class="flex items-center gap-1"><span class="w-2 h-0.5 bg-sky-400"></span> Level</span>
-                      <span class="flex items-center gap-1"><span class="w-2 h-0.5 bg-emerald-400"></span> Pressure</span>
+
+                    <!-- Bottom Bar: Multi-Sensor Series Legend & Show/Hide Toggles -->
+                    <div class="pt-2 mt-1 border-t border-slate-800/60 flex items-center justify-between gap-2 text-[10px] font-mono shrink-0 flex-wrap">
+                      <div class="flex items-center gap-2 flex-wrap">
+                        <div
+                          v-for="s in getTrendSeries(w)"
+                          :key="s.id"
+                          @click.stop="toggleTrendSeriesVisible(w, s.id)"
+                          class="flex items-center gap-1.5 px-2 py-0.5 rounded-md border transition cursor-pointer select-none"
+                          :class="s.visible !== false ? 'bg-slate-900/90 border-slate-700 text-white' : 'bg-slate-950/50 border-slate-800 text-slate-500 opacity-60 line-through'"
+                          :title="'Bấm để ẩn/hiện: ' + s.label"
+                        >
+                          <span class="w-2.5 h-2.5 rounded-full shrink-0" :style="{ backgroundColor: s.color || '#38bdf8' }"></span>
+                          <span class="font-semibold truncate max-w-[120px]">{{ s.label || s.field }}</span>
+                          <span class="text-sky-300 font-bold ml-1">
+                            {{ getTrendSeriesLatestVal(w, s) }} {{ s.unit || '' }}
+                          </span>
+                          <button
+                            v-if="hmiEditorMode === 'design'"
+                            type="button"
+                            @click.stop="removeTrendSeries(w, s.id)"
+                            class="ml-1 text-slate-500 hover:text-red-400 text-[9px] p-0.5 cursor-pointer"
+                            title="Xóa series này"
+                          >
+                            <i class="fa-solid fa-xmark"></i>
+                          </button>
+                        </div>
+                      </div>
+
+                      <div class="text-[9px] text-slate-500 flex items-center gap-2">
+                        <span>{{ (trendPointsMap[w.id] || []).length }} điểm mẫu</span>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -3085,7 +3240,81 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
                 </div>
 
                 <!-- Section 3: Tag Binding Engine (Auto-Detection Enabled) -->
-                <div class="space-y-2 border-t border-slate-800 pt-3">
+                <div v-if="selectedWidget.type === 'realtime-trend'" class="space-y-3 border-t border-slate-800 pt-3">
+                  <div class="flex items-center justify-between">
+                    <span class="text-[10px] font-extrabold uppercase text-slate-500">Cảm Biến Trục Y (Series)</span>
+                    <button
+                      type="button"
+                      @click="openAddTrendSeriesModal(selectedWidget)"
+                      class="px-2 py-0.5 rounded bg-sky-500/20 hover:bg-sky-500/30 text-sky-300 text-[10px] font-bold flex items-center gap-1 cursor-pointer transition border border-sky-500/30"
+                    >
+                      <i class="fa-solid fa-plus text-[9px]"></i>
+                      <span>Thêm Sensor</span>
+                    </button>
+                  </div>
+
+                  <!-- Default Metabase Time Range for this widget -->
+                  <div class="space-y-1">
+                    <label class="text-[10px] text-slate-400">Khoảng thời gian mặc định (Time Filter)</label>
+                    <select
+                      v-model="selectedWidget.props.timeRange"
+                      @change="fetchTrendHistoryForWidget(selectedWidget)"
+                      class="w-full bg-slate-950 border border-slate-700 rounded px-2 py-1.5 text-white text-xs"
+                    >
+                      <option value="15m">15 phút gần nhất (15m)</option>
+                      <option value="1h">1 giờ gần nhất (1h)</option>
+                      <option value="6h">6 giờ gần nhất (6h)</option>
+                      <option value="24h">24 giờ gần nhất (24h)</option>
+                      <option value="7d">7 ngày gần nhất (7d)</option>
+                      <option value="30d">30 ngày gần nhất (30d)</option>
+                    </select>
+                  </div>
+
+                  <!-- Series List -->
+                  <div class="space-y-2">
+                    <div class="text-[10px] text-slate-400 font-bold uppercase">Danh Sách Cảm Biến / Tag Trục Y ({{ getTrendSeries(selectedWidget).length }})</div>
+                    <div v-if="getTrendSeries(selectedWidget).length === 0" class="p-3 rounded-lg bg-slate-950 border border-dashed border-slate-800 text-center text-slate-500 text-[11px]">
+                      Chưa có cảm biến nào. Bấm nút "+ Thêm Sensor" để gán cảm biến vào đồ thị.
+                    </div>
+                    <div
+                      v-for="s in getTrendSeries(selectedWidget)"
+                      :key="s.id"
+                      class="p-2 rounded-xl bg-slate-950 border border-slate-800 space-y-1 text-xs"
+                    >
+                      <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-1.5 min-w-0">
+                          <span class="w-3 h-3 rounded-full shrink-0 border border-slate-700" :style="{ backgroundColor: s.color }"></span>
+                          <span class="font-bold text-white truncate text-[11px]">{{ s.label || s.field }}</span>
+                        </div>
+                        <div class="flex items-center gap-1 shrink-0">
+                          <button
+                            type="button"
+                            @click="toggleTrendSeriesVisible(selectedWidget, s.id)"
+                            class="p-1 text-slate-400 hover:text-white text-xs cursor-pointer"
+                            :title="s.visible !== false ? 'Ẩn khỏi đồ thị' : 'Hiện lại trên đồ thị'"
+                          >
+                            <i :class="s.visible !== false ? 'fa-solid fa-eye text-emerald-400' : 'fa-solid fa-eye-slash text-slate-600'"></i>
+                          </button>
+                          <button
+                            type="button"
+                            @click="removeTrendSeries(selectedWidget, s.id)"
+                            class="p-1 text-slate-400 hover:text-red-400 text-xs cursor-pointer"
+                            title="Xóa cảm biến này"
+                          >
+                            <i class="fa-solid fa-trash-can"></i>
+                          </button>
+                        </div>
+                      </div>
+                      <div class="flex items-center justify-between text-[10px] text-slate-400 font-mono">
+                        <span class="truncate max-w-[140px]" :title="s.devEUI">Dev: {{ s.devEUI || 'All' }}</span>
+                        <span class="text-sky-400 font-bold">{{ s.field }} {{ s.unit ? '(' + s.unit + ')' : '' }}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Section 3 for Single-Value Widgets: Standard LoRaWAN Tag Binding -->
+                <div v-else class="space-y-2 border-t border-slate-800 pt-3">
                   <div class="flex items-center justify-between">
                     <span class="text-[10px] font-extrabold uppercase text-slate-500">LoRaWAN Tag Binding</span>
                     <span class="text-[9px] px-1.5 py-0.2 rounded bg-emerald-500/10 text-emerald-400 font-mono">Auto-Detect</span>
@@ -4352,6 +4581,157 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
           </button>
           <button @click="submitCreateHmiScreen" class="px-4 py-1.5 rounded-lg bg-sky-600 hover:bg-sky-500 text-white text-xs font-bold cursor-pointer shadow-md">
             Create Screen
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL: ADD SENSOR / SERIES TO TREND CHART (Y-AXIS) -->
+    <div v-if="trendSeriesModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop" style="background: rgba(2, 6, 23, 0.85); backdrop-filter: blur(6px);">
+      <div class="w-full max-w-lg bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-4 shadow-2xl">
+        <div class="flex items-center justify-between pb-3 border-b border-slate-800">
+          <h3 class="text-sm font-bold text-white uppercase flex items-center gap-2">
+            <i class="fa-solid fa-chart-line text-sky-400"></i>
+            <span>Thêm Cảm Biến Vào Đồ Thị Trend (Trục Y)</span>
+          </h3>
+          <button @click="trendSeriesModal = false" class="text-slate-400 hover:text-white cursor-pointer">
+            <i class="fa-solid fa-xmark"></i>
+          </button>
+        </div>
+
+        <div class="space-y-4 text-xs">
+          <!-- Step 1: Chọn thiết bị (Device) -->
+          <div>
+            <label class="block text-slate-300 font-bold mb-1 flex items-center gap-1.5">
+              <span class="w-4 h-4 rounded-full bg-sky-500/20 text-sky-400 flex items-center justify-center text-[10px]">1</span>
+              <span>Chọn Thiết Bị Cảm Biến (DevEUI)</span>
+            </label>
+            <select
+              v-model="trendSeriesForm.devEUI"
+              @change="fetchDetectedTrendFields(trendSeriesForm.devEUI)"
+              class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white text-xs focus:ring-1 focus:ring-sky-500"
+            >
+              <option value="">-- Chọn Thiết Bị --</option>
+              <option v-for="d in devicesList" :key="d.devEUI" :value="d.devEUI">
+                {{ d.name ? d.name + ' (' + d.devEUI + ')' : d.devEUI }}
+              </option>
+            </select>
+          </div>
+
+          <!-- Step 2: Chọn tag/field giải mã của cảm biến -->
+          <div>
+            <div class="flex items-center justify-between mb-1">
+              <label class="text-slate-300 font-bold flex items-center gap-1.5">
+                <span class="w-4 h-4 rounded-full bg-sky-500/20 text-sky-400 flex items-center justify-center text-[10px]">2</span>
+                <span>Chọn Tag / Thông Số Cảm Biến</span>
+              </label>
+              <button
+                v-if="trendSeriesForm.devEUI"
+                type="button"
+                @click="fetchDetectedTrendFields(trendSeriesForm.devEUI)"
+                class="text-slate-400 hover:text-sky-400 text-[11px] flex items-center gap-1 cursor-pointer"
+              >
+                <i class="fa-solid fa-arrows-rotate" :class="{ 'animate-spin': loadingTrendFields }"></i>
+                <span>Quét lại tags</span>
+              </button>
+            </div>
+
+            <!-- Loading tags -->
+            <div v-if="loadingTrendFields" class="p-3 rounded-lg bg-slate-950 border border-slate-800 text-center text-slate-400">
+              <i class="fa-solid fa-spinner animate-spin text-sky-400 mr-2"></i>
+              <span>Đang quét payload dữ liệu từ cảm biến...</span>
+            </div>
+
+            <!-- Tag pills -->
+            <div v-else-if="detectedTrendFields.length > 0" class="p-2.5 rounded-xl bg-slate-950 border border-slate-800 space-y-2">
+              <div class="text-[10px] text-slate-400">Bấm chọn một thông số bên dưới:</div>
+              <div class="flex flex-wrap gap-1.5 max-h-40 overflow-y-auto custom-scroll pr-1">
+                <button
+                  v-for="f in detectedTrendFields"
+                  :key="f.key"
+                  type="button"
+                  @click="selectTrendTagPill(f)"
+                  class="px-2.5 py-1 rounded-lg text-xs font-mono transition flex items-center gap-1.5 cursor-pointer border"
+                  :class="trendSeriesForm.field === f.key ? 'bg-sky-500/30 border-sky-400 text-white font-bold shadow-md' : 'bg-slate-900 hover:bg-slate-800 border-slate-700/80 text-slate-300'"
+                >
+                  <span :class="f.source === 'decoded_payload' ? 'text-emerald-400 font-semibold' : 'text-slate-300'">{{ f.key }}</span>
+                  <span class="text-[10px] text-slate-400">({{ f.latestValue }}{{ f.unit || '' }})</span>
+                </button>
+              </div>
+            </div>
+
+            <div v-else-if="trendSeriesForm.devEUI" class="p-2.5 rounded-xl bg-slate-950 border border-slate-800 text-slate-400 italic">
+              Thiết bị chưa có gói tin uplink trong DB. Bạn có thể nhập mã tag thủ công bên dưới.
+            </div>
+
+            <!-- Field Name & Unit inputs -->
+            <div class="grid grid-cols-2 gap-2 mt-2">
+              <div>
+                <label class="text-[10px] text-slate-400">Mã Tag (Field)</label>
+                <input
+                  type="text"
+                  v-model="trendSeriesForm.field"
+                  placeholder="e.g. HUMIDITY, TEMPERATURE..."
+                  class="w-full bg-slate-950 border border-slate-700 rounded px-2.5 py-1.5 text-white font-mono"
+                />
+              </div>
+              <div>
+                <label class="text-[10px] text-slate-400">Đơn vị đo (Unit)</label>
+                <input
+                  type="text"
+                  v-model="trendSeriesForm.unit"
+                  placeholder="e.g. °C, %RH, bar..."
+                  class="w-full bg-slate-950 border border-slate-700 rounded px-2.5 py-1.5 text-white font-mono"
+                />
+              </div>
+            </div>
+          </div>
+
+          <!-- Step 3: Tên hiển thị và Màu sắc đường đồ thị -->
+          <div class="grid grid-cols-2 gap-3 pt-1">
+            <div>
+              <label class="block text-slate-300 font-bold mb-1 flex items-center gap-1.5">
+                <span class="w-4 h-4 rounded-full bg-sky-500/20 text-sky-400 flex items-center justify-center text-[10px]">3</span>
+                <span>Tên Hiển Thị (Label)</span>
+              </label>
+              <input
+                type="text"
+                v-model="trendSeriesForm.label"
+                placeholder="e.g. Cảm biến 01 - Nhiệt độ"
+                class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-1.5 text-white"
+              />
+            </div>
+            <div>
+              <label class="block text-slate-300 font-bold mb-1">Màu Sắc Đường Đồ Thị</label>
+              <div class="flex items-center gap-2">
+                <input
+                  type="color"
+                  v-model="trendSeriesForm.color"
+                  class="w-8 h-8 rounded bg-transparent border border-slate-700 cursor-pointer"
+                />
+                <!-- Preset color buttons -->
+                <div class="flex items-center gap-1">
+                  <button
+                    v-for="c in ['#38bdf8', '#10b981', '#f59e0b', '#f43f5e', '#a855f7', '#06b6d4', '#eab308']"
+                    :key="c"
+                    type="button"
+                    @click="trendSeriesForm.color = c"
+                    class="w-5 h-5 rounded-full border border-slate-700 cursor-pointer transition hover:scale-110"
+                    :style="{ backgroundColor: c }"
+                  ></button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="flex items-center justify-end gap-2 pt-3 border-t border-slate-800">
+          <button @click="trendSeriesModal = false" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold cursor-pointer">
+            Hủy
+          </button>
+          <button @click="saveTrendSeries" class="px-4 py-1.5 rounded-lg bg-sky-600 hover:bg-sky-500 text-white text-xs font-bold cursor-pointer shadow-md flex items-center gap-1.5">
+            <i class="fa-solid fa-check"></i>
+            <span>Thêm Vào Đồ Thị</span>
           </button>
         </div>
       </div>
@@ -6584,6 +6964,13 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
         const canvasPreset = ref('1280x720');
         const hmiTelemetryMap = ref({});
         const hmiTrendHistory = ref([]);
+        const trendPointsMap = ref({});
+        const trendHoverState = ref({});
+        const trendSeriesModal = ref(false);
+        const trendTargetWidget = ref(null);
+        const trendSeriesForm = ref({ devEUI: '', field: '', label: '', color: '#38bdf8', unit: '' });
+        const detectedTrendFields = ref([]);
+        const loadingTrendFields = ref(false);
         const hmiTelemetryTimer = ref(null);
         const createHmiModal = ref(false);
         const newHmiScreenForm = ref({
@@ -6643,6 +7030,11 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
             currentHmiScreen.value = JSON.parse(JSON.stringify(found));
             selectedWidgetId.value = null;
             canvasPreset.value = (currentHmiScreen.value.canvasConfig?.width || 1280) + 'x' + (currentHmiScreen.value.canvasConfig?.height || 720);
+            currentHmiScreen.value.widgets?.forEach(w => {
+              if (w.type === 'realtime-trend') {
+                fetchTrendHistoryForWidget(w);
+              }
+            });
           }
         };
 
@@ -6904,9 +7296,22 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
               action = { type: 'downlink', fPort: 1, payloadHex: 'FFFF', confirmMessage: 'Trigger emergency shutdown command?' };
               break;
             case 'realtime-trend':
-              defaultW = 480;
-              defaultH = 240;
-              defaultProps = { title: 'REALTIME TELEMETRY TREND' };
+              defaultW = 500;
+              defaultH = 260;
+              const seedDev = (devicesList.value && devicesList.value.length > 0) ? devicesList.value[0].devEUI : '';
+              defaultProps = {
+                title: 'REALTIME TELEMETRY TREND',
+                timeRange: '1h',
+                series: seedDev ? [{
+                  id: 'ser_' + Date.now().toString(36),
+                  devEUI: seedDev,
+                  field: 'HUMIDITY',
+                  label: (devicesList.value[0].name || seedDev) + ' - HUMIDITY',
+                  color: '#38bdf8',
+                  unit: '%RH',
+                  visible: true
+                }] : []
+              };
               break;
           }
 
@@ -7444,47 +7849,548 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
           }
         };
 
-        const getWidgetTrendPath = (widget, tagIndex) => {
-          const tags = widget.props?.tags || ['water_level', 'pressure', 'flow_rate'];
-          const tagName = tags[tagIndex] || 'val';
-          const points = hmiTrendHistory.value;
-          const w = 300;
-          const h = 120;
-
-          if (!points || points.length === 0) {
-            if (tagIndex === 0) return 'M 0 80 Q 75 40 150 60 T 300 30';
-            if (tagIndex === 1) return 'M 0 50 Q 75 90 150 70 T 300 65';
-            return 'M 0 100 Q 75 80 150 85 T 300 60';
+        // REALTIME TREND FUNCTIONS (Metabase style with multi-sensor series & timestamp X-axis)
+        const getTrendSeries = (widget) => {
+          if (!widget) return [];
+          if (Array.isArray(widget.props?.series) && widget.props.series.length > 0) {
+            return widget.props.series;
           }
+          const bindDev = widget.bindings?.value?.devEUI;
+          const bindField = widget.bindings?.value?.field;
+          if (bindDev && bindField) {
+            return [{
+              id: 'ser_bind',
+              devEUI: bindDev,
+              field: bindField,
+              label: bindField,
+              color: '#38bdf8',
+              unit: '',
+              visible: true
+            }];
+          }
+          if (Array.isArray(widget.props?.tags) && widget.props.tags.length > 0) {
+            const colors = ['#38bdf8', '#10b981', '#f59e0b', '#ec4899', '#a855f7'];
+            return widget.props.tags.map((t, i) => ({
+              id: 'ser_tag_' + i,
+              devEUI: '',
+              field: t,
+              label: t,
+              color: colors[i % colors.length],
+              unit: '',
+              visible: true
+            }));
+          }
+          return [];
+        };
 
-          const values = points.map(pt => {
-            let v = pt[tagName];
-            if (v === undefined) {
-              for (const k of Object.keys(pt)) {
-                if (k.endsWith('.' + tagName)) { v = pt[k]; break; }
+        const getTrendYBounds = (widget) => {
+          const points = trendPointsMap.value[widget.id] || hmiTrendHistory.value || [];
+          const series = getTrendSeries(widget).filter(s => s.visible !== false);
+          const plotY0 = 16;
+          const ph = 176;
+
+          let allVals = [];
+          if (points.length > 0 && series.length > 0) {
+            for (const pt of points) {
+              for (const s of series) {
+                let v = pt[s.devEUI ? s.devEUI + '.' + s.field : s.field];
+                if (v === undefined) v = pt[s.field];
+                if (v === undefined) {
+                  for (const k of Object.keys(pt)) {
+                    if (k.endsWith('.' + s.field)) { v = pt[k]; break; }
+                  }
+                }
+                if (v !== undefined && v !== null && !isNaN(Number(v))) {
+                  allVals.push(Number(v));
+                }
               }
             }
-            return Number(v) || 0;
-          });
-
-          let minVal = Math.min(...values);
-          let maxVal = Math.max(...values);
-          if (minVal === maxVal) {
-            minVal = Math.max(0, minVal - 10);
-            maxVal = maxVal + 10;
           }
-          const range = Math.max(1, maxVal - minVal);
-          const step = w / Math.max(1, points.length - 1);
 
-          let d = '';
-          values.forEach((v, i) => {
-            const ratio = (v - minVal) / range;
-            const y = Math.max(10, Math.min(h - 10, h - 10 - ratio * (h - 20)));
-            const x = Math.round(i * step);
-            d += (i === 0 ? ('M ' + x + ' ' + y.toFixed(1)) : (' L ' + x + ' ' + y.toFixed(1)));
+          let minVal = 0;
+          let maxVal = 100;
+          if (allVals.length > 0) {
+            minVal = Math.min(...allVals);
+            maxVal = Math.max(...allVals);
+            if (minVal === maxVal) {
+              minVal = Math.max(0, minVal - 10);
+              maxVal = maxVal + 10;
+            } else {
+              const pad = (maxVal - minVal) * 0.1;
+              minVal = Math.floor(minVal - pad);
+              maxVal = Math.ceil(maxVal + pad);
+            }
+          }
+
+          const valRange = Math.max(1, maxVal - minVal);
+          const ticks = [];
+          const steps = 4;
+          for (let i = 0; i <= steps; i++) {
+            const ratio = i / steps;
+            const y = plotY0 + ph - ratio * ph;
+            const v = minVal + ratio * valRange;
+            ticks.push({
+              y,
+              val: v,
+              label: v.toFixed(v % 1 === 0 ? 0 : 1)
+            });
+          }
+
+          return { minVal, maxVal, valRange, ticks, plotY0, ph };
+        };
+
+        const getTrendXTicks = (widget) => {
+          const points = trendPointsMap.value[widget.id] || hmiTrendHistory.value || [];
+          const range = widget.props?.timeRange || '1h';
+          const now = Date.now();
+          let durationMs = 60 * 60 * 1000;
+          if (range === '15m') durationMs = 15 * 60 * 1000;
+          else if (range === '6h') durationMs = 6 * 3600 * 1000;
+          else if (range === '24h') durationMs = 24 * 3600 * 1000;
+          else if (range === '7d') durationMs = 7 * 86400 * 1000;
+          else if (range === '30d') durationMs = 30 * 86400 * 1000;
+
+          let minT = now - durationMs;
+          let maxT = now;
+          if (points.length > 1) {
+            const firstT = new Date(points[0].timestamp).getTime();
+            const lastT = new Date(points[points.length - 1].timestamp).getTime();
+            if (!isNaN(firstT) && !isNaN(lastT)) {
+              minT = Math.min(minT, firstT);
+              maxT = Math.max(maxT, lastT);
+            }
+          }
+
+          const timeRange = Math.max(1000, maxT - minT);
+          const plotX0 = 45;
+          const pw = 440;
+          const ticks = [];
+          const steps = 4;
+
+          for (let i = 0; i <= steps; i++) {
+            const ratio = i / steps;
+            const x = Math.round(plotX0 + ratio * pw);
+            const tickT = new Date(minT + ratio * timeRange);
+            let label = '';
+            if (timeRange > 24 * 3600 * 1000) {
+              label = tickT.toLocaleDateString([], { month: 'numeric', day: 'numeric' }) + ' ' +
+                      tickT.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            } else {
+              label = tickT.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            }
+            ticks.push({ x, label });
+          }
+
+          return ticks;
+        };
+
+        const getTrendSeriesPath = (widget, series) => {
+          const points = trendPointsMap.value[widget.id] || hmiTrendHistory.value || [];
+          if (!points || points.length === 0) return '';
+
+          const { minVal, valRange, plotY0, ph } = getTrendYBounds(widget);
+          const plotX0 = 45;
+          const pw = 440;
+
+          const range = widget.props?.timeRange || '1h';
+          const now = Date.now();
+          let durationMs = 60 * 60 * 1000;
+          if (range === '15m') durationMs = 15 * 60 * 1000;
+          else if (range === '6h') durationMs = 6 * 3600 * 1000;
+          else if (range === '24h') durationMs = 24 * 3600 * 1000;
+          else if (range === '7d') durationMs = 7 * 86400 * 1000;
+          else if (range === '30d') durationMs = 30 * 86400 * 1000;
+
+          let minT = now - durationMs;
+          let maxT = now;
+          const firstT = new Date(points[0].timestamp).getTime();
+          const lastT = new Date(points[points.length - 1].timestamp).getTime();
+          if (!isNaN(firstT) && !isNaN(lastT)) {
+            minT = Math.min(minT, firstT);
+            maxT = Math.max(maxT, lastT);
+          }
+          const timeRange = Math.max(1000, maxT - minT);
+
+          const seriesKey = series.devEUI ? series.devEUI + '.' + series.field : series.field;
+          const validPoints = [];
+
+          for (const pt of points) {
+            let v = pt[seriesKey];
+            if (v === undefined) v = pt[series.field];
+            if (v === undefined) {
+              for (const k of Object.keys(pt)) {
+                if (k.endsWith('.' + series.field)) { v = pt[k]; break; }
+              }
+            }
+            if (v !== undefined && v !== null && !isNaN(Number(v))) {
+              const t = new Date(pt.timestamp).getTime();
+              const x = plotX0 + Math.max(0, Math.min(1, (t - minT) / timeRange)) * pw;
+              const ratio = (Number(v) - minVal) / valRange;
+              const y = plotY0 + ph - Math.max(0, Math.min(1, ratio)) * ph;
+              validPoints.push({ x, y, val: Number(v), t });
+            }
+          }
+
+          if (validPoints.length === 0) return '';
+          if (validPoints.length === 1) {
+            return 'M ' + (validPoints[0].x - 5).toFixed(1) + ' ' + validPoints[0].y.toFixed(1) + ' L ' + (validPoints[0].x + 5).toFixed(1) + ' ' + validPoints[0].y.toFixed(1);
+          }
+
+          let d = 'M ' + validPoints[0].x.toFixed(1) + ' ' + validPoints[0].y.toFixed(1);
+          for (let i = 1; i < validPoints.length; i++) {
+            d += ' L ' + validPoints[i].x.toFixed(1) + ' ' + validPoints[i].y.toFixed(1);
+          }
+          return d;
+        };
+
+        const getTrendSeriesAreaPath = (widget, series) => {
+          const lineD = getTrendSeriesPath(widget, series);
+          if (!lineD || !lineD.startsWith('M')) return '';
+          const { plotY0, ph } = getTrendYBounds(widget);
+          const bottomY = (plotY0 + ph).toFixed(1);
+
+          const points = trendPointsMap.value[widget.id] || hmiTrendHistory.value || [];
+          if (!points || points.length === 0) return '';
+
+          const plotX0 = 45;
+          const pw = 440;
+          const range = widget.props?.timeRange || '1h';
+          const now = Date.now();
+          let durationMs = 60 * 60 * 1000;
+          if (range === '15m') durationMs = 15 * 60 * 1000;
+          else if (range === '6h') durationMs = 6 * 3600 * 1000;
+          else if (range === '24h') durationMs = 24 * 3600 * 1000;
+          else if (range === '7d') durationMs = 7 * 86400 * 1000;
+          else if (range === '30d') durationMs = 30 * 86400 * 1000;
+
+          let minT = now - durationMs;
+          let maxT = now;
+          const firstT = new Date(points[0].timestamp).getTime();
+          const lastT = new Date(points[points.length - 1].timestamp).getTime();
+          if (!isNaN(firstT) && !isNaN(lastT)) {
+            minT = Math.min(minT, firstT);
+            maxT = Math.max(maxT, lastT);
+          }
+          const timeRange = Math.max(1000, maxT - minT);
+
+          const seriesKey = series.devEUI ? series.devEUI + '.' + series.field : series.field;
+          const validX = [];
+          for (const pt of points) {
+            let v = pt[seriesKey];
+            if (v === undefined) v = pt[series.field];
+            if (v === undefined) {
+              for (const k of Object.keys(pt)) {
+                if (k.endsWith('.' + series.field)) { v = pt[k]; break; }
+              }
+            }
+            if (v !== undefined && v !== null && !isNaN(Number(v))) {
+              const t = new Date(pt.timestamp).getTime();
+              const x = plotX0 + Math.max(0, Math.min(1, (t - minT) / timeRange)) * pw;
+              validX.push(x);
+            }
+          }
+          if (validX.length === 0) return '';
+          const firstX = validX[0].toFixed(1);
+          const lastX = validX[validX.length - 1].toFixed(1);
+
+          return lineD + ' L ' + lastX + ' ' + bottomY + ' L ' + firstX + ' ' + bottomY + ' Z';
+        };
+
+        const getTrendLatestPoint = (widget, series) => {
+          const points = trendPointsMap.value[widget.id] || hmiTrendHistory.value || [];
+          if (!points || points.length === 0) return null;
+
+          const { minVal, valRange, plotY0, ph } = getTrendYBounds(widget);
+          const plotX0 = 45;
+          const pw = 440;
+
+          const range = widget.props?.timeRange || '1h';
+          const now = Date.now();
+          let durationMs = 60 * 60 * 1000;
+          if (range === '15m') durationMs = 15 * 60 * 1000;
+          else if (range === '6h') durationMs = 6 * 3600 * 1000;
+          else if (range === '24h') durationMs = 24 * 3600 * 1000;
+          else if (range === '7d') durationMs = 7 * 86400 * 1000;
+          else if (range === '30d') durationMs = 30 * 86400 * 1000;
+
+          let minT = now - durationMs;
+          let maxT = now;
+          const firstT = new Date(points[0].timestamp).getTime();
+          const lastT = new Date(points[points.length - 1].timestamp).getTime();
+          if (!isNaN(firstT) && !isNaN(lastT)) {
+            minT = Math.min(minT, firstT);
+            maxT = Math.max(maxT, lastT);
+          }
+          const timeRange = Math.max(1000, maxT - minT);
+
+          const seriesKey = series.devEUI ? series.devEUI + '.' + series.field : series.field;
+          for (let i = points.length - 1; i >= 0; i--) {
+            const pt = points[i];
+            let v = pt[seriesKey];
+            if (v === undefined) v = pt[series.field];
+            if (v === undefined) {
+              for (const k of Object.keys(pt)) {
+                if (k.endsWith('.' + series.field)) { v = pt[k]; break; }
+              }
+            }
+            if (v !== undefined && v !== null && !isNaN(Number(v))) {
+              const t = new Date(pt.timestamp).getTime();
+              const x = plotX0 + Math.max(0, Math.min(1, (t - minT) / timeRange)) * pw;
+              const ratio = (Number(v) - minVal) / valRange;
+              const y = plotY0 + ph - Math.max(0, Math.min(1, ratio)) * ph;
+              return { x, y, value: Number(v) };
+            }
+          }
+          return null;
+        };
+
+        const getTrendSeriesLatestVal = (widget, series) => {
+          const k1 = series.devEUI ? series.devEUI + '.' + series.field : series.field;
+          if (hmiTelemetryMap.value[k1] !== undefined) {
+            const v = hmiTelemetryMap.value[k1];
+            return typeof v === 'number' ? (v % 1 === 0 ? v : v.toFixed(2)) : v;
+          }
+          if (hmiTelemetryMap.value[series.field] !== undefined) {
+            const v = hmiTelemetryMap.value[series.field];
+            return typeof v === 'number' ? (v % 1 === 0 ? v : v.toFixed(2)) : v;
+          }
+          const latestPt = getTrendLatestPoint(widget, series);
+          if (latestPt && latestPt.value !== undefined) {
+            return latestPt.value % 1 === 0 ? latestPt.value : latestPt.value.toFixed(2);
+          }
+          return '--';
+        };
+
+        const handleTrendMouseMove = (event, widget) => {
+          const points = trendPointsMap.value[widget.id] || hmiTrendHistory.value || [];
+          if (points.length === 0) return;
+          const rect = event.currentTarget.getBoundingClientRect();
+          const pixelX = event.clientX - rect.left;
+          const normX = Math.max(0, Math.min(1, pixelX / rect.width));
+          const svgX = normX * 500;
+
+          if (svgX < 45 || svgX > 485) {
+            trendHoverState.value[widget.id] = { visible: false };
+            return;
+          }
+
+          const plotX0 = 45;
+          const pw = 440;
+          const range = widget.props?.timeRange || '1h';
+          const now = Date.now();
+          let durationMs = 60 * 60 * 1000;
+          if (range === '15m') durationMs = 15 * 60 * 1000;
+          else if (range === '6h') durationMs = 6 * 3600 * 1000;
+          else if (range === '24h') durationMs = 24 * 3600 * 1000;
+          else if (range === '7d') durationMs = 7 * 86400 * 1000;
+          else if (range === '30d') durationMs = 30 * 86400 * 1000;
+
+          let minT = now - durationMs;
+          let maxT = now;
+          const firstT = new Date(points[0].timestamp).getTime();
+          const lastT = new Date(points[points.length - 1].timestamp).getTime();
+          if (!isNaN(firstT) && !isNaN(lastT)) {
+            minT = Math.min(minT, firstT);
+            maxT = Math.max(maxT, lastT);
+          }
+          const timeRange = Math.max(1000, maxT - minT);
+
+          const hoverT = minT + ((svgX - plotX0) / pw) * timeRange;
+
+          let closestPt = points[0];
+          let minDiff = Infinity;
+          for (const pt of points) {
+            const diff = Math.abs(new Date(pt.timestamp).getTime() - hoverT);
+            if (diff < minDiff) {
+              minDiff = diff;
+              closestPt = pt;
+            }
+          }
+
+          if (!closestPt) return;
+
+          const series = getTrendSeries(widget).filter(s => s.visible !== false);
+          const values = series.map(s => {
+            let v = closestPt[s.devEUI ? s.devEUI + '.' + s.field : s.field];
+            if (v === undefined) v = closestPt[s.field];
+            if (v === undefined) {
+              for (const k of Object.keys(closestPt)) {
+                if (k.endsWith('.' + s.field)) { v = closestPt[k]; break; }
+              }
+            }
+            return {
+              label: s.label || s.field,
+              color: s.color || '#38bdf8',
+              value: v !== undefined ? (typeof v === 'number' ? (v % 1 === 0 ? v : v.toFixed(2)) : v) : '--',
+              unit: s.unit || ''
+            };
           });
 
-          return d;
+          const ptT = new Date(closestPt.timestamp);
+          const timeStr = ptT.toLocaleDateString([], { month: '2-digit', day: '2-digit' }) + ' ' +
+                          ptT.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+
+          trendHoverState.value[widget.id] = {
+            visible: true,
+            x: svgX,
+            pixelX,
+            timeStr,
+            values
+          };
+        };
+
+        const handleTrendMouseLeave = (widget) => {
+          trendHoverState.value[widget.id] = { visible: false };
+        };
+
+        const setTrendTimeRange = (widget, range) => {
+          if (!widget) return;
+          if (!widget.props) widget.props = {};
+          widget.props.timeRange = range;
+          fetchTrendHistoryForWidget(widget);
+        };
+
+        const fetchTrendHistoryForWidget = async (widget) => {
+          if (!widget || widget.type !== 'realtime-trend') return;
+          const series = getTrendSeries(widget);
+          const devEUIs = [...new Set(series.map(s => s.devEUI).filter(Boolean))];
+
+          const range = widget.props?.timeRange || '1h';
+          const now = Date.now();
+          let durationMs = 60 * 60 * 1000;
+          if (range === '15m') durationMs = 15 * 60 * 1000;
+          else if (range === '6h') durationMs = 6 * 3600 * 1000;
+          else if (range === '24h') durationMs = 24 * 3600 * 1000;
+          else if (range === '7d') durationMs = 7 * 86400 * 1000;
+          else if (range === '30d') durationMs = 30 * 86400 * 1000;
+
+          const fromIso = new Date(now - durationMs).toISOString();
+
+          let url = '/api/hmi/screens/telemetry/trend?from=' + encodeURIComponent(fromIso) + '&limit=500';
+          if (devEUIs.length > 0) {
+            url += '&devEUIs=' + encodeURIComponent(devEUIs.join(','));
+          }
+
+          try {
+            const res = await fetch(url, { headers: authHeaders(), credentials: 'include' });
+            if (res.ok) {
+              const records = await res.json();
+              if (Array.isArray(records)) {
+                const points = records.map(rec => {
+                  const { dev, flat } = extractFlattenedTelemetryHmi(rec);
+                  const t = rec.timestamp ? new Date(rec.timestamp) : new Date();
+                  const pt = {
+                    timestamp: t,
+                    timeStr: t.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+                    devEUI: dev,
+                    ...flat
+                  };
+                  if (dev) {
+                    for (const [k, v] of Object.entries(flat)) {
+                      pt[dev + '.' + k] = v;
+                    }
+                  }
+                  return pt;
+                });
+                trendPointsMap.value[widget.id] = points;
+              }
+            }
+          } catch(err) {
+            console.error('Failed to fetch trend history for widget:', err);
+          }
+        };
+
+        const openAddTrendSeriesModal = (widget) => {
+          trendTargetWidget.value = widget;
+          const firstDev = (devicesList.value && devicesList.value.length > 0) ? devicesList.value[0].devEUI : '';
+          const palette = ['#38bdf8', '#10b981', '#f59e0b', '#f43f5e', '#a855f7', '#06b6d4', '#eab308'];
+          const curSeriesCount = getTrendSeries(widget).length;
+          const pickColor = palette[curSeriesCount % palette.length];
+
+          trendSeriesForm.value = {
+            devEUI: firstDev,
+            field: '',
+            label: '',
+            color: pickColor,
+            unit: '',
+          };
+          detectedTrendFields.value = [];
+          if (firstDev) {
+            fetchDetectedTrendFields(firstDev);
+          }
+          trendSeriesModal.value = true;
+        };
+
+        const fetchDetectedTrendFields = async (devEUI) => {
+          if (!devEUI) return;
+          loadingTrendFields.value = true;
+          try {
+            const res = await fetch('/api/hmi/screens/devices/' + encodeURIComponent(devEUI) + '/telemetry-fields', {
+              headers: authHeaders(),
+              credentials: 'include'
+            });
+            if (res.ok) {
+              const data = await res.json();
+              detectedTrendFields.value = data.fields || [];
+            }
+          } catch(err) {
+            console.error('Failed to scan fields for trend:', err);
+          } finally {
+            loadingTrendFields.value = false;
+          }
+        };
+
+        const selectTrendTagPill = (field) => {
+          trendSeriesForm.value.field = field.key;
+          if (!trendSeriesForm.value.label) {
+            const devObj = devicesList.value.find(d => d.devEUI === trendSeriesForm.value.devEUI);
+            const devName = devObj ? (devObj.name || devObj.devEUI.substring(devObj.devEUI.length - 4)) : '';
+            trendSeriesForm.value.label = devName ? (devName + ' - ' + field.key) : field.key;
+          }
+          if (field.unit) {
+            trendSeriesForm.value.unit = field.unit;
+          }
+        };
+
+        const saveTrendSeries = () => {
+          const widget = trendTargetWidget.value;
+          if (!widget) return;
+          if (!trendSeriesForm.value.field) {
+            showToast('Vui lòng chọn hoặc nhập mã tag telemetry', 'warning');
+            return;
+          }
+          if (!widget.props) widget.props = {};
+          if (!Array.isArray(widget.props.series)) {
+            widget.props.series = [];
+          }
+          const id = 'ser_' + Date.now().toString(36);
+          const newSeries = {
+            id,
+            devEUI: trendSeriesForm.value.devEUI || '',
+            field: trendSeriesForm.value.field.trim(),
+            label: trendSeriesForm.value.label.trim() || trendSeriesForm.value.field.trim(),
+            color: trendSeriesForm.value.color || '#38bdf8',
+            unit: trendSeriesForm.value.unit || '',
+            visible: true,
+          };
+          widget.props.series.push(newSeries);
+          trendSeriesModal.value = false;
+          fetchTrendHistoryForWidget(widget);
+          showToast('Đã thêm cảm biến ' + newSeries.label + ' vào đồ thị', 'success');
+        };
+
+        const removeTrendSeries = (widget, seriesId) => {
+          if (!widget || !Array.isArray(widget.props?.series)) return;
+          widget.props.series = widget.props.series.filter(s => s.id !== seriesId);
+          fetchTrendHistoryForWidget(widget);
+        };
+
+        const toggleTrendSeriesVisible = (widget, seriesId) => {
+          const series = getTrendSeries(widget);
+          const s = series.find(x => x.id === seriesId);
+          if (s) {
+            s.visible = s.visible === false ? true : false;
+          }
         };
 
         const extractFlattenedTelemetryHmi = (rec) => {
@@ -7552,8 +8458,21 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
                 }
               }
               hmiTrendHistory.value.push(pt);
-              if (hmiTrendHistory.value.length > 50) {
+              if (hmiTrendHistory.value.length > 100) {
                 hmiTrendHistory.value.shift();
+              }
+
+              // Update trendPointsMap for active trend widgets
+              if (currentHmiScreen.value?.widgets) {
+                currentHmiScreen.value.widgets.forEach(w => {
+                  if (w.type === 'realtime-trend') {
+                    if (!trendPointsMap.value[w.id]) trendPointsMap.value[w.id] = [];
+                    trendPointsMap.value[w.id].push(pt);
+                    if (trendPointsMap.value[w.id].length > 1000) {
+                      trendPointsMap.value[w.id].shift();
+                    }
+                  }
+                });
               }
             });
           }
@@ -8022,6 +8941,30 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
           triggerWidgetToggleSwitch,
           triggerWidgetActionButton,
           getWidgetTrendPath,
+          trendPointsMap,
+          trendHoverState,
+          trendSeriesModal,
+          trendTargetWidget,
+          trendSeriesForm,
+          detectedTrendFields,
+          loadingTrendFields,
+          getTrendSeries,
+          getTrendYBounds,
+          getTrendXTicks,
+          getTrendSeriesPath,
+          getTrendSeriesAreaPath,
+          getTrendLatestPoint,
+          getTrendSeriesLatestVal,
+          handleTrendMouseMove,
+          handleTrendMouseLeave,
+          setTrendTimeRange,
+          fetchTrendHistoryForWidget,
+          openAddTrendSeriesModal,
+          fetchDetectedTrendFields,
+          selectTrendTagPill,
+          saveTrendSeries,
+          removeTrendSeries,
+          toggleTrendSeriesVisible,
           detectedTelemetryFields,
           loadingDetectedFields,
           hmiTagFilterQuery,

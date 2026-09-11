@@ -250,6 +250,50 @@ export class HmiStudioService implements OnModuleInit {
     return result;
   }
 
+  async getTelemetryTrend(query: {
+    devEUIs?: string[];
+    from?: string;
+    to?: string;
+    limit?: number;
+  }): Promise<TelemetryEntity[]> {
+    const telemetryRepo = this.dynamicDatabaseService.getRepositoryForTable(
+      'uplink_telemetry',
+      TelemetryEntity,
+    );
+
+    const qb = telemetryRepo
+      .createQueryBuilder('telemetry')
+      .orderBy('telemetry.timestamp', 'ASC');
+
+    if (query.devEUIs && query.devEUIs.length > 0) {
+      const euis = query.devEUIs.map((e) => e.trim().toUpperCase()).filter(Boolean);
+      if (euis.length === 1) {
+        qb.andWhere('UPPER(telemetry.devEui) = :eui', { eui: euis[0] });
+      } else if (euis.length > 1) {
+        qb.andWhere('UPPER(telemetry.devEui) IN (:...euis)', { euis });
+      }
+    }
+
+    if (query.from) {
+      const fromDate = new Date(query.from);
+      if (!isNaN(fromDate.getTime())) {
+        qb.andWhere('telemetry.timestamp >= :from', { from: fromDate });
+      }
+    }
+
+    if (query.to) {
+      const toDate = new Date(query.to);
+      if (!isNaN(toDate.getTime())) {
+        qb.andWhere('telemetry.timestamp <= :to', { to: toDate });
+      }
+    }
+
+    const limit = Math.min(Math.max(1, query.limit || 500), 2000);
+    qb.take(limit);
+
+    return await qb.getMany();
+  }
+
   async getDeviceTelemetryFields(devEUI: string): Promise<{
     devEUI: string;
     fields: Array<{
