@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException, ForbiddenException, Logger } from '@nestjs/common';
 import { DynamicDatabaseService } from '../database/dynamic-database.service';
+import { RealtimeService } from '../realtime/realtime.service';
 import { PayloadFormatterService } from './payload-formatters/payload-formatter.service';
 import { DeviceProvisioningService, ProvisioningResult } from './services/device-provisioning.service';
 import { DeviceEntity } from './entities/device.entity';
@@ -29,6 +30,7 @@ export class LorawanService {
     private readonly dbService: DynamicDatabaseService,
     private readonly payloadFormatterService: PayloadFormatterService,
     private readonly provisioningService: DeviceProvisioningService,
+    private readonly realtimeService: RealtimeService,
   ) {}
 
   private get deviceRepo() {
@@ -564,6 +566,11 @@ export class LorawanService {
 
     await this.telemetryRepo.save(telemetry);
 
+    // Broadcast Realtime Telemetry Uplink Event
+    try {
+      this.realtimeService.publishTelemetry(telemetry);
+    } catch (e) {}
+
     // Save to Webhook Manager Log
     this.recordWebhookLog({
       serverType: 'GENERIC',
@@ -674,6 +681,11 @@ export class LorawanService {
     });
 
     await this.telemetryRepo.save(telemetry);
+
+    // Broadcast Realtime Telemetry Uplink Event
+    try {
+      this.realtimeService.publishTelemetry(telemetry);
+    } catch (e) {}
 
     // Save to Webhook Manager Log
     this.recordWebhookLog({
@@ -803,6 +815,11 @@ export class LorawanService {
     });
 
     await this.telemetryRepo.save(telemetry);
+
+    // Broadcast Realtime Telemetry Uplink Event
+    try {
+      this.realtimeService.publishTelemetry(telemetry);
+    } catch (e) {}
 
     // Save to Webhook Manager Log
     this.recordWebhookLog({

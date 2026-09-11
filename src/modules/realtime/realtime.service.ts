@@ -1,0 +1,74 @@
+import { Injectable, Logger } from '@nestjs/common';
+import { Subject, Observable } from 'rxjs';
+import { map } from 'rxjs/operators';
+import { RealtimeGateway } from './realtime.gateway';
+
+export interface TelemetryStreamEvent {
+  type: 'telemetry' | 'downlink' | 'ping';
+  data: any;
+  timestamp: string;
+}
+
+@Injectable()
+export class RealtimeService {
+  private readonly logger = new Logger(RealtimeService.name);
+  private readonly stream$ = new Subject<TelemetryStreamEvent>();
+
+  constructor(private readonly gateway: RealtimeGateway) {}
+
+  /**
+   * Broadcast an incoming uplink telemetry packet to all connected WebSocket clients and SSE stream
+   */
+  publishTelemetry(telemetry: any) {
+    const event: TelemetryStreamEvent = {
+      type: 'telemetry',
+      data: telemetry,
+      timestamp: new Date().toISOString(),
+    };
+
+    // Push to SSE Observable
+    this.stream$.next(event);
+
+    // Push to WebSocket Gateway
+    try {
+      this.gateway.broadcastTelemetry(telemetry);
+    } catch (err: any) {
+      this.logger.warn(`Failed to broadcast telemetry via WebSocket: ${err.message}`);
+    }
+  }
+
+  /**
+   * Broadcast a downlink status event to all connected WebSocket clients and SSE stream
+   */
+  publishDownlink(downlinkEvent: any) {
+    const event: TelemetryStreamEvent = {
+      type: 'downlink',
+      data: downlinkEvent,
+      timestamp: new Date().toISOString(),
+    };
+
+    // Push to SSE Observable
+    this.stream$.next(event);
+
+    // Push to WebSocket Gateway
+    try {
+      this.gateway.broadcastDownlink(downlinkEvent);
+    } catch (err: any) {
+      this.logger.warn(`Failed to broadcast downlink via WebSocket: ${err.message}`);
+    }
+  }
+
+  /**
+   * Get Server-Sent Events (SSE) observable stream
+   */
+  getStream(): Observable<MessageEvent> {
+    return this.stream$.asObservable().pipe(
+      map(
+        (event) =>
+          ({
+            data: event,
+          }) as unknown as MessageEvent,
+      ),
+    );
+  }
+}

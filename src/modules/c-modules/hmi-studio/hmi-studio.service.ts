@@ -7,6 +7,8 @@ import {
 } from '@nestjs/common';
 import { Repository } from 'typeorm';
 import { DynamicDatabaseService } from '../../database/dynamic-database.service';
+import { NetworkServersService } from '../../network-servers/network-servers.service';
+import { RealtimeService } from '../../realtime/realtime.service';
 import { HmiScreenEntity, HmiWidget } from './entities/hmi-screen.entity';
 import { TelemetryEntity } from '../../lorawan/entities/telemetry.entity';
 import {
@@ -22,6 +24,8 @@ export class HmiStudioService implements OnModuleInit {
 
   constructor(
     private readonly dynamicDatabaseService: DynamicDatabaseService,
+    private readonly networkServersService: NetworkServersService,
+    private readonly realtimeService: RealtimeService,
   ) {}
 
 
@@ -188,22 +192,62 @@ export class HmiStudioService implements OnModuleInit {
   }
 
   async executeDownlink(
-    body: { devEUI?: string; fPort?: number; payloadHex?: string; actionType?: string },
+    body: {
+      devEUI?: string;
+      fPort?: number;
+      payloadHex?: string;
+      actionType?: string;
+      confirmed?: boolean;
+    },
     user?: any,
-  ): Promise<{ success: boolean; timestamp: string; devEUI?: string; fPort: number; payloadHex?: string; status: string; message: string }> {
+  ): Promise<{
+    success: boolean;
+    timestamp: string;
+    devEUI?: string;
+    fPort: number;
+    payloadHex?: string;
+    status: string;
+    message: string;
+    networkServerType?: string;
+    networkServerName?: string;
+    details?: any;
+  }> {
     const author = user?.username || user?.fullName || 'Operator';
+    const devEUI = (body.devEUI || '').trim().toUpperCase();
+    const fPort = Math.max(1, Math.min(223, Number(body.fPort) || 1));
+    const payloadHex = (body.payloadHex || '01').replace(/[^0-9a-fA-F]/g, '').toUpperCase();
+
     this.logger.log(
-      `HMI Downlink command dispatched by [${author}]: devEUI=${body.devEUI || 'ALL'}, fPort=${body.fPort || 1}, hex=${body.payloadHex || '01'}`,
+      `HMI Downlink command dispatched by [${author}]: devEUI=${devEUI || 'DEFAULT'}, fPort=${fPort}, hex=${payloadHex}`,
     );
-    return {
-      success: true,
+
+    const downlinkRes = await this.networkServersService.sendDownlink({
+      devEUI,
+      fPort,
+      payloadHex,
+      confirmed: body.confirmed,
+      author,
+    });
+
+    const result = {
+      success: downlinkRes.success,
       timestamp: new Date().toISOString(),
-      devEUI: body.devEUI,
-      fPort: body.fPort || 1,
-      payloadHex: body.payloadHex || '01',
-      status: 'QUEUED',
-      message: `Downlink [${body.payloadHex || '01'}] successfully dispatched to device ${body.devEUI || 'System'} on fPort ${body.fPort || 1}`,
+      devEUI,
+      fPort,
+      payloadHex,
+      status: downlinkRes.status,
+      message: downlinkRes.message,
+      networkServerType: downlinkRes.networkServerType,
+      networkServerName: downlinkRes.networkServerName,
+      details: downlinkRes.details,
     };
+
+    // Broadcast realtime event to WebSocket clients and SSE stream
+    try {
+      this.realtimeService.publishDownlink(result);
+    } catch (e) {}
+
+    return result;
   }
 
   async getDeviceTelemetryFields(devEUI: string): Promise<{

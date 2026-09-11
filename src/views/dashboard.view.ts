@@ -14,6 +14,8 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
   <!-- SheetJS for XLSX, XLS, and CSV export -->
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <!-- Socket.IO Client for Realtime Uplink & Downlink Streaming -->
+  <script src="https://cdn.jsdelivr.net/npm/socket.io-client@4.7.4/dist/socket.io.min.js"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
@@ -1117,6 +1119,517 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
 
           </div>
 
+          <!-- FEATURE: HMI SCADA VIEWER (D_MOD_HMI_SCADA) -->
+          <div v-else-if="activeFeature.id === 'hmi-scada-viewer'" class="space-y-4">
+            
+            <!-- HMI Header & Control Toolbar -->
+            <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-3 bg-slate-900/70 p-3.5 sm:p-4 rounded-xl border border-slate-800 shadow-md">
+              <!-- Left: Title, Icon & Screen Selector -->
+              <div class="flex items-center gap-3 flex-wrap">
+                <button @click="returnToHome" title="Back to Dashboard" class="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white text-xs font-semibold cursor-pointer transition">
+                  <i class="fa-solid fa-arrow-left"></i>
+                </button>
+                <div class="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/25 flex items-center justify-center text-amber-400 text-lg shadow-inner">
+                  <i class="fa-solid fa-palette"></i>
+                </div>
+                <div>
+                  <div class="flex items-center gap-2 flex-wrap">
+                    <h3 class="text-sm font-bold text-white tracking-wide">HMI SCADA MONITOR</h3>
+                    <!-- Screen Selector Dropdown -->
+                    <div class="relative inline-block">
+                      <select
+                        v-if="publishedHmiScreens.length > 0"
+                        v-model="selectedHmiScreenId"
+                        @change="loadSelectedHmiScreen"
+                        class="px-2.5 py-1 bg-slate-950 border border-slate-700 rounded-lg text-xs font-bold text-amber-300 focus:outline-none focus:border-amber-500 cursor-pointer"
+                      >
+                        <option v-for="sc in publishedHmiScreens" :key="sc.id" :value="sc.id">
+                          {{ sc.name }} ({{ sc.widgets?.length || 0 }} widgets)
+                        </option>
+                      </select>
+                      <span v-else class="text-xs text-slate-500 italic">No published screens</span>
+                    </div>
+                  </div>
+                  <p class="text-[11px] text-slate-400 mt-0.5 truncate max-w-md">
+                    {{ currentHmiScreen?.description || 'Interactive Wecon-style industrial HMI diagram with live decoded telemetry and downlink actuator controls' }}
+                  </p>
+                </div>
+              </div>
+
+              <!-- Right: Realtime Status & Tools -->
+              <div class="flex items-center gap-2 flex-wrap justify-end">
+                <!-- Realtime Online Badge -->
+                <div class="flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-xs font-mono font-bold"
+                  :class="realtimeConnected ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30' : 'bg-amber-500/10 text-amber-400 border-amber-500/30'">
+                  <span class="w-2 h-2 rounded-full" :class="realtimeConnected ? 'bg-emerald-400 animate-ping' : 'bg-amber-400'"></span>
+                  <span>{{ realtimeConnected ? 'REALTIME ONLINE' : 'POLLING MODE' }}</span>
+                </div>
+
+                <!-- Rx Packets Counter -->
+                <div class="px-2.5 py-1 rounded-lg bg-slate-950 border border-slate-800 text-[11px] font-mono text-sky-400 font-bold flex items-center gap-1">
+                  <i class="fa-solid fa-satellite-dish text-[10px]"></i>
+                  <span>Rx: {{ hmiRxPacketCount }}</span>
+                </div>
+
+                <!-- Active Alarms Indicator -->
+                <div class="px-2.5 py-1 rounded-lg border text-[11px] font-mono font-bold flex items-center gap-1.5"
+                  :class="activeAlarmsList.length > 0 ? 'bg-red-500/20 text-red-300 border-red-500/50 animate-pulse' : 'bg-slate-950 border-slate-800 text-slate-400'">
+                  <i class="fa-solid fa-triangle-exclamation" :class="activeAlarmsList.length > 0 ? 'text-red-400' : 'text-slate-500'"></i>
+                  <span>{{ activeAlarmsList.length }} ALARMS</span>
+                </div>
+
+                <!-- View Mode Switcher -->
+                <div class="flex items-center bg-slate-950 rounded-lg p-0.5 border border-slate-800 text-xs">
+                  <button
+                    @click="hmiViewerMode = 'canvas'"
+                    title="Visual SCADA Canvas"
+                    class="px-2.5 py-1 rounded-md text-xs font-semibold cursor-pointer transition flex items-center gap-1.5"
+                    :class="hmiViewerMode === 'canvas' ? 'bg-amber-600 text-white font-bold shadow' : 'text-slate-400 hover:text-white'"
+                  >
+                    <i class="fa-solid fa-palette text-[11px]"></i> SCADA
+                  </button>
+                  <button
+                    @click="hmiViewerMode = 'alarms'"
+                    title="Active Alarms"
+                    class="px-2.5 py-1 rounded-md text-xs font-semibold cursor-pointer transition flex items-center gap-1.5"
+                    :class="hmiViewerMode === 'alarms' ? 'bg-red-600 text-white font-bold shadow' : 'text-slate-400 hover:text-white'"
+                  >
+                    <i class="fa-solid fa-bell text-[11px]"></i> Alarms ({{ activeAlarmsList.length }})
+                  </button>
+                  <button
+                    @click="hmiViewerMode = 'matrix'"
+                    title="Decoded Tags Matrix"
+                    class="px-2.5 py-1 rounded-md text-xs font-semibold cursor-pointer transition flex items-center gap-1.5"
+                    :class="hmiViewerMode === 'matrix' ? 'bg-sky-600 text-white font-bold shadow' : 'text-slate-400 hover:text-white'"
+                  >
+                    <i class="fa-solid fa-table-cells text-[11px]"></i> Tags
+                  </button>
+                </div>
+
+                <!-- Zoom Controls (for Canvas Mode) -->
+                <div v-if="hmiViewerMode === 'canvas'" class="flex items-center bg-slate-950 rounded-lg p-0.5 border border-slate-800 text-xs">
+                  <button @click="hmiZoom = Math.max(0.4, Number((hmiZoom - 0.1).toFixed(1)))" title="Zoom Out" class="px-2 py-1 text-slate-400 hover:text-white cursor-pointer font-bold">-</button>
+                  <span class="px-1.5 text-[10px] font-mono text-slate-300">{{ Math.round(hmiZoom * 100) }}%</span>
+                  <button @click="hmiZoom = Math.min(2.0, Number((hmiZoom + 0.1).toFixed(1)))" title="Zoom In" class="px-2 py-1 text-slate-400 hover:text-white cursor-pointer font-bold">+</button>
+                  <button @click="hmiZoom = 1.0" title="Reset Zoom to 100%" class="px-2 py-1 text-[10px] text-slate-400 hover:text-amber-400 cursor-pointer">1:1</button>
+                  <button @click="fitHmiZoom" title="Fit Canvas to Viewport" class="px-2 py-1 text-[10px] text-slate-400 hover:text-amber-400 cursor-pointer">FIT</button>
+                </div>
+
+                <!-- Manual Refresh Button -->
+                <button
+                  @click="refreshHmiViewer"
+                  :disabled="hmiLoading"
+                  title="Refresh Screen & Live Telemetry"
+                  class="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 text-xs font-semibold cursor-pointer transition"
+                >
+                  <i class="fa-solid fa-arrows-rotate" :class="{ 'fa-spin': hmiLoading }"></i>
+                </button>
+              </div>
+            </div>
+
+            <!-- VIEW 1: SCADA CANVAS VIEW -->
+            <div v-if="hmiViewerMode === 'canvas'" class="space-y-3">
+              
+              <!-- No Screens Published Fallback -->
+              <div v-if="!currentHmiScreen" class="py-20 text-center bg-slate-950/80 rounded-2xl border border-slate-800 p-8 space-y-4 shadow-xl">
+                <div class="w-16 h-16 rounded-2xl bg-amber-500/10 border border-amber-500/25 flex items-center justify-center text-amber-400 text-2xl mx-auto shadow-inner">
+                  <i class="fa-solid fa-palette"></i>
+                </div>
+                <div class="space-y-1">
+                  <h3 class="text-base font-bold text-white">No Published HMI Screen Available</h3>
+                  <p class="text-xs text-slate-400 max-w-md mx-auto">
+                    No HMI screens have been published for your role yet. Please ask an Administrator to design and publish a SCADA screen via the Control Panel HMI Studio.
+                  </p>
+                </div>
+                <button @click="fetchPublishedHmiScreens" class="px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold shadow-lg shadow-amber-600/30 inline-flex items-center gap-2 cursor-pointer">
+                  <i class="fa-solid fa-arrows-rotate"></i> Check for Published Screens
+                </button>
+              </div>
+
+              <!-- SCADA Canvas Viewport -->
+              <div v-else ref="hmiCanvasViewportRef" class="relative w-full overflow-auto rounded-2xl border border-slate-800 shadow-2xl custom-scroll" style="min-height: 580px; max-height: 82vh; background: #060911;">
+                
+                <!-- Canvas Stage Container scaled by hmiZoom -->
+                <div
+                  class="relative transition-transform duration-75 origin-top-left"
+                  :style="{
+                    width: (currentHmiScreen.canvasConfig?.width || 1280) + 'px',
+                    height: (currentHmiScreen.canvasConfig?.height || 720) + 'px',
+                    transform: 'scale(' + hmiZoom + ')',
+                    backgroundColor: currentHmiScreen.canvasConfig?.background || '#0b0f19',
+                    backgroundImage: currentHmiScreen.canvasConfig?.showGrid !== false ? 'radial-gradient(circle, #334155 1px, transparent 1px)' : 'none',
+                    backgroundSize: (currentHmiScreen.canvasConfig?.grid || 20) + 'px ' + (currentHmiScreen.canvasConfig?.grid || 20) + 'px'
+                  }"
+                >
+                  
+                  <!-- RENDER EACH WIDGET -->
+                  <div
+                    v-for="w in currentHmiScreen.widgets"
+                    :key="w.id"
+                    class="absolute select-none transition-all duration-150"
+                    :class="{
+                      'ring-2 ring-red-500 animate-pulse': isWidgetAlarmActive(w)
+                    }"
+                    :style="{
+                      left: w.x + 'px',
+                      top: w.y + 'px',
+                      width: w.w + 'px',
+                      height: w.h + 'px',
+                      zIndex: w.zIndex || 1
+                    }"
+                  >
+                    
+                    <!-- 1. STATIC LABEL -->
+                    <div v-if="w.type === 'static-label'" class="w-full h-full flex flex-col justify-center px-2 pointer-events-none">
+                      <div :style="{ color: w.props?.textColor || '#ffffff', fontSize: (w.props?.fontSize || 14) + 'px', fontWeight: w.props?.fontWeight || 'bold', textAlign: w.props?.textAlign || 'left' }" class="leading-tight">
+                        {{ w.props?.text || 'LABEL' }}
+                      </div>
+                      <div v-if="w.props?.subText" class="text-[10px] text-slate-400 mt-0.5" :style="{ textAlign: w.props?.textAlign || 'left' }">
+                        {{ w.props.subText }}
+                      </div>
+                    </div>
+
+                    <!-- 2. BIT LAMP -->
+                    <div v-else-if="w.type === 'bit-lamp'" class="w-full h-full p-2 bg-slate-900/90 rounded-xl border border-slate-800 shadow-md flex items-center justify-between gap-2.5">
+                      <div class="truncate">
+                        <div class="text-[10px] font-bold text-slate-400 uppercase tracking-wider truncate">{{ w.props?.title || 'LAMP' }}</div>
+                        <div class="text-xs font-bold mt-0.5" :style="{ color: isWidgetBitOn(w) ? (w.props?.colorOn || '#10b981') : '#64748b' }">
+                          {{ isWidgetBitOn(w) ? (w.props?.labelOn || 'RUNNING') : (w.props?.labelOff || 'STOPPED') }}
+                        </div>
+                      </div>
+                      <div
+                        class="w-6 h-6 border-2 transition-all duration-200 shrink-0"
+                        :class="w.props?.shape === 'rect' ? 'rounded-md' : 'rounded-full'"
+                        :style="getWidgetBitLampStyle(w)"
+                      ></div>
+                    </div>
+
+                    <!-- 3. MULTI-STATE LAMP -->
+                    <div v-else-if="w.type === 'multi-state-lamp'" class="w-full h-full p-2 bg-slate-900/90 rounded-xl border border-slate-800 shadow-md flex items-center justify-between gap-2">
+                      <div class="truncate">
+                        <div class="text-[10px] font-bold text-slate-400 uppercase tracking-wider truncate">{{ w.props?.title || 'STATUS' }}</div>
+                        <div class="text-xs font-bold mt-0.5 truncate" :style="{ color: getWidgetMultiStateColor(w) }">
+                          {{ getWidgetMultiStateLabel(w) }}
+                        </div>
+                      </div>
+                      <div class="px-2.5 py-1 rounded-lg border text-xs font-bold flex items-center gap-1.5 shrink-0" :style="getWidgetMultiStateStyle(w)">
+                        <i :class="getWidgetMultiStateIcon(w)"></i>
+                        <span class="font-mono text-[11px]">{{ getWidgetTelemetryValue(w) }}</span>
+                      </div>
+                    </div>
+
+                    <!-- 4. ALARM BANNER -->
+                    <div v-else-if="w.type === 'alarm-banner'" class="w-full h-full px-3 py-1.5 rounded-xl border flex items-center justify-between gap-3 text-xs font-bold transition-all duration-300"
+                      :class="activeAlarmsList.length > 0 ? 'bg-red-950/90 border-red-500 shadow-[0_0_20px_rgba(239,68,68,0.4)] text-red-200 animate-pulse' : 'bg-slate-900/90 border-emerald-500/30 text-emerald-400 shadow-inner'">
+                      <div class="flex items-center gap-2 overflow-hidden truncate">
+                        <i class="fa-solid" :class="activeAlarmsList.length > 0 ? 'fa-triangle-exclamation text-red-400 text-sm' : 'fa-circle-check text-emerald-400'"></i>
+                        <span class="uppercase tracking-wider text-[11px] text-slate-300 font-extrabold shrink-0">{{ w.props?.title || 'ALARM MONITOR' }}:</span>
+                        <span class="truncate text-[11px]" :class="activeAlarmsList.length > 0 ? 'text-red-200 font-semibold' : 'text-emerald-300'">
+                          {{ activeAlarmsList.length > 0 ? activeAlarmsList.map(a => a.text).join(' • ') : (w.props?.idleMessage || 'All parameters normal. No active alarms.') }}
+                        </span>
+                      </div>
+                      <span v-if="activeAlarmsList.length > 0" class="px-2 py-0.5 rounded-full bg-red-600 text-white text-[10px] font-mono font-bold shrink-0">
+                        {{ activeAlarmsList.length }} ACTIVE
+                      </span>
+                    </div>
+
+                    <!-- 5. LINEAR TANK -->
+                    <div v-else-if="w.type === 'linear-tank'" class="w-full h-full p-2.5 bg-slate-900/90 rounded-2xl border border-slate-800 shadow-xl flex flex-col justify-between"
+                      :class="{ 'border-red-500 ring-2 ring-red-500/50 shadow-red-500/20': isWidgetAlarmActive(w) }">
+                      <div class="flex items-center justify-between border-b border-slate-800/80 pb-1">
+                        <span class="text-[10px] font-extrabold text-slate-300 uppercase tracking-wider truncate">{{ w.props?.title || 'TANK' }}</span>
+                        <span class="text-[10px] font-mono font-bold text-sky-400">{{ getWidgetTankHeightPercent(w) }}%</span>
+                      </div>
+                      
+                      <!-- Tank Body Graphics -->
+                      <div class="relative flex-1 my-1.5 rounded-xl border border-slate-700 bg-slate-950/80 overflow-hidden flex items-end p-1 shadow-inner">
+                        <!-- Tick marks -->
+                        <div class="absolute inset-y-1 right-1 flex flex-col justify-between text-[8px] font-mono text-slate-500 pointer-events-none z-10 pr-0.5">
+                          <span>100%</span>
+                          <span>75%</span>
+                          <span>50%</span>
+                          <span>25%</span>
+                          <span>0%</span>
+                        </div>
+                        <!-- Liquid fill bar -->
+                        <div
+                          class="w-full rounded-lg transition-all duration-300 relative shadow-lg"
+                          :style="{
+                            height: getWidgetTankHeightPercent(w) + '%',
+                            backgroundColor: getWidgetLiquidColor(w),
+                            boxShadow: '0 0 16px ' + getWidgetLiquidColor(w) + '55'
+                          }"
+                        >
+                          <div class="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-white/30 rounded-lg"></div>
+                        </div>
+                      </div>
+
+                      <!-- Footer Value -->
+                      <div class="flex items-center justify-between text-xs pt-0.5">
+                        <span class="text-[10px] text-slate-500 font-mono">{{ w.props?.min || 0 }} - {{ w.props?.max || 100 }}</span>
+                        <span class="font-mono font-extrabold text-white text-xs">
+                          {{ getWidgetTelemetryValue(w) }} <span class="text-[10px] text-slate-400 font-normal">{{ w.props?.unit || 'm³' }}</span>
+                        </span>
+                      </div>
+                    </div>
+
+                    <!-- 6. SILO VESSEL -->
+                    <div v-else-if="w.type === 'silo-vessel'" class="w-full h-full p-2.5 bg-slate-900/90 rounded-2xl border border-slate-800 shadow-xl flex flex-col justify-between">
+                      <div class="flex items-center justify-between border-b border-slate-800/80 pb-1">
+                        <span class="text-[10px] font-extrabold text-slate-300 uppercase tracking-wider truncate">{{ w.props?.title || 'SILO' }}</span>
+                        <span class="text-[10px] font-mono font-bold text-amber-400">{{ getWidgetTankHeightPercent(w) }}%</span>
+                      </div>
+                      <div class="relative flex-1 my-1.5 flex flex-col items-center justify-end">
+                        <div class="w-4/5 flex-1 rounded-t-xl border border-slate-700 bg-slate-950/80 overflow-hidden flex items-end p-1 relative shadow-inner">
+                          <div class="w-full rounded-t-lg transition-all duration-300"
+                            :style="{ height: getWidgetTankHeightPercent(w) + '%', backgroundColor: w.props?.liquidColor || '#d97706' }"></div>
+                        </div>
+                        <div class="w-4/5 h-6 bg-slate-800 border-x border-b border-slate-700 rounded-b-full flex items-center justify-center text-[9px] text-slate-400">
+                          HOPPER
+                        </div>
+                      </div>
+                      <div class="text-right font-mono font-bold text-white text-xs">
+                        {{ getWidgetTelemetryValue(w) }} <span class="text-[10px] text-slate-400">{{ w.props?.unit || 'ton' }}</span>
+                      </div>
+                    </div>
+
+                    <!-- 7. DIAL GAUGE -->
+                    <div v-else-if="w.type === 'dial-gauge'" class="w-full h-full p-2 bg-slate-900/90 rounded-2xl border border-slate-800 shadow-xl flex flex-col items-center justify-between relative overflow-hidden"
+                      :class="{ 'border-red-500 ring-2 ring-red-500/50 shadow-red-500/20': isWidgetAlarmActive(w) }">
+                      <div class="w-full text-center text-[10px] font-extrabold text-slate-300 uppercase tracking-wider truncate pb-0.5">
+                        {{ w.props?.title || 'PRESSURE GAUGE' }}
+                      </div>
+                      
+                      <!-- SVG Dial Meter -->
+                      <div class="relative w-28 h-28 flex items-center justify-center">
+                        <svg class="w-full h-full -rotate-90" viewBox="0 0 100 100">
+                          <!-- Dial Background Arc -->
+                          <circle cx="50" cy="50" r="40" fill="none" stroke="#1e293b" stroke-width="8" stroke-dasharray="188.5" stroke-dashoffset="47" stroke-linecap="round" />
+                          <!-- Dial Colored Arc -->
+                          <circle cx="50" cy="50" r="40" fill="none" stroke="#10b981" stroke-width="8" stroke-dasharray="188.5"
+                            :stroke-dashoffset="188.5 - (Math.min(100, Math.max(0, getWidgetTankHeightPercent(w))) / 100) * 141.5"
+                            stroke-linecap="round" class="transition-all duration-300"
+                            :style="{ stroke: getWidgetLiquidColor(w) }" />
+                        </svg>
+                        <!-- Center needle / hub -->
+                        <div class="absolute inset-0 flex items-center justify-center pointer-events-none">
+                          <div class="w-2.5 h-2.5 rounded-full bg-slate-200 shadow-md z-10"></div>
+                          <div class="w-0.5 h-10 bg-red-500 origin-bottom transition-transform duration-300 shadow"
+                            :style="{ transform: 'rotate(' + getWidgetGaugeAngle(w) + 'deg)', transformOrigin: 'bottom center', marginBottom: '40px' }"></div>
+                        </div>
+                      </div>
+
+                      <!-- Value readout -->
+                      <div class="w-full text-center pb-0.5">
+                        <span class="text-sm font-extrabold font-mono text-white">{{ getWidgetTelemetryValue(w) }}</span>
+                        <span class="text-[10px] text-slate-400 font-bold ml-1">{{ w.props?.unit || 'Bar' }}</span>
+                      </div>
+                    </div>
+
+                    <!-- 8. LED NUMERIC -->
+                    <div v-else-if="w.type === 'led-numeric'" class="w-full h-full p-2 bg-slate-900/95 rounded-xl border border-slate-800 shadow-xl flex flex-col justify-between">
+                      <div class="text-[10px] font-bold text-slate-400 uppercase tracking-wider truncate">{{ w.props?.title || 'FLOW RATE' }}</div>
+                      <div class="bg-black/80 rounded-lg p-2 border border-slate-800 flex items-baseline justify-end gap-1.5 shadow-inner">
+                        <span class="font-mono text-lg sm:text-xl font-extrabold tracking-wider" :style="{ color: w.props?.color || '#38bdf8', textShadow: '0 0 10px ' + (w.props?.color || '#38bdf8') }">
+                          {{ getWidgetTelemetryValue(w) }}
+                        </span>
+                        <span class="text-[10px] font-bold text-slate-400">{{ w.props?.unit || 'm³/h' }}</span>
+                      </div>
+                    </div>
+
+                    <!-- 9. MONO BOX -->
+                    <div v-else-if="w.type === 'mono-box'" class="w-full h-full p-2.5 bg-slate-900/90 rounded-xl border border-slate-800 shadow-lg flex items-center justify-between gap-3">
+                      <div class="w-9 h-9 rounded-xl bg-sky-500/10 border border-sky-500/25 flex items-center justify-center text-sky-400 text-base shrink-0 shadow-inner">
+                        <i :class="w.props?.icon || 'fa-solid fa-gauge-high'"></i>
+                      </div>
+                      <div class="text-right truncate">
+                        <div class="text-[10px] font-bold text-slate-400 uppercase tracking-wider truncate">{{ w.props?.title || 'METRIC' }}</div>
+                        <div class="text-base font-extrabold font-mono text-white mt-0.5">
+                          {{ getWidgetTelemetryValue(w) }} <span class="text-[10px] font-normal text-slate-400">{{ w.props?.unit || '' }}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <!-- 10. TOGGLE SWITCH (DOWNLINK ACTUATOR) -->
+                    <div v-else-if="w.type === 'toggle-switch'" class="w-full h-full p-2.5 bg-slate-900/95 rounded-2xl border border-slate-800 shadow-xl flex flex-col justify-between">
+                      <div class="flex items-center justify-between pb-1 border-b border-slate-800/80">
+                        <span class="text-[10px] font-extrabold text-slate-300 uppercase tracking-wider truncate">{{ w.props?.title || 'ACTUATOR SWITCH' }}</span>
+                        <span class="text-[9px] font-mono px-1.5 py-0.2 rounded font-bold" :class="isWidgetSwitchOn(w) ? 'bg-emerald-500/20 text-emerald-400' : 'bg-slate-800 text-slate-400'">
+                          {{ isWidgetSwitchOn(w) ? (w.props?.labelOn || 'AUTO ON') : (w.props?.labelOff || 'MANUAL OFF') }}
+                        </span>
+                      </div>
+                      
+                      <!-- Interactive Switch Slider -->
+                      <div class="flex items-center justify-center py-1">
+                        <button
+                          type="button"
+                          @click="triggerWidgetToggleSwitch(w)"
+                          :disabled="w._sendingDownlink"
+                          class="relative inline-flex h-8 w-16 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none shadow-md"
+                          :class="isWidgetSwitchOn(w) ? 'bg-emerald-600' : 'bg-slate-700'"
+                        >
+                          <span
+                            aria-hidden="true"
+                            class="pointer-events-none inline-block h-7 w-7 transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out flex items-center justify-center text-[10px]"
+                            :class="isWidgetSwitchOn(w) ? 'translate-x-8 text-emerald-600' : 'translate-x-0 text-slate-600'"
+                          >
+                            <i v-if="w._sendingDownlink" class="fa-solid fa-circle-notch fa-spin text-amber-500"></i>
+                            <i v-else-if="isWidgetSwitchOn(w)" class="fa-solid fa-check"></i>
+                            <i v-else class="fa-solid fa-xmark"></i>
+                          </span>
+                        </button>
+                      </div>
+
+                      <div class="text-[9px] text-center text-slate-500 font-mono">
+                        {{ w.action?.fPort ? ('Port ' + w.action.fPort + ' • Hex ' + (isWidgetSwitchOn(w) ? (w.action?.payloadHex || '0101') : '0100')) : 'Downlink Actuator' }}
+                      </div>
+                    </div>
+
+                    <!-- 11. ACTION BUTTON (DOWNLINK PUSHBUTTON) -->
+                    <div v-else-if="w.type === 'action-button'" class="w-full h-full p-2 bg-slate-900/90 rounded-2xl border border-slate-800 shadow-xl flex items-center justify-center">
+                      <button
+                        type="button"
+                        @click="triggerWidgetActionButton(w)"
+                        :disabled="w._sendingDownlink"
+                        class="w-full h-full rounded-xl text-white text-xs font-extrabold shadow-lg flex flex-col items-center justify-center gap-1 cursor-pointer transition active:scale-95 disabled:opacity-50"
+                        :style="{ backgroundColor: w.props?.buttonColor || '#e11d48', boxShadow: '0 4px 14px ' + (w.props?.buttonColor || '#e11d48') + '55' }"
+                      >
+                        <i v-if="w._sendingDownlink" class="fa-solid fa-circle-notch fa-spin text-sm"></i>
+                        <i v-else :class="w.props?.icon || 'fa-solid fa-bolt'" class="text-sm"></i>
+                        <span class="text-[11px] tracking-wide">{{ w.props?.label || 'DISPATCH ACTION' }}</span>
+                      </button>
+                    </div>
+
+                    <!-- 12. REALTIME TREND CHART -->
+                    <div v-else-if="w.type === 'realtime-trend'" class="w-full h-full p-3 bg-slate-900/95 rounded-2xl border border-slate-800 shadow-2xl flex flex-col justify-between">
+                      <div class="flex items-center justify-between border-b border-slate-800 pb-1.5">
+                        <div class="flex items-center gap-2">
+                          <i class="fa-solid fa-chart-line text-sky-400 text-xs"></i>
+                          <span class="text-[11px] font-extrabold text-white uppercase tracking-wider">{{ w.props?.title || 'LIVE TELEMETRY TREND' }}</span>
+                        </div>
+                        <span class="text-[9px] font-mono text-slate-400 bg-slate-950 px-2 py-0.5 rounded border border-slate-800">
+                          {{ hmiTrendHistory.length }} Points (Live)
+                        </span>
+                      </div>
+
+                      <!-- SVG Multi-Tag Time Series Chart -->
+                      <div class="relative flex-1 my-2 bg-slate-950/80 rounded-xl border border-slate-800/80 p-2 overflow-hidden shadow-inner flex items-center justify-center">
+                        <svg class="w-full h-full" viewBox="0 0 300 120" preserveAspectRatio="none">
+                          <!-- Grid lines -->
+                          <line x1="0" y1="30" x2="300" y2="30" stroke="#1e293b" stroke-width="1" stroke-dasharray="3 3" />
+                          <line x1="0" y1="60" x2="300" y2="60" stroke="#1e293b" stroke-width="1" stroke-dasharray="3 3" />
+                          <line x1="0" y1="90" x2="300" y2="90" stroke="#1e293b" stroke-width="1" stroke-dasharray="3 3" />
+
+                          <!-- Tag 1 Line (Cyan) -->
+                          <path :d="getWidgetTrendPath(w, 0)" fill="none" stroke="#38bdf8" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
+                          
+                          <!-- Tag 2 Line (Emerald) -->
+                          <path :d="getWidgetTrendPath(w, 1)" fill="none" stroke="#10b981" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="none" />
+
+                          <!-- Tag 3 Line (Amber) -->
+                          <path :d="getWidgetTrendPath(w, 2)" fill="none" stroke="#f59e0b" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
+                        </svg>
+                      </div>
+
+                      <!-- Tag Legends -->
+                      <div class="flex items-center gap-3 text-[10px] font-mono flex-wrap pt-1 border-t border-slate-800/60">
+                        <div v-for="(tagItem, idx) in getWidgetTrendLegend(w)" :key="tagItem.name" class="flex items-center gap-1.5">
+                          <span class="w-2.5 h-2.5 rounded-full" :style="{ backgroundColor: tagItem.color }"></span>
+                          <span class="text-slate-400 uppercase font-semibold">{{ tagItem.name }}:</span>
+                          <span class="font-bold text-white">{{ tagItem.value }}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                  </div>
+
+                </div>
+              </div>
+            </div>
+
+            <!-- VIEW 2: ACTIVE ALARMS VIEW -->
+            <div v-else-if="hmiViewerMode === 'alarms'" class="space-y-4">
+              <div class="bg-slate-900/80 rounded-2xl border border-slate-800 p-4 shadow-xl space-y-3">
+                <div class="flex items-center justify-between pb-2 border-b border-slate-800">
+                  <div class="flex items-center gap-2">
+                    <i class="fa-solid fa-bell text-red-400"></i>
+                    <h4 class="text-xs font-bold text-white uppercase tracking-wider">HMI Screen Alarms Status</h4>
+                  </div>
+                  <span class="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full" :class="activeAlarmsList.length > 0 ? 'bg-red-500/20 text-red-300 border border-red-500/40' : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'">
+                    {{ activeAlarmsList.length }} Triggered
+                  </span>
+                </div>
+
+                <div v-if="activeAlarmsList.length === 0" class="py-12 text-center text-slate-500 text-xs space-y-2">
+                  <i class="fa-solid fa-shield-check text-emerald-400 text-3xl mb-1"></i>
+                  <div class="text-slate-300 font-bold">All SCADA Telemetry Parameters Normal</div>
+                  <p class="text-[11px] text-slate-500">No high/low threshold conditions are currently triggered on any widget.</p>
+                </div>
+
+                <div v-else class="space-y-2">
+                  <div v-for="alm in activeAlarmsList" :key="alm.widgetId + alm.text" class="p-3 rounded-xl bg-red-950/40 border border-red-500/40 flex items-center justify-between gap-3 shadow-md">
+                    <div class="flex items-center gap-3">
+                      <div class="w-8 h-8 rounded-lg bg-red-500/20 border border-red-500/40 flex items-center justify-center text-red-400 text-sm">
+                        <i class="fa-solid fa-triangle-exclamation"></i>
+                      </div>
+                      <div>
+                        <div class="text-xs font-bold text-white">{{ alm.title || alm.widgetId }}</div>
+                        <div class="text-[11px] text-red-300 font-medium mt-0.5">{{ alm.text }}</div>
+                      </div>
+                    </div>
+                    <div class="text-right font-mono">
+                      <span class="text-xs font-bold text-amber-400">Value: {{ alm.value }}</span>
+                      <div class="text-[9px] text-slate-500">Condition: {{ alm.condition }}</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- VIEW 3: TAG TELEMETRY MATRIX VIEW -->
+            <div v-else-if="hmiViewerMode === 'matrix'" class="space-y-4">
+              <div class="bg-slate-900/80 rounded-2xl border border-slate-800 p-4 shadow-xl space-y-3">
+                <div class="flex items-center justify-between pb-2 border-b border-slate-800">
+                  <div class="flex items-center gap-2">
+                    <i class="fa-solid fa-table-cells text-sky-400"></i>
+                    <h4 class="text-xs font-bold text-white uppercase tracking-wider">Decoded Telemetry Tags & RF Metrics</h4>
+                  </div>
+                  <span class="text-[10px] font-mono text-slate-400">
+                    {{ Object.keys(hmiTelemetryMap).length }} Resolved Tags
+                  </span>
+                </div>
+
+                <div v-if="Object.keys(hmiTelemetryMap).length === 0" class="py-12 text-center text-slate-500 text-xs">
+                  No telemetry tags received yet. Please ensure devices are transmitting or run a packet simulation.
+                </div>
+
+                <div v-else class="overflow-x-auto custom-scroll">
+                  <table class="w-full text-left text-xs border-collapse">
+                    <thead>
+                      <tr class="border-b border-slate-800 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                        <th class="py-2.5 px-3">Tag Key / Device</th>
+                        <th class="py-2.5 px-3">Current Value</th>
+                        <th class="py-2.5 px-3">Data Type</th>
+                        <th class="py-2.5 px-3 text-right">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-800/60 font-mono text-xs">
+                      <tr v-for="(val, tagKey) in hmiTelemetryMap" :key="tagKey" class="hover:bg-slate-800/30">
+                        <td class="py-2 px-3 text-sky-300 font-bold">{{ tagKey }}</td>
+                        <td class="py-2 px-3 text-white font-extrabold text-sm">{{ val }}</td>
+                        <td class="py-2 px-3 text-slate-400 text-[11px]">{{ typeof val }}</td>
+                        <td class="py-2 px-3 text-right">
+                          <span class="px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[10px]">LIVE</span>
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+
+          </div>
+
           <!-- General Module Template for independent module source extension -->
           <div v-else class="text-center py-10 space-y-4">
             <div class="w-16 h-16 rounded-2xl bg-sky-500/10 border border-sky-500/25 flex items-center justify-center text-sky-400 text-2xl mx-auto shadow-inner">
@@ -2059,6 +2572,585 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
           userMenuOpen.value = false;
         };
 
+        // ==========================================
+        // D-MODULE: HMI SCADA VIEWER STATE & METHODS
+        // ==========================================
+        const publishedHmiScreens = ref([]);
+        const selectedHmiScreenId = ref('');
+        const currentHmiScreen = ref(null);
+        const hmiLoading = ref(false);
+        const hmiViewerMode = ref('canvas'); // 'canvas' | 'alarms' | 'matrix'
+        const hmiZoom = ref(1.0);
+        const hmiCanvasViewportRef = ref(null);
+        const hmiTelemetryMap = ref({}); // { 'devEUI.field': val, 'field': val }
+        const hmiTrendHistory = ref([]); // array of { time, timeStr, [tag]: val }
+        const hmiWidgetSwitchStates = ref({});
+        const hmiRxPacketCount = ref(0);
+        const hmiLastRxTime = ref(null);
+        const realtimeConnected = ref(false);
+        let socketClient = null;
+        let sseSource = null;
+
+        // Extract flattened key-value pairs from telemetry packet (supporting ChirpStack object, decodedData, and RF metrics)
+        const extractFlattenedTelemetry = (rec) => {
+          if (!rec) return { dev: '', flat: {} };
+          const dev = (rec.devEUI || rec.devEui || '').trim().toUpperCase();
+          const flat = {};
+
+          // Standard RF & Network metrics
+          if (rec.rssi !== undefined && rec.rssi !== null) flat['rssi'] = rec.rssi;
+          if (rec.snr !== undefined && rec.snr !== null) flat['snr'] = rec.snr;
+          if (rec.fCnt !== undefined && rec.fCnt !== null) flat['fCnt'] = rec.fCnt;
+          if (rec.fPort !== undefined && rec.fPort !== null) flat['fPort'] = rec.fPort;
+          if (rec.dr !== undefined && rec.dr !== null) flat['dr'] = rec.dr;
+          if (rec.frequency !== undefined && rec.frequency !== null) flat['frequency'] = rec.frequency;
+          if (rec.battery !== undefined && rec.battery !== null) flat['battery'] = rec.battery;
+
+          // Recursively flatten decoded objects
+          const flattenObject = (obj, prefix = '') => {
+            if (!obj || typeof obj !== 'object') return;
+            for (const [k, v] of Object.entries(obj)) {
+              if (k === 'error' || k === 'errors' || k === 'warnings') continue;
+              const fullKey = prefix ? prefix + '.' + k : k;
+              if (v !== null && typeof v === 'object' && !Array.isArray(v)) {
+                flattenObject(v, fullKey);
+              } else if (v !== null && v !== undefined) {
+                flat[fullKey] = v;
+                // Also assign unqualified leaf name if not occupied
+                if (prefix && flat[k] === undefined) {
+                  flat[k] = v;
+                }
+              }
+            }
+          };
+
+          if (rec.object && typeof rec.object === 'object') {
+            flattenObject(rec.object);
+          }
+          if (rec.decodedData && typeof rec.decodedData === 'object') {
+            flattenObject(rec.decodedData);
+          }
+
+          return { dev, flat };
+        };
+
+        const updateHmiTelemetryMap = (records) => {
+          if (!Array.isArray(records)) return;
+          const newMap = { ...hmiTelemetryMap.value };
+          
+          records.forEach(rec => {
+            const { dev, flat } = extractFlattenedTelemetry(rec);
+            for (const [k, v] of Object.entries(flat)) {
+              if (dev) {
+                newMap[dev + '.' + k] = v;
+              }
+              newMap[k] = v;
+            }
+          });
+          
+          hmiTelemetryMap.value = newMap;
+
+          // Build/Update Time-series Trend History Points
+          if (records.length > 0) {
+            const sortedAsc = [...records].reverse();
+            sortedAsc.forEach(rec => {
+              const { dev, flat } = extractFlattenedTelemetry(rec);
+              const t = rec.timestamp ? new Date(rec.timestamp) : new Date();
+              const pt = {
+                timestamp: t,
+                timeStr: t.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+                ...flat
+              };
+              if (dev) {
+                for (const [k, v] of Object.entries(flat)) {
+                  pt[dev + '.' + k] = v;
+                }
+              }
+              hmiTrendHistory.value.push(pt);
+              if (hmiTrendHistory.value.length > 50) {
+                hmiTrendHistory.value.shift();
+              }
+            });
+          }
+        };
+
+        const fetchPublishedHmiScreens = async () => {
+          hmiLoading.value = true;
+          try {
+            const res = await fetch('/api/hmi/screens/published', {
+              headers: authHeaders(),
+              credentials: 'include',
+            });
+            if (res.ok) {
+              const screens = await res.json();
+              publishedHmiScreens.value = screens || [];
+              if (publishedHmiScreens.value.length > 0) {
+                if (!selectedHmiScreenId.value || !publishedHmiScreens.value.some(s => s.id === selectedHmiScreenId.value)) {
+                  selectedHmiScreenId.value = publishedHmiScreens.value[0].id;
+                }
+                loadSelectedHmiScreen();
+              } else {
+                currentHmiScreen.value = null;
+              }
+            }
+          } catch(err) {
+            console.error('Failed to fetch published screens:', err);
+          } finally {
+            hmiLoading.value = false;
+          }
+        };
+
+        const loadSelectedHmiScreen = () => {
+          const found = publishedHmiScreens.value.find(s => s.id === selectedHmiScreenId.value);
+          if (found) {
+            currentHmiScreen.value = JSON.parse(JSON.stringify(found));
+          }
+        };
+
+        const fetchHmiTelemetry = async (silent = true) => {
+          if (!silent) hmiLoading.value = true;
+          try {
+            const res = await fetch('/lorawan/telemetry?limit=40', {
+              headers: authHeaders(),
+              credentials: 'include',
+            });
+            if (res.ok) {
+              const records = await res.json();
+              if (Array.isArray(records)) {
+                hmiRxPacketCount.value = records.length;
+                if (records.length > 0) {
+                  hmiLastRxTime.value = new Date(records[0].timestamp || Date.now());
+                }
+                updateHmiTelemetryMap(records);
+              }
+            }
+          } catch(e) {
+            console.error('HMI Telemetry fetch error:', e);
+          } finally {
+            if (!silent) hmiLoading.value = false;
+          }
+        };
+
+        const refreshHmiViewer = async () => {
+          await Promise.all([fetchPublishedHmiScreens(), fetchHmiTelemetry(false)]);
+          showToast('HMI Screen & Telemetry updated', 'success');
+        };
+
+        const fitHmiZoom = () => {
+          if (!hmiCanvasViewportRef.value || !currentHmiScreen.value) {
+            hmiZoom.value = 1.0;
+            return;
+          }
+          const containerW = hmiCanvasViewportRef.value.clientWidth - 20;
+          const canvasW = currentHmiScreen.value.canvasConfig?.width || 1280;
+          if (containerW > 0 && canvasW > 0) {
+            const scale = Math.min(1.2, Math.max(0.4, Number((containerW / canvasW).toFixed(2))));
+            hmiZoom.value = scale;
+          }
+        };
+
+        // Telemetry Value Resolver for Widgets
+        const getWidgetTelemetryValue = (widget) => {
+          if (!widget) return '--';
+          const binding = widget.bindings?.value || widget.bindings?.level || widget.bindings?.status;
+          let raw = undefined;
+
+          if (binding?.devEUI && binding?.field) {
+            const key = binding.devEUI.toUpperCase() + '.' + binding.field;
+            raw = hmiTelemetryMap.value[key];
+            if (raw === undefined) {
+              raw = hmiTelemetryMap.value[binding.field];
+            }
+          } else if (binding?.field) {
+            raw = hmiTelemetryMap.value[binding.field];
+            if (raw === undefined) {
+              for (const k of Object.keys(hmiTelemetryMap.value)) {
+                if (k.endsWith('.' + binding.field)) {
+                  raw = hmiTelemetryMap.value[k];
+                  break;
+                }
+              }
+            }
+          }
+
+          // Fallback defaults if no live telemetry recorded yet
+          if (raw === undefined || raw === null) {
+            if (widget.props?.defaultValue !== undefined) raw = widget.props.defaultValue;
+            else if (widget.type === 'linear-tank') raw = 64.5;
+            else if (widget.type === 'silo-vessel') raw = 82.0;
+            else if (widget.type === 'dial-gauge') raw = 8.6;
+            else if (widget.type === 'led-numeric') raw = 142.8;
+            else if (widget.type === 'mono-box') raw = 28.4;
+            else if (widget.type === 'bit-lamp') raw = 1;
+            else if (widget.type === 'multi-state-lamp') raw = 1;
+            else raw = 0;
+          }
+
+          let val = Number(raw);
+          if (isNaN(val)) return String(raw);
+
+          // Apply mathematical formula if defined
+          if (binding?.formula && binding.formula.trim()) {
+            try {
+              const fn = new Function('val', 'return (' + binding.formula + ')');
+              val = fn(val);
+            } catch(e) {}
+          }
+
+          const dec = binding?.decimalPlaces !== undefined ? Number(binding.decimalPlaces) : 1;
+          return Number(val).toFixed(dec);
+        };
+
+        const getWidgetTankHeightPercent = (widget) => {
+          const val = Number(getWidgetTelemetryValue(widget)) || 0;
+          const min = widget.props?.min !== undefined ? Number(widget.props.min) : 0;
+          const max = widget.props?.max !== undefined ? Number(widget.props.max) : 100;
+          if (max <= min) return 0;
+          const pct = ((val - min) / (max - min)) * 100;
+          return Math.min(100, Math.max(0, Math.round(pct)));
+        };
+
+        const getWidgetLiquidColor = (widget) => {
+          const val = Number(getWidgetTelemetryValue(widget)) || 0;
+          if (widget.states && widget.states.length > 0) {
+            for (const st of widget.states) {
+              if (st.condition && st.color) {
+                try {
+                  const fn = new Function('val', 'return (' + st.condition + ')');
+                  if (fn(val)) return st.color;
+                } catch(e) {}
+              }
+            }
+          }
+          return widget.props?.liquidColor || '#0284c7';
+        };
+
+        const getWidgetGaugeAngle = (widget) => {
+          const val = Number(getWidgetTelemetryValue(widget)) || 0;
+          const min = widget.props?.min !== undefined ? Number(widget.props.min) : 0;
+          const max = widget.props?.max !== undefined ? Number(widget.props.max) : 100;
+          if (max <= min) return -135;
+          const ratio = Math.min(1, Math.max(0, (val - min) / (max - min)));
+          return Math.round(-135 + ratio * 270);
+        };
+
+        const isWidgetBitOn = (widget) => {
+          const v = getWidgetTelemetryValue(widget);
+          return v === '1' || v === 1 || String(v).toLowerCase() === 'true' || Number(v) > 0;
+        };
+
+        const getWidgetBitLampStyle = (widget) => {
+          const on = isWidgetBitOn(widget);
+          const colOn = widget.props?.colorOn || '#10b981';
+          const colOff = widget.props?.colorOff || '#475569';
+          return {
+            backgroundColor: on ? colOn : colOff,
+            borderColor: on ? '#ffffff' : '#334155',
+            boxShadow: on ? '0 0 14px ' + colOn : 'none'
+          };
+        };
+
+        const getWidgetMultiStateLabel = (widget) => {
+          const v = Math.round(Number(getWidgetTelemetryValue(widget)) || 0);
+          if (v === 0) return widget.props?.state0 || 'STOPPED';
+          if (v === 1) return widget.props?.state1 || 'RUNNING';
+          if (v === 2) return widget.props?.state2 || 'WARNING';
+          return widget.props?.state3 || 'FAULT';
+        };
+
+        const getWidgetMultiStateColor = (widget) => {
+          const v = Math.round(Number(getWidgetTelemetryValue(widget)) || 0);
+          if (v === 0) return '#94a3b8';
+          if (v === 1) return '#10b981';
+          if (v === 2) return '#f59e0b';
+          return '#ef4444';
+        };
+
+        const getWidgetMultiStateStyle = (widget) => {
+          const c = getWidgetMultiStateColor(widget);
+          return {
+            backgroundColor: c + '22',
+            borderColor: c,
+            color: c,
+            boxShadow: '0 0 10px ' + c + '44'
+          };
+        };
+
+        const getWidgetMultiStateIcon = (widget) => {
+          const v = Math.round(Number(getWidgetTelemetryValue(widget)) || 0);
+          if (v === 0) return 'fa-solid fa-stop';
+          if (v === 1) return 'fa-solid fa-play';
+          if (v === 2) return 'fa-solid fa-triangle-exclamation';
+          return 'fa-solid fa-radiation';
+        };
+
+        const isWidgetAlarmActive = (widget) => {
+          const val = Number(getWidgetTelemetryValue(widget)) || 0;
+          if (widget.states && widget.states.length > 0) {
+            for (const st of widget.states) {
+              if (st.alarmText && st.condition) {
+                try {
+                  const fn = new Function('val', 'return (' + st.condition + ')');
+                  if (fn(val)) return true;
+                } catch(e) {}
+              }
+            }
+          }
+          return false;
+        };
+
+        // Active Alarms Computed across current HMI Screen
+        const activeAlarmsList = computed(() => {
+          if (!currentHmiScreen.value || !currentHmiScreen.value.widgets) return [];
+          const alarms = [];
+          for (const w of currentHmiScreen.value.widgets) {
+            const val = Number(getWidgetTelemetryValue(w)) || 0;
+            if (w.states && w.states.length > 0) {
+              for (const st of w.states) {
+                if (st.alarmText && st.condition) {
+                  try {
+                    const fn = new Function('val', 'return (' + st.condition + ')');
+                    if (fn(val)) {
+                      alarms.push({
+                        widgetId: w.id,
+                        title: w.props?.title || w.id,
+                        text: st.alarmText,
+                        condition: st.condition,
+                        value: val,
+                        color: st.color || '#ef4444',
+                      });
+                    }
+                  } catch(e) {}
+                }
+              }
+            }
+          }
+          return alarms;
+        });
+
+        // Downlink Actuator triggers
+        const isWidgetSwitchOn = (widget) => {
+          if (hmiWidgetSwitchStates.value[widget.id] !== undefined) {
+            return hmiWidgetSwitchStates.value[widget.id];
+          }
+          return isWidgetBitOn(widget);
+        };
+
+        const triggerWidgetToggleSwitch = async (widget) => {
+          const current = isWidgetSwitchOn(widget);
+          const next = !current;
+          const action = widget.action;
+
+          if (action?.confirmMessage) {
+            if (!confirm(action.confirmMessage)) return;
+          }
+
+          widget._sendingDownlink = true;
+          hmiWidgetSwitchStates.value[widget.id] = next;
+
+          try {
+            const res = await fetch('/api/hmi/screens/downlink', {
+              method: 'POST',
+              headers: authHeaders(),
+              credentials: 'include',
+              body: JSON.stringify({
+                devEUI: action?.devEUI || widget.bindings?.value?.devEUI || widget.bindings?.status?.devEUI || '',
+                fPort: action?.fPort || 1,
+                payloadHex: next ? (action?.payloadHex || '0101') : '0100',
+                actionType: 'toggle',
+                confirmed: false
+              })
+            });
+
+            const data = await res.json().catch(() => ({}));
+            if (res.ok && data.success) {
+              showToast('Downlink sent: ' + (data.message || 'Actuator toggled'), 'success');
+            } else {
+              showToast('Downlink: ' + (data.message || 'Network Server dispatch status updated'), 'info');
+            }
+          } catch(err) {
+            showToast('Failed to dispatch downlink command: ' + err.message, 'error');
+          } finally {
+            widget._sendingDownlink = false;
+          }
+        };
+
+        const triggerWidgetActionButton = async (widget) => {
+          const action = widget.action;
+          if (action?.confirmMessage) {
+            if (!confirm(action.confirmMessage)) return;
+          }
+
+          widget._sendingDownlink = true;
+          try {
+            const res = await fetch('/api/hmi/screens/downlink', {
+              method: 'POST',
+              headers: authHeaders(),
+              credentials: 'include',
+              body: JSON.stringify({
+                devEUI: action?.devEUI || '',
+                fPort: action?.fPort || 1,
+                payloadHex: action?.payloadHex || '01',
+                actionType: 'pushbutton',
+                confirmed: false
+              })
+            });
+
+            const data = await res.json().catch(() => ({}));
+            if (res.ok && data.success) {
+              showToast('Command sent: ' + (data.message || (widget.props?.label || 'Action dispatched')), 'success');
+            } else {
+              showToast('Downlink: ' + (data.message || 'Action executed'), 'info');
+            }
+          } catch(err) {
+            showToast('Failed to dispatch action button command: ' + err.message, 'error');
+          } finally {
+            widget._sendingDownlink = false;
+          }
+        };
+
+        // Realtime Trend Chart Helpers
+        const getWidgetTrendLegend = (widget) => {
+          const tags = widget.props?.tags || ['water_level', 'pressure', 'flow_rate'];
+          const colors = ['#38bdf8', '#10b981', '#f59e0b', '#ec4899', '#a855f7'];
+          return tags.map((t, idx) => {
+            let val = hmiTelemetryMap.value[t];
+            if (val === undefined) {
+              for (const k of Object.keys(hmiTelemetryMap.value)) {
+                if (k.endsWith('.' + t)) { val = hmiTelemetryMap.value[k]; break; }
+              }
+            }
+            return {
+              name: t,
+              color: colors[idx % colors.length],
+              value: val !== undefined ? val : '--'
+            };
+          });
+        };
+
+        const getWidgetTrendPath = (widget, tagIndex) => {
+          const tags = widget.props?.tags || ['water_level', 'pressure', 'flow_rate'];
+          const tagName = tags[tagIndex] || 'val';
+          const points = hmiTrendHistory.value;
+          const w = 300;
+          const h = 120;
+
+          if (!points || points.length === 0) {
+            if (tagIndex === 0) return 'M 0 80 Q 75 40 150 60 T 300 30';
+            if (tagIndex === 1) return 'M 0 50 Q 75 90 150 70 T 300 65';
+            return 'M 0 100 Q 75 80 150 85 T 300 60';
+          }
+
+          const values = points.map(pt => {
+            let v = pt[tagName];
+            if (v === undefined) {
+              for (const k of Object.keys(pt)) {
+                if (k.endsWith('.' + tagName)) { v = pt[k]; break; }
+              }
+            }
+            return Number(v) || 0;
+          });
+
+          let minVal = Math.min(...values);
+          let maxVal = Math.max(...values);
+          if (minVal === maxVal) {
+            minVal = Math.max(0, minVal - 10);
+            maxVal = maxVal + 10;
+          }
+          const range = Math.max(1, maxVal - minVal);
+          const step = w / Math.max(1, points.length - 1);
+
+          let d = '';
+          values.forEach((v, i) => {
+            const ratio = (v - minVal) / range;
+            const y = Math.max(10, Math.min(h - 10, h - 10 - ratio * (h - 20)));
+            const x = Math.round(i * step);
+            d += (i === 0 ? ('M ' + x + ' ' + y.toFixed(1)) : (' L ' + x + ' ' + y.toFixed(1)));
+          });
+
+          return d;
+        };
+
+        // Realtime WebSocket & SSE Client
+        const initRealtimeConnection = () => {
+          if (socketClient || sseSource) return;
+
+          // Try Socket.IO if available
+          if (typeof io !== 'undefined') {
+            try {
+              socketClient = io('/', {
+                path: '/socket.io',
+                transports: ['websocket', 'polling'],
+                reconnectionAttempts: 20,
+                reconnectionDelay: 2000,
+              });
+
+              socketClient.on('connect', () => {
+                realtimeConnected.value = true;
+                socketClient.emit('subscribe:telemetry');
+                socketClient.emit('subscribe:hmi');
+              });
+
+              socketClient.on('disconnect', () => {
+                realtimeConnected.value = false;
+              });
+
+              socketClient.on('telemetry:uplink', (pkt) => {
+                hmiRxPacketCount.value++;
+                hmiLastRxTime.value = new Date();
+                
+                // Prepend to telemetry table list if loaded
+                if (telemetryLoaded.value) {
+                  telemetryList.value.unshift(pkt);
+                }
+
+                // Update HMI tag resolution map
+                updateHmiTelemetryMap([pkt]);
+              });
+
+              socketClient.on('downlink:status', (event) => {
+                if (event) {
+                  showToast('Downlink [' + (event.status || 'STATUS') + ']: ' + (event.message || ''), event.success ? 'success' : 'info');
+                }
+              });
+
+              return;
+            } catch(e) {
+              console.warn('Socket.IO initialization failed, falling back to SSE:', e);
+            }
+          }
+
+          // Fallback to Server-Sent Events (SSE)
+          if (typeof EventSource !== 'undefined') {
+            try {
+              sseSource = new EventSource('/api/realtime/stream');
+              sseSource.onopen = () => {
+                realtimeConnected.value = true;
+              };
+              sseSource.onerror = () => {
+                realtimeConnected.value = false;
+              };
+              sseSource.onmessage = (e) => {
+                try {
+                  const ev = JSON.parse(e.data);
+                  if (ev.type === 'telemetry') {
+                    hmiRxPacketCount.value++;
+                    hmiLastRxTime.value = new Date();
+                    if (telemetryLoaded.value) {
+                      telemetryList.value.unshift(ev.data);
+                    }
+                    updateHmiTelemetryMap([ev.data]);
+                  } else if (ev.type === 'downlink') {
+                    showToast('Downlink [' + (ev.data?.status || 'STATUS') + ']: ' + (ev.data?.message || ''), ev.data?.success ? 'success' : 'info');
+                  }
+                } catch(err) {}
+              };
+            } catch(err) {
+              console.error('SSE initialization error:', err);
+            }
+          }
+        };
+
         const returnToHome = () => {
           stopAutoSync();
           activeFeature.value = null;
@@ -2082,6 +3174,10 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
             selectedTelemetryDeviceEUI.value = '';
             stopAutoSync();
             fetchDevices();
+          } else if (feature.id === 'hmi-scada-viewer') {
+            fetchPublishedHmiScreens();
+            fetchHmiTelemetry();
+            initRealtimeConnection();
           }
         };
 
@@ -2149,6 +3245,10 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
                     selectedTelemetryDeviceEUI.value = '';
                     stopAutoSync();
                     fetchDevices();
+                  } else if (found.id === 'hmi-scada-viewer') {
+                    fetchPublishedHmiScreens();
+                    fetchHmiTelemetry();
+                    initRealtimeConnection();
                   }
                 }
               }
@@ -2402,6 +3502,7 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
 
         onMounted(() => {
           initDashboard();
+          initRealtimeConnection();
           // Close inspect modal on ESC key
           document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape' && activeTelemetryPacket.value) {
@@ -2545,7 +3646,44 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
           handleLogout,
           fetchLiveTelemetry,
           fetchDevices,
-          formatTime
+          formatTime,
+          // HMI SCADA Viewer exports
+          publishedHmiScreens,
+          selectedHmiScreenId,
+          currentHmiScreen,
+          hmiLoading,
+          hmiViewerMode,
+          hmiZoom,
+          hmiCanvasViewportRef,
+          hmiTelemetryMap,
+          hmiTrendHistory,
+          hmiWidgetSwitchStates,
+          hmiRxPacketCount,
+          hmiLastRxTime,
+          realtimeConnected,
+          fetchPublishedHmiScreens,
+          loadSelectedHmiScreen,
+          fetchHmiTelemetry,
+          refreshHmiViewer,
+          fitHmiZoom,
+          getWidgetTelemetryValue,
+          getWidgetTankHeightPercent,
+          getWidgetLiquidColor,
+          getWidgetGaugeAngle,
+          isWidgetBitOn,
+          getWidgetBitLampStyle,
+          getWidgetMultiStateLabel,
+          getWidgetMultiStateColor,
+          getWidgetMultiStateStyle,
+          getWidgetMultiStateIcon,
+          isWidgetAlarmActive,
+          activeAlarmsList,
+          isWidgetSwitchOn,
+          triggerWidgetToggleSwitch,
+          triggerWidgetActionButton,
+          getWidgetTrendLegend,
+          getWidgetTrendPath,
+          initRealtimeConnection
         };
       }
     }).mount('#app');

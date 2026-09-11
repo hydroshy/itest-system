@@ -356,4 +356,231 @@ export class NetworkServersService {
   async getLinkedGateways(id: string): Promise<GatewayEntity[]> {
     return await this.gatewayRepo.find({ where: { networkServerId: id } });
   }
+
+  /**
+   * Dispatches a real LoRaWAN downlink payload to the device's Network Server (ChirpStack v3/v4 or ThingPark Wireless)
+   */
+  async sendDownlink(params: {
+    devEUI: string;
+    fPort?: number;
+    payloadHex?: string;
+    confirmed?: boolean;
+    author?: string;
+  }): Promise<{
+    success: boolean;
+    status: string;
+    message: string;
+    devEUI: string;
+    fPort: number;
+    payloadHex: string;
+    networkServerType?: string;
+    networkServerName?: string;
+    details?: any;
+  }> {
+    const normEUI = (params.devEUI || '').trim().toUpperCase();
+    const fPort = Math.max(1, Math.min(223, Number(params.fPort) || 1));
+    const cleanHex = (params.payloadHex || '01').replace(/[^0-9a-fA-F]/g, '').toUpperCase();
+
+    this.logger.log(`Dispatching Downlink to DevEUI=${normEUI || 'DEFAULT'}, Port=${fPort}, Hex=${cleanHex}, Author=${params.author || 'User'}`);
+
+    // 1. Locate Device in DB
+    let device: DeviceEntity | null = null;
+    if (normEUI) {
+      device = await this.deviceRepo.findOne({
+        where: { devEUI: normEUI },
+        relations: ['networkServer'],
+      });
+    }
+
+    // 2. Resolve target Network Server
+    let server: NetworkServerEntity | null = null;
+    if (device?.networkServer) {
+      server = device.networkServer;
+    } else if (device?.networkServerId) {
+      server = await this.serverRepo.findOne({ where: { id: device.networkServerId } });
+    }
+
+    if (!server) {
+      // Fallback to default or first active network server
+      server = await this.serverRepo.findOne({ where: { isDefault: true } });
+      if (!server) {
+        server = await this.serverRepo.findOne({ order: { createdAt: 'ASC' } });
+      }
+    }
+
+    if (!server) {
+      return {
+        success: false,
+        status: 'NO_NETWORK_SERVER',
+        message: 'No Network Server is configured or linked to this device.',
+        devEUI: normEUI,
+        fPort,
+        payloadHex: cleanHex,
+      };
+    }
+
+    // 3. Dispatch based on Server Type
+    const startTime = Date.now();
+
+    // Mode A: Webhook-only / Standalone buffer (no apiUrl configured)
+    if (!server.apiUrl || (!server.apiUrl.startsWith('http://') && !server.apiUrl.startsWith('https://'))) {
+      this.logger.log(`Downlink buffered locally for ${server.name} (Webhook-only mode, no API URL)`);
+      return {
+        success: true,
+        status: 'QUEUED_LOCAL_BUFFER',
+        message: `Downlink [${cleanHex}] queued in local buffer. Server ${server.name} operates in webhook ingestion mode.`,
+        devEUI: normEUI,
+        fPort,
+        payloadHex: cleanHex,
+        networkServerType: server.type,
+        networkServerName: server.name,
+      };
+    }
+
+    // Mode B: HTTP REST Downlink to ChirpStack or ThingPark
+    const rawBase = server.apiUrl.trim().replace(/\/+$/, '');
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 6000);
+
+    try {
+      if (server.type === NetworkServerType.CHIRPSTACK) {
+        // ChirpStack v4 Downlink Queue API: POST /api/devices/{dev_eui}/queue
+        const targetUrl = rawBase.endsWith('/api')
+          ? `${rawBase}/devices/${normEUI.toLowerCase()}/queue`
+          : `${rawBase}/api/devices/${normEUI.toLowerCase()}/queue`;
+
+        const base64Data = Buffer.from(cleanHex, 'hex').toString('base64');
+        const chirpstackPayload = {
+          queueItem: {
+            confirmed: Boolean(params.confirmed),
+            data: base64Data,
+            fPort,
+            isPending: false,
+          },
+        };
+
+        const headers: Record<string, string> = {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        };
+        if (server.apiKey) {
+          headers['Authorization'] = `Bearer ${server.apiKey.trim()}`;
+        }
+
+        const res = await fetch(targetUrl, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify(chirpstackPayload),
+          signal: controller.signal,
+        });
+
+        clearTimeout(timeoutId);
+        const latencyMs = Date.now() - startTime;
+
+        if (res.ok) {
+          const resData = await res.json().catch(() => ({}));
+          this.logger.log(`✅ Downlink successfully queued to ChirpStack [${targetUrl}] in ${latencyMs}ms`);
+          return {
+            success: true,
+            status: 'QUEUED_TO_CHIRPSTACK',
+            message: `Downlink payload [${cleanHex}] queued to ChirpStack on fPort ${fPort} (${latencyMs}ms)`,
+            devEUI: normEUI,
+            fPort,
+            payloadHex: cleanHex,
+            networkServerType: server.type,
+            networkServerName: server.name,
+            details: resData,
+          };
+        } else {
+          const errText = await res.text().catch(() => '');
+          this.logger.warn(`ChirpStack rejected downlink (HTTP ${res.status}): ${errText}`);
+          return {
+            success: false,
+            status: res.status === 404 ? 'DEVICE_NOT_FOUND_ON_CHIRPSTACK' : 'CHIRPSTACK_REJECTED',
+            message: `ChirpStack returned HTTP ${res.status}: ${errText.slice(0, 150) || res.statusText}`,
+            devEUI: normEUI,
+            fPort,
+            payloadHex: cleanHex,
+            networkServerType: server.type,
+            networkServerName: server.name,
+            details: { httpStatus: res.status, error: errText },
+          };
+        }
+      } else {
+        // ThingPark Wireless Actility Downlink API: POST {apiUrl}/thingpark/dx/core/v1/rest/devices/{devEUI}/downlink
+        const targetUrl = rawBase.includes('/thingpark')
+          ? `${rawBase}/devices/${normEUI}/downlink`
+          : `${rawBase}/thingpark/dx/core/v1/rest/devices/${normEUI}/downlink`;
+
+        const thingparkPayload = {
+          fPort,
+          payload: cleanHex,
+          confirmed: Boolean(params.confirmed),
+        };
+
+        const headers: Record<string, string> = {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        };
+        if (server.apiKey) {
+          headers['Authorization'] = `Bearer ${server.apiKey.trim()}`;
+          headers['X-API-KEY'] = server.apiKey.trim();
+        }
+
+        const res = await fetch(targetUrl, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify(thingparkPayload),
+          signal: controller.signal,
+        });
+
+        clearTimeout(timeoutId);
+        const latencyMs = Date.now() - startTime;
+
+        if (res.ok) {
+          const resData = await res.json().catch(() => ({}));
+          this.logger.log(`✅ Downlink successfully queued to ThingPark [${targetUrl}] in ${latencyMs}ms`);
+          return {
+            success: true,
+            status: 'QUEUED_TO_THINGPARK',
+            message: `Downlink payload [${cleanHex}] queued to ThingPark on fPort ${fPort} (${latencyMs}ms)`,
+            devEUI: normEUI,
+            fPort,
+            payloadHex: cleanHex,
+            networkServerType: server.type,
+            networkServerName: server.name,
+            details: resData,
+          };
+        } else {
+          const errText = await res.text().catch(() => '');
+          this.logger.warn(`ThingPark rejected downlink (HTTP ${res.status}): ${errText}`);
+          return {
+            success: false,
+            status: 'THINGPARK_REJECTED',
+            message: `ThingPark returned HTTP ${res.status}: ${errText.slice(0, 150) || res.statusText}`,
+            devEUI: normEUI,
+            fPort,
+            payloadHex: cleanHex,
+            networkServerType: server.type,
+            networkServerName: server.name,
+            details: { httpStatus: res.status, error: errText },
+          };
+        }
+      }
+    } catch (err: any) {
+      clearTimeout(timeoutId);
+      this.logger.warn(`Failed to connect to ${server.name} at ${server.apiUrl}: ${err.message}`);
+      return {
+        success: false,
+        status: 'LNS_CONNECTION_ERROR',
+        message: `Connection error to ${server.name}: ${err.message}`,
+        devEUI: normEUI,
+        fPort,
+        payloadHex: cleanHex,
+        networkServerType: server.type,
+        networkServerName: server.name,
+        details: { error: err.message },
+      };
+    }
+  }
 }

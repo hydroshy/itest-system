@@ -12,6 +12,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
   <link rel="prefetch" href="/dashboard" />
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+  <script src="https://cdn.jsdelivr.net/npm/socket.io-client@4.7.4/dist/socket.io.min.js"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
@@ -7389,53 +7390,144 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
         };
 
         const getWidgetTrendPath = (widget, tagIndex) => {
+          const tags = widget.props?.tags || ['water_level', 'pressure', 'flow_rate'];
+          const tagName = tags[tagIndex] || 'val';
           const points = hmiTrendHistory.value;
-          if (!points || points.length === 0) {
-            if (tagIndex === 0) return 'M 0 80 Q 75 40 150 60 T 300 30';
-            return 'M 0 50 Q 75 90 150 70 T 300 65';
-          }
           const w = 300;
           const h = 120;
-          const step = w / Math.max(1, points.length - 1);
-          let d = '';
-          points.forEach((pt, i) => {
-            const val = tagIndex === 0 ? (pt.level || pt.valA || 50) : (pt.pressure || pt.valB || 30);
-            const y = Math.max(10, Math.min(110, h - (val / 100) * 100));
-            const x = i * step;
-            d += (i === 0 ? ('M ' + x + ' ' + y) : (' L ' + x + ' ' + y));
+
+          if (!points || points.length === 0) {
+            if (tagIndex === 0) return 'M 0 80 Q 75 40 150 60 T 300 30';
+            if (tagIndex === 1) return 'M 0 50 Q 75 90 150 70 T 300 65';
+            return 'M 0 100 Q 75 80 150 85 T 300 60';
+          }
+
+          const values = points.map(pt => {
+            let v = pt[tagName];
+            if (v === undefined) {
+              for (const k of Object.keys(pt)) {
+                if (k.endsWith('.' + tagName)) { v = pt[k]; break; }
+              }
+            }
+            return Number(v) || 0;
           });
+
+          let minVal = Math.min(...values);
+          let maxVal = Math.max(...values);
+          if (minVal === maxVal) {
+            minVal = Math.max(0, minVal - 10);
+            maxVal = maxVal + 10;
+          }
+          const range = Math.max(1, maxVal - minVal);
+          const step = w / Math.max(1, points.length - 1);
+
+          let d = '';
+          values.forEach((v, i) => {
+            const ratio = (v - minVal) / range;
+            const y = Math.max(10, Math.min(h - 10, h - 10 - ratio * (h - 20)));
+            const x = Math.round(i * step);
+            d += (i === 0 ? ('M ' + x + ' ' + y.toFixed(1)) : (' L ' + x + ' ' + y.toFixed(1)));
+          });
+
           return d;
+        };
+
+        const extractFlattenedTelemetryHmi = (rec) => {
+          if (!rec) return { dev: '', flat: {} };
+          const dev = (rec.devEUI || rec.devEui || '').trim().toUpperCase();
+          const flat = {};
+
+          if (rec.rssi !== undefined && rec.rssi !== null) flat['rssi'] = rec.rssi;
+          if (rec.snr !== undefined && rec.snr !== null) flat['snr'] = rec.snr;
+          if (rec.fCnt !== undefined && rec.fCnt !== null) flat['fCnt'] = rec.fCnt;
+          if (rec.fPort !== undefined && rec.fPort !== null) flat['fPort'] = rec.fPort;
+          if (rec.dr !== undefined && rec.dr !== null) flat['dr'] = rec.dr;
+          if (rec.frequency !== undefined && rec.frequency !== null) flat['frequency'] = rec.frequency;
+          if (rec.battery !== undefined && rec.battery !== null) flat['battery'] = rec.battery;
+
+          const flattenObject = (obj, prefix = '') => {
+            if (!obj || typeof obj !== 'object') return;
+            for (const [k, v] of Object.entries(obj)) {
+              if (k === 'error' || k === 'errors' || k === 'warnings') continue;
+              const fullKey = prefix ? prefix + '.' + k : k;
+              if (v !== null && typeof v === 'object' && !Array.isArray(v)) {
+                flattenObject(v, fullKey);
+              } else if (v !== null && v !== undefined) {
+                flat[fullKey] = v;
+                if (prefix && flat[k] === undefined) flat[k] = v;
+              }
+            }
+          };
+
+          if (rec.object && typeof rec.object === 'object') flattenObject(rec.object);
+          if (rec.decodedData && typeof rec.decodedData === 'object') flattenObject(rec.decodedData);
+
+          return { dev, flat };
         };
 
         const updateHmiTelemetryFromData = (records) => {
           if (!Array.isArray(records)) return;
           const newMap = { ...hmiTelemetryMap.value };
           records.forEach(rec => {
-            const dev = rec.devEUI || rec.devEui;
-            if (!dev) return;
-            const decoded = rec.decodedData || rec.decodedPayload || {};
-            for (const [k, v] of Object.entries(decoded)) {
-              if (typeof v === 'number' || typeof v === 'string' || typeof v === 'boolean') {
-                newMap[dev + '.' + k] = v;
-              }
+            const { dev, flat } = extractFlattenedTelemetryHmi(rec);
+            for (const [k, v] of Object.entries(flat)) {
+              if (dev) newMap[dev + '.' + k] = v;
+              newMap[k] = v;
             }
           });
           hmiTelemetryMap.value = newMap;
 
           if (records.length > 0) {
-            const latest = records[0];
-            const dec = latest.decodedData || latest.decodedPayload || {};
-            const pt = {
-              time: new Date(),
-              level: Number(dec.water_level || dec.level || (50 + Math.sin(Date.now() / 5000) * 15)),
-              pressure: Number(dec.pressure || (8 + Math.cos(Date.now() / 4000) * 2)),
-              valA: Number(dec.water_level || 60),
-              valB: Number(dec.pressure || 8)
-            };
-            hmiTrendHistory.value.push(pt);
-            if (hmiTrendHistory.value.length > 30) {
-              hmiTrendHistory.value.shift();
-            }
+            const sortedAsc = [...records].reverse();
+            sortedAsc.forEach(rec => {
+              const { dev, flat } = extractFlattenedTelemetryHmi(rec);
+              const t = rec.timestamp ? new Date(rec.timestamp) : new Date();
+              const pt = {
+                timestamp: t,
+                timeStr: t.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+                ...flat
+              };
+              if (dev) {
+                for (const [k, v] of Object.entries(flat)) {
+                  pt[dev + '.' + k] = v;
+                }
+              }
+              hmiTrendHistory.value.push(pt);
+              if (hmiTrendHistory.value.length > 50) {
+                hmiTrendHistory.value.shift();
+              }
+            });
+          }
+        };
+
+        let hmiSocketClient = null;
+        let hmiSseSource = null;
+
+        const initHmiRealtimeStream = () => {
+          if (hmiSocketClient || hmiSseSource) return;
+          if (typeof io !== 'undefined') {
+            try {
+              hmiSocketClient = io('/', { path: '/socket.io', transports: ['websocket', 'polling'] });
+              hmiSocketClient.on('connect', () => {
+                hmiSocketClient.emit('subscribe:telemetry');
+                hmiSocketClient.emit('subscribe:hmi');
+              });
+              hmiSocketClient.on('telemetry:uplink', (pkt) => {
+                updateHmiTelemetryFromData([pkt]);
+              });
+              return;
+            } catch(e) {}
+          }
+          if (typeof EventSource !== 'undefined') {
+            try {
+              hmiSseSource = new EventSource('/api/realtime/stream');
+              hmiSseSource.onmessage = (e) => {
+                try {
+                  const ev = JSON.parse(e.data);
+                  if (ev.type === 'telemetry') updateHmiTelemetryFromData([ev.data]);
+                } catch(err) {}
+              };
+            } catch(e) {}
           }
         };
 
@@ -7450,6 +7542,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
         };
 
         const startHmiTelemetryPolling = () => {
+          initHmiRealtimeStream();
           fetchHmiTelemetryOnce();
           if (!hmiTelemetryTimer.value) {
             hmiTelemetryTimer.value = setInterval(fetchHmiTelemetryOnce, 4000);
