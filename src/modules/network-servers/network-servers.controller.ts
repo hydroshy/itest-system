@@ -48,6 +48,18 @@ export class NetworkServersController {
     return await this.networkServersService.getDownlinkHistory({ devEUI, limit });
   }
 
+  @Get('queue')
+  @RequirePermissions('lorawan:device:read')
+  @ApiOperation({ summary: 'Get current pending downlink queue for device' })
+  @ApiQuery({ name: 'devEUI', required: true, type: String })
+  @ApiQuery({ name: 'networkServerId', required: false, type: String })
+  async getDeviceQueue(
+    @Query('devEUI') devEUI: string,
+    @Query('networkServerId') networkServerId?: string,
+  ) {
+    return await this.networkServersService.getDeviceQueue({ devEUI, networkServerId });
+  }
+
   @Post('downlink')
   @RequirePermissions('lorawan:device:read')
   @ApiOperation({ summary: 'Dispatch downlink Hex command to LoRaWAN device via selected Network Server' })

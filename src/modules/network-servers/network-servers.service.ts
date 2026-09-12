@@ -996,4 +996,116 @@ export class NetworkServersService implements OnModuleInit {
       };
     }
   }
+
+  async getDeviceQueue(params: {
+    devEUI: string;
+    networkServerId?: string;
+  }): Promise<{
+    totalCount: number;
+    items: Array<{
+      id?: string;
+      fPort: number;
+      confirmed: boolean;
+      payloadHex: string;
+      isPending?: boolean;
+      fCntDown?: number;
+      createdAt?: any;
+    }>;
+    serverType: string;
+    serverName?: string;
+  }> {
+    const normEUI = (params.devEUI || '').replace(/[^0-9a-fA-F]/g, '').toUpperCase();
+    if (!normEUI) {
+      return { totalCount: 0, items: [], serverType: 'NONE' };
+    }
+
+    const device = await this.deviceRepo
+      .findOne({ where: { devEUI: normEUI }, relations: ['networkServer'] })
+      .catch(() => null);
+
+    let server: NetworkServerEntity | null = null;
+    if (params.networkServerId) {
+      server = await this.serverRepo.findOne({ where: { id: params.networkServerId } }).catch(() => null);
+    }
+    if (!server && device?.networkServer) server = device.networkServer;
+    if (!server && device?.networkServerId) {
+      server = await this.serverRepo.findOne({ where: { id: device.networkServerId } }).catch(() => null);
+    }
+    if (!server) {
+      server = await this.serverRepo.findOne({ where: { isDefault: true } }).catch(() => null);
+    }
+
+    // If server is ChirpStack with apiUrl
+    if (server && server.type === NetworkServerType.CHIRPSTACK && server.apiUrl) {
+      const rawBase = server.apiUrl.trim().replace(/\/+$/, '');
+      const apiPrefix = rawBase.endsWith('/api') ? rawBase : `${rawBase}/api`;
+      const queueUrl = `${apiPrefix}/devices/${normEUI.toLowerCase()}/queue`;
+
+      try {
+        const headers: Record<string, string> = {
+          'Accept': 'application/json',
+        };
+        if (server.apiKey) {
+          headers['Authorization'] = `Bearer ${server.apiKey.trim()}`;
+        }
+
+        const res = await fetch(queueUrl, { method: 'GET', headers });
+        if (res.ok) {
+          const data = await res.json();
+          const rawItems = data.result || data.items || [];
+          const items = rawItems.map((it: any) => {
+            let hex = '';
+            if (it.data) {
+              try {
+                hex = Buffer.from(it.data, 'base64').toString('hex').toUpperCase();
+              } catch {
+                hex = String(it.data);
+              }
+            }
+            return {
+              id: it.id,
+              fPort: it.fPort || 1,
+              confirmed: Boolean(it.confirmed),
+              payloadHex: hex,
+              isPending: Boolean(it.isPending),
+              fCntDown: it.fCntDown,
+              createdAt: it.createdAt || null,
+            };
+          });
+
+          return {
+            totalCount: data.totalCount !== undefined ? Number(data.totalCount) : items.length,
+            items,
+            serverType: server.type,
+            serverName: server.name,
+          };
+        }
+      } catch (err: any) {
+        this.logger.warn(`Failed to fetch live queue from ChirpStack for ${normEUI}: ${err.message}`);
+      }
+    }
+
+    // Fallback: Query local queued downlink logs
+    const queuedLogs = await this.downlinkRepo.find({
+      where: { devEUI: normEUI, status: 'QUEUED' },
+      order: { createdAt: 'DESC' },
+      take: 20,
+    }).catch(() => []);
+
+    const items = queuedLogs.map((l) => ({
+      id: l.id,
+      fPort: l.fPort,
+      confirmed: l.confirmed,
+      payloadHex: l.payloadHex,
+      isPending: true,
+      createdAt: l.createdAt,
+    }));
+
+    return {
+      totalCount: items.length,
+      items,
+      serverType: server?.type || 'LOCAL_DB',
+      serverName: server?.name,
+    };
+  }
 }

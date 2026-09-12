@@ -3525,7 +3525,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
         </div>
 
         <!-- TAB: DOWNLINK CONTROLLER & ACTUATOR -->
-        <div v-show="activeTab === 'downlink'" class="space-y-6">
+        <div v-show="activeTab === 'downlink'" class="space-y-6 max-w-5xl mx-auto">
           <!-- Header -->
           <div class="flex items-center justify-between pb-2 border-b border-slate-800">
             <div>
@@ -3533,292 +3533,376 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
               <p class="text-xs text-slate-400">Transmit raw Hex payloads to LoRaWAN end-devices.</p>
             </div>
             <button
-              @click="fetchDownlinkHistory()"
+              @click="fetchDownlinkHistory(); if (downlinkForm.devEUI) fetchDeviceQueue(downlinkForm.devEUI);"
               class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 text-xs font-semibold cursor-pointer transition shadow-sm"
             >
               Refresh
             </button>
           </div>
 
-          <!-- Main Layout -->
-          <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          <!-- 1. TOP: DOWNLINK COMMAND -->
+          <div class="glass-card rounded-2xl p-5 border border-slate-800 space-y-4 shadow-lg">
+            <div class="pb-3 border-b border-slate-800 flex items-center justify-between">
+              <h3 class="text-xs font-bold text-white uppercase tracking-wider">Downlink Command</h3>
+              <span v-if="selectedDownlinkServer" class="text-[11px] text-slate-400">
+                Server: <span class="text-sky-400 font-semibold">{{ selectedDownlinkServer?.name }} ({{ selectedDownlinkServer?.type }})</span>
+              </span>
+            </div>
 
-            <!-- COLUMN LEFT: TRANSMITTER FORM (5 COLS) -->
-            <div class="lg:col-span-5 space-y-4">
-              <div class="glass-card rounded-2xl p-5 border border-slate-800 space-y-4 shadow-lg">
-                <div class="pb-3 border-b border-slate-800">
-                  <h3 class="text-xs font-bold text-white uppercase tracking-wider">Downlink Command</h3>
+            <!-- 1.1 DEVICE SEARCHABLE DROPLIST -->
+            <div class="space-y-1.5 relative" @click.stop>
+              <label class="block text-xs font-bold text-slate-300">
+                Device
+              </label>
+
+              <div class="relative flex items-center">
+                <input
+                  type="text"
+                  v-model="downlinkDeviceSearch"
+                  @focus="onDownlinkSearchFocus"
+                  @click="downlinkDeviceDropdownOpen = true"
+                  placeholder="Search or select device (Name or DevEUI)..."
+                  class="w-full pl-3 pr-8 py-2 bg-slate-950 border border-slate-700 rounded-xl text-white text-xs font-mono focus:ring-1 focus:ring-indigo-500 focus:outline-none placeholder-slate-500"
+                />
+                <button
+                  type="button"
+                  @click.stop="toggleDownlinkDropdown"
+                  class="absolute right-2 text-slate-400 hover:text-white text-xs p-1 cursor-pointer flex items-center justify-center"
+                >
+                  <i class="fa-solid fa-chevron-down text-[10px] transition-transform duration-200" :class="{ 'rotate-180': downlinkDeviceDropdownOpen }"></i>
+                </button>
+              </div>
+
+              <!-- Dropdown Options -->
+              <div
+                v-show="downlinkDeviceDropdownOpen"
+                class="absolute left-0 right-0 z-30 mt-1 max-h-56 overflow-y-auto bg-slate-950 border border-slate-700 rounded-xl shadow-2xl divide-y divide-slate-800/80 custom-scroll"
+              >
+                <div
+                  v-for="d in filteredDownlinkDevices"
+                  :key="d.devEUI"
+                  @click="selectDownlinkDevice(d)"
+                  class="px-3 py-2 text-xs font-mono cursor-pointer hover:bg-slate-800 flex items-center justify-between transition"
+                  :class="{ 'bg-indigo-950/50 text-indigo-300 font-bold': downlinkForm.devEUI === d.devEUI }"
+                >
+                  <span class="text-white">{{ d.name ? d.name + ' - ' + d.devEUI : d.devEUI }}</span>
+                  <span class="text-[10px] text-slate-400 font-sans ml-2 flex-shrink-0">{{ d.networkServer?.name || 'LNS' }}</span>
                 </div>
-
-                <!-- 1. DEVICE SEARCHABLE DROPLIST -->
-                <div class="space-y-1.5 relative" @click.stop>
-                  <label class="block text-xs font-bold text-slate-300">
-                    Device
-                  </label>
-
-                  <div class="relative flex items-center">
-                    <input
-                      type="text"
-                      v-model="downlinkDeviceSearch"
-                      @focus="onDownlinkSearchFocus"
-                      @click="downlinkDeviceDropdownOpen = true"
-                      placeholder="Search or select device (Name or DevEUI)..."
-                      class="w-full pl-3 pr-8 py-2 bg-slate-950 border border-slate-700 rounded-xl text-white text-xs font-mono focus:ring-1 focus:ring-indigo-500 focus:outline-none placeholder-slate-500"
-                    />
-                    <button
-                      type="button"
-                      @click.stop="toggleDownlinkDropdown"
-                      class="absolute right-2 text-slate-400 hover:text-white text-xs p-1 cursor-pointer flex items-center justify-center"
-                    >
-                      <i class="fa-solid fa-chevron-down text-[10px] transition-transform duration-200" :class="{ 'rotate-180': downlinkDeviceDropdownOpen }"></i>
-                    </button>
-                  </div>
-
-                  <!-- Dropdown Options -->
-                  <div
-                    v-show="downlinkDeviceDropdownOpen"
-                    class="absolute left-0 right-0 z-30 mt-1 max-h-56 overflow-y-auto bg-slate-950 border border-slate-700 rounded-xl shadow-2xl divide-y divide-slate-800/80 custom-scroll"
-                  >
-                    <div
-                      v-for="d in filteredDownlinkDevices"
-                      :key="d.devEUI"
-                      @click="selectDownlinkDevice(d)"
-                      class="px-3 py-2 text-xs font-mono cursor-pointer hover:bg-slate-800 flex items-center justify-between transition"
-                      :class="{ 'bg-indigo-950/50 text-indigo-300 font-bold': downlinkForm.devEUI === d.devEUI }"
-                    >
-                      <span class="text-white">{{ d.name ? d.name + ' - ' + d.devEUI : d.devEUI }}</span>
-                      <span class="text-[10px] text-slate-400 font-sans ml-2 flex-shrink-0">{{ d.networkServer?.name || 'LNS' }}</span>
-                    </div>
-                    <div v-if="filteredDownlinkDevices.length === 0" class="px-3 py-3 text-xs text-slate-500 text-center">
-                      No matching devices
-                    </div>
-                  </div>
-
-                  <!-- Device & Server Info card when selected -->
-                  <div v-if="selectedDownlinkDevice" class="p-2.5 rounded-xl bg-slate-950 border border-slate-800 space-y-1 text-xs">
-                    <div class="flex items-center justify-between">
-                      <span class="text-slate-400">Device:</span>
-                      <span class="font-bold text-white font-mono">{{ selectedDownlinkDevice.name ? selectedDownlinkDevice.name + ' - ' + selectedDownlinkDevice.devEUI : selectedDownlinkDevice.devEUI }}</span>
-                    </div>
-                    <div class="flex items-center justify-between">
-                      <span class="text-slate-400">Server:</span>
-                      <span class="font-semibold text-sky-400">{{ selectedDownlinkServer?.name || 'Default' }} ({{ selectedDownlinkServer?.type || 'LNS' }})</span>
-                    </div>
-                  </div>
+                <div v-if="filteredDownlinkDevices.length === 0" class="px-3 py-3 text-xs text-slate-500 text-center">
+                  No matching devices
                 </div>
+              </div>
 
-                <!-- 2. FPORT & CONFIRMED ROW -->
-                <div class="grid grid-cols-2 gap-3">
-                  <div class="space-y-1">
-                    <label class="block text-xs font-bold text-slate-300">
-                      fPort (1 - 223)
-                    </label>
-                    <input
-                      v-model.number="downlinkForm.fPort"
-                      type="number"
-                      min="1"
-                      max="223"
-                      class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-xl text-white text-xs font-mono focus:ring-1 focus:ring-indigo-500 focus:outline-none"
-                    />
-                  </div>
-
-                  <div class="space-y-1">
-                    <label class="block text-xs font-bold text-slate-300">
-                      Confirmed (ACK)
-                    </label>
-                    <label class="flex items-center gap-2 px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 cursor-pointer hover:border-slate-700 transition">
-                      <input
-                        type="checkbox"
-                        v-model="downlinkForm.confirmed"
-                        class="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 bg-slate-900 border-slate-700 cursor-pointer"
-                      />
-                      <span class="text-xs text-slate-300 font-semibold">{{ downlinkForm.confirmed ? 'Confirmed' : 'Unconfirmed' }}</span>
-                    </label>
-                  </div>
+              <!-- Device & Server Info card when selected -->
+              <div v-if="selectedDownlinkDevice" class="p-2.5 rounded-xl bg-slate-950 border border-slate-800 space-y-1 text-xs">
+                <div class="flex items-center justify-between">
+                  <span class="text-slate-400">Device:</span>
+                  <span class="font-bold text-white font-mono">{{ selectedDownlinkDevice.name ? selectedDownlinkDevice.name + ' - ' + selectedDownlinkDevice.devEUI : selectedDownlinkDevice.devEUI }}</span>
                 </div>
-
-                <!-- 3. FLUSH QUEUE OPTION -->
-                <div class="p-3 rounded-xl bg-slate-950 border border-slate-800">
-                  <label class="flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      v-model="downlinkForm.flushQueue"
-                      class="w-4 h-4 rounded text-amber-500 focus:ring-amber-400 bg-slate-900 border-slate-700 cursor-pointer"
-                    />
-                    <span class="text-xs font-bold text-slate-200">
-                      Flush Queue
-                    </span>
-                  </label>
+                <div class="flex items-center justify-between">
+                  <span class="text-slate-400">Server:</span>
+                  <span class="font-semibold text-sky-400">{{ selectedDownlinkServer?.name || 'Default' }} ({{ selectedDownlinkServer?.type || 'LNS' }})</span>
                 </div>
-
-                <!-- 4. HEX PAYLOAD -->
-                <div class="space-y-1.5">
-                  <div class="flex items-center justify-between">
-                    <label class="block text-xs font-bold text-slate-300">
-                      Payload (Hex)
-                    </label>
-                    <span class="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-900 text-sky-400 border border-slate-800 font-bold">
-                      {{ calculatedHexBytes }} Bytes
-                    </span>
-                  </div>
-
-                  <textarea
-                    v-model="downlinkForm.payloadHex"
-                    rows="3"
-                    placeholder="Enter hex string (e.g. 0102A3FF)..."
-                    class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-xl text-white font-mono text-xs uppercase focus:ring-1 focus:ring-indigo-500 focus:outline-none placeholder-slate-500"
-                  ></textarea>
-                </div>
-
-                <!-- ACTION BUTTONS -->
-                <div class="pt-2 flex items-center gap-2">
-                  <button
-                    type="button"
-                    @click="flushQueueExplicitly"
-                    :disabled="!downlinkForm.devEUI"
-                    class="px-3 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 disabled:opacity-50 text-slate-300 text-xs font-semibold cursor-pointer border border-slate-700 transition"
-                  >
-                    Flush Queue Only
-                  </button>
-
-                  <button
-                    type="button"
-                    @click="openDownlinkConfirm"
-                    :disabled="!downlinkForm.devEUI || !downlinkForm.payloadHex"
-                    class="flex-1 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white text-xs font-bold flex items-center justify-center cursor-pointer transition shadow-md"
-                  >
-                    Send Downlink
-                  </button>
-                </div>
-
               </div>
             </div>
 
-            <!-- COLUMN RIGHT: DOWNLINK EXECUTION HISTORY (7 COLS) -->
-            <div class="lg:col-span-7 space-y-4">
-              <div class="glass-card rounded-2xl p-5 border border-slate-800 space-y-4 shadow-lg">
-                <!-- History Header & Filter -->
-                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-800">
-                  <div class="flex items-center gap-2">
-                    <h3 class="text-xs font-bold text-white uppercase tracking-wider">Downlink History</h3>
-                    <span class="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-sky-500/10 text-sky-400 border border-sky-500/20">
-                      {{ downlinkHistory.length }}
-                    </span>
-                  </div>
-
-                  <!-- Device Filter for History -->
-                  <div class="flex items-center gap-2">
-                    <select
-                      v-model="downlinkHistoryFilterDevEUI"
-                      @change="fetchDownlinkHistory(downlinkHistoryFilterDevEUI)"
-                      class="px-2.5 py-1 bg-slate-950 border border-slate-700 rounded-lg text-white text-xs font-mono focus:outline-none"
-                    >
-                      <option value="">-- All Devices --</option>
-                      <option v-for="d in devicesList" :key="d.devEUI" :value="d.devEUI">
-                        {{ d.name ? d.name + ' - ' + d.devEUI : d.devEUI }}
-                      </option>
-                    </select>
-                    <button
-                      type="button"
-                      @click="fetchDownlinkHistory(downlinkHistoryFilterDevEUI)"
-                      class="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white cursor-pointer"
-                      title="Refresh"
-                    >
-                      <i class="fa-solid fa-arrows-rotate" :class="{ 'animate-spin': loadingDownlinkHistory }"></i>
-                    </button>
-                  </div>
-                </div>
-
-                <!-- History Table -->
-                <div class="overflow-x-auto custom-scroll">
-                  <table class="w-full text-left text-xs text-slate-300">
-                    <thead>
-                      <tr class="border-b border-slate-800 text-[10px] font-bold text-slate-400 uppercase tracking-wider font-mono">
-                        <th class="py-2.5 px-3">Timestamp</th>
-                        <th class="py-2.5 px-3">User</th>
-                        <th class="py-2.5 px-3">Device</th>
-                        <th class="py-2.5 px-3">Server</th>
-                        <th class="py-2.5 px-3">Port</th>
-                        <th class="py-2.5 px-3">Payload (Hex)</th>
-                        <th class="py-2.5 px-3">Status</th>
-                        <th class="py-2.5 px-3 text-right">Action</th>
-                      </tr>
-                    </thead>
-                    <tbody class="divide-y divide-slate-800/60 font-mono text-xs">
-                      <tr v-if="loadingDownlinkHistory && downlinkHistory.length === 0">
-                        <td colspan="8" class="text-center py-8 text-slate-500">
-                          <i class="fa-solid fa-spinner animate-spin text-sky-400 mr-2"></i>
-                          Loading downlink history...
-                        </td>
-                      </tr>
-                      <tr v-else-if="downlinkHistory.length === 0">
-                        <td colspan="8" class="text-center py-10 text-slate-500">
-                          No downlink records found.
-                        </td>
-                      </tr>
-                      <tr v-for="item in downlinkHistory" :key="item.id" class="hover:bg-slate-800/40 transition">
-                        <td class="py-2.5 px-3 text-slate-400 text-[11px] whitespace-nowrap">
-                          {{ formatDateTime(item.createdAt) }}
-                        </td>
-                        <td class="py-2.5 px-3 whitespace-nowrap">
-                          <span class="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-indigo-500/15 text-indigo-300 border border-indigo-500/25">
-                            {{ item.sentBy || 'anonymous' }}
-                          </span>
-                        </td>
-                        <td class="py-2.5 px-3 whitespace-nowrap">
-                          <div class="text-white font-bold text-[11px]">{{ item.deviceName || item.devEUI }}</div>
-                          <div class="text-[10px] text-slate-500">{{ item.devEUI }}</div>
-                        </td>
-                        <td class="py-2.5 px-3 whitespace-nowrap">
-                          <span
-                            class="px-1.5 py-0.5 rounded text-[9px] font-bold"
-                            :class="item.serverType === 'CHIRPSTACK' ? 'bg-sky-500/15 text-sky-300 border border-sky-500/30' : 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30'"
-                          >
-                            {{ item.serverType || 'LNS' }}
-                          </span>
-                        </td>
-                        <td class="py-2.5 px-3 whitespace-nowrap">
-                          <span class="font-bold text-white">{{ item.fPort }}</span>
-                          <span v-if="item.flushQueue" class="ml-1 px-1 py-0.2 rounded text-[8px] bg-amber-500/20 text-amber-300 border border-amber-500/30">FLUSH</span>
-                          <span v-if="item.confirmed" class="ml-1 px-1 py-0.2 rounded text-[8px] bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">ACK</span>
-                        </td>
-                        <td class="py-2.5 px-3 whitespace-nowrap">
-                          <div class="flex items-center gap-1.5">
-                            <span class="font-bold text-sky-300 max-w-[120px] truncate" :title="item.payloadHex">{{ item.payloadHex }}</span>
-                            <button
-                              type="button"
-                              @click="copyText(item.payloadHex)"
-                              class="text-slate-500 hover:text-white text-[10px] cursor-pointer"
-                              title="Copy Hex"
-                            >
-                              <i class="fa-regular fa-copy"></i>
-                            </button>
-                          </div>
-                        </td>
-                        <td class="py-2.5 px-3 whitespace-nowrap">
-                          <span
-                            class="px-2 py-0.5 rounded-full text-[10px] font-bold"
-                            :class="item.status === 'QUEUED' || item.status === 'SUCCESS' || item.status === 'SENT' || item.status === 'FLUSHED' ? 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30' : 'bg-red-500/15 text-red-300 border border-red-500/30'"
-                          >
-                            {{ item.status }}
-                          </span>
-                        </td>
-                        <td class="py-2.5 px-3 text-right whitespace-nowrap">
-                          <button
-                            type="button"
-                            @click="resendDownlink(item)"
-                            class="px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white text-[10px] font-semibold border border-slate-700 cursor-pointer transition ml-auto"
-                            title="Reload into form"
-                          >
-                            Reload
-                          </button>
-                        </td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-
+            <!-- 1.2 FPORT, CONFIRMED & FLUSH OPTION IN A 3-COL ROW -->
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div class="space-y-1">
+                <label class="block text-xs font-bold text-slate-300">
+                  fPort (1 - 223)
+                </label>
+                <input
+                  v-model.number="downlinkForm.fPort"
+                  type="number"
+                  min="1"
+                  max="223"
+                  class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-xl text-white text-xs font-mono focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+                />
               </div>
+
+              <div class="space-y-1">
+                <label class="block text-xs font-bold text-slate-300">
+                  Confirmed (ACK)
+                </label>
+                <label class="flex items-center gap-2 px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 cursor-pointer hover:border-slate-700 transition">
+                  <input
+                    type="checkbox"
+                    v-model="downlinkForm.confirmed"
+                    class="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 bg-slate-900 border-slate-700 cursor-pointer"
+                  />
+                  <span class="text-xs text-slate-300 font-semibold">{{ downlinkForm.confirmed ? 'Confirmed' : 'Unconfirmed' }}</span>
+                </label>
+              </div>
+
+              <div class="space-y-1">
+                <label class="block text-xs font-bold text-slate-300">
+                  Flush Queue
+                </label>
+                <label class="flex items-center gap-2 px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 cursor-pointer hover:border-slate-700 transition">
+                  <input
+                    type="checkbox"
+                    v-model="downlinkForm.flushQueue"
+                    class="w-4 h-4 rounded text-amber-500 focus:ring-amber-400 bg-slate-900 border-slate-700 cursor-pointer"
+                  />
+                  <span class="text-xs font-bold text-slate-200">
+                    Flush Before Send
+                  </span>
+                </label>
+              </div>
+            </div>
+
+            <!-- 1.3 HEX PAYLOAD -->
+            <div class="space-y-1.5">
+              <div class="flex items-center justify-between">
+                <label class="block text-xs font-bold text-slate-300">
+                  Payload (Hex)
+                </label>
+                <span class="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-900 text-sky-400 border border-slate-800 font-bold">
+                  {{ calculatedHexBytes }} Bytes
+                </span>
+              </div>
+
+              <textarea
+                v-model="downlinkForm.payloadHex"
+                rows="2"
+                placeholder="Enter hex string (e.g. 0102A3FF)..."
+                class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-xl text-white font-mono text-xs uppercase focus:ring-1 focus:ring-indigo-500 focus:outline-none placeholder-slate-500"
+              ></textarea>
+            </div>
+
+            <!-- 1.4 ACTION BUTTON: ONLY 1 SEND BUTTON -->
+            <div class="pt-1 flex justify-end">
+              <button
+                type="button"
+                @click="openDownlinkConfirm"
+                :disabled="!downlinkForm.devEUI || !downlinkForm.payloadHex"
+                class="w-full sm:w-auto px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white text-xs font-bold flex items-center justify-center gap-2 cursor-pointer transition shadow-md"
+              >
+                <i class="fa-solid fa-paper-plane"></i>
+                <span>Send Downlink</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- 2. MIDDLE: DEVICE PENDING QUEUE (BELOW DOWNLINK COMMAND) -->
+          <div class="glass-card rounded-2xl p-5 border border-slate-800 space-y-4 shadow-lg">
+            <div class="flex items-center justify-between pb-3 border-b border-slate-800">
+              <div class="flex items-center gap-2">
+                <h3 class="text-xs font-bold text-white uppercase tracking-wider">Device Pending Queue</h3>
+                <span class="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                  {{ deviceQueue.length }}
+                </span>
+                <span v-if="deviceQueueServerName" class="text-[10px] text-slate-400 font-mono">
+                  ({{ deviceQueueServerName }})
+                </span>
+              </div>
+
+              <div class="flex items-center gap-2">
+                <!-- Flush Queue button located in this queue box -->
+                <button
+                  type="button"
+                  @click="flushQueueExplicitly"
+                  :disabled="!downlinkForm.devEUI || flushingQueue"
+                  class="px-3 py-1.5 rounded-lg bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 text-amber-300 disabled:opacity-50 text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition"
+                  title="Clear all pending downlinks on Network Server"
+                >
+                  <i class="fa-solid fa-broom" :class="{ 'animate-spin': flushingQueue }"></i>
+                  <span>Flush Queue</span>
+                </button>
+
+                <button
+                  type="button"
+                  @click="fetchDeviceQueue(downlinkForm.devEUI)"
+                  :disabled="!downlinkForm.devEUI || loadingDeviceQueue"
+                  class="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white cursor-pointer"
+                  title="Refresh Queue"
+                >
+                  <i class="fa-solid fa-arrows-rotate" :class="{ 'animate-spin': loadingDeviceQueue }"></i>
+                </button>
+              </div>
+            </div>
+
+            <!-- Queue Content -->
+            <div v-if="!downlinkForm.devEUI" class="text-center py-6 text-slate-500 text-xs">
+              Please select a device above to inspect its pending downlink queue.
+            </div>
+            <div v-else-if="loadingDeviceQueue && deviceQueue.length === 0" class="text-center py-6 text-slate-500 text-xs">
+              <i class="fa-solid fa-spinner animate-spin text-amber-400 mr-2"></i>
+              Loading queue from Network Server...
+            </div>
+            <div v-else-if="deviceQueue.length === 0" class="text-center py-6 text-slate-500 text-xs">
+              <i class="fa-solid fa-inbox text-2xl text-slate-700 mb-1 block"></i>
+              Queue is currently empty on Network Server.
+            </div>
+            <div v-else class="overflow-x-auto custom-scroll">
+              <table class="w-full text-left text-xs text-slate-300">
+                <thead>
+                  <tr class="border-b border-slate-800 text-[10px] font-bold text-slate-400 uppercase tracking-wider font-mono">
+                    <th class="py-2 px-3">#</th>
+                    <th class="py-2 px-3">Port</th>
+                    <th class="py-2 px-3">Payload (Hex)</th>
+                    <th class="py-2 px-3">Bytes</th>
+                    <th class="py-2 px-3">Type</th>
+                    <th class="py-2 px-3">Status</th>
+                    <th class="py-2 px-3 text-right">Action</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-800/60 font-mono text-xs">
+                  <tr v-for="(qItem, qIdx) in deviceQueue" :key="qItem.id || qIdx" class="hover:bg-slate-800/40 transition">
+                    <td class="py-2 px-3 text-slate-500">{{ qIdx + 1 }}</td>
+                    <td class="py-2 px-3 text-white font-bold">{{ qItem.fPort }}</td>
+                    <td class="py-2 px-3 text-sky-300 font-bold max-w-[200px] truncate" :title="qItem.payloadHex">
+                      {{ qItem.payloadHex }}
+                    </td>
+                    <td class="py-2 px-3 text-slate-400">{{ Math.ceil((qItem.payloadHex || '').length / 2) }}</td>
+                    <td class="py-2 px-3">
+                      <span class="px-1.5 py-0.5 rounded text-[10px] font-semibold" :class="qItem.confirmed ? 'bg-indigo-500/15 text-indigo-300 border border-indigo-500/25' : 'bg-slate-800 text-slate-400'">
+                        {{ qItem.confirmed ? 'Confirmed' : 'Unconfirmed' }}
+                      </span>
+                    </td>
+                    <td class="py-2 px-3">
+                      <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/15 text-amber-300 border border-amber-500/25">
+                        {{ qItem.isPending ? 'Pending Rx' : 'Queued' }}
+                      </span>
+                    </td>
+                    <td class="py-2 px-3 text-right">
+                      <button
+                        type="button"
+                        @click="copyText(qItem.payloadHex)"
+                        class="px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white text-[10px] cursor-pointer"
+                        title="Copy Payload Hex"
+                      >
+                        Copy
+                      </button>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- 3. BOTTOM: DOWNLINK EXECUTION HISTORY -->
+          <div class="glass-card rounded-2xl p-5 border border-slate-800 space-y-4 shadow-lg">
+            <!-- History Header & Filter -->
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-800">
+              <div class="flex items-center gap-2">
+                <h3 class="text-xs font-bold text-white uppercase tracking-wider">Downlink History</h3>
+                <span class="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-sky-500/10 text-sky-400 border border-sky-500/20">
+                  {{ downlinkHistory.length }}
+                </span>
+              </div>
+
+              <!-- Device Filter for History -->
+              <div class="flex items-center gap-2">
+                <select
+                  v-model="downlinkHistoryFilterDevEUI"
+                  @change="fetchDownlinkHistory(downlinkHistoryFilterDevEUI)"
+                  class="px-2.5 py-1 bg-slate-950 border border-slate-700 rounded-lg text-white text-xs font-mono focus:outline-none"
+                >
+                  <option value="">-- All Devices --</option>
+                  <option v-for="d in devicesList" :key="d.devEUI" :value="d.devEUI">
+                    {{ d.name ? d.name + ' - ' + d.devEUI : d.devEUI }}
+                  </option>
+                </select>
+                <button
+                  type="button"
+                  @click="fetchDownlinkHistory(downlinkHistoryFilterDevEUI)"
+                  class="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white cursor-pointer"
+                  title="Refresh"
+                >
+                  <i class="fa-solid fa-arrows-rotate" :class="{ 'animate-spin': loadingDownlinkHistory }"></i>
+                </button>
+              </div>
+            </div>
+
+            <!-- History Table -->
+            <div class="overflow-x-auto custom-scroll">
+              <table class="w-full text-left text-xs text-slate-300">
+                <thead>
+                  <tr class="border-b border-slate-800 text-[10px] font-bold text-slate-400 uppercase tracking-wider font-mono">
+                    <th class="py-2.5 px-3">Timestamp</th>
+                    <th class="py-2.5 px-3">User</th>
+                    <th class="py-2.5 px-3">Device</th>
+                    <th class="py-2.5 px-3">Server</th>
+                    <th class="py-2.5 px-3">Port</th>
+                    <th class="py-2.5 px-3">Payload (Hex)</th>
+                    <th class="py-2.5 px-3">Status</th>
+                    <th class="py-2.5 px-3 text-right">Action</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-800/60 font-mono text-xs">
+                  <tr v-if="loadingDownlinkHistory && downlinkHistory.length === 0">
+                    <td colspan="8" class="text-center py-8 text-slate-500">
+                      <i class="fa-solid fa-spinner animate-spin text-sky-400 mr-2"></i>
+                      Loading downlink history...
+                    </td>
+                  </tr>
+                  <tr v-else-if="downlinkHistory.length === 0">
+                    <td colspan="8" class="text-center py-10 text-slate-500">
+                      No downlink records found.
+                    </td>
+                  </tr>
+                  <tr v-for="item in downlinkHistory" :key="item.id" class="hover:bg-slate-800/40 transition">
+                    <td class="py-2.5 px-3 text-slate-400 text-[11px] whitespace-nowrap">
+                      {{ formatDateTime(item.createdAt) }}
+                    </td>
+                    <td class="py-2.5 px-3 whitespace-nowrap">
+                      <span class="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-indigo-500/15 text-indigo-300 border border-indigo-500/25">
+                        {{ item.sentBy || 'anonymous' }}
+                      </span>
+                    </td>
+                    <td class="py-2.5 px-3 whitespace-nowrap">
+                      <div class="text-white font-bold text-[11px]">{{ item.deviceName || item.devEUI }}</div>
+                      <div class="text-[10px] text-slate-500">{{ item.devEUI }}</div>
+                    </td>
+                    <td class="py-2.5 px-3 whitespace-nowrap">
+                      <span
+                        class="px-1.5 py-0.5 rounded text-[9px] font-bold"
+                        :class="item.serverType === 'CHIRPSTACK' ? 'bg-sky-500/15 text-sky-300 border border-sky-500/30' : 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30'"
+                      >
+                        {{ item.serverType || 'LNS' }}
+                      </span>
+                    </td>
+                    <td class="py-2.5 px-3 whitespace-nowrap">
+                      <span class="font-bold text-white">{{ item.fPort }}</span>
+                      <span v-if="item.flushQueue" class="ml-1 px-1 py-0.2 rounded text-[8px] bg-amber-500/20 text-amber-300 border border-amber-500/30">FLUSH</span>
+                      <span v-if="item.confirmed" class="ml-1 px-1 py-0.2 rounded text-[8px] bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">ACK</span>
+                    </td>
+                    <td class="py-2.5 px-3 whitespace-nowrap">
+                      <div class="flex items-center gap-1.5">
+                        <span class="font-bold text-sky-300 max-w-[120px] truncate" :title="item.payloadHex">{{ item.payloadHex }}</span>
+                        <button
+                          type="button"
+                          @click="copyText(item.payloadHex)"
+                          class="text-slate-500 hover:text-white text-[10px] cursor-pointer"
+                          title="Copy Hex"
+                        >
+                          <i class="fa-regular fa-copy"></i>
+                        </button>
+                      </div>
+                    </td>
+                    <td class="py-2.5 px-3 whitespace-nowrap">
+                      <span
+                        class="px-2 py-0.5 rounded-full text-[10px] font-bold"
+                        :class="item.status === 'QUEUED' || item.status === 'SUCCESS' || item.status === 'SENT' || item.status === 'FLUSHED' ? 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30' : 'bg-red-500/15 text-red-300 border border-red-500/30'"
+                      >
+                        {{ item.status }}
+                      </span>
+                    </td>
+                    <td class="py-2.5 px-3 text-right whitespace-nowrap">
+                      <button
+                        type="button"
+                        @click="resendDownlink(item)"
+                        class="px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white text-[10px] font-semibold border border-slate-700 cursor-pointer transition ml-auto"
+                        title="Reload into form"
+                      >
+                        Reload
+                      </button>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
             </div>
 
           </div>
@@ -8920,6 +9004,9 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
                 } else if (activeTab.value === 'downlink') {
                   fetchDownlinkHistory();
                 }
+                if (downlinkForm.value.devEUI) {
+                  fetchDeviceQueue(downlinkForm.value.devEUI);
+                }
               });
               return;
             } catch(e) {}
@@ -8936,6 +9023,9 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
                       downlinkHistory.value.unshift(ev.data.downlinkLog);
                     } else if (activeTab.value === 'downlink') {
                       fetchDownlinkHistory();
+                    }
+                    if (downlinkForm.value.devEUI) {
+                      fetchDeviceQueue(downlinkForm.value.devEUI);
                     }
                   }
                 } catch(err) {}
@@ -8984,6 +9074,12 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
         const loadingDownlinkHistory = ref(false);
         const sendingDownlink = ref(false);
         const downlinkHistoryFilterDevEUI = ref('');
+        const deviceQueue = ref([]);
+        const loadingDeviceQueue = ref(false);
+        const flushingQueue = ref(false);
+        const deviceQueueServerName = ref('');
+        let deviceQueueTimer = null;
+
         const downlinkConfirmModal = ref({
           show: false,
           targetDevice: null,
@@ -9057,6 +9153,8 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
           downlinkForm.value.devEUI = '';
           downlinkDeviceSearch.value = '';
           downlinkDeviceDropdownOpen.value = false;
+          deviceQueue.value = [];
+          deviceQueueServerName.value = '';
         };
 
         const onDownlinkDeviceSelect = () => {
@@ -9067,6 +9165,49 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
             }
             downlinkHistoryFilterDevEUI.value = dev.devEUI;
             fetchDownlinkHistory(dev.devEUI);
+            fetchDeviceQueue(dev.devEUI);
+          } else {
+            deviceQueue.value = [];
+            deviceQueueServerName.value = '';
+          }
+        };
+
+        const fetchDeviceQueue = async (devEUI = '') => {
+          const targetEUI = devEUI || downlinkForm.value.devEUI || '';
+          if (!targetEUI) {
+            deviceQueue.value = [];
+            deviceQueueServerName.value = '';
+            return;
+          }
+          loadingDeviceQueue.value = true;
+          try {
+            const url = '/api/network-servers/queue?devEUI=' + encodeURIComponent(targetEUI);
+            const res = await fetch(url, { headers: authHeaders(), credentials: 'include' });
+            if (res.ok) {
+              const data = await res.json();
+              deviceQueue.value = data.items || [];
+              deviceQueueServerName.value = data.serverName || data.serverType || '';
+            }
+          } catch(e) {
+            console.error('Error fetching device queue:', e);
+          } finally {
+            loadingDeviceQueue.value = false;
+          }
+        };
+
+        const startDeviceQueuePolling = () => {
+          stopDeviceQueuePolling();
+          deviceQueueTimer = setInterval(() => {
+            if (activeTab.value === 'downlink' && downlinkForm.value.devEUI) {
+              fetchDeviceQueue(downlinkForm.value.devEUI);
+            }
+          }, 6000);
+        };
+
+        const stopDeviceQueuePolling = () => {
+          if (deviceQueueTimer) {
+            clearInterval(deviceQueueTimer);
+            deviceQueueTimer = null;
           }
         };
 
@@ -9137,9 +9278,11 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
             if (res.ok && result.success) {
               showToast('Downlink queued successfully', 'success');
               fetchDownlinkHistory(downlinkForm.value.devEUI);
+              fetchDeviceQueue(downlinkForm.value.devEUI);
             } else {
               showToast('Downlink failed: ' + (result.message || 'Transmission error'), 'error');
               fetchDownlinkHistory(downlinkForm.value.devEUI);
+              fetchDeviceQueue(downlinkForm.value.devEUI);
             }
           } catch(e) {
             showToast('Connection error: ' + e.message, 'error');
@@ -9156,6 +9299,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
           if (!confirm('Flush downlink queue for device ' + downlinkForm.value.devEUI + '?')) {
             return;
           }
+          flushingQueue.value = true;
           try {
             const res = await fetch('/api/network-servers/flush-queue', {
               method: 'POST',
@@ -9173,11 +9317,14 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
             if (res.ok && result.success) {
               showToast('Downlink queue flushed successfully', 'success');
               fetchDownlinkHistory(downlinkForm.value.devEUI);
+              fetchDeviceQueue(downlinkForm.value.devEUI);
             } else {
               showToast('Failed to flush queue: ' + result.message, 'error');
             }
           } catch(e) {
             showToast('Connection error: ' + e.message, 'error');
+          } finally {
+            flushingQueue.value = false;
           }
         };
 
@@ -9193,6 +9340,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
             downlinkForm.value.networkServerId = item.networkServerId;
           }
           showToast('Loaded downlink parameters for ' + item.devEUI, 'info');
+          fetchDeviceQueue(item.devEUI);
         };
 
         const copyText = (txt) => {
@@ -9298,7 +9446,13 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
             fetchNetworkServers();
             fetchDevices();
             fetchDownlinkHistory();
+            if (downlinkForm.value.devEUI) {
+              fetchDeviceQueue(downlinkForm.value.devEUI);
+            }
+            startDeviceQueuePolling();
             initHmiRealtimeStream();
+          } else {
+            stopDeviceQueuePolling();
           }
         });
 
@@ -9335,6 +9489,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
               fetchNetworkServers();
               fetchDevices();
               fetchDownlinkHistory();
+              startDeviceQueuePolling();
               initHmiRealtimeStream();
             }
           } else {
@@ -9674,6 +9829,11 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
           onDownlinkDeviceSelect,
           onDownlinkSearchFocus,
           toggleDownlinkDropdown,
+          deviceQueue,
+          loadingDeviceQueue,
+          flushingQueue,
+          deviceQueueServerName,
+          fetchDeviceQueue,
           fetchDownlinkHistory,
           openDownlinkConfirm,
           executeConfirmedDownlink,
