@@ -1435,6 +1435,8 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
                   <tr>
                     <th class="py-2.5 px-3.5">DevEUI</th>
                     <th class="py-2.5 px-3.5">Device Name</th>
+                    <th class="py-2.5 px-3.5">SKU</th>
+                    <th class="py-2.5 px-3.5">Firmware</th>
                     <th class="py-2.5 px-3.5">Created By</th>
                     <th class="py-2.5 px-3.5">Network Server</th>
                     <th class="py-2.5 px-3.5">Region Profile</th>
@@ -1446,11 +1448,13 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
                 </thead>
                 <tbody class="divide-y divide-slate-800/60">
                   <tr v-if="devicesList.length === 0">
-                    <td colspan="9" class="py-6 text-center text-slate-500">No LoRaWAN devices registered. Click "Register Device" to provision a device.</td>
+                    <td colspan="11" class="py-6 text-center text-slate-500">No LoRaWAN devices registered. Click "Register Device" to provision a device.</td>
                   </tr>
                   <tr v-for="d in devicesList" :key="d.id || d.devEUI" class="hover:bg-slate-800/30 transition">
                     <td class="py-2.5 px-3.5 font-mono font-bold text-sky-400">{{ d.devEUI }}</td>
                     <td class="py-2.5 px-3.5 font-bold text-white">{{ d.name || '--' }}</td>
+                    <td class="py-2.5 px-3.5 font-mono text-cyan-300 font-semibold">{{ d.sku || '—' }}</td>
+                    <td class="py-2.5 px-3.5 font-mono text-purple-300 font-semibold">{{ formatFirmware(d.firmwareVersion) }}</td>
                     <td class="py-2.5 px-3.5">
                       <span v-if="d.owner" class="px-2 py-0.5 rounded bg-purple-500/10 text-purple-300 border border-purple-500/20 text-[11px] font-medium inline-flex items-center gap-1.5">
                         <i class="fa-solid fa-user text-[10px]"></i>
@@ -3593,15 +3597,35 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
                 </div>
               </div>
 
-              <!-- Device & Server Info card when selected -->
-              <div v-if="selectedDownlinkDevice" class="p-2.5 rounded-xl bg-slate-950 border border-slate-800 space-y-1 text-xs">
-                <div class="flex items-center justify-between">
-                  <span class="text-slate-400">Device:</span>
-                  <span class="font-bold text-white font-mono">{{ selectedDownlinkDevice.name ? selectedDownlinkDevice.name + ' - ' + selectedDownlinkDevice.devEUI : selectedDownlinkDevice.devEUI }}</span>
-                </div>
-                <div class="flex items-center justify-between">
-                  <span class="text-slate-400">Server:</span>
-                  <span class="font-semibold text-sky-400">{{ selectedDownlinkServer?.name || 'Default' }} ({{ selectedDownlinkServer?.type || 'LNS' }})</span>
+              <!-- Device Details Card: DEV_EUI, NETWORK_SERVER, REGION, FIRMWARE, SKU -->
+              <div v-if="selectedDownlinkDevice" class="p-3 rounded-xl bg-slate-950 border border-slate-800 text-xs">
+                <div class="grid grid-cols-2 sm:grid-cols-5 gap-2.5">
+                  <div>
+                    <div class="text-[10px] text-slate-500 font-bold tracking-wider">DEV_EUI</div>
+                    <div class="font-mono font-bold text-sky-400 truncate" :title="selectedDownlinkDevice.devEUI">{{ selectedDownlinkDevice.devEUI }}</div>
+                  </div>
+                  <div>
+                    <div class="text-[10px] text-slate-500 font-bold tracking-wider">NETWORK_SERVER</div>
+                    <div class="font-semibold text-white truncate" :title="selectedDownlinkServer?.name || 'Default'">{{ selectedDownlinkServer?.name || 'Default' }}</div>
+                  </div>
+                  <div>
+                    <div class="text-[10px] text-slate-500 font-bold tracking-wider">REGION</div>
+                    <div class="font-mono text-indigo-300 truncate" :title="selectedDownlinkDevice.regionProfileName || selectedDownlinkDevice.regionProfileId || 'Default'">
+                      {{ selectedDownlinkDevice.regionProfileName || selectedDownlinkDevice.regionProfileId || 'Default' }}
+                    </div>
+                  </div>
+                  <div>
+                    <div class="text-[10px] text-slate-500 font-bold tracking-wider">FIRMWARE</div>
+                    <div class="font-mono text-purple-300 font-bold truncate">
+                      {{ formatFirmware(selectedDownlinkDevice.firmwareVersion) }}
+                    </div>
+                  </div>
+                  <div>
+                    <div class="text-[10px] text-slate-500 font-bold tracking-wider">SKU</div>
+                    <div class="font-mono text-cyan-300 font-bold truncate" :title="selectedDownlinkDevice.sku || '—'">
+                      {{ selectedDownlinkDevice.sku || '—' }}
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -4326,11 +4350,39 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
             <input v-model="newDevice.appKey" type="text" required maxlength="32" minlength="32" class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-white font-mono uppercase focus:outline-none focus:border-teal-500" />
           </div>
 
-          <!-- Payload Decoder Selection (SKU_ID) -->
+          <!-- 2 Columns: Product SKU & Firmware Version -->
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label class="block font-semibold text-slate-300 mb-1">
+                Product SKU <span class="text-slate-500 font-normal text-[11px]">(Optional)</span>
+              </label>
+              <input
+                v-model="newDevice.sku"
+                @input="onDeviceSkuOrFwChange"
+                type="text"
+                placeholder="e.g. WSLRW-V1A"
+                class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-white font-mono uppercase text-xs focus:outline-none focus:border-teal-500"
+              />
+            </div>
+            <div>
+              <label class="block font-semibold text-slate-300 mb-1">
+                Firmware Version <span class="text-slate-500 font-normal text-[11px]">(Optional, digits only)</span>
+              </label>
+              <input
+                v-model="newDevice.firmwareVersion"
+                @input="onDeviceSkuOrFwChange"
+                type="text"
+                placeholder="e.g. 9 or 1.0"
+                class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-white font-mono text-xs focus:outline-none focus:border-teal-500"
+              />
+            </div>
+          </div>
+
+          <!-- Payload Decoder Selection (Auto or Manual) -->
           <div>
             <label class="block font-semibold text-slate-300 mb-1 flex items-center justify-between">
-              <span>Payload Decoder (SKU_ID)</span>
-              <span v-if="newDevice.decoderId" class="text-purple-400 font-mono text-[10px]">Selected: {{ newDevice.decoderId }}</span>
+              <span>Payload Decoder</span>
+              <span v-if="newDevice.decoderId" class="text-purple-400 font-mono text-[10px]">Auto/Selected: {{ newDevice.decoderId }}</span>
             </label>
             <select v-model="newDevice.decoderId" class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-white font-mono text-xs focus:outline-none focus:border-teal-500">
               <option value="">-- None (No Decoder) --</option>
@@ -4338,7 +4390,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
                 {{ dec.id }} (SKU: {{ dec.sku }}, FW: {{ dec.firmwareVersion }})
               </option>
             </select>
-            <p class="text-[10px] text-slate-500 mt-1">Assign a registered LoRaWAN payload decoder to this device by SKU_ID (e.g. WSLRW-V1A_9)</p>
+            <p class="text-[10px] text-slate-500 mt-1">Automatically assigns decoder (SKU)_(FIRMWARE_VERSION) when SKU and Firmware are provided, or select manually.</p>
           </div>
 
           <div class="flex items-center justify-end gap-2 pt-2 border-t border-slate-800">
@@ -5191,6 +5243,13 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
             </span>
           </div>
 
+          <div v-if="downlinkConfirmModal.targetDevice && (downlinkConfirmModal.targetDevice.sku || downlinkConfirmModal.targetDevice.firmwareVersion)" class="flex items-center justify-between pb-2 border-b border-slate-800/80">
+            <span class="text-slate-400">SKU / Firmware:</span>
+            <span class="font-mono text-cyan-300 font-semibold">
+              {{ downlinkConfirmModal.targetDevice.sku || '—' }} / {{ formatFirmware(downlinkConfirmModal.targetDevice.firmwareVersion) }}
+            </span>
+          </div>
+
           <div class="flex items-center justify-between pb-2 border-b border-slate-800/80">
             <span class="text-slate-400">fPort & Mode:</span>
             <span class="font-mono text-white">
@@ -5423,10 +5482,29 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
           devEUI: '',
           networkServerId: '',
           regionProfileId: '',
+          sku: '',
+          firmwareVersion: '',
+          decoderId: '',
           appEUI: '0102030405060708',
           appKey: '0102030405060708090A0B0C0D0E0F10',
           activationType: 'OTAA',
         });
+
+        const onDeviceSkuOrFwChange = () => {
+          if (newDevice.value.firmwareVersion) {
+            newDevice.value.firmwareVersion = String(newDevice.value.firmwareVersion).replace(/^[vV]/, '').trim();
+          }
+          const cleanSku = (newDevice.value.sku || '').trim().toUpperCase();
+          const cleanFw = (newDevice.value.firmwareVersion || '').trim();
+          if (cleanSku && cleanFw) {
+            newDevice.value.decoderId = cleanSku + '_' + cleanFw;
+          }
+        };
+
+        const formatFirmware = (fw) => {
+          if (fw === undefined || fw === null || fw === '') return '—';
+          return String(fw).replace(/^[vV]/, '').trim() || '—';
+        };
 
         const selectedDeviceNetworkServer = computed(() => {
           if (!newDevice.value.networkServerId) return null;
@@ -6591,6 +6669,8 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
             devEUI: '',
             networkServerId: defaultNsId,
             regionProfileId: defaultRegionId,
+            sku: '',
+            firmwareVersion: '',
             decoderId: '',
             appEUI: '0102030405060708',
             appKey: '0102030405060708090A0B0C0D0E0F10',
@@ -6617,6 +6697,8 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
             devEUI: d.devEUI || '',
             networkServerId: nsId,
             regionProfileId: regId,
+            sku: d.sku || '',
+            firmwareVersion: formatFirmware(d.firmwareVersion) === '—' ? '' : formatFirmware(d.firmwareVersion),
             decoderId: d.decoderId || '',
             appEUI: d.appEUI || '0102030405060708',
             appKey: d.appKey || '0102030405060708090A0B0C0D0E0F10',
@@ -6657,6 +6739,8 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
                 devEUI: cleanDevEUI,
                 networkServerId: newDevice.value.networkServerId || undefined,
                 regionProfileId: newDevice.value.regionProfileId || undefined,
+                sku: newDevice.value.sku ? newDevice.value.sku.trim().toUpperCase() : undefined,
+                firmwareVersion: newDevice.value.firmwareVersion ? String(newDevice.value.firmwareVersion).replace(/^[vV]/, '').trim() : undefined,
                 decoderId: newDevice.value.decoderId || undefined,
                 appEUI: newDevice.value.appEUI ? newDevice.value.appEUI.trim().toUpperCase() : '0102030405060708',
                 appKey: newDevice.value.appKey ? newDevice.value.appKey.trim().toUpperCase() : '0102030405060708090A0B0C0D0E0F10',
@@ -9844,6 +9928,8 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
           openDownlinkConfirm,
           executeConfirmedDownlink,
           flushQueueExplicitly,
+          formatFirmware,
+          onDeviceSkuOrFwChange,
           resendDownlink,
           copyText,
         };

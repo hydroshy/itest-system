@@ -426,6 +426,29 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
                     </div>
                   </div>
 
+                  <!-- Box 3: Product SKU & Firmware Version -->
+                  <div class="p-3 bg-slate-950/70 border border-slate-800/80 rounded-xl space-y-2">
+                    <div class="flex items-center justify-between text-xs">
+                      <span class="text-slate-400 flex items-center gap-2">
+                        <i class="fa-solid fa-barcode text-cyan-400 w-4 text-center"></i>
+                        <span class="font-medium">SKU:</span>
+                      </span>
+                      <span class="font-mono text-cyan-300 font-bold">
+                        {{ d.sku || '—' }}
+                      </span>
+                    </div>
+
+                    <div class="flex items-center justify-between text-xs pt-1 border-t border-slate-900">
+                      <span class="text-slate-400 flex items-center gap-2">
+                        <i class="fa-solid fa-code-branch text-purple-400 w-4 text-center"></i>
+                        <span class="font-medium">Firmware Version:</span>
+                      </span>
+                      <span class="font-mono text-purple-300 font-bold">
+                        {{ formatFirmware(d.firmwareVersion) }}
+                      </span>
+                    </div>
+                  </div>
+
                 </div>
 
                 <!-- Card Footer (Actions) -->
@@ -1842,15 +1865,35 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
                   </div>
                 </div>
 
-                <!-- Device & Server Info card when selected -->
-                <div v-if="selectedDownlinkDevice" class="p-2.5 rounded-xl bg-slate-950 border border-slate-800 space-y-1 text-xs">
-                  <div class="flex items-center justify-between">
-                    <span class="text-slate-400">Device:</span>
-                    <span class="font-bold text-white font-mono">{{ selectedDownlinkDevice.name ? selectedDownlinkDevice.name + ' - ' + selectedDownlinkDevice.devEUI : selectedDownlinkDevice.devEUI }}</span>
-                  </div>
-                  <div class="flex items-center justify-between">
-                    <span class="text-slate-400">Server:</span>
-                    <span class="font-semibold text-sky-400">{{ selectedDownlinkServer?.name || 'Default' }} ({{ selectedDownlinkServer?.type || 'LNS' }})</span>
+                <!-- Device Details Card: DEV_EUI, NETWORK_SERVER, REGION, FIRMWARE, SKU -->
+                <div v-if="selectedDownlinkDevice" class="p-3 rounded-xl bg-slate-950 border border-slate-800 text-xs">
+                  <div class="grid grid-cols-2 sm:grid-cols-5 gap-2.5">
+                    <div>
+                      <div class="text-[10px] text-slate-500 font-bold tracking-wider">DEV_EUI</div>
+                      <div class="font-mono font-bold text-sky-400 truncate" :title="selectedDownlinkDevice.devEUI">{{ selectedDownlinkDevice.devEUI }}</div>
+                    </div>
+                    <div>
+                      <div class="text-[10px] text-slate-500 font-bold tracking-wider">NETWORK_SERVER</div>
+                      <div class="font-semibold text-white truncate" :title="selectedDownlinkServer?.name || 'Default'">{{ selectedDownlinkServer?.name || 'Default' }}</div>
+                    </div>
+                    <div>
+                      <div class="text-[10px] text-slate-500 font-bold tracking-wider">REGION</div>
+                      <div class="font-mono text-indigo-300 truncate" :title="selectedDownlinkDevice.regionProfileName || selectedDownlinkDevice.regionProfileId || 'Default'">
+                        {{ selectedDownlinkDevice.regionProfileName || selectedDownlinkDevice.regionProfileId || 'Default' }}
+                      </div>
+                    </div>
+                    <div>
+                      <div class="text-[10px] text-slate-500 font-bold tracking-wider">FIRMWARE</div>
+                      <div class="font-mono text-purple-300 font-bold truncate">
+                        {{ formatFirmware(selectedDownlinkDevice.firmwareVersion) }}
+                      </div>
+                    </div>
+                    <div>
+                      <div class="text-[10px] text-slate-500 font-bold tracking-wider">SKU</div>
+                      <div class="font-mono text-cyan-300 font-bold truncate" :title="selectedDownlinkDevice.sku || '—'">
+                        {{ selectedDownlinkDevice.sku || '—' }}
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -2259,6 +2302,34 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
             <input v-model="newDevice.appKey" type="text" required maxlength="32" minlength="32" class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-white font-mono uppercase focus:outline-none focus:border-emerald-500" />
           </div>
 
+          <!-- 2 Columns: Product SKU & Firmware Version -->
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label class="block font-semibold text-slate-300 mb-1">
+                Product SKU <span class="text-slate-500 font-normal text-[11px]">(Optional)</span>
+              </label>
+              <input
+                v-model="newDevice.sku"
+                @input="onDeviceSkuOrFwChange"
+                type="text"
+                placeholder="e.g. WSLRW-V1A"
+                class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-white font-mono uppercase text-xs focus:outline-none focus:border-emerald-500"
+              />
+            </div>
+            <div>
+              <label class="block font-semibold text-slate-300 mb-1">
+                Firmware Version <span class="text-slate-500 font-normal text-[11px]">(Optional, digits only)</span>
+              </label>
+              <input
+                v-model="newDevice.firmwareVersion"
+                @input="onDeviceSkuOrFwChange"
+                type="text"
+                placeholder="e.g. 9 or 1.0"
+                class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-white font-mono text-xs focus:outline-none focus:border-emerald-500"
+              />
+            </div>
+          </div>
+
           <div class="flex items-center justify-end gap-2 pt-2 border-t border-slate-800">
             <button type="button" @click="registerDeviceDialog = false" class="px-3.5 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold cursor-pointer">Cancel</button>
             <button type="submit" :disabled="savingDevice" class="px-4 py-2 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold flex items-center gap-1.5 cursor-pointer">
@@ -2501,6 +2572,13 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
             <span class="text-slate-400">Network Server:</span>
             <span class="font-bold text-sky-400">
               {{ (downlinkConfirmModal.targetServer && downlinkConfirmModal.targetServer.name) ? downlinkConfirmModal.targetServer.name : 'Auto' }} ({{ (downlinkConfirmModal.targetServer && downlinkConfirmModal.targetServer.type) ? downlinkConfirmModal.targetServer.type : 'LNS' }})
+            </span>
+          </div>
+
+          <div v-if="downlinkConfirmModal.targetDevice && (downlinkConfirmModal.targetDevice.sku || downlinkConfirmModal.targetDevice.firmwareVersion)" class="flex items-center justify-between pb-2 border-b border-slate-800/80">
+            <span class="text-slate-400">SKU / Firmware:</span>
+            <span class="font-mono text-cyan-300 font-semibold">
+              {{ downlinkConfirmModal.targetDevice.sku || '—' }} / {{ formatFirmware(downlinkConfirmModal.targetDevice.firmwareVersion) }}
             </span>
           </div>
 
@@ -3270,10 +3348,29 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
           devEUI: '',
           networkServerId: '',
           regionProfileId: '',
+          sku: '',
+          firmwareVersion: '',
+          decoderId: '',
           appEUI: '0102030405060708',
           appKey: '0102030405060708090A0B0C0D0E0F10',
           activationType: 'OTAA',
         });
+
+        const onDeviceSkuOrFwChange = () => {
+          if (newDevice.value.firmwareVersion) {
+            newDevice.value.firmwareVersion = String(newDevice.value.firmwareVersion).replace(/^[vV]/, '').trim();
+          }
+          const cleanSku = (newDevice.value.sku || '').trim().toUpperCase();
+          const cleanFw = (newDevice.value.firmwareVersion || '').trim();
+          if (cleanSku && cleanFw) {
+            newDevice.value.decoderId = cleanSku + '_' + cleanFw;
+          }
+        };
+
+        const formatFirmware = (fw) => {
+          if (fw === undefined || fw === null || fw === '') return '—';
+          return String(fw).replace(/^[vV]/, '').trim() || '—';
+        };
 
         const selectedDeviceNetworkServer = computed(() => {
           if (!newDevice.value.networkServerId) return null;
@@ -3293,6 +3390,7 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
           return devicesList.value.filter(d => 
             (d.name && d.name.toLowerCase().includes(q)) ||
             (d.devEUI && d.devEUI.toLowerCase().includes(q)) ||
+            (d.sku && d.sku.toLowerCase().includes(q)) ||
             (d.networkServer && d.networkServer.name && d.networkServer.name.toLowerCase().includes(q)) ||
             (d.regionProfileName && d.regionProfileName.toLowerCase().includes(q))
           );
@@ -4690,6 +4788,9 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
             devEUI: '',
             networkServerId: defaultNsId,
             regionProfileId: defaultRegionId,
+            sku: '',
+            firmwareVersion: '',
+            decoderId: '',
             appEUI: '0102030405060708',
             appKey: '0102030405060708090A0B0C0D0E0F10',
             activationType: 'OTAA',
@@ -4715,6 +4816,9 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
             devEUI: d.devEUI || '',
             networkServerId: nsId,
             regionProfileId: regId,
+            sku: d.sku || '',
+            firmwareVersion: formatFirmware(d.firmwareVersion) === '—' ? '' : formatFirmware(d.firmwareVersion),
+            decoderId: d.decoderId || '',
             appEUI: d.appEUI || '0102030405060708',
             appKey: d.appKey || '0102030405060708090A0B0C0D0E0F10',
             activationType: d.activationMode || 'OTAA',
@@ -4754,6 +4858,9 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
                 devEUI: cleanDevEUI,
                 networkServerId: newDevice.value.networkServerId || undefined,
                 regionProfileId: newDevice.value.regionProfileId || undefined,
+                sku: newDevice.value.sku ? newDevice.value.sku.trim().toUpperCase() : undefined,
+                firmwareVersion: newDevice.value.firmwareVersion ? String(newDevice.value.firmwareVersion).replace(/^[vV]/, '').trim() : undefined,
+                decoderId: newDevice.value.decoderId || undefined,
                 appEUI: newDevice.value.appEUI ? newDevice.value.appEUI.trim().toUpperCase() : '0102030405060708',
                 appKey: newDevice.value.appKey ? newDevice.value.appKey.trim().toUpperCase() : '0102030405060708090A0B0C0D0E0F10',
                 activationType: newDevice.value.activationType || 'OTAA',
@@ -5402,6 +5509,8 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
           openDownlinkConfirm,
           executeConfirmedDownlink,
           flushQueueExplicitly,
+          formatFirmware,
+          onDeviceSkuOrFwChange,
           resendDownlink,
           copyText,
         };

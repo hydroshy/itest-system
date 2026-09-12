@@ -105,6 +105,8 @@ CREATE TABLE IF NOT EXISTS "devices" (
   "syncStatus" VARCHAR(50) DEFAULT 'SYNCED',
   "syncDetails" JSONB DEFAULT '{}'::jsonb,
   "decoderId" VARCHAR(255),
+  "sku" VARCHAR(255),
+  "firmwareVersion" VARCHAR(100),
   "payloadFormatterScript" TEXT,
   "lastSeenAt" TIMESTAMP,
   "isActive" BOOLEAN NOT NULL DEFAULT true,

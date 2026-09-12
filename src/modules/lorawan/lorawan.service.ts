@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, BadRequestException, ForbiddenException, Logger } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, ForbiddenException, Logger, OnModuleInit } from '@nestjs/common';
 import { DynamicDatabaseService } from '../database/dynamic-database.service';
 import { RealtimeService } from '../realtime/realtime.service';
 import { PayloadFormatterService } from './payload-formatters/payload-formatter.service';
@@ -22,8 +22,13 @@ function isUserSuperAdmin(user?: any): boolean {
   return false;
 }
 
+export function cleanFirmwareVersion(val?: string | number): string {
+  if (val === undefined || val === null) return '';
+  return String(val).trim().replace(/^[vV]/, '').trim();
+}
+
 @Injectable()
-export class LorawanService {
+export class LorawanService implements OnModuleInit {
   private readonly logger = new Logger(LorawanService.name);
 
   constructor(
@@ -32,6 +37,25 @@ export class LorawanService {
     private readonly provisioningService: DeviceProvisioningService,
     private readonly realtimeService: RealtimeService,
   ) {}
+
+  async onModuleInit() {
+    await this.ensureDeviceColumns().catch((err) => {
+      this.logger.warn(`Could not ensure device columns: ${err.message}`);
+    });
+  }
+
+  private async ensureDeviceColumns() {
+    try {
+      const ds = this.dbService.getDataSourceForTable('devices');
+      if (!ds || !ds.isInitialized) return;
+      await ds.query(`
+        ALTER TABLE "devices" ADD COLUMN IF NOT EXISTS "sku" VARCHAR(255);
+        ALTER TABLE "devices" ADD COLUMN IF NOT EXISTS "firmwareVersion" VARCHAR(100);
+      `);
+    } catch (e: any) {
+      this.logger.warn(`ensureDeviceColumns warning: ${e.message}`);
+    }
+  }
 
   private get deviceRepo() {
     return this.dbService.getRepositoryForTable('devices', DeviceEntity);
@@ -138,7 +162,15 @@ export class LorawanService {
     }
 
     let payloadFormatterScript = dto.payloadFormatterScript || undefined;
-    const decoderId = dto.decoderId ? dto.decoderId.trim() : undefined;
+    let decoderId = dto.decoderId ? dto.decoderId.trim() : undefined;
+    const cleanSku = dto.sku ? dto.sku.trim().toUpperCase() : undefined;
+    const cleanFw = dto.firmwareVersion ? cleanFirmwareVersion(dto.firmwareVersion) : undefined;
+
+    // Auto-assign decoder `${sku}_${firmwareVersion}` when SKU and firmwareVersion are provided
+    if (cleanSku && cleanFw) {
+      decoderId = `${cleanSku}_${cleanFw}`;
+    }
+
     if (decoderId && !payloadFormatterScript) {
       try {
         const dec = await this.decoderRepo.findOne({ where: { id: decoderId } });
@@ -163,6 +195,8 @@ export class LorawanService {
         networkServerId: dto.networkServerId || undefined,
         regionProfileId: dto.regionProfileId || undefined,
         decoderId: decoderId || undefined,
+        sku: cleanSku || undefined,
+        firmwareVersion: cleanFw || undefined,
         payloadFormatterScript,
         syncStatus,
         syncDetails,
@@ -181,6 +215,12 @@ export class LorawanService {
       }
       device.networkServerId = dto.networkServerId || undefined as any;
       device.regionProfileId = dto.regionProfileId || undefined as any;
+      if (cleanSku !== undefined) {
+        device.sku = cleanSku;
+      }
+      if (cleanFw !== undefined) {
+        device.firmwareVersion = cleanFw;
+      }
       if (decoderId !== undefined) {
         device.decoderId = decoderId;
       }
@@ -230,7 +270,23 @@ export class LorawanService {
     if (dto.payloadFormatterScript !== undefined) device.payloadFormatterScript = dto.payloadFormatterScript;
     if (dto.isActive !== undefined) device.isActive = Boolean(dto.isActive);
 
-    if (dto.decoderId !== undefined) {
+    if (dto.sku !== undefined) device.sku = dto.sku ? dto.sku.trim().toUpperCase() : null as any;
+    if (dto.firmwareVersion !== undefined) device.firmwareVersion = dto.firmwareVersion ? cleanFirmwareVersion(dto.firmwareVersion) : null as any;
+
+    if (device.sku && device.firmwareVersion) {
+      const autoDecoderId = `${device.sku}_${device.firmwareVersion}`;
+      device.decoderId = autoDecoderId;
+      if (!dto.payloadFormatterScript) {
+        try {
+          const dec = await this.decoderRepo.findOne({ where: { id: autoDecoderId } });
+          if (dec && dec.decoderCode) {
+            device.payloadFormatterScript = dec.decoderCode;
+          }
+        } catch (err: any) {
+          this.logger.warn(`Could not resolve decoder '${autoDecoderId}': ${err.message}`);
+        }
+      }
+    } else if (dto.decoderId !== undefined) {
       const cleanDecoderId = dto.decoderId ? dto.decoderId.trim() : null;
       device.decoderId = cleanDecoderId as any;
       if (cleanDecoderId && !dto.payloadFormatterScript) {
@@ -892,6 +948,8 @@ export class LorawanService {
 
       return {
         ...d,
+        sku: d.sku || '',
+        firmwareVersion: d.firmwareVersion ? cleanFirmwareVersion(d.firmwareVersion) : '',
         isOnline,
         neverJoined: lastSeenTime === 0,
         regionProfileName: regionProfileName || d.regionProfileId || '',

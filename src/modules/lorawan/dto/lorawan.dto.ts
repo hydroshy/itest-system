@@ -35,6 +35,14 @@ export class RegisterDeviceDto {
 
   @IsString()
   @IsOptional()
+  sku?: string;
+
+  @IsString()
+  @IsOptional()
+  firmwareVersion?: string;
+
+  @IsString()
+  @IsOptional()
   payloadFormatterScript?: string;
 
   @IsString()

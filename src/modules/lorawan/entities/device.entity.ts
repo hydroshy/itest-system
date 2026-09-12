@@ -57,6 +57,12 @@ export class DeviceEntity {
   @Column({ nullable: true })
   decoderId?: string;
 
+  @Column({ nullable: true })
+  sku?: string;
+
+  @Column({ nullable: true })
+  firmwareVersion?: string;
+
   @Column({ type: 'text', nullable: true })
   payloadFormatterScript: string;
 
