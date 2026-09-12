@@ -3545,10 +3545,10 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
           </div>
 
           <!-- TOP 2-COLUMN SPLIT: DOWNLINK COMMAND (LEFT) & DEVICE PENDING QUEUE (RIGHT) -->
-          <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
             <!-- 1. LEFT COLUMN: DOWNLINK COMMAND -->
-            <div class="glass-card rounded-2xl p-5 border border-slate-800 space-y-4 shadow-lg flex flex-col justify-between">
+            <div class="glass-card rounded-2xl p-5 border border-slate-800 space-y-4 shadow-lg flex flex-col justify-between h-full">
               <div class="space-y-4">
                 <div class="pb-3 border-b border-slate-800 flex items-center justify-between">
                   <h3 class="text-xs font-bold text-white uppercase tracking-wider">Downlink Command</h3>
@@ -3714,9 +3714,9 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
             </div>
 
             <!-- 2. RIGHT COLUMN: DEVICE PENDING QUEUE (DISPLAYED ONLY WHEN DEVICE SELECTED) -->
-            <div v-if="downlinkForm.devEUI" class="glass-card rounded-2xl p-5 border border-slate-800 space-y-4 shadow-lg flex flex-col justify-between">
-              <div>
-                <div class="flex items-center justify-between pb-3 border-b border-slate-800">
+            <div v-if="downlinkForm.devEUI" class="glass-card rounded-2xl p-5 border border-slate-800 shadow-lg flex flex-col h-full">
+              <div class="flex flex-col h-full space-y-4">
+                <div class="flex items-center justify-between pb-3 border-b border-slate-800 flex-shrink-0">
                   <div class="flex items-center gap-2">
                     <h3 class="text-xs font-bold text-white uppercase tracking-wider">Device Pending Queue</h3>
                     <span class="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-amber-500/10 text-amber-400 border border-amber-500/20">
@@ -3750,15 +3750,15 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
                 </div>
 
                 <!-- Queue Content -->
-                <div v-if="loadingDeviceQueue && deviceQueue.length === 0" class="text-center py-10 text-slate-500 text-xs">
-                  <i class="fa-solid fa-spinner animate-spin text-amber-400 mr-2"></i>
-                  Loading queue...
+                <div v-if="loadingDeviceQueue && deviceQueue.length === 0" class="flex-1 flex flex-col items-center justify-center text-slate-500 text-xs py-10">
+                  <i class="fa-solid fa-spinner animate-spin text-amber-400 mb-2"></i>
+                  <span>Loading queue...</span>
                 </div>
-                <div v-else-if="deviceQueue.length === 0" class="text-center py-12 text-slate-500 text-xs">
-                  <i class="fa-solid fa-inbox text-2xl text-slate-700 mb-1 block"></i>
-                  Queue is currently empty.
+                <div v-else-if="deviceQueue.length === 0" class="flex-1 flex flex-col items-center justify-center text-slate-500 text-xs py-12">
+                  <i class="fa-solid fa-inbox text-2xl text-slate-700 mb-2 block"></i>
+                  <span>Queue is currently empty.</span>
                 </div>
-                <div v-else class="overflow-x-auto custom-scroll max-h-[260px] overflow-y-auto">
+                <div v-else class="overflow-x-auto custom-scroll flex-1 overflow-y-auto min-h-0">
                   <table class="w-full text-left text-xs text-slate-300">
                     <thead>
                       <tr class="border-b border-slate-800 text-[10px] font-bold text-slate-400 uppercase tracking-wider font-mono sticky top-0 bg-slate-900">
