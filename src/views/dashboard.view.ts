@@ -2091,11 +2091,38 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
 
   </div>
 
-  <script src="https://cdn.jsdelivr.net/npm/vue@3.4.31/dist/vue.global.prod.js"></script>
+  <!-- Vue 3 with multiple CDN failover mirrors -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/vue/3.4.31/vue.global.prod.min.js"></script>
   <script>
+    if (typeof Vue === 'undefined') {
+      document.write('<script src="https://cdn.jsdelivr.net/npm/vue@3.4.31/dist/vue.global.prod.js"><\\/script>');
+    }
+  </script>
+  <script>
+    if (typeof Vue === 'undefined') {
+      document.write('<script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"><\\/script>');
+    }
+  </script>
+  <script>
+    // Fail-safe: remove v-cloak if error happens or Vue fails to mount within 2.5s
+    window.addEventListener('error', function(e) {
+      console.error('[Global Page Error]:', e.error || e.message);
+      var appEl = document.getElementById('app');
+      if (appEl && appEl.hasAttribute('v-cloak')) {
+        appEl.removeAttribute('v-cloak');
+      }
+    });
+    setTimeout(function() {
+      var appEl = document.getElementById('app');
+      if (appEl && appEl.hasAttribute('v-cloak')) {
+        console.warn('Vue mounting safety timer triggered: removing v-cloak');
+        appEl.removeAttribute('v-cloak');
+      }
+    }, 2500);
+
     const { createApp, ref, computed, onMounted, nextTick, watch } = Vue;
 
-    createApp({
+    const app = createApp({
       setup() {
         const currentUser = ref({});
         const accessibleFeatures = ref([]);
@@ -4546,7 +4573,17 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
           initRealtimeConnection
         };
       }
-    }).mount('#app');
+    });
+
+    app.config.errorHandler = function(err, vm, info) {
+      console.error('[Vue Error Handler]:', err, info);
+      var appEl = document.getElementById('app');
+      if (appEl && appEl.hasAttribute('v-cloak')) {
+        appEl.removeAttribute('v-cloak');
+      }
+    };
+
+    app.mount('#app');
   </script>
 </body>
 </html>
