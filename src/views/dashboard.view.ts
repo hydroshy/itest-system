@@ -1771,29 +1771,20 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
                   <i class="fa-solid fa-arrow-left mr-1"></i> Dashboard
                 </button>
                 <div class="h-4 w-px bg-slate-800"></div>
-                <div class="flex items-center gap-2">
-                  <div class="w-7 h-7 rounded-lg bg-gradient-to-br from-blue-600 to-indigo-700 flex items-center justify-center text-white text-xs shadow-md">
-                    <i class="fa-solid fa-paper-plane"></i>
-                  </div>
-                  <div>
-                    <h2 class="text-sm font-bold text-white tracking-wide">DOWNLINK ACTUATOR & QUEUE</h2>
-                    <p class="text-[10px] text-slate-400">Điều khiển và phát gói tin Hex trực tiếp xuống thiết bị ChirpStack / ThingPark</p>
-                  </div>
+                <div>
+                  <h2 class="text-sm font-bold text-white tracking-wide">Downlink Actuator</h2>
+                  <p class="text-[10px] text-slate-400">Transmit raw Hex payloads to LoRaWAN end-devices.</p>
                 </div>
               </div>
 
               <div class="flex items-center gap-2">
-                <span class="px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center gap-1.5">
-                  <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-                  REALTIME
-                </span>
                 <button
                   type="button"
                   @click="fetchDownlinkHistory()"
                   class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 text-xs font-semibold flex items-center gap-1.5 cursor-pointer shadow-sm transition"
                 >
                   <i class="fa-solid fa-arrows-rotate" :class="{ 'animate-spin': loadingDownlinkHistory }"></i>
-                  <span>Làm mới</span>
+                  <span>Refresh</span>
                 </button>
               </div>
             </div>
@@ -1804,87 +1795,70 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
               <!-- LEFT: DOWNLINK FORM (5 COLS) -->
               <div class="lg:col-span-5 space-y-4">
                 <div class="p-5 rounded-2xl bg-slate-900/90 border border-slate-800 space-y-4 shadow-xl">
-                  <div class="flex items-center justify-between pb-3 border-b border-slate-800">
-                    <div class="flex items-center gap-2">
-                      <i class="fa-solid fa-satellite-dish text-indigo-400 text-xs"></i>
-                      <h3 class="text-xs font-bold text-white uppercase tracking-wider">Cấu Hình Lệnh Downlink</h3>
-                    </div>
-                    <span class="text-[10px] font-mono text-slate-500">LoRaWAN MAC</span>
+                  <div class="pb-3 border-b border-slate-800">
+                    <h3 class="text-xs font-bold text-white uppercase tracking-wider">Downlink Command</h3>
                   </div>
 
-                  <!-- 1. CHỌN NETWORK SERVER -->
-                  <div class="space-y-1.5">
+                  <!-- 1. DEVICE SEARCHABLE DROPLIST -->
+                  <div class="space-y-1.5 relative" @click.stop>
                     <label class="block text-xs font-bold text-slate-300">
-                      <i class="fa-solid fa-server text-sky-400 mr-1"></i> Khung Chọn Network Server
+                      Device
                     </label>
-                    <select
-                      v-model="downlinkForm.networkServerId"
-                      class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-xl text-white text-xs focus:ring-1 focus:ring-indigo-500 focus:outline-none"
-                    >
-                      <option value="">-- [Auto] Tự động theo thiết bị đã chọn --</option>
-                      <option v-for="s in networkServersList" :key="s.id" :value="s.id">
-                        {{ s.name }} ({{ s.type }}) - {{ s.status || 'CONFIGURED' }}
-                      </option>
-                    </select>
-                    <div v-if="selectedDownlinkServer" class="p-2 rounded-lg bg-slate-950/80 border border-slate-800 text-[11px] flex items-center justify-between text-slate-400">
-                      <div class="flex items-center gap-1.5">
-                        <span
-                          class="px-1.5 py-0.5 rounded text-[9px] font-bold font-mono"
-                          :class="selectedDownlinkServer.type === 'CHIRPSTACK' ? 'bg-sky-500/20 text-sky-300 border border-sky-500/30' : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'"
-                        >
-                          {{ selectedDownlinkServer.type }}
-                        </span>
-                        <span class="text-white font-semibold truncate max-w-[150px]">{{ selectedDownlinkServer.name }}</span>
-                      </div>
-                      <span class="text-[10px] font-mono text-slate-500 truncate max-w-[130px]">{{ selectedDownlinkServer.apiUrl || 'Webhook Mode' }}</span>
-                    </div>
-                  </div>
 
-                  <!-- 2. CHỌN THIẾT BỊ ĐÃ ĐĂNG KÝ -->
-                  <div class="space-y-1.5">
-                    <div class="flex items-center justify-between">
-                      <label class="block text-xs font-bold text-slate-300">
-                        <i class="fa-solid fa-microchip text-teal-400 mr-1"></i> Khung Chọn Thiết Bị (Danh sách đã đăng ký)
-                      </label>
-                      <span class="text-[10px] text-slate-500">Tổng: {{ devicesList.length }} thiết bị</span>
-                    </div>
-
-                    <!-- Quick search within devices -->
                     <div class="relative">
-                      <i class="fa-solid fa-magnifying-glass absolute left-3 top-2.5 text-slate-500 text-[11px]"></i>
                       <input
-                        v-model="downlinkDeviceSearch"
                         type="text"
-                        placeholder="Tìm theo tên hoặc DevEUI..."
-                        class="w-full pl-8 pr-3 py-1.5 bg-slate-950 border border-slate-800 rounded-lg text-white text-xs focus:ring-1 focus:ring-indigo-500 focus:outline-none mb-1.5 placeholder-slate-600"
+                        v-model="downlinkDeviceSearch"
+                        @focus="downlinkDeviceDropdownOpen = true"
+                        @click="downlinkDeviceDropdownOpen = true"
+                        placeholder="Search device (Name or DevEUI)..."
+                        class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-xl text-white text-xs font-mono focus:ring-1 focus:ring-indigo-500 focus:outline-none placeholder-slate-500"
                       />
+                      <button
+                        v-if="downlinkForm.devEUI"
+                        type="button"
+                        @click.stop="clearSelectedDownlinkDevice"
+                        class="absolute right-2.5 top-2.5 text-slate-500 hover:text-white text-xs cursor-pointer"
+                      >
+                        <i class="fa-solid fa-xmark"></i>
+                      </button>
                     </div>
 
-                    <select
-                      v-model="downlinkForm.devEUI"
-                      @change="onDownlinkDeviceSelect"
-                      class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-xl text-white text-xs font-mono focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+                    <!-- Dropdown Options -->
+                    <div
+                      v-if="downlinkDeviceDropdownOpen"
+                      class="absolute left-0 right-0 z-30 mt-1 max-h-56 overflow-y-auto bg-slate-950 border border-slate-700 rounded-xl shadow-2xl divide-y divide-slate-800/80 custom-scroll"
                     >
-                      <option value="">-- Chọn thiết bị trong danh sách --</option>
-                      <option v-for="d in filteredDownlinkDevices" :key="d.devEUI" :value="d.devEUI">
-                        {{ d.name ? d.name + ' (' + d.devEUI + ')' : d.devEUI }}
-                      </option>
-                    </select>
-
-                    <div v-if="selectedDownlinkDevice" class="p-2.5 rounded-lg bg-slate-950/80 border border-slate-800 space-y-1 text-[11px]">
-                      <div class="flex items-center justify-between">
-                        <span class="text-slate-400">Tên: <strong class="text-white">{{ selectedDownlinkDevice.name || 'N/A' }}</strong></span>
-                        <span class="font-mono text-indigo-400 font-bold">{{ selectedDownlinkDevice.devEUI }}</span>
+                      <div
+                        v-for="d in filteredDownlinkDevices"
+                        :key="d.devEUI"
+                        @click="selectDownlinkDevice(d)"
+                        class="px-3 py-2 text-xs font-mono cursor-pointer hover:bg-slate-800 flex items-center justify-between transition"
+                        :class="{ 'bg-indigo-950/50 text-indigo-300': downlinkForm.devEUI === d.devEUI }"
+                      >
+                        <span class="text-white">{{ d.name ? d.name + ' - ' + d.devEUI : d.devEUI }}</span>
+                        <span class="text-[10px] text-slate-400 font-sans">{{ d.networkServer?.name || 'LNS' }}</span>
                       </div>
-                      <div class="flex items-center justify-between text-slate-400">
-                        <span>Server: <span class="text-teal-300">{{ selectedDownlinkDevice.networkServer?.name || (selectedDownlinkServer ? selectedDownlinkServer.name : 'Chưa gán') }}</span></span>
-                        <span>Chế độ: <span class="text-amber-300 font-mono">{{ selectedDownlinkDevice.activationMode || 'OTAA' }}</span></span>
+                      <div v-if="filteredDownlinkDevices.length === 0" class="px-3 py-3 text-xs text-slate-500 text-center">
+                        No matching devices
+                      </div>
+                    </div>
+
+                    <!-- Device & Server Info card when selected -->
+                    <div v-if="selectedDownlinkDevice" class="p-2.5 rounded-xl bg-slate-950 border border-slate-800 space-y-1 text-xs">
+                      <div class="flex items-center justify-between">
+                        <span class="text-slate-400">Device:</span>
+                        <span class="font-bold text-white font-mono">{{ selectedDownlinkDevice.name ? selectedDownlinkDevice.name + ' - ' + selectedDownlinkDevice.devEUI : selectedDownlinkDevice.devEUI }}</span>
+                      </div>
+                      <div class="flex items-center justify-between">
+                        <span class="text-slate-400">Server:</span>
+                        <span class="font-semibold text-sky-400">{{ selectedDownlinkServer?.name || 'Default' }} ({{ selectedDownlinkServer?.type || 'LNS' }})</span>
                       </div>
                     </div>
                   </div>
 
-                  <!-- 3. FPORT & CONFIRMED -->
-                  <div class="grid grid-cols-2 gap-3 pt-1">
+                  <!-- 2. FPORT & CONFIRMED -->
+                  <div class="grid grid-cols-2 gap-3">
                     <div class="space-y-1">
                       <label class="block text-xs font-bold text-slate-300">
                         fPort (1 - 223)
@@ -1894,54 +1868,47 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
                         type="number"
                         min="1"
                         max="223"
-                        class="w-full px-3 py-1.5 bg-slate-950 border border-slate-700 rounded-xl text-white text-xs font-mono focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+                        class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-xl text-white text-xs font-mono focus:ring-1 focus:ring-indigo-500 focus:outline-none"
                       />
-                      <p class="text-[10px] text-slate-500">Mặc định: 1</p>
                     </div>
 
                     <div class="space-y-1">
                       <label class="block text-xs font-bold text-slate-300">
-                        Xác Nhận (ACK)
+                        Confirmed (ACK)
                       </label>
-                      <label class="flex items-center gap-2 p-2 rounded-xl bg-slate-950 border border-slate-800 cursor-pointer hover:border-slate-700 transition mt-0.5">
+                      <label class="flex items-center gap-2 px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 cursor-pointer hover:border-slate-700 transition">
                         <input
                           type="checkbox"
                           v-model="downlinkForm.confirmed"
                           class="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 bg-slate-900 border-slate-700 cursor-pointer"
                         />
-                        <span class="text-xs text-slate-300 font-semibold">{{ downlinkForm.confirmed ? 'Confirmed (ACK)' : 'Unconfirmed' }}</span>
+                        <span class="text-xs text-slate-300 font-semibold">{{ downlinkForm.confirmed ? 'Confirmed' : 'Unconfirmed' }}</span>
                       </label>
                     </div>
                   </div>
 
-                  <!-- 4. FLUSH QUEUE OPTION (MẶC ĐỊNH KHÔNG CHỌN) -->
-                  <div class="p-3 rounded-xl bg-amber-500/5 border border-amber-500/20 space-y-1.5">
-                    <div class="flex items-center justify-between">
-                      <label class="flex items-center gap-2.5 cursor-pointer">
-                        <input
-                          type="checkbox"
-                          v-model="downlinkForm.flushQueue"
-                          class="w-4 h-4 rounded text-amber-500 focus:ring-amber-400 bg-slate-900 border-slate-700 cursor-pointer"
-                        />
-                        <span class="text-xs font-bold text-amber-300 flex items-center gap-1.5">
-                          <i class="fa-solid fa-broom text-amber-400 text-[11px]"></i>
-                          Flush Queue (Xóa hàng đợi cũ trước)
-                        </span>
-                      </label>
-                      <span class="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-900 text-slate-400 border border-slate-800">
-                        {{ downlinkForm.flushQueue ? 'BẬT' : 'TẮT (Mặc định)' }}
+                  <!-- 3. FLUSH QUEUE OPTION -->
+                  <div class="p-3 rounded-xl bg-slate-950 border border-slate-800 space-y-1">
+                    <label class="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        v-model="downlinkForm.flushQueue"
+                        class="w-4 h-4 rounded text-amber-500 focus:ring-amber-400 bg-slate-900 border-slate-700 cursor-pointer"
+                      />
+                      <span class="text-xs font-bold text-slate-200">
+                        Flush Queue
                       </span>
-                    </div>
-                    <p class="text-[10px] text-slate-400 leading-normal pl-6">
-                      Khi bật, hệ thống sẽ tự động xóa sạch các gói downlink đang chờ trước đó trên ChirpStack/ThingPark trước khi đưa gói mới vào.
+                    </label>
+                    <p class="text-[10px] text-slate-400 pl-6">
+                      Clear pending downlinks on Network Server before queuing this packet.
                     </p>
                   </div>
 
-                  <!-- 5. CHUỖI HEX & PRESETS -->
+                  <!-- 4. CHUỖI HEX -->
                   <div class="space-y-1.5">
                     <div class="flex items-center justify-between">
                       <label class="block text-xs font-bold text-slate-300">
-                        <i class="fa-solid fa-code text-indigo-400 mr-1"></i> Downlink Payload (Chuỗi HEX)
+                        Payload (Hex)
                       </label>
                       <span class="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-950 text-sky-400 border border-slate-800 font-bold">
                         {{ calculatedHexBytes }} Bytes
@@ -1951,42 +1918,9 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
                     <textarea
                       v-model="downlinkForm.payloadHex"
                       rows="3"
-                      placeholder="Nhập chuỗi HEX (ví dụ: 0102A3FF)..."
-                      class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-xl text-white font-mono text-xs uppercase focus:ring-1 focus:ring-indigo-500 focus:outline-none placeholder-slate-600"
+                      placeholder="Enter hex string (e.g. 0102A3FF)..."
+                      class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-xl text-white font-mono text-xs uppercase focus:ring-1 focus:ring-indigo-500 focus:outline-none placeholder-slate-500"
                     ></textarea>
-
-                    <!-- Quick Preset Buttons -->
-                    <div class="flex flex-wrap items-center gap-1.5 pt-1">
-                      <span class="text-[10px] text-slate-500 font-semibold mr-1">Mẫu nhanh:</span>
-                      <button
-                        type="button"
-                        @click="setDownlinkPreset('01', 1)"
-                        class="px-2 py-1 rounded-lg bg-slate-950 hover:bg-slate-800 border border-slate-800 text-[10px] font-mono text-emerald-400 cursor-pointer"
-                      >
-                        01 (Bật/ON)
-                      </button>
-                      <button
-                        type="button"
-                        @click="setDownlinkPreset('00', 1)"
-                        class="px-2 py-1 rounded-lg bg-slate-950 hover:bg-slate-800 border border-slate-800 text-[10px] font-mono text-red-400 cursor-pointer"
-                      >
-                        00 (Tắt/OFF)
-                      </button>
-                      <button
-                        type="button"
-                        @click="setDownlinkPreset('010A', 1)"
-                        class="px-2 py-1 rounded-lg bg-slate-950 hover:bg-slate-800 border border-slate-800 text-[10px] font-mono text-sky-400 cursor-pointer"
-                      >
-                        010A (Chu kỳ 10s)
-                      </button>
-                      <button
-                        type="button"
-                        @click="setDownlinkPreset('FF', 1)"
-                        class="px-2 py-1 rounded-lg bg-slate-950 hover:bg-slate-800 border border-slate-800 text-[10px] font-mono text-amber-400 cursor-pointer"
-                      >
-                        FF (Reset/Reboot)
-                      </button>
-                    </div>
                   </div>
 
                   <!-- ACTION BUTTONS -->
@@ -1995,21 +1929,18 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
                       type="button"
                       @click="flushQueueExplicitly"
                       :disabled="!downlinkForm.devEUI"
-                      class="px-3 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 disabled:opacity-50 text-slate-300 text-xs font-semibold flex items-center justify-center gap-1.5 cursor-pointer border border-slate-700 transition"
-                      title="Chỉ xóa hàng đợi mà không gửi gói mới"
+                      class="px-3 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 disabled:opacity-50 text-slate-300 text-xs font-semibold cursor-pointer border border-slate-700 transition"
                     >
-                      <i class="fa-solid fa-broom text-amber-400"></i>
-                      <span class="hidden sm:inline">Chỉ Xóa Queue</span>
+                      Flush Queue Only
                     </button>
 
                     <button
                       type="button"
                       @click="openDownlinkConfirm"
                       :disabled="!downlinkForm.devEUI || !downlinkForm.payloadHex"
-                      class="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-blue-600 via-indigo-600 to-indigo-700 hover:from-blue-500 hover:to-indigo-600 disabled:opacity-50 text-white text-xs font-bold flex items-center justify-center gap-2 cursor-pointer shadow-lg shadow-indigo-600/30 transition"
+                      class="flex-1 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white text-xs font-bold flex items-center justify-center cursor-pointer transition shadow-md"
                     >
-                      <i class="fa-solid fa-paper-plane"></i>
-                      <span>Gửi Downlink Tới Thiết Bị</span>
+                      Send Downlink
                     </button>
                   </div>
 
@@ -2022,8 +1953,7 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
                   <!-- History Header & Filter -->
                   <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-800">
                     <div class="flex items-center gap-2">
-                      <i class="fa-solid fa-clock-rotate-left text-sky-400 text-xs"></i>
-                      <h3 class="text-xs font-bold text-white uppercase tracking-wider">Khung Các Downlink Đã Gửi Xuống Thiết Bị</h3>
+                      <h3 class="text-xs font-bold text-white uppercase tracking-wider">Downlink History</h3>
                       <span class="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-sky-500/10 text-sky-400 border border-sky-500/20">
                         {{ downlinkHistory.length }}
                       </span>
@@ -2036,16 +1966,16 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
                         @change="fetchDownlinkHistory(downlinkHistoryFilterDevEUI)"
                         class="px-2.5 py-1 bg-slate-950 border border-slate-700 rounded-lg text-white text-xs font-mono focus:outline-none"
                       >
-                        <option value="">-- Tất cả thiết bị --</option>
+                        <option value="">-- All Devices --</option>
                         <option v-for="d in devicesList" :key="d.devEUI" :value="d.devEUI">
-                          {{ d.name ? d.name : d.devEUI }}
+                          {{ d.name ? d.name + ' - ' + d.devEUI : d.devEUI }}
                         </option>
                       </select>
                       <button
                         type="button"
                         @click="fetchDownlinkHistory(downlinkHistoryFilterDevEUI)"
                         class="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white cursor-pointer"
-                        title="Làm mới"
+                        title="Refresh"
                       >
                         <i class="fa-solid fa-arrows-rotate" :class="{ 'animate-spin': loadingDownlinkHistory }"></i>
                       </button>
@@ -2057,49 +1987,41 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
                     <table class="w-full text-left text-xs text-slate-300">
                       <thead>
                         <tr class="border-b border-slate-800 text-[10px] font-bold text-slate-400 uppercase tracking-wider font-mono">
-                          <th class="py-2.5 px-3">Thời gian</th>
-                          <th class="py-2.5 px-3">Người gửi</th>
-                          <th class="py-2.5 px-3">Thiết bị</th>
+                          <th class="py-2.5 px-3">Timestamp</th>
+                          <th class="py-2.5 px-3">User</th>
+                          <th class="py-2.5 px-3">Device</th>
                           <th class="py-2.5 px-3">Server</th>
                           <th class="py-2.5 px-3">Port</th>
-                          <th class="py-2.5 px-3">Payload (HEX)</th>
-                          <th class="py-2.5 px-3">Trạng thái</th>
-                          <th class="py-2.5 px-3 text-right">Thao tác</th>
+                          <th class="py-2.5 px-3">Payload (Hex)</th>
+                          <th class="py-2.5 px-3">Status</th>
+                          <th class="py-2.5 px-3 text-right">Action</th>
                         </tr>
                       </thead>
                       <tbody class="divide-y divide-slate-800/60 font-mono text-xs">
                         <tr v-if="loadingDownlinkHistory && downlinkHistory.length === 0">
                           <td colspan="8" class="text-center py-8 text-slate-500">
                             <i class="fa-solid fa-spinner animate-spin text-sky-400 mr-2"></i>
-                            Đang tải lịch sử downlink...
+                            Loading downlink history...
                           </td>
                         </tr>
                         <tr v-else-if="downlinkHistory.length === 0">
                           <td colspan="8" class="text-center py-10 text-slate-500">
-                            <i class="fa-solid fa-inbox text-3xl text-slate-700 mb-2 block"></i>
-                            Chưa có bản ghi downlink nào cho thiết bị này.
+                            No downlink records found.
                           </td>
                         </tr>
                         <tr v-for="item in downlinkHistory" :key="item.id" class="hover:bg-slate-800/40 transition">
-                          <!-- Thời gian -->
                           <td class="py-2.5 px-3 text-slate-400 text-[11px] whitespace-nowrap">
                             {{ formatDateTime(item.createdAt) }}
                           </td>
-
-                          <!-- Người gửi (sentBy) -->
                           <td class="py-2.5 px-3 whitespace-nowrap">
                             <span class="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-indigo-500/15 text-indigo-300 border border-indigo-500/25">
                               {{ item.sentBy || 'anonymous' }}
                             </span>
                           </td>
-
-                          <!-- Thiết bị -->
                           <td class="py-2.5 px-3 whitespace-nowrap">
                             <div class="text-white font-bold text-[11px]">{{ item.deviceName || item.devEUI }}</div>
                             <div class="text-[10px] text-slate-500">{{ item.devEUI }}</div>
                           </td>
-
-                          <!-- Server -->
                           <td class="py-2.5 px-3 whitespace-nowrap">
                             <span
                               class="px-1.5 py-0.5 rounded text-[9px] font-bold"
@@ -2108,15 +2030,11 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
                               {{ item.serverType || 'LNS' }}
                             </span>
                           </td>
-
-                          <!-- Port & Flags -->
                           <td class="py-2.5 px-3 whitespace-nowrap">
                             <span class="font-bold text-white">{{ item.fPort }}</span>
-                            <span v-if="item.flushQueue" class="ml-1 px-1 py-0.2 rounded text-[8px] bg-amber-500/20 text-amber-300 border border-amber-500/30" title="Flush Queue">FLUSH</span>
-                            <span v-if="item.confirmed" class="ml-1 px-1 py-0.2 rounded text-[8px] bg-indigo-500/20 text-indigo-300 border border-indigo-500/30" title="Confirmed">ACK</span>
+                            <span v-if="item.flushQueue" class="ml-1 px-1 py-0.2 rounded text-[8px] bg-amber-500/20 text-amber-300 border border-amber-500/30">FLUSH</span>
+                            <span v-if="item.confirmed" class="ml-1 px-1 py-0.2 rounded text-[8px] bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">ACK</span>
                           </td>
-
-                          <!-- Payload HEX -->
                           <td class="py-2.5 px-3 whitespace-nowrap">
                             <div class="flex items-center gap-1.5">
                               <span class="font-bold text-sky-300 max-w-[120px] truncate" :title="item.payloadHex">{{ item.payloadHex }}</span>
@@ -2124,14 +2042,12 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
                                 type="button"
                                 @click="copyText(item.payloadHex)"
                                 class="text-slate-500 hover:text-white text-[10px] cursor-pointer"
-                                title="Sao chép chuỗi HEX"
+                                title="Copy Hex"
                               >
                                 <i class="fa-regular fa-copy"></i>
                               </button>
                             </div>
                           </td>
-
-                          <!-- Status -->
                           <td class="py-2.5 px-3 whitespace-nowrap">
                             <span
                               class="px-2 py-0.5 rounded-full text-[10px] font-bold"
@@ -2140,17 +2056,14 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
                               {{ item.status }}
                             </span>
                           </td>
-
-                          <!-- Action: Resend -->
                           <td class="py-2.5 px-3 text-right whitespace-nowrap">
                             <button
                               type="button"
                               @click="resendDownlink(item)"
-                              class="px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white text-[10px] font-semibold border border-slate-700 cursor-pointer transition flex items-center gap-1 ml-auto"
-                              title="Nạp lại thông số vào biểu mẫu"
+                              class="px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white text-[10px] font-semibold border border-slate-700 cursor-pointer transition ml-auto"
+                              title="Reload into form"
                             >
-                              <i class="fa-solid fa-arrow-rotate-left text-sky-400"></i>
-                              <span>Nạp lại</span>
+                              Reload
                             </button>
                           </td>
                         </tr>
@@ -2487,23 +2400,18 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
 
     <!-- MODAL: CONFIRM DOWNLINK DISPATCH (D-MODULE) -->
     <div v-if="downlinkConfirmModal.show" class="fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop" style="background: rgba(2, 6, 23, 0.85); backdrop-filter: blur(6px);">
-      <div class="w-full max-w-lg bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-4 shadow-2xl animate-in fade-in">
+      <div class="w-full max-w-md bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-4 shadow-2xl animate-in fade-in">
         <div class="flex items-center justify-between pb-3 border-b border-slate-800">
-          <div class="flex items-center gap-2.5 text-amber-400">
-            <div class="w-8 h-8 rounded-xl bg-amber-500/20 border border-amber-500/30 flex items-center justify-center">
-              <i class="fa-solid fa-triangle-exclamation text-sm"></i>
-            </div>
-            <div>
-              <h3 class="text-sm font-bold text-white">Xác Nhận Gửi Downlink Tới Thiết Bị</h3>
-              <p class="text-[10px] text-slate-400">Kiểm tra kỹ thông số trước khi đưa gói vào hàng đợi Network Server</p>
-            </div>
+          <div>
+            <h3 class="text-sm font-bold text-white">Confirm Downlink Dispatch</h3>
+            <p class="text-[10px] text-slate-400">Verify parameters before queueing command</p>
           </div>
           <button @click="downlinkConfirmModal.show = false" class="text-slate-500 hover:text-white cursor-pointer"><i class="fa-solid fa-xmark"></i></button>
         </div>
 
         <div class="space-y-2.5 text-xs bg-slate-950 p-4 rounded-xl border border-slate-800">
           <div class="flex items-center justify-between pb-2 border-b border-slate-800/80">
-            <span class="text-slate-400">Thiết bị nhận:</span>
+            <span class="text-slate-400">Target Device:</span>
             <span class="font-bold text-white font-mono">
               {{ downlinkConfirmModal.targetDevice?.name ? downlinkConfirmModal.targetDevice.name + ' - ' : '' }}{{ downlinkConfirmModal.devEUI }}
             </span>
@@ -2512,44 +2420,37 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
           <div class="flex items-center justify-between pb-2 border-b border-slate-800/80">
             <span class="text-slate-400">Network Server:</span>
             <span class="font-bold text-sky-400">
-              {{ downlinkConfirmModal.targetServer?.name || 'Tự động' }} ({{ downlinkConfirmModal.targetServer?.type || 'LNS' }})
+              {{ downlinkConfirmModal.targetServer?.name || 'Auto' }} ({{ downlinkConfirmModal.targetServer?.type || 'LNS' }})
             </span>
           </div>
 
           <div class="flex items-center justify-between pb-2 border-b border-slate-800/80">
-            <span class="text-slate-400">fPort & Chế độ:</span>
+            <span class="text-slate-400">fPort & Mode:</span>
             <span class="font-mono text-white">
-              Port <strong>{{ downlinkConfirmModal.fPort }}</strong> ({{ downlinkConfirmModal.confirmed ? 'Confirmed ACK' : 'Unconfirmed' }})
+              Port <strong>{{ downlinkConfirmModal.fPort }}</strong> ({{ downlinkConfirmModal.confirmed ? 'Confirmed' : 'Unconfirmed' }})
             </span>
           </div>
 
           <div class="flex items-center justify-between pb-2 border-b border-slate-800/80">
             <span class="text-slate-400">Flush Queue:</span>
             <span :class="downlinkConfirmModal.flushQueue ? 'text-amber-400 font-bold' : 'text-slate-400'">
-              {{ downlinkConfirmModal.flushQueue ? 'BẬT (Xóa sạch hàng đợi cũ)' : 'TẮT (Giữ nguyên)' }}
+              {{ downlinkConfirmModal.flushQueue ? 'Enabled' : 'Disabled' }}
             </span>
           </div>
 
           <div class="flex items-center justify-between pb-2 border-b border-slate-800/80">
-            <span class="text-slate-400">Payload HEX:</span>
+            <span class="text-slate-400">Payload (Hex):</span>
             <span class="font-mono text-emerald-400 font-bold tracking-wider">
               {{ downlinkConfirmModal.payloadHex }} ({{ Math.ceil(downlinkConfirmModal.payloadHex.length / 2) }} Bytes)
             </span>
           </div>
 
           <div class="flex items-center justify-between">
-            <span class="text-slate-400">Người thực hiện:</span>
+            <span class="text-slate-400">Operator:</span>
             <span class="font-semibold text-indigo-300">
               {{ currentUser?.username || 'Operator' }}
             </span>
           </div>
-        </div>
-
-        <div class="p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-[11px] text-amber-300/90 leading-relaxed flex items-start gap-2">
-          <i class="fa-solid fa-circle-info text-amber-400 mt-0.5"></i>
-          <span>
-            Lệnh downlink sẽ được chuyển tới Network Server và gửi xuống thiết bị vật lý ở kỳ mở cửa sổ nhận Rx tiếp theo. Hành động này sẽ được ghi vết kiểm toán vào cơ sở dữ liệu với tên người dùng của bạn.
-          </span>
         </div>
 
         <div class="flex items-center justify-end gap-2 pt-2 border-t border-slate-800">
@@ -2558,17 +2459,16 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
             @click="downlinkConfirmModal.show = false"
             class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold cursor-pointer"
           >
-            Hủy Bỏ
+            Cancel
           </button>
           <button
             type="button"
             @click="executeConfirmedDownlink"
             :disabled="sendingDownlink"
-            class="px-5 py-2 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-700 hover:from-blue-500 hover:to-indigo-600 text-white text-xs font-bold flex items-center gap-2 cursor-pointer shadow-lg shadow-indigo-600/30 disabled:opacity-50"
+            class="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold flex items-center gap-2 cursor-pointer disabled:opacity-50 shadow-md"
           >
             <i class="fa-solid fa-spinner animate-spin" v-if="sendingDownlink"></i>
-            <i class="fa-solid fa-paper-plane" v-else></i>
-            <span>{{ sendingDownlink ? 'Đang Gửi...' : 'Xác Nhận & Gửi Ngay' }}</span>
+            <span>{{ sendingDownlink ? 'Dispatching...' : 'Confirm & Send' }}</span>
           </button>
         </div>
       </div>
@@ -3371,6 +3271,7 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
 
         const handleGlobalClick = () => {
           userMenuOpen.value = false;
+          downlinkDeviceDropdownOpen.value = false;
         };
 
         // ==========================================
@@ -4876,6 +4777,7 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
           flushQueue: false,
         });
         const downlinkDeviceSearch = ref('');
+        const downlinkDeviceDropdownOpen = ref(false);
         const downlinkHistory = ref([]);
         const loadingDownlinkHistory = ref(false);
         const sendingDownlink = ref(false);
@@ -4894,10 +4796,11 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
         const filteredDownlinkDevices = computed(() => {
           const q = (downlinkDeviceSearch.value || '').trim().toLowerCase();
           if (!q) return devicesList.value;
-          return devicesList.value.filter(d =>
-            (d.devEUI && d.devEUI.toLowerCase().includes(q)) ||
-            (d.name && d.name.toLowerCase().includes(q))
-          );
+          return devicesList.value.filter(d => {
+            const label = (d.name ? d.name + ' - ' + d.devEUI : d.devEUI).toLowerCase();
+            const eui = (d.devEUI || '').toLowerCase();
+            return label.includes(q) || eui.includes(q);
+          });
         });
 
         const calculatedHexBytes = computed(() => {
@@ -4907,31 +4810,45 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
 
         const selectedDownlinkDevice = computed(() => {
           if (!downlinkForm.value.devEUI) return null;
-          return devicesList.value.find(d => d.devEUI.toUpperCase() === downlinkForm.value.devEUI.toUpperCase()) || null;
+          return devicesList.value.find(d => d.devEUI && d.devEUI.toUpperCase() === downlinkForm.value.devEUI.toUpperCase()) || null;
         });
 
         const selectedDownlinkServer = computed(() => {
-          if (downlinkForm.value.networkServerId) {
-            return networkServersList.value.find(s => s.id === downlinkForm.value.networkServerId) || null;
-          }
           const dev = selectedDownlinkDevice.value;
           if (dev && dev.networkServerId) {
             return networkServersList.value.find(s => s.id === dev.networkServerId) || null;
           }
+          if (downlinkForm.value.networkServerId) {
+            return networkServersList.value.find(s => s.id === downlinkForm.value.networkServerId) || null;
+          }
           return networkServersList.value.find(s => s.isDefault) || (networkServersList.value.length > 0 ? networkServersList.value[0] : null);
         });
+
+        const selectDownlinkDevice = (d) => {
+          downlinkForm.value.devEUI = d.devEUI;
+          downlinkDeviceSearch.value = d.name ? d.name + ' - ' + d.devEUI : d.devEUI;
+          if (d.networkServerId) {
+            downlinkForm.value.networkServerId = d.networkServerId;
+          }
+          downlinkDeviceDropdownOpen.value = false;
+          onDownlinkDeviceSelect();
+        };
+
+        const clearSelectedDownlinkDevice = () => {
+          downlinkForm.value.devEUI = '';
+          downlinkDeviceSearch.value = '';
+          downlinkDeviceDropdownOpen.value = false;
+        };
 
         const onDownlinkDeviceSelect = () => {
           const dev = selectedDownlinkDevice.value;
           if (dev) {
+            if (dev.networkServerId) {
+              downlinkForm.value.networkServerId = dev.networkServerId;
+            }
             downlinkHistoryFilterDevEUI.value = dev.devEUI;
             fetchDownlinkHistory(dev.devEUI);
           }
-        };
-
-        const setDownlinkPreset = (hex, port = 1) => {
-          downlinkForm.value.payloadHex = hex;
-          downlinkForm.value.fPort = port;
         };
 
         const fetchDownlinkHistory = async (devEUI = '') => {
@@ -4954,12 +4871,12 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
 
         const openDownlinkConfirm = () => {
           if (!downlinkForm.value.devEUI) {
-            showToast('Vui lòng chọn thiết bị nhận Downlink', 'error');
+            showToast('Please select a target device', 'error');
             return;
           }
           const cleanHex = (downlinkForm.value.payloadHex || '').replace(/[^0-9a-fA-F]/g, '').toUpperCase();
           if (!cleanHex) {
-            showToast('Vui lòng nhập chuỗi Hex downlink hợp lệ', 'error');
+            showToast('Please enter a valid Hex payload', 'error');
             return;
           }
           downlinkForm.value.payloadHex = cleanHex;
@@ -4999,14 +4916,14 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
             const result = await res.json();
             downlinkConfirmModal.value.show = false;
             if (res.ok && result.success) {
-              showToast('✅ ' + (result.message || 'Downlink thành công'), 'success');
+              showToast('Downlink queued successfully', 'success');
               fetchDownlinkHistory(downlinkForm.value.devEUI);
             } else {
-              showToast('❌ Downlink thất bại: ' + (result.message || 'Lỗi gửi gói tin'), 'error');
+              showToast('Downlink failed: ' + (result.message || 'Transmission error'), 'error');
               fetchDownlinkHistory(downlinkForm.value.devEUI);
             }
           } catch(e) {
-            showToast('❌ Lỗi kết nối: ' + e.message, 'error');
+            showToast('Connection error: ' + e.message, 'error');
           } finally {
             sendingDownlink.value = false;
           }
@@ -5014,10 +4931,10 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
 
         const flushQueueExplicitly = async () => {
           if (!downlinkForm.value.devEUI) {
-            showToast('Vui lòng chọn thiết bị để xóa hàng đợi', 'error');
+            showToast('Please select a device to flush queue', 'error');
             return;
           }
-          if (!confirm('Bạn có chắc chắn muốn xóa sạch hàng đợi downlink của thiết bị ' + downlinkForm.value.devEUI + '?')) {
+          if (!confirm('Flush downlink queue for device ' + downlinkForm.value.devEUI + '?')) {
             return;
           }
           try {
@@ -5035,18 +4952,20 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
             });
             const result = await res.json();
             if (res.ok && result.success) {
-              showToast('🧹 ' + (result.message || 'Đã xóa hàng đợi'), 'success');
+              showToast('Downlink queue flushed successfully', 'success');
               fetchDownlinkHistory(downlinkForm.value.devEUI);
             } else {
-              showToast('❌ Lỗi xóa hàng đợi: ' + result.message, 'error');
+              showToast('Failed to flush queue: ' + result.message, 'error');
             }
           } catch(e) {
-            showToast('❌ Lỗi kết nối: ' + e.message, 'error');
+            showToast('Connection error: ' + e.message, 'error');
           }
         };
 
         const resendDownlink = (item) => {
           downlinkForm.value.devEUI = item.devEUI;
+          const matched = devicesList.value.find(d => d.devEUI && d.devEUI.toUpperCase() === item.devEUI.toUpperCase());
+          downlinkDeviceSearch.value = matched ? (matched.name ? matched.name + ' - ' + matched.devEUI : matched.devEUI) : item.devEUI;
           downlinkForm.value.fPort = item.fPort || 1;
           downlinkForm.value.payloadHex = item.payloadHex;
           downlinkForm.value.confirmed = Boolean(item.confirmed);
@@ -5054,13 +4973,13 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
           if (item.networkServerId) {
             downlinkForm.value.networkServerId = item.networkServerId;
           }
-          showToast('Đã nạp thông số Downlink của ' + item.devEUI + ' vào form', 'info');
+          showToast('Loaded downlink parameters for ' + item.devEUI, 'info');
         };
 
         const copyText = (txt) => {
           if (navigator.clipboard) {
             navigator.clipboard.writeText(txt);
-            showToast('Đã sao chép chuỗi HEX vào clipboard', 'success');
+            showToast('Hex payload copied to clipboard', 'success');
           }
         };
 
@@ -5291,8 +5210,10 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
           calculatedHexBytes,
           selectedDownlinkDevice,
           selectedDownlinkServer,
+          downlinkDeviceDropdownOpen,
+          selectDownlinkDevice,
+          clearSelectedDownlinkDevice,
           onDownlinkDeviceSelect,
-          setDownlinkPreset,
           fetchDownlinkHistory,
           openDownlinkConfirm,
           executeConfirmedDownlink,
