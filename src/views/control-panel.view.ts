@@ -3544,14 +3544,15 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
             </button>
           </div>
 
-          <!-- 1. TOP: DOWNLINK COMMAND -->
-          <div class="glass-card rounded-2xl p-5 border border-slate-800 space-y-4 shadow-lg">
-            <div class="pb-3 border-b border-slate-800 flex items-center justify-between">
-              <h3 class="text-xs font-bold text-white uppercase tracking-wider">Downlink Command</h3>
-              <span v-if="selectedDownlinkServer" class="text-[11px] text-slate-400">
-                Server: <span class="text-sky-400 font-semibold">{{ selectedDownlinkServer?.name }} ({{ selectedDownlinkServer?.type }})</span>
-              </span>
-            </div>
+          <!-- TOP 2-COLUMN SPLIT: DOWNLINK COMMAND (LEFT) & DEVICE PENDING QUEUE (RIGHT) -->
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+
+            <!-- 1. LEFT COLUMN: DOWNLINK COMMAND -->
+            <div class="glass-card rounded-2xl p-5 border border-slate-800 space-y-4 shadow-lg flex flex-col justify-between">
+              <div class="space-y-4">
+                <div class="pb-3 border-b border-slate-800 flex items-center justify-between">
+                  <h3 class="text-xs font-bold text-white uppercase tracking-wider">Downlink Command</h3>
+                </div>
 
             <!-- 1.1 DEVICE SEARCHABLE DROPLIST -->
             <div class="space-y-1.5 relative" @click.stop>
@@ -3630,180 +3631,189 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
               </div>
             </div>
 
-            <!-- 1.2 FPORT, CONFIRMED & FLUSH OPTION IN A 3-COL ROW -->
-            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <div class="space-y-1">
-                <label class="block text-xs font-bold text-slate-300">
-                  fPort (1 - 223)
-                </label>
-                <input
-                  v-model.number="downlinkForm.fPort"
-                  type="number"
-                  min="1"
-                  max="223"
-                  class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-xl text-white text-xs font-mono focus:ring-1 focus:ring-indigo-500 focus:outline-none"
-                />
-              </div>
+                <!-- 1.2 FPORT, CONFIRMED TOGGLE & FLUSH QUEUE TOGGLE -->
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div class="space-y-1">
+                    <label class="block text-xs font-bold text-slate-300">
+                      fPort
+                    </label>
+                    <input
+                      v-model.number="downlinkForm.fPort"
+                      type="number"
+                      class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-xl text-white text-xs font-mono focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+                    />
+                  </div>
 
-              <div class="space-y-1">
-                <label class="block text-xs font-bold text-slate-300">
-                  Confirmed (ACK)
-                </label>
-                <label class="flex items-center gap-2 px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 cursor-pointer hover:border-slate-700 transition">
-                  <input
-                    type="checkbox"
-                    v-model="downlinkForm.confirmed"
-                    class="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 bg-slate-900 border-slate-700 cursor-pointer"
-                  />
-                  <span class="text-xs text-slate-300 font-semibold">{{ downlinkForm.confirmed ? 'Confirmed' : 'Unconfirmed' }}</span>
-                </label>
-              </div>
-
-              <div class="space-y-1">
-                <label class="block text-xs font-bold text-slate-300">
-                  Flush Queue
-                </label>
-                <label class="flex items-center gap-2 px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 cursor-pointer hover:border-slate-700 transition">
-                  <input
-                    type="checkbox"
-                    v-model="downlinkForm.flushQueue"
-                    class="w-4 h-4 rounded text-amber-500 focus:ring-amber-400 bg-slate-900 border-slate-700 cursor-pointer"
-                  />
-                  <span class="text-xs font-bold text-slate-200">
-                    Flush Before Send
-                  </span>
-                </label>
-              </div>
-            </div>
-
-            <!-- 1.3 HEX PAYLOAD -->
-            <div class="space-y-1.5">
-              <div class="flex items-center justify-between">
-                <label class="block text-xs font-bold text-slate-300">
-                  Payload (Hex)
-                </label>
-                <span class="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-900 text-sky-400 border border-slate-800 font-bold">
-                  {{ calculatedHexBytes }} Bytes
-                </span>
-              </div>
-
-              <textarea
-                v-model="downlinkForm.payloadHex"
-                rows="2"
-                placeholder="Enter hex string (e.g. 0102A3FF)..."
-                class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-xl text-white font-mono text-xs uppercase focus:ring-1 focus:ring-indigo-500 focus:outline-none placeholder-slate-500"
-              ></textarea>
-            </div>
-
-            <!-- 1.4 ACTION BUTTON: ONLY 1 SEND BUTTON -->
-            <div class="pt-1 flex justify-end">
-              <button
-                type="button"
-                @click="openDownlinkConfirm"
-                :disabled="!downlinkForm.devEUI || !downlinkForm.payloadHex"
-                class="w-full sm:w-auto px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white text-xs font-bold flex items-center justify-center gap-2 cursor-pointer transition shadow-md"
-              >
-                <i class="fa-solid fa-paper-plane"></i>
-                <span>Send Downlink</span>
-              </button>
-            </div>
-          </div>
-
-          <!-- 2. MIDDLE: DEVICE PENDING QUEUE (BELOW DOWNLINK COMMAND) -->
-          <div class="glass-card rounded-2xl p-5 border border-slate-800 space-y-4 shadow-lg">
-            <div class="flex items-center justify-between pb-3 border-b border-slate-800">
-              <div class="flex items-center gap-2">
-                <h3 class="text-xs font-bold text-white uppercase tracking-wider">Device Pending Queue</h3>
-                <span class="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-amber-500/10 text-amber-400 border border-amber-500/20">
-                  {{ deviceQueue.length }}
-                </span>
-                <span v-if="deviceQueueServerName" class="text-[10px] text-slate-400 font-mono">
-                  ({{ deviceQueueServerName }})
-                </span>
-              </div>
-
-              <div class="flex items-center gap-2">
-                <!-- Flush Queue button located in this queue box -->
-                <button
-                  type="button"
-                  @click="flushQueueExplicitly"
-                  :disabled="!downlinkForm.devEUI || flushingQueue"
-                  class="px-3 py-1.5 rounded-lg bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 text-amber-300 disabled:opacity-50 text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition"
-                  title="Clear all pending downlinks on Network Server"
-                >
-                  <i class="fa-solid fa-broom" :class="{ 'animate-spin': flushingQueue }"></i>
-                  <span>Flush Queue</span>
-                </button>
-
-                <button
-                  type="button"
-                  @click="fetchDeviceQueue(downlinkForm.devEUI)"
-                  :disabled="!downlinkForm.devEUI || loadingDeviceQueue"
-                  class="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white cursor-pointer"
-                  title="Refresh Queue"
-                >
-                  <i class="fa-solid fa-arrows-rotate" :class="{ 'animate-spin': loadingDeviceQueue }"></i>
-                </button>
-              </div>
-            </div>
-
-            <!-- Queue Content -->
-            <div v-if="!downlinkForm.devEUI" class="text-center py-6 text-slate-500 text-xs">
-              Please select a device above to inspect its pending downlink queue.
-            </div>
-            <div v-else-if="loadingDeviceQueue && deviceQueue.length === 0" class="text-center py-6 text-slate-500 text-xs">
-              <i class="fa-solid fa-spinner animate-spin text-amber-400 mr-2"></i>
-              Loading queue from Network Server...
-            </div>
-            <div v-else-if="deviceQueue.length === 0" class="text-center py-6 text-slate-500 text-xs">
-              <i class="fa-solid fa-inbox text-2xl text-slate-700 mb-1 block"></i>
-              Queue is currently empty on Network Server.
-            </div>
-            <div v-else class="overflow-x-auto custom-scroll">
-              <table class="w-full text-left text-xs text-slate-300">
-                <thead>
-                  <tr class="border-b border-slate-800 text-[10px] font-bold text-slate-400 uppercase tracking-wider font-mono">
-                    <th class="py-2 px-3">#</th>
-                    <th class="py-2 px-3">Port</th>
-                    <th class="py-2 px-3">Payload (Hex)</th>
-                    <th class="py-2 px-3">Bytes</th>
-                    <th class="py-2 px-3">Type</th>
-                    <th class="py-2 px-3">Status</th>
-                    <th class="py-2 px-3 text-right">Action</th>
-                  </tr>
-                </thead>
-                <tbody class="divide-y divide-slate-800/60 font-mono text-xs">
-                  <tr v-for="(qItem, qIdx) in deviceQueue" :key="qItem.id || qIdx" class="hover:bg-slate-800/40 transition">
-                    <td class="py-2 px-3 text-slate-500">{{ qIdx + 1 }}</td>
-                    <td class="py-2 px-3 text-white font-bold">{{ qItem.fPort }}</td>
-                    <td class="py-2 px-3 text-sky-300 font-bold max-w-[200px] truncate" :title="qItem.payloadHex">
-                      {{ qItem.payloadHex }}
-                    </td>
-                    <td class="py-2 px-3 text-slate-400">{{ Math.ceil((qItem.payloadHex || '').length / 2) }}</td>
-                    <td class="py-2 px-3">
-                      <span class="px-1.5 py-0.5 rounded text-[10px] font-semibold" :class="qItem.confirmed ? 'bg-indigo-500/15 text-indigo-300 border border-indigo-500/25' : 'bg-slate-800 text-slate-400'">
-                        {{ qItem.confirmed ? 'Confirmed' : 'Unconfirmed' }}
-                      </span>
-                    </td>
-                    <td class="py-2 px-3">
-                      <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/15 text-amber-300 border border-amber-500/25">
-                        {{ qItem.isPending ? 'Pending Rx' : 'Queued' }}
-                      </span>
-                    </td>
-                    <td class="py-2 px-3 text-right">
+                  <div class="space-y-1">
+                    <label class="block text-xs font-bold text-slate-300">
+                      Confirmed
+                    </label>
+                    <div class="flex items-center justify-between p-2 rounded-xl bg-slate-950 border border-slate-800">
+                      <span class="text-xs font-mono" :class="downlinkForm.confirmed ? 'text-indigo-400 font-bold' : 'text-slate-500'">{{ downlinkForm.confirmed ? 'ON' : 'OFF' }}</span>
                       <button
                         type="button"
-                        @click="copyText(qItem.payloadHex)"
-                        class="px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white text-[10px] cursor-pointer"
-                        title="Copy Payload Hex"
+                        @click="downlinkForm.confirmed = !downlinkForm.confirmed"
+                        :class="downlinkForm.confirmed ? 'bg-indigo-600' : 'bg-slate-800'"
+                        class="relative inline-flex h-5 w-9 items-center rounded-full transition-colors cursor-pointer shrink-0"
                       >
-                        Copy
+                        <span :class="downlinkForm.confirmed ? 'translate-x-4 bg-white' : 'translate-x-0.5 bg-slate-400'" class="inline-block h-4 w-4 transform rounded-full transition-transform"></span>
                       </button>
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
+                    </div>
+                  </div>
+
+                  <div class="space-y-1">
+                    <label class="block text-xs font-bold text-slate-300">
+                      Flush Queue
+                    </label>
+                    <div class="flex items-center justify-between p-2 rounded-xl bg-slate-950 border border-slate-800">
+                      <span class="text-xs font-mono" :class="downlinkForm.flushQueue ? 'text-amber-400 font-bold' : 'text-slate-500'">{{ downlinkForm.flushQueue ? 'ON' : 'OFF' }}</span>
+                      <button
+                        type="button"
+                        @click="downlinkForm.flushQueue = !downlinkForm.flushQueue"
+                        :class="downlinkForm.flushQueue ? 'bg-amber-500' : 'bg-slate-800'"
+                        class="relative inline-flex h-5 w-9 items-center rounded-full transition-colors cursor-pointer shrink-0"
+                      >
+                        <span :class="downlinkForm.flushQueue ? 'translate-x-4 bg-white' : 'translate-x-0.5 bg-slate-400'" class="inline-block h-4 w-4 transform rounded-full transition-transform"></span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- 1.3 HEX PAYLOAD -->
+                <div class="space-y-1.5">
+                  <div class="flex items-center justify-between">
+                    <label class="block text-xs font-bold text-slate-300 uppercase">
+                      HEX PAYLOAD
+                    </label>
+                    <span class="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-950 text-sky-400 border border-slate-800 font-bold">
+                      {{ calculatedHexBytes }} Bytes
+                    </span>
+                  </div>
+
+                  <textarea
+                    v-model="downlinkForm.payloadHex"
+                    rows="2"
+                    placeholder="Enter hex string (e.g. 0102A3FF)..."
+                    class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-xl text-white font-mono text-xs uppercase focus:ring-1 focus:ring-indigo-500 focus:outline-none placeholder-slate-500"
+                  ></textarea>
+                </div>
+              </div>
+
+              <!-- 1.4 ACTION BUTTON: LARGE FULL-WIDTH SEND BUTTON -->
+              <div class="pt-4">
+                <button
+                  type="button"
+                  @click="openDownlinkConfirm"
+                  :disabled="!downlinkForm.devEUI || !downlinkForm.payloadHex"
+                  class="w-full py-3 rounded-xl bg-gradient-to-r from-blue-600 via-indigo-600 to-indigo-700 hover:from-blue-500 hover:to-indigo-600 disabled:opacity-50 text-white text-xs font-bold flex items-center justify-center gap-2 cursor-pointer shadow-lg shadow-indigo-600/30 transition uppercase tracking-wider"
+                >
+                  <i class="fa-solid fa-paper-plane"></i>
+                  <span>SEND</span>
+                </button>
+              </div>
             </div>
+
+            <!-- 2. RIGHT COLUMN: DEVICE PENDING QUEUE (DISPLAYED ONLY WHEN DEVICE SELECTED) -->
+            <div v-if="downlinkForm.devEUI" class="glass-card rounded-2xl p-5 border border-slate-800 space-y-4 shadow-lg flex flex-col justify-between">
+              <div>
+                <div class="flex items-center justify-between pb-3 border-b border-slate-800">
+                  <div class="flex items-center gap-2">
+                    <h3 class="text-xs font-bold text-white uppercase tracking-wider">Device Pending Queue</h3>
+                    <span class="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                      {{ deviceQueue.length }}
+                    </span>
+                  </div>
+
+                  <div class="flex items-center gap-2">
+                    <!-- Flush Queue button -->
+                    <button
+                      type="button"
+                      @click="flushQueueExplicitly"
+                      :disabled="!downlinkForm.devEUI || flushingQueue"
+                      class="px-3 py-1.5 rounded-lg bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 text-amber-300 disabled:opacity-50 text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition"
+                      title="Clear all pending downlinks on Network Server"
+                    >
+                      <i class="fa-solid fa-broom" :class="{ 'animate-spin': flushingQueue }"></i>
+                      <span>Flush Queue</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      @click="fetchDeviceQueue(downlinkForm.devEUI)"
+                      :disabled="!downlinkForm.devEUI || loadingDeviceQueue"
+                      class="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white cursor-pointer"
+                      title="Refresh Queue"
+                    >
+                      <i class="fa-solid fa-arrows-rotate" :class="{ 'animate-spin': loadingDeviceQueue }"></i>
+                    </button>
+                  </div>
+                </div>
+
+                <!-- Queue Content -->
+                <div v-if="loadingDeviceQueue && deviceQueue.length === 0" class="text-center py-10 text-slate-500 text-xs">
+                  <i class="fa-solid fa-spinner animate-spin text-amber-400 mr-2"></i>
+                  Loading queue...
+                </div>
+                <div v-else-if="deviceQueue.length === 0" class="text-center py-12 text-slate-500 text-xs">
+                  <i class="fa-solid fa-inbox text-2xl text-slate-700 mb-1 block"></i>
+                  Queue is currently empty.
+                </div>
+                <div v-else class="overflow-x-auto custom-scroll max-h-[260px] overflow-y-auto">
+                  <table class="w-full text-left text-xs text-slate-300">
+                    <thead>
+                      <tr class="border-b border-slate-800 text-[10px] font-bold text-slate-400 uppercase tracking-wider font-mono sticky top-0 bg-slate-900">
+                        <th class="py-2 px-3">#</th>
+                        <th class="py-2 px-3">Port</th>
+                        <th class="py-2 px-3">Payload (Hex)</th>
+                        <th class="py-2 px-3">Bytes</th>
+                        <th class="py-2 px-3">Type</th>
+                        <th class="py-2 px-3">Status</th>
+                        <th class="py-2 px-3 text-right">Action</th>
+                      </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-800/60 font-mono text-xs">
+                      <tr v-for="(qItem, qIdx) in deviceQueue" :key="qItem.id || qIdx" class="hover:bg-slate-800/40 transition">
+                        <td class="py-2 px-3 text-slate-500">{{ qIdx + 1 }}</td>
+                        <td class="py-2 px-3 text-white font-bold">{{ qItem.fPort }}</td>
+                        <td class="py-2 px-3 text-sky-300 font-bold max-w-[140px] truncate" :title="qItem.payloadHex">
+                          {{ qItem.payloadHex }}
+                        </td>
+                        <td class="py-2 px-3 text-slate-400">{{ Math.ceil((qItem.payloadHex || '').length / 2) }}</td>
+                        <td class="py-2 px-3">
+                          <span class="px-1.5 py-0.5 rounded text-[10px] font-semibold" :class="qItem.confirmed ? 'bg-indigo-500/15 text-indigo-300 border border-indigo-500/25' : 'bg-slate-800 text-slate-400'">
+                            {{ qItem.confirmed ? 'ACK' : 'Unconf' }}
+                          </span>
+                        </td>
+                        <td class="py-2 px-3">
+                          <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/15 text-amber-300 border border-amber-500/25">
+                            {{ qItem.isPending ? 'Pending Rx' : 'Queued' }}
+                          </span>
+                        </td>
+                        <td class="py-2 px-3 text-right">
+                          <button
+                            type="button"
+                            @click="copyText(qItem.payloadHex)"
+                            class="px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white text-[10px] cursor-pointer"
+                            title="Copy Payload Hex"
+                          >
+                            Copy
+                          </button>
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+
+            <!-- PLACEHOLDER WHEN NO DEVICE SELECTED -->
+            <div v-else class="glass-card rounded-2xl p-5 border border-dashed border-slate-800/80 text-center py-16 text-slate-500 text-xs flex flex-col items-center justify-center space-y-2 h-full min-h-[300px]">
+              <div class="w-10 h-10 rounded-xl bg-slate-800/50 flex items-center justify-center text-slate-600 mb-1">
+                <i class="fa-solid fa-list-check text-base"></i>
+              </div>
+              <span class="text-slate-400 font-medium">Select a device to view pending queue</span>
+            </div>
+
           </div>
 
           <!-- 3. BOTTOM: DOWNLINK EXECUTION HISTORY -->
@@ -5221,53 +5231,57 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
     <div v-if="downlinkConfirmModal.show" class="fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop">
       <div class="w-full max-w-md bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-4 shadow-2xl">
         <div class="flex items-center justify-between pb-3 border-b border-slate-800">
-          <div>
-            <h3 class="text-sm font-bold text-white">Confirm Downlink Dispatch</h3>
-            <p class="text-[10px] text-slate-400">Verify parameters before queueing command</p>
-          </div>
+          <h3 class="text-sm font-bold text-white">Confirm Downlink Dispatch</h3>
           <button @click="downlinkConfirmModal.show = false" class="text-slate-500 hover:text-white cursor-pointer"><i class="fa-solid fa-xmark"></i></button>
         </div>
 
         <div class="space-y-2.5 text-xs bg-slate-950 p-4 rounded-xl border border-slate-800">
           <div class="flex items-center justify-between pb-2 border-b border-slate-800/80">
-            <span class="text-slate-400">Target Device:</span>
+            <span class="text-slate-400">Device Name:</span>
             <span class="font-bold text-white font-mono">
-              {{ (downlinkConfirmModal.targetDevice && downlinkConfirmModal.targetDevice.name) ? (downlinkConfirmModal.targetDevice.name + ' - ') : '' }}{{ downlinkConfirmModal.devEUI }}
+              {{ downlinkConfirmModal.targetDevice?.name || downlinkConfirmModal.devEUI }}
             </span>
           </div>
 
           <div class="flex items-center justify-between pb-2 border-b border-slate-800/80">
-            <span class="text-slate-400">Network Server:</span>
-            <span class="font-bold text-sky-400">
-              {{ (downlinkConfirmModal.targetServer && downlinkConfirmModal.targetServer.name) ? downlinkConfirmModal.targetServer.name : 'Auto' }} ({{ (downlinkConfirmModal.targetServer && downlinkConfirmModal.targetServer.type) ? downlinkConfirmModal.targetServer.type : 'LNS' }})
-            </span>
-          </div>
-
-          <div v-if="downlinkConfirmModal.targetDevice && (downlinkConfirmModal.targetDevice.sku || downlinkConfirmModal.targetDevice.firmwareVersion)" class="flex items-center justify-between pb-2 border-b border-slate-800/80">
-            <span class="text-slate-400">SKU / Firmware:</span>
+            <span class="text-slate-400">SKU:</span>
             <span class="font-mono text-cyan-300 font-semibold">
-              {{ downlinkConfirmModal.targetDevice.sku || '—' }} / {{ formatFirmware(downlinkConfirmModal.targetDevice.firmwareVersion) }}
+              {{ downlinkConfirmModal.targetDevice?.sku || '—' }}
             </span>
           </div>
 
           <div class="flex items-center justify-between pb-2 border-b border-slate-800/80">
-            <span class="text-slate-400">fPort & Mode:</span>
-            <span class="font-mono text-white">
-              Port <strong>{{ downlinkConfirmModal.fPort }}</strong> ({{ downlinkConfirmModal.confirmed ? 'Confirmed' : 'Unconfirmed' }})
+            <span class="text-slate-400">FIRMWARE VERSION:</span>
+            <span class="font-mono text-purple-300 font-semibold">
+              {{ formatFirmware(downlinkConfirmModal.targetDevice?.firmwareVersion) }}
             </span>
           </div>
 
           <div class="flex items-center justify-between pb-2 border-b border-slate-800/80">
-            <span class="text-slate-400">Flush Queue:</span>
-            <span :class="downlinkConfirmModal.flushQueue ? 'text-amber-400 font-bold' : 'text-slate-400'">
-              {{ downlinkConfirmModal.flushQueue ? 'Enabled' : 'Disabled' }}
+            <span class="text-slate-400">Device region (class):</span>
+            <span class="font-mono text-indigo-300 font-semibold">
+              {{ downlinkConfirmModal.targetDevice?.regionProfileName || downlinkConfirmModal.targetDevice?.regionProfileId || 'Default' }} (Class {{ downlinkConfirmModal.targetDevice?.deviceClass || 'A' }})
             </span>
           </div>
 
           <div class="flex items-center justify-between pb-2 border-b border-slate-800/80">
-            <span class="text-slate-400">Payload (Hex):</span>
+            <span class="text-slate-400">Network server:</span>
+            <span class="font-bold text-sky-400">
+              {{ downlinkConfirmModal.targetServer?.name || 'Default' }}
+            </span>
+          </div>
+
+          <div class="flex items-center justify-between pb-2 border-b border-slate-800/80">
+            <span class="text-slate-400">fPort:</span>
+            <span class="font-mono text-white font-bold">
+              {{ downlinkConfirmModal.fPort }}
+            </span>
+          </div>
+
+          <div class="flex items-center justify-between pb-2 border-b border-slate-800/80">
+            <span class="text-slate-400">Hex Payload:</span>
             <span class="font-mono text-emerald-400 font-bold tracking-wider">
-              {{ downlinkConfirmModal.payloadHex }} ({{ calculatedConfirmBytes }} Bytes)
+              {{ downlinkConfirmModal.payloadHex }}
             </span>
           </div>
 
@@ -9261,26 +9275,43 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
           }
         };
 
-        const fetchDeviceQueue = async (devEUI = '') => {
+        const fetchDeviceQueue = async (devEUI = '', silent = false) => {
           const targetEUI = devEUI || downlinkForm.value.devEUI || '';
           if (!targetEUI) {
             deviceQueue.value = [];
             deviceQueueServerName.value = '';
             return;
           }
-          loadingDeviceQueue.value = true;
+          if (!silent && deviceQueue.value.length === 0) {
+            loadingDeviceQueue.value = true;
+          }
           try {
             const url = '/api/network-servers/queue?devEUI=' + encodeURIComponent(targetEUI);
             const res = await fetch(url, { headers: authHeaders(), credentials: 'include' });
             if (res.ok) {
               const data = await res.json();
-              deviceQueue.value = data.items || [];
+              const newItems = Array.isArray(data.items) ? data.items : [];
+              const curItems = deviceQueue.value;
+              let hasChanged = curItems.length !== newItems.length;
+              if (!hasChanged) {
+                for (let i = 0; i < curItems.length; i++) {
+                  if (curItems[i].id !== newItems[i].id || curItems[i].payloadHex !== newItems[i].payloadHex || curItems[i].isPending !== newItems[i].isPending) {
+                    hasChanged = true;
+                    break;
+                  }
+                }
+              }
+              if (hasChanged) {
+                deviceQueue.value = newItems;
+              }
               deviceQueueServerName.value = data.serverName || data.serverType || '';
             }
           } catch(e) {
             console.error('Error fetching device queue:', e);
           } finally {
-            loadingDeviceQueue.value = false;
+            if (!silent) {
+              loadingDeviceQueue.value = false;
+            }
           }
         };
 
@@ -9288,7 +9319,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
           stopDeviceQueuePolling();
           deviceQueueTimer = setInterval(() => {
             if (activeTab.value === 'downlink' && downlinkForm.value.devEUI) {
-              fetchDeviceQueue(downlinkForm.value.devEUI);
+              fetchDeviceQueue(downlinkForm.value.devEUI, true);
             }
           }, 6000);
         };
