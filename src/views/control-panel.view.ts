@@ -5180,14 +5180,14 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
           <div class="flex items-center justify-between pb-2 border-b border-slate-800/80">
             <span class="text-slate-400">Target Device:</span>
             <span class="font-bold text-white font-mono">
-              {{ downlinkConfirmModal.targetDevice?.name ? downlinkConfirmModal.targetDevice.name + ' - ' : '' }}{{ downlinkConfirmModal.devEUI }}
+              {{ (downlinkConfirmModal.targetDevice && downlinkConfirmModal.targetDevice.name) ? (downlinkConfirmModal.targetDevice.name + ' - ') : '' }}{{ downlinkConfirmModal.devEUI }}
             </span>
           </div>
 
           <div class="flex items-center justify-between pb-2 border-b border-slate-800/80">
             <span class="text-slate-400">Network Server:</span>
             <span class="font-bold text-sky-400">
-              {{ downlinkConfirmModal.targetServer?.name || 'Auto' }} ({{ downlinkConfirmModal.targetServer?.type || 'LNS' }})
+              {{ (downlinkConfirmModal.targetServer && downlinkConfirmModal.targetServer.name) ? downlinkConfirmModal.targetServer.name : 'Auto' }} ({{ (downlinkConfirmModal.targetServer && downlinkConfirmModal.targetServer.type) ? downlinkConfirmModal.targetServer.type : 'LNS' }})
             </span>
           </div>
 
@@ -5208,7 +5208,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
           <div class="flex items-center justify-between pb-2 border-b border-slate-800/80">
             <span class="text-slate-400">Payload (Hex):</span>
             <span class="font-mono text-emerald-400 font-bold tracking-wider">
-              {{ downlinkConfirmModal.payloadHex }} ({{ Math.ceil(downlinkConfirmModal.payloadHex.length / 2) }} Bytes)
+              {{ downlinkConfirmModal.payloadHex }} ({{ calculatedConfirmBytes }} Bytes)
             </span>
           </div>
 
@@ -9123,6 +9123,11 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
           return Math.ceil(clean.length / 2);
         });
 
+        const calculatedConfirmBytes = computed(() => {
+          const clean = (downlinkConfirmModal.value.payloadHex || '').replace(/[^0-9a-fA-F]/g, '');
+          return Math.ceil(clean.length / 2);
+        });
+
         const selectedDownlinkDevice = computed(() => {
           if (!downlinkForm.value.devEUI) return null;
           return devicesList.value.find(d => d.devEUI && d.devEUI.toUpperCase() === downlinkForm.value.devEUI.toUpperCase()) || null;
@@ -9821,6 +9826,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
           downlinkConfirmModal,
           filteredDownlinkDevices,
           calculatedHexBytes,
+          calculatedConfirmBytes,
           selectedDownlinkDevice,
           selectedDownlinkServer,
           downlinkDeviceDropdownOpen,
