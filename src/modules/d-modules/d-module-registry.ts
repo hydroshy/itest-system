@@ -67,6 +67,19 @@ export const DEFAULT_D_MODULES: DModule[] = [
     status: 'active',
     isActive: true,
   },
+  {
+    id: 'downlink-actuator',
+    code: 'D_MOD_DOWNLINK_ACTUATOR',
+    title: 'DOWNLINK ACTUATOR',
+    description: 'Dispatch raw Hex downlink commands to ChirpStack or ThingPark devices, manage fPort, queue flushing, and view execution history.',
+    icon: 'fa-solid fa-paper-plane',
+    color: 'from-blue-600 to-indigo-700',
+    badge: 'Actuator',
+    category: 'Fleet',
+    requiredPermission: 'lorawan:device:read',
+    status: 'active',
+    isActive: true,
+  },
 ];
 
 

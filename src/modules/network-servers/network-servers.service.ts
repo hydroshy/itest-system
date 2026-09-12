@@ -1,15 +1,20 @@
-import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, Logger, OnModuleInit, Optional } from '@nestjs/common';
 import { DynamicDatabaseService } from '../database/dynamic-database.service';
 import { NetworkServerEntity, NetworkServerType, RegionProfile } from './entities/network-server.entity';
 import { CreateNetworkServerDto, UpdateNetworkServerDto, RegionProfileDto } from './dto/network-server.dto';
 import { DeviceEntity } from '../lorawan/entities/device.entity';
 import { GatewayEntity } from '../lorawan/entities/gateway.entity';
+import { DownlinkLogEntity } from './entities/downlink-log.entity';
+import { RealtimeService } from '../realtime/realtime.service';
 
 @Injectable()
-export class NetworkServersService {
+export class NetworkServersService implements OnModuleInit {
   private readonly logger = new Logger(NetworkServersService.name);
 
-  constructor(private readonly dbService: DynamicDatabaseService) {}
+  constructor(
+    private readonly dbService: DynamicDatabaseService,
+    @Optional() private readonly realtimeService?: RealtimeService,
+  ) {}
 
   private get serverRepo() {
     return this.dbService.getRepositoryForTable('network_servers', NetworkServerEntity);
@@ -21,6 +26,46 @@ export class NetworkServersService {
 
   private get gatewayRepo() {
     return this.dbService.getRepositoryForTable('gateways', GatewayEntity);
+  }
+
+  private get downlinkRepo() {
+    return this.dbService.getRepositoryForTable('downlink_logs', DownlinkLogEntity);
+  }
+
+  async onModuleInit() {
+    await this.ensureDownlinkLogsTable().catch((err) => {
+      this.logger.warn(`Could not ensure downlink_logs table: ${err.message}`);
+    });
+  }
+
+  private async ensureDownlinkLogsTable() {
+    try {
+      const ds = this.dbService.getDataSourceForTable('downlink_logs');
+      if (!ds || !ds.isInitialized) return;
+      await ds.query(`
+        CREATE TABLE IF NOT EXISTS "downlink_logs" (
+          "id" UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          "devEUI" VARCHAR(50) NOT NULL,
+          "deviceName" VARCHAR(255),
+          "networkServerId" UUID,
+          "networkServerName" VARCHAR(255),
+          "serverType" VARCHAR(50) NOT NULL DEFAULT 'CHIRPSTACK',
+          "fPort" INT NOT NULL DEFAULT 1,
+          "payloadHex" TEXT NOT NULL,
+          "confirmed" BOOLEAN NOT NULL DEFAULT false,
+          "flushQueue" BOOLEAN NOT NULL DEFAULT false,
+          "status" VARCHAR(50) NOT NULL DEFAULT 'QUEUED',
+          "errorMessage" TEXT,
+          "responseDetails" JSONB,
+          "sentBy" VARCHAR(255) NOT NULL DEFAULT 'anonymous',
+          "createdAt" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now()
+        );
+        CREATE INDEX IF NOT EXISTS "idx_downlink_logs_deveui" ON "downlink_logs" ("devEUI", "createdAt" DESC);
+        CREATE INDEX IF NOT EXISTS "idx_downlink_logs_created_at" ON "downlink_logs" ("createdAt" DESC);
+      `);
+    } catch (e: any) {
+      this.logger.warn(`ensureDownlinkLogsTable warning: ${e.message}`);
+    }
   }
 
   async create(dto: CreateNetworkServerDto): Promise<NetworkServerEntity> {
@@ -365,7 +410,9 @@ export class NetworkServersService {
     fPort?: number;
     payloadHex?: string;
     confirmed?: boolean;
+    flushQueue?: boolean;
     author?: string;
+    networkServerId?: string;
   }): Promise<{
     success: boolean;
     status: string;
@@ -376,12 +423,16 @@ export class NetworkServersService {
     networkServerType?: string;
     networkServerName?: string;
     details?: any;
+    downlinkLog?: DownlinkLogEntity;
   }> {
     const normEUI = (params.devEUI || '').trim().toUpperCase();
     const fPort = Math.max(1, Math.min(223, Number(params.fPort) || 1));
     const cleanHex = (params.payloadHex || '01').replace(/[^0-9a-fA-F]/g, '').toUpperCase();
+    const author = (params.author || 'admin').trim();
+    const flushQueue = Boolean(params.flushQueue);
+    const confirmed = Boolean(params.confirmed);
 
-    this.logger.log(`Dispatching Downlink to DevEUI=${normEUI || 'DEFAULT'}, Port=${fPort}, Hex=${cleanHex}, Author=${params.author || 'User'}`);
+    this.logger.log(`Dispatching Downlink to DevEUI=${normEUI || 'DEFAULT'}, Port=${fPort}, Hex=${cleanHex}, Flush=${flushQueue}, Confirmed=${confirmed}, Author=${author}`);
 
     // 1. Locate Device in DB
     let device: DeviceEntity | null = null;
@@ -389,27 +440,31 @@ export class NetworkServersService {
       device = await this.deviceRepo.findOne({
         where: { devEUI: normEUI },
         relations: ['networkServer'],
-      });
+      }).catch(() => null);
     }
 
-    // 2. Resolve target Network Server
+    // 2. Resolve target Network Server (Explicit selection -> Device linked -> Default -> First available)
     let server: NetworkServerEntity | null = null;
-    if (device?.networkServer) {
+    if (params.networkServerId) {
+      server = await this.serverRepo.findOne({ where: { id: params.networkServerId } }).catch(() => null);
+    }
+
+    if (!server && device?.networkServer) {
       server = device.networkServer;
-    } else if (device?.networkServerId) {
-      server = await this.serverRepo.findOne({ where: { id: device.networkServerId } });
+    } else if (!server && device?.networkServerId) {
+      server = await this.serverRepo.findOne({ where: { id: device.networkServerId } }).catch(() => null);
     }
 
     if (!server) {
       // Fallback to default or first active network server
-      server = await this.serverRepo.findOne({ where: { isDefault: true } });
+      server = await this.serverRepo.findOne({ where: { isDefault: true } }).catch(() => null);
       if (!server) {
-        server = await this.serverRepo.findOne({ order: { createdAt: 'ASC' } });
+        server = await this.serverRepo.findOne({ order: { createdAt: 'ASC' } }).catch(() => null);
       }
     }
 
     if (!server) {
-      return {
+      const errRes = {
         success: false,
         status: 'NO_NETWORK_SERVER',
         message: 'No Network Server is configured or linked to this device.',
@@ -417,7 +472,25 @@ export class NetworkServersService {
         fPort,
         payloadHex: cleanHex,
       };
+
+      const failedLog = this.downlinkRepo.create({
+        devEUI: normEUI,
+        deviceName: device?.name || normEUI,
+        serverType: 'UNKNOWN',
+        fPort,
+        payloadHex: cleanHex,
+        confirmed,
+        flushQueue,
+        status: 'ERROR',
+        errorMessage: errRes.message,
+        sentBy: author,
+      });
+      await this.downlinkRepo.save(failedLog).catch(() => {});
+
+      return { ...errRes, downlinkLog: failedLog };
     }
+
+    const deviceName = device?.name || normEUI;
 
     // 3. Dispatch based on Server Type
     const startTime = Date.now();
@@ -425,39 +498,64 @@ export class NetworkServersService {
     // Mode A: Webhook-only / Standalone buffer (no apiUrl configured)
     if (!server.apiUrl || (!server.apiUrl.startsWith('http://') && !server.apiUrl.startsWith('https://'))) {
       this.logger.log(`Downlink buffered locally for ${server.name} (Webhook-only mode, no API URL)`);
+      const msg = `Downlink [${cleanHex}] queued in local buffer. Server ${server.name} operates in webhook ingestion mode.`;
+
+      const logEntity = this.downlinkRepo.create({
+        devEUI: normEUI,
+        deviceName,
+        networkServerId: server.id,
+        networkServerName: server.name,
+        serverType: server.type,
+        fPort,
+        payloadHex: cleanHex,
+        confirmed,
+        flushQueue,
+        status: 'QUEUED_LOCAL_BUFFER',
+        errorMessage: null,
+        responseDetails: { mode: 'LOCAL_BUFFER', note: 'Webhook-only ingestion' },
+        sentBy: author,
+      });
+      const savedLog = await this.downlinkRepo.save(logEntity).catch(() => logEntity);
+
+      if (this.realtimeService) {
+        this.realtimeService.publishDownlink({
+          event: 'DOWNLINK_QUEUED',
+          devEUI: normEUI,
+          deviceName,
+          serverType: server.type,
+          fPort,
+          payloadHex: cleanHex,
+          confirmed,
+          flushQueue,
+          status: 'QUEUED_LOCAL_BUFFER',
+          sentBy: author,
+          createdAt: new Date().toISOString(),
+          downlinkLog: savedLog,
+        });
+      }
+
       return {
         success: true,
         status: 'QUEUED_LOCAL_BUFFER',
-        message: `Downlink [${cleanHex}] queued in local buffer. Server ${server.name} operates in webhook ingestion mode.`,
+        message: msg,
         devEUI: normEUI,
         fPort,
         payloadHex: cleanHex,
         networkServerType: server.type,
         networkServerName: server.name,
+        downlinkLog: savedLog,
       };
     }
 
     // Mode B: HTTP REST Downlink to ChirpStack or ThingPark
     const rawBase = server.apiUrl.trim().replace(/\/+$/, '');
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 6000);
+    const timeoutId = setTimeout(() => controller.abort(), 7000);
 
     try {
       if (server.type === NetworkServerType.CHIRPSTACK) {
-        // ChirpStack v4 Downlink Queue API: POST /api/devices/{dev_eui}/queue
-        const targetUrl = rawBase.endsWith('/api')
-          ? `${rawBase}/devices/${normEUI.toLowerCase()}/queue`
-          : `${rawBase}/api/devices/${normEUI.toLowerCase()}/queue`;
-
-        const base64Data = Buffer.from(cleanHex, 'hex').toString('base64');
-        const chirpstackPayload = {
-          queueItem: {
-            confirmed: Boolean(params.confirmed),
-            data: base64Data,
-            fPort,
-            isPending: false,
-          },
-        };
+        const apiPrefix = rawBase.endsWith('/api') ? rawBase : `${rawBase}/api`;
+        const queueUrl = `${apiPrefix}/devices/${normEUI.toLowerCase()}/queue`;
 
         const headers: Record<string, string> = {
           'Content-Type': 'application/json',
@@ -467,7 +565,30 @@ export class NetworkServersService {
           headers['Authorization'] = `Bearer ${server.apiKey.trim()}`;
         }
 
-        const res = await fetch(targetUrl, {
+        // Optional Flush Queue for ChirpStack v4
+        if (flushQueue) {
+          try {
+            this.logger.log(`Flushing ChirpStack downlink queue for device [${normEUI}] -> DELETE ${queueUrl}`);
+            await fetch(queueUrl, {
+              method: 'DELETE',
+              headers,
+            });
+          } catch (flushErr: any) {
+            this.logger.warn(`Failed to flush queue on ChirpStack: ${flushErr.message}`);
+          }
+        }
+
+        const base64Data = Buffer.from(cleanHex, 'hex').toString('base64');
+        const chirpstackPayload = {
+          queueItem: {
+            confirmed,
+            data: base64Data,
+            fPort,
+            isPending: false,
+          },
+        };
+
+        const res = await fetch(queueUrl, {
           method: 'POST',
           headers,
           body: JSON.stringify(chirpstackPayload),
@@ -479,21 +600,77 @@ export class NetworkServersService {
 
         if (res.ok) {
           const resData = await res.json().catch(() => ({}));
-          this.logger.log(`✅ Downlink successfully queued to ChirpStack [${targetUrl}] in ${latencyMs}ms`);
+          this.logger.log(`✅ Downlink successfully queued to ChirpStack [${queueUrl}] in ${latencyMs}ms`);
+
+          const savedLog = await this.downlinkRepo.save(
+            this.downlinkRepo.create({
+              devEUI: normEUI,
+              deviceName,
+              networkServerId: server.id,
+              networkServerName: server.name,
+              serverType: server.type,
+              fPort,
+              payloadHex: cleanHex,
+              confirmed,
+              flushQueue,
+              status: 'QUEUED',
+              errorMessage: null,
+              responseDetails: resData,
+              sentBy: author,
+            }),
+          ).catch((e) => null);
+
+          if (this.realtimeService) {
+            this.realtimeService.publishDownlink({
+              event: 'DOWNLINK_QUEUED',
+              devEUI: normEUI,
+              deviceName,
+              serverType: server.type,
+              fPort,
+              payloadHex: cleanHex,
+              confirmed,
+              flushQueue,
+              status: 'QUEUED',
+              sentBy: author,
+              createdAt: new Date().toISOString(),
+              downlinkLog: savedLog,
+            });
+          }
+
           return {
             success: true,
             status: 'QUEUED_TO_CHIRPSTACK',
-            message: `Downlink payload [${cleanHex}] queued to ChirpStack on fPort ${fPort} (${latencyMs}ms)`,
+            message: `Downlink payload [${cleanHex}] (${Math.ceil(cleanHex.length / 2)} Bytes) queued to ChirpStack on fPort ${fPort}${flushQueue ? ' (Queue Flushed)' : ''} in ${latencyMs}ms`,
             devEUI: normEUI,
             fPort,
             payloadHex: cleanHex,
             networkServerType: server.type,
             networkServerName: server.name,
             details: resData,
+            downlinkLog: savedLog || undefined,
           };
         } else {
           const errText = await res.text().catch(() => '');
           this.logger.warn(`ChirpStack rejected downlink (HTTP ${res.status}): ${errText}`);
+
+          const savedLog = await this.downlinkRepo.save(
+            this.downlinkRepo.create({
+              devEUI: normEUI,
+              deviceName,
+              networkServerId: server.id,
+              networkServerName: server.name,
+              serverType: server.type,
+              fPort,
+              payloadHex: cleanHex,
+              confirmed,
+              flushQueue,
+              status: 'ERROR',
+              errorMessage: `ChirpStack HTTP ${res.status}: ${errText.slice(0, 200)}`,
+              responseDetails: { httpStatus: res.status, error: errText },
+              sentBy: author,
+            }),
+          ).catch((e) => null);
+
           return {
             success: false,
             status: res.status === 404 ? 'DEVICE_NOT_FOUND_ON_CHIRPSTACK' : 'CHIRPSTACK_REJECTED',
@@ -504,6 +681,7 @@ export class NetworkServersService {
             networkServerType: server.type,
             networkServerName: server.name,
             details: { httpStatus: res.status, error: errText },
+            downlinkLog: savedLog || undefined,
           };
         }
       } else {
@@ -511,12 +689,6 @@ export class NetworkServersService {
         const targetUrl = rawBase.includes('/thingpark')
           ? `${rawBase}/devices/${normEUI}/downlink`
           : `${rawBase}/thingpark/dx/core/v1/rest/devices/${normEUI}/downlink`;
-
-        const thingparkPayload = {
-          fPort,
-          payload: cleanHex,
-          confirmed: Boolean(params.confirmed),
-        };
 
         const headers: Record<string, string> = {
           'Content-Type': 'application/json',
@@ -526,6 +698,25 @@ export class NetworkServersService {
           headers['Authorization'] = `Bearer ${server.apiKey.trim()}`;
           headers['X-API-KEY'] = server.apiKey.trim();
         }
+
+        // Optional Flush Queue for ThingPark
+        if (flushQueue) {
+          try {
+            this.logger.log(`Flushing ThingPark downlink queue for device [${normEUI}] -> DELETE ${targetUrl}`);
+            await fetch(targetUrl, {
+              method: 'DELETE',
+              headers,
+            }).catch(() => {});
+          } catch (e) {}
+        }
+
+        const thingparkPayload = {
+          fPort,
+          payload: cleanHex,
+          confirmed,
+          flush: flushQueue,
+          clearQueue: flushQueue,
+        };
 
         const res = await fetch(targetUrl, {
           method: 'POST',
@@ -540,20 +731,76 @@ export class NetworkServersService {
         if (res.ok) {
           const resData = await res.json().catch(() => ({}));
           this.logger.log(`✅ Downlink successfully queued to ThingPark [${targetUrl}] in ${latencyMs}ms`);
+
+          const savedLog = await this.downlinkRepo.save(
+            this.downlinkRepo.create({
+              devEUI: normEUI,
+              deviceName,
+              networkServerId: server.id,
+              networkServerName: server.name,
+              serverType: server.type,
+              fPort,
+              payloadHex: cleanHex,
+              confirmed,
+              flushQueue,
+              status: 'QUEUED',
+              errorMessage: null,
+              responseDetails: resData,
+              sentBy: author,
+            }),
+          ).catch((e) => null);
+
+          if (this.realtimeService) {
+            this.realtimeService.publishDownlink({
+              event: 'DOWNLINK_QUEUED',
+              devEUI: normEUI,
+              deviceName,
+              serverType: server.type,
+              fPort,
+              payloadHex: cleanHex,
+              confirmed,
+              flushQueue,
+              status: 'QUEUED',
+              sentBy: author,
+              createdAt: new Date().toISOString(),
+              downlinkLog: savedLog,
+            });
+          }
+
           return {
             success: true,
             status: 'QUEUED_TO_THINGPARK',
-            message: `Downlink payload [${cleanHex}] queued to ThingPark on fPort ${fPort} (${latencyMs}ms)`,
+            message: `Downlink payload [${cleanHex}] (${Math.ceil(cleanHex.length / 2)} Bytes) queued to ThingPark on fPort ${fPort}${flushQueue ? ' (Queue Flushed)' : ''} in ${latencyMs}ms`,
             devEUI: normEUI,
             fPort,
             payloadHex: cleanHex,
             networkServerType: server.type,
             networkServerName: server.name,
             details: resData,
+            downlinkLog: savedLog || undefined,
           };
         } else {
           const errText = await res.text().catch(() => '');
           this.logger.warn(`ThingPark rejected downlink (HTTP ${res.status}): ${errText}`);
+
+          const savedLog = await this.downlinkRepo.save(
+            this.downlinkRepo.create({
+              devEUI: normEUI,
+              deviceName,
+              networkServerId: server.id,
+              networkServerName: server.name,
+              serverType: server.type,
+              fPort,
+              payloadHex: cleanHex,
+              confirmed,
+              flushQueue,
+              status: 'ERROR',
+              errorMessage: `ThingPark HTTP ${res.status}: ${errText.slice(0, 200)}`,
+              responseDetails: { httpStatus: res.status, error: errText },
+              sentBy: author,
+            }),
+          ).catch((e) => null);
+
           return {
             success: false,
             status: 'THINGPARK_REJECTED',
@@ -564,12 +811,32 @@ export class NetworkServersService {
             networkServerType: server.type,
             networkServerName: server.name,
             details: { httpStatus: res.status, error: errText },
+            downlinkLog: savedLog || undefined,
           };
         }
       }
     } catch (err: any) {
       clearTimeout(timeoutId);
       this.logger.warn(`Failed to connect to ${server.name} at ${server.apiUrl}: ${err.message}`);
+
+      const savedLog = await this.downlinkRepo.save(
+        this.downlinkRepo.create({
+          devEUI: normEUI,
+          deviceName,
+          networkServerId: server.id,
+          networkServerName: server.name,
+          serverType: server.type,
+          fPort,
+          payloadHex: cleanHex,
+          confirmed,
+          flushQueue,
+          status: 'ERROR',
+          errorMessage: `Connection error: ${err.message}`,
+          responseDetails: { error: err.message },
+          sentBy: author,
+        }),
+      ).catch((e) => null);
+
       return {
         success: false,
         status: 'LNS_CONNECTION_ERROR',
@@ -580,6 +847,152 @@ export class NetworkServersService {
         networkServerType: server.type,
         networkServerName: server.name,
         details: { error: err.message },
+        downlinkLog: savedLog || undefined,
+      };
+    }
+  }
+
+  /**
+   * Retrieves downlink audit logs from database, optionally filtered by DevEUI
+   */
+  async getDownlinkHistory(params?: {
+    devEUI?: string;
+    limit?: number;
+  }): Promise<DownlinkLogEntity[]> {
+    const repo = this.downlinkRepo;
+    const where: any = {};
+    if (params?.devEUI) {
+      where.devEUI = params.devEUI.trim().toUpperCase();
+    }
+    const limit = Math.min(200, Math.max(1, Number(params?.limit) || 50));
+    try {
+      return await repo.find({
+        where: Object.keys(where).length > 0 ? where : undefined,
+        order: { createdAt: 'DESC' },
+        take: limit,
+      });
+    } catch (e: any) {
+      this.logger.warn(`Error querying downlink history: ${e.message}`);
+      return [];
+    }
+  }
+
+  /**
+   * Explicitly flushes the downlink queue of a device on its Network Server
+   */
+  async flushDeviceQueue(params: {
+    devEUI: string;
+    networkServerId?: string;
+    author?: string;
+  }): Promise<{ success: boolean; message: string; details?: any }> {
+    const normEUI = (params.devEUI || '').trim().toUpperCase();
+    const author = (params.author || 'admin').trim();
+
+    let device: DeviceEntity | null = null;
+    if (normEUI) {
+      device = await this.deviceRepo.findOne({
+        where: { devEUI: normEUI },
+        relations: ['networkServer'],
+      }).catch(() => null);
+    }
+
+    let server: NetworkServerEntity | null = null;
+    if (params.networkServerId) {
+      server = await this.serverRepo.findOne({ where: { id: params.networkServerId } }).catch(() => null);
+    }
+    if (!server && device?.networkServer) server = device.networkServer;
+    if (!server && device?.networkServerId) {
+      server = await this.serverRepo.findOne({ where: { id: device.networkServerId } }).catch(() => null);
+    }
+    if (!server) {
+      server = await this.serverRepo.findOne({ where: { isDefault: true } }).catch(() => null);
+    }
+
+    if (!server || !server.apiUrl) {
+      return {
+        success: false,
+        message: 'No Network Server or API URL configured to flush queue.',
+      };
+    }
+
+    const rawBase = server.apiUrl.trim().replace(/\/+$/, '');
+    try {
+      if (server.type === NetworkServerType.CHIRPSTACK) {
+        const apiPrefix = rawBase.endsWith('/api') ? rawBase : `${rawBase}/api`;
+        const queueUrl = `${apiPrefix}/devices/${normEUI.toLowerCase()}/queue`;
+        const res = await fetch(queueUrl, {
+          method: 'DELETE',
+          headers: {
+            'Authorization': `Bearer ${server.apiKey || ''}`,
+            'Accept': 'application/json',
+          },
+        });
+        const ok = res.ok || res.status === 404;
+
+        await this.downlinkRepo.save(
+          this.downlinkRepo.create({
+            devEUI: normEUI,
+            deviceName: device?.name || normEUI,
+            networkServerId: server.id,
+            networkServerName: server.name,
+            serverType: server.type,
+            fPort: 0,
+            payloadHex: 'FLUSH_QUEUE',
+            confirmed: false,
+            flushQueue: true,
+            status: ok ? 'FLUSHED' : 'ERROR',
+            errorMessage: ok ? null : `HTTP ${res.status}`,
+            sentBy: author,
+          }),
+        ).catch(() => {});
+
+        return {
+          success: ok,
+          message: ok
+            ? `Successfully flushed downlink queue for ${normEUI} on ChirpStack`
+            : `ChirpStack flush queue returned HTTP ${res.status}`,
+        };
+      } else {
+        const targetUrl = rawBase.includes('/thingpark')
+          ? `${rawBase}/devices/${normEUI}/downlink`
+          : `${rawBase}/thingpark/dx/core/v1/rest/devices/${normEUI}/downlink`;
+        const res = await fetch(targetUrl, {
+          method: 'DELETE',
+          headers: {
+            'Authorization': `Bearer ${server.apiKey || ''}`,
+            'X-API-KEY': server.apiKey || '',
+          },
+        });
+        const ok = res.ok || res.status === 404;
+
+        await this.downlinkRepo.save(
+          this.downlinkRepo.create({
+            devEUI: normEUI,
+            deviceName: device?.name || normEUI,
+            networkServerId: server.id,
+            networkServerName: server.name,
+            serverType: server.type,
+            fPort: 0,
+            payloadHex: 'FLUSH_QUEUE',
+            confirmed: false,
+            flushQueue: true,
+            status: ok ? 'FLUSHED' : 'ERROR',
+            errorMessage: ok ? null : `HTTP ${res.status}`,
+            sentBy: author,
+          }),
+        ).catch(() => {});
+
+        return {
+          success: ok,
+          message: ok
+            ? `Successfully flushed downlink queue for ${normEUI} on ThingPark`
+            : `ThingPark flush queue returned HTTP ${res.status}`,
+        };
+      }
+    } catch (err: any) {
+      return {
+        success: false,
+        message: `Failed to flush queue: ${err.message}`,
       };
     }
   }

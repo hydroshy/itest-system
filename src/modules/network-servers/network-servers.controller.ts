@@ -6,15 +6,18 @@ import {
   Delete,
   Body,
   Param,
+  Query,
+  Req,
   UseGuards,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
 import { NetworkServersService } from './network-servers.service';
 import {
   CreateNetworkServerDto,
   UpdateNetworkServerDto,
   RegionProfileDto,
 } from './dto/network-server.dto';
+import { SendDownlinkDto, FlushQueueDto } from './dto/downlink.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../common/guards/permissions.guard';
 import { RequirePermissions } from '../../common/decorators/permissions.decorator';
@@ -31,6 +34,41 @@ export class NetworkServersController {
   @ApiOperation({ summary: 'Danh sách tất cả Network Servers (ThingPark, ChirpStack)' })
   async findAll() {
     return await this.networkServersService.findAll();
+  }
+
+  @Get('downlinks/history')
+  @RequirePermissions('lorawan:device:read')
+  @ApiOperation({ summary: 'Retrieve downlink execution history and audit logs' })
+  @ApiQuery({ name: 'devEUI', required: false, type: String })
+  @ApiQuery({ name: 'limit', required: false, type: Number })
+  async getDownlinkHistory(
+    @Query('devEUI') devEUI?: string,
+    @Query('limit') limit?: number,
+  ) {
+    return await this.networkServersService.getDownlinkHistory({ devEUI, limit });
+  }
+
+  @Post('downlink')
+  @RequirePermissions('lorawan:device:read')
+  @ApiOperation({ summary: 'Dispatch downlink Hex command to LoRaWAN device via selected Network Server' })
+  async sendDownlink(@Body() dto: SendDownlinkDto, @Req() req: any) {
+    const author = req.user?.username || req.user?.fullName || 'Operator';
+    return await this.networkServersService.sendDownlink({
+      ...dto,
+      author,
+    });
+  }
+
+  @Post('flush-queue')
+  @RequirePermissions('lorawan:device:read')
+  @ApiOperation({ summary: 'Flush device downlink queue on Network Server' })
+  async flushQueue(@Body() dto: FlushQueueDto, @Req() req: any) {
+    const author = req.user?.username || req.user?.fullName || 'Operator';
+    return await this.networkServersService.flushDeviceQueue({
+      devEUI: dto.devEUI,
+      networkServerId: dto.networkServerId,
+      author,
+    });
   }
 
   @Get(':id')

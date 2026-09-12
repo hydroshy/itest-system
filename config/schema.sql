@@ -209,3 +209,27 @@ CREATE TABLE IF NOT EXISTS "hmi_screens" (
 
 CREATE INDEX IF NOT EXISTS "idx_hmi_screens_published" ON "hmi_screens" ("isPublished");
 
+-- 15. Downlink Logs Table (Manual & Automated Actuator)
+CREATE TABLE IF NOT EXISTS "downlink_logs" (
+  "id" UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  "devEUI" VARCHAR(50) NOT NULL,
+  "deviceName" VARCHAR(255),
+  "networkServerId" UUID REFERENCES "network_servers"("id") ON DELETE SET NULL,
+  "networkServerName" VARCHAR(255),
+  "serverType" VARCHAR(50) NOT NULL DEFAULT 'CHIRPSTACK',
+  "fPort" INT NOT NULL DEFAULT 1,
+  "payloadHex" TEXT NOT NULL,
+  "confirmed" BOOLEAN NOT NULL DEFAULT false,
+  "flushQueue" BOOLEAN NOT NULL DEFAULT false,
+  "status" VARCHAR(50) NOT NULL DEFAULT 'QUEUED',
+  "errorMessage" TEXT,
+  "responseDetails" JSONB,
+  "sentBy" VARCHAR(255) NOT NULL DEFAULT 'anonymous',
+  "createdAt" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS "idx_downlink_logs_deveui" ON "downlink_logs" ("devEUI", "createdAt" DESC);
+CREATE INDEX IF NOT EXISTS "idx_downlink_logs_created_at" ON "downlink_logs" ("createdAt" DESC);
+CREATE INDEX IF NOT EXISTS "idx_downlink_logs_status" ON "downlink_logs" ("status");
+
+

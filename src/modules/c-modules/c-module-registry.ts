@@ -113,4 +113,14 @@ export const C_MODULES_REGISTRY: CModule[] = [
     routeHash: '#hmi-studio',
     requiredPermission: 'lorawan:device:read',
   },
+  {
+    id: 'c-downlink-controller',
+    code: 'C_MOD_DOWNLINK_CONTROLLER',
+    title: 'Downlink Actuator & Queue',
+    description: 'Manual Hex downlink transmitter to ChirpStack & ThingPark devices, with port, queue flush, and audit log.',
+    icon: 'fa-solid fa-paper-plane',
+    category: 'Infrastructure',
+    routeHash: '#downlink',
+    requiredPermission: 'lorawan:device:read',
+  },
 ];
