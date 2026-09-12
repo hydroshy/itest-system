@@ -3529,7 +3529,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
         </div>
 
         <!-- TAB: DOWNLINK CONTROLLER & ACTUATOR -->
-        <div v-show="activeTab === 'downlink'" class="space-y-6 max-w-5xl mx-auto">
+        <div v-show="activeTab === 'downlink'" class="space-y-6">
           <!-- Header -->
           <div class="flex items-center justify-between pb-2 border-b border-slate-800">
             <div>
@@ -3728,7 +3728,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
                     <!-- Flush Queue button -->
                     <button
                       type="button"
-                      @click="flushQueueExplicitly"
+                      @click="openFlushConfirm"
                       :disabled="!downlinkForm.devEUI || flushingQueue"
                       class="px-3 py-1.5 rounded-lg bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 text-amber-300 disabled:opacity-50 text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition"
                       title="Clear all pending downlinks on Network Server"
@@ -5309,6 +5309,61 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
           >
             <i class="fa-solid fa-spinner animate-spin" v-if="sendingDownlink"></i>
             <span>{{ sendingDownlink ? 'Dispatching...' : 'Confirm & Send' }}</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL: CONFIRM FLUSH QUEUE (C-MODULE) -->
+    <div v-if="flushConfirmModal.show" class="fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop" style="background: rgba(2, 6, 23, 0.85); backdrop-filter: blur(6px);">
+      <div class="w-full max-w-md bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-4 shadow-2xl animate-in fade-in">
+        <div class="flex items-center justify-between pb-3 border-b border-slate-800">
+          <div class="flex items-center gap-2">
+            <div class="w-8 h-8 rounded-lg bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400">
+              <i class="fa-solid fa-broom text-sm"></i>
+            </div>
+            <h3 class="text-sm font-bold text-white">Confirm Queue Flush</h3>
+          </div>
+          <button @click="flushConfirmModal.show = false" class="text-slate-500 hover:text-white cursor-pointer"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+
+        <div class="space-y-2.5 text-xs bg-slate-950 p-4 rounded-xl border border-slate-800">
+          <div class="flex items-center justify-between pb-2 border-b border-slate-800/80">
+            <span class="text-slate-400">Target Device:</span>
+            <span class="font-bold text-white font-mono text-right truncate max-w-[200px]" :title="(flushConfirmModal.targetDevice && flushConfirmModal.targetDevice.name) ? flushConfirmModal.targetDevice.name : flushConfirmModal.devEUI">
+              {{ (flushConfirmModal.targetDevice && flushConfirmModal.targetDevice.name) ? (flushConfirmModal.targetDevice.name + ' - ' + flushConfirmModal.devEUI) : flushConfirmModal.devEUI }}
+            </span>
+          </div>
+
+          <div class="flex items-center justify-between pb-2 border-b border-slate-800/80">
+            <span class="text-slate-400">Network Server:</span>
+            <span class="font-bold text-sky-400">
+              {{ (flushConfirmModal.targetServer && flushConfirmModal.targetServer.name) ? flushConfirmModal.targetServer.name : 'Default' }}
+            </span>
+          </div>
+
+          <div class="p-2.5 rounded-lg bg-amber-950/30 border border-amber-500/20 text-amber-300 text-[11px] flex items-start gap-2">
+            <i class="fa-solid fa-triangle-exclamation text-amber-400 mt-0.5 shrink-0"></i>
+            <span>This will permanently delete all pending downlink frames in the Network Server queue for this device.</span>
+          </div>
+        </div>
+
+        <div class="flex items-center justify-end gap-2 pt-2 border-t border-slate-800">
+          <button
+            type="button"
+            @click="flushConfirmModal.show = false"
+            class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold cursor-pointer"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            @click="executeConfirmedFlush"
+            :disabled="flushingQueue"
+            class="px-5 py-2 rounded-xl bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold flex items-center gap-2 cursor-pointer disabled:opacity-50 shadow-md"
+          >
+            <i class="fa-solid fa-broom" :class="{ 'animate-spin': flushingQueue }"></i>
+            <span>{{ flushingQueue ? 'Flushing...' : 'Confirm Flush' }}</span>
           </button>
         </div>
       </div>
@@ -9189,6 +9244,13 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
           flushQueue: false,
         });
 
+        const flushConfirmModal = ref({
+          show: false,
+          devEUI: '',
+          targetDevice: null,
+          targetServer: null,
+        });
+
         const filteredDownlinkDevices = computed(() => {
           const q = (downlinkDeviceSearch.value || '').trim().toLowerCase();
           const selectedLabel = selectedDownlinkDevice.value
@@ -9233,8 +9295,9 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
 
         const selectedDownlinkServer = computed(() => {
           const dev = selectedDownlinkDevice.value;
-          if (dev && dev.networkServerId) {
-            return networkServersList.value.find(s => s.id === dev.networkServerId) || null;
+          const devNsId = dev ? (dev.networkServerId || (dev.networkServer ? dev.networkServer.id : '')) : '';
+          if (devNsId) {
+            return networkServersList.value.find(s => s.id === devNsId) || null;
           }
           if (downlinkForm.value.networkServerId) {
             return networkServersList.value.find(s => s.id === downlinkForm.value.networkServerId) || null;
@@ -9245,8 +9308,9 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
         const selectDownlinkDevice = (d) => {
           downlinkForm.value.devEUI = d.devEUI;
           downlinkDeviceSearch.value = d.name ? d.name + ' - ' + d.devEUI : d.devEUI;
-          if (d.networkServerId) {
-            downlinkForm.value.networkServerId = d.networkServerId;
+          const nsId = d.networkServerId || (d.networkServer ? d.networkServer.id : '');
+          if (nsId) {
+            downlinkForm.value.networkServerId = nsId;
           }
           downlinkDeviceDropdownOpen.value = false;
           onDownlinkDeviceSelect();
@@ -9263,8 +9327,9 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
         const onDownlinkDeviceSelect = () => {
           const dev = selectedDownlinkDevice.value;
           if (dev) {
-            if (dev.networkServerId) {
-              downlinkForm.value.networkServerId = dev.networkServerId;
+            const nsId = dev.networkServerId || (dev.networkServer ? dev.networkServer.id : '');
+            if (nsId) {
+              downlinkForm.value.networkServerId = nsId;
             }
             downlinkHistoryFilterDevEUI.value = dev.devEUI;
             fetchDownlinkHistory(dev.devEUI);
@@ -9411,14 +9476,22 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
           }
         };
 
-        const flushQueueExplicitly = async () => {
+        const openFlushConfirm = () => {
           if (!downlinkForm.value.devEUI) {
             showToast('Please select a device to flush queue', 'error');
             return;
           }
-          if (!confirm('Flush downlink queue for device ' + downlinkForm.value.devEUI + '?')) {
-            return;
-          }
+          flushConfirmModal.value = {
+            show: true,
+            devEUI: downlinkForm.value.devEUI,
+            targetDevice: selectedDownlinkDevice.value,
+            targetServer: selectedDownlinkServer.value,
+          };
+        };
+
+        const executeConfirmedFlush = async () => {
+          const targetEUI = flushConfirmModal.value.devEUI || downlinkForm.value.devEUI;
+          const targetNsId = flushConfirmModal.value.targetServer?.id || downlinkForm.value.networkServerId || undefined;
           flushingQueue.value = true;
           try {
             const res = await fetch('/api/network-servers/flush-queue', {
@@ -9429,17 +9502,18 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
               },
               credentials: 'include',
               body: JSON.stringify({
-                devEUI: downlinkForm.value.devEUI,
-                networkServerId: downlinkForm.value.networkServerId || undefined,
+                devEUI: targetEUI,
+                networkServerId: targetNsId,
               }),
             });
             const result = await res.json();
+            flushConfirmModal.value.show = false;
             if (res.ok && result.success) {
               showToast('Downlink queue flushed successfully', 'success');
-              fetchDownlinkHistory(downlinkForm.value.devEUI);
-              fetchDeviceQueue(downlinkForm.value.devEUI);
+              fetchDownlinkHistory(targetEUI);
+              fetchDeviceQueue(targetEUI);
             } else {
-              showToast('Failed to flush queue: ' + result.message, 'error');
+              showToast('Failed to flush queue: ' + (result.message || 'Error'), 'error');
             }
           } catch(e) {
             showToast('Connection error: ' + e.message, 'error');
@@ -9447,6 +9521,8 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
             flushingQueue.value = false;
           }
         };
+
+        const flushQueueExplicitly = openFlushConfirm;
 
         const resendDownlink = (item) => {
           downlinkForm.value.devEUI = item.devEUI;
@@ -9958,6 +10034,9 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
           fetchDownlinkHistory,
           openDownlinkConfirm,
           executeConfirmedDownlink,
+          flushConfirmModal,
+          openFlushConfirm,
+          executeConfirmedFlush,
           flushQueueExplicitly,
           formatFirmware,
           onDeviceSkuOrFwChange,

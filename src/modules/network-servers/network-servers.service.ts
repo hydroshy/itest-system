@@ -885,16 +885,21 @@ export class NetworkServersService implements OnModuleInit {
     networkServerId?: string;
     author?: string;
   }): Promise<{ success: boolean; message: string; details?: any }> {
-    const normEUI = (params.devEUI || '').trim().toUpperCase();
+    const normEUI = (params.devEUI || '').replace(/[^0-9a-fA-F]/g, '').toUpperCase();
     const author = (params.author || 'admin').trim();
 
-    let device: DeviceEntity | null = null;
-    if (normEUI) {
-      device = await this.deviceRepo.findOne({
-        where: { devEUI: normEUI },
-        relations: ['networkServer'],
-      }).catch(() => null);
+    if (!normEUI) {
+      return {
+        success: false,
+        message: 'Invalid or missing DevEUI.',
+      };
     }
+
+    let device: DeviceEntity | null = null;
+    device = await this.deviceRepo.findOne({
+      where: { devEUI: normEUI },
+      relations: ['networkServer'],
+    }).catch(() => null);
 
     let server: NetworkServerEntity | null = null;
     if (params.networkServerId) {
@@ -907,6 +912,9 @@ export class NetworkServersService implements OnModuleInit {
     if (!server) {
       server = await this.serverRepo.findOne({ where: { isDefault: true } }).catch(() => null);
     }
+    if (!server) {
+      server = await this.serverRepo.findOne({ order: { createdAt: 'ASC' } }).catch(() => null);
+    }
 
     if (!server || !server.apiUrl) {
       return {
@@ -916,6 +924,9 @@ export class NetworkServersService implements OnModuleInit {
     }
 
     const rawBase = server.apiUrl.trim().replace(/\/+$/, '');
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 8000);
+
     try {
       if (server.type === NetworkServerType.CHIRPSTACK) {
         const apiPrefix = rawBase.endsWith('/api') ? rawBase : `${rawBase}/api`;
@@ -926,7 +937,9 @@ export class NetworkServersService implements OnModuleInit {
             'Authorization': `Bearer ${server.apiKey || ''}`,
             'Accept': 'application/json',
           },
+          signal: controller.signal,
         });
+        clearTimeout(timeoutId);
         const ok = res.ok || res.status === 404;
 
         await this.downlinkRepo.save(
@@ -962,7 +975,9 @@ export class NetworkServersService implements OnModuleInit {
             'Authorization': `Bearer ${server.apiKey || ''}`,
             'X-API-KEY': server.apiKey || '',
           },
+          signal: controller.signal,
         });
+        clearTimeout(timeoutId);
         const ok = res.ok || res.status === 404;
 
         await this.downlinkRepo.save(
@@ -990,9 +1005,11 @@ export class NetworkServersService implements OnModuleInit {
         };
       }
     } catch (err: any) {
+      clearTimeout(timeoutId);
+      const detail = err.cause?.message ? `${err.message} (${err.cause.message})` : err.message;
       return {
         success: false,
-        message: `Failed to flush queue: ${err.message}`,
+        message: detail,
       };
     }
   }
