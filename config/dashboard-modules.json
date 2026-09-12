@@ -38,6 +38,19 @@
       "requiredPermission": "lorawan:telemetry:read",
       "status": "active",
       "isActive": true
+    },
+    {
+      "id": "lorawan-downlink",
+      "code": "D_MOD_LORAWAN_DOWNLINK",
+      "title": "LORAWAN DOWNLINK",
+      "description": "Dispatch raw Hex downlink commands to ChirpStack or ThingPark devices, manage fPort, queue flushing, and view execution history.",
+      "icon": "fa-solid fa-paper-plane",
+      "color": "from-blue-600 to-indigo-700",
+      "badge": "Actuator",
+      "category": "Fleet",
+      "requiredPermission": "lorawan:device:read",
+      "status": "active",
+      "isActive": true
     }
   ],
   "roleLayouts": {
@@ -46,7 +59,8 @@
       "moduleOrder": [
         "device-manager",
         "telemetry-decoder",
-        "hmi-scada-viewer"
+        "hmi-scada-viewer",
+        "lorawan-downlink"
       ],
       "disabledModuleIds": [],
       "updatedAt": "2026-09-07T12:00:00.000Z"
@@ -56,7 +70,8 @@
       "moduleOrder": [
         "device-manager",
         "telemetry-decoder",
-        "hmi-scada-viewer"
+        "hmi-scada-viewer",
+        "lorawan-downlink"
       ],
       "disabledModuleIds": [],
       "updatedAt": "2026-09-07T12:00:00.000Z"

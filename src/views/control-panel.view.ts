@@ -3556,28 +3556,27 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
                     Device
                   </label>
 
-                  <div class="relative">
+                  <div class="relative flex items-center">
                     <input
                       type="text"
                       v-model="downlinkDeviceSearch"
-                      @focus="downlinkDeviceDropdownOpen = true"
+                      @focus="onDownlinkSearchFocus"
                       @click="downlinkDeviceDropdownOpen = true"
-                      placeholder="Search device (Name or DevEUI)..."
-                      class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-xl text-white text-xs font-mono focus:ring-1 focus:ring-indigo-500 focus:outline-none placeholder-slate-500"
+                      placeholder="Search or select device (Name or DevEUI)..."
+                      class="w-full pl-3 pr-8 py-2 bg-slate-950 border border-slate-700 rounded-xl text-white text-xs font-mono focus:ring-1 focus:ring-indigo-500 focus:outline-none placeholder-slate-500"
                     />
                     <button
-                      v-if="downlinkForm.devEUI"
                       type="button"
-                      @click.stop="clearSelectedDownlinkDevice"
-                      class="absolute right-2.5 top-2.5 text-slate-500 hover:text-white text-xs cursor-pointer"
+                      @click.stop="toggleDownlinkDropdown"
+                      class="absolute right-2 text-slate-400 hover:text-white text-xs p-1 cursor-pointer flex items-center justify-center"
                     >
-                      <i class="fa-solid fa-xmark"></i>
+                      <i class="fa-solid fa-chevron-down text-[10px] transition-transform duration-200" :class="{ 'rotate-180': downlinkDeviceDropdownOpen }"></i>
                     </button>
                   </div>
 
                   <!-- Dropdown Options -->
                   <div
-                    v-if="downlinkDeviceDropdownOpen"
+                    v-show="downlinkDeviceDropdownOpen"
                     class="absolute left-0 right-0 z-30 mt-1 max-h-56 overflow-y-auto bg-slate-950 border border-slate-700 rounded-xl shadow-2xl divide-y divide-slate-800/80 custom-scroll"
                   >
                     <div
@@ -3585,10 +3584,10 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
                       :key="d.devEUI"
                       @click="selectDownlinkDevice(d)"
                       class="px-3 py-2 text-xs font-mono cursor-pointer hover:bg-slate-800 flex items-center justify-between transition"
-                      :class="{ 'bg-indigo-950/50 text-indigo-300': downlinkForm.devEUI === d.devEUI }"
+                      :class="{ 'bg-indigo-950/50 text-indigo-300 font-bold': downlinkForm.devEUI === d.devEUI }"
                     >
                       <span class="text-white">{{ d.name ? d.name + ' - ' + d.devEUI : d.devEUI }}</span>
-                      <span class="text-[10px] text-slate-400 font-sans">{{ d.networkServer?.name || 'LNS' }}</span>
+                      <span class="text-[10px] text-slate-400 font-sans ml-2 flex-shrink-0">{{ d.networkServer?.name || 'LNS' }}</span>
                     </div>
                     <div v-if="filteredDownlinkDevices.length === 0" class="px-3 py-3 text-xs text-slate-500 text-center">
                       No matching devices
@@ -3639,7 +3638,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
                 </div>
 
                 <!-- 3. FLUSH QUEUE OPTION -->
-                <div class="p-3 rounded-xl bg-slate-950 border border-slate-800 space-y-1">
+                <div class="p-3 rounded-xl bg-slate-950 border border-slate-800">
                   <label class="flex items-center gap-2 cursor-pointer">
                     <input
                       type="checkbox"
@@ -3650,9 +3649,6 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
                       Flush Queue
                     </span>
                   </label>
-                  <p class="text-[10px] text-slate-400 pl-6">
-                    Clear pending downlinks on Network Server before queuing this packet.
-                  </p>
                 </div>
 
                 <!-- 4. HEX PAYLOAD -->
@@ -9001,13 +8997,30 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
 
         const filteredDownlinkDevices = computed(() => {
           const q = (downlinkDeviceSearch.value || '').trim().toLowerCase();
-          if (!q) return devicesList.value;
+          const selectedLabel = selectedDownlinkDevice.value
+            ? (selectedDownlinkDevice.value.name ? (selectedDownlinkDevice.value.name + ' - ' + selectedDownlinkDevice.value.devEUI) : selectedDownlinkDevice.value.devEUI).toLowerCase()
+            : '';
+          if (!q || q === selectedLabel) {
+            return devicesList.value;
+          }
           return devicesList.value.filter(d => {
             const label = (d.name ? d.name + ' - ' + d.devEUI : d.devEUI).toLowerCase();
             const eui = (d.devEUI || '').toLowerCase();
-            return label.includes(q) || eui.includes(q);
+            const name = (d.name || '').toLowerCase();
+            return label.includes(q) || eui.includes(q) || name.includes(q);
           });
         });
+
+        const onDownlinkSearchFocus = (event) => {
+          downlinkDeviceDropdownOpen.value = true;
+          if (event && event.target && typeof event.target.select === 'function') {
+            event.target.select();
+          }
+        };
+
+        const toggleDownlinkDropdown = () => {
+          downlinkDeviceDropdownOpen.value = !downlinkDeviceDropdownOpen.value;
+        };
 
         const calculatedHexBytes = computed(() => {
           const clean = (downlinkForm.value.payloadHex || '').replace(/[^0-9a-fA-F]/g, '');
@@ -9659,6 +9672,8 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
           selectDownlinkDevice,
           clearSelectedDownlinkDevice,
           onDownlinkDeviceSelect,
+          onDownlinkSearchFocus,
+          toggleDownlinkDropdown,
           fetchDownlinkHistory,
           openDownlinkConfirm,
           executeConfirmedDownlink,

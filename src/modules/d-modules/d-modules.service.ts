@@ -74,6 +74,28 @@ export class DModulesService implements OnModuleInit {
           }
         }
 
+        // Auto-merge any built-in DEFAULT_D_MODULES missing from disk config
+        let hasNewDefault = false;
+        for (const def of DEFAULT_D_MODULES) {
+          if (!this.modules.some((m) => m.id === def.id || m.code === def.code)) {
+            this.modules.push(JSON.parse(JSON.stringify(def)));
+            hasNewDefault = true;
+          }
+        }
+        if (hasNewDefault) {
+          for (const layout of Object.values(this.roleLayouts)) {
+            for (const def of DEFAULT_D_MODULES) {
+              if (
+                !layout.moduleOrder.includes(def.id) &&
+                !layout.disabledModuleIds.includes(def.id)
+              ) {
+                layout.moduleOrder.push(def.id);
+              }
+            }
+          }
+          this.saveModules();
+        }
+
         this.logger.log(`Loaded ${this.modules.length} D-Modules and ${Object.keys(this.roleLayouts).length} Role Layouts from config.`);
         return;
       }
