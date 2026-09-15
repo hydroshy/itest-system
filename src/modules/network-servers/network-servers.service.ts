@@ -6,6 +6,8 @@ import { DeviceEntity } from '../lorawan/entities/device.entity';
 import { GatewayEntity } from '../lorawan/entities/gateway.entity';
 import { DownlinkLogEntity } from './entities/downlink-log.entity';
 import { RealtimeService } from '../realtime/realtime.service';
+import { LorawanResilienceService } from '../lorawan/services/lorawan-resilience.service';
+import { cleanDevEUI, cleanHexPayload, isValidHex } from '../lorawan/common/lorawan-utils';
 
 @Injectable()
 export class NetworkServersService implements OnModuleInit {
@@ -13,6 +15,7 @@ export class NetworkServersService implements OnModuleInit {
 
   constructor(
     private readonly dbService: DynamicDatabaseService,
+    private readonly resilienceService: LorawanResilienceService,
     @Optional() private readonly realtimeService?: RealtimeService,
   ) {}
 
@@ -258,9 +261,6 @@ export class NetworkServersService implements OnModuleInit {
     // Try HTTP connection if apiUrl is defined
     if (server.apiUrl && (server.apiUrl.startsWith('http://') || server.apiUrl.startsWith('https://'))) {
       try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 4500);
-
         const headers: Record<string, string> = {
           'Accept': 'application/json',
         };
@@ -288,27 +288,27 @@ export class NetworkServersService implements OnModuleInit {
           }
         }
 
-        let res = await fetch(targetUrl, {
-          method: 'GET',
-          headers,
-          signal: controller.signal,
-        }).catch(() => null);
+        let res = await this.resilienceService.safeFetch(
+          targetUrl,
+          { method: 'GET', headers },
+          { maxRetries: 1, timeoutMs: 4500 },
+        );
 
         // Fallback to base URL if subpath failed
-        if (!res && targetUrl !== server.apiUrl.trim()) {
-          res = await fetch(server.apiUrl.trim(), {
-            method: 'GET',
-            headers,
-            signal: controller.signal,
-          }).catch((err) => {
-            throw err;
-          });
+        if (!res.ok && res.status === 404 && targetUrl !== server.apiUrl.trim()) {
+          const fallbackRes = await this.resilienceService.safeFetch(
+            server.apiUrl.trim(),
+            { method: 'GET', headers },
+            { maxRetries: 1, timeoutMs: 4500 },
+          );
+          if (fallbackRes.ok || (fallbackRes.status && fallbackRes.status > 0)) {
+            res = fallbackRes;
+          }
         }
 
-        clearTimeout(timeoutId);
         const latencyMs = Date.now() - startTime;
 
-        if (!res) {
+        if (!res || !res.status) {
           throw new Error('Connection timed out or host is unreachable');
         }
 
@@ -425,9 +425,9 @@ export class NetworkServersService implements OnModuleInit {
     details?: any;
     downlinkLog?: DownlinkLogEntity;
   }> {
-    const normEUI = (params.devEUI || '').trim().toUpperCase();
+    const normEUI = cleanDevEUI(params.devEUI || '');
     const fPort = Math.max(1, Math.min(223, Number(params.fPort) || 1));
-    const cleanHex = (params.payloadHex || '01').replace(/[^0-9a-fA-F]/g, '').toUpperCase();
+    const cleanHex = cleanHexPayload(params.payloadHex || '01');
     const author = (params.author || 'admin').trim();
     const flushQueue = Boolean(params.flushQueue);
     const confirmed = Boolean(params.confirmed);
@@ -549,8 +549,6 @@ export class NetworkServersService implements OnModuleInit {
 
     // Mode B: HTTP REST Downlink to ChirpStack or ThingPark
     const rawBase = server.apiUrl.trim().replace(/\/+$/, '');
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 7000);
 
     try {
       if (server.type === NetworkServerType.CHIRPSTACK) {
@@ -569,7 +567,7 @@ export class NetworkServersService implements OnModuleInit {
         if (flushQueue) {
           try {
             this.logger.log(`Flushing ChirpStack downlink queue for device [${normEUI}] -> DELETE ${queueUrl}`);
-            await fetch(queueUrl, {
+            await this.resilienceService.safeFetch(queueUrl, {
               method: 'DELETE',
               headers,
             });
@@ -588,18 +586,16 @@ export class NetworkServersService implements OnModuleInit {
           },
         };
 
-        const res = await fetch(queueUrl, {
+        const res = await this.resilienceService.safeFetch(queueUrl, {
           method: 'POST',
           headers,
           body: JSON.stringify(chirpstackPayload),
-          signal: controller.signal,
         });
 
-        clearTimeout(timeoutId);
         const latencyMs = Date.now() - startTime;
 
         if (res.ok) {
-          const resData = await res.json().catch(() => ({}));
+          const resData = res.data || {};
           this.logger.log(`✅ Downlink successfully queued to ChirpStack [${queueUrl}] in ${latencyMs}ms`);
 
           const savedLog = await this.downlinkRepo.save(
@@ -650,7 +646,7 @@ export class NetworkServersService implements OnModuleInit {
             downlinkLog: savedLog || undefined,
           };
         } else {
-          const errText = await res.text().catch(() => '');
+          const errText = res.error || (typeof res.data === 'string' ? res.data : JSON.stringify(res.data || ''));
           this.logger.warn(`ChirpStack rejected downlink (HTTP ${res.status}): ${errText}`);
 
           const savedLog = await this.downlinkRepo.save(
@@ -674,7 +670,7 @@ export class NetworkServersService implements OnModuleInit {
           return {
             success: false,
             status: res.status === 404 ? 'DEVICE_NOT_FOUND_ON_CHIRPSTACK' : 'CHIRPSTACK_REJECTED',
-            message: `ChirpStack returned HTTP ${res.status}: ${errText.slice(0, 150) || res.statusText}`,
+            message: `ChirpStack returned HTTP ${res.status}: ${errText.slice(0, 150) || 'Rejected'}`,
             devEUI: normEUI,
             fPort,
             payloadHex: cleanHex,
@@ -703,10 +699,10 @@ export class NetworkServersService implements OnModuleInit {
         if (flushQueue) {
           try {
             this.logger.log(`Flushing ThingPark downlink queue for device [${normEUI}] -> DELETE ${targetUrl}`);
-            await fetch(targetUrl, {
+            await this.resilienceService.safeFetch(targetUrl, {
               method: 'DELETE',
               headers,
-            }).catch(() => {});
+            });
           } catch (e) {}
         }
 
@@ -718,18 +714,16 @@ export class NetworkServersService implements OnModuleInit {
           clearQueue: flushQueue,
         };
 
-        const res = await fetch(targetUrl, {
+        const res = await this.resilienceService.safeFetch(targetUrl, {
           method: 'POST',
           headers,
           body: JSON.stringify(thingparkPayload),
-          signal: controller.signal,
         });
 
-        clearTimeout(timeoutId);
         const latencyMs = Date.now() - startTime;
 
         if (res.ok) {
-          const resData = await res.json().catch(() => ({}));
+          const resData = res.data || {};
           this.logger.log(`✅ Downlink successfully queued to ThingPark [${targetUrl}] in ${latencyMs}ms`);
 
           const savedLog = await this.downlinkRepo.save(
@@ -780,7 +774,7 @@ export class NetworkServersService implements OnModuleInit {
             downlinkLog: savedLog || undefined,
           };
         } else {
-          const errText = await res.text().catch(() => '');
+          const errText = res.error || (typeof res.data === 'string' ? res.data : JSON.stringify(res.data || ''));
           this.logger.warn(`ThingPark rejected downlink (HTTP ${res.status}): ${errText}`);
 
           const savedLog = await this.downlinkRepo.save(
@@ -804,7 +798,7 @@ export class NetworkServersService implements OnModuleInit {
           return {
             success: false,
             status: 'THINGPARK_REJECTED',
-            message: `ThingPark returned HTTP ${res.status}: ${errText.slice(0, 150) || res.statusText}`,
+            message: `ThingPark returned HTTP ${res.status}: ${errText.slice(0, 150) || 'Rejected'}`,
             devEUI: normEUI,
             fPort,
             payloadHex: cleanHex,
@@ -816,7 +810,6 @@ export class NetworkServersService implements OnModuleInit {
         }
       }
     } catch (err: any) {
-      clearTimeout(timeoutId);
       this.logger.warn(`Failed to connect to ${server.name} at ${server.apiUrl}: ${err.message}`);
 
       const savedLog = await this.downlinkRepo.save(
@@ -885,7 +878,7 @@ export class NetworkServersService implements OnModuleInit {
     networkServerId?: string;
     author?: string;
   }): Promise<{ success: boolean; message: string; details?: any }> {
-    const normEUI = (params.devEUI || '').replace(/[^0-9a-fA-F]/g, '').toUpperCase();
+    const normEUI = cleanDevEUI(params.devEUI || '');
     const author = (params.author || 'admin').trim();
 
     if (!normEUI) {
@@ -924,22 +917,18 @@ export class NetworkServersService implements OnModuleInit {
     }
 
     const rawBase = server.apiUrl.trim().replace(/\/+$/, '');
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 8000);
 
     try {
       if (server.type === NetworkServerType.CHIRPSTACK) {
         const apiPrefix = rawBase.endsWith('/api') ? rawBase : `${rawBase}/api`;
         const queueUrl = `${apiPrefix}/devices/${normEUI.toLowerCase()}/queue`;
-        const res = await fetch(queueUrl, {
+        const res = await this.resilienceService.safeFetch(queueUrl, {
           method: 'DELETE',
           headers: {
             'Authorization': `Bearer ${server.apiKey || ''}`,
             'Accept': 'application/json',
           },
-          signal: controller.signal,
         });
-        clearTimeout(timeoutId);
         const ok = res.ok || res.status === 404;
 
         await this.downlinkRepo.save(
@@ -963,21 +952,19 @@ export class NetworkServersService implements OnModuleInit {
           success: ok,
           message: ok
             ? `Successfully flushed downlink queue for ${normEUI} on ChirpStack`
-            : `ChirpStack flush queue returned HTTP ${res.status}`,
+            : `ChirpStack flush queue returned HTTP ${res.status}: ${res.error || 'Failed'}`,
         };
       } else {
         const targetUrl = rawBase.includes('/thingpark')
           ? `${rawBase}/devices/${normEUI}/downlink`
           : `${rawBase}/thingpark/dx/core/v1/rest/devices/${normEUI}/downlink`;
-        const res = await fetch(targetUrl, {
+        const res = await this.resilienceService.safeFetch(targetUrl, {
           method: 'DELETE',
           headers: {
             'Authorization': `Bearer ${server.apiKey || ''}`,
             'X-API-KEY': server.apiKey || '',
           },
-          signal: controller.signal,
         });
-        clearTimeout(timeoutId);
         const ok = res.ok || res.status === 404;
 
         await this.downlinkRepo.save(
@@ -1001,15 +988,13 @@ export class NetworkServersService implements OnModuleInit {
           success: ok,
           message: ok
             ? `Successfully flushed downlink queue for ${normEUI} on ThingPark`
-            : `ThingPark flush queue returned HTTP ${res.status}`,
+            : `ThingPark flush queue returned HTTP ${res.status}: ${res.error || 'Failed'}`,
         };
       }
     } catch (err: any) {
-      clearTimeout(timeoutId);
-      const detail = err.cause?.message ? `${err.message} (${err.cause.message})` : err.message;
       return {
         success: false,
-        message: detail,
+        message: err.message || 'Failed to flush queue',
       };
     }
   }
@@ -1031,7 +1016,7 @@ export class NetworkServersService implements OnModuleInit {
     serverType: string;
     serverName?: string;
   }> {
-    const normEUI = (params.devEUI || '').replace(/[^0-9a-fA-F]/g, '').toUpperCase();
+    const normEUI = cleanDevEUI(params.devEUI || '');
     if (!normEUI) {
       return { totalCount: 0, items: [], serverType: 'NONE' };
     }
@@ -1066,9 +1051,9 @@ export class NetworkServersService implements OnModuleInit {
           headers['Authorization'] = `Bearer ${server.apiKey.trim()}`;
         }
 
-        const res = await fetch(queueUrl, { method: 'GET', headers });
-        if (res.ok) {
-          const data = await res.json();
+        const res = await this.resilienceService.safeFetch(queueUrl, { method: 'GET', headers });
+        if (res.ok && res.data) {
+          const data: any = res.data;
           const rawItems = data.result || data.items || [];
           const items = rawItems.map((it: any) => {
             let hex = '';

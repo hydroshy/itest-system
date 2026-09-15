@@ -1,42 +1,18 @@
 import { Injectable, BadRequestException, Logger } from '@nestjs/common';
-import * as vm from 'vm';
+import { LorawanResilienceService } from '../services/lorawan-resilience.service';
 
 @Injectable()
 export class PayloadFormatterService {
   private readonly logger = new Logger(PayloadFormatterService.name);
 
+  constructor(private readonly resilienceService: LorawanResilienceService) {}
+
   decodePayload(script: string, bytesHex: string, fPort: number = 1): Record<string, any> {
-    const bytes = Buffer.from(bytesHex, 'hex');
-    const input = {
-      bytes: Array.from(bytes),
-      fPort,
-    };
-
-    const sandbox = {
-      input,
-      console: { log: () => {} },
-      result: null as any,
-    };
-
-    const context = vm.createContext(sandbox);
-    const fullScript = `
-      ${script}
-      if (typeof decodeUplink === 'function') {
-        result = decodeUplink(input);
-      } else if (typeof Decoder === 'function') {
-        result = Decoder(input.bytes, input.fPort);
-      } else {
-        throw new Error('No valid decode function found (decodeUplink or Decoder)');
-      }
-    `;
-
-    try {
-      const vmScript = new vm.Script(fullScript);
-      vmScript.runInContext(context, { timeout: 1000 });
-      return sandbox.result || {};
-    } catch (err: any) {
-      this.logger.error(`Payload decode error: ${err.message}`);
-      throw new BadRequestException(`Payload decoder execution failed: ${err.message}`);
+    const result = this.resilienceService.safeDecodePayload(script, bytesHex, fPort);
+    if (!result.success) {
+      this.logger.error(`Payload decode error: ${result.error}`);
+      throw new BadRequestException(`Payload decoder execution failed: ${result.error}`);
     }
+    return result.data || {};
   }
 }

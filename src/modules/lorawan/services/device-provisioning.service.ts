@@ -1,6 +1,8 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { NetworkServerEntity, NetworkServerType, RegionProfile } from '../../network-servers/entities/network-server.entity';
 import { RegisterDeviceDto } from '../dto/lorawan.dto';
+import { LorawanResilienceService } from './lorawan-resilience.service';
+import { cleanDevEUI } from '../common/lorawan-utils';
 
 export interface ProvisioningStepResult {
   step: number;
@@ -29,6 +31,8 @@ export interface ProvisioningResult {
 export class DeviceProvisioningService {
   private readonly logger = new Logger(DeviceProvisioningService.name);
 
+  constructor(private readonly resilienceService: LorawanResilienceService) {}
+
   /**
    * Provision device according to network server type:
    * - THINGPARK: 1-step provisioning (Device + AppEUI + AppKey in single payload)
@@ -54,10 +58,9 @@ export class DeviceProvisioningService {
     try {
       const endpoints = [`${baseUrl}/api/applications?limit=50`, `${baseUrl}/api/v4/applications?limit=50`];
       for (const ep of endpoints) {
-        const res = await fetch(ep, { headers }).catch(() => null);
-        if (res && (res.ok || res.status === 200)) {
-          const data: any = await res.json().catch(() => ({}));
-          const list = data.result || data.applications || [];
+        const res = await this.resilienceService.safeFetch(ep, { headers });
+        if (res.ok && res.data) {
+          const list = (res.data as any).result || (res.data as any).applications || [];
           if (Array.isArray(list) && list.length > 0 && list[0].id) {
             return String(list[0].id).trim();
           }
@@ -78,10 +81,9 @@ export class DeviceProvisioningService {
     try {
       const endpoints = [`${baseUrl}/api/device-profiles?limit=50`, `${baseUrl}/api/v4/device-profiles?limit=50`];
       for (const ep of endpoints) {
-        const res = await fetch(ep, { headers }).catch(() => null);
-        if (res && (res.ok || res.status === 200)) {
-          const data: any = await res.json().catch(() => ({}));
-          const list = data.result || data.deviceProfiles || [];
+        const res = await this.resilienceService.safeFetch(ep, { headers });
+        if (res.ok && res.data) {
+          const list = (res.data as any).result || (res.data as any).deviceProfiles || [];
           if (Array.isArray(list) && list.length > 0) {
             if (regionHint) {
               const cleanedHint = regionHint.toLowerCase().replace(/[^a-z0-9]/g, '');
@@ -182,43 +184,31 @@ export class DeviceProvisioningService {
     let step1ErrorMessage = '';
 
     try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 5000);
-
       if (isEdit) {
         // ALWAYS PUT on edit
         this.logger.log(`[ChirpStack] Updating device ${devEui} via PUT ${baseUrl}/api/devices/${devEui}`);
         let putEndpoint = `${baseUrl}/api/devices/${devEui}`;
-        let resPut = await fetch(putEndpoint, {
+        let resPut = await this.resilienceService.safeFetch(putEndpoint, {
           method: 'PUT',
           headers,
           body: JSON.stringify(step1Payload),
-          signal: controller.signal,
-        }).catch((err) => {
-          throw err;
         });
-        clearTimeout(timeoutId);
 
         if (resPut.status === 404) {
           const altPut = `${baseUrl}/api/v4/devices/${devEui}`;
-          const altRes = await fetch(altPut, {
+          const altRes = await this.resilienceService.safeFetch(altPut, {
             method: 'PUT',
             headers,
             body: JSON.stringify(step1Payload),
-          }).catch(() => null);
+          });
           if (altRes && altRes.status !== 404) {
             resPut = altRes;
             putEndpoint = altPut;
           }
         }
 
-        const resPutText = await resPut.text().catch(() => '');
-        let resPutJson: any = {};
-        try {
-          resPutJson = JSON.parse(resPutText);
-        } catch (e) {
-          resPutJson = { raw: resPutText };
-        }
+        const resPutJson = resPut.data || {};
+        const resPutText = typeof resPut.data === 'string' ? resPut.data : JSON.stringify(resPut.data || '');
 
         if (resPut.ok || resPut.status === 200 || resPut.status === 204) {
           step1Success = true;
@@ -238,42 +228,33 @@ export class DeviceProvisioningService {
         } else if (resPut.status === 401 || resPut.status === 403) {
           step1ErrorMessage = `ChirpStack: Invalid API Key or Unauthorized (HTTP ${resPut.status}).`;
         } else {
-          step1ErrorMessage = `ChirpStack: Failed to update device (HTTP ${resPut.status}): ${resPutJson.message || resPutText || 'Update rejected'}`;
+          step1ErrorMessage = `ChirpStack: Failed to update device (HTTP ${resPut.status}): ${(resPutJson as any)?.message || resPutText || 'Update rejected'}`;
         }
       } else {
         // ALWAYS POST on create (to detect duplicate DevEUI)
         this.logger.log(`[ChirpStack] Registering device ${devEui} via POST ${baseUrl}/api/devices`);
         let endpoint = `${baseUrl}/api/devices`;
-        let res1 = await fetch(endpoint, {
+        let res1 = await this.resilienceService.safeFetch(endpoint, {
           method: 'POST',
           headers,
           body: JSON.stringify(step1Payload),
-          signal: controller.signal,
-        }).catch((err) => {
-          throw err;
         });
-        clearTimeout(timeoutId);
 
         if (res1.status === 404) {
           const altEndpoint = `${baseUrl}/api/v4/devices`;
-          const altRes = await fetch(altEndpoint, {
+          const altRes = await this.resilienceService.safeFetch(altEndpoint, {
             method: 'POST',
             headers,
             body: JSON.stringify(step1Payload),
-          }).catch(() => null);
+          });
           if (altRes && altRes.status !== 404) {
             res1 = altRes;
             endpoint = altEndpoint;
           }
         }
 
-        let res1Text = await res1.text().catch(() => '');
-        let res1Json: any = {};
-        try {
-          res1Json = JSON.parse(res1Text);
-        } catch (e) {
-          res1Json = { raw: res1Text };
-        }
+        let res1Json = res1.data || {};
+        let res1Text = typeof res1.data === 'string' ? res1.data : JSON.stringify(res1.data || '');
 
         // Auto-discovery retry for 500 Record not found
         if (res1.status === 500 && (res1Text.includes('Record not found') || res1Text.includes('record not found'))) {
@@ -289,20 +270,16 @@ export class DeviceProvisioningService {
             deviceProfileId = discoveredDp;
             step1Payload = buildStep1Payload(applicationId, deviceProfileId);
 
-            const retryRes = await fetch(endpoint, {
+            const retryRes = await this.resilienceService.safeFetch(endpoint, {
               method: 'POST',
               headers,
               body: JSON.stringify(step1Payload),
-            }).catch(() => null);
+            });
 
             if (retryRes) {
               res1 = retryRes;
-              res1Text = await res1.text().catch(() => '');
-              try {
-                res1Json = JSON.parse(res1Text);
-              } catch (e) {
-                res1Json = { raw: res1Text };
-              }
+              res1Json = res1.data || {};
+              res1Text = typeof res1.data === 'string' ? res1.data : JSON.stringify(res1.data || '');
             }
           }
         }
@@ -336,7 +313,7 @@ export class DeviceProvisioningService {
         } else if (res1.status === 500 && (res1Text.includes('Record not found') || res1Text.includes('record not found'))) {
           step1ErrorMessage = `ChirpStack: Application ID (${applicationId}) or Device Profile ID (${deviceProfileId}) does not exist on ChirpStack server.`;
         } else {
-          step1ErrorMessage = `ChirpStack: Device creation error (HTTP ${res1.status}): ${res1Json.message || res1Text || 'Request rejected'}`;
+          step1ErrorMessage = `ChirpStack: Device creation error (HTTP ${res1.status}): ${(res1Json as any)?.message || res1Text || 'Request rejected'}`;
         }
       }
     } catch (err: any) {
@@ -380,27 +357,15 @@ export class DeviceProvisioningService {
 
     try {
       this.logger.log(`[ChirpStack] Configuring AppKey for device ${devEui}`);
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 5000);
-
       const method = isEdit ? 'PUT' : 'POST';
-      let res2 = await fetch(`${baseUrl}/api/devices/${devEui}/keys`, {
+      let res2 = await this.resilienceService.safeFetch(`${baseUrl}/api/devices/${devEui}/keys`, {
         method,
         headers,
         body: JSON.stringify(step2Payload),
-        signal: controller.signal,
-      }).catch((err) => {
-        throw err;
       });
-      clearTimeout(timeoutId);
 
-      const res2Text = await res2.text().catch(() => '');
-      let res2Json: any = {};
-      try {
-        res2Json = JSON.parse(res2Text);
-      } catch (e) {
-        res2Json = { raw: res2Text };
-      }
+      const res2Json = res2.data || {};
+      const res2Text = typeof res2.data === 'string' ? res2.data : JSON.stringify(res2.data || '');
 
       if (res2.ok || res2.status === 200 || res2.status === 201 || res2.status === 204) {
         step2Success = true;
@@ -417,11 +382,11 @@ export class DeviceProvisioningService {
         });
       } else if (!isEdit && (res2.status === 409 || res2Text.includes('already exists') || res2Text.includes('duplicate key'))) {
         // If keys already exist on create, update via PUT
-        const res2Put = await fetch(`${baseUrl}/api/devices/${devEui}/keys`, {
+        const res2Put = await this.resilienceService.safeFetch(`${baseUrl}/api/devices/${devEui}/keys`, {
           method: 'PUT',
           headers,
           body: JSON.stringify(step2Payload),
-        }).catch(() => null);
+        });
 
         if (res2Put && (res2Put.ok || res2Put.status === 200 || res2Put.status === 204)) {
           step2Success = true;
@@ -436,15 +401,15 @@ export class DeviceProvisioningService {
             payload: step2Payload,
           });
         } else {
-          step2ErrorMessage = `ChirpStack: Failed to update AppKey (${res2Json.message || res2Text})`;
+          step2ErrorMessage = `ChirpStack: Failed to update AppKey (${(res2Json as any)?.message || res2Text})`;
         }
       } else if (isEdit && res2.status === 404) {
         // If keys did not exist previously, create them via POST
-        const res2Post = await fetch(`${baseUrl}/api/devices/${devEui}/keys`, {
+        const res2Post = await this.resilienceService.safeFetch(`${baseUrl}/api/devices/${devEui}/keys`, {
           method: 'POST',
           headers,
           body: JSON.stringify(step2Payload),
-        }).catch(() => null);
+        });
 
         if (res2Post && (res2Post.ok || res2Post.status === 200 || res2Post.status === 201)) {
           step2Success = true;
@@ -459,10 +424,10 @@ export class DeviceProvisioningService {
             payload: step2Payload,
           });
         } else {
-          step2ErrorMessage = `ChirpStack: Failed to configure AppKey (${res2Json.message || res2Text})`;
+          step2ErrorMessage = `ChirpStack: Failed to configure AppKey (${(res2Json as any)?.message || res2Text})`;
         }
       } else {
-        step2ErrorMessage = `ChirpStack: Failed to configure AppKey (HTTP ${res2.status}): ${res2Json.message || res2Text || 'Request rejected'}`;
+        step2ErrorMessage = `ChirpStack: Failed to configure AppKey (HTTP ${res2.status}): ${(res2Json as any)?.message || res2Text || 'Request rejected'}`;
       }
     } catch (err: any) {
       step2ErrorMessage = `ChirpStack: Connection error while configuring AppKey (${err.message}).`;
@@ -555,32 +520,20 @@ export class DeviceProvisioningService {
     let errorMessage = '';
 
     try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 5000);
-
       const targetEndpoint = isEdit
         ? `${baseUrl}/devices/${devEui}`
         : baseUrl.endsWith('/devices') ? baseUrl : `${baseUrl}/devices`;
       const method = isEdit ? 'PUT' : 'POST';
 
       this.logger.log(`[ThingPark] ${isEdit ? 'Updating' : 'Provisioning'} device ${devEui} to ${targetEndpoint}`);
-      const res = await fetch(targetEndpoint, {
+      const res = await this.resilienceService.safeFetch(targetEndpoint, {
         method,
         headers,
         body: JSON.stringify(tpPayload),
-        signal: controller.signal,
-      }).catch((err) => {
-        throw err;
       });
-      clearTimeout(timeoutId);
 
-      const resText = await res.text().catch(() => '');
-      let resJson: any = {};
-      try {
-        resJson = JSON.parse(resText);
-      } catch (e) {
-        resJson = { raw: resText };
-      }
+      const resJson = res.data || {};
+      const resText = typeof res.data === 'string' ? res.data : JSON.stringify(res.data || '');
 
       if (res.ok || res.status === 200 || res.status === 201 || res.status === 204) {
         stepSuccess = true;
@@ -598,7 +551,7 @@ export class DeviceProvisioningService {
       } else if (!isEdit && (res.status === 409 || resText.includes('already exists') || resText.includes('duplicate'))) {
         errorMessage = `ThingPark: Device with DevEUI ${devEui} already exists on ThingPark Wireless.`;
       } else {
-        errorMessage = `ThingPark: Device ${isEdit ? 'update' : 'creation'} error (HTTP ${res.status}): ${resJson.message || resText || 'Request rejected'}`;
+        errorMessage = `ThingPark: Device ${isEdit ? 'update' : 'creation'} error (HTTP ${res.status}): ${(resJson as any)?.message || resText || 'Request rejected'}`;
       }
     } catch (err: any) {
       errorMessage = `ThingPark: Cannot connect to server (${err.message}).`;
@@ -675,21 +628,17 @@ export class DeviceProvisioningService {
     }
 
     try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 5000);
-
       if (server.type === NetworkServerType.CHIRPSTACK) {
         let endpoint = `${baseUrl}/api/devices/${cleanDevEui}`;
-        let res = await fetch(endpoint, { headers, signal: controller.signal }).catch(() => null);
-        clearTimeout(timeoutId);
+        let res = await this.resilienceService.safeFetch(endpoint, { headers });
 
-        if (!res || res.status === 404) {
+        if (!res.ok && res.status === 404) {
           endpoint = `${baseUrl}/api/v4/devices/${cleanDevEui}`;
-          res = await fetch(endpoint, { headers }).catch(() => null);
+          res = await this.resilienceService.safeFetch(endpoint, { headers });
         }
 
-        if (res && (res.ok || res.status === 200)) {
-          const data: any = await res.json().catch(() => ({}));
+        if (res.ok && res.data) {
+          const data: any = res.data;
           const lastSeenAt = data.lastSeenAt || null;
           const deviceStatus = data.deviceStatus || null;
           const isDisabled = data.device?.isDisabled || false;
@@ -716,18 +665,17 @@ export class DeviceProvisioningService {
             success: false,
             isOnline: false,
             lastSeenAt: null,
-            message: `ChirpStack query returned HTTP ${res?.status || 'ERR'}`,
+            message: `ChirpStack query returned HTTP ${res.status || 'ERR'}`,
           };
         }
       } else {
         // ThingPark Wireless
         const endpoint = `${baseUrl}/devices/${cleanDevEui.toUpperCase()}`;
-        const res = await fetch(endpoint, { headers, signal: controller.signal }).catch(() => null);
-        clearTimeout(timeoutId);
+        const res = await this.resilienceService.safeFetch(endpoint, { headers });
 
-        if (res && (res.ok || res.status === 200)) {
-          const data: any = await res.json().catch(() => ({}));
-          const lastSeenAt = data.lastPacketTime || data.lastSeenAt || null;
+        if (res.ok && res.data) {
+          const data: any = res.data;
+          const lastSeenAt = data.lastPacketTime || data.lastSeen || data.lastSeenAt || null;
           let isOnline = false;
           if (lastSeenAt) {
             const lastSeenTime = new Date(lastSeenAt).getTime();
@@ -746,7 +694,7 @@ export class DeviceProvisioningService {
             success: false,
             isOnline: false,
             lastSeenAt: null,
-            message: `ThingPark query returned HTTP ${res?.status || 'ERR'}`,
+            message: `ThingPark query returned HTTP ${res.status || 'ERR'}`,
           };
         }
       }
@@ -777,22 +725,17 @@ export class DeviceProvisioningService {
     }
 
     try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 3000);
-
       const targetUrl =
         server.type === NetworkServerType.CHIRPSTACK
           ? `${baseUrl}/api/devices/${devEui.toLowerCase()}`
           : `${baseUrl}/devices/${devEui.toUpperCase()}`;
 
-      const res = await fetch(targetUrl, {
+      const res = await this.resilienceService.safeFetch(targetUrl, {
         method: 'DELETE',
         headers,
-        signal: controller.signal,
-      }).catch(() => null);
-      clearTimeout(timeoutId);
+      });
 
-      return { success: !!(res && (res.ok || res.status === 404)) };
+      return { success: res.ok || res.status === 404 };
     } catch (e: any) {
       return { success: false, error: e.message };
     }

@@ -22,10 +22,8 @@ function isUserSuperAdmin(user?: any): boolean {
   return false;
 }
 
-export function cleanFirmwareVersion(val?: string | number): string {
-  if (val === undefined || val === null) return '';
-  return String(val).trim().replace(/^[vV]/, '').trim();
-}
+import { cleanFirmwareVersion, cleanDevEUI, cleanSku, resolveDecoderId } from './common/lorawan-utils';
+export { cleanFirmwareVersion } from './common/lorawan-utils';
 
 @Injectable()
 export class LorawanService implements OnModuleInit {
@@ -163,12 +161,13 @@ export class LorawanService implements OnModuleInit {
 
     let payloadFormatterScript = dto.payloadFormatterScript || undefined;
     let decoderId = dto.decoderId ? dto.decoderId.trim() : undefined;
-    const cleanSku = dto.sku ? dto.sku.trim().toUpperCase() : undefined;
-    const cleanFw = dto.firmwareVersion ? cleanFirmwareVersion(dto.firmwareVersion) : undefined;
+    const cleanSkuVal = cleanSku(dto.sku);
+    const cleanFw = cleanFirmwareVersion(dto.firmwareVersion);
 
     // Auto-assign decoder `${sku}_${firmwareVersion}` when SKU and firmwareVersion are provided
-    if (cleanSku && cleanFw) {
-      decoderId = `${cleanSku}_${cleanFw}`;
+    const autoDecoder = resolveDecoderId(cleanSkuVal, cleanFw);
+    if (autoDecoder) {
+      decoderId = autoDecoder;
     }
 
     if (decoderId && !payloadFormatterScript) {
@@ -195,7 +194,7 @@ export class LorawanService implements OnModuleInit {
         networkServerId: dto.networkServerId || undefined,
         regionProfileId: dto.regionProfileId || undefined,
         decoderId: decoderId || undefined,
-        sku: cleanSku || undefined,
+        sku: cleanSkuVal || undefined,
         firmwareVersion: cleanFw || undefined,
         payloadFormatterScript,
         syncStatus,
@@ -215,8 +214,8 @@ export class LorawanService implements OnModuleInit {
       }
       device.networkServerId = dto.networkServerId || undefined as any;
       device.regionProfileId = dto.regionProfileId || undefined as any;
-      if (cleanSku !== undefined) {
-        device.sku = cleanSku;
+      if (cleanSkuVal !== undefined) {
+        device.sku = cleanSkuVal;
       }
       if (cleanFw !== undefined) {
         device.firmwareVersion = cleanFw;
@@ -270,11 +269,11 @@ export class LorawanService implements OnModuleInit {
     if (dto.payloadFormatterScript !== undefined) device.payloadFormatterScript = dto.payloadFormatterScript;
     if (dto.isActive !== undefined) device.isActive = Boolean(dto.isActive);
 
-    if (dto.sku !== undefined) device.sku = dto.sku ? dto.sku.trim().toUpperCase() : null as any;
-    if (dto.firmwareVersion !== undefined) device.firmwareVersion = dto.firmwareVersion ? cleanFirmwareVersion(dto.firmwareVersion) : null as any;
+    if (dto.sku !== undefined) device.sku = cleanSku(dto.sku) || (null as any);
+    if (dto.firmwareVersion !== undefined) device.firmwareVersion = cleanFirmwareVersion(dto.firmwareVersion) || (null as any);
 
-    if (device.sku && device.firmwareVersion) {
-      const autoDecoderId = `${device.sku}_${device.firmwareVersion}`;
+    const autoDecoderId = resolveDecoderId(device.sku, device.firmwareVersion);
+    if (autoDecoderId) {
       device.decoderId = autoDecoderId;
       if (!dto.payloadFormatterScript) {
         try {

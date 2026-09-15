@@ -1,12 +1,24 @@
-import { Module } from '@nestjs/common';
+import { Module, Global } from '@nestjs/common';
 import { LorawanService } from './lorawan.service';
 import { LorawanController } from './lorawan.controller';
 import { PayloadFormatterService } from './payload-formatters/payload-formatter.service';
 import { DeviceProvisioningService } from './services/device-provisioning.service';
+import { LorawanResilienceService } from './services/lorawan-resilience.service';
 
+@Global()
 @Module({
-  providers: [LorawanService, PayloadFormatterService, DeviceProvisioningService],
+  providers: [
+    LorawanResilienceService,
+    PayloadFormatterService,
+    DeviceProvisioningService,
+    LorawanService,
+  ],
   controllers: [LorawanController],
-  exports: [LorawanService, PayloadFormatterService, DeviceProvisioningService],
+  exports: [
+    LorawanResilienceService,
+    PayloadFormatterService,
+    DeviceProvisioningService,
+    LorawanService,
+  ],
 })
 export class LorawanModule {}

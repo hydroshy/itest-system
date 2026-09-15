@@ -6,16 +6,20 @@ import {
   Logger,
 } from '@nestjs/common';
 import { Repository } from 'typeorm';
-import * as vm from 'vm';
 import { DynamicDatabaseService } from '../../database/dynamic-database.service';
 import { DecoderEntity } from './entities/decoder.entity';
 import { CreateDecoderDto, UpdateDecoderDto, TestDecoderDto } from './dto/decoder.dto';
+import { LorawanResilienceService } from '../../lorawan/services/lorawan-resilience.service';
+import { cleanSku, resolveDecoderId } from '../../lorawan/common/lorawan-utils';
 
 @Injectable()
 export class DecoderService {
   private readonly logger = new Logger(DecoderService.name);
 
-  constructor(private readonly dynamicDatabaseService: DynamicDatabaseService) {}
+  constructor(
+    private readonly dynamicDatabaseService: DynamicDatabaseService,
+    private readonly resilienceService: LorawanResilienceService,
+  ) {}
 
   private getRepository(): Repository<DecoderEntity> {
     return this.dynamicDatabaseService.getRepositoryForTable('decoder', DecoderEntity);
@@ -41,19 +45,15 @@ export class DecoderService {
   }
 
   private validateJavaScriptCode(code: string): void {
-    if (!code || !code.trim()) {
-      throw new BadRequestException('Mã JavaScript của Decoder không được để trống');
-    }
-    try {
-      new vm.Script(code);
-    } catch (err: any) {
-      throw new BadRequestException(`Lỗi cú pháp JavaScript trong decoder: ${err.message}`);
+    const validation = this.resilienceService.validateJavaScript(code);
+    if (!validation.valid) {
+      throw new BadRequestException(validation.error);
     }
   }
 
   async create(dto: CreateDecoderDto, author?: string): Promise<DecoderEntity> {
     const repo = this.getRepository();
-    const sku = dto.sku.trim();
+    const sku = cleanSku(dto.sku);
     if (!sku) {
       throw new BadRequestException('SKU must not be empty');
     }
@@ -65,7 +65,10 @@ export class DecoderService {
     this.validateJavaScriptCode(dto.decoderCode);
 
     // Standardized composite ID: `${sku}_${firmwareVersion}`
-    const id = `${sku}_${dto.firmwareVersion}`;
+    const id = resolveDecoderId(sku, dto.firmwareVersion);
+    if (!id) {
+      throw new BadRequestException('Cannot generate valid decoder ID from SKU and firmware version');
+    }
 
     const existing = await repo.findOne({ where: { id } });
     if (existing) {
@@ -117,68 +120,28 @@ export class DecoderService {
   }
 
   testDecode(dto: TestDecoderDto): { success: boolean; input: any; output?: any; error?: string } {
-    try {
-      const cleanHex = dto.hex.trim().replace(/\s+/g, '');
-      if (!cleanHex) {
-        throw new BadRequestException('Hex string must not be empty');
-      }
-      if (cleanHex.length % 2 !== 0) {
-        throw new BadRequestException('Hex string must have an even number of characters');
-      }
-
-      const bytes = Buffer.from(cleanHex, 'hex');
-      const fPort = dto.fPort !== undefined && dto.fPort !== null ? Number(dto.fPort) : 1;
-
-      const input = {
-        bytes: Array.from(bytes),
-        fPort,
-      };
-
-      const sandbox = {
-        input,
-        bytes: Array.from(bytes),
-        fPort,
-        console: {
-          log: () => {},
-          error: () => {},
-          warn: () => {},
-        },
-        result: null as any,
-      };
-
-      const context = vm.createContext(sandbox);
-      const fullScript = `
-        ${dto.code}
-        if (typeof decodeUplink === 'function') {
-          result = decodeUplink(input);
-        } else if (typeof Decoder === 'function') {
-          result = Decoder(input.bytes, input.fPort);
-        } else {
-          throw new Error('No valid decode function found. Define decodeUplink(input) or Decoder(bytes, fPort)');
-        }
-      `;
-
-      const vmScript = new vm.Script(fullScript);
-      vmScript.runInContext(context, { timeout: 2000 });
-
-      return {
-        success: true,
-        input: {
-          hex: cleanHex,
-          bytes: Array.from(bytes),
-          fPort,
-        },
-        output: sandbox.result,
-      };
-    } catch (err: any) {
+    const res = this.resilienceService.safeDecodePayload(dto.code, dto.hex, dto.fPort);
+    if (!res.success) {
       return {
         success: false,
         input: {
           hex: dto.hex,
           fPort: dto.fPort || 1,
         },
-        error: err.message,
+        error: res.error,
       };
     }
+
+    const cleanHex = dto.hex.trim().replace(/\s+/g, '');
+    const bytes = Array.from(Buffer.from(cleanHex, 'hex'));
+    return {
+      success: true,
+      input: {
+        hex: cleanHex,
+        bytes,
+        fPort: dto.fPort || 1,
+      },
+      output: res.data,
+    };
   }
 }
