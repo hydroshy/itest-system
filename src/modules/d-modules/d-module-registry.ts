@@ -80,6 +80,19 @@ export const DEFAULT_D_MODULES: DModule[] = [
     status: 'active',
     isActive: true,
   },
+  {
+    id: 'serial-uart-monitor',
+    code: 'D_MOD_SERIAL_UART',
+    title: 'SERIAL UART & MODBUS DIAGNOSTIC',
+    description: 'Directly connect to COM / USB-UART ports via Web Serial API. Perform Modbus RTU / UART diagnostics, live tabular memory map, and continuous polling.',
+    icon: 'fa-solid fa-bolt',
+    color: 'from-cyan-500 to-blue-600',
+    badge: 'UART / Web Serial',
+    category: 'Monitoring',
+    requiredPermission: 'lorawan:device:read',
+    status: 'active',
+    isActive: true,
+  },
 ];
 
 

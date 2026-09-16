@@ -1,8 +1,9 @@
-import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit, Optional } from '@nestjs/common';
 import * as fs from 'fs';
 import * as path from 'path';
 import { User, UserType } from '../users/entities/user.entity';
 import { DModule, DEFAULT_D_MODULES, RoleLayoutConfig } from './d-module-registry';
+import { DynamicDatabaseService } from '../database/dynamic-database.service';
 
 export interface CreateDModuleDto {
   id: string;
@@ -34,6 +35,8 @@ export class DModulesService implements OnModuleInit {
   private readonly configPath = process.env.DASHBOARD_MODULES_CONFIG_PATH || path.join(process.cwd(), 'config', 'dashboard-modules.json');
   private modules: DModule[] = [];
   private roleLayouts: Record<string, RoleLayoutConfig> = {};
+
+  constructor(@Optional() private readonly dbService?: DynamicDatabaseService) {}
 
   onModuleInit() {
     this.loadModules();
@@ -378,5 +381,132 @@ export class DModulesService implements OnModuleInit {
     this.saveModules();
     this.logger.log(`Reset all Modules & Role Layouts to standard default registry.`);
     return this.modules;
+  }
+
+  async getModbusProfiles(): Promise<any[]> {
+    if (this.dbService) {
+      try {
+        const ds = this.dbService.getDataSourceForTable('modbus_memmap_profiles');
+        const rows = await ds.query(
+          `SELECT DISTINCT sku, firmware_version, profile_name, description FROM public.modbus_memmap_profiles ORDER BY sku ASC, firmware_version ASC;`,
+        );
+        if (Array.isArray(rows) && rows.length > 0) {
+          return rows;
+        }
+      } catch (e) {}
+    }
+    return [
+      {
+        sku: 'WSL-AMBIENT',
+        firmware_version: 1,
+        profile_name: 'Daviteq WSL Ambient T&H Sensor',
+        description: 'Ambient Temperature, Humidity, Barometer, Light, Battery',
+      },
+      {
+        sku: 'WSL-LEVEL',
+        firmware_version: 1,
+        profile_name: 'Daviteq WSL Hydrostatic Level Sensor',
+        description: 'Liquid Level, Water Temperature, Sensor Status, Battery',
+      },
+      {
+        sku: 'ENERGY-METER-3P',
+        firmware_version: 1,
+        profile_name: '3-Phase Industrial Energy Meter',
+        description: 'Voltage L1-L3, Current L1-L3, Active Power, Power Factor, Frequency',
+      },
+      {
+        sku: 'MODBUS-IO-MODULE',
+        firmware_version: 1,
+        profile_name: 'Daviteq Modbus IO Module',
+        description: 'Digital Inputs, Relay Outputs, 4-20mA / 0-10V Analog Inputs',
+      },
+    ];
+  }
+
+  async getModbusRegisters(sku: string, firmwareVersion: number = 1): Promise<any[]> {
+    if (this.dbService && sku) {
+      try {
+        const ds = this.dbService.getDataSourceForTable('modbus_memmap_registers');
+        const cleanSku = sku.replace(/'/g, "''");
+        const fw = Number(firmwareVersion) || 1;
+        const rows = await ds.query(`
+          SELECT 
+            r.id,
+            r.row_order,
+            r.reg_no,
+            r.is_enabled AS check,
+            COALESCE(p.slave_id, 1) AS slave,
+            r.fc_read AS fc,
+            r.register_address AS reg,
+            r.num_registers AS numreg,
+            r.format,
+            r.description AS parameter,
+            COALESCE(r.comment, '') AS description,
+            r.val_range AS range,
+            r.default_value AS valuetowrite,
+            r.is_writable AS iswritable,
+            r.endianness,
+            r.comment
+          FROM public.modbus_memmap_registers r
+          LEFT JOIN public.modbus_memmap_profiles p
+            ON r.sku = p.sku AND r.firmware_version = p.firmware_version
+          WHERE r.sku = '${cleanSku}' AND r.firmware_version = ${fw}
+          ORDER BY r.row_order ASC, r.register_address ASC;
+        `);
+        if (Array.isArray(rows) && rows.length > 0) {
+          return rows;
+        }
+      } catch (e) {}
+    }
+
+    return this.getBuiltinRegisters(sku);
+  }
+
+  private getBuiltinRegisters(sku: string): any[] {
+    const s = (sku || '').toUpperCase();
+    if (s.includes('LEVEL')) {
+      return [
+        { id: 1, row_order: 1, reg_no: 1, check: true, slave: 1, fc: 4, reg: 0, numreg: 2, format: 'Float32', endianness: 'Big-Endian', parameter: 'Liquid Level / Depth', range: '0 ~ 10.0 m', valuetowrite: '', iswritable: false },
+        { id: 2, row_order: 2, reg_no: 2, check: true, slave: 1, fc: 4, reg: 2, numreg: 2, format: 'Float32', endianness: 'Big-Endian', parameter: 'Water Temperature', range: '-10 ~ 60 °C', valuetowrite: '', iswritable: false },
+        { id: 3, row_order: 3, reg_no: 3, check: true, slave: 1, fc: 4, reg: 4, numreg: 1, format: 'UInt16', endianness: 'Big-Endian', parameter: 'Sensor Status Code', range: '0: OK', valuetowrite: '', iswritable: false },
+        { id: 4, row_order: 4, reg_no: 4, check: true, slave: 1, fc: 4, reg: 5, numreg: 1, format: 'UInt16', endianness: 'Big-Endian', parameter: 'Battery Voltage', range: '2500 ~ 3600 mV', valuetowrite: '', iswritable: false },
+        { id: 5, row_order: 5, reg_no: 5, check: true, slave: 1, fc: 3, reg: 50, numreg: 2, format: 'Float32', endianness: 'Big-Endian', parameter: 'Zero Level Calibration', range: '-5.0 ~ 5.0 m', valuetowrite: '0.0', iswritable: true },
+        { id: 6, row_order: 6, reg_no: 6, check: true, slave: 1, fc: 3, reg: 52, numreg: 2, format: 'Float32', endianness: 'Big-Endian', parameter: 'High Alarm Threshold', range: '0 ~ 10.0 m', valuetowrite: '8.5', iswritable: true },
+      ];
+    }
+    if (s.includes('ENERGY') || s.includes('METER')) {
+      return [
+        { id: 1, row_order: 1, reg_no: 1, check: true, slave: 1, fc: 3, reg: 0, numreg: 2, format: 'Float32', endianness: 'Big-Endian', parameter: 'Phase A Voltage', range: 'V', valuetowrite: '', iswritable: false },
+        { id: 2, row_order: 2, reg_no: 2, check: true, slave: 1, fc: 3, reg: 2, numreg: 2, format: 'Float32', endianness: 'Big-Endian', parameter: 'Phase B Voltage', range: 'V', valuetowrite: '', iswritable: false },
+        { id: 3, row_order: 3, reg_no: 3, check: true, slave: 1, fc: 3, reg: 4, numreg: 2, format: 'Float32', endianness: 'Big-Endian', parameter: 'Phase C Voltage', range: 'V', valuetowrite: '', iswritable: false },
+        { id: 4, row_order: 4, reg_no: 4, check: true, slave: 1, fc: 3, reg: 6, numreg: 2, format: 'Float32', endianness: 'Big-Endian', parameter: 'Phase A Current', range: 'A', valuetowrite: '', iswritable: false },
+        { id: 5, row_order: 5, reg_no: 5, check: true, slave: 1, fc: 3, reg: 8, numreg: 2, format: 'Float32', endianness: 'Big-Endian', parameter: 'Phase B Current', range: 'A', valuetowrite: '', iswritable: false },
+        { id: 6, row_order: 6, reg_no: 6, check: true, slave: 1, fc: 3, reg: 10, numreg: 2, format: 'Float32', endianness: 'Big-Endian', parameter: 'Phase C Current', range: 'A', valuetowrite: '', iswritable: false },
+        { id: 7, row_order: 7, reg_no: 7, check: true, slave: 1, fc: 3, reg: 12, numreg: 2, format: 'Float32', endianness: 'Big-Endian', parameter: 'Total Active Power', range: 'kW', valuetowrite: '', iswritable: false },
+        { id: 8, row_order: 8, reg_no: 8, check: true, slave: 1, fc: 3, reg: 14, numreg: 2, format: 'Float32', endianness: 'Big-Endian', parameter: 'Power Factor', range: '0.0 ~ 1.0', valuetowrite: '', iswritable: false },
+        { id: 9, row_order: 9, reg_no: 9, check: true, slave: 1, fc: 3, reg: 16, numreg: 2, format: 'Float32', endianness: 'Big-Endian', parameter: 'Grid Frequency', range: 'Hz', valuetowrite: '', iswritable: false },
+      ];
+    }
+    if (s.includes('IO') || s.includes('TRANSCEIVER')) {
+      return [
+        { id: 1, row_order: 1, reg_no: 1, check: true, slave: 1, fc: 1, reg: 0, numreg: 1, format: 'Boolean', endianness: 'Big-Endian', parameter: 'DO 1 (Relay Output 1)', range: '0 / 1', valuetowrite: '1', iswritable: true },
+        { id: 2, row_order: 2, reg_no: 2, check: true, slave: 1, fc: 1, reg: 1, numreg: 1, format: 'Boolean', endianness: 'Big-Endian', parameter: 'DO 2 (Relay Output 2)', range: '0 / 1', valuetowrite: '0', iswritable: true },
+        { id: 3, row_order: 3, reg_no: 3, check: true, slave: 1, fc: 2, reg: 0, numreg: 1, format: 'Boolean', endianness: 'Big-Endian', parameter: 'DI 1 (Digital Input 1)', range: '0 / 1', valuetowrite: '', iswritable: false },
+        { id: 4, row_order: 4, reg_no: 4, check: true, slave: 1, fc: 2, reg: 1, numreg: 1, format: 'Boolean', endianness: 'Big-Endian', parameter: 'DI 2 (Digital Input 2)', range: '0 / 1', valuetowrite: '', iswritable: false },
+        { id: 5, row_order: 5, reg_no: 5, check: true, slave: 1, fc: 4, reg: 0, numreg: 1, format: 'UInt16', endianness: 'Big-Endian', parameter: 'AI 1 (4-20mA Raw ADC)', range: '0 ~ 4095', valuetowrite: '', iswritable: false },
+        { id: 6, row_order: 6, reg_no: 6, check: true, slave: 1, fc: 4, reg: 1, numreg: 1, format: 'UInt16', endianness: 'Big-Endian', parameter: 'AI 2 (0-10V Raw ADC)', range: '0 ~ 4095', valuetowrite: '', iswritable: false },
+        { id: 7, row_order: 7, reg_no: 7, check: true, slave: 1, fc: 4, reg: 2, numreg: 2, format: 'UInt32', endianness: 'Big-Endian', parameter: 'Pulse Counter 1', range: '0 ~ 4294967295', valuetowrite: '', iswritable: false },
+      ];
+    }
+    // Default: WSL-AMBIENT
+    return [
+      { id: 1, row_order: 1, reg_no: 1, check: true, slave: 1, fc: 4, reg: 0, numreg: 2, format: 'Float32', endianness: 'Big-Endian', parameter: 'Ambient Temperature', range: '-40 ~ 85 °C', valuetowrite: '', iswritable: false },
+      { id: 2, row_order: 2, reg_no: 2, check: true, slave: 1, fc: 4, reg: 2, numreg: 2, format: 'Float32', endianness: 'Big-Endian', parameter: 'Relative Humidity', range: '0 ~ 100 %RH', valuetowrite: '', iswritable: false },
+      { id: 3, row_order: 3, reg_no: 3, check: true, slave: 1, fc: 4, reg: 4, numreg: 2, format: 'Float32', endianness: 'Big-Endian', parameter: 'Barometric Pressure', range: '300 ~ 1100 hPa', valuetowrite: '', iswritable: false },
+      { id: 4, row_order: 4, reg_no: 4, check: true, slave: 1, fc: 4, reg: 6, numreg: 2, format: 'Float32', endianness: 'Big-Endian', parameter: 'Illuminance / Light', range: '0 ~ 65535 Lux', valuetowrite: '', iswritable: false },
+      { id: 5, row_order: 5, reg_no: 5, check: true, slave: 1, fc: 4, reg: 8, numreg: 1, format: 'UInt16', endianness: 'Big-Endian', parameter: 'Battery Voltage', range: '2500 ~ 3600 mV', valuetowrite: '', iswritable: false },
+      { id: 6, row_order: 6, reg_no: 6, check: true, slave: 1, fc: 3, reg: 100, numreg: 1, format: 'UInt16', endianness: 'Big-Endian', parameter: 'Transmission Interval', range: '10 ~ 86400 s', valuetowrite: '60', iswritable: true },
+      { id: 7, row_order: 7, reg_no: 7, check: true, slave: 1, fc: 3, reg: 101, numreg: 1, format: 'UInt16', endianness: 'Big-Endian', parameter: 'Modbus Slave Address', range: '1 ~ 247', valuetowrite: '1', iswritable: true },
+    ];
   }
 }

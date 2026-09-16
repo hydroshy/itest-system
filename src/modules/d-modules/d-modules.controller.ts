@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Put, Delete, Body, Param, UseGuards, HttpException, HttpStatus } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Body, Param, Query, UseGuards, HttpException, HttpStatus } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
@@ -11,6 +11,18 @@ import { DModulesService, CreateDModuleDto, UpdateDModuleDto, SaveRoleLayoutDto 
 @ApiBearerAuth()
 export class DModulesController {
   constructor(private readonly dModulesService: DModulesService) {}
+
+  @Get('serial-memmap/profiles')
+  @ApiOperation({ summary: 'Get Modbus memory map profiles for serial diagnostic' })
+  getSerialProfiles() {
+    return this.dModulesService.getModbusProfiles();
+  }
+
+  @Get('serial-memmap/registers')
+  @ApiOperation({ summary: 'Get Modbus registers by SKU and firmware version' })
+  getSerialRegisters(@Query('sku') sku: string, @Query('firmwareVersion') firmwareVersion?: number) {
+    return this.dModulesService.getModbusRegisters(sku, firmwareVersion);
+  }
 
   @Get()
   @ApiOperation({ summary: 'Get accessible dashboard modules for the logged in user (sorted by role layout)' })
