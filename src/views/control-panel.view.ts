@@ -3969,7 +3969,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
 
         <!-- TAB 12: MODBUS PRESETS & TEMPLATES MANAGER -->
         <div v-show="activeTab === 'modbus-presets'" class="space-y-6">
-          \${MODBUS_PRESETS_TEMPLATE}
+          ${MODBUS_PRESETS_TEMPLATE}
         </div>
 
       </main>
@@ -5414,7 +5414,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
       <span>{{ toast.text }}</span>
     </div>
 
-    \${MODBUS_PRESETS_MODALS}
+    ${MODBUS_PRESETS_MODALS}
 
   </div>
 
@@ -5447,7 +5447,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
       }
     }, 2500);
 
-    \${MODBUS_PRESETS_SCRIPT}
+    ${MODBUS_PRESETS_SCRIPT}
 
     const { createApp, ref, computed, onMounted, watch } = Vue;
 
@@ -9636,6 +9636,13 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
           }
         };
 
+        const modbusPresetsModule = useModbusPresetsModule({
+          showToast,
+          authHeaders,
+          currentUser,
+          activeTab,
+        });
+
         watch(activeTab, (newTab) => {
           try {
             window.history.replaceState(null, null, '#' + newTab);
@@ -9739,13 +9746,6 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
             activeTab.value = 'overview';
           }
         };
-
-        const modbusPresetsModule = useModbusPresetsModule({
-          showToast,
-          authHeaders,
-          currentUser,
-          activeTab,
-        });
 
         onMounted(() => {
           initControlPanel();
