@@ -1,3 +1,9 @@
+import {
+  MODBUS_PRESETS_TEMPLATE,
+  MODBUS_PRESETS_MODALS,
+  MODBUS_PRESETS_SCRIPT,
+} from './control-panel-modules/modbus-presets.module';
+
 export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -13,6 +19,18 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
   <script src="https://cdn.jsdelivr.net/npm/socket.io-client@4.7.4/dist/socket.io.min.js"></script>
+  <!-- Tabulator 6.3.0 & SheetJS (XLSX) -->
+  <link rel="stylesheet" href="/vendor/tabulator/tabulator_midnight.min.css">
+  <script src="/vendor/tabulator/tabulator.min.js"></script>
+  <script src="/vendor/xlsx/xlsx.full.min.js"></script>
+  <script>
+    if (typeof Tabulator === 'undefined') {
+      document.write('<script src="https://cdnjs.cloudflare.com/ajax/libs/tabulator-tables/6.3.0/js/tabulator.min.js"><\\/script>');
+    }
+    if (typeof XLSX === 'undefined') {
+      document.write('<script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"><\\/script>');
+    }
+  </script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
@@ -339,6 +357,13 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
               <span class="flex items-center gap-2.5">
                 <i class="fa-solid fa-paper-plane w-4 text-center text-xs text-indigo-400"></i>
                 <span>Downlink Actuator</span>
+              </span>
+            </button>
+
+            <button @click="switchTab('modbus-presets')" :class="{ active: activeTab === 'modbus-presets' }" class="nav-item">
+              <span class="flex items-center gap-2.5">
+                <i class="fa-solid fa-file-excel w-4 text-center text-xs text-emerald-400"></i>
+                <span>Modbus Presets</span>
               </span>
             </button>
           </div>
@@ -3942,6 +3967,11 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
           </div>
         </div>
 
+        <!-- TAB 12: MODBUS PRESETS & TEMPLATES MANAGER -->
+        <div v-show="activeTab === 'modbus-presets'" class="space-y-6">
+          \${MODBUS_PRESETS_TEMPLATE}
+        </div>
+
       </main>
     </div>
 
@@ -5384,6 +5414,8 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
       <span>{{ toast.text }}</span>
     </div>
 
+    \${MODBUS_PRESETS_MODALS}
+
   </div>
 
   <!-- Vue 3 with multiple CDN failover mirrors -->
@@ -5414,6 +5446,8 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
         appEl.removeAttribute('v-cloak');
       }
     }, 2500);
+
+    \${MODBUS_PRESETS_SCRIPT}
 
     const { createApp, ref, computed, onMounted, watch } = Vue;
 
@@ -5939,6 +5973,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
             case 'decoder': return 'Decoder Manager';
             case 'hmi-studio': return 'HMI SCADA Studio';
             case 'downlink': return 'Downlink Actuator & Queue';
+            case 'modbus-presets': return 'Modbus Presets & Templates';
             default: return activeTab.value;
           }
         });
@@ -9650,6 +9685,12 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
           } else {
             stopDeviceQueuePolling();
           }
+          if (newTab === 'modbus-presets') {
+            modbusPresetsModule.fetchPresets();
+            setTimeout(() => {
+              modbusPresetsModule.initPresetsTabulator();
+            }, 120);
+          }
         });
 
         const initControlPanel = async () => {
@@ -9688,10 +9729,23 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
               startDeviceQueuePolling();
               initHmiRealtimeStream();
             }
+            if (hash === 'modbus-presets') {
+              modbusPresetsModule.fetchPresets();
+              setTimeout(() => {
+                modbusPresetsModule.initPresetsTabulator();
+              }, 150);
+            }
           } else {
             activeTab.value = 'overview';
           }
         };
+
+        const modbusPresetsModule = useModbusPresetsModule({
+          showToast,
+          authHeaders,
+          currentUser,
+          activeTab,
+        });
 
         onMounted(() => {
           initControlPanel();
@@ -9702,8 +9756,8 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
           initControlPanel();
         });
 
-
         return {
+          ...modbusPresetsModule,
           activeTab,
           sidebarOpen,
           userMenuOpen,

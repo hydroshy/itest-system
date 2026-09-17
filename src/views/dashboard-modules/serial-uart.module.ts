@@ -1123,7 +1123,7 @@ function useSerialModule(ctx) {
                 field: "format",
                 editor: "list",
                 editorParams: {
-                  values: ["float", "uint", "int", "hex"]
+                  values: ["float", "uint", "int", "hex", "string"]
                 },
                 width: 90,
                 hozAlign: "center",
@@ -1316,6 +1316,7 @@ function useSerialModule(ctx) {
 
         const normalizeFormat = (f) => {
           const s = String(f || '').toLowerCase();
+          if (s.includes('string') || s.includes('str') || s.includes('ascii') || s.includes('text')) return 'string';
           if (s.includes('float') || s.includes('double')) return 'float';
           if (s.includes('uint')) return 'uint';
           if (s.includes('int')) return 'int';
@@ -1492,12 +1493,49 @@ function useSerialModule(ctx) {
           });
         });
 
+        // Fetch available presets from C-Module API
+        const fetchAvailablePresets = async () => {
+          try {
+            const res = await fetch('/api/modbus-presets', {
+              headers: authHeaders(),
+              credentials: 'include',
+            });
+            if (res.ok) {
+              const data = await res.json();
+              if (Array.isArray(data) && data.length > 0) {
+                // Map presets so only the template name is loaded for display, as required
+                const customList = data.map(t => ({
+                  sku: t.id,
+                  name: t.name,
+                  description: t.description || '',
+                  profileType: t.profileType,
+                  isCustomTemplate: true,
+                }));
+                modbusPresets.value = [
+                  ...customList,
+                  { sku: 'WSL-AMBIENT', name: 'Daviteq WSL Ambient T&H Sensor', fw: 1 },
+                  { sku: 'WSL-LEVEL', name: 'Daviteq WSL Hydrostatic Level Sensor', fw: 1 },
+                  { sku: 'ENERGY-METER-3P', name: '3-Phase Industrial Energy Meter', fw: 1 },
+                  { sku: 'MODBUS-IO-MODULE', name: 'Daviteq Modbus IO Module', fw: 1 },
+                  { sku: 'CUSTOM', name: 'Custom Memory Map', fw: 1 },
+                ];
+                if (!selectedModbusPreset.value || !modbusPresets.value.some(p => p.sku === selectedModbusPreset.value)) {
+                  selectedModbusPreset.value = modbusPresets.value[0].sku;
+                }
+              }
+            }
+          } catch (e) {
+            console.warn('Could not fetch modbus presets in D-module:', e);
+          }
+        };
+
         // Initialize and fetch profiles
         let isInitializingModule = false;
         const initSerialModule = async () => {
           if (isInitializingModule) return;
           isInitializingModule = true;
           try {
+            await fetchAvailablePresets();
             if (modbusRegisters.value.length === 0) {
               await applySelectedPreset();
             }
@@ -1519,6 +1557,43 @@ function useSerialModule(ctx) {
             updateTabulatorData();
             showToast('Loaded empty custom register map', 'info');
             return;
+          }
+
+          // 1. Try loading from C-module templates API (/api/modbus-presets/:id)
+          try {
+            const res = await fetch('/api/modbus-presets/' + encodeURIComponent(sku), {
+              headers: authHeaders(),
+              credentials: 'include',
+            });
+            if (res.ok) {
+              const tpl = await res.json();
+              if (tpl && Array.isArray(tpl.registers) && tpl.registers.length > 0) {
+                modbusRegisters.value = tpl.registers.map((r, i) => ({
+                  id: r.id || 'reg_' + sku + '_' + i + '_' + Math.random().toString(36).substr(2, 5),
+                  checked: r.checked !== false,
+                  slave: Number(r.slave) || 1,
+                  fc: Number(r.fc) || 3,
+                  reg: Number(r.reg) || 0,
+                  numreg: Number(r.numreg) || 1,
+                  format: normalizeFormat(r.format),
+                  endianness: r.endianness || 'Big-Endian',
+                  parameter: r.parameter || ('Register ' + (r.reg ?? i)),
+                  description: r.description || r.comment || '',
+                  valuetowrite: r.valuetowrite !== undefined && r.valuetowrite !== null ? String(r.valuetowrite) : '',
+                  liveValue: '',
+                  exception: '',
+                  status: 'IDLE',
+                  reading: false,
+                  writing: false,
+                  lastUpdated: null,
+                }));
+                updateTabulatorData();
+                showToast('Loaded ' + modbusRegisters.value.length + ' registers for ' + tpl.name, 'success');
+                return;
+              }
+            }
+          } catch (e) {
+            console.warn('Failed to load from /api/modbus-presets:', e);
           }
 
           try {
@@ -1964,6 +2039,16 @@ function useSerialModule(ctx) {
             }
             while (bytes.length < bytesNeeded) bytes.push(0);
             return bytes.slice(0, bytesNeeded);
+          }
+
+          if (fmt === 'string' || fmt === 'ascii') {
+            const bytes = [];
+            const s = String(valStr || '');
+            for (let i = 0; i < s.length && i < bytesNeeded; i++) {
+              bytes.push(s.charCodeAt(i));
+            }
+            while (bytes.length < bytesNeeded) bytes.push(0);
+            return bytes;
           }
 
           if (numreg === 1) {

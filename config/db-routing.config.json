@@ -25,6 +25,7 @@
     "uplink_telemetry": "core_db",
     "decoder": "core_db",
     "webhook_logs": "core_db",
-    "hmi_screens": "core_db"
+    "hmi_screens": "core_db",
+    "modbus_presets": "core_db"
   }
 }

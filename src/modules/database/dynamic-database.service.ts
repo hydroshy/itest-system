@@ -14,6 +14,7 @@ import { DecoderEntity } from '../c-modules/decoder-admin/entities/decoder.entit
 import { WebhookLogEntity } from '../c-modules/webhook-admin/entities/webhook-log.entity';
 import { HmiScreenEntity } from '../c-modules/hmi-studio/entities/hmi-screen.entity';
 import { DownlinkLogEntity } from '../network-servers/entities/downlink-log.entity';
+import { ModbusPresetEntity } from '../c-modules/modbus-presets/entities/modbus-preset.entity';
 
 export const ALL_DATABASE_ENTITIES = [
   User,
@@ -28,6 +29,7 @@ export const ALL_DATABASE_ENTITIES = [
   WebhookLogEntity,
   HmiScreenEntity,
   DownlinkLogEntity,
+  ModbusPresetEntity,
 ];
 
 export interface DbConnectionConfig {

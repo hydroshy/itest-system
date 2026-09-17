@@ -13,6 +13,7 @@ import { DecoderModule } from './modules/c-modules/decoder-admin/decoder.module'
 import { WebhookAdminModule } from './modules/c-modules/webhook-admin/webhook-admin.module';
 import { OverviewHubModule } from './modules/c-modules/overview-hub/overview-hub.module';
 import { HmiStudioModule } from './modules/c-modules/hmi-studio/hmi-studio.module';
+import { ModbusPresetsModule } from './modules/c-modules/modbus-presets/modbus-presets.module';
 import { RealtimeModule } from './modules/realtime/realtime.module';
 import { AppController } from './app.controller';
 
@@ -35,6 +36,7 @@ import { AppController } from './app.controller';
     WebhookAdminModule,
     OverviewHubModule,
     HmiStudioModule,
+    ModbusPresetsModule,
   ],
   controllers: [AppController],
 })

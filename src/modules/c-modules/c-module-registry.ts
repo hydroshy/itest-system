@@ -123,4 +123,14 @@ export const C_MODULES_REGISTRY: CModule[] = [
     routeHash: '#downlink',
     requiredPermission: 'lorawan:device:read',
   },
+  {
+    id: 'c-modbus-presets',
+    code: 'C_MOD_MODBUS_PRESETS',
+    title: 'Modbus Presets & Templates',
+    description: 'Manage Modbus register presets, import templates from Excel (RD1, Engineering, End-user, Full), configure register maps.',
+    icon: 'fa-solid fa-file-excel',
+    category: 'Developer',
+    routeHash: '#modbus-presets',
+    requiredPermission: 'lorawan:device:read',
+  },
 ];
