@@ -373,15 +373,38 @@ export const SERIAL_UART_TEMPLATE = `          <div v-else-if="activeFeature.id 
                     />
                   </div>
 
-                  <!-- Add Register button -->
+                  <!-- Add Row button (Spreadsheet inline) -->
+                  <button
+                    type="button"
+                    @click="addNewRegisterRow"
+                    class="px-2.5 py-1.5 rounded-lg bg-cyan-600/20 hover:bg-cyan-600/30 text-cyan-300 border border-cyan-500/40 text-xs font-semibold flex items-center gap-1 cursor-pointer transition"
+                    title="Append new register row"
+                  >
+                    <i class="fa-solid fa-plus"></i>
+                    <span>Add Row</span>
+                  </button>
+
+                  <!-- Delete Selected button -->
+                  <button
+                    v-if="selectedRowIndices.length > 0"
+                    type="button"
+                    @click="deleteSelectedRows"
+                    class="px-2.5 py-1.5 rounded-lg bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/40 text-xs font-semibold flex items-center gap-1 cursor-pointer transition animate-pulse"
+                    title="Delete selected rows (or press Delete key)"
+                  >
+                    <i class="fa-regular fa-trash-can"></i>
+                    <span>Delete ({{ selectedRowIndices.length }})</span>
+                  </button>
+
+                  <!-- Add Register Modal button -->
                   <button
                     type="button"
                     @click="showAddRegisterModal = true"
                     class="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 text-xs font-semibold flex items-center gap-1 cursor-pointer transition"
-                    title="Add custom register row"
+                    title="Add custom register via dialog"
                   >
-                    <i class="fa-solid fa-plus text-cyan-400"></i>
-                    <span>Add</span>
+                    <i class="fa-solid fa-sliders text-cyan-400"></i>
+                    <span>Add Dialog</span>
                   </button>
 
                   <!-- Hidden CSV File Input -->
@@ -427,13 +450,13 @@ export const SERIAL_UART_TEMPLATE = `          <div v-else-if="activeFeature.id 
                 </div>
               </div>
 
-              <!-- Modbus Registers Grid Card -->
+              <!-- Modbus Registers Grid Card (Tabular Excel-like View) -->
               <div class="p-5 rounded-2xl bg-slate-900/90 border border-slate-800 space-y-4 shadow-xl">
                 <div class="overflow-x-auto custom-scroll max-h-[580px] overflow-y-auto">
-                  <table class="w-full text-left text-xs text-slate-300">
-                    <thead>
-                      <tr class="border-b border-slate-800 text-[10px] font-bold text-slate-400 uppercase tracking-wider font-mono sticky top-0 bg-slate-900 shadow-sm z-10">
-                        <th class="py-2.5 px-3 w-10 text-center">
+                  <table class="w-full text-left text-xs text-slate-300 border-collapse">
+                    <thead class="sticky top-0 bg-slate-900/95 backdrop-blur shadow-sm z-10 select-none">
+                      <tr class="border-b border-slate-800 text-[10px] font-bold text-slate-400 uppercase tracking-wider font-mono">
+                        <th class="py-2.5 px-2.5 w-10 text-center border-r border-slate-800">
                           <input
                             type="checkbox"
                             :checked="isAllRegistersChecked"
@@ -441,29 +464,37 @@ export const SERIAL_UART_TEMPLATE = `          <div v-else-if="activeFeature.id 
                             class="rounded border-slate-700 bg-slate-950 text-cyan-500 focus:ring-cyan-500 cursor-pointer"
                           />
                         </th>
-                        <th class="py-2.5 px-2.5 w-12 text-slate-500 text-center">#</th>
-                        <th class="py-2.5 px-3">Address</th>
-                        <th class="py-2.5 px-3">Slave</th>
-                        <th class="py-2.5 px-3">FC</th>
-                        <th class="py-2.5 px-3">Qty</th>
-                        <th class="py-2.5 px-3">Format</th>
-                        <th class="py-2.5 px-3">Endianness</th>
-                        <th class="py-2.5 px-3 min-w-[180px]">Parameter Name</th>
-                        <th class="py-2.5 px-3">Range</th>
-                        <th class="py-2.5 px-3 min-w-[130px]">Live Value</th>
-                        <th class="py-2.5 px-3 min-w-[120px]">Value to Write</th>
-                        <th class="py-2.5 px-3 text-right">Actions</th>
+                        <th
+                          class="py-2.5 px-2 w-12 text-slate-400 text-center border-r border-slate-800 cursor-pointer hover:bg-slate-800 hover:text-white transition"
+                          @click="selectAllRows"
+                          title="Click to select/deselect all rows"
+                        >
+                          #
+                        </th>
+                        <th class="py-2.5 px-3 border-r border-slate-800">ADDRESS</th>
+                        <th class="py-2.5 px-2.5 border-r border-slate-800">SLAVE</th>
+                        <th class="py-2.5 px-2.5 border-r border-slate-800">FC</th>
+                        <th class="py-2.5 px-2.5 border-r border-slate-800">REG_NUM</th>
+                        <th class="py-2.5 px-3 border-r border-slate-800">FORMAT</th>
+                        <th class="py-2.5 px-3 border-r border-slate-800 min-w-[180px]">PARAMETER_NAME</th>
+                        <th class="py-2.5 px-3 border-r border-slate-800 min-w-[130px]">VALUE ON MEMMAP</th>
+                        <th class="py-2.5 px-3 border-r border-slate-800 min-w-[130px]">VALUE TO WRITE</th>
+                        <th class="py-2.5 px-3">ENDIANNESS</th>
                       </tr>
                     </thead>
-                    <tbody class="divide-y divide-slate-800/60 font-mono text-xs">
+                    <tbody class="divide-y divide-slate-800/60 font-mono text-xs select-none">
                       <tr
                         v-for="(row, idx) in filteredModbusRegisters"
                         :key="row.id || idx"
-                        class="hover:bg-slate-800/40 transition"
-                        :class="{ 'bg-cyan-500/5': row.reading, 'bg-amber-500/5': row.writing }"
+                        class="hover:bg-slate-800/30 transition"
+                        :class="{
+                          'bg-cyan-500/15 ring-1 ring-inset ring-cyan-500/40': isRowSelected(idx),
+                          'bg-cyan-500/5': row.reading && !isRowSelected(idx),
+                          'bg-amber-500/5': row.writing && !isRowSelected(idx)
+                        }"
                       >
                         <!-- Checkbox -->
-                        <td class="py-2.5 px-3 text-center">
+                        <td class="py-1 px-2.5 text-center border-r border-slate-800/60">
                           <input
                             type="checkbox"
                             v-model="row.checked"
@@ -471,51 +502,93 @@ export const SERIAL_UART_TEMPLATE = `          <div v-else-if="activeFeature.id 
                           />
                         </td>
 
-                        <!-- Index -->
-                        <td class="py-2.5 px-2.5 text-center text-slate-500">{{ idx + 1 }}</td>
-
-                        <!-- Address (DEC + HEX) -->
-                        <td class="py-2.5 px-3 text-white font-bold whitespace-nowrap">
-                          <span>{{ row.reg }}</span>
-                          <span class="text-[10px] text-cyan-400/80 ml-1">({{ formatHexAddress(row.reg) }})</span>
+                        <!-- Index # (Drag/Click to select like Excel) -->
+                        <td
+                          class="py-1 px-2 text-center font-mono cursor-pointer border-r border-slate-800/60 select-none transition"
+                          :class="isRowSelected(idx) ? 'bg-cyan-600 text-white font-bold' : 'text-slate-500 hover:bg-slate-800 hover:text-slate-300'"
+                          @mousedown.prevent="onRowHeaderMouseDown(idx, $event)"
+                          @mouseenter="onRowHeaderMouseEnter(idx)"
+                          @click="onRowHeaderClick(idx, $event)"
+                          title="Click or drag down to select rows. Press Delete to remove."
+                        >
+                          {{ idx + 1 }}
                         </td>
 
-                        <!-- Slave ID -->
-                        <td class="py-2.5 px-3 text-slate-300 font-semibold">{{ row.slave }}</td>
+                        <!-- Address (DEC only) -->
+                        <td class="py-1 px-2 border-r border-slate-800/60">
+                          <input
+                            type="number"
+                            v-model.number="row.reg"
+                            min="0"
+                            class="w-20 bg-slate-950/60 hover:bg-slate-950 focus:bg-slate-950 border border-slate-800/80 focus:border-cyan-500 rounded px-2 py-1 text-white font-mono font-bold text-xs outline-none"
+                          />
+                        </td>
 
-                        <!-- Function Code -->
-                        <td class="py-2.5 px-3 whitespace-nowrap">
-                          <span
-                            class="px-2 py-0.5 rounded text-[10px] font-bold"
-                            :class="getFCBadgeClass(row.fc)"
+                        <!-- Slave -->
+                        <td class="py-1 px-2 border-r border-slate-800/60">
+                          <input
+                            type="number"
+                            v-model.number="row.slave"
+                            min="1"
+                            max="247"
+                            class="w-16 bg-slate-950/60 hover:bg-slate-950 focus:bg-slate-950 border border-slate-800/80 focus:border-cyan-500 rounded px-2 py-1 text-slate-200 font-mono text-xs outline-none"
+                          />
+                        </td>
+
+                        <!-- FC (04, 16, 03 numeric choices) -->
+                        <td class="py-1 px-2 border-r border-slate-800/60">
+                          <select
+                            v-model.number="row.fc"
+                            class="bg-slate-950/60 hover:bg-slate-950 focus:bg-slate-950 border border-slate-800/80 focus:border-cyan-500 rounded px-2 py-1 text-xs font-mono font-bold text-cyan-300 outline-none cursor-pointer"
                           >
-                            {{ formatFCName(row.fc) }}
-                          </span>
+                            <option :value="4">04</option>
+                            <option :value="16">16</option>
+                            <option :value="3">03</option>
+                            <option :value="1">01</option>
+                            <option :value="2">02</option>
+                            <option :value="6">06</option>
+                          </select>
                         </td>
 
-                        <!-- Number of registers -->
-                        <td class="py-2.5 px-3 text-slate-400">{{ row.numreg }}</td>
+                        <!-- REG_NUM -->
+                        <td class="py-1 px-2 border-r border-slate-800/60">
+                          <input
+                            type="number"
+                            v-model.number="row.numreg"
+                            min="1"
+                            max="125"
+                            class="w-14 bg-slate-950/60 hover:bg-slate-950 focus:bg-slate-950 border border-slate-800/80 focus:border-cyan-500 rounded px-2 py-1 text-slate-300 font-mono text-xs outline-none"
+                          />
+                        </td>
 
-                        <!-- Format -->
-                        <td class="py-2.5 px-3 text-slate-300 font-semibold whitespace-nowrap">{{ row.format }}</td>
-
-                        <!-- Endianness -->
-                        <td class="py-2.5 px-3 text-slate-400 text-[11px] whitespace-nowrap">{{ row.endianness || 'Big-Endian' }}</td>
+                        <!-- Format (float, uint, int, hex) -->
+                        <td class="py-1 px-2 border-r border-slate-800/60">
+                          <select
+                            v-model="row.format"
+                            class="bg-slate-950/60 hover:bg-slate-950 focus:bg-slate-950 border border-slate-800/80 focus:border-cyan-500 rounded px-2 py-1 text-xs font-mono text-amber-300 outline-none cursor-pointer"
+                          >
+                            <option value="float">float</option>
+                            <option value="uint">uint</option>
+                            <option value="int">int</option>
+                            <option value="hex">hex</option>
+                          </select>
+                        </td>
 
                         <!-- Parameter Name -->
-                        <td class="py-2.5 px-3 text-slate-200">
-                          <div class="font-bold text-xs">{{ row.parameter }}</div>
-                          <div v-if="row.description" class="text-[10px] text-slate-500 truncate max-w-xs">{{ row.description }}</div>
+                        <td class="py-1 px-2 border-r border-slate-800/60">
+                          <input
+                            type="text"
+                            v-model="row.parameter"
+                            placeholder="Parameter name..."
+                            class="w-full min-w-[160px] bg-slate-950/60 hover:bg-slate-950 focus:bg-slate-950 border border-slate-800/80 focus:border-cyan-500 rounded px-2 py-1 text-slate-200 font-mono text-xs outline-none"
+                          />
                         </td>
 
-                        <!-- Value Range -->
-                        <td class="py-2.5 px-3 text-slate-400 text-[11px] whitespace-nowrap">{{ row.range || '--' }}</td>
-
-                        <!-- Live Value Column -->
-                        <td class="py-2.5 px-3 whitespace-nowrap">
-                          <div class="flex items-center gap-1.5">
+                        <!-- VALUE ON MEMMAP -->
+                        <td class="py-1 px-2 border-r border-slate-800/60 whitespace-nowrap">
+                          <div class="flex items-center gap-1.5 cursor-pointer" @dblclick="readSingleRegister(row)" title="Double-click to read register">
                             <span
-                              class="px-2.5 py-1 rounded-lg text-xs font-bold font-mono transition border"
+                              class="px-2.5 py-1 rounded-lg text-xs font-bold font-mono transition border min-w-[75px] inline-block text-center"
                               :class="getLiveValueClass(row)"
                             >
                               <i v-if="row.reading" class="fa-solid fa-spinner animate-spin text-[10px] mr-1"></i>
@@ -527,59 +600,48 @@ export const SERIAL_UART_TEMPLATE = `          <div v-else-if="activeFeature.id 
                           </div>
                         </td>
 
-                        <!-- Value to Write Input -->
-                        <td class="py-2.5 px-3">
-                          <input
-                            type="text"
-                            v-model="row.valuetowrite"
-                            placeholder="Val..."
-                            class="w-full bg-slate-950 border border-slate-700 rounded px-2 py-1 text-white font-mono text-xs focus:ring-1 focus:ring-amber-500 focus:outline-none"
-                          />
-                        </td>
-
-                        <!-- Row Actions -->
-                        <td class="py-2.5 px-3 text-right whitespace-nowrap">
-                          <div class="flex items-center justify-end gap-1">
-                            <!-- Single Read -->
-                            <button
-                              type="button"
-                              @click="readSingleRegister(row)"
-                              :disabled="row.reading || !serialConnected"
-                              class="p-1.5 rounded bg-slate-800 hover:bg-cyan-600/30 text-slate-400 hover:text-cyan-300 border border-slate-700 text-[11px] cursor-pointer transition disabled:opacity-40"
-                              title="Read register value"
-                            >
-                              <i class="fa-solid fa-arrow-down" :class="{ 'animate-spin': row.reading }"></i>
-                            </button>
-
-                            <!-- Single Write -->
+                        <!-- VALUE TO WRITE -->
+                        <td class="py-1 px-2 border-r border-slate-800/60">
+                          <div class="flex items-center gap-1">
+                            <input
+                              type="text"
+                              v-model="row.valuetowrite"
+                              @keyup.enter="writeSingleRegister(row)"
+                              placeholder="Val..."
+                              class="w-24 bg-slate-950/60 hover:bg-slate-950 focus:bg-slate-950 border border-slate-800/80 focus:border-amber-500 rounded px-2 py-1 text-white font-mono text-xs outline-none"
+                              title="Press Enter to write"
+                            />
                             <button
                               type="button"
                               @click="writeSingleRegister(row)"
                               :disabled="row.writing || !serialConnected || row.valuetowrite === '' || row.valuetowrite === undefined"
-                              class="p-1.5 rounded bg-slate-800 hover:bg-amber-600/30 text-slate-400 hover:text-amber-300 border border-slate-700 text-[11px] cursor-pointer transition disabled:opacity-40"
+                              class="p-1 rounded bg-slate-800 hover:bg-amber-600/30 text-slate-400 hover:text-amber-300 border border-slate-700 text-[10px] cursor-pointer transition disabled:opacity-30"
                               title="Write value to register"
                             >
                               <i class="fa-solid fa-arrow-up" :class="{ 'animate-spin': row.writing }"></i>
                             </button>
-
-                            <!-- Delete Row -->
-                            <button
-                              type="button"
-                              @click="deleteRegisterRow(idx)"
-                              class="p-1.5 rounded bg-slate-800 hover:bg-rose-600/30 text-slate-400 hover:text-rose-300 border border-slate-700 text-[11px] cursor-pointer transition"
-                              title="Remove register from list"
-                            >
-                              <i class="fa-regular fa-trash-can"></i>
-                            </button>
                           </div>
+                        </td>
+
+                        <!-- ENDIANNESS (At the end) -->
+                        <td class="py-1 px-2 whitespace-nowrap">
+                          <select
+                            v-model="row.endianness"
+                            class="bg-slate-950/60 hover:bg-slate-950 focus:bg-slate-950 border border-slate-800/80 focus:border-cyan-500 rounded px-2 py-1 text-xs font-mono text-slate-300 outline-none cursor-pointer"
+                          >
+                            <option value="Big-Endian">Big-Endian</option>
+                            <option value="Little-Endian">Little-Endian</option>
+                            <option value="Mid-Big">Mid-Big</option>
+                            <option value="Mid-Little">Mid-Little</option>
+                          </select>
                         </td>
                       </tr>
 
                       <!-- Empty State -->
                       <tr v-if="filteredModbusRegisters.length === 0">
-                        <td colspan="13" class="py-12 text-center text-slate-500">
+                        <td colspan="11" class="py-12 text-center text-slate-500">
                           <i class="fa-solid fa-table-cells-large text-3xl text-slate-700 mb-2 block"></i>
-                          <span>No Modbus registers loaded. Select a Preset above or click "Add" to create registers.</span>
+                          <span>No Modbus registers loaded. Click "+ Add Row" or "Add Dialog" to create registers.</span>
                         </td>
                       </tr>
                     </tbody>
@@ -870,16 +932,18 @@ export const SERIAL_UART_MODALS = `    <!-- MODAL: ADD MODBUS REGISTER ROW (SERI
 
           <div class="grid grid-cols-2 gap-3">
             <div>
-              <label class="block text-slate-400 text-[10px] uppercase font-bold mb-1">Function Code</label>
+              <label class="block text-slate-400 text-[10px] uppercase font-bold mb-1">Function Code (FC)</label>
               <select v-model.number="newRegisterForm.fc" class="w-full bg-slate-950 border border-slate-700 rounded px-2.5 py-1.5 text-white font-mono">
-                <option :value="3">FC 03 (Holding Register)</option>
-                <option :value="4">FC 04 (Input Register)</option>
-                <option :value="1">FC 01 (Read Coils)</option>
-                <option :value="2">FC 02 (Discrete Inputs)</option>
+                <option :value="4">04 (Input Register)</option>
+                <option :value="16">16 (Write Multiple)</option>
+                <option :value="3">03 (Holding Register)</option>
+                <option :value="1">01 (Read Coils)</option>
+                <option :value="2">02 (Discrete Inputs)</option>
+                <option :value="6">06 (Write Single Reg)</option>
               </select>
             </div>
             <div>
-              <label class="block text-slate-400 text-[10px] uppercase font-bold mb-1">Quantity (Num Regs)</label>
+              <label class="block text-slate-400 text-[10px] uppercase font-bold mb-1">REG_NUM (Count)</label>
               <select v-model.number="newRegisterForm.numreg" class="w-full bg-slate-950 border border-slate-700 rounded px-2.5 py-1.5 text-white font-mono">
                 <option :value="1">1 register (16-bit)</option>
                 <option :value="2">2 registers (32-bit)</option>
@@ -892,23 +956,19 @@ export const SERIAL_UART_MODALS = `    <!-- MODAL: ADD MODBUS REGISTER ROW (SERI
             <div>
               <label class="block text-slate-400 text-[10px] uppercase font-bold mb-1">Data Format</label>
               <select v-model="newRegisterForm.format" class="w-full bg-slate-950 border border-slate-700 rounded px-2.5 py-1.5 text-white font-mono">
-                <option value="UInt16">UInt16</option>
-                <option value="Int16">Int16</option>
-                <option value="UInt32">UInt32</option>
-                <option value="Int32">Int32</option>
-                <option value="Float32">Float32</option>
-                <option value="Boolean">Boolean / Bit</option>
-                <option value="Hex">Hex</option>
-                <option value="ASCII">ASCII</option>
+                <option value="float">float</option>
+                <option value="uint">uint</option>
+                <option value="int">int</option>
+                <option value="hex">hex</option>
               </select>
             </div>
             <div>
               <label class="block text-slate-400 text-[10px] uppercase font-bold mb-1">Endianness</label>
               <select v-model="newRegisterForm.endianness" class="w-full bg-slate-950 border border-slate-700 rounded px-2.5 py-1.5 text-white font-mono">
-                <option value="Big-Endian">Big-Endian (AB / ABCD)</option>
-                <option value="Little-Endian">Little-Endian (BA / DCBA)</option>
-                <option value="Mid-Big">Mid-Big (BADC)</option>
-                <option value="Mid-Little">Mid-Little (CDAB)</option>
+                <option value="Big-Endian">Big-Endian</option>
+                <option value="Little-Endian">Little-Endian</option>
+                <option value="Mid-Big">Mid-Big</option>
+                <option value="Mid-Little">Mid-Little</option>
               </select>
             </div>
           </div>
@@ -918,15 +978,9 @@ export const SERIAL_UART_MODALS = `    <!-- MODAL: ADD MODBUS REGISTER ROW (SERI
             <input type="text" v-model="newRegisterForm.parameter" placeholder="e.g. Temperature Sensor 1" class="w-full bg-slate-950 border border-slate-700 rounded px-3 py-1.5 text-white font-mono" />
           </div>
 
-          <div class="grid grid-cols-2 gap-3">
-            <div>
-              <label class="block text-slate-400 text-[10px] uppercase font-bold mb-1">Unit / Range</label>
-              <input type="text" v-model="newRegisterForm.range" placeholder="e.g. °C, 0 ~ 100" class="w-full bg-slate-950 border border-slate-700 rounded px-3 py-1.5 text-white font-mono" />
-            </div>
-            <div>
-              <label class="block text-slate-400 text-[10px] uppercase font-bold mb-1">Default Write Val</label>
-              <input type="text" v-model="newRegisterForm.valuetowrite" placeholder="Optional" class="w-full bg-slate-950 border border-slate-700 rounded px-3 py-1.5 text-white font-mono" />
-            </div>
+          <div>
+            <label class="block text-slate-400 text-[10px] uppercase font-bold mb-1">Value to Write</label>
+            <input type="text" v-model="newRegisterForm.valuetowrite" placeholder="Optional" class="w-full bg-slate-950 border border-slate-700 rounded px-3 py-1.5 text-white font-mono" />
           </div>
         </div>
 
@@ -1036,14 +1090,183 @@ function useSerialModule(ctx) {
         const newRegisterForm = ref({
           reg: 0,
           slave: 1,
-          fc: 3,
-          numreg: 2,
-          format: 'Float32',
+          fc: 4,
+          numreg: 1,
+          format: 'uint',
           endianness: 'Big-Endian',
           parameter: '',
-          range: '',
           valuetowrite: '',
         });
+
+        // Tabular & Multi-row Excel Selection State
+        const selectedRowIndices = ref([]);
+        let isDraggingRowSelection = false;
+        let dragStartIdx = -1;
+        let lastClickedIdx = -1;
+
+        const isRowSelected = (idx) => selectedRowIndices.value.includes(idx);
+
+        const onRowHeaderMouseDown = (idx, event) => {
+          isDraggingRowSelection = true;
+          dragStartIdx = idx;
+          if (event.shiftKey && lastClickedIdx >= 0) {
+            const min = Math.min(lastClickedIdx, idx);
+            const max = Math.max(lastClickedIdx, idx);
+            const range = [];
+            for (let i = min; i <= max; i++) range.push(i);
+            selectedRowIndices.value = range;
+          } else if (event.ctrlKey || event.metaKey) {
+            if (selectedRowIndices.value.includes(idx)) {
+              selectedRowIndices.value = selectedRowIndices.value.filter(i => i !== idx);
+            } else {
+              selectedRowIndices.value.push(idx);
+            }
+            lastClickedIdx = idx;
+          } else {
+            selectedRowIndices.value = [idx];
+            lastClickedIdx = idx;
+          }
+        };
+
+        const onRowHeaderMouseEnter = (idx) => {
+          if (!isDraggingRowSelection || dragStartIdx < 0) return;
+          const min = Math.min(dragStartIdx, idx);
+          const max = Math.max(dragStartIdx, idx);
+          const range = [];
+          for (let i = min; i <= max; i++) range.push(i);
+          selectedRowIndices.value = range;
+        };
+
+        const onRowHeaderClick = (idx, event) => {
+          lastClickedIdx = idx;
+        };
+
+        const handleGlobalMouseUp = () => {
+          isDraggingRowSelection = false;
+        };
+
+        const selectAllRows = () => {
+          if (selectedRowIndices.value.length === filteredModbusRegisters.value.length) {
+            selectedRowIndices.value = [];
+          } else {
+            selectedRowIndices.value = filteredModbusRegisters.value.map((_, i) => i);
+          }
+        };
+
+        const deleteSelectedRows = () => {
+          if (selectedRowIndices.value.length === 0) return;
+          const count = selectedRowIndices.value.length;
+          const idsToDelete = new Set();
+          selectedRowIndices.value.forEach(idx => {
+            const row = filteredModbusRegisters.value[idx];
+            if (row && row.id) {
+              idsToDelete.add(row.id);
+            }
+          });
+          modbusRegisters.value = modbusRegisters.value.filter(r => !idsToDelete.has(r.id));
+          selectedRowIndices.value = [];
+          showToast('Deleted ' + count + ' register(s)', 'info');
+        };
+
+        const addNewRegisterRow = () => {
+          const last = modbusRegisters.value[modbusRegisters.value.length - 1];
+          const nextReg = last ? Number(last.reg) + (Number(last.numreg) || 1) : 0;
+          const nextSlave = last ? Number(last.slave) || 1 : 1;
+          const nextFC = last ? Number(last.fc) || 4 : 4;
+          const newRow = {
+            id: 'reg_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6),
+            checked: true,
+            slave: nextSlave,
+            fc: nextFC,
+            reg: nextReg,
+            numreg: 1,
+            format: 'uint',
+            endianness: 'Big-Endian',
+            parameter: 'Register ' + nextReg,
+            valuetowrite: '',
+            liveValue: '--',
+            status: 'IDLE',
+            reading: false,
+            writing: false,
+            lastUpdated: null,
+          };
+          modbusRegisters.value.push(newRow);
+          selectedRowIndices.value = [modbusRegisters.value.length - 1];
+          showToast('Added new register row', 'success');
+        };
+
+        const handleKeydown = (e) => {
+          const tag = (e.target && e.target.tagName) ? e.target.tagName.toLowerCase() : '';
+          const isInput = tag === 'input' || tag === 'textarea' || tag === 'select';
+
+          if (e.key === 'Delete' || e.key === 'Backspace') {
+            if (!isInput && selectedRowIndices.value.length > 0) {
+              e.preventDefault();
+              deleteSelectedRows();
+            }
+          } else if (e.key === 'ArrowDown') {
+            if (!isInput && filteredModbusRegisters.value.length > 0) {
+              e.preventDefault();
+              if (selectedRowIndices.value.length === 0) {
+                selectedRowIndices.value = [0];
+                lastClickedIdx = 0;
+                dragStartIdx = 0;
+              } else {
+                const last = selectedRowIndices.value[selectedRowIndices.value.length - 1];
+                if (last < filteredModbusRegisters.value.length - 1) {
+                  const next = last + 1;
+                  if (e.shiftKey) {
+                    const anchor = dragStartIdx >= 0 ? dragStartIdx : selectedRowIndices.value[0];
+                    const min = Math.min(anchor, next);
+                    const max = Math.max(anchor, next);
+                    const range = [];
+                    for (let i = min; i <= max; i++) range.push(i);
+                    selectedRowIndices.value = range;
+                  } else {
+                    selectedRowIndices.value = [next];
+                    dragStartIdx = next;
+                    lastClickedIdx = next;
+                  }
+                }
+              }
+            }
+          } else if (e.key === 'ArrowUp') {
+            if (!isInput && filteredModbusRegisters.value.length > 0) {
+              e.preventDefault();
+              if (selectedRowIndices.value.length === 0) {
+                selectedRowIndices.value = [filteredModbusRegisters.value.length - 1];
+                lastClickedIdx = filteredModbusRegisters.value.length - 1;
+                dragStartIdx = filteredModbusRegisters.value.length - 1;
+              } else {
+                const first = selectedRowIndices.value[0];
+                if (first > 0) {
+                  const prev = first - 1;
+                  if (e.shiftKey) {
+                    const anchor = dragStartIdx >= 0 ? dragStartIdx : selectedRowIndices.value[selectedRowIndices.value.length - 1];
+                    const min = Math.min(anchor, prev);
+                    const max = Math.max(anchor, prev);
+                    const range = [];
+                    for (let i = min; i <= max; i++) range.push(i);
+                    selectedRowIndices.value = range;
+                  } else {
+                    selectedRowIndices.value = [prev];
+                    dragStartIdx = prev;
+                    lastClickedIdx = prev;
+                  }
+                }
+              }
+            }
+          }
+        };
+
+        const normalizeFormat = (f) => {
+          const s = String(f || '').toLowerCase();
+          if (s.includes('float') || s.includes('double')) return 'float';
+          if (s.includes('uint')) return 'uint';
+          if (s.includes('int')) return 'int';
+          if (s.includes('hex')) return 'hex';
+          return 'uint';
+        };
 
         // CRC-16 Modbus (polynomial 0xA001, init 0xFFFF)
         const calcModbusCRC16 = (bytes) => {
@@ -1227,6 +1450,7 @@ function useSerialModule(ctx) {
 
         const loadModbusPresetBySku = async (sku) => {
           selectedModbusPreset.value = sku;
+          selectedRowIndices.value = [];
           if (sku === 'CUSTOM') {
             modbusRegisters.value = [];
             showToast('Loaded empty custom register map', 'info');
@@ -1241,18 +1465,17 @@ function useSerialModule(ctx) {
             if (res.ok) {
               const data = await res.json();
               if (Array.isArray(data) && data.length > 0) {
-                modbusRegisters.value = data.map(r => ({
-                  id: r.id || 'reg_' + Math.random(),
+                modbusRegisters.value = data.map((r, i) => ({
+                  id: r.id || 'reg_' + sku + '_' + i + '_' + Math.random().toString(36).substr(2, 5),
                   checked: r.check !== false,
                   slave: Number(r.slave) || 1,
-                  fc: Number(r.fc) || 3,
+                  fc: Number(r.fc) || 4,
                   reg: Number(r.reg) || 0,
                   numreg: Number(r.numreg) || 1,
-                  format: r.format || 'UInt16',
+                  format: normalizeFormat(r.format),
                   endianness: r.endianness || 'Big-Endian',
                   parameter: r.parameter || 'Register ' + r.reg,
                   description: r.description || '',
-                  range: r.range || '',
                   valuetowrite: r.valuetowrite || '',
                   liveValue: '--',
                   status: 'IDLE',
@@ -1310,8 +1533,10 @@ function useSerialModule(ctx) {
           };
 
           const list = fallbackMap[sku] || [];
-          modbusRegisters.value = list.map(item => ({
+          modbusRegisters.value = list.map((item, i) => ({
             ...item,
+            id: 'reg_' + sku + '_' + (item.id || i) + '_' + Math.random().toString(36).substr(2, 5),
+            format: normalizeFormat(item.format),
             status: 'IDLE',
             reading: false,
             writing: false,
@@ -1596,9 +1821,14 @@ function useSerialModule(ctx) {
         const decodeModbusPayload = (dataBytes, format, endianness) => {
           if (!dataBytes || dataBytes.length === 0) return '--';
           const len = dataBytes.length;
+          const fmt = (format || '').toLowerCase();
 
-          if (format === 'Boolean' || format === 'Bit') {
+          if (fmt === 'boolean' || fmt === 'bit') {
             return (dataBytes[0] & 1) !== 0 ? 'TRUE (1)' : 'FALSE (0)';
+          }
+
+          if (fmt === 'hex') {
+            return dataBytes.map(x => x.toString(16).padStart(2, '0').toUpperCase()).join(' ');
           }
 
           if (len === 2) {
@@ -1608,7 +1838,7 @@ function useSerialModule(ctx) {
               [b0, b1] = [b1, b0];
             }
             const u16 = (b0 << 8) | b1;
-            if (format === 'Int16') {
+            if (fmt === 'int' || fmt === 'int16') {
               return u16 >= 0x8000 ? u16 - 0x10000 : u16;
             }
             return u16;
@@ -1627,22 +1857,22 @@ function useSerialModule(ctx) {
 
             const u8 = new Uint8Array(reordered);
             const dv = new DataView(u8.buffer);
-            if (format === 'Float32') {
+            if (fmt === 'float' || fmt === 'float32') {
               return Number(dv.getFloat32(0, false).toFixed(4));
-            } else if (format === 'Int32') {
+            } else if (fmt === 'int' || fmt === 'int32') {
               return dv.getInt32(0, false);
             } else {
               return dv.getUint32(0, false);
             }
           }
 
-          if (len === 8 && format === 'Double64') {
+          if (len === 8) {
             const u8 = new Uint8Array(dataBytes);
             const dv = new DataView(u8.buffer);
             return Number(dv.getFloat64(0, false).toFixed(4));
           }
 
-          if (format === 'ASCII' || format === 'String') {
+          if (fmt === 'ascii' || fmt === 'string') {
             return String.fromCharCode(...dataBytes.filter(x => x >= 32 && x <= 126));
           }
 
@@ -1655,10 +1885,21 @@ function useSerialModule(ctx) {
           const bytesNeeded = numreg * 2;
           const buffer = new ArrayBuffer(bytesNeeded);
           const view = new DataView(buffer);
+          const fmt = (format || '').toLowerCase();
+
+          if (fmt === 'hex') {
+            const cleanHex = String(valStr).replace(/[^0-9a-fA-F]/g, '');
+            const bytes = [];
+            for (let i = 0; i < cleanHex.length; i += 2) {
+              bytes.push(parseInt(cleanHex.substr(i, 2), 16) || 0);
+            }
+            while (bytes.length < bytesNeeded) bytes.push(0);
+            return bytes.slice(0, bytesNeeded);
+          }
 
           if (numreg === 1) {
             const num = parseInt(valStr, 10) || 0;
-            if (format === 'Int16') {
+            if (fmt === 'int' || fmt === 'int16') {
               view.setInt16(0, num, false);
             } else {
               view.setUint16(0, num, false);
@@ -1670,9 +1911,9 @@ function useSerialModule(ctx) {
             return res;
           } else if (numreg === 2) {
             const num = parseFloat(valStr) || 0;
-            if (format === 'Float32') {
+            if (fmt === 'float' || fmt === 'float32') {
               view.setFloat32(0, num, false);
-            } else if (format === 'Int32') {
+            } else if (fmt === 'int' || fmt === 'int32') {
               view.setInt32(0, parseInt(valStr, 10) || 0, false);
             } else {
               view.setUint32(0, parseInt(valStr, 10) || 0, false);
@@ -1698,7 +1939,10 @@ function useSerialModule(ctx) {
           }
           row.reading = true;
           try {
-            const fc = Number(row.fc);
+            let fc = Number(row.fc);
+            if (fc === 16 || fc === 6) {
+              fc = 3;
+            }
             const numreg = Number(row.numreg) || 1;
             const req = buildModbusReadFrame(row.slave, fc, row.reg, numreg);
 
@@ -1759,17 +2003,7 @@ function useSerialModule(ctx) {
               frame.push((crc >> 8) & 0xFF);
               req = new Uint8Array(frame);
               expectedLen = 8;
-            } else if (numreg === 1) {
-              // Write Single Register FC 06
-              respFC = 6;
-              const v = parseInt(row.valuetowrite, 10) || 0;
-              const frame = [slave, 0x06, (reg >> 8) & 0xFF, reg & 0xFF, (v >> 8) & 0xFF, v & 0xFF];
-              const crc = calcModbusCRC16(frame);
-              frame.push(crc & 0xFF);
-              frame.push((crc >> 8) & 0xFF);
-              req = new Uint8Array(frame);
-              expectedLen = 8;
-            } else {
+            } else if (row.fc === 16 || numreg > 1) {
               // Write Multiple Registers FC 16 (0x10)
               respFC = 16;
               const encoded = encodeModbusWriteValue(row.valuetowrite, row.format, row.endianness, numreg);
@@ -1784,6 +2018,16 @@ function useSerialModule(ctx) {
                 byteCount,
                 ...encoded,
               ];
+              const crc = calcModbusCRC16(frame);
+              frame.push(crc & 0xFF);
+              frame.push((crc >> 8) & 0xFF);
+              req = new Uint8Array(frame);
+              expectedLen = 8;
+            } else {
+              // Write Single Register FC 06
+              respFC = 6;
+              const v = parseInt(row.valuetowrite, 10) || 0;
+              const frame = [slave, 0x06, (reg >> 8) & 0xFF, reg & 0xFF, (v >> 8) & 0xFF, v & 0xFF];
               const crc = calcModbusCRC16(frame);
               frame.push(crc & 0xFF);
               frame.push((crc >> 8) & 0xFF);
@@ -1904,17 +2148,16 @@ function useSerialModule(ctx) {
         const confirmAddCustomRegister = () => {
           const form = newRegisterForm.value;
           modbusRegisters.value.push({
-            id: 'reg_' + Date.now(),
+            id: 'reg_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6),
             checked: true,
             slave: Number(form.slave) || 1,
-            fc: Number(form.fc) || 3,
+            fc: Number(form.fc) || 4,
             reg: Number(form.reg) || 0,
             numreg: Number(form.numreg) || 1,
-            format: form.format || 'UInt16',
+            format: form.format || 'uint',
             endianness: form.endianness || 'Big-Endian',
             parameter: form.parameter || 'Register ' + form.reg,
             description: '',
-            range: form.range || '',
             valuetowrite: form.valuetowrite || '',
             liveValue: '--',
             status: 'IDLE',
@@ -1932,7 +2175,7 @@ function useSerialModule(ctx) {
 
         // CSV Export
         const exportRegistersCSV = () => {
-          const headers = ['Check', 'Slave', 'FC', 'Address', 'NumReg', 'Format', 'Endianness', 'Parameter', 'Range', 'ValueToWrite', 'LiveValue', 'Status'];
+          const headers = ['Check', 'Slave', 'FC', 'Address', 'REG_NUM', 'Format', 'Parameter', 'ValueToWrite', 'ValueOnMemmap', 'Endianness', 'Status'];
           const rows = modbusRegisters.value.map(r => [
             r.checked ? 'TRUE' : 'FALSE',
             r.slave,
@@ -1940,11 +2183,10 @@ function useSerialModule(ctx) {
             r.reg,
             r.numreg,
             r.format,
-            r.endianness,
             '"' + (r.parameter || '').replace(/"/g, '""') + '"',
-            '"' + (r.range || '').replace(/"/g, '""') + '"',
             r.valuetowrite || '',
             r.liveValue !== '--' ? r.liveValue : '',
+            r.endianness || 'Big-Endian',
             r.status || '',
           ]);
 
@@ -1978,39 +2220,35 @@ function useSerialModule(ctx) {
               for (let i = 1; i < lines.length; i++) {
                 const parts = lines[i].split(',').map(s => s.trim().replace(/^"|"$/g, ''));
                 if (parts.length >= 4) {
-                  // Support both formats: with Check at idx 0 or Slave at idx 0
                   let checked = true;
                   let slave = 1;
-                  let fc = 3;
+                  let fc = 4;
                   let reg = 0;
                   let numreg = 1;
-                  let format = 'UInt16';
+                  let format = 'uint';
                   let endianness = 'Big-Endian';
                   let parameter = '';
-                  let range = '';
                   let valuetowrite = '';
 
                   if (headerLine.includes('check')) {
                     checked = parts[0].toUpperCase() === 'TRUE' || parts[0] === '1';
                     slave = Number(parts[1]) || 1;
-                    fc = Number(parts[2]) || 3;
+                    fc = Number(parts[2]) || 4;
                     reg = Number(parts[3]) || 0;
                     numreg = Number(parts[4]) || 1;
-                    format = parts[5] || 'UInt16';
-                    endianness = parts[6] || 'Big-Endian';
-                    parameter = parts[7] || 'Reg ' + reg;
-                    range = parts[8] || '';
-                    valuetowrite = parts[9] || '';
+                    format = normalizeFormat(parts[5]);
+                    parameter = parts[6] || 'Reg ' + reg;
+                    valuetowrite = parts[7] || '';
+                    endianness = parts[9] || parts[8] || 'Big-Endian';
                   } else {
                     slave = Number(parts[0]) || 1;
-                    fc = Number(parts[1]) || 3;
+                    fc = Number(parts[1]) || 4;
                     reg = Number(parts[2]) || 0;
                     numreg = Number(parts[3]) || 1;
-                    format = parts[4] || 'UInt16';
-                    endianness = parts[5] || 'Big-Endian';
-                    parameter = parts[6] || 'Reg ' + reg;
-                    range = parts[7] || '';
-                    valuetowrite = parts[8] || '';
+                    format = normalizeFormat(parts[4]);
+                    parameter = parts[5] || 'Reg ' + reg;
+                    valuetowrite = parts[6] || '';
+                    endianness = parts[8] || parts[7] || 'Big-Endian';
                   }
 
                   parsed.push({
@@ -2023,7 +2261,6 @@ function useSerialModule(ctx) {
                     format,
                     endianness,
                     parameter,
-                    range,
                     valuetowrite,
                     liveValue: '--',
                     status: 'IDLE',
@@ -2037,6 +2274,7 @@ function useSerialModule(ctx) {
               if (parsed.length > 0) {
                 modbusRegisters.value = parsed;
                 selectedModbusPreset.value = 'CUSTOM';
+                selectedRowIndices.value = [];
                 showToast('Imported ' + parsed.length + ' registers from CSV', 'success');
               } else {
                 showToast('No valid register rows found in CSV', 'error');
@@ -2100,8 +2338,16 @@ function useSerialModule(ctx) {
           showToast('Terminal logs cleared', 'info');
         };
 
+        // Lifecycle Listeners
+        onMounted(() => {
+          window.addEventListener('keydown', handleKeydown);
+          window.addEventListener('mouseup', handleGlobalMouseUp);
+        });
+
         // Clean up on unmount
         onUnmounted(() => {
+          window.removeEventListener('keydown', handleKeydown);
+          window.removeEventListener('mouseup', handleGlobalMouseUp);
           stopContinuousPolling();
           if (serialConnected.value) {
             disconnectSerial();
@@ -2137,6 +2383,14 @@ function useSerialModule(ctx) {
           modbusPresets,
           modbusRegisters,
           newRegisterForm,
+          selectedRowIndices,
+          isRowSelected,
+          onRowHeaderMouseDown,
+          onRowHeaderMouseEnter,
+          onRowHeaderClick,
+          selectAllRows,
+          deleteSelectedRows,
+          addNewRegisterRow,
           formatHexAddress,
           formatFCName,
           getFCBadgeClass,
