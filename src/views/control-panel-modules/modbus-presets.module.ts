@@ -519,10 +519,10 @@ export const MODBUS_PRESETS_SCRIPT = `
           const data = await res.json();
           if (Array.isArray(data) && data.length > 0) {
             presetsList.value = data;
-            if (!activePresetId.value || !data.some(p => p.id === activePresetId.value)) {
-              activePresetId.value = data[0].id;
-              selectPreset(data[0].id);
-            }
+            const targetId = (activePresetId.value && data.some(p => p.id === activePresetId.value))
+              ? activePresetId.value
+              : data[0].id;
+            await selectPreset(targetId);
           }
         }
       } catch (err) {
@@ -563,7 +563,7 @@ export const MODBUS_PRESETS_SCRIPT = `
             valuetowrite: r.valuetowrite !== undefined && r.valuetowrite !== null ? String(r.valuetowrite) : '',
             comment: r.comment || '',
           }));
-          updateCmodTabulatorData();
+          await updateCmodTabulatorData();
         }
       } catch (e) {
         console.error('Failed to load preset:', e);
@@ -575,67 +575,88 @@ export const MODBUS_PRESETS_SCRIPT = `
     };
 
     // Update Tabulator Table Data safely
-    const updateCmodTabulatorData = () => {
-      if (cmodTabulator && typeof cmodTabulator.setData === 'function') {
-        try {
-          cmodTabulator.setData(presetRegisters.value);
-        } catch (e) {
-          console.warn('Error setting Tabulator data:', e);
-        }
-      } else {
+    const updateCmodTabulatorData = async () => {
+      if (!cmodTabulator || typeof cmodTabulator.setData !== 'function') {
+        initPresetsTabulator();
+        return;
+      }
+      try {
+        await cmodTabulator.setData(presetRegisters.value);
+        cmodTabulator.redraw(true);
+      } catch (e) {
         initPresetsTabulator();
       }
     };
 
+    let initPresetsTableTimer = null;
+
     // Initialize Tabulator 6.x Table
     const initPresetsTabulator = (retryCount = 0) => {
       if (isBuildingCmodTable) return;
-      isBuildingCmodTable = true;
 
-      nextTick(() => {
-        const container = document.getElementById('cmod-tabulator-table');
-        if (!container) {
-          isBuildingCmodTable = false;
-          if (retryCount < 10) {
-            setTimeout(() => initPresetsTabulator(retryCount + 1), 100);
-          }
-          return;
+      if (activeTab && activeTab.value && activeTab.value !== 'modbus-presets') {
+        return;
+      }
+
+      const container = document.getElementById('cmod-tabulator-table');
+      if (!container) {
+        if (retryCount < 30) {
+          clearTimeout(initPresetsTableTimer);
+          initPresetsTableTimer = setTimeout(() => initPresetsTabulator(retryCount + 1), 60);
         }
+        return;
+      }
 
-        if (typeof Tabulator === 'undefined') {
-          isBuildingCmodTable = false;
-          if (retryCount < 20) {
-            setTimeout(() => initPresetsTabulator(retryCount + 1), 150);
-          }
-          return;
+      if (typeof Tabulator === 'undefined') {
+        if (retryCount < 40) {
+          clearTimeout(initPresetsTableTimer);
+          initPresetsTableTimer = setTimeout(() => initPresetsTabulator(retryCount + 1), 100);
         }
+        return;
+      }
 
-        if (cmodTabulator) {
-          try {
-            cmodTabulator.destroy();
-          } catch(e) {}
+      // If table already exists on THIS exact container, is attached to DOM, and healthy
+      if (cmodTabulator && cmodTabulator.element === container && container.classList.contains('tabulator')) {
+        try {
+          cmodTabulator.setData(presetRegisters.value);
+          cmodTabulator.redraw(true);
+          return;
+        } catch(e) {
           cmodTabulator = null;
         }
+      }
 
+      isBuildingCmodTable = true;
+      if (cmodTabulator) {
         try {
-          cmodTabulator = new Tabulator(container, {
-            data: presetRegisters.value,
-            layout: "fitColumns",
-            responsiveLayout: false,
-            height: "560px",
-            renderVertical: "virtual",
-            selectableRows: "highlight",
-            placeholder: "No registers defined in this template",
-            rowClick: function(e, row) {
-              if (e._handledInCell) return;
-              const target = e.target;
-              if (target && (target.tagName === 'INPUT' || target.tagName === 'SELECT' || target.tagName === 'BUTTON')) return;
-              row.select();
-            },
-            rowDblClick: function(e, row) {
-              if (e._handledInCell) return;
-              row.deselect();
-            },
+          cmodTabulator.destroy();
+        } catch(e) {}
+        cmodTabulator = null;
+      }
+      container.innerHTML = '';
+
+      try {
+        cmodTabulator = new Tabulator(container, {
+          data: presetRegisters.value,
+          layout: "fitColumns",
+          height: "560px",
+          reactiveData: false,
+          selectableRows: "highlight",
+          history: true,
+          placeholder: "No registers defined in this template",
+          rowClick: function(e, row) {
+            if (e._handledInCell) return;
+            const target = e.target;
+            if (target && (target.tagName === 'INPUT' || target.tagName === 'SELECT' || target.tagName === 'BUTTON')) return;
+            row.select();
+            lastSelectedPresetRowId = row.getData().id;
+          },
+          rowDblClick: function(e, row) {
+            if (e._handledInCell) return;
+            const target = e.target;
+            if (target && (target.tagName === 'INPUT' || target.tagName === 'SELECT' || target.tagName === 'BUTTON')) return;
+            row.deselect();
+          },
             columns: [
               // Row index column with selection toggle and Excel-like Shift+Click
               {
@@ -885,13 +906,22 @@ export const MODBUS_PRESETS_SCRIPT = `
             }
           });
 
+          cmodTabulator.on("tableBuilt", function() {
+            cmodTabulator.redraw(true);
+          });
+
         } catch (err) {
           console.error('Failed to construct C-Module Tabulator table:', err);
         } finally {
           isBuildingCmodTable = false;
         }
-      });
-    };
+      };
+
+    window.addEventListener('resize', () => {
+      if (cmodTabulator && typeof cmodTabulator.redraw === 'function') {
+        cmodTabulator.redraw(true);
+      }
+    });
 
     // Filter table rows by search query
     const filterPresetsTable = () => {
@@ -1282,18 +1312,26 @@ export const MODBUS_PRESETS_SCRIPT = `
     watch(activeTab, (newTab) => {
       if (newTab === 'modbus-presets') {
         fetchPresets();
-        setTimeout(() => {
-          initPresetsTabulator();
-        }, 120);
+        nextTick(() => {
+          setTimeout(() => {
+            if (cmodTabulator && typeof cmodTabulator.redraw === 'function') {
+              cmodTabulator.redraw(true);
+            } else {
+              initPresetsTabulator();
+            }
+          }, 100);
+        });
       }
     });
 
     onMounted(() => {
       if (activeTab.value === 'modbus-presets') {
         fetchPresets();
-        setTimeout(() => {
-          initPresetsTabulator();
-        }, 150);
+        nextTick(() => {
+          setTimeout(() => {
+            initPresetsTabulator();
+          }, 150);
+        });
       }
     });
 
