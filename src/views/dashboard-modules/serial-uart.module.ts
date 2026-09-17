@@ -832,6 +832,7 @@ function useSerialModule(ctx) {
         // Tabulator 6.x Instance & Reactive Selection
         let tabulatorTable = null;
         let isBuildingTable = false;
+        let lastSelectedRowId = null;
         const selectedRowCount = ref(0);
         const checkedRowCount = computed(() => modbusRegisters.value.filter(r => r.checked).length);
 
@@ -906,14 +907,17 @@ function useSerialModule(ctx) {
               layout: "fitColumns",
               height: "560px",
               reactiveData: false,
-              selectableRows: true,
+              selectableRows: "highlight",
               history: true,
             rowClick: function(e, row) {
+              if (e._handledInCell) return;
               const tag = (e.target && e.target.tagName) ? e.target.tagName.toLowerCase() : '';
               if (tag === 'input' || tag === 'select') return;
               row.select();
+              lastSelectedRowId = row.getData().id;
             },
             rowDblClick: function(e, row) {
+              if (e._handledInCell) return;
               const tag = (e.target && e.target.tagName) ? e.target.tagName.toLowerCase() : '';
               if (tag === 'input' || tag === 'select') return;
               row.deselect();
@@ -974,9 +978,35 @@ function useSerialModule(ctx) {
                 headerHozAlign: "center",
                 width: 48,
                 headerSort: false,
+                cssClass: "cursor-pointer select-none",
+                headerTooltip: "Click to select all / deselect all rows",
+                headerClick: function(e, column) {
+                  const table = column.getTable();
+                  const selected = table.getSelectedRows();
+                  if (selected.length === table.getRows().length) {
+                    table.deselectRow();
+                  } else {
+                    table.selectRow();
+                  }
+                },
                 cellClick: function(e, cell) {
-                  e.stopPropagation();
-                  cell.getRow().toggleSelect();
+                  e._handledInCell = true;
+                  const row = cell.getRow();
+                  if (e.shiftKey && lastSelectedRowId) {
+                    const allRows = tabulatorTable ? tabulatorTable.getRows() : [];
+                    const idx1 = allRows.findIndex(r => r.getData().id === lastSelectedRowId);
+                    const idx2 = allRows.findIndex(r => r.getData().id === row.getData().id);
+                    if (idx1 !== -1 && idx2 !== -1) {
+                      const start = Math.min(idx1, idx2);
+                      const end = Math.max(idx1, idx2);
+                      for (let i = start; i <= end; i++) {
+                        allRows[i].select();
+                      }
+                      return;
+                    }
+                  }
+                  lastSelectedRowId = row.getData().id;
+                  row.toggleSelect();
                 }
               },
               {
@@ -988,8 +1018,10 @@ function useSerialModule(ctx) {
                   chk.checked = modbusRegisters.value.length > 0 && modbusRegisters.value.every(r => r.checked);
                   chk.addEventListener('click', function(e) {
                     e.stopPropagation();
+                    e._handledInCell = true;
                   });
                   chk.addEventListener('change', function(e) {
+                    e._handledInCell = true;
                     const next = e.target.checked;
                     modbusRegisters.value.forEach(r => { r.checked = next; });
                     modbusRegisters.value = [...modbusRegisters.value];
@@ -1004,6 +1036,9 @@ function useSerialModule(ctx) {
                 headerHozAlign: "center",
                 headerSort: false,
                 width: 45,
+                cellClick: function(e) {
+                  e._handledInCell = true;
+                },
                 formatter: function(cell) {
                   const isChecked = !!cell.getValue();
                   const input = document.createElement('input');
@@ -1012,8 +1047,10 @@ function useSerialModule(ctx) {
                   input.className = 'rounded border-slate-700 bg-slate-950 text-cyan-500 focus:ring-cyan-500 cursor-pointer';
                   input.addEventListener('click', function(e) {
                     e.stopPropagation();
+                    e._handledInCell = true;
                   });
                   input.addEventListener('change', function(e) {
+                    e._handledInCell = true;
                     const rowData = cell.getRow().getData();
                     rowData.checked = e.target.checked;
                     const item = modbusRegisters.value.find(r => r.id === rowData.id);

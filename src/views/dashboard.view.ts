@@ -74,9 +74,29 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
       background-color: #1e293b80 !important;
     }
     .tabulator .tabulator-row.tabulator-selected {
-      background-color: #334155 !important;
+      background-color: #1e293b !important;
       color: #fff !important;
-      outline: 1px solid rgba(6, 182, 212, 0.4) !important;
+      box-shadow: inset 0 0 0 1px rgba(6, 182, 212, 0.5) !important;
+    }
+    .tabulator .tabulator-row.tabulator-selected .tabulator-cell {
+      background-color: rgba(6, 182, 212, 0.14) !important;
+      color: #ffffff !important;
+    }
+    .tabulator .tabulator-row.tabulator-selected .tabulator-cell:first-child {
+      background-color: #0891b2 !important;
+      color: #ffffff !important;
+      font-weight: 700 !important;
+    }
+    .tabulator .tabulator-row .tabulator-cell:first-child {
+      cursor: pointer !important;
+      user-select: none !important;
+      font-weight: 600;
+      color: #94a3b8;
+      transition: background-color 0.15s, color 0.15s;
+    }
+    .tabulator .tabulator-row:hover .tabulator-cell:first-child {
+      background-color: rgba(6, 182, 212, 0.2) !important;
+      color: #38bdf8 !important;
     }
     .tabulator .tabulator-cell {
       border-right: 1px solid #1e293b60 !important;
