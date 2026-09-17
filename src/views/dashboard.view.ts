@@ -18,12 +18,18 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
   <link rel="prefetch" href="/control-panel" />
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
-  <!-- Tabulator 6.x CSS & JS -->
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/tabulator-tables@6.3.0/dist/css/tabulator_midnight.min.css">
-  <script src="https://cdn.jsdelivr.net/npm/tabulator-tables@6.3.0/dist/js/tabulator.min.js"></script>
+  <!-- Tabulator 6.x CSS & JS (Local + Multi-CDN fallbacks) -->
+  <link rel="stylesheet" href="/vendor/tabulator/tabulator_midnight.min.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/tabulator-tables/6.3.0/css/tabulator_midnight.min.css">
+  <script src="/vendor/tabulator/tabulator.min.js"></script>
   <script>
     if (typeof Tabulator === 'undefined') {
-      document.write('<script src="https://unpkg.com/tabulator-tables@6.3.0/dist/js/tabulator.min.js"><\\/script>');
+      document.write('<script src="https://cdnjs.cloudflare.com/ajax/libs/tabulator-tables/6.3.0/js/tabulator.min.js"><\\/script>');
+    }
+  </script>
+  <script>
+    if (typeof Tabulator === 'undefined') {
+      document.write('<script src="https://cdn.jsdelivr.net/npm/tabulator-tables@6.3.0/dist/js/tabulator.min.js"><\\/script>');
     }
   </script>
   <!-- SheetJS for XLSX, XLS, and CSV export -->
@@ -1601,6 +1607,11 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
             initRealtimeConnection();
           } else if (feature.id === 'serial-uart-monitor' || feature.id === 'serial-diagnostic') {
             initSerialModule();
+            nextTick(() => {
+              if (serialModule && serialModule.initTabulatorTable) {
+                serialModule.initTabulatorTable();
+              }
+            });
           }
         };
 
@@ -1683,6 +1694,11 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
                     initRealtimeConnection();
                   } else if (found.id === 'serial-uart-monitor' || found.id === 'serial-diagnostic') {
                     initSerialModule();
+                    nextTick(() => {
+                      if (serialModule && serialModule.initTabulatorTable) {
+                        serialModule.initTabulatorTable();
+                      }
+                    });
                   }
                 }
               }

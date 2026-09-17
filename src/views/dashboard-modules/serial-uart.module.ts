@@ -273,18 +273,6 @@ export const SERIAL_UART_TEMPLATE = `          <div v-else-if="activeFeature.id 
                   {{ serialLogs.length }}
                 </span>
               </button>
-
-              <button
-                type="button"
-                @click="serialActiveTab = 'PROFILES'"
-                class="px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 cursor-pointer border"
-                :class="serialActiveTab === 'PROFILES'
-                  ? 'bg-gradient-to-r from-cyan-600/20 to-blue-600/20 border-cyan-500/50 text-cyan-300 shadow-md'
-                  : 'bg-slate-900 hover:bg-slate-800 border-slate-800 text-slate-400 hover:text-slate-200'"
-              >
-                <i class="fa-solid fa-sliders"></i>
-                <span>Presets & Profiles</span>
-              </button>
             </div>
 
             <!-- 3. TAB 1: TABULAR MEMORY MAP -->
@@ -645,62 +633,6 @@ export const SERIAL_UART_TEMPLATE = `          <div v-else-if="activeFeature.id 
                 </div>
               </div>
             </div>
-
-            <!-- 5. TAB 3: PRESETS & DEVICE PROFILES -->
-            <div v-show="serialActiveTab === 'PROFILES'" class="space-y-4">
-              <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div
-                  v-for="p in modbusPresets"
-                  :key="p.sku"
-                  class="p-5 rounded-2xl bg-slate-900/90 border border-slate-800 space-y-3 shadow-xl hover:border-cyan-500/40 transition flex flex-col justify-between"
-                >
-                  <div class="space-y-2">
-                    <div class="flex items-center justify-between">
-                      <span class="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-cyan-500/15 text-cyan-300 border border-cyan-500/30">
-                        {{ p.sku }}
-                      </span>
-                      <span class="text-slate-500 text-xs font-mono">FW v{{ p.fw || 1 }}</span>
-                    </div>
-                    <h3 class="text-sm font-bold text-white">{{ p.name }}</h3>
-                    <p class="text-xs text-slate-400">{{ p.description }}</p>
-                  </div>
-
-                  <div class="pt-3 border-t border-slate-800/80 flex items-center justify-between">
-                    <span class="text-xs text-slate-500 font-mono">{{ p.registers?.length || 0 }} registers mapped</span>
-                    <button
-                      type="button"
-                      @click="loadModbusPresetBySku(p.sku)"
-                      class="px-3 py-1.5 rounded-lg bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-semibold text-xs shadow-md shadow-cyan-900/20 flex items-center gap-1.5 cursor-pointer transition"
-                    >
-                      <i class="fa-solid fa-download"></i>
-                      <span>Load into Map</span>
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              <!-- Wiring & Diagnostics Guide Card -->
-              <div class="p-5 rounded-2xl bg-slate-900/90 border border-slate-800 space-y-3 shadow-xl text-xs text-slate-300">
-                <div class="flex items-center gap-2 text-white font-bold uppercase tracking-wider text-xs">
-                  <i class="fa-solid fa-circle-info text-cyan-400"></i>
-                  <span>Hardware Connection & RS485 / TTL Guide</span>
-                </div>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
-                  <div class="p-3 rounded-xl bg-slate-950 border border-slate-800/80 space-y-1">
-                    <div class="font-bold text-cyan-300">USB to TTL UART (3.3V Logic)</div>
-                    <p class="text-slate-400 text-[11px]">
-                      Connect <strong>TX</strong> of USB converter to <strong>RX</strong> of Daviteq sensor, and <strong>RX</strong> of converter to <strong>TX</strong> of sensor. Share common <strong>GND</strong>.
-                    </p>
-                  </div>
-                  <div class="p-3 rounded-xl bg-slate-950 border border-slate-800/80 space-y-1">
-                    <div class="font-bold text-cyan-300">USB to RS-485 Modbus (Half-Duplex)</div>
-                    <p class="text-slate-400 text-[11px]">
-                      Connect <strong>A (Data+)</strong> to Sensor A+, and <strong>B (Data-)</strong> to Sensor B-. For long cable runs, add a 120-Ohm termination resistor across A and B.
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
           </div>
 `;
 
@@ -899,31 +831,83 @@ function useSerialModule(ctx) {
 
         // Tabulator 6.x Instance & Reactive Selection
         let tabulatorTable = null;
+        let isBuildingTable = false;
         const selectedRowCount = ref(0);
         const checkedRowCount = computed(() => modbusRegisters.value.filter(r => r.checked).length);
 
-        const initTabulatorTable = () => {
+        const updateTabulatorData = async () => {
           const container = document.getElementById('modbus-tabulator-table');
           if (!container) return;
-          if (typeof Tabulator === 'undefined') {
-            setTimeout(initTabulatorTable, 100);
+          if (!tabulatorTable || tabulatorTable.element !== container) {
+            initTabulatorTable();
+            return;
+          }
+          if (isBuildingTable) {
+            setTimeout(updateTabulatorData, 80);
+            return;
+          }
+          try {
+            await tabulatorTable.setData(modbusRegisters.value);
+            tabulatorTable.redraw(true);
+          } catch(e) {
+            initTabulatorTable();
+          }
+        };
+
+        let initTableTimer = null;
+        const initTabulatorTable = (retryCount = 0) => {
+          if (isBuildingTable) return;
+
+          // Don't mount if serial-uart-monitor is not active
+          if (activeFeature && activeFeature.value && activeFeature.value.id !== 'serial-uart-monitor' && activeFeature.value.id !== 'serial-diagnostic') {
             return;
           }
 
+          const container = document.getElementById('modbus-tabulator-table');
+          if (!container) {
+            if (retryCount < 30) {
+              clearTimeout(initTableTimer);
+              initTableTimer = setTimeout(() => initTabulatorTable(retryCount + 1), 60);
+            }
+            return;
+          }
+
+          if (typeof Tabulator === 'undefined') {
+            if (retryCount < 40) {
+              clearTimeout(initTableTimer);
+              initTableTimer = setTimeout(() => initTabulatorTable(retryCount + 1), 100);
+            }
+            return;
+          }
+
+          // If table already exists on THIS exact container, is attached to DOM, and healthy
+          if (tabulatorTable && tabulatorTable.element === container && container.classList.contains('tabulator')) {
+            try {
+              tabulatorTable.setData(modbusRegisters.value);
+              tabulatorTable.redraw(true);
+              return;
+            } catch(e) {
+              tabulatorTable = null;
+            }
+          }
+
+          isBuildingTable = true;
           if (tabulatorTable) {
             try {
               tabulatorTable.destroy();
             } catch(e) {}
             tabulatorTable = null;
           }
+          container.innerHTML = '';
 
-          tabulatorTable = new Tabulator(container, {
-            data: modbusRegisters.value,
-            layout: "fitColumns",
-            height: "560px",
-            reactiveData: false,
-            selectableRows: "highlight",
-            history: true,
+          try {
+            tabulatorTable = new Tabulator(container, {
+              data: modbusRegisters.value,
+              layout: "fitColumns",
+              height: "560px",
+              reactiveData: false,
+              selectableRows: true,
+              history: true,
             rowClick: function(e, row) {
               const tag = (e.target && e.target.tagName) ? e.target.tagName.toLowerCase() : '';
               if (tag === 'input' || tag === 'select') return;
@@ -1210,9 +1194,18 @@ function useSerialModule(ctx) {
             }
           });
 
-          tabulatorTable.on("tableBuilt", function() {
-            // Row selection remains clean
-          });
+            tabulatorTable.on("tableBuilt", function() {
+              isBuildingTable = false;
+              setTimeout(() => {
+                if (tabulatorTable) {
+                  tabulatorTable.redraw(true);
+                }
+              }, 50);
+            });
+          } catch(err) {
+            console.error("Tabulator init error:", err);
+            isBuildingTable = false;
+          }
         };
 
         const executeSingleRow = async (row) => {
@@ -1239,10 +1232,8 @@ function useSerialModule(ctx) {
           }
           const count = idsToDelete.size;
           modbusRegisters.value = modbusRegisters.value.filter(r => !idsToDelete.has(r.id));
-          if (tabulatorTable) {
-            tabulatorTable.setData(modbusRegisters.value);
-            selectedRowCount.value = 0;
-          }
+          selectedRowCount.value = 0;
+          updateTabulatorData();
           showToast('Deleted ' + count + ' row(s)', 'info');
         };
 
@@ -1465,10 +1456,18 @@ function useSerialModule(ctx) {
         });
 
         // Initialize and fetch profiles
+        let isInitializingModule = false;
         const initSerialModule = async () => {
-          if (modbusRegisters.value.length === 0) {
-            await applySelectedPreset();
+          if (isInitializingModule) return;
+          isInitializingModule = true;
+          try {
+            if (modbusRegisters.value.length === 0) {
+              await applySelectedPreset();
+            }
+          } finally {
+            isInitializingModule = false;
           }
+          initTabulatorTable();
         };
 
         const applySelectedPreset = async () => {
@@ -1480,7 +1479,7 @@ function useSerialModule(ctx) {
           selectedRowCount.value = 0;
           if (sku === 'CUSTOM') {
             modbusRegisters.value = [];
-            if (tabulatorTable) tabulatorTable.setData([]);
+            updateTabulatorData();
             showToast('Loaded empty custom register map', 'info');
             return;
           }
@@ -1512,7 +1511,7 @@ function useSerialModule(ctx) {
                   writing: false,
                   lastUpdated: null,
                 }));
-                if (tabulatorTable) tabulatorTable.setData(modbusRegisters.value);
+                updateTabulatorData();
                 showToast('Loaded ' + modbusRegisters.value.length + ' registers for ' + sku, 'success');
                 return;
               }
@@ -1574,7 +1573,7 @@ function useSerialModule(ctx) {
             writing: false,
             lastUpdated: null,
           }));
-          if (tabulatorTable) tabulatorTable.setData(modbusRegisters.value);
+          updateTabulatorData();
           showToast('Loaded ' + modbusRegisters.value.length + ' registers for ' + sku, 'success');
         };
 
@@ -2195,9 +2194,7 @@ function useSerialModule(ctx) {
             r.status = 'IDLE';
             r.lastUpdated = null;
           });
-          if (tabulatorTable) {
-            tabulatorTable.setData(modbusRegisters.value);
-          }
+          updateTabulatorData();
           showToast('Live values cleared', 'info');
         };
 
@@ -2236,9 +2233,7 @@ function useSerialModule(ctx) {
           const row = modbusRegisters.value[idx];
           if (row) {
             modbusRegisters.value.splice(idx, 1);
-            if (tabulatorTable) {
-              tabulatorTable.setData(modbusRegisters.value);
-            }
+            updateTabulatorData();
           }
         };
 
@@ -2345,7 +2340,7 @@ function useSerialModule(ctx) {
                 modbusRegisters.value = parsed;
                 selectedModbusPreset.value = 'CUSTOM';
                 selectedRowCount.value = 0;
-                if (tabulatorTable) tabulatorTable.setData(modbusRegisters.value);
+                updateTabulatorData();
                 showToast('Imported ' + parsed.length + ' registers from CSV', 'success');
               } else {
                 showToast('No valid register rows found in CSV', 'error');
@@ -2426,11 +2421,34 @@ function useSerialModule(ctx) {
           }
         });
 
+        // Feature switch sync with Tabulator
+        if (activeFeature) {
+          watch(activeFeature, (newFeature) => {
+            if (newFeature && (newFeature.id === 'serial-uart-monitor' || newFeature.id === 'serial-diagnostic')) {
+              nextTick(async () => {
+                await initSerialModule();
+                initTabulatorTable();
+              });
+            } else {
+              // Navigated away (Home or another feature): cleanly destroy instance & reset state
+              if (tabulatorTable) {
+                try {
+                  tabulatorTable.destroy();
+                } catch(e) {}
+                tabulatorTable = null;
+              }
+              isBuildingTable = false;
+              clearTimeout(initTableTimer);
+            }
+          }, { immediate: true });
+        }
+
         // Tab switch sync with Tabulator
         watch(serialActiveTab, (tab) => {
           if (tab === 'MAP') {
             nextTick(() => {
-              if (tabulatorTable) {
+              const container = document.getElementById('modbus-tabulator-table');
+              if (tabulatorTable && tabulatorTable.element === container && !isBuildingTable) {
                 tabulatorTable.redraw(true);
               } else {
                 initTabulatorTable();
@@ -2439,22 +2457,40 @@ function useSerialModule(ctx) {
           }
         });
 
+        const handleResize = () => {
+          if (tabulatorTable && !isBuildingTable) {
+            tabulatorTable.redraw(true);
+          }
+        };
+
         // Lifecycle Listeners
         onMounted(() => {
           window.addEventListener('keydown', handleKeydown);
+          window.addEventListener('resize', handleResize);
           nextTick(async () => {
-            await initSerialModule();
-            initTabulatorTable();
+            if (activeFeature && activeFeature.value && (activeFeature.value.id === 'serial-uart-monitor' || activeFeature.value.id === 'serial-diagnostic')) {
+              await initSerialModule();
+              initTabulatorTable();
+            }
           });
         });
 
         // Clean up on unmount
         onUnmounted(() => {
           window.removeEventListener('keydown', handleKeydown);
+          window.removeEventListener('resize', handleResize);
           stopContinuousPolling();
           if (serialConnected.value) {
             disconnectSerial();
           }
+          if (tabulatorTable) {
+            try {
+              tabulatorTable.destroy();
+            } catch(e) {}
+            tabulatorTable = null;
+          }
+          isBuildingTable = false;
+          clearTimeout(initTableTimer);
         });
 
   return {
