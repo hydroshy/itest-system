@@ -68,8 +68,9 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
       background-color: #1e293b80 !important;
     }
     .tabulator .tabulator-row.tabulator-selected {
-      background-color: rgba(6, 182, 212, 0.14) !important;
+      background-color: #334155 !important;
       color: #fff !important;
+      outline: 1px solid rgba(6, 182, 212, 0.4) !important;
     }
     .tabulator .tabulator-cell {
       border-right: 1px solid #1e293b60 !important;

@@ -991,18 +991,57 @@ function useSerialModule(ctx) {
                 width: 48,
                 headerSort: false,
                 cellClick: function(e, cell) {
+                  e.stopPropagation();
                   cell.getRow().toggleSelect();
                 }
               },
               {
-                formatter: "rowSelection",
-                titleFormatter: "rowSelection",
+                titleFormatter: function() {
+                  const chk = document.createElement('input');
+                  chk.type = 'checkbox';
+                  chk.id = 'tabulator-header-tick-all';
+                  chk.className = 'rounded border-slate-700 bg-slate-950 text-cyan-500 focus:ring-cyan-500 cursor-pointer';
+                  chk.checked = modbusRegisters.value.length > 0 && modbusRegisters.value.every(r => r.checked);
+                  chk.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                  });
+                  chk.addEventListener('change', function(e) {
+                    const next = e.target.checked;
+                    modbusRegisters.value.forEach(r => { r.checked = next; });
+                    modbusRegisters.value = [...modbusRegisters.value];
+                    if (tabulatorTable) {
+                      tabulatorTable.updateData(modbusRegisters.value);
+                    }
+                  });
+                  return chk;
+                },
+                field: "checked",
                 hozAlign: "center",
                 headerHozAlign: "center",
                 headerSort: false,
                 width: 45,
-                cellClick: function(e, cell) {
-                  cell.getRow().toggleSelect();
+                formatter: function(cell) {
+                  const isChecked = !!cell.getValue();
+                  const input = document.createElement('input');
+                  input.type = 'checkbox';
+                  input.checked = isChecked;
+                  input.className = 'rounded border-slate-700 bg-slate-950 text-cyan-500 focus:ring-cyan-500 cursor-pointer';
+                  input.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                  });
+                  input.addEventListener('change', function(e) {
+                    const rowData = cell.getRow().getData();
+                    rowData.checked = e.target.checked;
+                    const item = modbusRegisters.value.find(r => r.id === rowData.id);
+                    if (item) item.checked = e.target.checked;
+                    modbusRegisters.value = [...modbusRegisters.value];
+
+                    const headerChk = document.getElementById('tabulator-header-tick-all');
+                    if (headerChk) {
+                      headerChk.checked = modbusRegisters.value.length > 0 && modbusRegisters.value.every(r => r.checked);
+                    }
+                  });
+                  return input;
                 }
               },
               {
@@ -1160,10 +1199,6 @@ function useSerialModule(ctx) {
           });
 
           tabulatorTable.on("rowSelectionChanged", function(data, rows) {
-            const selIds = new Set(data.map(d => d.id));
-            modbusRegisters.value.forEach(r => {
-              r.checked = selIds.has(r.id);
-            });
             selectedRowCount.value = rows.length;
           });
 
@@ -1176,11 +1211,7 @@ function useSerialModule(ctx) {
           });
 
           tabulatorTable.on("tableBuilt", function() {
-            modbusRegisters.value.forEach(r => {
-              if (r.checked) {
-                try { tabulatorTable.selectRow(r.id); } catch(e) {}
-              }
-            });
+            // Row selection remains clean
           });
         };
 
@@ -1201,11 +1232,9 @@ function useSerialModule(ctx) {
           let idsToDelete = new Set();
           if (rows.length > 0) {
             idsToDelete = new Set(rows.map(r => r.getData().id));
-          } else {
-            idsToDelete = new Set(modbusRegisters.value.filter(r => r.checked).map(r => r.id));
           }
           if (idsToDelete.size === 0) {
-            showToast('No rows selected to delete', 'info');
+            showToast('No rows selected to delete (click row or # to select)', 'info');
             return;
           }
           const count = idsToDelete.size;
@@ -2068,14 +2097,15 @@ function useSerialModule(ctx) {
           } finally {
             row.writing = false;
             if (tabulatorTable) {
-              if (row.exception === 'WRITE_OK') {
-                try { tabulatorTable.deselectRow(row.id); } catch(e) {}
-              }
               tabulatorTable.updateRow(row.id, {
                 checked: row.checked,
                 exception: row.exception,
                 status: row.status
               });
+              const headerChk = document.getElementById('tabulator-header-tick-all');
+              if (headerChk) {
+                headerChk.checked = modbusRegisters.value.length > 0 && modbusRegisters.value.every(r => r.checked);
+              }
             }
           }
         };
