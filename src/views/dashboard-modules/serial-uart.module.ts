@@ -307,57 +307,36 @@ export const SERIAL_UART_TEMPLATE = `          <div v-else-if="activeFeature.id 
                     </select>
                   </div>
 
-                  <!-- Read Checked Button -->
+                  <!-- Start / Stop Button -->
                   <button
                     type="button"
-                    @click="readAllCheckedRegisters"
-                    :disabled="batchReading || batchWriting"
-                    class="px-3 py-1.5 rounded-lg bg-cyan-600/20 hover:bg-cyan-600/30 border border-cyan-500/40 text-cyan-300 text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition disabled:opacity-50"
-                    title="Read all checked registers once"
-                  >
-                    <i class="fa-solid fa-arrow-down-to-bracket" :class="{ 'animate-bounce': batchReading }"></i>
-                    <span>Read Checked</span>
-                  </button>
-
-                  <!-- Continuous Polling Toggle Button -->
-                  <button
-                    type="button"
-                    @click="toggleContinuousPolling"
-                    class="px-3 py-1.5 rounded-lg border text-xs font-semibold flex items-center gap-2 cursor-pointer transition shadow-sm"
+                    @click="toggleStartStop"
+                    class="px-3.5 py-1.5 rounded-lg border text-xs font-bold flex items-center gap-2 cursor-pointer transition shadow-md"
                     :class="isPolling
-                      ? 'bg-emerald-500/20 border-emerald-500/50 text-emerald-300 animate-pulse'
-                      : 'bg-slate-800 hover:bg-slate-700 border-slate-700 text-slate-300'"
-                    title="Toggle continuous interval polling"
+                      ? 'bg-rose-500/20 hover:bg-rose-500/30 border-rose-500/50 text-rose-300'
+                      : 'bg-emerald-600 hover:bg-emerald-500 border-emerald-500 text-white shadow-emerald-900/30'"
+                    title="Auto Read / Write based on tick box (FC 03/04 = Read, FC 16/06 = Write)"
                   >
-                    <span class="w-2 h-2 rounded-full" :class="isPolling ? 'bg-emerald-400 animate-ping' : 'bg-slate-500'"></span>
-                    <i class="fa-solid fa-arrows-rotate" :class="{ 'animate-spin': isPolling }"></i>
-                    <span>{{ isPolling ? 'Polling Active' : 'Start Polling' }}</span>
+                    <span class="w-2 h-2 rounded-full" :class="isPolling ? 'bg-rose-400 animate-ping' : 'bg-white'"></span>
+                    <i class="fa-solid" :class="isPolling ? 'fa-stop' : 'fa-play'"></i>
+                    <span>{{ isPolling ? 'Stop' : 'Start' }}</span>
                   </button>
 
                   <!-- Polling Interval selector -->
-                  <select
-                    v-model.number="pollingIntervalMs"
-                    class="px-2 py-1.5 bg-slate-950 border border-slate-700 rounded-lg text-white text-xs font-mono"
-                    title="Polling interval between complete rounds"
-                  >
-                    <option :value="200">200 ms</option>
-                    <option :value="500">500 ms</option>
-                    <option :value="1000">1000 ms</option>
-                    <option :value="2000">2000 ms</option>
-                    <option :value="5000">5000 ms</option>
-                  </select>
-
-                  <!-- Write Checked Button -->
-                  <button
-                    type="button"
-                    @click="writeAllCheckedRegisters"
-                    :disabled="batchWriting || batchReading"
-                    class="px-3 py-1.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-300 text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition disabled:opacity-50"
-                    title="Write all registers that have a value entered"
-                  >
-                    <i class="fa-solid fa-arrow-up-from-bracket" :class="{ 'animate-bounce': batchWriting }"></i>
-                    <span>Write Checked</span>
-                  </button>
+                  <div class="flex items-center gap-1 text-xs">
+                    <span class="text-slate-400 font-semibold text-[11px] hidden sm:inline">Interval:</span>
+                    <select
+                      v-model.number="pollingIntervalMs"
+                      class="px-2 py-1.5 bg-slate-950 border border-slate-700 rounded-lg text-white text-xs font-mono"
+                      title="Interval between cycles"
+                    >
+                      <option :value="200">200 ms</option>
+                      <option :value="500">500 ms</option>
+                      <option :value="1000">1000 ms</option>
+                      <option :value="2000">2000 ms</option>
+                      <option :value="5000">5000 ms</option>
+                    </select>
+                  </div>
                 </div>
 
                 <!-- Right: Add, Import, Export, Clear -->
@@ -378,7 +357,7 @@ export const SERIAL_UART_TEMPLATE = `          <div v-else-if="activeFeature.id 
                     type="button"
                     @click="addNewRegisterRow"
                     class="px-2.5 py-1.5 rounded-lg bg-cyan-600/20 hover:bg-cyan-600/30 text-cyan-300 border border-cyan-500/40 text-xs font-semibold flex items-center gap-1 cursor-pointer transition"
-                    title="Append new register row"
+                    title="Insert new register row"
                   >
                     <i class="fa-solid fa-plus"></i>
                     <span>Add Row</span>
@@ -386,14 +365,14 @@ export const SERIAL_UART_TEMPLATE = `          <div v-else-if="activeFeature.id 
 
                   <!-- Delete Selected button -->
                   <button
-                    v-if="selectedRowIndices.length > 0"
+                    v-if="selectedRowCount > 0"
                     type="button"
                     @click="deleteSelectedRows"
                     class="px-2.5 py-1.5 rounded-lg bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/40 text-xs font-semibold flex items-center gap-1 cursor-pointer transition animate-pulse"
                     title="Delete selected rows (or press Delete key)"
                   >
                     <i class="fa-regular fa-trash-can"></i>
-                    <span>Delete ({{ selectedRowIndices.length }})</span>
+                    <span>Delete ({{ selectedRowCount }})</span>
                   </button>
 
                   <!-- Add Register Modal button -->
@@ -450,202 +429,22 @@ export const SERIAL_UART_TEMPLATE = `          <div v-else-if="activeFeature.id 
                 </div>
               </div>
 
-              <!-- Modbus Registers Grid Card (Tabular Excel-like View) -->
-              <div class="p-5 rounded-2xl bg-slate-900/90 border border-slate-800 space-y-4 shadow-xl">
-                <div class="overflow-x-auto custom-scroll max-h-[580px] overflow-y-auto">
-                  <table class="w-full text-left text-xs text-slate-300 border-collapse">
-                    <thead class="sticky top-0 bg-slate-900/95 backdrop-blur shadow-sm z-10 select-none">
-                      <tr class="border-b border-slate-800 text-[10px] font-bold text-slate-400 uppercase tracking-wider font-mono">
-                        <th class="py-2.5 px-2.5 w-10 text-center border-r border-slate-800">
-                          <input
-                            type="checkbox"
-                            :checked="isAllRegistersChecked"
-                            @change="toggleSelectAllRegisters"
-                            class="rounded border-slate-700 bg-slate-950 text-cyan-500 focus:ring-cyan-500 cursor-pointer"
-                          />
-                        </th>
-                        <th
-                          class="py-2.5 px-2 w-12 text-slate-400 text-center border-r border-slate-800 cursor-pointer hover:bg-slate-800 hover:text-white transition"
-                          @click="selectAllRows"
-                          title="Click to select/deselect all rows"
-                        >
-                          #
-                        </th>
-                        <th class="py-2.5 px-3 border-r border-slate-800">ADDRESS</th>
-                        <th class="py-2.5 px-2.5 border-r border-slate-800">SLAVE</th>
-                        <th class="py-2.5 px-2.5 border-r border-slate-800">FC</th>
-                        <th class="py-2.5 px-2.5 border-r border-slate-800">REG_NUM</th>
-                        <th class="py-2.5 px-3 border-r border-slate-800">FORMAT</th>
-                        <th class="py-2.5 px-3 border-r border-slate-800 min-w-[180px]">PARAMETER_NAME</th>
-                        <th class="py-2.5 px-3 border-r border-slate-800 min-w-[130px]">VALUE ON MEMMAP</th>
-                        <th class="py-2.5 px-3 border-r border-slate-800 min-w-[130px]">VALUE TO WRITE</th>
-                        <th class="py-2.5 px-3">ENDIANNESS</th>
-                      </tr>
-                    </thead>
-                    <tbody class="divide-y divide-slate-800/60 font-mono text-xs select-none">
-                      <tr
-                        v-for="(row, idx) in filteredModbusRegisters"
-                        :key="row.id || idx"
-                        class="hover:bg-slate-800/30 transition"
-                        :class="{
-                          'bg-cyan-500/15 ring-1 ring-inset ring-cyan-500/40': isRowSelected(idx),
-                          'bg-cyan-500/5': row.reading && !isRowSelected(idx),
-                          'bg-amber-500/5': row.writing && !isRowSelected(idx)
-                        }"
-                      >
-                        <!-- Checkbox -->
-                        <td class="py-1 px-2.5 text-center border-r border-slate-800/60">
-                          <input
-                            type="checkbox"
-                            v-model="row.checked"
-                            class="rounded border-slate-700 bg-slate-950 text-cyan-500 focus:ring-cyan-500 cursor-pointer"
-                          />
-                        </td>
-
-                        <!-- Index # (Drag/Click to select like Excel) -->
-                        <td
-                          class="py-1 px-2 text-center font-mono cursor-pointer border-r border-slate-800/60 select-none transition"
-                          :class="isRowSelected(idx) ? 'bg-cyan-600 text-white font-bold' : 'text-slate-500 hover:bg-slate-800 hover:text-slate-300'"
-                          @mousedown.prevent="onRowHeaderMouseDown(idx, $event)"
-                          @mouseenter="onRowHeaderMouseEnter(idx)"
-                          @click="onRowHeaderClick(idx, $event)"
-                          title="Click or drag down to select rows. Press Delete to remove."
-                        >
-                          {{ idx + 1 }}
-                        </td>
-
-                        <!-- Address (DEC only) -->
-                        <td class="py-1 px-2 border-r border-slate-800/60">
-                          <input
-                            type="number"
-                            v-model.number="row.reg"
-                            min="0"
-                            class="w-20 bg-slate-950/60 hover:bg-slate-950 focus:bg-slate-950 border border-slate-800/80 focus:border-cyan-500 rounded px-2 py-1 text-white font-mono font-bold text-xs outline-none"
-                          />
-                        </td>
-
-                        <!-- Slave -->
-                        <td class="py-1 px-2 border-r border-slate-800/60">
-                          <input
-                            type="number"
-                            v-model.number="row.slave"
-                            min="1"
-                            max="247"
-                            class="w-16 bg-slate-950/60 hover:bg-slate-950 focus:bg-slate-950 border border-slate-800/80 focus:border-cyan-500 rounded px-2 py-1 text-slate-200 font-mono text-xs outline-none"
-                          />
-                        </td>
-
-                        <!-- FC (04, 16, 03 numeric choices) -->
-                        <td class="py-1 px-2 border-r border-slate-800/60">
-                          <select
-                            v-model.number="row.fc"
-                            class="bg-slate-950/60 hover:bg-slate-950 focus:bg-slate-950 border border-slate-800/80 focus:border-cyan-500 rounded px-2 py-1 text-xs font-mono font-bold text-cyan-300 outline-none cursor-pointer"
-                          >
-                            <option :value="4">04</option>
-                            <option :value="16">16</option>
-                            <option :value="3">03</option>
-                            <option :value="1">01</option>
-                            <option :value="2">02</option>
-                            <option :value="6">06</option>
-                          </select>
-                        </td>
-
-                        <!-- REG_NUM -->
-                        <td class="py-1 px-2 border-r border-slate-800/60">
-                          <input
-                            type="number"
-                            v-model.number="row.numreg"
-                            min="1"
-                            max="125"
-                            class="w-14 bg-slate-950/60 hover:bg-slate-950 focus:bg-slate-950 border border-slate-800/80 focus:border-cyan-500 rounded px-2 py-1 text-slate-300 font-mono text-xs outline-none"
-                          />
-                        </td>
-
-                        <!-- Format (float, uint, int, hex) -->
-                        <td class="py-1 px-2 border-r border-slate-800/60">
-                          <select
-                            v-model="row.format"
-                            class="bg-slate-950/60 hover:bg-slate-950 focus:bg-slate-950 border border-slate-800/80 focus:border-cyan-500 rounded px-2 py-1 text-xs font-mono text-amber-300 outline-none cursor-pointer"
-                          >
-                            <option value="float">float</option>
-                            <option value="uint">uint</option>
-                            <option value="int">int</option>
-                            <option value="hex">hex</option>
-                          </select>
-                        </td>
-
-                        <!-- Parameter Name -->
-                        <td class="py-1 px-2 border-r border-slate-800/60">
-                          <input
-                            type="text"
-                            v-model="row.parameter"
-                            placeholder="Parameter name..."
-                            class="w-full min-w-[160px] bg-slate-950/60 hover:bg-slate-950 focus:bg-slate-950 border border-slate-800/80 focus:border-cyan-500 rounded px-2 py-1 text-slate-200 font-mono text-xs outline-none"
-                          />
-                        </td>
-
-                        <!-- VALUE ON MEMMAP -->
-                        <td class="py-1 px-2 border-r border-slate-800/60 whitespace-nowrap">
-                          <div class="flex items-center gap-1.5 cursor-pointer" @dblclick="readSingleRegister(row)" title="Double-click to read register">
-                            <span
-                              class="px-2.5 py-1 rounded-lg text-xs font-bold font-mono transition border min-w-[75px] inline-block text-center"
-                              :class="getLiveValueClass(row)"
-                            >
-                              <i v-if="row.reading" class="fa-solid fa-spinner animate-spin text-[10px] mr-1"></i>
-                              <span>{{ formatLiveValue(row) }}</span>
-                            </span>
-                            <span v-if="row.lastUpdated" class="text-[9px] text-slate-500 font-mono" :title="'Updated: ' + row.lastUpdated">
-                              {{ formatShortTime(row.lastUpdated) }}
-                            </span>
-                          </div>
-                        </td>
-
-                        <!-- VALUE TO WRITE -->
-                        <td class="py-1 px-2 border-r border-slate-800/60">
-                          <div class="flex items-center gap-1">
-                            <input
-                              type="text"
-                              v-model="row.valuetowrite"
-                              @keyup.enter="writeSingleRegister(row)"
-                              placeholder="Val..."
-                              class="w-24 bg-slate-950/60 hover:bg-slate-950 focus:bg-slate-950 border border-slate-800/80 focus:border-amber-500 rounded px-2 py-1 text-white font-mono text-xs outline-none"
-                              title="Press Enter to write"
-                            />
-                            <button
-                              type="button"
-                              @click="writeSingleRegister(row)"
-                              :disabled="row.writing || !serialConnected || row.valuetowrite === '' || row.valuetowrite === undefined"
-                              class="p-1 rounded bg-slate-800 hover:bg-amber-600/30 text-slate-400 hover:text-amber-300 border border-slate-700 text-[10px] cursor-pointer transition disabled:opacity-30"
-                              title="Write value to register"
-                            >
-                              <i class="fa-solid fa-arrow-up" :class="{ 'animate-spin': row.writing }"></i>
-                            </button>
-                          </div>
-                        </td>
-
-                        <!-- ENDIANNESS (At the end) -->
-                        <td class="py-1 px-2 whitespace-nowrap">
-                          <select
-                            v-model="row.endianness"
-                            class="bg-slate-950/60 hover:bg-slate-950 focus:bg-slate-950 border border-slate-800/80 focus:border-cyan-500 rounded px-2 py-1 text-xs font-mono text-slate-300 outline-none cursor-pointer"
-                          >
-                            <option value="Big-Endian">Big-Endian</option>
-                            <option value="Little-Endian">Little-Endian</option>
-                            <option value="Mid-Big">Mid-Big</option>
-                            <option value="Mid-Little">Mid-Little</option>
-                          </select>
-                        </td>
-                      </tr>
-
-                      <!-- Empty State -->
-                      <tr v-if="filteredModbusRegisters.length === 0">
-                        <td colspan="11" class="py-12 text-center text-slate-500">
-                          <i class="fa-solid fa-table-cells-large text-3xl text-slate-700 mb-2 block"></i>
-                          <span>No Modbus registers loaded. Click "+ Add Row" or "Add Dialog" to create registers.</span>
-                        </td>
-                      </tr>
-                    </tbody>
-                  </table>
+              <!-- Modbus Registers Grid Card (Tabulator 6.x Table) -->
+              <div class="p-4 rounded-2xl bg-slate-900/90 border border-slate-800 space-y-3 shadow-xl">
+                <!-- Tabulator Table Container -->
+                <div id="modbus-tabulator-table" tabindex="0" class="rounded-xl overflow-hidden shadow-inner min-h-[420px] outline-none"></div>
+                <!-- Status footer summary -->
+                <div class="flex items-center justify-between text-[11px] font-mono text-slate-400 px-2 pt-1 border-t border-slate-800/60">
+                  <div class="flex items-center gap-3">
+                    <span>Total: <strong class="text-white">{{ modbusRegisters.length }}</strong> registers</span>
+                    <span>Checked: <strong class="text-cyan-400">{{ checkedRowCount }}</strong></span>
+                    <span v-if="selectedRowCount > 0">Selected: <strong class="text-amber-400">{{ selectedRowCount }}</strong></span>
+                  </div>
+                  <div class="flex items-center gap-2 text-[10px] text-slate-500">
+                    <span class="flex items-center gap-1"><i class="fa-solid fa-lightbulb text-cyan-400"></i> Double-click cell to edit</span>
+                    <span>•</span>
+                    <span>Right-click row for actions</span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -1098,101 +897,352 @@ function useSerialModule(ctx) {
           valuetowrite: '',
         });
 
-        // Tabular & Multi-row Excel Selection State
-        const selectedRowIndices = ref([]);
-        let isDraggingRowSelection = false;
-        let dragStartIdx = -1;
-        let lastClickedIdx = -1;
+        // Tabulator 6.x Instance & Reactive Selection
+        let tabulatorTable = null;
+        const selectedRowCount = ref(0);
+        const checkedRowCount = computed(() => modbusRegisters.value.filter(r => r.checked).length);
 
-        const isRowSelected = (idx) => selectedRowIndices.value.includes(idx);
-
-        const onRowHeaderMouseDown = (idx, event) => {
-          isDraggingRowSelection = true;
-          dragStartIdx = idx;
-          if (event.shiftKey && lastClickedIdx >= 0) {
-            const min = Math.min(lastClickedIdx, idx);
-            const max = Math.max(lastClickedIdx, idx);
-            const range = [];
-            for (let i = min; i <= max; i++) range.push(i);
-            selectedRowIndices.value = range;
-          } else if (event.ctrlKey || event.metaKey) {
-            if (selectedRowIndices.value.includes(idx)) {
-              selectedRowIndices.value = selectedRowIndices.value.filter(i => i !== idx);
-            } else {
-              selectedRowIndices.value.push(idx);
-            }
-            lastClickedIdx = idx;
-          } else {
-            selectedRowIndices.value = [idx];
-            lastClickedIdx = idx;
+        const initTabulatorTable = () => {
+          const container = document.getElementById('modbus-tabulator-table');
+          if (!container) return;
+          if (typeof Tabulator === 'undefined') {
+            setTimeout(initTabulatorTable, 100);
+            return;
           }
+
+          if (tabulatorTable) {
+            try {
+              tabulatorTable.destroy();
+            } catch(e) {}
+            tabulatorTable = null;
+          }
+
+          tabulatorTable = new Tabulator(container, {
+            data: modbusRegisters.value,
+            layout: "fitColumns",
+            height: "560px",
+            reactiveData: false,
+            selectableRows: "highlight",
+            history: true,
+            rowClick: function(e, row) {
+              const tag = (e.target && e.target.tagName) ? e.target.tagName.toLowerCase() : '';
+              if (tag === 'input' || tag === 'select') return;
+              row.select();
+            },
+            rowDblClick: function(e, row) {
+              const tag = (e.target && e.target.tagName) ? e.target.tagName.toLowerCase() : '';
+              if (tag === 'input' || tag === 'select') return;
+              row.deselect();
+            },
+            rowContextMenu: [
+              {
+                label: "<i class='fa-solid fa-play text-emerald-400 mr-2'></i> Execute Read / Write",
+                action: function(e, row) {
+                  executeSingleRow(row.getData());
+                }
+              },
+              {
+                label: "<i class='fa-solid fa-plus text-cyan-400 mr-2'></i> Insert Row Below",
+                action: function(e, row) {
+                  const cur = row.getData();
+                  const nextAddr = Number(cur.reg) + (Number(cur.numreg) || 1);
+                  const newRow = {
+                    id: 'reg_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6),
+                    checked: true,
+                    slave: cur.slave || 1,
+                    fc: cur.fc || 3,
+                    reg: nextAddr,
+                    numreg: cur.numreg || 2,
+                    format: cur.format || 'float',
+                    endianness: cur.endianness || 'Big-Endian',
+                    parameter: 'Parameter ' + (modbusRegisters.value.length + 1),
+                    valuetowrite: '',
+                    liveValue: '',
+                    exception: '',
+                    status: 'IDLE'
+                  };
+                  const idx = modbusRegisters.value.findIndex(r => r.id === cur.id);
+                  if (idx !== -1) {
+                    modbusRegisters.value.splice(idx + 1, 0, newRow);
+                  } else {
+                    modbusRegisters.value.push(newRow);
+                  }
+                  if (tabulatorTable) {
+                    tabulatorTable.setData(modbusRegisters.value);
+                  }
+                }
+              },
+              {
+                label: "<i class='fa-regular fa-trash-can text-rose-400 mr-2'></i> Delete Row",
+                action: function(e, row) {
+                  const cur = row.getData();
+                  modbusRegisters.value = modbusRegisters.value.filter(r => r.id !== cur.id);
+                  row.delete();
+                  showToast('Row deleted', 'info');
+                }
+              }
+            ],
+            columns: [
+              {
+                title: "#",
+                formatter: "rownum",
+                hozAlign: "center",
+                headerHozAlign: "center",
+                width: 48,
+                headerSort: false,
+                cellClick: function(e, cell) {
+                  cell.getRow().toggleSelect();
+                }
+              },
+              {
+                formatter: "rowSelection",
+                titleFormatter: "rowSelection",
+                hozAlign: "center",
+                headerHozAlign: "center",
+                headerSort: false,
+                width: 45,
+                cellClick: function(e, cell) {
+                  cell.getRow().toggleSelect();
+                }
+              },
+              {
+                title: "ADDRESS",
+                field: "reg",
+                editor: "number",
+                editorParams: { min: 0 },
+                width: 95,
+                hozAlign: "right",
+                headerHozAlign: "left",
+                formatter: function(cell) {
+                  return '<span class="font-mono font-bold text-white">' + (cell.getValue() ?? 0) + '</span>';
+                }
+              },
+              {
+                title: "SLAVE",
+                field: "slave",
+                editor: "number",
+                editorParams: { min: 1, max: 247 },
+                width: 75,
+                hozAlign: "center",
+                headerHozAlign: "center"
+              },
+              {
+                title: "FC",
+                field: "fc",
+                editor: "list",
+                editorParams: {
+                  values: [
+                    { value: 3, label: "03" },
+                    { value: 4, label: "04" },
+                    { value: 16, label: "16" },
+                    { value: 1, label: "01" },
+                    { value: 2, label: "02" },
+                    { value: 6, label: "06" },
+                  ]
+                },
+                width: 75,
+                hozAlign: "center",
+                headerHozAlign: "center",
+                formatter: function(cell) {
+                  const v = Number(cell.getValue());
+                  const s = v < 10 ? '0' + v : String(v);
+                  return '<span class="font-bold text-cyan-400 font-mono">' + s + '</span>';
+                }
+              },
+              {
+                title: "REG_NUM",
+                field: "numreg",
+                editor: "number",
+                editorParams: { min: 1, max: 125 },
+                width: 85,
+                hozAlign: "center",
+                headerHozAlign: "center"
+              },
+              {
+                title: "FORMAT",
+                field: "format",
+                editor: "list",
+                editorParams: {
+                  values: ["float", "uint", "int", "hex"]
+                },
+                width: 90,
+                hozAlign: "center",
+                headerHozAlign: "center",
+                formatter: function(cell) {
+                  return '<span class="text-amber-400 font-mono">' + (cell.getValue() || 'uint') + '</span>';
+                }
+              },
+              {
+                title: "PARAMETER_NAME",
+                field: "parameter",
+                editor: "input",
+                minWidth: 150
+              },
+              {
+                title: "VALUE ON MEMMAP",
+                field: "liveValue",
+                minWidth: 140,
+                hozAlign: "center",
+                headerHozAlign: "center",
+                formatter: function(cell) {
+                  const v = cell.getValue();
+                  if (v === undefined || v === null || v === '' || v === '--') {
+                    return '';
+                  }
+                  return '<span class="w-full block py-0.5 px-2 rounded text-xs font-mono font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 text-center">' + v + '</span>';
+                }
+              },
+              {
+                title: "VALUE TO WRITE",
+                field: "valuetowrite",
+                minWidth: 140,
+                hozAlign: "center",
+                headerHozAlign: "center",
+                formatter: function(cell, formatterParams, onRendered) {
+                  const row = cell.getRow().getData();
+                  const val = row.valuetowrite !== undefined && row.valuetowrite !== null ? row.valuetowrite : '';
+                  const input = document.createElement('input');
+                  input.type = 'text';
+                  input.value = val;
+                  input.placeholder = '';
+                  input.className = 'w-full h-7 px-2 text-center text-xs font-mono font-bold text-amber-300 bg-slate-950/80 border border-slate-700/80 rounded focus:border-amber-400 focus:bg-slate-900 outline-none transition';
+                  input.style.width = '100%';
+                  input.style.boxSizing = 'border-box';
+
+                  input.addEventListener('input', function(e) {
+                    const v = e.target.value;
+                    row.valuetowrite = v;
+                    const r = modbusRegisters.value.find(x => x.id === row.id);
+                    if (r) r.valuetowrite = v;
+                  });
+
+                  input.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                  });
+
+                  input.addEventListener('dblclick', function(e) {
+                    e.stopPropagation();
+                  });
+
+                  return input;
+                }
+              },
+              {
+                title: "EXCEPTION",
+                field: "exception",
+                width: 120,
+                hozAlign: "center",
+                headerHozAlign: "center",
+                formatter: function(cell) {
+                  const v = cell.getValue();
+                  if (!v) return '';
+                  if (v === 'WRITE_OK' || v === 'READ_OK' || v === 'OK') {
+                    return '<span class="px-2 py-0.5 rounded text-[10px] font-bold font-mono bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">' + v + '</span>';
+                  }
+                  if (v === 'TIMEOUT') {
+                    return '<span class="px-2 py-0.5 rounded text-[10px] font-bold font-mono bg-amber-500/20 text-amber-300 border border-amber-500/40">' + v + '</span>';
+                  }
+                  return '<span class="px-2 py-0.5 rounded text-[10px] font-bold font-mono bg-rose-500/20 text-rose-300 border border-rose-500/40">' + v + '</span>';
+                }
+              },
+              {
+                title: "ENDIANNESS",
+                field: "endianness",
+                editor: "list",
+                editorParams: {
+                  values: ["Big-Endian", "Little-Endian", "Mid-Big", "Mid-Little"]
+                },
+                width: 125,
+                hozAlign: "center",
+                headerHozAlign: "center"
+              }
+            ]
+          });
+
+          tabulatorTable.on("rowSelectionChanged", function(data, rows) {
+            const selIds = new Set(data.map(d => d.id));
+            modbusRegisters.value.forEach(r => {
+              r.checked = selIds.has(r.id);
+            });
+            selectedRowCount.value = rows.length;
+          });
+
+          tabulatorTable.on("cellEdited", function(cell) {
+            const rowData = cell.getRow().getData();
+            const idx = modbusRegisters.value.findIndex(r => r.id === rowData.id);
+            if (idx !== -1) {
+              modbusRegisters.value[idx] = { ...modbusRegisters.value[idx], ...rowData };
+            }
+          });
+
+          tabulatorTable.on("tableBuilt", function() {
+            modbusRegisters.value.forEach(r => {
+              if (r.checked) {
+                try { tabulatorTable.selectRow(r.id); } catch(e) {}
+              }
+            });
+          });
         };
 
-        const onRowHeaderMouseEnter = (idx) => {
-          if (!isDraggingRowSelection || dragStartIdx < 0) return;
-          const min = Math.min(dragStartIdx, idx);
-          const max = Math.max(dragStartIdx, idx);
-          const range = [];
-          for (let i = min; i <= max; i++) range.push(i);
-          selectedRowIndices.value = range;
-        };
-
-        const onRowHeaderClick = (idx, event) => {
-          lastClickedIdx = idx;
-        };
-
-        const handleGlobalMouseUp = () => {
-          isDraggingRowSelection = false;
-        };
-
-        const selectAllRows = () => {
-          if (selectedRowIndices.value.length === filteredModbusRegisters.value.length) {
-            selectedRowIndices.value = [];
+        const executeSingleRow = async (row) => {
+          const fc = Number(row.fc);
+          if (fc === 16 || fc === 6 || fc === 5) {
+            await writeSingleRegister(row);
           } else {
-            selectedRowIndices.value = filteredModbusRegisters.value.map((_, i) => i);
+            await readSingleRegister(row);
           }
         };
 
         const deleteSelectedRows = () => {
-          if (selectedRowIndices.value.length === 0) return;
-          const count = selectedRowIndices.value.length;
-          const idsToDelete = new Set();
-          selectedRowIndices.value.forEach(idx => {
-            const row = filteredModbusRegisters.value[idx];
-            if (row && row.id) {
-              idsToDelete.add(row.id);
-            }
-          });
+          let rows = [];
+          if (tabulatorTable) {
+            rows = tabulatorTable.getSelectedRows();
+          }
+          let idsToDelete = new Set();
+          if (rows.length > 0) {
+            idsToDelete = new Set(rows.map(r => r.getData().id));
+          } else {
+            idsToDelete = new Set(modbusRegisters.value.filter(r => r.checked).map(r => r.id));
+          }
+          if (idsToDelete.size === 0) {
+            showToast('No rows selected to delete', 'info');
+            return;
+          }
+          const count = idsToDelete.size;
           modbusRegisters.value = modbusRegisters.value.filter(r => !idsToDelete.has(r.id));
-          selectedRowIndices.value = [];
-          showToast('Deleted ' + count + ' register(s)', 'info');
+          if (tabulatorTable) {
+            tabulatorTable.setData(modbusRegisters.value);
+            selectedRowCount.value = 0;
+          }
+          showToast('Deleted ' + count + ' row(s)', 'info');
         };
 
         const addNewRegisterRow = () => {
           const last = modbusRegisters.value[modbusRegisters.value.length - 1];
           const nextReg = last ? Number(last.reg) + (Number(last.numreg) || 1) : 0;
           const nextSlave = last ? Number(last.slave) || 1 : 1;
-          const nextFC = last ? Number(last.fc) || 4 : 4;
           const newRow = {
             id: 'reg_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6),
             checked: true,
             slave: nextSlave,
-            fc: nextFC,
+            fc: 3,
             reg: nextReg,
-            numreg: 1,
-            format: 'uint',
+            numreg: 2,
+            format: 'float',
             endianness: 'Big-Endian',
-            parameter: 'Register ' + nextReg,
+            parameter: 'Parameter ' + (modbusRegisters.value.length + 1),
             valuetowrite: '',
-            liveValue: '--',
+            liveValue: '',
+            exception: '',
             status: 'IDLE',
-            reading: false,
-            writing: false,
-            lastUpdated: null,
           };
           modbusRegisters.value.push(newRow);
-          selectedRowIndices.value = [modbusRegisters.value.length - 1];
-          showToast('Added new register row', 'success');
+          if (tabulatorTable) {
+            tabulatorTable.addRow(newRow, false).then(row => {
+              try { row.select(); } catch(e) {}
+            });
+          }
+          showToast('Row added at address ' + nextReg, 'info');
         };
 
         const handleKeydown = (e) => {
@@ -1200,61 +1250,9 @@ function useSerialModule(ctx) {
           const isInput = tag === 'input' || tag === 'textarea' || tag === 'select';
 
           if (e.key === 'Delete' || e.key === 'Backspace') {
-            if (!isInput && selectedRowIndices.value.length > 0) {
+            if (!isInput && selectedRowCount.value > 0) {
               e.preventDefault();
               deleteSelectedRows();
-            }
-          } else if (e.key === 'ArrowDown') {
-            if (!isInput && filteredModbusRegisters.value.length > 0) {
-              e.preventDefault();
-              if (selectedRowIndices.value.length === 0) {
-                selectedRowIndices.value = [0];
-                lastClickedIdx = 0;
-                dragStartIdx = 0;
-              } else {
-                const last = selectedRowIndices.value[selectedRowIndices.value.length - 1];
-                if (last < filteredModbusRegisters.value.length - 1) {
-                  const next = last + 1;
-                  if (e.shiftKey) {
-                    const anchor = dragStartIdx >= 0 ? dragStartIdx : selectedRowIndices.value[0];
-                    const min = Math.min(anchor, next);
-                    const max = Math.max(anchor, next);
-                    const range = [];
-                    for (let i = min; i <= max; i++) range.push(i);
-                    selectedRowIndices.value = range;
-                  } else {
-                    selectedRowIndices.value = [next];
-                    dragStartIdx = next;
-                    lastClickedIdx = next;
-                  }
-                }
-              }
-            }
-          } else if (e.key === 'ArrowUp') {
-            if (!isInput && filteredModbusRegisters.value.length > 0) {
-              e.preventDefault();
-              if (selectedRowIndices.value.length === 0) {
-                selectedRowIndices.value = [filteredModbusRegisters.value.length - 1];
-                lastClickedIdx = filteredModbusRegisters.value.length - 1;
-                dragStartIdx = filteredModbusRegisters.value.length - 1;
-              } else {
-                const first = selectedRowIndices.value[0];
-                if (first > 0) {
-                  const prev = first - 1;
-                  if (e.shiftKey) {
-                    const anchor = dragStartIdx >= 0 ? dragStartIdx : selectedRowIndices.value[selectedRowIndices.value.length - 1];
-                    const min = Math.min(anchor, prev);
-                    const max = Math.max(anchor, prev);
-                    const range = [];
-                    for (let i = min; i <= max; i++) range.push(i);
-                    selectedRowIndices.value = range;
-                  } else {
-                    selectedRowIndices.value = [prev];
-                    dragStartIdx = prev;
-                    lastClickedIdx = prev;
-                  }
-                }
-              }
             }
           }
         };
@@ -1332,7 +1330,7 @@ function useSerialModule(ctx) {
           if (row.status === 'TIMEOUT') return 'TIMEOUT';
           if (row.status === 'CRC_ERR') return 'CRC ERR';
           if (row.status === 'ERROR') return 'ERROR';
-          if (row.liveValue === undefined || row.liveValue === null || row.liveValue === '') return '--';
+          if (row.liveValue === undefined || row.liveValue === null || row.liveValue === '' || row.liveValue === '--') return '';
           return row.liveValue;
         };
 
@@ -1450,9 +1448,10 @@ function useSerialModule(ctx) {
 
         const loadModbusPresetBySku = async (sku) => {
           selectedModbusPreset.value = sku;
-          selectedRowIndices.value = [];
+          selectedRowCount.value = 0;
           if (sku === 'CUSTOM') {
             modbusRegisters.value = [];
+            if (tabulatorTable) tabulatorTable.setData([]);
             showToast('Loaded empty custom register map', 'info');
             return;
           }
@@ -1477,12 +1476,14 @@ function useSerialModule(ctx) {
                   parameter: r.parameter || 'Register ' + r.reg,
                   description: r.description || '',
                   valuetowrite: r.valuetowrite || '',
-                  liveValue: '--',
+                  liveValue: '',
+                  exception: '',
                   status: 'IDLE',
                   reading: false,
                   writing: false,
                   lastUpdated: null,
                 }));
+                if (tabulatorTable) tabulatorTable.setData(modbusRegisters.value);
                 showToast('Loaded ' + modbusRegisters.value.length + ' registers for ' + sku, 'success');
                 return;
               }
@@ -1494,41 +1495,41 @@ function useSerialModule(ctx) {
           // Fallback built-in registers
           const fallbackMap = {
             'WSL-AMBIENT': [
-              { id: 1, checked: true, slave: 1, fc: 4, reg: 0, numreg: 2, format: 'Float32', endianness: 'Big-Endian', parameter: 'Ambient Temperature', range: '-40 ~ 85 °C', valuetowrite: '', liveValue: '--' },
-              { id: 2, checked: true, slave: 1, fc: 4, reg: 2, numreg: 2, format: 'Float32', endianness: 'Big-Endian', parameter: 'Relative Humidity', range: '0 ~ 100 %RH', valuetowrite: '', liveValue: '--' },
-              { id: 3, checked: true, slave: 1, fc: 4, reg: 4, numreg: 2, format: 'Float32', endianness: 'Big-Endian', parameter: 'Barometric Pressure', range: '300 ~ 1100 hPa', valuetowrite: '', liveValue: '--' },
-              { id: 4, checked: true, slave: 1, fc: 4, reg: 6, numreg: 2, format: 'Float32', endianness: 'Big-Endian', parameter: 'Illuminance / Light', range: '0 ~ 65535 Lux', valuetowrite: '', liveValue: '--' },
-              { id: 5, checked: true, slave: 1, fc: 4, reg: 8, numreg: 1, format: 'UInt16', endianness: 'Big-Endian', parameter: 'Battery Voltage', range: '2500 ~ 3600 mV', valuetowrite: '', liveValue: '--' },
-              { id: 6, checked: true, slave: 1, fc: 3, reg: 100, numreg: 1, format: 'UInt16', endianness: 'Big-Endian', parameter: 'Transmission Interval', range: '10 ~ 86400 s', valuetowrite: '60', liveValue: '--' },
-              { id: 7, checked: true, slave: 1, fc: 3, reg: 101, numreg: 1, format: 'UInt16', endianness: 'Big-Endian', parameter: 'Modbus Slave Address', range: '1 ~ 247', valuetowrite: '1', liveValue: '--' },
+              { id: 1, checked: true, slave: 1, fc: 4, reg: 0, numreg: 2, format: 'float', endianness: 'Big-Endian', parameter: 'Ambient Temperature', valuetowrite: '', liveValue: '', exception: '' },
+              { id: 2, checked: true, slave: 1, fc: 4, reg: 2, numreg: 2, format: 'float', endianness: 'Big-Endian', parameter: 'Relative Humidity', valuetowrite: '', liveValue: '', exception: '' },
+              { id: 3, checked: true, slave: 1, fc: 4, reg: 4, numreg: 2, format: 'float', endianness: 'Big-Endian', parameter: 'Barometric Pressure', valuetowrite: '', liveValue: '', exception: '' },
+              { id: 4, checked: true, slave: 1, fc: 4, reg: 6, numreg: 2, format: 'float', endianness: 'Big-Endian', parameter: 'Illuminance / Light', valuetowrite: '', liveValue: '', exception: '' },
+              { id: 5, checked: true, slave: 1, fc: 4, reg: 8, numreg: 1, format: 'uint', endianness: 'Big-Endian', parameter: 'Battery Voltage', valuetowrite: '', liveValue: '', exception: '' },
+              { id: 6, checked: true, slave: 1, fc: 3, reg: 100, numreg: 1, format: 'uint', endianness: 'Big-Endian', parameter: 'Transmission Interval', valuetowrite: '60', liveValue: '', exception: '' },
+              { id: 7, checked: true, slave: 1, fc: 3, reg: 101, numreg: 1, format: 'uint', endianness: 'Big-Endian', parameter: 'Modbus Slave Address', valuetowrite: '1', liveValue: '', exception: '' },
             ],
             'WSL-LEVEL': [
-              { id: 1, checked: true, slave: 1, fc: 4, reg: 0, numreg: 2, format: 'Float32', endianness: 'Big-Endian', parameter: 'Liquid Level / Depth', range: '0 ~ 10.0 m', valuetowrite: '', liveValue: '--' },
-              { id: 2, checked: true, slave: 1, fc: 4, reg: 2, numreg: 2, format: 'Float32', endianness: 'Big-Endian', parameter: 'Water Temperature', range: '-10 ~ 60 °C', valuetowrite: '', liveValue: '--' },
-              { id: 3, checked: true, slave: 1, fc: 4, reg: 4, numreg: 1, format: 'UInt16', endianness: 'Big-Endian', parameter: 'Sensor Status Code', range: '0: OK', valuetowrite: '', liveValue: '--' },
-              { id: 4, checked: true, slave: 1, fc: 4, reg: 5, numreg: 1, format: 'UInt16', endianness: 'Big-Endian', parameter: 'Battery Voltage', range: '2500 ~ 3600 mV', valuetowrite: '', liveValue: '--' },
-              { id: 5, checked: true, slave: 1, fc: 3, reg: 50, numreg: 2, format: 'Float32', endianness: 'Big-Endian', parameter: 'Zero Calibration', range: '-5.0 ~ 5.0 m', valuetowrite: '0.0', liveValue: '--' },
-              { id: 6, checked: true, slave: 1, fc: 3, reg: 52, numreg: 2, format: 'Float32', endianness: 'Big-Endian', parameter: 'High Alarm Threshold', range: '0 ~ 10.0 m', valuetowrite: '8.5', liveValue: '--' },
+              { id: 1, checked: true, slave: 1, fc: 4, reg: 0, numreg: 2, format: 'float', endianness: 'Big-Endian', parameter: 'Liquid Level / Depth', valuetowrite: '', liveValue: '', exception: '' },
+              { id: 2, checked: true, slave: 1, fc: 4, reg: 2, numreg: 2, format: 'float', endianness: 'Big-Endian', parameter: 'Water Temperature', valuetowrite: '', liveValue: '', exception: '' },
+              { id: 3, checked: true, slave: 1, fc: 4, reg: 4, numreg: 1, format: 'uint', endianness: 'Big-Endian', parameter: 'Sensor Status Code', valuetowrite: '', liveValue: '', exception: '' },
+              { id: 4, checked: true, slave: 1, fc: 4, reg: 5, numreg: 1, format: 'uint', endianness: 'Big-Endian', parameter: 'Battery Voltage', valuetowrite: '', liveValue: '', exception: '' },
+              { id: 5, checked: true, slave: 1, fc: 3, reg: 50, numreg: 2, format: 'float', endianness: 'Big-Endian', parameter: 'Zero Calibration', valuetowrite: '0.0', liveValue: '', exception: '' },
+              { id: 6, checked: true, slave: 1, fc: 3, reg: 52, numreg: 2, format: 'float', endianness: 'Big-Endian', parameter: 'High Alarm Threshold', valuetowrite: '8.5', liveValue: '', exception: '' },
             ],
             'ENERGY-METER-3P': [
-              { id: 1, checked: true, slave: 1, fc: 3, reg: 0, numreg: 2, format: 'Float32', endianness: 'Big-Endian', parameter: 'Phase A Voltage', range: 'V', valuetowrite: '', liveValue: '--' },
-              { id: 2, checked: true, slave: 1, fc: 3, reg: 2, numreg: 2, format: 'Float32', endianness: 'Big-Endian', parameter: 'Phase B Voltage', range: 'V', valuetowrite: '', liveValue: '--' },
-              { id: 3, checked: true, slave: 1, fc: 3, reg: 4, numreg: 2, format: 'Float32', endianness: 'Big-Endian', parameter: 'Phase C Voltage', range: 'V', valuetowrite: '', liveValue: '--' },
-              { id: 4, checked: true, slave: 1, fc: 3, reg: 6, numreg: 2, format: 'Float32', endianness: 'Big-Endian', parameter: 'Phase A Current', range: 'A', valuetowrite: '', liveValue: '--' },
-              { id: 5, checked: true, slave: 1, fc: 3, reg: 8, numreg: 2, format: 'Float32', endianness: 'Big-Endian', parameter: 'Phase B Current', range: 'A', valuetowrite: '', liveValue: '--' },
-              { id: 6, checked: true, slave: 1, fc: 3, reg: 10, numreg: 2, format: 'Float32', endianness: 'Big-Endian', parameter: 'Phase C Current', range: 'A', valuetowrite: '', liveValue: '--' },
-              { id: 7, checked: true, slave: 1, fc: 3, reg: 12, numreg: 2, format: 'Float32', endianness: 'Big-Endian', parameter: 'Total Active Power', range: 'kW', valuetowrite: '', liveValue: '--' },
-              { id: 8, checked: true, slave: 1, fc: 3, reg: 14, numreg: 2, format: 'Float32', endianness: 'Big-Endian', parameter: 'Power Factor', range: '0.0 ~ 1.0', valuetowrite: '', liveValue: '--' },
-              { id: 9, checked: true, slave: 1, fc: 3, reg: 16, numreg: 2, format: 'Float32', endianness: 'Big-Endian', parameter: 'Grid Frequency', range: 'Hz', valuetowrite: '', liveValue: '--' },
+              { id: 1, checked: true, slave: 1, fc: 3, reg: 0, numreg: 2, format: 'float', endianness: 'Big-Endian', parameter: 'Phase A Voltage', valuetowrite: '', liveValue: '', exception: '' },
+              { id: 2, checked: true, slave: 1, fc: 3, reg: 2, numreg: 2, format: 'float', endianness: 'Big-Endian', parameter: 'Phase B Voltage', valuetowrite: '', liveValue: '', exception: '' },
+              { id: 3, checked: true, slave: 1, fc: 3, reg: 4, numreg: 2, format: 'float', endianness: 'Big-Endian', parameter: 'Phase C Voltage', valuetowrite: '', liveValue: '', exception: '' },
+              { id: 4, checked: true, slave: 1, fc: 3, reg: 6, numreg: 2, format: 'float', endianness: 'Big-Endian', parameter: 'Phase A Current', valuetowrite: '', liveValue: '', exception: '' },
+              { id: 5, checked: true, slave: 1, fc: 3, reg: 8, numreg: 2, format: 'float', endianness: 'Big-Endian', parameter: 'Phase B Current', valuetowrite: '', liveValue: '', exception: '' },
+              { id: 6, checked: true, slave: 1, fc: 3, reg: 10, numreg: 2, format: 'float', endianness: 'Big-Endian', parameter: 'Phase C Current', valuetowrite: '', liveValue: '', exception: '' },
+              { id: 7, checked: true, slave: 1, fc: 3, reg: 12, numreg: 2, format: 'float', endianness: 'Big-Endian', parameter: 'Total Active Power', valuetowrite: '', liveValue: '', exception: '' },
+              { id: 8, checked: true, slave: 1, fc: 3, reg: 14, numreg: 2, format: 'float', endianness: 'Big-Endian', parameter: 'Power Factor', valuetowrite: '', liveValue: '', exception: '' },
+              { id: 9, checked: true, slave: 1, fc: 3, reg: 16, numreg: 2, format: 'float', endianness: 'Big-Endian', parameter: 'Grid Frequency', valuetowrite: '', liveValue: '', exception: '' },
             ],
             'MODBUS-IO-MODULE': [
-              { id: 1, checked: true, slave: 1, fc: 1, reg: 0, numreg: 1, format: 'Boolean', endianness: 'Big-Endian', parameter: 'DO 1 (Relay Output 1)', range: '0 / 1', valuetowrite: '1', liveValue: '--' },
-              { id: 2, checked: true, slave: 1, fc: 1, reg: 1, numreg: 1, format: 'Boolean', endianness: 'Big-Endian', parameter: 'DO 2 (Relay Output 2)', range: '0 / 1', valuetowrite: '0', liveValue: '--' },
-              { id: 3, checked: true, slave: 1, fc: 2, reg: 0, numreg: 1, format: 'Boolean', endianness: 'Big-Endian', parameter: 'DI 1 (Digital Input 1)', range: '0 / 1', valuetowrite: '', liveValue: '--' },
-              { id: 4, checked: true, slave: 1, fc: 2, reg: 1, numreg: 1, format: 'Boolean', endianness: 'Big-Endian', parameter: 'DI 2 (Digital Input 2)', range: '0 / 1', valuetowrite: '', liveValue: '--' },
-              { id: 5, checked: true, slave: 1, fc: 4, reg: 0, numreg: 1, format: 'UInt16', endianness: 'Big-Endian', parameter: 'AI 1 (4-20mA Raw ADC)', range: '0 ~ 4095', valuetowrite: '', liveValue: '--' },
-              { id: 6, checked: true, slave: 1, fc: 4, reg: 1, numreg: 1, format: 'UInt16', endianness: 'Big-Endian', parameter: 'AI 2 (0-10V Raw ADC)', range: '0 ~ 4095', valuetowrite: '', liveValue: '--' },
-              { id: 7, checked: true, slave: 1, fc: 4, reg: 2, numreg: 2, format: 'UInt32', endianness: 'Big-Endian', parameter: 'Pulse Counter 1', range: '0 ~ 4294967295', valuetowrite: '', liveValue: '--' },
+              { id: 1, checked: true, slave: 1, fc: 1, reg: 0, numreg: 1, format: 'uint', endianness: 'Big-Endian', parameter: 'DO 1 (Relay Output 1)', valuetowrite: '1', liveValue: '', exception: '' },
+              { id: 2, checked: true, slave: 1, fc: 1, reg: 1, numreg: 1, format: 'uint', endianness: 'Big-Endian', parameter: 'DO 2 (Relay Output 2)', valuetowrite: '0', liveValue: '', exception: '' },
+              { id: 3, checked: true, slave: 1, fc: 2, reg: 0, numreg: 1, format: 'uint', endianness: 'Big-Endian', parameter: 'DI 1 (Digital Input 1)', valuetowrite: '', liveValue: '', exception: '' },
+              { id: 4, checked: true, slave: 1, fc: 2, reg: 1, numreg: 1, format: 'uint', endianness: 'Big-Endian', parameter: 'DI 2 (Digital Input 2)', valuetowrite: '', liveValue: '', exception: '' },
+              { id: 5, checked: true, slave: 1, fc: 4, reg: 0, numreg: 1, format: 'uint', endianness: 'Big-Endian', parameter: 'AI 1 (4-20mA Raw ADC)', valuetowrite: '', liveValue: '', exception: '' },
+              { id: 6, checked: true, slave: 1, fc: 4, reg: 1, numreg: 1, format: 'uint', endianness: 'Big-Endian', parameter: 'AI 2 (0-10V Raw ADC)', valuetowrite: '', liveValue: '', exception: '' },
+              { id: 7, checked: true, slave: 1, fc: 4, reg: 2, numreg: 2, format: 'uint', endianness: 'Big-Endian', parameter: 'Pulse Counter 1', valuetowrite: '', liveValue: '', exception: '' },
             ],
           };
 
@@ -1537,11 +1538,14 @@ function useSerialModule(ctx) {
             ...item,
             id: 'reg_' + sku + '_' + (item.id || i) + '_' + Math.random().toString(36).substr(2, 5),
             format: normalizeFormat(item.format),
+            liveValue: '',
+            exception: '',
             status: 'IDLE',
             reading: false,
             writing: false,
             lastUpdated: null,
           }));
+          if (tabulatorTable) tabulatorTable.setData(modbusRegisters.value);
           showToast('Loaded ' + modbusRegisters.value.length + ' registers for ' + sku, 'success');
         };
 
@@ -1819,7 +1823,7 @@ function useSerialModule(ctx) {
 
         // Decode Modbus payload
         const decodeModbusPayload = (dataBytes, format, endianness) => {
-          if (!dataBytes || dataBytes.length === 0) return '--';
+          if (!dataBytes || dataBytes.length === 0) return '';
           const len = dataBytes.length;
           const fmt = (format || '').toLowerCase();
 
@@ -1963,13 +1967,22 @@ function useSerialModule(ctx) {
             const val = decodeModbusPayload(dataBytes, row.format, row.endianness);
 
             row.liveValue = val;
+            row.exception = 'READ_OK';
             row.status = 'OK';
             row.lastUpdated = new Date().toISOString();
           } catch(e) {
             console.error('Read register error:', e);
-            row.status = e.message === 'TIMEOUT' ? 'TIMEOUT' : (e.message === 'CRC_ERR' ? 'CRC_ERR' : 'ERROR');
+            row.status = 'ERROR';
+            row.exception = e.message === 'TIMEOUT' ? 'TIMEOUT' : 'CMD_ERROR';
           } finally {
             row.reading = false;
+            if (tabulatorTable) {
+              tabulatorTable.updateRow(row.id, {
+                liveValue: row.liveValue,
+                exception: row.exception,
+                status: row.status
+              });
+            }
           }
         };
 
@@ -1980,6 +1993,10 @@ function useSerialModule(ctx) {
             return;
           }
           if (row.valuetowrite === '' || row.valuetowrite === undefined) {
+            row.exception = 'CMD_ERROR';
+            if (tabulatorTable) {
+              tabulatorTable.updateRow(row.id, { exception: 'CMD_ERROR' });
+            }
             showToast('Please enter a value to write', 'error');
             return;
           }
@@ -2039,79 +2056,49 @@ function useSerialModule(ctx) {
             await executeModbusTransaction(req, slave, respFC, expectedLen, timeout);
 
             row.status = 'OK';
+            row.exception = 'WRITE_OK';
+            // khi ghi xong thì tự xóa tick box
+            row.checked = false;
             showToast('Write successfully to register ' + row.reg, 'success');
-            // Auto-readback after write
-            setTimeout(() => { readSingleRegister(row); }, 100);
           } catch(e) {
             console.error('Write register error:', e);
-            row.status = e.message === 'TIMEOUT' ? 'TIMEOUT' : 'ERROR';
+            row.status = 'ERROR';
+            row.exception = e.message === 'TIMEOUT' ? 'TIMEOUT' : 'CMD_ERROR';
             showToast('Write failed: ' + (e.message || e), 'error');
           } finally {
             row.writing = false;
+            if (tabulatorTable) {
+              if (row.exception === 'WRITE_OK') {
+                try { tabulatorTable.deselectRow(row.id); } catch(e) {}
+              }
+              tabulatorTable.updateRow(row.id, {
+                checked: row.checked,
+                exception: row.exception,
+                status: row.status
+              });
+            }
           }
         };
 
-        // Batch Read Checked Registers
-        const readAllCheckedRegisters = async () => {
-          if (!serialConnected.value) {
-            showToast('Please connect to serial port first', 'error');
-            return;
-          }
-          if (batchReading.value || batchWriting.value) return;
-          batchReading.value = true;
-          const checked = modbusRegisters.value.filter(r => r.checked);
-          if (checked.length === 0) {
-            showToast('No registers checked to read', 'info');
-            batchReading.value = false;
-            return;
-          }
-
-          const delay = Number(serialConfig.value.interframeDelayMs) || 20;
-          for (const row of checked) {
-            if (!serialConnected.value) break;
-            await readSingleRegister(row);
-            await new Promise(r => setTimeout(r, delay));
-          }
-          batchReading.value = false;
-        };
-
-        // Batch Write Checked Registers
-        const writeAllCheckedRegisters = async () => {
-          if (!serialConnected.value) {
-            showToast('Please connect to serial port first', 'error');
-            return;
-          }
-          if (batchWriting.value || batchReading.value) return;
-          batchWriting.value = true;
-          const writable = modbusRegisters.value.filter(r => r.checked && r.valuetowrite !== '' && r.valuetowrite !== undefined);
-          if (writable.length === 0) {
-            showToast('No checked registers with write values entered', 'info');
-            batchWriting.value = false;
-            return;
-          }
-
-          const delay = Number(serialConfig.value.interframeDelayMs) || 20;
-          for (const row of writable) {
-            if (!serialConnected.value) break;
-            await writeSingleRegister(row);
-            await new Promise(r => setTimeout(r, delay));
-          }
-          batchWriting.value = false;
-        };
-
-        // Continuous Polling Loop
-        const toggleContinuousPolling = () => {
+        // Start / Stop Loop: auto read/write based on tick box
+        // Function 3 (and 4, 1, 2) is READ; Function 16 (and 6, 5) is WRITE
+        const toggleStartStop = () => {
           if (isPolling.value) {
             stopContinuousPolling();
-            showToast('Continuous polling stopped', 'info');
+            showToast('Auto Read/Write cycle stopped', 'info');
           } else {
             if (!serialConnected.value) {
-              showToast('Please connect to serial port before starting polling', 'error');
+              showToast('Please connect to serial port first', 'error');
+              return;
+            }
+            const checked = modbusRegisters.value.filter(r => r.checked);
+            if (checked.length === 0) {
+              showToast('No registers checked to read/write', 'info');
               return;
             }
             isPolling.value = true;
             runContinuousPollingLoop();
-            showToast('Continuous polling started (' + pollingIntervalMs.value + ' ms)', 'success');
+            showToast('Started auto Read/Write cycle (' + pollingIntervalMs.value + ' ms)', 'success');
           }
         };
 
@@ -2120,8 +2107,38 @@ function useSerialModule(ctx) {
             stopContinuousPolling();
             return;
           }
-          await readAllCheckedRegisters();
+
+          const checked = modbusRegisters.value.filter(r => r.checked);
+          if (checked.length === 0) {
+            stopContinuousPolling();
+            showToast('All operations completed', 'info');
+            return;
+          }
+
+          const delay = Number(serialConfig.value.interframeDelayMs) || 20;
+          for (const row of checked) {
+            if (!isPolling.value || !serialConnected.value) break;
+
+            const fc = Number(row.fc);
+            // Function 16, 6, 5: WRITE
+            if (fc === 16 || fc === 6 || fc === 5) {
+              await writeSingleRegister(row);
+            }
+            // Function 3, 4, 1, 2: READ
+            else {
+              await readSingleRegister(row);
+            }
+
+            await new Promise(r => setTimeout(r, delay));
+          }
+
           if (isPolling.value && serialConnected.value) {
+            const remainingChecked = modbusRegisters.value.filter(r => r.checked);
+            if (remainingChecked.length === 0) {
+              stopContinuousPolling();
+              showToast('All operations completed', 'info');
+              return;
+            }
             pollingTimer = setTimeout(() => {
               runContinuousPollingLoop();
             }, pollingIntervalMs.value);
@@ -2136,18 +2153,27 @@ function useSerialModule(ctx) {
           }
         };
 
+        // Fallbacks for backwards compatibility
+        const readAllCheckedRegisters = toggleStartStop;
+        const writeAllCheckedRegisters = toggleStartStop;
+        const toggleContinuousPolling = toggleStartStop;
+
         const clearAllRegisterValues = () => {
           modbusRegisters.value.forEach(r => {
-            r.liveValue = '--';
+            r.liveValue = '';
+            r.exception = '';
             r.status = 'IDLE';
             r.lastUpdated = null;
           });
+          if (tabulatorTable) {
+            tabulatorTable.setData(modbusRegisters.value);
+          }
           showToast('Live values cleared', 'info');
         };
 
         const confirmAddCustomRegister = () => {
           const form = newRegisterForm.value;
-          modbusRegisters.value.push({
+          const newRow = {
             id: 'reg_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6),
             checked: true,
             slave: Number(form.slave) || 1,
@@ -2159,23 +2185,36 @@ function useSerialModule(ctx) {
             parameter: form.parameter || 'Register ' + form.reg,
             description: '',
             valuetowrite: form.valuetowrite || '',
-            liveValue: '--',
+            liveValue: '',
+            exception: '',
             status: 'IDLE',
             reading: false,
             writing: false,
             lastUpdated: null,
-          });
+          };
+          modbusRegisters.value.push(newRow);
+          if (tabulatorTable) {
+            tabulatorTable.addRow(newRow, false).then(row => {
+              try { row.select(); } catch(e) {}
+            });
+          }
           showAddRegisterModal.value = false;
           showToast('Register added to memory map', 'success');
         };
 
         const deleteRegisterRow = (idx) => {
-          modbusRegisters.value.splice(idx, 1);
+          const row = modbusRegisters.value[idx];
+          if (row) {
+            modbusRegisters.value.splice(idx, 1);
+            if (tabulatorTable) {
+              tabulatorTable.setData(modbusRegisters.value);
+            }
+          }
         };
 
         // CSV Export
         const exportRegistersCSV = () => {
-          const headers = ['Check', 'Slave', 'FC', 'Address', 'REG_NUM', 'Format', 'Parameter', 'ValueToWrite', 'ValueOnMemmap', 'Endianness', 'Status'];
+          const headers = ['CHECK', 'SLAVE', 'FC', 'ADDRESS', 'REG_NUM', 'FORMAT', 'PARAMETER_NAME', 'VALUE_ON_MEMMAP', 'VALUE_TO_WRITE', 'EXCEPTION', 'ENDIANNESS'];
           const rows = modbusRegisters.value.map(r => [
             r.checked ? 'TRUE' : 'FALSE',
             r.slave,
@@ -2184,10 +2223,10 @@ function useSerialModule(ctx) {
             r.numreg,
             r.format,
             '"' + (r.parameter || '').replace(/"/g, '""') + '"',
-            r.valuetowrite || '',
-            r.liveValue !== '--' ? r.liveValue : '',
+            '"' + (r.liveValue || '') + '"',
+            '"' + (r.valuetowrite || '') + '"',
+            r.exception || '',
             r.endianness || 'Big-Endian',
-            r.status || '',
           ]);
 
           const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map(e => e.join(','))].join('\\n');
@@ -2262,7 +2301,8 @@ function useSerialModule(ctx) {
                     endianness,
                     parameter,
                     valuetowrite,
-                    liveValue: '--',
+                    liveValue: '',
+                    exception: '',
                     status: 'IDLE',
                     reading: false,
                     writing: false,
@@ -2274,7 +2314,8 @@ function useSerialModule(ctx) {
               if (parsed.length > 0) {
                 modbusRegisters.value = parsed;
                 selectedModbusPreset.value = 'CUSTOM';
-                selectedRowIndices.value = [];
+                selectedRowCount.value = 0;
+                if (tabulatorTable) tabulatorTable.setData(modbusRegisters.value);
                 showToast('Imported ' + parsed.length + ' registers from CSV', 'success');
               } else {
                 showToast('No valid register rows found in CSV', 'error');
@@ -2338,22 +2379,53 @@ function useSerialModule(ctx) {
           showToast('Terminal logs cleared', 'info');
         };
 
+        // Search filter sync with Tabulator
+        watch(registerSearchQuery, (q) => {
+          if (!tabulatorTable) return;
+          const term = (q || '').trim().toLowerCase();
+          if (!term) {
+            tabulatorTable.clearFilter();
+          } else {
+            tabulatorTable.setFilter(function(data) {
+              return (
+                String(data.reg).includes(term) ||
+                (data.parameter && data.parameter.toLowerCase().includes(term)) ||
+                (data.format && data.format.toLowerCase().includes(term))
+              );
+            });
+          }
+        });
+
+        // Tab switch sync with Tabulator
+        watch(serialActiveTab, (tab) => {
+          if (tab === 'MAP') {
+            nextTick(() => {
+              if (tabulatorTable) {
+                tabulatorTable.redraw(true);
+              } else {
+                initTabulatorTable();
+              }
+            });
+          }
+        });
+
         // Lifecycle Listeners
         onMounted(() => {
           window.addEventListener('keydown', handleKeydown);
-          window.addEventListener('mouseup', handleGlobalMouseUp);
+          nextTick(async () => {
+            await initSerialModule();
+            initTabulatorTable();
+          });
         });
 
         // Clean up on unmount
         onUnmounted(() => {
           window.removeEventListener('keydown', handleKeydown);
-          window.removeEventListener('mouseup', handleGlobalMouseUp);
           stopContinuousPolling();
           if (serialConnected.value) {
             disconnectSerial();
           }
         });
-
 
   return {
           isSerialSupported,
@@ -2383,14 +2455,12 @@ function useSerialModule(ctx) {
           modbusPresets,
           modbusRegisters,
           newRegisterForm,
-          selectedRowIndices,
-          isRowSelected,
-          onRowHeaderMouseDown,
-          onRowHeaderMouseEnter,
-          onRowHeaderClick,
-          selectAllRows,
+          selectedRowCount,
+          checkedRowCount,
+          toggleStartStop,
           deleteSelectedRows,
           addNewRegisterRow,
+          initTabulatorTable,
           formatHexAddress,
           formatFCName,
           getFCBadgeClass,

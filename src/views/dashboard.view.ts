@@ -18,6 +18,14 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
   <link rel="prefetch" href="/control-panel" />
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+  <!-- Tabulator 6.x CSS & JS -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/tabulator-tables@6.3.0/dist/css/tabulator_midnight.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/tabulator-tables@6.3.0/dist/js/tabulator.min.js"></script>
+  <script>
+    if (typeof Tabulator === 'undefined') {
+      document.write('<script src="https://unpkg.com/tabulator-tables@6.3.0/dist/js/tabulator.min.js"><\\/script>');
+    }
+  </script>
   <!-- SheetJS for XLSX, XLS, and CSV export -->
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <!-- Socket.IO Client for Realtime Uplink & Downlink Streaming -->
@@ -26,6 +34,111 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
   <style>
+    /* Tabulator Modern Dark Theme Customization */
+    .tabulator {
+      background-color: #0b1329 !important;
+      border: 1px solid #1e293b !important;
+      font-size: 12px !important;
+      font-family: 'JetBrains Mono', monospace !important;
+    }
+    .tabulator .tabulator-header {
+      background-color: #0f172a !important;
+      border-bottom: 2px solid #1e293b !important;
+      color: #94a3b8 !important;
+    }
+    .tabulator .tabulator-header .tabulator-col {
+      background-color: #0f172a !important;
+      border-right: 1px solid #1e293b80 !important;
+    }
+    .tabulator .tabulator-header .tabulator-col-content {
+      padding: 8px 6px !important;
+    }
+    .tabulator .tabulator-header .tabulator-col-title {
+      font-size: 10.5px !important;
+      font-weight: 700 !important;
+      letter-spacing: 0.05em;
+    }
+    .tabulator .tabulator-row {
+      background-color: #0b1329 !important;
+      border-bottom: 1px solid #1e293b60 !important;
+      color: #cbd5e1 !important;
+      min-height: 34px !important;
+    }
+    .tabulator .tabulator-row:hover {
+      background-color: #1e293b80 !important;
+    }
+    .tabulator .tabulator-row.tabulator-selected {
+      background-color: rgba(6, 182, 212, 0.14) !important;
+      color: #fff !important;
+    }
+    .tabulator .tabulator-cell {
+      border-right: 1px solid #1e293b60 !important;
+      padding: 4px 6px !important;
+      vertical-align: middle;
+    }
+    .tabulator .tabulator-cell:has(input[type="text"]) {
+      padding: 3px 4px !important;
+    }
+    .tabulator .tabulator-cell input[type="text"] {
+      width: 100% !important;
+      box-sizing: border-box !important;
+    }
+    .tabulator input[type="checkbox"] {
+      accent-color: #06b6d4;
+      cursor: pointer;
+      width: 15px;
+      height: 15px;
+    }
+    .tabulator .tabulator-editing input,
+    .tabulator .tabulator-editing select {
+      background-color: #020617 !important;
+      color: #38bdf8 !important;
+      border: 1px solid #0284c7 !important;
+      border-radius: 4px;
+      padding: 2px 6px !important;
+      font-size: 12px !important;
+      font-family: 'JetBrains Mono', monospace !important;
+      outline: none !important;
+      box-shadow: 0 0 0 2px rgba(14, 165, 233, 0.2) !important;
+    }
+    .tabulator-menu {
+      background-color: #0f172a !important;
+      border: 1px solid #334155 !important;
+      border-radius: 8px !important;
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5) !important;
+      color: #e2e8f0 !important;
+      padding: 4px !important;
+      font-size: 12px !important;
+      font-family: 'JetBrains Mono', monospace !important;
+    }
+    .tabulator-menu .tabulator-menu-item {
+      padding: 6px 12px !important;
+      border-radius: 6px !important;
+      cursor: pointer;
+      transition: background-color 0.15s;
+    }
+    .tabulator-menu .tabulator-menu-item:hover {
+      background-color: #1e293b !important;
+      color: #38bdf8 !important;
+    }
+    .tabulator-edit-list {
+      background-color: #0f172a !important;
+      border: 1px solid #334155 !important;
+      border-radius: 6px !important;
+      color: #e2e8f0 !important;
+      font-size: 12px !important;
+      font-family: 'JetBrains Mono', monospace !important;
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5) !important;
+    }
+    .tabulator-edit-list .tabulator-edit-list-item {
+      padding: 6px 10px !important;
+      cursor: pointer;
+    }
+    .tabulator-edit-list .tabulator-edit-list-item:hover,
+    .tabulator-edit-list .tabulator-edit-list-item.active {
+      background-color: #1e293b !important;
+      color: #38bdf8 !important;
+    }
     @keyframes pageFadeIn {
       from { opacity: 0; transform: translateY(4px); }
       to { opacity: 1; transform: translateY(0); }
