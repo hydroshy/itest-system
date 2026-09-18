@@ -287,12 +287,22 @@ export const SERIAL_UART_TEMPLATE = `          <div v-else-if="activeFeature.id 
                     <select
                       v-model="selectedModbusPreset"
                       @change="applySelectedPreset"
-                      class="px-2.5 py-1.5 bg-slate-950 border border-slate-700 rounded-lg text-white text-xs font-mono"
+                      @focus="fetchAvailablePresets"
+                      @click="fetchAvailablePresets"
+                      class="px-2.5 py-1.5 bg-slate-950 border border-slate-700 rounded-lg text-white text-xs font-mono focus:border-cyan-500 focus:outline-none"
                     >
                       <option v-for="p in modbusPresets" :key="p.sku" :value="p.sku">
                         {{ p.name }}
                       </option>
                     </select>
+                    <button
+                      type="button"
+                      @click="refreshCurrentPreset"
+                      class="p-1.5 rounded-lg bg-slate-950 hover:bg-slate-800 text-slate-400 hover:text-cyan-400 border border-slate-700 transition cursor-pointer"
+                      title="Sync / Reload template from server"
+                    >
+                      <i class="fa-solid fa-arrows-rotate text-xs"></i>
+                    </button>
                   </div>
 
                   <!-- Start / Stop Button -->
@@ -1502,7 +1512,7 @@ function useSerialModule(ctx) {
             });
             if (res.ok) {
               const data = await res.json();
-              if (Array.isArray(data) && data.length > 0) {
+              if (Array.isArray(data)) {
                 // Map presets so only the template name is loaded for display, as required
                 const customList = data.map(t => ({
                   sku: t.id,
@@ -1511,22 +1521,27 @@ function useSerialModule(ctx) {
                   profileType: t.profileType,
                   isCustomTemplate: true,
                 }));
-                modbusPresets.value = [
-                  ...customList,
-                  { sku: 'WSL-AMBIENT', name: 'Daviteq WSL Ambient T&H Sensor', fw: 1 },
-                  { sku: 'WSL-LEVEL', name: 'Daviteq WSL Hydrostatic Level Sensor', fw: 1 },
-                  { sku: 'ENERGY-METER-3P', name: '3-Phase Industrial Energy Meter', fw: 1 },
-                  { sku: 'MODBUS-IO-MODULE', name: 'Daviteq Modbus IO Module', fw: 1 },
-                  { sku: 'CUSTOM', name: 'Custom Memory Map', fw: 1 },
-                ];
+                const allList = [...customList];
+                if (!allList.some(p => p.sku === 'CUSTOM')) {
+                  allList.push({ sku: 'CUSTOM', name: 'Custom Memory Map', fw: 1 });
+                }
+                modbusPresets.value = allList;
                 if (!selectedModbusPreset.value || !modbusPresets.value.some(p => p.sku === selectedModbusPreset.value)) {
-                  selectedModbusPreset.value = modbusPresets.value[0].sku;
+                  selectedModbusPreset.value = modbusPresets.value[0]?.sku || 'CUSTOM';
                 }
               }
             }
           } catch (e) {
             console.warn('Could not fetch modbus presets in D-module:', e);
           }
+        };
+
+        const refreshCurrentPreset = async () => {
+          await fetchAvailablePresets();
+          if (selectedModbusPreset.value) {
+            await loadModbusPresetBySku(selectedModbusPreset.value);
+          }
+          showToast('Synced presets with server', 'info');
         };
 
         // Initialize and fetch profiles
@@ -1567,7 +1582,7 @@ function useSerialModule(ctx) {
             });
             if (res.ok) {
               const tpl = await res.json();
-              if (tpl && Array.isArray(tpl.registers) && tpl.registers.length > 0) {
+              if (tpl && Array.isArray(tpl.registers)) {
                 modbusRegisters.value = tpl.registers.map((r, i) => ({
                   id: r.id || 'reg_' + sku + '_' + i + '_' + Math.random().toString(36).substr(2, 5),
                   checked: r.checked !== false,
@@ -2585,10 +2600,46 @@ function useSerialModule(ctx) {
           }
         };
 
+        let presetsBroadcastChannel = null;
+
+        const handlePresetsSync = async (changedPresetId, action) => {
+          await fetchAvailablePresets();
+          if (changedPresetId && selectedModbusPreset.value === changedPresetId) {
+            if (action === 'deleted') {
+              if (modbusPresets.value.length > 0) {
+                selectedModbusPreset.value = modbusPresets.value[0].sku;
+              }
+            }
+            await loadModbusPresetBySku(selectedModbusPreset.value);
+          }
+        };
+
+        const handleStorageEvent = (e) => {
+          if (e.key === 'dvt_presets_updated_at') {
+            handlePresetsSync(selectedModbusPreset.value, 'updated');
+          }
+        };
+
+        const handleWindowFocus = () => {
+          fetchAvailablePresets();
+        };
+
         // Lifecycle Listeners
         onMounted(() => {
           window.addEventListener('keydown', handleKeydown);
           window.addEventListener('resize', handleResize);
+          if (typeof BroadcastChannel !== 'undefined') {
+            try {
+              presetsBroadcastChannel = new BroadcastChannel('dvt_modbus_presets_sync');
+              presetsBroadcastChannel.onmessage = (ev) => {
+                if (ev.data && ev.data.type === 'PRESETS_CHANGED') {
+                  handlePresetsSync(ev.data.presetId, ev.data.action);
+                }
+              };
+            } catch(e) {}
+          }
+          window.addEventListener('storage', handleStorageEvent);
+          window.addEventListener('focus', handleWindowFocus);
           nextTick(async () => {
             if (activeFeature && activeFeature.value && (activeFeature.value.id === 'serial-uart-monitor' || activeFeature.value.id === 'serial-diagnostic')) {
               await initSerialModule();
@@ -2601,6 +2652,12 @@ function useSerialModule(ctx) {
         onUnmounted(() => {
           window.removeEventListener('keydown', handleKeydown);
           window.removeEventListener('resize', handleResize);
+          if (presetsBroadcastChannel) {
+            try { presetsBroadcastChannel.close(); } catch(e) {}
+            presetsBroadcastChannel = null;
+          }
+          window.removeEventListener('storage', handleStorageEvent);
+          window.removeEventListener('focus', handleWindowFocus);
           stopContinuousPolling();
           if (serialConnected.value) {
             disconnectSerial();
@@ -2663,6 +2720,8 @@ function useSerialModule(ctx) {
           toggleSelectAllRegisters,
           filteredModbusRegisters,
           initSerialModule,
+          fetchAvailablePresets,
+          refreshCurrentPreset,
           applySelectedPreset,
           loadModbusPresetBySku,
           selectSerialPort,

@@ -89,7 +89,7 @@ export const MODBUS_PRESETS_TEMPLATE = `
         <!-- Delete Template -->
         <button
           type="button"
-          @click="deleteCurrentPreset"
+          @click="openDeletePresetModal"
           class="p-2 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 text-rose-400 hover:text-rose-300 text-xs font-bold cursor-pointer transition"
           title="Delete Template"
         >
@@ -156,18 +156,29 @@ export const MODBUS_PRESETS_TEMPLATE = `
         <button
           type="button"
           @click="addPresetRow"
-          class="px-3 py-1.5 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/40 text-emerald-300 text-xs font-bold flex items-center gap-1.5 transition active:scale-95"
+          class="px-3 py-1.5 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/40 text-emerald-300 text-xs font-bold flex items-center gap-1.5 transition active:scale-95 cursor-pointer"
         >
           <i class="fa-solid fa-plus text-[11px]"></i>
           <span>Add Row</span>
         </button>
 
+        <!-- Add Dialog Button -->
+        <button
+          type="button"
+          @click="openAddRegisterModal"
+          class="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 text-xs font-semibold flex items-center gap-1.5 transition active:scale-95 cursor-pointer"
+          title="Add register with custom parameters via dialog"
+        >
+          <i class="fa-solid fa-sliders text-cyan-400 text-xs"></i>
+          <span>Add Dialog</span>
+        </button>
+
         <!-- Delete Selected Rows -->
         <button
           type="button"
-          @click="deleteSelectedPresetRows"
+          @click="openDeleteSelectedModal"
           :disabled="selectedPresetRowCount === 0"
-          class="px-3 py-1.5 rounded-lg bg-rose-500/20 hover:bg-rose-500/30 border border-rose-500/40 disabled:opacity-40 disabled:cursor-not-allowed text-rose-300 text-xs font-bold flex items-center gap-1.5 transition active:scale-95"
+          class="px-3 py-1.5 rounded-lg bg-rose-500/20 hover:bg-rose-500/30 border border-rose-500/40 disabled:opacity-40 disabled:cursor-not-allowed text-rose-300 text-xs font-bold flex items-center gap-1.5 transition active:scale-95 cursor-pointer"
         >
           <i class="fa-solid fa-trash-can text-[11px]"></i>
           <span>Delete ({{ selectedPresetRowCount }})</span>
@@ -448,6 +459,197 @@ export const MODBUS_PRESETS_MODALS = `
       </div>
     </div>
   </div>
+
+  <!-- MODAL: ADD MODBUS REGISTER ROW (VUE POPUP MATCHING D-MODULE) -->
+  <div
+    v-if="showAddRegisterModal"
+    class="fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop"
+    style="background: rgba(2, 6, 23, 0.85); backdrop-filter: blur(6px);"
+    @click.self="showAddRegisterModal = false"
+  >
+    <div class="w-full max-w-md bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-4 shadow-2xl animate-in fade-in zoom-in-95 duration-200 text-slate-200">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-800">
+        <div class="flex items-center gap-2 font-bold text-white text-sm">
+          <i class="fa-solid fa-plus text-emerald-400"></i>
+          <span>Add Modbus Register Row</span>
+        </div>
+        <button type="button" @click="showAddRegisterModal = false" class="text-slate-400 hover:text-white cursor-pointer">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <div class="space-y-3 text-xs">
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-slate-400 text-[10px] uppercase font-bold mb-1">Register Address (DEC)</label>
+            <input type="number" v-model.number="newRegisterForm.reg" min="0" class="w-full bg-slate-950 border border-slate-700 rounded px-3 py-1.5 text-white font-mono focus:border-emerald-500 focus:outline-none" />
+          </div>
+          <div>
+            <label class="block text-slate-400 text-[10px] uppercase font-bold mb-1">Slave ID (1..247)</label>
+            <input type="number" v-model.number="newRegisterForm.slave" min="1" max="247" class="w-full bg-slate-950 border border-slate-700 rounded px-3 py-1.5 text-white font-mono focus:border-emerald-500 focus:outline-none" />
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-slate-400 text-[10px] uppercase font-bold mb-1">Function Code (FC)</label>
+            <select v-model.number="newRegisterForm.fc" class="w-full bg-slate-950 border border-slate-700 rounded px-2.5 py-1.5 text-white font-mono focus:border-emerald-500 focus:outline-none">
+              <option :value="3">03 (Holding Register)</option>
+              <option :value="4">04 (Input Register)</option>
+              <option :value="16">16 (Write Multiple)</option>
+              <option :value="1">01 (Read Coils)</option>
+              <option :value="2">02 (Discrete Inputs)</option>
+              <option :value="6">06 (Write Single Reg)</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-slate-400 text-[10px] uppercase font-bold mb-1">REG_NUM (Count)</label>
+            <select v-model.number="newRegisterForm.numreg" class="w-full bg-slate-950 border border-slate-700 rounded px-2.5 py-1.5 text-white font-mono focus:border-emerald-500 focus:outline-none">
+              <option :value="1">1 register (16-bit)</option>
+              <option :value="2">2 registers (32-bit)</option>
+              <option :value="4">4 registers (64-bit)</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-slate-400 text-[10px] uppercase font-bold mb-1">Data Format</label>
+            <select v-model="newRegisterForm.format" class="w-full bg-slate-950 border border-slate-700 rounded px-2.5 py-1.5 text-white font-mono focus:border-emerald-500 focus:outline-none">
+              <option value="uint">uint</option>
+              <option value="float">float</option>
+              <option value="int">int</option>
+              <option value="hex">hex</option>
+              <option value="string">string</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-slate-400 text-[10px] uppercase font-bold mb-1">Endianness</label>
+            <select v-model="newRegisterForm.endianness" class="w-full bg-slate-950 border border-slate-700 rounded px-2.5 py-1.5 text-white font-mono focus:border-emerald-500 focus:outline-none">
+              <option value="Big-Endian">Big-Endian</option>
+              <option value="Little-Endian">Little-Endian</option>
+              <option value="Mid-Big">Mid-Big</option>
+              <option value="Mid-Little">Mid-Little</option>
+            </select>
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-slate-400 text-[10px] uppercase font-bold mb-1">Parameter Name</label>
+          <input type="text" v-model="newRegisterForm.parameter" placeholder="e.g. Ambient Temperature" class="w-full bg-slate-950 border border-slate-700 rounded px-3 py-1.5 text-white focus:border-emerald-500 focus:outline-none" />
+        </div>
+
+        <div>
+          <label class="block text-slate-400 text-[10px] uppercase font-bold mb-1">Default Value To Write</label>
+          <input type="text" v-model="newRegisterForm.valuetowrite" placeholder="Optional value for FC 06/16" class="w-full bg-slate-950 border border-slate-700 rounded px-3 py-1.5 text-white font-mono focus:border-emerald-500 focus:outline-none" />
+        </div>
+
+        <div class="flex items-center gap-2 pt-1">
+          <input type="checkbox" id="cmod-modal-tick-read" v-model="newRegisterForm.checked" class="rounded border-slate-700 bg-slate-950 text-emerald-500 focus:ring-emerald-500 cursor-pointer" />
+          <label for="cmod-modal-tick-read" class="text-xs text-slate-300 cursor-pointer">Tick to read this register by default</label>
+        </div>
+      </div>
+
+      <div class="flex items-center justify-end gap-2 pt-3 border-t border-slate-800">
+        <button type="button" @click="showAddRegisterModal = false" class="px-4 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold cursor-pointer transition">
+          Cancel
+        </button>
+        <button type="button" @click="confirmAddRegisterModal" class="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-lg shadow-emerald-900/20 cursor-pointer transition active:scale-95">
+          <i class="fa-solid fa-plus mr-1"></i> Add Register
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: CONFIRM DELETE TEMPLATE (VUE POPUP REPLACING NATIVE JS CONFIRM) -->
+  <div
+    v-if="showDeletePresetModal"
+    class="fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop"
+    style="background: rgba(2, 6, 23, 0.85); backdrop-filter: blur(6px);"
+    @click.self="showDeletePresetModal = false"
+  >
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-md p-6 shadow-2xl space-y-4 animate-in fade-in zoom-in-95 duration-200">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-800">
+        <div class="flex items-center gap-2.5 font-bold text-white text-sm">
+          <div class="w-8 h-8 rounded-lg bg-rose-500/20 border border-rose-500/40 flex items-center justify-center text-rose-400">
+            <i class="fa-solid fa-triangle-exclamation text-xs"></i>
+          </div>
+          <span>Delete Modbus Template</span>
+        </div>
+        <button type="button" @click="showDeletePresetModal = false" class="text-slate-400 hover:text-white cursor-pointer">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+      <div class="text-xs text-slate-300 space-y-2">
+        <p>Are you sure you want to permanently delete this template?</p>
+        <div class="p-3 bg-slate-950 border border-slate-800 rounded-xl">
+          <span class="text-slate-400 text-[11px] block">Template Name:</span>
+          <span class="text-rose-300 font-bold text-sm">{{ activePreset.name }}</span>
+          <span class="text-slate-500 text-[10px] block mt-1 font-mono">ID: {{ activePresetId }} &bull; Profile: {{ activePreset.profileType || 'Custom' }}</span>
+        </div>
+        <p class="text-[11px] text-rose-400/90 font-medium"><i class="fa-solid fa-circle-exclamation mr-1"></i> This action cannot be reversed.</p>
+      </div>
+      <div class="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-800">
+        <button
+          type="button"
+          @click="showDeletePresetModal = false"
+          class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold cursor-pointer transition"
+        >
+          Cancel
+        </button>
+        <button
+          type="button"
+          @click="confirmDeletePreset"
+          class="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold flex items-center gap-2 shadow-lg shadow-rose-600/30 cursor-pointer transition active:scale-95"
+        >
+          <i class="fa-solid fa-trash-can text-xs"></i>
+          <span>Delete Template</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: CONFIRM DELETE SELECTED ROWS (VUE POPUP) -->
+  <div
+    v-if="showDeleteSelectedModal"
+    class="fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop"
+    style="background: rgba(2, 6, 23, 0.85); backdrop-filter: blur(6px);"
+    @click.self="showDeleteSelectedModal = false"
+  >
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-md p-6 shadow-2xl space-y-4 animate-in fade-in zoom-in-95 duration-200">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-800">
+        <div class="flex items-center gap-2.5 font-bold text-white text-sm">
+          <div class="w-8 h-8 rounded-lg bg-rose-500/20 border border-rose-500/40 flex items-center justify-center text-rose-400">
+            <i class="fa-solid fa-trash-can text-xs"></i>
+          </div>
+          <span>Delete Selected Rows</span>
+        </div>
+        <button type="button" @click="showDeleteSelectedModal = false" class="text-slate-400 hover:text-white cursor-pointer">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+      <div class="text-xs text-slate-300">
+        <p>Are you sure you want to remove <strong class="text-rose-400 font-bold font-mono">{{ selectedPresetRowCount }}</strong> selected register row(s) from this template?</p>
+      </div>
+      <div class="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-800">
+        <button
+          type="button"
+          @click="showDeleteSelectedModal = false"
+          class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold cursor-pointer transition"
+        >
+          Cancel
+        </button>
+        <button
+          type="button"
+          @click="confirmDeleteSelectedPresetRows"
+          class="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold flex items-center gap-2 shadow-lg shadow-rose-600/30 cursor-pointer transition active:scale-95"
+        >
+          <i class="fa-solid fa-trash-can text-xs"></i>
+          <span>Delete ({{ selectedPresetRowCount }})</span>
+        </button>
+      </div>
+    </div>
+  </div>
 `;
 
 export const MODBUS_PRESETS_SCRIPT = `
@@ -472,7 +674,35 @@ export const MODBUS_PRESETS_SCRIPT = `
     // Modals
     const showImportExcelModal = ref(false);
     const showCreateTemplateModal = ref(false);
+    const showDeletePresetModal = ref(false);
+    const showDeleteSelectedModal = ref(false);
+    const showAddRegisterModal = ref(false);
     const isProcessingImport = ref(false);
+
+    const newRegisterForm = ref({
+      reg: 0,
+      slave: 1,
+      fc: 3,
+      numreg: 1,
+      format: 'uint',
+      endianness: 'Big-Endian',
+      parameter: '',
+      valuetowrite: '',
+      checked: true,
+    });
+
+    const notifyPresetsUpdated = (presetId, action) => {
+      try {
+        localStorage.setItem('dvt_presets_updated_at', Date.now().toString());
+        if (typeof BroadcastChannel !== 'undefined') {
+          const bc = new BroadcastChannel('dvt_modbus_presets_sync');
+          bc.postMessage({ type: 'PRESETS_CHANGED', presetId, action, timestamp: Date.now() });
+          bc.close();
+        }
+      } catch (e) {
+        console.warn('Sync notification error:', e);
+      }
+    };
 
     const importForm = ref({
       name: '',
@@ -657,6 +887,91 @@ export const MODBUS_PRESETS_SCRIPT = `
             if (target && (target.tagName === 'INPUT' || target.tagName === 'SELECT' || target.tagName === 'BUTTON')) return;
             row.deselect();
           },
+          rowContextMenu: [
+            {
+              label: "<i class='fa-solid fa-plus text-cyan-400 mr-2'></i> Insert Row Below",
+              action: function(e, row) {
+                const cur = row.getData();
+                const nextAddr = Number(cur.reg) + (Number(cur.numreg) || 1);
+                const newRow = {
+                  id: 'reg_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6),
+                  order: presetRegisters.value.length + 1,
+                  checked: true,
+                  slave: cur.slave || 1,
+                  fc: cur.fc || 3,
+                  reg: nextAddr,
+                  numreg: cur.numreg || 1,
+                  format: cur.format || 'uint',
+                  endianness: cur.endianness || 'Big-Endian',
+                  parameter: 'Parameter ' + (presetRegisters.value.length + 1),
+                  valuetowrite: '',
+                  comment: '',
+                };
+                const idx = presetRegisters.value.findIndex(r => r.id === cur.id);
+                if (idx !== -1) {
+                  presetRegisters.value.splice(idx + 1, 0, newRow);
+                } else {
+                  presetRegisters.value.push(newRow);
+                }
+                presetRegisters.value = [...presetRegisters.value];
+                updateCmodTabulatorData();
+                showToast('Inserted new row below', 'info');
+              }
+            },
+            {
+              label: "<i class='fa-solid fa-clone text-emerald-400 mr-2'></i> Duplicate Row",
+              action: function(e, row) {
+                const cur = row.getData();
+                const dupRow = {
+                  ...cur,
+                  id: 'reg_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6),
+                  parameter: (cur.parameter || '') + ' (Copy)',
+                };
+                const idx = presetRegisters.value.findIndex(r => r.id === cur.id);
+                if (idx !== -1) {
+                  presetRegisters.value.splice(idx + 1, 0, dupRow);
+                } else {
+                  presetRegisters.value.push(dupRow);
+                }
+                presetRegisters.value = [...presetRegisters.value];
+                updateCmodTabulatorData();
+                showToast('Duplicated row', 'info');
+              }
+            },
+            {
+              label: "<i class='fa-solid fa-square-check text-amber-400 mr-2'></i> Toggle Read Check",
+              action: function(e, row) {
+                const cur = row.getData();
+                cur.checked = !cur.checked;
+                const item = presetRegisters.value.find(r => r.id === cur.id);
+                if (item) item.checked = cur.checked;
+                row.update({ checked: cur.checked });
+                const headerChk = document.getElementById('cmod-header-tick-all');
+                if (headerChk) {
+                  headerChk.checked = presetRegisters.value.length > 0 && presetRegisters.value.every(r => r.checked);
+                }
+              }
+            },
+            {
+              label: "<i class='fa-regular fa-trash-can text-rose-400 mr-2'></i> Delete Row",
+              action: function(e, row) {
+                const cur = row.getData();
+                presetRegisters.value = presetRegisters.value.filter(r => r.id !== cur.id);
+                row.delete();
+                const headerChk = document.getElementById('cmod-header-tick-all');
+                if (headerChk) {
+                  headerChk.checked = presetRegisters.value.length > 0 && presetRegisters.value.every(r => r.checked);
+                }
+                showToast('Row deleted', 'info');
+              }
+            },
+            {
+              label: "<i class='fa-solid fa-trash-arrow-up text-rose-500 mr-2'></i> Delete Selected Rows",
+              action: function(e, row) {
+                openDeleteSelectedModal();
+              }
+            }
+          ],
             columns: [
               // Row index column with selection toggle and Excel-like Shift+Click
               {
@@ -975,8 +1290,55 @@ export const MODBUS_PRESETS_SCRIPT = `
       }
     };
 
-    // Delete selected / highlighted rows
-    const deleteSelectedPresetRows = () => {
+    // Open Add Register Modal (dialog like D-Module)
+    const openAddRegisterModal = () => {
+      const maxAddr = presetRegisters.value.reduce((acc, cur) => Math.max(acc, Number(cur.reg) || 0), 0);
+      newRegisterForm.value = {
+        reg: presetRegisters.value.length > 0 ? maxAddr + 2 : 0,
+        slave: 1,
+        fc: 3,
+        numreg: 1,
+        format: 'uint',
+        endianness: 'Big-Endian',
+        parameter: 'Parameter ' + (presetRegisters.value.length + 1),
+        valuetowrite: '',
+        checked: true,
+      };
+      showAddRegisterModal.value = true;
+    };
+
+    // Confirm Add Register from Modal
+    const confirmAddRegisterModal = () => {
+      const form = newRegisterForm.value;
+      const newRow = {
+        id: 'reg_new_' + Date.now().toString(36) + '_' + Math.random().toString(36).substr(2, 4),
+        order: presetRegisters.value.length + 1,
+        checked: form.checked !== false,
+        slave: Number(form.slave) || 1,
+        fc: Number(form.fc) || 3,
+        reg: Number(form.reg) || 0,
+        numreg: Number(form.numreg) || 1,
+        format: normalizePresetFormat(form.format),
+        endianness: form.endianness || 'Big-Endian',
+        parameter: form.parameter?.trim() || ('Parameter ' + (presetRegisters.value.length + 1)),
+        valuetowrite: form.valuetowrite !== undefined ? String(form.valuetowrite) : '',
+        comment: '',
+      };
+      presetRegisters.value.push(newRow);
+      presetRegisters.value = [...presetRegisters.value];
+      updateCmodTabulatorData();
+      showAddRegisterModal.value = false;
+      showToast('Added register ' + newRow.parameter, 'success');
+    };
+
+    // Open Delete Selected Rows Modal
+    const openDeleteSelectedModal = () => {
+      if (selectedPresetRowCount.value === 0) return;
+      showDeleteSelectedModal.value = true;
+    };
+
+    // Confirm Delete Selected Rows
+    const confirmDeleteSelectedPresetRows = () => {
       if (!cmodTabulator) return;
       const selected = cmodTabulator.getSelectedRows();
       if (selected.length === 0) return;
@@ -984,8 +1346,15 @@ export const MODBUS_PRESETS_SCRIPT = `
       presetRegisters.value = presetRegisters.value.filter(r => !idsToRemove.has(r.id));
       selectedPresetRowCount.value = 0;
       updateCmodTabulatorData();
+      showDeleteSelectedModal.value = false;
+      const headerChk = document.getElementById('cmod-header-tick-all');
+      if (headerChk) {
+        headerChk.checked = presetRegisters.value.length > 0 && presetRegisters.value.every(r => r.checked);
+      }
       showToast('Deleted ' + idsToRemove.size + ' selected rows', 'info');
     };
+
+    const deleteSelectedPresetRows = openDeleteSelectedModal;
 
     // Save current active preset
     const saveCurrentPreset = async () => {
@@ -1029,6 +1398,7 @@ export const MODBUS_PRESETS_SCRIPT = `
         if (res.ok) {
           const saved = await res.json();
           showToast('Template saved successfully: ' + saved.name, 'success');
+          notifyPresetsUpdated(saved.id, 'saved');
           await fetchPresets();
           if (saved.id) {
             activePresetId.value = saved.id;
@@ -1080,6 +1450,7 @@ export const MODBUS_PRESETS_SCRIPT = `
           const created = await res.json();
           showCreateTemplateModal.value = false;
           showToast('Created template: ' + created.name, 'success');
+          notifyPresetsUpdated(created.id, 'created');
           await fetchPresets();
           activePresetId.value = created.id;
           await selectPreset(created.id);
@@ -1089,25 +1460,38 @@ export const MODBUS_PRESETS_SCRIPT = `
       }
     };
 
-    // Delete current template
-    const deleteCurrentPreset = async () => {
+    // Open Delete Template Modal (Vue popup)
+    const openDeletePresetModal = () => {
       if (!activePresetId.value) return;
-      if (!confirm('Are you sure you want to delete template "' + activePreset.value.name + '"?')) return;
+      showDeletePresetModal.value = true;
+    };
+
+    // Confirm Delete Template
+    const confirmDeletePreset = async () => {
+      if (!activePresetId.value) return;
+      const delId = activePresetId.value;
       try {
-        const res = await fetch('/api/modbus-presets/' + encodeURIComponent(activePresetId.value), {
+        const res = await fetch('/api/modbus-presets/' + encodeURIComponent(delId), {
           method: 'DELETE',
           headers: authHeaders(),
           credentials: 'include',
         });
         if (res.ok) {
           showToast('Template deleted', 'success');
+          showDeletePresetModal.value = false;
           activePresetId.value = '';
+          notifyPresetsUpdated(delId, 'deleted');
           await fetchPresets();
+        } else {
+          const errData = await res.json().catch(() => ({}));
+          showToast(errData.message || 'Failed to delete template', 'error');
         }
       } catch (e) {
         showToast('Failed to delete template: ' + e.message, 'error');
       }
     };
+
+    const deleteCurrentPreset = openDeletePresetModal;
 
     // Open Import Excel Modal
     const openImportModal = () => {
@@ -1262,6 +1646,7 @@ export const MODBUS_PRESETS_SCRIPT = `
           const created = await res.json();
           showImportExcelModal.value = false;
           showToast('Imported ' + parsedRegisters.length + ' registers (' + yesCheckedCount + ' checked for ' + chosenProfile + ')', 'success');
+          notifyPresetsUpdated(created.id, 'imported');
           await fetchPresets();
           activePresetId.value = created.id;
           await selectPreset(created.id);
@@ -1346,6 +1731,10 @@ export const MODBUS_PRESETS_SCRIPT = `
       presetFilterQuery,
       showImportExcelModal,
       showCreateTemplateModal,
+      showDeletePresetModal,
+      showDeleteSelectedModal,
+      showAddRegisterModal,
+      newRegisterForm,
       isProcessingImport,
       importForm,
       createForm,
@@ -1353,9 +1742,15 @@ export const MODBUS_PRESETS_SCRIPT = `
       selectPreset,
       onPresetSelectChange,
       addPresetRow,
+      openAddRegisterModal,
+      confirmAddRegisterModal,
       deleteSelectedPresetRows,
+      openDeleteSelectedModal,
+      confirmDeleteSelectedPresetRows,
       saveCurrentPreset,
       deleteCurrentPreset,
+      openDeletePresetModal,
+      confirmDeletePreset,
       openImportModal,
       openCreateModal,
       confirmCreateTemplate,
