@@ -16,40 +16,85 @@ async function runTests() {
   const testBuilder = new TestBuilderService();
   const flowEngine = new FlowGraphEngineService();
 
-  // Test 1: Available Fields & Fallbacks
-  console.log('[Test 1] Available Telemetry Fields (100% English)');
-  const commonFields = await testBuilder.getAvailableFields();
-  assert.strictEqual(commonFields.length, 4);
-  assert.strictEqual(commonFields.find((f) => f.name === 'rssi')?.label, 'RSSI Signal Strength');
-  assert.strictEqual(commonFields.find((f) => f.name === 'snr')?.label, 'Signal-to-Noise Ratio (SNR)');
-  assert.strictEqual(commonFields.find((f) => f.name === 'fPort')?.label, 'LoRaWAN FPort');
-  assert.strictEqual(commonFields.find((f) => f.name === 'fCnt')?.label, 'Frame Counter (FCnt)');
+  // Test 1: Available Fields & Decoder Field Extraction (100% English, No Fake Fallback)
+  console.log('[Test 1] Available Telemetry Fields & Decoder Extraction (100% English)');
+  const commonRes = await testBuilder.getAvailableFields();
+  assert.strictEqual(commonRes.fields.length, 4);
+  assert.strictEqual(commonRes.fields.find((f) => f.name === 'rssi')?.label, 'RSSI Signal Strength');
+  assert.strictEqual(commonRes.fields.find((f) => f.name === 'snr')?.label, 'Signal-to-Noise Ratio (SNR)');
+  assert.strictEqual(commonRes.fields.find((f) => f.name === 'fPort')?.label, 'LoRaWAN FPort');
+  assert.strictEqual(commonRes.fields.find((f) => f.name === 'fCnt')?.label, 'Frame Counter (FCnt)');
 
-  // Fallback CO2
-  const co2Fields = await testBuilder.getAvailableFields('WSLRW-CO2', 'v1');
+  // Verify that fake hardcoded fallback is completely removed:
+  // When no decoder is in DB, only common fields are returned, decoderFound is false
+  const noDecoderRes = await testBuilder.getAvailableFields('WSLRW-CO2', 'v1');
+  assert.strictEqual(noDecoderRes.decoderFound, false);
+  assert.strictEqual(noDecoderRes.fields.length, 4);
+  assert.strictEqual(noDecoderRes.fields.find((f) => f.name === 'co2'), undefined);
+
+  // Real Decoder AST + VM Extraction: CO2 sensor
+  const co2DecoderCode = `
+    function decodeUplink(input) {
+      return {
+        data: {
+          co2: ((input.bytes[0] << 8) | input.bytes[1]),
+          temperature: input.bytes[2] / 10,
+          humidity: input.bytes[3],
+          battery: 3.6
+        }
+      };
+    }
+  `;
+  const co2Fields = testBuilder.parseFieldsFromDecoderCode(co2DecoderCode);
   assert.strictEqual(co2Fields.find((f) => f.name === 'co2')?.label, 'CO2 Concentration');
   assert.strictEqual(co2Fields.find((f) => f.name === 'temperature')?.label, 'Temperature');
   assert.strictEqual(co2Fields.find((f) => f.name === 'humidity')?.label, 'Humidity');
   assert.strictEqual(co2Fields.find((f) => f.name === 'battery')?.label, 'Battery Voltage');
 
-  // Fallback Temperature & Humidity
-  const thFields = await testBuilder.getAvailableFields('WSLRW-TH', 'v2');
-  assert.strictEqual(thFields.find((f) => f.name === 'temperature')?.label, 'Ambient Temperature');
-  assert.strictEqual(thFields.find((f) => f.name === 'humidity')?.label, 'Air Humidity');
+  // Real Decoder AST + VM Extraction: Temperature & Humidity
+  const thDecoderCode = `
+    function Decoder(bytes, fPort) {
+      var res = {};
+      res.ambient_temp = bytes[0] / 2;
+      res.humidity = bytes[1];
+      return res;
+    }
+  `;
+  const thFields = testBuilder.parseFieldsFromDecoderCode(thDecoderCode);
+  assert.strictEqual(thFields.find((f) => f.name === 'ambient_temp')?.label, 'Ambient Temperature');
+  assert.strictEqual(thFields.find((f) => f.name === 'humidity')?.label, 'Humidity');
 
-  // Fallback Level
-  const lvlFields = await testBuilder.getAvailableFields('WSLRW-LVL', '1');
+  // Real Decoder AST + VM Extraction: Liquid Level
+  const lvlDecoderCode = `
+    const decodeUplink = (input) => ({
+      data: {
+        levelMm: (input.bytes[0] << 8) | input.bytes[1],
+        percentage: input.bytes[2],
+        alarmStatus: 'NORMAL'
+      }
+    });
+  `;
+  const lvlFields = testBuilder.parseFieldsFromDecoderCode(lvlDecoderCode);
   assert.strictEqual(lvlFields.find((f) => f.name === 'levelMm')?.label, 'Liquid Level');
   assert.strictEqual(lvlFields.find((f) => f.name === 'percentage')?.label, 'Volume Percentage');
   assert.strictEqual(lvlFields.find((f) => f.name === 'alarmStatus')?.label, 'Alarm Status');
 
-  // Fallback Modbus MB485
-  const mbFields = await testBuilder.getAvailableFields('WSLRW-MB485', 'v6');
+  // Real Decoder AST + VM Extraction: Modbus MB485
+  const mbDecoderCode = `
+    function decodeUplink(input) {
+      var d = {};
+      d.voltage = 220.5;
+      d['current'] = 4.8;
+      d.power = 1.05;
+      return { data: d };
+    }
+  `;
+  const mbFields = testBuilder.parseFieldsFromDecoderCode(mbDecoderCode);
   assert.strictEqual(mbFields.find((f) => f.name === 'voltage')?.label, 'Phase Voltage');
   assert.strictEqual(mbFields.find((f) => f.name === 'current')?.label, 'Electric Current');
   assert.strictEqual(mbFields.find((f) => f.name === 'power')?.label, 'Active Power');
 
-  console.log('  -> PASS: All common and sensor fallback fields strictly standardized to English\n');
+  console.log('  -> PASS: All common and genuine decoder extracted fields strictly standardized to English without fake fallback\n');
 
   // Test 2: Firmware Version Normalization (cleanFirmwareVersion)
   console.log('[Test 2] cleanFirmwareVersion & resolveDecoderId');

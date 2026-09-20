@@ -44,6 +44,36 @@ export const TEST_BUILDER_TEMPLATE = `
             <span>FW: {{ formatFirmware(activeTestTemplate.firmwareVersion) }}</span>
           </span>
 
+          <!-- Real Decoder Status Badge -->
+          <span
+            v-if="decoderExtractionStatus.loading"
+            class="px-2.5 py-1 rounded-lg bg-indigo-500/10 border border-indigo-500/30 font-mono text-indigo-300 flex items-center gap-1.5"
+            title="Extracting real fields from Decoder in DB"
+          >
+            <i class="fa-solid fa-spinner fa-spin text-[10px] text-indigo-400"></i>
+            <span>Extracting Decoder...</span>
+          </span>
+          <span
+            v-else-if="decoderExtractionStatus.decoderFound"
+            @click="navigateToDecoderManager(decoderExtractionStatus.decoderId)"
+            class="px-2.5 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/30 font-mono text-emerald-300 flex items-center gap-1.5 cursor-pointer hover:bg-emerald-500/20 transition group"
+            :title="'Decoder: ' + (decoderExtractionStatus.decoderName || decoderExtractionStatus.decoderId) + ' (Click to open Decoder Manager)'"
+          >
+            <i class="fa-solid fa-code text-[10px] text-emerald-400"></i>
+            <span>Decoder: <strong class="text-emerald-200">{{ decoderExtractionStatus.decoderName || decoderExtractionStatus.decoderId }}</strong> (<strong class="text-emerald-300">{{ decoderExtractionStatus.realFieldsCount }}</strong> fields)</span>
+            <i class="fa-solid fa-arrow-up-right-from-square text-[9px] text-emerald-400 opacity-60 group-hover:opacity-100"></i>
+          </span>
+          <span
+            v-else
+            @click="navigateToDecoderManager(activeTestTemplate.sku)"
+            class="px-2.5 py-1 rounded-lg bg-amber-500/10 border border-amber-500/30 font-mono text-amber-300 flex items-center gap-1.5 cursor-pointer hover:bg-amber-500/20 transition group"
+            title="No registered decoder found for this SKU/FW. Click to register in Decoder Manager"
+          >
+            <i class="fa-solid fa-triangle-exclamation text-[10px] text-amber-400"></i>
+            <span>No Registered Decoder</span>
+            <i class="fa-solid fa-plus text-[9px] text-amber-400 opacity-60 group-hover:opacity-100"></i>
+          </span>
+
           <span class="px-2.5 py-1 rounded-lg bg-slate-800 border border-slate-700 font-mono text-slate-300">
             Timeout: <strong class="text-white">{{ activeTestTemplate.timeoutSeconds }}s</strong>
           </span>
@@ -320,28 +350,121 @@ export const TEST_BUILDER_TEMPLATE = `
             <!-- Available Decoder Fields -->
             <div class="pt-3 border-t border-slate-800">
               <div class="text-xs font-bold text-slate-300 mb-2 flex items-center justify-between">
-                <span>Decoder Fields ({{ testAvailableFields.length }})</span>
+                <div class="flex items-center gap-1.5">
+                  <i class="fa-solid fa-database text-indigo-400 text-xs"></i>
+                  <span>Decoder Fields ({{ realDecoderFields.length }})</span>
+                </div>
+                <div class="flex items-center gap-2">
+                  <button
+                    type="button"
+                    @click="openQuickTestModal"
+                    class="text-[10px] px-1.5 py-0.5 rounded bg-slate-800 text-teal-400 hover:text-teal-300 hover:bg-slate-700 transition flex items-center gap-1 cursor-pointer"
+                    title="Quick Test Decoder Code"
+                  >
+                    <i class="fa-solid fa-flask-vial"></i>
+                    <span>Quick Test</span>
+                  </button>
+                  <button
+                    type="button"
+                    @click="fetchTestAvailableFields"
+                    :disabled="decoderExtractionStatus.loading"
+                    class="text-[10px] text-indigo-400 hover:text-indigo-300 disabled:opacity-50 cursor-pointer"
+                    title="Refresh fields from DB"
+                  >
+                    <i class="fa-solid fa-rotate-right" :class="{ 'fa-spin': decoderExtractionStatus.loading }"></i>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Extraction Status Cards -->
+              <div v-if="decoderExtractionStatus.loading" class="p-2.5 rounded-xl bg-slate-950/60 border border-slate-800/80 mb-2 text-center text-xs text-slate-400">
+                <i class="fa-solid fa-spinner fa-spin text-indigo-400 mr-1.5"></i>
+                <span>Extracting fields from Decoder in DB...</span>
+              </div>
+
+              <div v-else-if="!decoderExtractionStatus.decoderFound" class="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 mb-2.5 space-y-2">
+                <div class="flex items-start gap-2">
+                  <i class="fa-solid fa-triangle-exclamation text-amber-400 text-sm mt-0.5 shrink-0"></i>
+                  <div class="text-xs">
+                    <div class="font-bold text-amber-300">No registered decoder found for this SKU/FW</div>
+                    <div class="text-[10px] text-slate-400 mt-1 leading-relaxed">
+                      Chưa có Decoder trong DB cho <code class="text-amber-200 font-mono">{{ activeTestTemplate.sku }}_v{{ formatFirmware(activeTestTemplate.firmwareVersion) }}</code>. Không sử dụng mock fallback.
+                    </div>
+                  </div>
+                </div>
+                <div class="flex items-center gap-2 pt-1">
+                  <button
+                    type="button"
+                    @click="navigateToDecoderManager(activeTestTemplate.sku)"
+                    class="w-full py-1.5 px-2 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-200 text-[10px] font-bold flex items-center justify-center gap-1.5 transition cursor-pointer"
+                  >
+                    <i class="fa-solid fa-arrow-up-right-from-square text-[9px]"></i>
+                    <span>Tạo Decoder trong Decoder Manager</span>
+                  </button>
+                </div>
+              </div>
+
+              <div v-else class="p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 mb-2 flex items-center justify-between">
+                <div class="flex items-center gap-2 truncate">
+                  <i class="fa-solid fa-circle-check text-emerald-400 text-xs shrink-0"></i>
+                  <div class="truncate">
+                    <div class="text-[11px] font-bold text-emerald-300 font-mono truncate">{{ decoderExtractionStatus.decoderName || decoderExtractionStatus.decoderId }}</div>
+                    <div class="text-[9px] text-slate-400">{{ decoderExtractionStatus.realFieldsCount }} trường thực tế (AST & VM)</div>
+                  </div>
+                </div>
                 <button
                   type="button"
-                  @click="fetchTestAvailableFields"
-                  class="text-[10px] text-indigo-400 hover:text-indigo-300"
-                  title="Reload fields"
+                  @click="navigateToDecoderManager(decoderExtractionStatus.decoderId)"
+                  class="p-1 text-slate-400 hover:text-emerald-300 transition shrink-0 cursor-pointer"
+                  title="Xem trong Decoder Manager"
                 >
-                  <i class="fa-solid fa-rotate-right"></i>
+                  <i class="fa-solid fa-arrow-up-right-from-square text-xs"></i>
                 </button>
               </div>
-              <div class="max-h-48 overflow-y-auto space-y-1.5 pr-1 text-xs">
-                <div
-                  v-for="f in testAvailableFields"
-                  :key="f.name"
-                  @click="addExtractorNodeForField(f)"
-                  class="p-2 rounded-lg bg-slate-950 border border-slate-800/80 hover:border-indigo-500/40 flex items-center justify-between cursor-pointer group"
-                >
-                  <div class="flex items-center gap-1.5 truncate">
-                    <span class="w-2 h-2 rounded-full bg-indigo-400"></span>
-                    <span class="font-mono text-slate-300 group-hover:text-indigo-300 truncate">{{ f.name }}</span>
+
+              <!-- Real Extracted Fields List -->
+              <div v-if="realDecoderFields.length > 0" class="space-y-1 mb-2">
+                <div class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1 flex items-center justify-between">
+                  <span>Trường từ Decoder ({{ realDecoderFields.length }})</span>
+                  <span class="text-[9px] text-emerald-400 font-mono">AST/VM</span>
+                </div>
+                <div class="max-h-40 overflow-y-auto space-y-1 pr-1 text-xs">
+                  <div
+                    v-for="f in realDecoderFields"
+                    :key="f.name"
+                    @click="addExtractorNodeForField(f)"
+                    class="p-2 rounded-lg bg-slate-950 border border-slate-800/80 hover:border-emerald-500/40 flex items-center justify-between cursor-pointer group transition"
+                    :title="'Click to add extractor for ' + f.name"
+                  >
+                    <div class="flex items-center gap-1.5 truncate">
+                      <span class="w-2 h-2 rounded-full bg-emerald-400 shrink-0"></span>
+                      <span class="font-mono text-slate-200 group-hover:text-emerald-300 truncate">{{ f.name }}</span>
+                    </div>
+                    <div class="flex items-center gap-1 shrink-0">
+                      <span v-if="f.unit" class="text-[10px] px-1.5 py-0.2 rounded bg-slate-800 text-emerald-400 font-mono">{{ f.unit }}</span>
+                      <span v-else-if="f.type" class="text-[9px] px-1 py-0.2 rounded bg-slate-800/80 text-slate-400 font-mono">{{ f.type }}</span>
+                      <i class="fa-solid fa-plus text-[10px] text-slate-600 group-hover:text-emerald-400 ml-1"></i>
+                    </div>
                   </div>
-                  <span v-if="f.unit" class="text-[10px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-400 font-mono">{{ f.unit }}</span>
+                </div>
+              </div>
+
+              <!-- Common LoRaWAN Metadata Fields (RSSI, SNR, FCnt, FPort) -->
+              <div v-if="commonTelemetryFields.length > 0" class="pt-2 border-t border-slate-800/60">
+                <div class="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1 flex items-center justify-between">
+                  <span>LoRaWAN Headers ({{ commonTelemetryFields.length }})</span>
+                  <span class="text-[9px] text-slate-500 font-mono">Standard</span>
+                </div>
+                <div class="max-h-28 overflow-y-auto space-y-1 pr-1 text-xs">
+                  <div
+                    v-for="f in commonTelemetryFields"
+                    :key="f.name"
+                    @click="addExtractorNodeForField(f)"
+                    class="p-1.5 rounded-lg bg-slate-950/60 border border-slate-800/60 hover:border-slate-700 flex items-center justify-between cursor-pointer group text-slate-400 hover:text-slate-200"
+                  >
+                    <span class="font-mono text-[11px] truncate">{{ f.name }}</span>
+                    <span v-if="f.unit" class="text-[9px] px-1 rounded bg-slate-800 text-slate-500 font-mono">{{ f.unit }}</span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -573,9 +696,16 @@ export const TEST_BUILDER_TEMPLATE = `
                           @change="onExtractorFieldChange(node)"
                           class="w-full px-2 py-1.5 rounded-lg bg-slate-950 border border-slate-700 text-white font-mono text-xs focus:border-indigo-500"
                         >
-                          <option v-for="f in testAvailableFields" :key="f.name" :value="f.name">
-                            {{ f.name }} ({{ getFieldEnglishLabel(f) }})
-                          </option>
+                          <optgroup v-if="realDecoderFields.length > 0" label="Decoder Fields (AST/VM)">
+                            <option v-for="f in realDecoderFields" :key="f.name" :value="f.name">
+                              {{ f.name }} ({{ getFieldEnglishLabel(f) }})
+                            </option>
+                          </optgroup>
+                          <optgroup label="LoRaWAN Headers">
+                            <option v-for="f in commonTelemetryFields" :key="f.name" :value="f.name">
+                              {{ f.name }} ({{ getFieldEnglishLabel(f) }})
+                            </option>
+                          </optgroup>
                         </select>
                         <div class="flex items-center justify-between text-[10px] text-slate-400 font-mono pt-0.5">
                           <span>Unit: {{ node.params.unit || 'N/A' }}</span>
@@ -984,10 +1114,23 @@ export const TEST_BUILDER_TEMPLATE = `
                 </div>
               </div>
 
-              <div class="text-[11px] font-bold text-slate-400 uppercase pt-2">2. Sensor Telemetry (packet.decoded)</div>
-              <div class="space-y-1 font-mono text-[11px] max-h-48 overflow-y-auto pr-1">
+              <div class="text-[11px] font-bold text-slate-400 uppercase pt-2 flex items-center justify-between">
+                <span>2. Sensor Telemetry (packet.decoded)</span>
+                <span v-if="decoderExtractionStatus.decoderFound" class="text-[10px] text-emerald-400 font-mono">{{ realDecoderFields.length }} fields</span>
+              </div>
+              <div v-if="!decoderExtractionStatus.decoderFound" class="p-2 rounded-lg bg-amber-500/10 border border-amber-500/30 text-[10px] text-amber-300">
+                <div class="font-semibold flex items-center gap-1">
+                  <i class="fa-solid fa-triangle-exclamation text-[10px]"></i>
+                  <span>No registered decoder</span>
+                </div>
+                <div class="text-slate-400 mt-0.5">Không dùng field giả. Đăng ký Decoder để trích xuất trường thực tế.</div>
+              </div>
+              <div v-else-if="realDecoderFields.length === 0" class="p-2 text-slate-500 text-[10px]">
+                Decoder không có telemetry fields.
+              </div>
+              <div v-else class="space-y-1 font-mono text-[11px] max-h-48 overflow-y-auto pr-1">
                 <div
-                  v-for="f in testAvailableFields"
+                  v-for="f in realDecoderFields"
                   :key="f.name"
                   @click="insertCodeSnippet('packet.decoded.' + f.name)"
                   class="p-1.5 rounded bg-slate-950 hover:bg-slate-800 border border-slate-800/80 text-emerald-400 cursor-pointer flex justify-between"
@@ -1352,10 +1495,22 @@ export const TEST_BUILDER_MODALS = `
 
               <!-- Decoded Sensor Fields -->
               <div>
-                <div class="text-[10px] font-bold text-slate-400 uppercase mb-1">2. Decoded Fields ({{ testAvailableFields.length }})</div>
-                <div class="max-h-28 overflow-y-auto space-y-1 pr-1">
+                <div class="text-[10px] font-bold text-slate-400 uppercase mb-1 flex items-center justify-between">
+                  <span>2. Decoded Fields ({{ realDecoderFields.length }})</span>
+                  <span v-if="decoderExtractionStatus.decoderFound" class="text-[9px] text-emerald-400 font-mono">AST/VM</span>
+                </div>
+                <div v-if="!decoderExtractionStatus.decoderFound" class="p-2 rounded bg-amber-500/10 border border-amber-500/30 text-[10px] text-amber-300 mb-1">
+                  <div class="font-semibold flex items-center gap-1">
+                    <i class="fa-solid fa-triangle-exclamation text-[9px]"></i>
+                    <span>No registered decoder</span>
+                  </div>
+                  <div class="text-slate-400 text-[9px] mt-0.5">Không dùng mock fallback.</div>
+                  <button type="button" @click="navigateToDecoderManager(activeTestTemplate?.sku)" class="text-[9px] text-amber-200 underline mt-1 cursor-pointer">Open Decoder Manager</button>
+                </div>
+                <div v-else-if="realDecoderFields.length === 0" class="text-[10px] text-slate-500 italic p-1">No sensor fields extracted</div>
+                <div v-else class="max-h-28 overflow-y-auto space-y-1 pr-1">
                   <button
-                    v-for="f in testAvailableFields"
+                    v-for="f in realDecoderFields"
                     :key="f.name"
                     type="button"
                     @click="insertScriptVariable('msg.packet.decoded.' + f.name)"
@@ -1447,6 +1602,144 @@ export const TEST_BUILDER_MODALS = `
 
     </div>
   </div>
+
+  <!-- ================================================================= -->
+  <!-- QUICK TEST DECODER FIELDS MODAL                                   -->
+  <!-- ================================================================= -->
+  <div v-if="showQuickTestModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-sm animate-fade-in">
+    <div class="relative w-full max-w-2xl bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+      <!-- Modal Header -->
+      <div class="p-4 border-b border-slate-800 flex items-center justify-between bg-slate-950/80">
+        <div class="flex items-center gap-3">
+          <div class="w-9 h-9 rounded-xl bg-teal-500/20 border border-teal-500/40 flex items-center justify-center text-teal-400">
+            <i class="fa-solid fa-flask-vial text-sm"></i>
+          </div>
+          <div>
+            <h3 class="text-sm font-bold text-white flex items-center gap-2">
+              <span>Quick Test & Extract Decoder Fields</span>
+              <span class="text-[10px] px-2 py-0.5 rounded-full bg-teal-500/20 text-teal-300 font-mono">AST + Sandbox VM</span>
+            </h3>
+            <p class="text-xs text-slate-400">Kiểm tra nhanh trường trả về từ mã JavaScript Decoder không cần lưu vào DB</p>
+          </div>
+        </div>
+        <button @click="showQuickTestModal = false" class="text-slate-400 hover:text-white transition p-1 cursor-pointer">
+          <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
+      </div>
+
+      <!-- Modal Body -->
+      <div class="p-5 space-y-4 overflow-y-auto flex-1">
+        <div>
+          <div class="flex items-center justify-between mb-1.5">
+            <label class="text-xs font-semibold text-slate-300">Decoder JavaScript Code:</label>
+            <div class="flex items-center gap-2">
+              <button
+                type="button"
+                @click="loadActiveDecoderCodeIntoQuickTest"
+                class="text-[11px] text-indigo-400 hover:text-indigo-300 flex items-center gap-1 cursor-pointer"
+                title="Load code from current registered decoder in DB"
+              >
+                <i class="fa-solid fa-download text-[10px]"></i>
+                <span>Load Decoder Hiện Tại</span>
+              </button>
+              <button
+                type="button"
+                @click="loadSampleQuickTestCode"
+                class="text-[11px] text-slate-400 hover:text-slate-200 flex items-center gap-1 cursor-pointer"
+              >
+                <i class="fa-solid fa-code text-[10px]"></i>
+                <span>Sample Code</span>
+              </button>
+            </div>
+          </div>
+          <textarea
+            v-model="quickTestCode"
+            rows="8"
+            class="w-full px-3 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-emerald-400 font-mono text-xs focus:border-teal-500 focus:outline-none"
+            placeholder="// Paste JavaScript decoder code here...&#10;function decodeUplink(input) {&#10;  return { data: { temperature: 25.4, humidity: 60 } };&#10;}"
+          ></textarea>
+        </div>
+
+        <div class="flex items-center justify-between">
+          <span class="text-[11px] text-slate-500">Chạy VM sandbox + AST Static Analysis để phát hiện trường thực tế</span>
+          <button
+            type="button"
+            @click="runQuickTestExtract"
+            :disabled="isTestingQuickCode"
+            class="px-4 py-2 rounded-xl bg-teal-600 hover:bg-teal-500 disabled:opacity-50 text-white text-xs font-bold flex items-center gap-2 transition cursor-pointer shadow-lg shadow-teal-600/20"
+          >
+            <i class="fa-solid" :class="isTestingQuickCode ? 'fa-spinner fa-spin' : 'fa-play'"></i>
+            <span>{{ isTestingQuickCode ? 'Analyzing...' : 'Trích Xuất Field Ngay' }}</span>
+          </button>
+        </div>
+
+        <!-- Results Area -->
+        <div v-if="quickTestResult" class="p-4 rounded-xl border" :class="quickTestResult.success ? 'bg-slate-950 border-emerald-500/40' : 'bg-rose-950/20 border-rose-500/40'">
+          <div class="flex items-center justify-between mb-2">
+            <div class="flex items-center gap-2">
+              <i class="fa-solid" :class="quickTestResult.success ? 'fa-circle-check text-emerald-400' : 'fa-triangle-exclamation text-rose-400'"></i>
+              <span class="text-xs font-bold" :class="quickTestResult.success ? 'text-emerald-300' : 'text-rose-300'">
+                {{ quickTestResult.success ? ('Tìm thấy ' + quickTestResult.count + ' trường thực tế:') : 'Lỗi trích xuất' }}
+              </span>
+            </div>
+            <span v-if="quickTestResult.success" class="text-[10px] text-slate-400 font-mono">{{ quickTestResult.count }} fields</span>
+          </div>
+
+          <div v-if="quickTestResult.error" class="text-xs text-rose-300 font-mono mt-1">
+            {{ quickTestResult.error }}
+          </div>
+
+          <div v-if="quickTestResult.success && quickTestResult.fields && quickTestResult.fields.length" class="space-y-3 mt-2">
+            <div class="flex flex-wrap gap-2">
+              <div
+                v-for="f in quickTestResult.fields"
+                :key="f.name"
+                class="px-2.5 py-1 rounded-lg bg-slate-900 border border-slate-700 font-mono text-xs flex items-center gap-1.5"
+              >
+                <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                <strong class="text-slate-200">{{ f.name }}</strong>
+                <span v-if="f.unit" class="text-[10px] text-emerald-400 bg-emerald-500/10 px-1 rounded">{{ f.unit }}</span>
+                <span v-if="f.type" class="text-[9px] text-slate-500">({{ f.type }})</span>
+              </div>
+            </div>
+            <div class="pt-2 border-t border-slate-800 flex items-center justify-end">
+              <button
+                type="button"
+                @click="applyQuickTestFieldsToScenario"
+                class="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer transition shadow-md"
+              >
+                <i class="fa-solid fa-file-import text-xs"></i>
+                <span>Áp dụng vào Scenario hiện tại</span>
+              </button>
+            </div>
+          </div>
+
+          <div v-else-if="quickTestResult.success && (!quickTestResult.fields || !quickTestResult.fields.length)" class="text-xs text-slate-400 mt-1">
+            Không phát hiện trường nào được gán hoặc trả về trong code.
+          </div>
+        </div>
+      </div>
+
+      <!-- Modal Footer -->
+      <div class="p-4 border-t border-slate-800 flex items-center justify-between bg-slate-950/70">
+        <button
+          type="button"
+          @click="navigateToDecoderManager(decoderExtractionStatus.decoderId)"
+          class="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold flex items-center gap-2 transition cursor-pointer"
+        >
+          <i class="fa-solid fa-arrow-up-right-from-square text-xs text-indigo-400"></i>
+          <span>Mở Decoder Manager</span>
+        </button>
+        <button
+          type="button"
+          @click="showQuickTestModal = false"
+          class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold transition cursor-pointer"
+        >
+          Đóng
+        </button>
+      </div>
+    </div>
+  </div>
 `;
 
 export const TEST_BUILDER_SCRIPT = `
@@ -1466,6 +1759,31 @@ export const TEST_BUILDER_SCRIPT = `
 
     const showCreateTestTemplateModal = ref(false);
     const showDryRunModal = ref(false);
+
+    // Real Decoder Extraction & Quick Test State
+    const decoderExtractionStatus = ref({
+      loading: false,
+      decoderFound: false,
+      decoderId: '',
+      decoderName: '',
+      realFieldsCount: 0,
+      error: null
+    });
+
+    const showQuickTestModal = ref(false);
+    const quickTestCode = ref('');
+    const isTestingQuickCode = ref(false);
+    const quickTestResult = ref(null);
+
+    const COMMON_TELEMETRY_NAMES = ['rssi', 'snr', 'fPort', 'fCnt'];
+
+    const commonTelemetryFields = computed(() => {
+      return (testAvailableFields.value || []).filter(f => COMMON_TELEMETRY_NAMES.includes(f.name));
+    });
+
+    const realDecoderFields = computed(() => {
+      return (testAvailableFields.value || []).filter(f => !COMMON_TELEMETRY_NAMES.includes(f.name));
+    });
 
     // Canvas Wire & Drag State
     const canvasContainerRef = ref(null);
@@ -1993,7 +2311,7 @@ export const TEST_BUILDER_SCRIPT = `
     };
 
     const defaultFunctionScript = (node) => {
-      const f = testAvailableFields.value[0]?.name || 'temperature';
+      const f = realDecoderFields.value[0]?.name || testAvailableFields.value[0]?.name || 'value';
       return [
         '// Custom Function Evaluation for ' + (node.label || 'Node'),
         '// msg.payload contains extracted/incoming telemetry',
@@ -2023,7 +2341,7 @@ export const TEST_BUILDER_SCRIPT = `
     };
 
     const applyScriptTemplate = (key) => {
-      const defaultField = testAvailableFields.value[0]?.name || 'temperature';
+      const defaultField = realDecoderFields.value[0]?.name || testAvailableFields.value[0]?.name || 'value';
       if (key === 'range') {
         functionScriptBuffer.value = [
           '// Range & Threshold Check for ' + defaultField,
@@ -2164,25 +2482,68 @@ export const TEST_BUILDER_SCRIPT = `
 
     const fetchTestAvailableFields = async () => {
       if (!activeTestTemplate.value) return;
+      decoderExtractionStatus.value.loading = true;
       try {
-        const sku = activeTestTemplate.value.sku;
-        const fw = activeTestTemplate.value.firmwareVersion;
+        const sku = (activeTestTemplate.value.sku || '').trim().toUpperCase();
+        const fw = formatFirmware(activeTestTemplate.value.firmwareVersion || '1');
         const res = await fetch('/api/c-modules/test-builder/available-fields?sku=' + encodeURIComponent(sku) + '&firmwareVersion=' + encodeURIComponent(fw), {
           headers: credentials()
         });
         if (res.ok) {
-          testAvailableFields.value = await res.json();
+          const data = await res.json();
+          let fields = [];
+          if (Array.isArray(data)) {
+            fields = data;
+            const sensorFields = fields.filter(f => !COMMON_TELEMETRY_NAMES.includes(f.name));
+            decoderExtractionStatus.value = {
+              loading: false,
+              decoderFound: sensorFields.length > 0,
+              decoderId: sku ? (sku + '_' + fw) : '',
+              decoderName: sku ? (sku + '_' + fw) : '',
+              realFieldsCount: sensorFields.length,
+              error: null,
+            };
+          } else {
+            fields = data.fields || [];
+            const sensorFields = fields.filter(f => !COMMON_TELEMETRY_NAMES.includes(f.name));
+            decoderExtractionStatus.value = {
+              loading: false,
+              decoderFound: !!data.decoderFound,
+              decoderId: data.decoderId || (sku ? (sku + '_' + fw) : ''),
+              decoderName: data.decoderName || data.decoderId || (sku ? (sku + '_' + fw) : ''),
+              realFieldsCount: data.count !== undefined ? data.count : sensorFields.length,
+              error: null,
+            };
+          }
+          testAvailableFields.value = fields;
           updateDryRunMockSample();
+        } else {
+          decoderExtractionStatus.value = {
+            loading: false,
+            decoderFound: false,
+            decoderId: '',
+            decoderName: '',
+            realFieldsCount: 0,
+            error: 'Server returned HTTP ' + res.status,
+          };
         }
       } catch (err) {
         console.error('Failed fetching available fields:', err);
+        decoderExtractionStatus.value = {
+          loading: false,
+          decoderFound: false,
+          decoderId: '',
+          decoderName: '',
+          realFieldsCount: 0,
+          error: err.message,
+        };
       }
     };
 
     const updateDryRunMockSample = () => {
       const sampleDecoded = {};
       testAvailableFields.value.forEach(f => {
-        if (!['rssi', 'snr', 'fPort', 'fCnt'].includes(f.name)) {
+        if (!COMMON_TELEMETRY_NAMES.includes(f.name)) {
           sampleDecoded[f.name] = f.sampleValue !== undefined ? f.sampleValue : 25;
         }
       });
@@ -2195,6 +2556,135 @@ export const TEST_BUILDER_SCRIPT = `
       }, null, 2);
     };
 
+    const navigateToDecoderManager = (targetDecoderId) => {
+      if (ctx.decoderSearchQuery && targetDecoderId) {
+        ctx.decoderSearchQuery.value = targetDecoderId;
+      }
+      if (typeof ctx.switchTab === 'function') {
+        ctx.switchTab('decoder');
+      } else if (activeTab) {
+        activeTab.value = 'decoder';
+      }
+      showToast('Đã chuyển sang Decoder Manager' + (targetDecoderId ? ': ' + targetDecoderId : ''), 'info');
+    };
+
+    const openQuickTestModal = () => {
+      quickTestResult.value = null;
+      if (!quickTestCode.value.trim()) {
+        loadActiveDecoderCodeIntoQuickTest();
+      }
+      showQuickTestModal.value = true;
+    };
+
+    const loadActiveDecoderCodeIntoQuickTest = async () => {
+      if (!activeTestTemplate.value?.sku) {
+        loadSampleQuickTestCode();
+        return;
+      }
+      const sku = (activeTestTemplate.value.sku || '').trim().toUpperCase();
+      const fw = formatFirmware(activeTestTemplate.value.firmwareVersion || '1');
+      const decoderId = sku + '_' + fw;
+      try {
+        const res = await fetch('/api/decoders/' + encodeURIComponent(decoderId), {
+          headers: credentials()
+        });
+        if (res.ok) {
+          const dec = await res.json();
+          if (dec && dec.decoderCode) {
+            quickTestCode.value = dec.decoderCode;
+            showToast('Đã tải code decoder ' + decoderId + ' từ DB', 'info');
+            return;
+          }
+        }
+      } catch (e) {}
+      loadSampleQuickTestCode();
+    };
+
+    const loadSampleQuickTestCode = () => {
+      quickTestCode.value = [
+        '// LoRaWAN Payload Decoder function',
+        'function decodeUplink(input) {',
+        '  var bytes = input.bytes || [];',
+        '  var temperature = (bytes[0] || 25);',
+        '  var humidity = (bytes[1] || 60);',
+        '  var battery = 3.6;',
+        '  var co2 = 450;',
+        '',
+        '  return {',
+        '    data: {',
+        '      temperature: temperature,',
+        '      humidity: humidity,',
+        '      battery: battery,',
+        '      co2: co2',
+        '    }',
+        '  };',
+        '}'
+      ].join('\\n');
+      showToast('Đã nạp template decoder mẫu', 'info');
+    };
+
+    const runQuickTestExtract = async () => {
+      if (!quickTestCode.value.trim()) {
+        showToast('Vui lòng nhập code JavaScript Decoder', 'warning');
+        return;
+      }
+      isTestingQuickCode.value = true;
+      quickTestResult.value = null;
+      try {
+        const res = await fetch('/api/c-modules/test-builder/extract-decoder-fields', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...credentials()
+          },
+          body: JSON.stringify({ decoderCode: quickTestCode.value })
+        });
+        const data = await res.json();
+        if (res.ok && data.success) {
+          quickTestResult.value = data;
+          showToast('Trích xuất thành công ' + (data.count || 0) + ' trường từ AST/VM!', 'success');
+        } else {
+          quickTestResult.value = {
+            success: false,
+            count: 0,
+            fields: [],
+            error: data.error || data.message || 'Lỗi trích xuất trường'
+          };
+        }
+      } catch (err) {
+        quickTestResult.value = {
+          success: false,
+          count: 0,
+          fields: [],
+          error: err.message
+        };
+      } finally {
+        isTestingQuickCode.value = false;
+      }
+    };
+
+    const applyQuickTestFieldsToScenario = () => {
+      if (!quickTestResult.value || !quickTestResult.value.fields) return;
+      const extracted = quickTestResult.value.fields;
+      const map = new Map();
+      extracted.forEach(f => map.set(f.name, f));
+      commonTelemetryFields.value.forEach(f => {
+        if (!map.has(f.name)) map.set(f.name, f);
+      });
+      testAvailableFields.value = Array.from(map.values());
+      decoderExtractionStatus.value = {
+        loading: false,
+        decoderFound: true,
+        decoderId: 'QuickTest_AST_VM',
+        decoderName: 'Quick-Test AST/VM Code',
+        realFieldsCount: extracted.length,
+        error: null,
+      };
+      updateDryRunMockSample();
+      showQuickTestModal.value = false;
+      showToast('Đã áp dụng ' + extracted.length + ' trường vào scenario hiện tại!', 'success');
+    };
+
     const addFlowNode = (type) => {
       if (!activeTestTemplate.value) return;
       if (!activeTestTemplate.value.flowConfig) activeTestTemplate.value.flowConfig = { nodes: [], edges: [] };
@@ -2203,8 +2693,8 @@ export const TEST_BUILDER_SCRIPT = `
 
       const existingNodes = activeTestTemplate.value.flowConfig.nodes;
       const newId = 'node-' + Date.now() + '-' + Math.random().toString(36).substring(2, 6);
-      const defaultField = testAvailableFields.value[0]?.name || 'co2';
-      const defaultUnit = testAvailableFields.value[0]?.unit || '';
+      const defaultField = realDecoderFields.value[0]?.name || testAvailableFields.value[0]?.name || 'value';
+      const defaultUnit = realDecoderFields.value[0]?.unit || testAvailableFields.value[0]?.unit || '';
 
       const col = existingNodes.length % 4;
       const row = Math.floor(existingNodes.length / 4);
@@ -2619,6 +3109,15 @@ export const TEST_BUILDER_SCRIPT = `
       }
     });
 
+    watch(
+      () => [activeTestTemplate.value?.sku, activeTestTemplate.value?.firmwareVersion],
+      ([newSku, newFw], [oldSku, oldFw]) => {
+        if (newSku && (newSku !== oldSku || newFw !== oldFw)) {
+          fetchTestAvailableFields();
+        }
+      }
+    );
+
     const onGlobalClick = () => {
       if (wireContextMenu.value.visible) {
         closeWireContextMenu();
@@ -2712,6 +3211,19 @@ export const TEST_BUILDER_SCRIPT = `
       openDeleteTestTemplateModal,
       openDryRunModal,
       executeDryRun,
+      decoderExtractionStatus,
+      showQuickTestModal,
+      quickTestCode,
+      isTestingQuickCode,
+      quickTestResult,
+      commonTelemetryFields,
+      realDecoderFields,
+      navigateToDecoderManager,
+      openQuickTestModal,
+      loadActiveDecoderCodeIntoQuickTest,
+      loadSampleQuickTestCode,
+      runQuickTestExtract,
+      applyQuickTestFieldsToScenario,
     };
   }
 `;

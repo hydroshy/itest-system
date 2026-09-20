@@ -21,14 +21,32 @@ import {
   CreateAssertionDto,
 } from './dto/test-builder.dto';
 import { cleanSku, resolveDecoderId, cleanFirmwareVersion } from '../../lorawan/common/lorawan-utils';
+import {
+  DiscoveredField,
+  formatFieldLabel,
+  inferUnit,
+  extractDecoderFields,
+  extractFieldsWithVm,
+  extractFieldsWithAst,
+} from './decoder-field-extractor';
 
-export interface DiscoveredField {
-  name: string;
-  label: string;
-  type: 'number' | 'string' | 'boolean';
-  unit?: string;
-  sampleValue?: any;
+export {
+  DiscoveredField,
+  formatFieldLabel,
+  inferUnit,
+  extractDecoderFields,
+  extractFieldsWithVm,
+  extractFieldsWithAst,
+};
+
+export interface AvailableFieldsResponse {
+  fields: DiscoveredField[];
+  decoderFound: boolean;
+  decoderId?: string;
+  decoderName?: string;
+  count: number;
 }
+
 
 export interface AssertionEvaluationResult {
   fieldName: string;
@@ -81,14 +99,6 @@ export const VI_TO_EN_FIELD_LABELS: Record<string, string> = {
   'Giá trị cảm biến': 'Sensor Value',
   'Trạng thái': 'Status',
 };
-
-export function formatFieldLabel(name: string): string {
-  return name
-    .replace(/([A-Z])/g, ' $1')
-    .replace(/[_-]/g, ' ')
-    .replace(/^./, (str) => str.toUpperCase())
-    .trim();
-}
 
 export function sanitizeFieldLabel(label?: string, fieldName?: string): string {
   if (!label) return fieldName ? formatFieldLabel(fieldName) : '';
@@ -444,7 +454,7 @@ function evaluate(packet, context) {
     return { success: true, message: `Template ${template.name} (${template.code}) deleted` };
   }
 
-  async getAvailableFields(sku?: string, firmwareVersion?: string): Promise<DiscoveredField[]> {
+  async getAvailableFields(sku?: string, firmwareVersion?: string): Promise<AvailableFieldsResponse> {
     const commonFields: DiscoveredField[] = [
       { name: 'rssi', label: 'RSSI Signal Strength', type: 'number', unit: 'dBm', sampleValue: -85 },
       { name: 'snr', label: 'Signal-to-Noise Ratio (SNR)', type: 'number', unit: 'dB', sampleValue: 7.5 },
@@ -452,94 +462,86 @@ function evaluate(packet, context) {
       { name: 'fCnt', label: 'Frame Counter (FCnt)', type: 'number', sampleValue: 12 },
     ];
 
-    if (!sku) return commonFields;
+    if (!sku) {
+      return {
+        fields: commonFields,
+        decoderFound: false,
+        count: commonFields.length,
+      };
+    }
 
     const skuClean = cleanSku(sku);
     const fwClean = cleanFirmwareVersion(firmwareVersion) || '1';
     const decoderId = resolveDecoderId(skuClean, fwClean);
 
     let extractedSensorFields: DiscoveredField[] = [];
+    let decoderFound = false;
+    let decoderName: string | undefined = undefined;
 
     try {
       const decoderRepo = this.getDecoderRepo();
       const decoder = await decoderRepo.findOne({ where: { id: decoderId } });
-      if (decoder && decoder.decoderCode) {
-        extractedSensorFields = this.parseFieldsFromDecoderCode(decoder.decoderCode);
+      if (decoder) {
+        decoderFound = true;
+        decoderName = decoder.description || decoder.sku;
+        if (decoder.decoderCode) {
+          extractedSensorFields = this.parseFieldsFromDecoderCode(decoder.decoderCode);
+        }
       }
     } catch (e: any) {
       this.logger.debug(`Could not query decoder for fields: ${e.message}`);
     }
 
-    if (extractedSensorFields.length === 0) {
-      if (skuClean.includes('CO2')) {
-        extractedSensorFields = [
-          { name: 'co2', label: 'CO2 Concentration', type: 'number', unit: 'ppm', sampleValue: 650 },
-          { name: 'temperature', label: 'Temperature', type: 'number', unit: '°C', sampleValue: 28.5 },
-          { name: 'humidity', label: 'Humidity', type: 'number', unit: '%RH', sampleValue: 65.2 },
-          { name: 'battery', label: 'Battery Voltage', type: 'number', unit: 'V', sampleValue: 3.6 },
-        ];
-      } else if (skuClean.includes('TH') || skuClean.includes('TEMP')) {
-        extractedSensorFields = [
-          { name: 'temperature', label: 'Ambient Temperature', type: 'number', unit: '°C', sampleValue: 25.4 },
-          { name: 'humidity', label: 'Air Humidity', type: 'number', unit: '%RH', sampleValue: 60.0 },
-          { name: 'battery', label: 'Battery Voltage', type: 'number', unit: 'V', sampleValue: 3.6 },
-        ];
-      } else if (skuClean.includes('LVL') || skuClean.includes('LEVEL')) {
-        extractedSensorFields = [
-          { name: 'levelMm', label: 'Liquid Level', type: 'number', unit: 'mm', sampleValue: 1250 },
-          { name: 'percentage', label: 'Volume Percentage', type: 'number', unit: '%', sampleValue: 82.5 },
-          { name: 'alarmStatus', label: 'Alarm Status', type: 'string', sampleValue: 'NORMAL' },
-        ];
-      } else if (skuClean.includes('MB485') || skuClean.includes('MODBUS')) {
-        extractedSensorFields = [
-          { name: 'voltage', label: 'Phase Voltage', type: 'number', unit: 'V', sampleValue: 220.5 },
-          { name: 'current', label: 'Electric Current', type: 'number', unit: 'A', sampleValue: 4.8 },
-          { name: 'power', label: 'Active Power', type: 'number', unit: 'kW', sampleValue: 1.05 },
-        ];
-      } else {
-        extractedSensorFields = [
-          { name: 'value', label: 'Sensor Value', type: 'number', sampleValue: 100 },
-          { name: 'battery', label: 'Battery Voltage', type: 'number', unit: 'V', sampleValue: 3.6 },
-          { name: 'status', label: 'Status', type: 'string', sampleValue: 'OK' },
-        ];
-      }
-    }
-
+    // Absolutely NO fake/mock fallback. Only genuine decoder fields + common telemetry fields.
     const map = new Map<string, DiscoveredField>();
     for (const f of [...extractedSensorFields, ...commonFields]) {
       map.set(f.name, f);
     }
-    return Array.from(map.values());
+    const finalFields = Array.from(map.values());
+
+    return {
+      fields: finalFields,
+      decoderFound,
+      decoderId: decoderFound ? decoderId : undefined,
+      decoderName,
+      count: finalFields.length,
+    };
   }
 
-  private parseFieldsFromDecoderCode(code: string): DiscoveredField[] {
-    const fields: DiscoveredField[] = [];
-    const seen = new Set<string>();
+  parseFieldsFromDecoderCode(code: string): DiscoveredField[] {
+    return extractDecoderFields(code);
+  }
 
-    const regex = /(?:data|decoded|result|output)\.([a-zA-Z0-9_]+)\s*=/g;
-    let match;
-    while ((match = regex.exec(code)) !== null) {
-      const fieldName = match[1];
-      if (!seen.has(fieldName) && !['length', 'push', 'constructor'].includes(fieldName)) {
-        seen.add(fieldName);
-        fields.push({
-          name: fieldName,
-          label: this.formatFieldLabel(fieldName),
-          type: 'number',
-          sampleValue: 25,
-        });
-      }
+  extractFieldsFromRawCode(decoderCode: string): {
+    success: boolean;
+    fields: DiscoveredField[];
+    count: number;
+    error?: string;
+  } {
+    if (!decoderCode || typeof decoderCode !== 'string' || !decoderCode.trim()) {
+      return {
+        success: false,
+        fields: [],
+        count: 0,
+        error: 'Decoder code is empty or missing',
+      };
     }
 
-    return fields;
-  }
-
-  private formatFieldLabel(name: string): string {
-    return name
-      .replace(/([A-Z])/g, ' $1')
-      .replace(/[_-]/g, ' ')
-      .replace(/^./, (str) => str.toUpperCase())
-      .trim();
+    try {
+      const fields = extractDecoderFields(decoderCode);
+      return {
+        success: true,
+        fields,
+        count: fields.length,
+      };
+    } catch (err: any) {
+      return {
+        success: false,
+        fields: [],
+        count: 0,
+        error: err?.message || 'Failed to extract fields from decoder code',
+      };
+    }
   }
 
   async dryRun(dto: DryRunTestDto): Promise<DryRunResponse> {

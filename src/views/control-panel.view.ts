@@ -4805,6 +4805,8 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
           authHeaders,
           currentUser,
           activeTab,
+          switchTab,
+          decoderSearchQuery,
         });
 
         watch(activeTab, (newTab) => {

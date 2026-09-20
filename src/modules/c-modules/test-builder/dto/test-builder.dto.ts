@@ -268,3 +268,11 @@ export class ExecuteFlowDto {
   context?: Record<string, any>;
 }
 
+export class ExtractDecoderFieldsDto {
+  @ApiProperty({ description: 'Raw JavaScript decoder code (decodeUplink or Decoder)' })
+  @IsNotEmpty()
+  @IsString()
+  decoderCode: string;
+}
+
+

@@ -22,6 +22,7 @@ import {
   DryRunTestDto,
   ValidateFlowDto,
   ExecuteFlowDto,
+  ExtractDecoderFieldsDto,
 } from './dto/test-builder.dto';
 
 @ApiTags('C-Module: LoRaWAN Test Builder & Automation')
@@ -103,6 +104,19 @@ export class TestBuilderController {
     @Query('firmwareVersion') firmwareVersion?: string,
   ) {
     return await this.testBuilderService.getAvailableFields(sku, firmwareVersion);
+  }
+
+  @Post('extract-decoder-fields')
+  @ApiOperation({ summary: 'Extract telemetry fields directly from raw JavaScript decoder code (AST + Dynamic VM Sandbox)' })
+  async extractDecoderFields(@Body() dto: ExtractDecoderFieldsDto) {
+    try {
+      return this.testBuilderService.extractFieldsFromRawCode(dto.decoderCode);
+    } catch (err: any) {
+      throw new HttpException(
+        err.message || 'Failed to extract decoder fields',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
   }
 
   @Post('dry-run')
