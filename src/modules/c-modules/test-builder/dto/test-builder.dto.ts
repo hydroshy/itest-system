@@ -225,6 +225,11 @@ export class DryRunTestDto {
     decodedData?: Record<string, any>;
   };
 
+  @ApiPropertyOptional({ description: 'Cấu hình đồ thị Visual Flow (DAG nodes & edges/wires)' })
+  @IsOptional()
+  @IsObject()
+  flowConfig?: Record<string, any>;
+
   @ApiPropertyOptional({ description: 'Ngữ cảnh kiểm thử' })
   @IsOptional()
   @IsObject()
@@ -232,5 +237,34 @@ export class DryRunTestDto {
     packetCount?: number;
     minPackets?: number;
     durationSeconds?: number;
+    buffer?: Record<string, number[]>;
+    referenceDevices?: Record<string, any>;
+    goldenUnit?: Record<string, any>;
+    [key: string]: any;
   };
 }
+
+export class ValidateFlowDto {
+  @ApiProperty({ description: 'Cấu hình đồ thị Visual Flow cần kiểm tra DAG' })
+  @IsNotEmpty()
+  @IsObject()
+  flowConfig: Record<string, any>;
+}
+
+export class ExecuteFlowDto {
+  @ApiProperty({ description: 'Cấu hình đồ thị Visual Flow' })
+  @IsNotEmpty()
+  @IsObject()
+  flowConfig: Record<string, any>;
+
+  @ApiPropertyOptional({ description: 'Gói tin mock telemetry' })
+  @IsOptional()
+  @IsObject()
+  mockPacket?: Record<string, any>;
+
+  @ApiPropertyOptional({ description: 'Ngữ cảnh kiểm thử (buffer, goldenUnit, referenceDevices...)' })
+  @IsOptional()
+  @IsObject()
+  context?: Record<string, any>;
+}
+

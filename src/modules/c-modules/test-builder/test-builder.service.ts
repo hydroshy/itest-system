@@ -10,6 +10,7 @@ import {
 import * as vm from 'vm';
 import { Repository } from 'typeorm';
 import { DynamicDatabaseService } from '../../database/dynamic-database.service';
+import { FlowGraphEngineService, FlowConfig, FlowExecutionSummary } from './flow-graph-engine.service';
 import { TestTemplateEntity } from './entities/test-template.entity';
 import { TestAssertionEntity } from './entities/test-assertion.entity';
 import { DecoderEntity } from '../decoder-admin/entities/decoder.entity';
@@ -37,6 +38,8 @@ export interface AssertionEvaluationResult {
   pass: boolean;
   severity: 'ERROR' | 'WARNING';
   message: string;
+  nodeId?: string;
+  nodeType?: string;
 }
 
 export interface DryRunResponse {
@@ -50,6 +53,7 @@ export interface DryRunResponse {
     metrics?: Record<string, any>;
     logs?: string[];
   };
+  flowResult?: FlowExecutionSummary;
   summary: string;
 }
 
@@ -57,7 +61,14 @@ export interface DryRunResponse {
 export class TestBuilderService implements OnModuleInit {
   private readonly logger = new Logger(TestBuilderService.name);
 
-  constructor(@Optional() private readonly dbService?: DynamicDatabaseService) {}
+  constructor(
+    @Optional() private readonly dbService?: DynamicDatabaseService,
+    @Optional() private flowGraphEngine?: FlowGraphEngineService,
+  ) {
+    if (!this.flowGraphEngine) {
+      this.flowGraphEngine = new FlowGraphEngineService();
+    }
+  }
 
   private getTemplateRepo(): Repository<TestTemplateEntity> {
     if (!this.dbService) {
@@ -475,7 +486,44 @@ function evaluate(packet, context) {
 
     const assertionResults: AssertionEvaluationResult[] = [];
     let assertionsPassed = true;
+    let flowResult: FlowExecutionSummary | undefined = undefined;
 
+    // 1. If flowConfig is provided or template has flowConfig, run Graph DAG Engine
+    let flowConfigToRun = dto.flowConfig;
+    if (!flowConfigToRun && dto.templateId && this.dbService) {
+      try {
+        const tpl = await this.findOne(dto.templateId);
+        if (tpl && tpl.flowConfig && Array.isArray(tpl.flowConfig.nodes) && tpl.flowConfig.nodes.length > 0) {
+          flowConfigToRun = tpl.flowConfig;
+        }
+      } catch (e) {
+        // Fallback gracefully
+      }
+    }
+
+    if ((mode === 'FLOW' || mode === 'HYBRID') && flowConfigToRun && Array.isArray(flowConfigToRun.nodes) && flowConfigToRun.nodes.length > 0) {
+      flowResult = await this.flowGraphEngine.executeFlow(flowConfigToRun as unknown as FlowConfig, packet, context);
+
+      // Map flow assertion results into assertionResults array
+      for (const fa of flowResult.assertionResults) {
+        assertionResults.push({
+          fieldName: fa.fieldName || fa.nodeLabel || fa.nodeType,
+          operator: fa.operator || 'EVAL',
+          expectedValue: fa.expectedValue,
+          actualValue: fa.actualValue,
+          pass: fa.pass,
+          severity: fa.severity,
+          message: fa.message,
+          nodeId: fa.nodeId,
+          nodeType: fa.nodeType,
+        });
+        if (!fa.pass && fa.severity === 'ERROR') {
+          assertionsPassed = false;
+        }
+      }
+    }
+
+    // 2. Also evaluate any legacy/direct assertions if provided
     if (dto.assertions && dto.assertions.length > 0) {
       for (const assert of dto.assertions) {
         const actualValue = this.extractFieldValue(flatPacketData, assert.fieldName);
@@ -504,10 +552,19 @@ function evaluate(packet, context) {
       executionTimeMs,
       assertionResults,
       scriptResult,
+      flowResult,
       summary: overallPass
         ? `Tất cả điều kiện kiểm thử đã ĐẠT chuẩn (${assertionResults.length} rules, ${executionTimeMs}ms)`
         : `Kiểm thử KHÔNG ĐẠT chuẩn: Có lỗi vi phạm điều kiện (${executionTimeMs}ms)`,
     };
+  }
+
+  async validateFlowConfig(flowConfig: FlowConfig) {
+    return this.flowGraphEngine.validateFlow(flowConfig);
+  }
+
+  async executeFlowGraph(flowConfig: FlowConfig, mockPacket: any = {}, context: any = {}) {
+    return await this.flowGraphEngine.executeFlow(flowConfig, mockPacket, context);
   }
 
   private extractFieldValue(obj: any, path: string): any {

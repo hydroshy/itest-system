@@ -20,6 +20,8 @@ import {
   CreateTestTemplateDto,
   UpdateTestTemplateDto,
   DryRunTestDto,
+  ValidateFlowDto,
+  ExecuteFlowDto,
 } from './dto/test-builder.dto';
 
 @ApiTags('C-Module: LoRaWAN Test Builder & Automation')
@@ -98,6 +100,36 @@ export class TestBuilderController {
     } catch (err: any) {
       throw new HttpException(
         err.message || 'Lỗi khi chạy thử Dry-Run',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+  }
+
+  @Post('flow/validate')
+  @ApiOperation({ summary: 'Kiểm tra tính hợp lệ của đồ thị Visual Flow (DAG cycle detection, connectivity)' })
+  async validateFlow(@Body() dto: ValidateFlowDto) {
+    try {
+      return this.testBuilderService.validateFlowConfig(dto.flowConfig as any);
+    } catch (err: any) {
+      throw new HttpException(
+        err.message || 'Lỗi khi kiểm tra cấu hình đồ thị Flow',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+  }
+
+  @Post('flow/execute')
+  @ApiOperation({ summary: 'Thực thi trực tiếp đồ thị Visual Flow trong Graph DAG Engine' })
+  async executeFlow(@Body() dto: ExecuteFlowDto) {
+    try {
+      return await this.testBuilderService.executeFlowGraph(
+        dto.flowConfig as any,
+        dto.mockPacket || {},
+        dto.context || {},
+      );
+    } catch (err: any) {
+      throw new HttpException(
+        err.message || 'Lỗi khi thực thi đồ thị Flow',
         HttpStatus.BAD_REQUEST,
       );
     }
