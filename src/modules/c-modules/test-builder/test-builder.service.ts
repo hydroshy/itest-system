@@ -457,10 +457,10 @@ function evaluate(packet, context) {
 
   async getAvailableFields(sku?: string, firmwareVersion?: string): Promise<AvailableFieldsResponse> {
     const commonFields: DiscoveredField[] = [
-      { name: 'rssi', label: 'RSSI Signal Strength', type: 'number', unit: 'dBm', sampleValue: -85 },
-      { name: 'snr', label: 'Signal-to-Noise Ratio', type: 'number', unit: 'dB', sampleValue: 7.5 },
-      { name: 'fPort', label: 'LoRaWAN FPort', type: 'number', sampleValue: 1 },
-      { name: 'fCnt', label: 'Frame Counter', type: 'number', sampleValue: 12 },
+      { name: 'RSSI', label: 'RSSI Signal Strength', type: 'number', unit: 'dBm', sampleValue: -85 },
+      { name: 'SNR', label: 'Signal-to-Noise Ratio', type: 'number', unit: 'dB', sampleValue: 7.5 },
+      { name: 'FPORT', label: 'LoRaWAN FPort', type: 'number', sampleValue: 1 },
+      { name: 'FCNT', label: 'Frame Counter', type: 'number', sampleValue: 12 },
     ];
 
     if (!sku) {
@@ -557,12 +557,23 @@ function evaluate(packet, context) {
     const mode = dto.executionMode || 'FLOW';
 
     const decodedData = packet.decoded || packet.decodedData || {};
+    const rssiVal = packet.RSSI !== undefined ? packet.RSSI : (packet.rssi !== undefined ? packet.rssi : -80);
+    const snrVal = packet.SNR !== undefined ? packet.SNR : (packet.snr !== undefined ? packet.snr : 8.0);
+    const fPortVal = packet.FPORT !== undefined ? packet.FPORT : (packet.fPort !== undefined ? packet.fPort : (packet.fport !== undefined ? packet.fport : 1));
+    const fCntVal = packet.FCNT !== undefined ? packet.FCNT : (packet.fCnt !== undefined ? packet.fCnt : (packet.fcnt !== undefined ? packet.fcnt : 1));
+
     const flatPacketData = {
       ...decodedData,
-      rssi: packet.rssi !== undefined ? packet.rssi : -80,
-      snr: packet.snr !== undefined ? packet.snr : 8.0,
-      fPort: packet.fPort !== undefined ? packet.fPort : 1,
-      fCnt: packet.fCnt !== undefined ? packet.fCnt : 1,
+      // Uppercase LoRaWAN headers
+      RSSI: rssiVal,
+      SNR: snrVal,
+      FPORT: fPortVal,
+      FCNT: fCntVal,
+      // Lowercase / camelCase for 100% backward compatibility
+      rssi: rssiVal,
+      snr: snrVal,
+      fPort: fPortVal,
+      fCnt: fCntVal,
     };
 
     const assertionResults: AssertionEvaluationResult[] = [];
@@ -770,12 +781,25 @@ function evaluate(packet, context) {
   ): { pass: boolean; reason?: string; metrics?: any; logs?: string[] } {
     const logs: string[] = [];
 
+    const fPortVal = packet.FPORT !== undefined ? packet.FPORT : (packet.fPort !== undefined ? packet.fPort : (packet.fport !== undefined ? packet.fport : 1));
+    const fCntVal = packet.FCNT !== undefined ? packet.FCNT : (packet.fCnt !== undefined ? packet.fCnt : (packet.fcnt !== undefined ? packet.fcnt : 0));
+    const rssiVal = packet.RSSI !== undefined ? packet.RSSI : (packet.rssi !== undefined ? packet.rssi : -80);
+    const snrVal = packet.SNR !== undefined ? packet.SNR : (packet.snr !== undefined ? packet.snr : 8);
+
     const sandbox = {
       packet: {
-        fPort: packet.fPort || 1,
-        fCnt: packet.fCnt || 0,
-        rssi: packet.rssi || -80,
-        snr: packet.snr || 8,
+        // Uppercase
+        FPORT: fPortVal,
+        FCNT: fCntVal,
+        RSSI: rssiVal,
+        SNR: snrVal,
+        // Backward-compatible lowercase / camelCase
+        fPort: fPortVal,
+        fport: fPortVal,
+        fCnt: fCntVal,
+        fcnt: fCntVal,
+        rssi: rssiVal,
+        snr: snrVal,
         payloadHex: packet.payloadHex || '',
         decoded: packet.decoded || packet.decodedData || {},
       },

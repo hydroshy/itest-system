@@ -1176,17 +1176,21 @@ export const TEST_BUILDER_TEMPLATE = `
             <div class="space-y-2 text-xs">
               <div class="text-[11px] font-bold text-slate-400 uppercase">1. Packet Properties (packet)</div>
               <div class="space-y-1 font-mono text-[11px]">
-                <div @click="insertCodeSnippet('packet.rssi')" class="p-1.5 rounded bg-slate-950 hover:bg-slate-800 border border-slate-800/80 text-sky-400 cursor-pointer flex justify-between">
-                  <span>packet.rssi</span>
+                <div @click="insertCodeSnippet('packet.RSSI')" class="p-1.5 rounded bg-slate-950 hover:bg-slate-800 border border-slate-800/80 text-sky-400 cursor-pointer flex justify-between">
+                  <span>packet.RSSI</span>
                   <span class="text-slate-500 text-[10px]">dBm</span>
                 </div>
-                <div @click="insertCodeSnippet('packet.snr')" class="p-1.5 rounded bg-slate-950 hover:bg-slate-800 border border-slate-800/80 text-sky-400 cursor-pointer flex justify-between">
-                  <span>packet.snr</span>
+                <div @click="insertCodeSnippet('packet.SNR')" class="p-1.5 rounded bg-slate-950 hover:bg-slate-800 border border-slate-800/80 text-sky-400 cursor-pointer flex justify-between">
+                  <span>packet.SNR</span>
                   <span class="text-slate-500 text-[10px]">dB</span>
                 </div>
-                <div @click="insertCodeSnippet('packet.fPort')" class="p-1.5 rounded bg-slate-950 hover:bg-slate-800 border border-slate-800/80 text-sky-400 cursor-pointer flex justify-between">
-                  <span>packet.fPort</span>
+                <div @click="insertCodeSnippet('packet.FPORT')" class="p-1.5 rounded bg-slate-950 hover:bg-slate-800 border border-slate-800/80 text-sky-400 cursor-pointer flex justify-between">
+                  <span>packet.FPORT</span>
                   <span class="text-slate-500 text-[10px]">Port</span>
+                </div>
+                <div @click="insertCodeSnippet('packet.FCNT')" class="p-1.5 rounded bg-slate-950 hover:bg-slate-800 border border-slate-800/80 text-sky-400 cursor-pointer flex justify-between">
+                  <span>packet.FCNT</span>
+                  <span class="text-slate-500 text-[10px]">FCnt</span>
                 </div>
               </div>
 
@@ -1558,7 +1562,7 @@ export const TEST_BUILDER_MODALS = `
                 <div class="text-[10px] font-bold text-slate-400 uppercase mb-1">1. Message & Telemetry</div>
                 <div class="flex flex-wrap gap-1">
                   <button
-                    v-for="v in ['msg.payload', 'msg.packet.rssi', 'msg.packet.snr', 'msg.packet.fPort', 'msg.packet.fCnt']"
+                    v-for="v in ['msg.payload', 'msg.packet.RSSI', 'msg.packet.SNR', 'msg.packet.FPORT', 'msg.packet.FCNT', 'msg.packet.rssi', 'msg.packet.snr', 'msg.packet.fPort', 'msg.packet.fCnt']"
                     :key="v"
                     type="button"
                     @click="insertScriptVariable(v)"
@@ -1856,7 +1860,7 @@ export const TEST_BUILDER_SCRIPT = `
     const isTestingQuickCode = ref(false);
     const quickTestResult = ref(null);
 
-    const COMMON_TELEMETRY_NAMES = ['rssi', 'snr', 'fPort', 'fCnt'];
+    const COMMON_TELEMETRY_NAMES = ['RSSI', 'SNR', 'FPORT', 'FCNT', 'rssi', 'snr', 'fPort', 'fCnt', 'fcnt', 'fport'];
 
     const commonTelemetryFields = computed(() => {
       return (testAvailableFields.value || []).filter(f => COMMON_TELEMETRY_NAMES.includes(f.name));
@@ -1931,6 +1935,10 @@ export const TEST_BUILDER_SCRIPT = `
     });
 
     const dryRunPayloadRaw = ref(JSON.stringify({
+      RSSI: -85,
+      SNR: 8.5,
+      FPORT: 1,
+      FCNT: 1,
       fPort: 1,
       fCnt: 1,
       rssi: -85,
@@ -2707,6 +2715,10 @@ export const TEST_BUILDER_SCRIPT = `
         }
       });
       dryRunPayloadRaw.value = JSON.stringify({
+        RSSI: -85,
+        SNR: 8.5,
+        FPORT: 1,
+        FCNT: 1,
         fPort: 1,
         fCnt: 1,
         rssi: -85,
@@ -2761,22 +2773,27 @@ export const TEST_BUILDER_SCRIPT = `
 
     const loadSampleQuickTestCode = () => {
       quickTestCode.value = [
-        '// LoRaWAN Payload Decoder function',
+        '// LoRaWAN Payload Decoder function for WSLRW-ATH (14 fields)',
         'function decodeUplink(input) {',
         '  var bytes = input.bytes || [];',
-        '  var temperature = (bytes[0] || 25);',
-        '  var humidity = (bytes[1] || 60);',
-        '  var battery = 3.6;',
-        '  var co2 = 450;',
-        '',
-        '  return {',
-        '    data: {',
-        '      temperature: temperature,',
-        '      humidity: humidity,',
-        '      battery: battery,',
-        '      co2: co2',
-        '    }',
+        '  var data = {};',
+        '  data = {',
+        '    temperature: ((bytes[0] || 250) / 10),',
+        '    humidity: ((bytes[1] || 600) / 10),',
+        '    ambient_temperature: 26.5,',
+        '    ambient_humidity: 65.0,',
+        '    barometric_pressure: 1013.25,',
+        '    pressure: 1013.25,',
+        '    altitude: 15.2,',
+        '    illuminance: 450,',
+        '    light_intensity: 450,',
+        '    dew_point: 18.5,',
+        '    heat_index: 28.0,',
+        '    battery_voltage: 3.65,',
+        '    battery_level: 98,',
+        '    sensor_status: 1',
         '  };',
+        '  return { data: data };',
         '}'
       ].join('\\n');
       showToast('Loaded sample decoder template', 'info');
@@ -3074,14 +3091,15 @@ export const TEST_BUILDER_SCRIPT = `
   if (context.packetCount < context.minPackets) {
     return { pass: false, reason: 'Insufficient packets: ' + context.packetCount + '/' + context.minPackets };
   }
-  if (packet.rssi < -120) {
-    return { pass: false, reason: 'Weak RSSI signal: ' + packet.rssi + ' dBm' };
+  const rssi = packet.RSSI !== undefined ? packet.RSSI : packet.rssi;
+  if (rssi !== undefined && rssi < -120) {
+    return { pass: false, reason: 'Weak RSSI signal: ' + rssi + ' dBm' };
   }
   const decoded = packet.decoded || {};
   if (decoded.temperature !== undefined && (decoded.temperature < 0 || decoded.temperature > 65)) {
     return { pass: false, reason: 'Abnormal temperature: ' + decoded.temperature + ' °C' };
   }
-  return { pass: true, metrics: { packetCount: context.packetCount, temp: decoded.temperature } };
+  return { pass: true, metrics: { packetCount: context.packetCount, temp: decoded.temperature, rssi: rssi } };
 }\`;
       showToast('Sample script loaded successfully', 'success');
     };

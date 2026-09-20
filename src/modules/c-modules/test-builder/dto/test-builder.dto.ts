@@ -216,13 +216,22 @@ export class DryRunTestDto {
   @ApiProperty({ description: 'Mock telemetry packet' })
   @IsObject()
   mockPacket: {
+    // Uppercase LoRaWAN headers
+    RSSI?: number;
+    SNR?: number;
+    FPORT?: number;
+    FCNT?: number;
+    // Lowercase / camelCase LoRaWAN headers
     fPort?: number;
+    fport?: number;
     fCnt?: number;
+    fcnt?: number;
     rssi?: number;
     snr?: number;
     payloadHex?: string;
     decoded?: Record<string, any>;
     decodedData?: Record<string, any>;
+    [key: string]: any;
   };
 
   @ApiPropertyOptional({ description: 'Visual Flow DAG configuration (nodes & edges/wires)' })

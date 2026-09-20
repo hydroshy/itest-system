@@ -41,6 +41,14 @@ export const IGNORED_PROTOCOL_KEYS = new Set<string>([
   'map',
   'filter',
   'reduce',
+  // LoRaWAN Headers uppercase & variants to prevent being treated as sensor fields
+  'RSSI',
+  'SNR',
+  'FPORT',
+  'FCNT',
+  'F_PORT',
+  'F_CNT',
+  'PORT',
 ]);
 
 export const STANDARD_FIELD_LABELS: Record<string, string> = {
@@ -50,14 +58,21 @@ export const STANDARD_FIELD_LABELS: Record<string, string> = {
   ambient_temp: 'Ambient Temperature',
   ambienttemp: 'Ambient Temperature',
   ambient_temperature: 'Ambient Temperature',
+  ambienttemperature: 'Ambient Temperature',
   hum: 'Humidity',
   humidity: 'Humidity',
+  ambient_hum: 'Ambient Humidity',
+  ambient_humidity: 'Ambient Humidity',
+  ambienthumidity: 'Ambient Humidity',
   air_humidity: 'Air Humidity',
   airhumidity: 'Air Humidity',
   battery: 'Battery Voltage',
   bat: 'Battery Voltage',
   vbat: 'Battery Voltage',
   batteryvoltage: 'Battery Voltage',
+  battery_voltage: 'Battery Voltage',
+  battery_level: 'Battery Level',
+  batterylevel: 'Battery Level',
   level: 'Liquid Level',
   levelmm: 'Liquid Level',
   percentage: 'Volume Percentage',
@@ -68,29 +83,43 @@ export const STANDARD_FIELD_LABELS: Record<string, string> = {
   power: 'Active Power',
   pressure: 'Atmospheric Pressure',
   baro: 'Barometric Pressure',
+  barometric_pressure: 'Barometric Pressure',
+  barometricpressure: 'Barometric Pressure',
   altitude: 'Altitude',
   rssi: 'RSSI Signal Strength',
   snr: 'Signal-to-Noise Ratio',
   fport: 'LoRaWAN FPort',
   fcnt: 'Frame Counter',
   status: 'Status',
+  sensor_status: 'Sensor Status',
+  sensorstatus: 'Sensor Status',
   value: 'Sensor Value',
   light: 'Light Intensity',
   lux: 'Light Intensity',
   illuminance: 'Illuminance',
+  light_intensity: 'Light Intensity',
+  lightintensity: 'Light Intensity',
+  dew_point: 'Dew Point',
+  dewpoint: 'Dew Point',
+  heat_index: 'Heat Index',
+  heatindex: 'Heat Index',
 };
 
 export function formatFieldLabel(name: string): string {
   if (!name) return '';
   const cleanName = name.replace(/\s*\([^)]*\)/g, '').trim();
-  const lower = cleanName.toLowerCase().replace(/[^a-z0-9]/g, '');
-  if (STANDARD_FIELD_LABELS[lower]) {
-    return STANDARD_FIELD_LABELS[lower];
+  const rawLower = cleanName.toLowerCase();
+  const strippedLower = rawLower.replace(/[^a-z0-9]/g, '');
+  if (STANDARD_FIELD_LABELS[rawLower]) {
+    return STANDARD_FIELD_LABELS[rawLower];
+  }
+  if (STANDARD_FIELD_LABELS[strippedLower]) {
+    return STANDARD_FIELD_LABELS[strippedLower];
   }
   return cleanName
     .replace(/([A-Z])/g, ' $1')
     .replace(/[_-]/g, ' ')
-    .replace(/^./, (str) => str.toUpperCase())
+    .replace(/\b\w/g, (str) => str.toUpperCase())
     .replace(/\s*\([^)]*\)/g, '')
     .trim();
 }
@@ -99,6 +128,9 @@ export function inferUnit(name: string): string | undefined {
   if (!name) return undefined;
   const lower = name.toLowerCase();
   if (lower.includes('co2')) return 'ppm';
+  if (lower.includes('dew_point') || lower.includes('dewpoint')) return '°C';
+  if (lower.includes('heat_index') || lower.includes('heatindex')) return '°C';
+  if (lower.includes('alt') || lower.includes('altitude')) return 'm';
   if (lower.includes('temp') || lower === 't' || lower === 'temperature') return '°C';
   if (lower.includes('hum') || lower.includes('rh') || lower.includes('humidity')) return '%RH';
   if (lower.includes('volt') || lower.includes('bat') || lower.includes('vbat') || lower.includes('battery')) return 'V';
@@ -125,6 +157,9 @@ export function inferSampleValue(name: string, type: string = 'number'): any {
   if (type === 'object') return {};
 
   const lower = name.toLowerCase();
+  if (lower.includes('dew_point') || lower.includes('dewpoint')) return 18.2;
+  if (lower.includes('heat_index') || lower.includes('heatindex')) return 26.8;
+  if (lower.includes('alt') || lower.includes('altitude')) return 15;
   if (lower.includes('co2')) return 650;
   if (lower.includes('temp') || lower === 't') return 25.5;
   if (lower.includes('hum') || lower.includes('rh')) return 60.0;
@@ -397,10 +432,14 @@ export function extractFieldsWithAst(code: string): DiscoveredField[] {
       }
     }
 
-    // Assignments: target.prop = ... or target['prop'] = ...
+    // Assignments: target.prop = ... or target['prop'] = ... or target = { ... } (reassignment)
     if (ts.isBinaryExpression(node) && node.operatorToken.kind === ts.SyntaxKind.EqualsToken) {
       const left = node.left;
-      if (ts.isPropertyAccessExpression(left)) {
+      if (ts.isIdentifier(left) && targetVars.has(left.text)) {
+        if (ts.isObjectLiteralExpression(node.right)) {
+          inspectObjectLiteral(node.right);
+        }
+      } else if (ts.isPropertyAccessExpression(left)) {
         const objName = left.expression.getText(sf);
         const propName = left.name.text;
         if (targetVars.has(objName)) {

@@ -22,10 +22,10 @@ async function runTests() {
   assert.strictEqual(commonRes.fields.length, 4);
   assert.strictEqual(commonRes.count, 0, 'No decoder fields when no SKU');
   assert.strictEqual(commonRes.totalCount, 4, 'Total 4 common fields');
-  assert.strictEqual(commonRes.fields.find((f) => f.name === 'rssi')?.label, 'RSSI Signal Strength');
-  assert.strictEqual(commonRes.fields.find((f) => f.name === 'snr')?.label, 'Signal-to-Noise Ratio');
-  assert.strictEqual(commonRes.fields.find((f) => f.name === 'fPort')?.label, 'LoRaWAN FPort');
-  assert.strictEqual(commonRes.fields.find((f) => f.name === 'fCnt')?.label, 'Frame Counter');
+  assert.strictEqual(commonRes.fields.find((f) => f.name === 'RSSI')?.label, 'RSSI Signal Strength');
+  assert.strictEqual(commonRes.fields.find((f) => f.name === 'SNR')?.label, 'Signal-to-Noise Ratio');
+  assert.strictEqual(commonRes.fields.find((f) => f.name === 'FPORT')?.label, 'LoRaWAN FPort');
+  assert.strictEqual(commonRes.fields.find((f) => f.name === 'FCNT')?.label, 'Frame Counter');
   // Verify clean labels without parentheses
   for (const f of commonRes.fields) {
     assert(!f.label.includes('(') && !f.label.includes(')'), `Field label "${f.label}" should not have parentheses`);

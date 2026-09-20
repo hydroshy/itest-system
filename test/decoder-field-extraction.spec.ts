@@ -166,7 +166,7 @@ async function runTestSuite() {
   assert.strictEqual(availRes.totalCount, 4, 'Must have totalCount 4 for common fields');
   assert.deepStrictEqual(
     availRes.fields.map((f) => f.name),
-    ['rssi', 'snr', 'fPort', 'fCnt'],
+    ['RSSI', 'SNR', 'FPORT', 'FCNT'],
   );
   // Verify clean labels without parentheses
   for (const f of availRes.fields) {

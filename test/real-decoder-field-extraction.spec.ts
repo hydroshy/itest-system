@@ -386,7 +386,7 @@ async function runRealDecoderTests() {
     assert.strictEqual(defaultRes.totalCount, 4, 'Total 4 common fields');
     assert.strictEqual(defaultRes.decoderFound, false);
     const defaultNames = defaultRes.fields.map(f => f.name);
-    assert.deepStrictEqual(defaultNames.sort(), ['fCnt', 'fPort', 'rssi', 'snr']);
+    assert.deepStrictEqual(defaultNames.sort(), ['FCNT', 'FPORT', 'RSSI', 'SNR']);
 
     // 7.5: getAvailableFields with SKU whose decoder is NOT in DB
     // VERIFY ZERO FAKE FIELDS INJECTED (e.g. WSLRW-CO2, WSLRW-TH, WSLRW-LVL, WSLRW-MB485)

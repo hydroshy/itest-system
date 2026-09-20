@@ -266,17 +266,30 @@ export class FlowGraphEngineService {
     };
 
     const initialPayload = packet.decoded || packet.decodedData || packet;
+    const fPortVal = packet.FPORT !== undefined ? packet.FPORT : (packet.fPort !== undefined ? packet.fPort : (packet.fport !== undefined ? packet.fport : 1));
+    const fCntVal = packet.FCNT !== undefined ? packet.FCNT : (packet.fCnt !== undefined ? packet.fCnt : (packet.fcnt !== undefined ? packet.fcnt : 1));
+    const rssiVal = packet.RSSI !== undefined ? packet.RSSI : (packet.rssi !== undefined ? packet.rssi : -80);
+    const snrVal = packet.SNR !== undefined ? packet.SNR : (packet.snr !== undefined ? packet.snr : 8.0);
+
     const baseMessage: FlowMessage = {
       msgId: `msg-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
       payload: initialPayload,
       packet: {
-        fPort: packet.fPort !== undefined ? packet.fPort : 1,
-        fCnt: packet.fCnt !== undefined ? packet.fCnt : 1,
-        rssi: packet.rssi !== undefined ? packet.rssi : -80,
-        snr: packet.snr !== undefined ? packet.snr : 8.0,
+        ...packet,
+        // Uppercase LoRaWAN headers
+        RSSI: rssiVal,
+        SNR: snrVal,
+        FPORT: fPortVal,
+        FCNT: fCntVal,
+        // Backward-compatible lowercase / camelCase
+        fPort: fPortVal,
+        fport: fPortVal,
+        fCnt: fCntVal,
+        fcnt: fCntVal,
+        rssi: rssiVal,
+        snr: snrVal,
         payloadHex: packet.payloadHex || '',
         decoded: packet.decoded || packet.decodedData || {},
-        ...packet,
       },
       context: sharedContext,
       metadata: {},
@@ -875,6 +888,9 @@ export class FlowGraphEngineService {
           actual = message.payload;
         } else if (fieldName) {
           actual = this.extractPath(message.packet.decoded, fieldName);
+          if (actual === undefined && message.packet) {
+            actual = this.extractPath(message.packet, fieldName);
+          }
         }
 
         const operator = (params.operator || 'EQUALS').toUpperCase();
