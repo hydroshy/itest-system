@@ -13,69 +13,69 @@ import { Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class CreateAssertionDto {
-  @ApiProperty({ description: 'Tên trường trích xuất từ payload (vd: temperature, co2, battery)' })
+  @ApiProperty({ description: 'Extracted payload field name (e.g. temperature, co2, battery)' })
   @IsString()
   @IsNotEmpty()
   fieldName: string;
 
-  @ApiPropertyOptional({ description: 'Nhãn hiển thị người dùng' })
+  @ApiPropertyOptional({ description: 'User-facing display label' })
   @IsOptional()
   @IsString()
   fieldLabel?: string;
 
-  @ApiProperty({ description: 'Phép toán so khớp', enum: ['EQUALS', 'NOT_EQUALS', 'GREATER_THAN', 'LESS_THAN', 'IN_RANGE', 'BETWEEN', 'REGEX', 'IS_NOT_NULL', 'CONTAINS'] })
+  @ApiProperty({ description: 'Matching operator', enum: ['EQUALS', 'NOT_EQUALS', 'GREATER_THAN', 'LESS_THAN', 'IN_RANGE', 'BETWEEN', 'REGEX', 'IS_NOT_NULL', 'CONTAINS'] })
   @IsString()
   @IsNotEmpty()
   @IsIn(['EQUALS', 'NOT_EQUALS', 'GREATER_THAN', 'LESS_THAN', 'IN_RANGE', 'BETWEEN', 'REGEX', 'IS_NOT_NULL', 'CONTAINS'])
   operator: 'EQUALS' | 'NOT_EQUALS' | 'GREATER_THAN' | 'LESS_THAN' | 'IN_RANGE' | 'BETWEEN' | 'REGEX' | 'IS_NOT_NULL' | 'CONTAINS';
 
-  @ApiPropertyOptional({ description: 'Giá trị kỳ vọng (scalar hoặc { min, max })' })
+  @ApiPropertyOptional({ description: 'Expected value (scalar or { min, max })' })
   @IsOptional()
   expectedValue?: any;
 
-  @ApiPropertyOptional({ description: 'Dung sai cho phép' })
+  @ApiPropertyOptional({ description: 'Allowed tolerance' })
   @IsOptional()
   @IsNumber()
   tolerance?: number;
 
-  @ApiPropertyOptional({ description: 'Đơn vị đo (vd: °C, ppm, V)' })
+  @ApiPropertyOptional({ description: 'Engineering unit (e.g. °C, ppm, V)' })
   @IsOptional()
   @IsString()
   unit?: string;
 
-  @ApiPropertyOptional({ description: 'Mức độ nghiêm trọng', enum: ['ERROR', 'WARNING'] })
+  @ApiPropertyOptional({ description: 'Severity level', enum: ['ERROR', 'WARNING'] })
   @IsOptional()
   @IsIn(['ERROR', 'WARNING'])
   severity?: 'ERROR' | 'WARNING';
 
-  @ApiPropertyOptional({ description: 'Thứ tự ưu tiên' })
+  @ApiPropertyOptional({ description: 'Order index' })
   @IsOptional()
   @IsNumber()
   orderIndex?: number;
 
-  @ApiPropertyOptional({ description: 'Mô tả kiểm thử cho trường này' })
+  @ApiPropertyOptional({ description: 'Description of assertion rule' })
   @IsOptional()
   @IsString()
   description?: string;
 }
 
 export class CreateTestTemplateDto {
-  @ApiProperty({ description: 'Tên kịch bản kiểm thử' })
+  @ApiProperty({ description: 'Test template name' })
   @IsString()
   @IsNotEmpty()
   name: string;
 
-  @ApiProperty({ description: 'Mã kịch bản (duy nhất)' })
+  @ApiProperty({ description: 'Unique template code' })
   @IsString()
   @IsNotEmpty()
   code: string;
 
-  @ApiPropertyOptional({ description: 'Mô tả chi tiết' })
+  @ApiPropertyOptional({ description: 'Detailed description' })
   @IsOptional()
   @IsString()
   description?: string;
 
-  @ApiProperty({ description: 'Mã SKU thiết bị' })
+  @ApiProperty({ description: 'Target device SKU' })
   @IsString()
   @IsNotEmpty()
   sku: string;
@@ -85,42 +85,42 @@ export class CreateTestTemplateDto {
   @IsNotEmpty()
   firmwareVersion: string;
 
-  @ApiPropertyOptional({ description: 'Chế độ tạo kịch bản', enum: ['FLOW', 'SCRIPT', 'HYBRID'] })
+  @ApiPropertyOptional({ description: 'Execution mode', enum: ['FLOW', 'SCRIPT', 'HYBRID'] })
   @IsOptional()
   @IsIn(['FLOW', 'SCRIPT', 'HYBRID'])
   executionMode?: 'FLOW' | 'SCRIPT' | 'HYBRID';
 
-  @ApiPropertyOptional({ description: 'Cấu hình đồ thị trực quan dạng Node-RED' })
+  @ApiPropertyOptional({ description: 'Visual Flow DAG configuration (Node-RED style)' })
   @IsOptional()
   @IsObject()
   flowConfig?: Record<string, any>;
 
-  @ApiPropertyOptional({ description: 'Mã JavaScript hàm kiểm định đánh giá' })
+  @ApiPropertyOptional({ description: 'JavaScript verification script' })
   @IsOptional()
   @IsString()
   customScript?: string;
 
-  @ApiPropertyOptional({ description: 'Thời gian timeout (giây)' })
+  @ApiPropertyOptional({ description: 'Timeout in seconds' })
   @IsOptional()
   @IsNumber()
   timeoutSeconds?: number;
 
-  @ApiPropertyOptional({ description: 'Số lượng gói tin tối thiểu cần thu thập' })
+  @ApiPropertyOptional({ description: 'Minimum packets required to evaluate' })
   @IsOptional()
   @IsNumber()
   minPacketsRequired?: number;
 
-  @ApiPropertyOptional({ description: 'Trạng thái hoạt động' })
+  @ApiPropertyOptional({ description: 'Active status' })
   @IsOptional()
   @IsBoolean()
   isActive?: boolean;
 
-  @ApiPropertyOptional({ description: 'Metadata bổ sung' })
+  @ApiPropertyOptional({ description: 'Additional metadata' })
   @IsOptional()
   @IsObject()
   metadata?: Record<string, any>;
 
-  @ApiPropertyOptional({ type: [CreateAssertionDto], description: 'Danh sách các assertions kiểm định' })
+  @ApiPropertyOptional({ type: [CreateAssertionDto], description: 'List of test assertions' })
   @IsOptional()
   @IsArray()
   @ValidateNested({ each: true })
@@ -193,27 +193,27 @@ export class UpdateTestTemplateDto {
 }
 
 export class DryRunTestDto {
-  @ApiPropertyOptional({ description: 'Mã kịch bản hoặc ID' })
+  @ApiPropertyOptional({ description: 'Template code or ID' })
   @IsOptional()
   @IsString()
   templateId?: string;
 
-  @ApiPropertyOptional({ description: 'Chế độ chạy', enum: ['FLOW', 'SCRIPT', 'HYBRID'] })
+  @ApiPropertyOptional({ description: 'Execution mode', enum: ['FLOW', 'SCRIPT', 'HYBRID'] })
   @IsOptional()
   @IsIn(['FLOW', 'SCRIPT', 'HYBRID'])
   executionMode?: 'FLOW' | 'SCRIPT' | 'HYBRID';
 
-  @ApiPropertyOptional({ type: [CreateAssertionDto], description: 'Danh sách assertions' })
+  @ApiPropertyOptional({ type: [CreateAssertionDto], description: 'List of assertions' })
   @IsOptional()
   @IsArray()
   assertions?: CreateAssertionDto[];
 
-  @ApiPropertyOptional({ description: 'Mã JavaScript script' })
+  @ApiPropertyOptional({ description: 'JavaScript verification script' })
   @IsOptional()
   @IsString()
   customScript?: string;
 
-  @ApiProperty({ description: 'Dữ liệu gói tin kiểm thử (mock packet)' })
+  @ApiProperty({ description: 'Mock telemetry packet' })
   @IsObject()
   mockPacket: {
     fPort?: number;
@@ -225,12 +225,12 @@ export class DryRunTestDto {
     decodedData?: Record<string, any>;
   };
 
-  @ApiPropertyOptional({ description: 'Cấu hình đồ thị Visual Flow (DAG nodes & edges/wires)' })
+  @ApiPropertyOptional({ description: 'Visual Flow DAG configuration (nodes & edges/wires)' })
   @IsOptional()
   @IsObject()
   flowConfig?: Record<string, any>;
 
-  @ApiPropertyOptional({ description: 'Ngữ cảnh kiểm thử' })
+  @ApiPropertyOptional({ description: 'Test execution context' })
   @IsOptional()
   @IsObject()
   context?: {
@@ -245,24 +245,24 @@ export class DryRunTestDto {
 }
 
 export class ValidateFlowDto {
-  @ApiProperty({ description: 'Cấu hình đồ thị Visual Flow cần kiểm tra DAG' })
+  @ApiProperty({ description: 'Visual Flow graph configuration to validate' })
   @IsNotEmpty()
   @IsObject()
   flowConfig: Record<string, any>;
 }
 
 export class ExecuteFlowDto {
-  @ApiProperty({ description: 'Cấu hình đồ thị Visual Flow' })
+  @ApiProperty({ description: 'Visual Flow graph configuration to execute' })
   @IsNotEmpty()
   @IsObject()
   flowConfig: Record<string, any>;
 
-  @ApiPropertyOptional({ description: 'Gói tin mock telemetry' })
+  @ApiPropertyOptional({ description: 'Mock telemetry packet' })
   @IsOptional()
   @IsObject()
   mockPacket?: Record<string, any>;
 
-  @ApiPropertyOptional({ description: 'Ngữ cảnh kiểm thử (buffer, goldenUnit, referenceDevices...)' })
+  @ApiPropertyOptional({ description: 'Test execution context (buffer, goldenUnit, referenceDevices...)' })
   @IsOptional()
   @IsObject()
   context?: Record<string, any>;

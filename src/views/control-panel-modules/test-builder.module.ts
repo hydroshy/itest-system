@@ -41,7 +41,7 @@ export const TEST_BUILDER_TEMPLATE = `
 
           <span class="px-2.5 py-1 rounded-lg bg-indigo-500/10 border border-indigo-500/30 font-mono text-indigo-300 font-semibold flex items-center gap-1.5">
             <i class="fa-solid fa-code-branch text-[10px]"></i>
-            <span>FW: v{{ activeTestTemplate.firmwareVersion }}</span>
+            <span>FW: {{ formatFirmware(activeTestTemplate.firmwareVersion) }}</span>
           </span>
 
           <span class="px-2.5 py-1 rounded-lg bg-slate-800 border border-slate-700 font-mono text-slate-300">
@@ -370,7 +370,7 @@ export const TEST_BUILDER_TEMPLATE = `
               <div class="flex items-center gap-3 flex-wrap">
                 <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
                 <span class="text-xs font-bold text-slate-200 uppercase tracking-wider font-mono">
-                  PIPELINE: {{ activeTestTemplate.sku }} (v{{ activeTestTemplate.firmwareVersion }})
+                  PIPELINE: {{ activeTestTemplate.sku }} (FW: {{ formatFirmware(activeTestTemplate.firmwareVersion) }})
                 </span>
                 <span class="px-2 py-0.5 rounded-md bg-slate-950 border border-slate-800 text-[11px] font-mono text-slate-400">
                   <strong class="text-white">{{ currentFlowNodes.length }}</strong> nodes
@@ -427,6 +427,7 @@ export const TEST_BUILDER_TEMPLATE = `
               @mousemove="onCanvasMouseMove"
               @mouseup="onCanvasMouseUp"
               @click="onCanvasClick"
+              @contextmenu="onCanvasContextMenu"
               class="relative overflow-auto select-none min-h-[640px] h-[720px] bg-slate-950 cursor-default"
             >
               <!-- Workspace Grid Plane -->
@@ -452,51 +453,27 @@ export const TEST_BUILDER_TEMPLATE = `
 
                   <!-- Rendered Wire Connections -->
                   <g v-for="edge in currentFlowEdges" :key="edge.id">
-                    <!-- Invisible Wide Hit Path for deletion click -->
+                    <!-- Invisible Wide Hit Path for right-click context menu -->
                     <path
                       :d="getEdgePath(edge)"
                       stroke="transparent"
-                      stroke-width="20"
+                      stroke-width="24"
                       fill="none"
-                      class="pointer-events-auto cursor-pointer"
-                      @click.stop="removeFlowEdge(edge.id)"
+                      class="pointer-events-auto cursor-context-menu"
+                      @contextmenu.prevent.stop="openWireContextMenu($event, edge)"
                     >
-                      <title>Click wire to delete connection</title>
+                      <title>Right-click wire for options</title>
                     </path>
 
                     <!-- Visible SVG Bézier Wire -->
                     <path
                       :d="getEdgePath(edge)"
-                      stroke="url(#flowWireGrad)"
-                      stroke-width="3"
+                      :stroke="wireContextMenu.visible && wireContextMenu.edge && wireContextMenu.edge.id === edge.id ? '#38bdf8' : 'url(#flowWireGrad)'"
+                      :stroke-width="wireContextMenu.visible && wireContextMenu.edge && wireContextMenu.edge.id === edge.id ? 4 : 3"
                       fill="none"
                       filter="url(#flowWireGlow)"
                       class="pointer-events-none"
                     />
-
-                    <!-- Midpoint Wire Delete Badge -->
-                    <g
-                      class="pointer-events-auto cursor-pointer transition hover:scale-125"
-                      @click.stop="removeFlowEdge(edge.id)"
-                    >
-                      <circle
-                        :cx="getEdgeMidX(edge)"
-                        :cy="getEdgeMidY(edge)"
-                        r="9"
-                        fill="#0f172a"
-                        stroke="#f43f5e"
-                        stroke-width="1.5"
-                      />
-                      <text
-                        :x="getEdgeMidX(edge)"
-                        :y="getEdgeMidY(edge) + 3.5"
-                        text-anchor="middle"
-                        fill="#f43f5e"
-                        font-size="12"
-                        font-weight="bold"
-                        font-family="sans-serif"
-                      >×</text>
-                    </g>
                   </g>
 
                   <!-- Interactive In-progress Wire Draft -->
@@ -518,7 +495,7 @@ export const TEST_BUILDER_TEMPLATE = `
                     :key="node.id"
                     class="absolute w-72 p-3.5 rounded-xl border transition shadow-xl bg-slate-900/95 backdrop-blur-sm"
                     :class="getNodeCardClass(node.type)"
-                    :style="{ left: (node.position?.x || 50) + 'px', top: (node.position?.y || 50) + 'px' }"
+                    :style="{ left: getNodePosX(node) + 'px', top: getNodePosY(node) + 'px' }"
                   >
                     <!-- Input Port Dot (Left) -->
                     <div
@@ -563,7 +540,7 @@ export const TEST_BUILDER_TEMPLATE = `
                         >
                           <i :class="getNodeIcon(node.type)"></i>
                         </span>
-                        <span class="text-xs font-bold text-white uppercase tracking-wider truncate">{{ node.label }}</span>
+                        <span class="text-xs font-bold text-white uppercase tracking-wider truncate">{{ getNodeDisplayName(node) }}</span>
                       </div>
 
                       <!-- Delete Node Button -->
@@ -585,7 +562,7 @@ export const TEST_BUILDER_TEMPLATE = `
                       <div v-if="node.type === 'lora-in' || node.type === 'lora_in'" class="space-y-1.5 font-mono text-[11px] text-slate-400">
                         <div>Event: <strong class="text-sky-300">Uplink Telemetry Event</strong></div>
                         <div>Target SKU: <strong class="text-white">{{ activeTestTemplate.sku }}</strong></div>
-                        <div>Firmware: <strong class="text-indigo-300">v{{ activeTestTemplate.firmwareVersion }}</strong></div>
+                        <div>Firmware: <strong class="text-indigo-300">{{ formatFirmware(activeTestTemplate.firmwareVersion) }}</strong></div>
                       </div>
 
                       <!-- 2. EXTRACTOR NODE -->
@@ -597,7 +574,7 @@ export const TEST_BUILDER_TEMPLATE = `
                           class="w-full px-2 py-1.5 rounded-lg bg-slate-950 border border-slate-700 text-white font-mono text-xs focus:border-indigo-500"
                         >
                           <option v-for="f in testAvailableFields" :key="f.name" :value="f.name">
-                            {{ f.name }} ({{ f.label }})
+                            {{ f.name }} ({{ getFieldEnglishLabel(f) }})
                           </option>
                         </select>
                         <div class="flex items-center justify-between text-[10px] text-slate-400 font-mono pt-0.5">
@@ -862,6 +839,43 @@ export const TEST_BUILDER_TEMPLATE = `
                       </div>
 
                     </div>
+                  </div>
+                </div>
+
+                <!-- Wire Right-Click Context Menu -->
+                <div
+                  v-if="wireContextMenu.visible && wireContextMenu.edge"
+                  :style="{ left: wireContextMenu.x + 'px', top: wireContextMenu.y + 'px' }"
+                  class="absolute z-50 w-64 rounded-xl bg-slate-900/95 border border-slate-700/80 shadow-2xl p-2 backdrop-blur-md text-xs select-none"
+                  @click.stop
+                  @contextmenu.prevent.stop
+                >
+                  <div class="px-2.5 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-800 flex items-center justify-between">
+                    <span class="flex items-center gap-1.5 truncate">
+                      <i class="fa-solid fa-network-wired text-indigo-400"></i>
+                      <span>Wire Connection</span>
+                    </span>
+                    <button type="button" @click="closeWireContextMenu" class="text-slate-500 hover:text-white cursor-pointer ml-2">
+                      <i class="fa-solid fa-xmark"></i>
+                    </button>
+                  </div>
+                  <div class="py-1 space-y-1">
+                    <button
+                      type="button"
+                      @click="inspectWireConnection(wireContextMenu.edge)"
+                      class="w-full text-left px-2.5 py-2 rounded-lg hover:bg-slate-800 text-slate-200 hover:text-white flex items-center gap-2.5 transition cursor-pointer"
+                    >
+                      <i class="fa-solid fa-circle-info text-sky-400 text-xs"></i>
+                      <span>Inspect Connection</span>
+                    </button>
+                    <button
+                      type="button"
+                      @click="deleteWireFromMenu(wireContextMenu.edge)"
+                      class="w-full text-left px-2.5 py-2 rounded-lg hover:bg-rose-500/20 text-rose-400 hover:text-rose-300 flex items-center gap-2.5 transition cursor-pointer"
+                    >
+                      <i class="fa-solid fa-trash-can text-rose-400 text-xs"></i>
+                      <span>Delete Wire Connection</span>
+                    </button>
                   </div>
                 </div>
 
@@ -1178,7 +1192,7 @@ export const TEST_BUILDER_MODALS = `
 
         <div class="grid grid-cols-3 gap-3">
           <div>
-            <label class="block text-slate-400 mb-1">Firmware v(*):</label>
+            <label class="block text-slate-400 mb-1">Firmware (*):</label>
             <input
               v-model="newTestTemplateForm.firmwareVersion"
               placeholder="1"
@@ -1437,7 +1451,7 @@ export const TEST_BUILDER_MODALS = `
 
 export const TEST_BUILDER_SCRIPT = `
   function useTestBuilderModule(ctx) {
-    const { ref, computed, watch, onMounted } = Vue;
+    const { ref, computed, watch, onMounted, onUnmounted } = Vue;
     const { showToast, authHeaders, currentUser, activeTab } = ctx;
 
     const testTemplatesList = ref([]);
@@ -1458,6 +1472,46 @@ export const TEST_BUILDER_SCRIPT = `
     const wireDraft = ref({ active: false, fromNodeId: '', startX: 0, startY: 0, currentX: 0, currentY: 0 });
     const draggingNode = ref(null);
     const dragStartPos = ref({ mouseX: 0, mouseY: 0, nodeX: 0, nodeY: 0 });
+    const wireContextMenu = ref({ visible: false, x: 0, y: 0, edge: null });
+    const wireTick = ref(0);
+
+    const formatFirmware = (fw) => {
+      if (fw === undefined || fw === null || fw === '') return '1';
+      return String(fw).replace(/^[vV]/, '').trim() || '1';
+    };
+
+    const getNodePosX = (node) => {
+      if (!node) return 50;
+      const v = Number(node.position?.x ?? node.x);
+      return Number.isFinite(v) ? v : 50;
+    };
+
+    const getNodePosY = (node) => {
+      if (!node) return 50;
+      const v = Number(node.position?.y ?? node.y);
+      return Number.isFinite(v) ? v : 50;
+    };
+
+    const getFieldEnglishLabel = (f) => {
+      if (!f) return '';
+      const raw = String(f.label || f.name || '');
+      if (/[\\u00C0-\\u1EF9]/.test(raw) || raw.toLowerCase().includes('trích xuất') || raw.toLowerCase().includes('nhiệt độ') || raw.toLowerCase().includes('độ ẩm') || raw.toLowerCase().includes('nồng độ')) {
+        return f.name;
+      }
+      return raw;
+    };
+
+    const getNodeDisplayName = (node) => {
+      if (!node) return '';
+      if (node.type === 'extractor') {
+        const rawLabel = String(node.label || '');
+        if (rawLabel && !/[\\u00C0-\\u1EF9]/.test(rawLabel) && !rawLabel.toLowerCase().includes('trích xuất')) {
+          return rawLabel;
+        }
+        return node.params?.field ? ('Field Extractor (' + node.params.field + ')') : 'Field Extractor';
+      }
+      return node.label || node.id || 'Node';
+    };
 
     // Custom Function Script Modal State
     const showFunctionScriptModal = ref(false);
@@ -1520,10 +1574,23 @@ export const TEST_BUILDER_SCRIPT = `
       }
 
       nodes.forEach((node, idx) => {
-        if (!node.position || typeof node.position.x !== 'number') {
-          const col = idx % 4;
-          const row = Math.floor(idx / 4);
-          node.position = { x: 50 + col * 330, y: 50 + row * 260 };
+        const rawX = Number(node.position?.x ?? node.x);
+        const rawY = Number(node.position?.y ?? node.y);
+        const col = idx % 4;
+        const row = Math.floor(idx / 4);
+        const validX = Number.isFinite(rawX) ? rawX : (50 + col * 330);
+        const validY = Number.isFinite(rawY) ? rawY : (50 + row * 260);
+        node.position = { x: validX, y: validY };
+        node.x = validX;
+        node.y = validY;
+
+        if (node.type === 'extractor') {
+          if (!node.label || /[\\u00C0-\\u1EF9]/.test(node.label) || node.label.toLowerCase().includes('trích xuất')) {
+            node.label = node.params?.field ? ('Field Extractor (' + node.params.field + ')') : 'Field Extractor';
+          }
+          if (node.params?.label && (/[\\u00C0-\\u1EF9]/.test(node.params.label) || node.params.label.toLowerCase().includes('trích xuất') || node.params.label.toLowerCase().includes('nồng độ'))) {
+            node.params.label = node.params.field || 'Field';
+          }
         }
       });
 
@@ -1537,6 +1604,7 @@ export const TEST_BUILDER_SCRIPT = `
           });
         }
       }
+      wireTick.value++;
     };
 
     const getNodeBadgeClass = (type) => {
@@ -1609,16 +1677,17 @@ export const TEST_BUILDER_SCRIPT = `
     };
 
     const getEdgePath = (edge) => {
+      const _ = wireTick.value;
       if (!edge) return '';
       const fromId = edge.from || edge.source;
       const toId = edge.to || edge.target;
       const fromNode = currentFlowNodes.value.find(n => n.id === fromId);
       const toNode = currentFlowNodes.value.find(n => n.id === toId);
       if (!fromNode || !toNode) return '';
-      const x1 = (fromNode.position?.x || 50) + 288;
-      const y1 = (fromNode.position?.y || 50) + 30;
-      const x2 = (toNode.position?.x || 50);
-      const y2 = (toNode.position?.y || 50) + 30;
+      const x1 = getNodePosX(fromNode) + 288;
+      const y1 = getNodePosY(fromNode) + 30;
+      const x2 = getNodePosX(toNode);
+      const y2 = getNodePosY(toNode) + 30;
       const dx = Math.max(50, Math.abs(x2 - x1) * 0.5);
       return 'M ' + x1 + ' ' + y1 + ' C ' + (x1 + dx) + ' ' + y1 + ', ' + (x2 - dx) + ' ' + y2 + ', ' + x2 + ' ' + y2;
     };
@@ -1630,8 +1699,8 @@ export const TEST_BUILDER_SCRIPT = `
       const fromNode = currentFlowNodes.value.find(n => n.id === fromId);
       const toNode = currentFlowNodes.value.find(n => n.id === toId);
       if (!fromNode || !toNode) return 0;
-      const x1 = (fromNode.position?.x || 50) + 288;
-      const x2 = (toNode.position?.x || 50);
+      const x1 = getNodePosX(fromNode) + 288;
+      const x2 = getNodePosX(toNode);
       return Math.round((x1 + x2) / 2);
     };
 
@@ -1642,29 +1711,31 @@ export const TEST_BUILDER_SCRIPT = `
       const fromNode = currentFlowNodes.value.find(n => n.id === fromId);
       const toNode = currentFlowNodes.value.find(n => n.id === toId);
       if (!fromNode || !toNode) return 0;
-      const y1 = (fromNode.position?.y || 50) + 30;
-      const y2 = (toNode.position?.y || 50) + 30;
+      const y1 = getNodePosY(fromNode) + 30;
+      const y2 = getNodePosY(toNode) + 30;
       return Math.round((y1 + y2) / 2);
     };
 
     const getDraftWirePath = () => {
       if (!wireDraft.value.active) return '';
-      const x1 = wireDraft.value.startX;
-      const y1 = wireDraft.value.startY;
-      const x2 = wireDraft.value.currentX;
-      const y2 = wireDraft.value.currentY;
+      const x1 = Number(wireDraft.value.startX);
+      const y1 = Number(wireDraft.value.startY);
+      const x2 = Number(wireDraft.value.currentX);
+      const y2 = Number(wireDraft.value.currentY);
+      if (!Number.isFinite(x1) || !Number.isFinite(y1) || !Number.isFinite(x2) || !Number.isFinite(y2)) return '';
       const dx = Math.max(50, Math.abs(x2 - x1) * 0.5);
       return 'M ' + x1 + ' ' + y1 + ' C ' + (x1 + dx) + ' ' + y1 + ', ' + (x2 - dx) + ' ' + y2 + ', ' + x2 + ' ' + y2;
     };
 
     const onOutputPortClick = (node, event) => {
       if (event && event.stopPropagation) event.stopPropagation();
+      closeWireContextMenu();
       if (wireDraft.value.active && wireDraft.value.fromNodeId === node.id) {
         wireDraft.value.active = false;
         return;
       }
-      const nodeX = node.position?.x || 50;
-      const nodeY = node.position?.y || 50;
+      const nodeX = getNodePosX(node);
+      const nodeY = getNodePosY(node);
       wireDraft.value = {
         active: true,
         fromNodeId: node.id,
@@ -1673,10 +1744,11 @@ export const TEST_BUILDER_SCRIPT = `
         currentX: nodeX + 320,
         currentY: nodeY + 30
       };
-      showToast('Wire started from [' + node.label + ']. Click input port on target node.', 'info');
+      showToast('Wire started from [' + getNodeDisplayName(node) + ']. Click input port on target node.', 'info');
     };
 
     const onInputPortClick = (targetNode) => {
+      closeWireContextMenu();
       if (!wireDraft.value.active) {
         showToast('Click an output port on a source node first', 'info');
         return;
@@ -1707,21 +1779,131 @@ export const TEST_BUILDER_SCRIPT = `
         to: toId
       });
       wireDraft.value.active = false;
+      wireTick.value++;
       showToast('Wire connected: ' + fromId + ' → ' + toId, 'success');
     };
 
     const removeFlowEdge = (edgeId) => {
       if (!activeTestTemplate.value?.flowConfig?.edges) return;
       activeTestTemplate.value.flowConfig.edges = activeTestTemplate.value.flowConfig.edges.filter(e => e.id !== edgeId);
+      closeWireContextMenu();
+      wireTick.value++;
       showToast('Removed wire connection', 'info');
+    };
+
+    const openWireContextMenu = (event, edge) => {
+      if (event) {
+        if (event.preventDefault) event.preventDefault();
+        if (event.stopPropagation) event.stopPropagation();
+      }
+      if (!edge) return;
+      if (canvasContainerRef.value) {
+        const rect = canvasContainerRef.value.getBoundingClientRect();
+        wireContextMenu.value = {
+          visible: true,
+          x: Math.max(10, event.clientX - rect.left + canvasContainerRef.value.scrollLeft),
+          y: Math.max(10, event.clientY - rect.top + canvasContainerRef.value.scrollTop),
+          edge
+        };
+      } else {
+        wireContextMenu.value = {
+          visible: true,
+          x: event.clientX,
+          y: event.clientY,
+          edge
+        };
+      }
+    };
+
+    const closeWireContextMenu = () => {
+      wireContextMenu.value.visible = false;
+      wireContextMenu.value.edge = null;
+    };
+
+    const onCanvasContextMenu = (event) => {
+      closeWireContextMenu();
+    };
+
+    const inspectWireConnection = (edge) => {
+      if (!edge) return;
+      const fromId = edge.from || edge.source;
+      const toId = edge.to || edge.target;
+      const fromNode = currentFlowNodes.value.find(n => n.id === fromId);
+      const toNode = currentFlowNodes.value.find(n => n.id === toId);
+      const fromName = fromNode ? getNodeDisplayName(fromNode) : fromId;
+      const toName = toNode ? getNodeDisplayName(toNode) : toId;
+      showToast('Wire Connection: [' + fromName + '] → [' + toName + ']', 'info');
+      closeWireContextMenu();
+    };
+
+    const deleteWireFromMenu = (edge) => {
+      if (!edge) return;
+      removeFlowEdge(edge.id);
+      closeWireContextMenu();
+    };
+
+    const onNodeDragMove = (clientX, clientY) => {
+      if (!draggingNode.value) return;
+      const dx = clientX - dragStartPos.value.mouseX;
+      const dy = clientY - dragStartPos.value.mouseY;
+      const startX = Number.isFinite(dragStartPos.value.nodeX) ? dragStartPos.value.nodeX : 50;
+      const startY = Number.isFinite(dragStartPos.value.nodeY) ? dragStartPos.value.nodeY : 50;
+      const newX = Math.max(20, Math.round((startX + dx) / 10) * 10);
+      const newY = Math.max(20, Math.round((startY + dy) / 10) * 10);
+      if (Number.isFinite(newX) && Number.isFinite(newY)) {
+        if (!draggingNode.value.position) draggingNode.value.position = { x: newX, y: newY };
+        draggingNode.value.position.x = newX;
+        draggingNode.value.position.y = newY;
+        draggingNode.value.x = newX;
+        draggingNode.value.y = newY;
+        wireTick.value++;
+      }
+    };
+
+    const onNodeHeaderMouseDown = (event, node) => {
+      if (event) {
+        if (event.stopPropagation) event.stopPropagation();
+        if (event.preventDefault) event.preventDefault();
+      }
+      closeWireContextMenu();
+
+      const validX = getNodePosX(node);
+      const validY = getNodePosY(node);
+      if (!node.position) {
+        node.position = { x: validX, y: validY };
+      } else {
+        node.position.x = validX;
+        node.position.y = validY;
+      }
+      node.x = validX;
+      node.y = validY;
+
+      dragStartPos.value = {
+        mouseX: event.clientX,
+        mouseY: event.clientY,
+        nodeX: validX,
+        nodeY: validY
+      };
+      draggingNode.value = node;
+
+      const onWindowMouseMove = (e) => {
+        onNodeDragMove(e.clientX, e.clientY);
+      };
+
+      const onWindowMouseUp = () => {
+        draggingNode.value = null;
+        window.removeEventListener('mousemove', onWindowMouseMove);
+        window.removeEventListener('mouseup', onWindowMouseUp);
+        wireTick.value++;
+      };
+
+      window.addEventListener('mousemove', onWindowMouseMove);
+      window.addEventListener('mouseup', onWindowMouseUp);
     };
 
     const onCanvasMouseMove = (event) => {
       if (draggingNode.value) {
-        const dx = event.clientX - dragStartPos.value.mouseX;
-        const dy = event.clientY - dragStartPos.value.mouseY;
-        draggingNode.value.position.x = Math.max(20, Math.round((dragStartPos.value.nodeX + dx) / 10) * 10);
-        draggingNode.value.position.y = Math.max(20, Math.round((dragStartPos.value.nodeY + dy) / 10) * 10);
+        onNodeDragMove(event.clientX, event.clientY);
       }
       if (wireDraft.value.active && canvasContainerRef.value) {
         const rect = canvasContainerRef.value.getBoundingClientRect();
@@ -1735,6 +1917,7 @@ export const TEST_BUILDER_SCRIPT = `
     };
 
     const onCanvasClick = () => {
+      closeWireContextMenu();
       if (wireDraft.value.active) {
         wireDraft.value.active = false;
       }
@@ -1742,24 +1925,6 @@ export const TEST_BUILDER_SCRIPT = `
 
     const cancelWireDraft = () => {
       wireDraft.value.active = false;
-    };
-
-    const onNodeHeaderMouseDown = (event, node) => {
-      if (event && event.stopPropagation) event.stopPropagation();
-      if (!node.position) node.position = { x: 50, y: 50 };
-      dragStartPos.value = {
-        mouseX: event.clientX,
-        mouseY: event.clientY,
-        nodeX: node.position.x,
-        nodeY: node.position.y
-      };
-      draggingNode.value = node;
-
-      const onWindowMouseUp = () => {
-        draggingNode.value = null;
-        window.removeEventListener('mouseup', onWindowMouseUp);
-      };
-      window.addEventListener('mouseup', onWindowMouseUp);
     };
 
     const autoArrangeNodes = () => {
@@ -1780,11 +1945,13 @@ export const TEST_BUILDER_SCRIPT = `
       nodes.forEach((node, idx) => {
         const stage = stageOrder[node.type] !== undefined ? stageOrder[node.type] : (idx % 4);
         const row = stageCounters[stage]++;
-        node.position = {
-          x: 40 + stage * 330,
-          y: 40 + row * 260
-        };
+        const posX = 40 + stage * 330;
+        const posY = 40 + row * 260;
+        node.position = { x: posX, y: posY };
+        node.x = posX;
+        node.y = posY;
       });
+      wireTick.value++;
       showToast('Auto-arranged nodes into pipeline stages', 'success');
     };
 
@@ -1795,7 +1962,7 @@ export const TEST_BUILDER_SCRIPT = `
         showToast('Need at least 2 nodes to create a pipeline wire', 'warning');
         return;
       }
-      const sorted = [...nodes].sort((a, b) => (a.position?.x || 0) - (b.position?.x || 0));
+      const sorted = [...nodes].sort((a, b) => getNodePosX(a) - getNodePosX(b));
       const edges = [];
       for (let i = 0; i < sorted.length - 1; i++) {
         edges.push({
@@ -1805,12 +1972,15 @@ export const TEST_BUILDER_SCRIPT = `
         });
       }
       activeTestTemplate.value.flowConfig.edges = edges;
+      wireTick.value++;
       showToast('Connected ' + edges.length + ' pipeline wires automatically', 'success');
     };
 
     const clearFlowWires = () => {
       if (!activeTestTemplate.value || !activeTestTemplate.value.flowConfig) return;
       activeTestTemplate.value.flowConfig.edges = [];
+      closeWireContextMenu();
+      wireTick.value++;
       showToast('Cleared all wire connections', 'info');
     };
 
@@ -2038,16 +2208,18 @@ export const TEST_BUILDER_SCRIPT = `
 
       const col = existingNodes.length % 4;
       const row = Math.floor(existingNodes.length / 4);
-      const position = { x: 50 + col * 330, y: 50 + row * 260 };
+      const posX = 50 + col * 330;
+      const posY = 50 + row * 260;
+      const position = { x: posX, y: posY };
 
-      let node = { id: newId, type, label: '', params: {}, position };
+      let node = { id: newId, type, label: '', params: {}, position, x: posX, y: posY };
 
       if (type === 'lora-in' || type === 'lora_in') {
         node.type = 'lora-in';
         node.label = 'LoRaWAN Ingestion';
         node.params = { sku: activeTestTemplate.value.sku, trigger: 'Uplink Telemetry Event' };
       } else if (type === 'extractor') {
-        node.label = 'Field Extractor';
+        node.label = defaultField ? ('Field Extractor (' + defaultField + ')') : 'Field Extractor';
         node.params = { field: defaultField, label: defaultField, unit: defaultUnit };
       } else if (type === 'reference_device' || type === 'golden_unit') {
         node.type = 'reference_device';
@@ -2102,6 +2274,7 @@ export const TEST_BUILDER_SCRIPT = `
       }
 
       activeTestTemplate.value.flowConfig.nodes.push(node);
+      wireTick.value++;
       showToast('Added ' + node.label + ' node to canvas', 'success');
     };
 
@@ -2112,15 +2285,21 @@ export const TEST_BUILDER_SCRIPT = `
       const existingNodes = activeTestTemplate.value.flowConfig.nodes;
       const col = existingNodes.length % 4;
       const row = Math.floor(existingNodes.length / 4);
+      const posX = 50 + col * 330;
+      const posY = 50 + row * 260;
 
+      const englishLabel = getFieldEnglishLabel(field);
       const node = {
         id: 'node-' + Date.now() + '-' + Math.random().toString(36).substring(2, 6),
         type: 'extractor',
-        label: field.label || field.name,
-        params: { field: field.name, label: field.label || field.name, unit: field.unit || '' },
-        position: { x: 50 + col * 330, y: 50 + row * 260 }
+        label: 'Field Extractor (' + (field.name || 'field') + ')',
+        params: { field: field.name, label: englishLabel, unit: field.unit || '' },
+        position: { x: posX, y: posY },
+        x: posX,
+        y: posY
       };
       activeTestTemplate.value.flowConfig.nodes.push(node);
+      wireTick.value++;
       showToast('Added Extractor for field: ' + field.name, 'success');
     };
 
@@ -2128,7 +2307,10 @@ export const TEST_BUILDER_SCRIPT = `
       const f = testAvailableFields.value.find(item => item.name === node.params.field);
       if (f) {
         node.params.unit = f.unit || '';
-        node.params.label = f.label || f.name;
+        node.params.label = getFieldEnglishLabel(f);
+      }
+      if (node.type === 'extractor') {
+        node.label = node.params.field ? ('Field Extractor (' + node.params.field + ')') : 'Field Extractor';
       }
     };
 
@@ -2140,6 +2322,8 @@ export const TEST_BUILDER_SCRIPT = `
           e => (e.from || e.source) !== nodeId && (e.to || e.target) !== nodeId
         );
       }
+      closeWireContextMenu();
+      wireTick.value++;
       showToast('Removed node from Flow', 'info');
     };
 
@@ -2267,11 +2451,14 @@ export const TEST_BUILDER_SCRIPT = `
           });
         }
 
+        const fwClean = formatFirmware(activeTestTemplate.value.firmwareVersion);
+        activeTestTemplate.value.firmwareVersion = fwClean;
+
         const payload = {
           name: activeTestTemplate.value.name,
           description: activeTestTemplate.value.description,
           sku: activeTestTemplate.value.sku,
-          firmwareVersion: activeTestTemplate.value.firmwareVersion,
+          firmwareVersion: fwClean,
           executionMode: testBuilderMode.value,
           flowConfig: activeTestTemplate.value.flowConfig,
           customScript: activeTestTemplate.value.customScript,
@@ -2312,11 +2499,12 @@ export const TEST_BUILDER_SCRIPT = `
       }
       isCreatingTestTemplate.value = true;
       try {
+        const fwClean = formatFirmware(newTestTemplateForm.value.firmwareVersion);
         const payload = {
           name: newTestTemplateForm.value.name,
           code: newTestTemplateForm.value.code.trim().toUpperCase(),
           sku: newTestTemplateForm.value.sku.trim().toUpperCase(),
-          firmwareVersion: String(newTestTemplateForm.value.firmwareVersion || '1'),
+          firmwareVersion: fwClean,
           timeoutSeconds: Number(newTestTemplateForm.value.timeoutSeconds || 180),
           minPacketsRequired: Number(newTestTemplateForm.value.minPacketsRequired || 3),
           description: newTestTemplateForm.value.description,
@@ -2431,10 +2619,21 @@ export const TEST_BUILDER_SCRIPT = `
       }
     });
 
+    const onGlobalClick = () => {
+      if (wireContextMenu.value.visible) {
+        closeWireContextMenu();
+      }
+    };
+
     onMounted(() => {
+      window.addEventListener('click', onGlobalClick);
       if (activeTab.value === 'test-builder') {
         fetchTestTemplates();
       }
+    });
+
+    onUnmounted(() => {
+      window.removeEventListener('click', onGlobalClick);
     });
 
     return {
@@ -2457,6 +2656,17 @@ export const TEST_BUILDER_SCRIPT = `
       canvasContainerRef,
       wireDraft,
       draggingNode,
+      wireContextMenu,
+      openWireContextMenu,
+      closeWireContextMenu,
+      onCanvasContextMenu,
+      inspectWireConnection,
+      deleteWireFromMenu,
+      formatFirmware,
+      getNodePosX,
+      getNodePosY,
+      getFieldEnglishLabel,
+      getNodeDisplayName,
       showFunctionScriptModal,
       editingFunctionNode,
       functionScriptBuffer,

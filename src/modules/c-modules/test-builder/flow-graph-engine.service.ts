@@ -183,7 +183,7 @@ export class FlowGraphEngineService {
     }
 
     if (entryNodeIds.length === 0 && nodeIds.size > 0) {
-      errors.push('Phát hiện chu trình lặp (Cycle / Loop) trong cấu hình Flow: Không tìm thấy node khởi đầu (tất cả các node đều có cạnh đi vào).');
+      errors.push('Loop/cycle detected in flow configuration (Cycle): No entry node found (all nodes have incoming edges).');
       return {
         valid: false,
         errors,
@@ -208,7 +208,7 @@ export class FlowGraphEngineService {
 
     const cycleDetected = topologicalOrder.length !== nodeIds.size;
     if (cycleDetected) {
-      errors.push('Phát hiện chu trình lặp (Cycle / Loop) trong cấu hình Flow. Luồng phải là một đồ thị có hướng không chu trình (DAG).');
+      errors.push('Loop/cycle detected in flow configuration (Cycle): Flow must be a directed acyclic graph (DAG).');
     }
 
     return {
@@ -242,7 +242,7 @@ export class FlowGraphEngineService {
         assertionResults: [],
         nodeExecutions: [],
         finalMessages: [],
-        summary: `Lỗi cấu hình đồ thị: ${validation.errors.join('; ')}`,
+        summary: `Flow configuration error: ${validation.errors.join('; ')}`,
         error: validation.errors.join('; '),
       };
     }
@@ -315,7 +315,7 @@ export class FlowGraphEngineService {
           assertionResults: allAssertions,
           nodeExecutions,
           finalMessages,
-          summary: `Vượt quá giới hạn vòng lặp tối đa (${maxIterations} steps)`,
+          summary: `Maximum iteration limit exceeded (${maxIterations} steps)`,
           error: 'Max iterations exceeded in DAG runner',
         };
       }
@@ -401,7 +401,7 @@ export class FlowGraphEngineService {
           nodeLabel: node.label || node.id,
           pass: false,
           severity: 'ERROR',
-          message: `Lỗi thực thi tại Node '${node.label || node.id}': ${err.message}`,
+          message: `Execution error at Node '${node.label || node.id}': ${err.message}`,
         };
         allAssertions.push(errorAssertion);
 
@@ -417,12 +417,12 @@ export class FlowGraphEngineService {
 
     let summaryText = '';
     if (stoppedByFailFast) {
-      summaryText = `Kiểm thử DỪNG SỚM (Fail-Fast) do gặp lỗi nghiêm trọng (${totalDuration}ms)`;
+      summaryText = `Test execution STOPPED EARLY (Fail-Fast) due to fatal error (${totalDuration}ms)`;
     } else if (overallPass) {
-      summaryText = `Đồ thị Flow kiểm thử ĐẠT chuẩn: ${allAssertions.length} assertions hoàn thành (${executedNodeIds.size}/${flowConfig.nodes.length} nodes, ${totalDuration}ms)`;
+      summaryText = `Flow test PASSED: ${allAssertions.length} assertions passed (${executedNodeIds.size}/${flowConfig.nodes.length} nodes, ${totalDuration}ms)`;
     } else {
       const failCount = allAssertions.filter((a) => !a.pass && a.severity === 'ERROR').length;
-      summaryText = `Kiểm thử KHÔNG ĐẠT chuẩn: Phát hiện ${failCount} vi phạm điều kiện (${totalDuration}ms)`;
+      summaryText = `Test FAILED: Detected ${failCount} assertion violations (${totalDuration}ms)`;
     }
 
     return {
@@ -556,7 +556,7 @@ export class FlowGraphEngineService {
         try {
           evalResult = vm.runInContext(wrappedCode, vmContext, { timeout: timeoutMs });
         } catch (err: any) {
-          throw new Error(`Lỗi JS Sandbox Function Node: ${err.message}`);
+          throw new Error(`JS Sandbox Function Node error: ${err.message}`);
         }
 
         const outputs: FlowMessage[] = [];
@@ -591,7 +591,7 @@ export class FlowGraphEngineService {
             nodeLabel: node.label || 'Function Script',
             pass,
             severity: params.severity || 'ERROR',
-            message: pass ? 'Function Script trả về true' : 'Function Script trả về false',
+            message: pass ? 'Function Script returned true' : 'Function Script returned false',
             details: { evalResult },
           });
           const outMsg = this.cloneMessage(message);
@@ -607,7 +607,7 @@ export class FlowGraphEngineService {
               nodeLabel: node.label || 'Function Script',
               pass,
               severity: params.severity || 'ERROR',
-              message: evalResult.reason || (pass ? 'Function Script đánh giá ĐẠT' : 'Function Script đánh giá KHÔNG ĐẠT'),
+              message: evalResult.reason || (pass ? 'Function Script evaluated: PASS' : 'Function Script evaluated: FAIL'),
               details: evalResult.metrics || evalResult,
             });
           }
@@ -673,10 +673,10 @@ export class FlowGraphEngineService {
 
         if (actualValue === undefined || actualValue === null) {
           pass = false;
-          evalMessage = `DUT không có trường '${fieldName}' để so sánh với thiết bị chuẩn`;
+          evalMessage = `DUT missing field '${fieldName}' for reference comparison`;
         } else if (refValue === undefined || refValue === null) {
           pass = false;
-          evalMessage = `Không tìm thấy giá trị chuẩn (Golden/Reference Device) cho trường '${fieldName}'`;
+          evalMessage = `Reference/Golden unit value not found for field '${fieldName}'`;
         } else {
           const actualNum = Number(actualValue);
           const refNum = Number(refValue);
@@ -686,20 +686,20 @@ export class FlowGraphEngineService {
           if (toleranceType === 'PERCENTAGE') {
             pass = deviationPercent <= tolerance;
             evalMessage = pass
-              ? `DUT ${actualNum} vs Chuẩn ${refNum}: Độ lệch ${deviationPercent.toFixed(2)}% nằm trong ngưỡng ±${tolerance}%`
-              : `DUT ${actualNum} vs Chuẩn ${refNum}: Lệch ${deviationPercent.toFixed(2)}% vượt dung sai cho phép ±${tolerance}%`;
+              ? `DUT ${actualNum} vs Ref ${refNum}: Deviation ${deviationPercent.toFixed(2)}% is within ±${tolerance}%`
+              : `DUT ${actualNum} vs Ref ${refNum}: Deviation ${deviationPercent.toFixed(2)}% exceeds tolerance ±${tolerance}%`;
           } else {
             pass = delta <= tolerance;
             evalMessage = pass
-              ? `DUT ${actualNum} vs Chuẩn ${refNum}: Độ lệch Δ=${delta.toFixed(3)} nằm trong dung sai ±${tolerance}`
-              : `DUT ${actualNum} vs Chuẩn ${refNum}: Lệch Δ=${delta.toFixed(3)} vượt dung sai cho phép ±${tolerance}`;
+              ? `DUT ${actualNum} vs Ref ${refNum}: Delta Δ=${delta.toFixed(3)} is within tolerance ±${tolerance}`
+              : `DUT ${actualNum} vs Ref ${refNum}: Delta Δ=${delta.toFixed(3)} exceeds tolerance ±${tolerance}`;
           }
         }
 
         const assertion: FlowAssertionResult = {
           nodeId: node.id,
           nodeType: 'reference_device',
-          nodeLabel: node.label || `So sánh thiết bị chuẩn (${fieldName})`,
+          nodeLabel: node.label || `Reference Device Comparison (${fieldName})`,
           fieldName,
           operator: toleranceType === 'PERCENTAGE' ? 'RELATIVE_TOLERANCE' : 'ABSOLUTE_TOLERANCE',
           expectedValue: refValue,
@@ -792,33 +792,33 @@ export class FlowGraphEngineService {
         if (targetMean !== undefined) {
           meanPass = Math.abs(mean - targetMean) <= tolerance;
           if (!meanPass) {
-            evalReasons.push(`Trung bình μ=${mean.toFixed(2)} lệch chuẩn ${targetMean} (±${tolerance})`);
+            evalReasons.push(`Mean μ=${mean.toFixed(2)} deviates from target ${targetMean} (±${tolerance})`);
           }
         }
 
         if (maxStdDev !== undefined && count > 1) {
           stdDevPass = stdDev <= maxStdDev;
           if (!stdDevPass) {
-            evalReasons.push(`Độ lệch chuẩn σ=${stdDev.toFixed(3)} vượt mức rung lắc tối đa (${maxStdDev})`);
+            evalReasons.push(`Standard deviation (stdDev) σ=${stdDev.toFixed(3)} exceeds maximum jitter (${maxStdDev})`);
           }
         }
 
         if (mode === 'delta' && tolerance > 0 && count > 1) {
           deltaPass = delta <= tolerance;
           if (!deltaPass) {
-            evalReasons.push(`Độ lệch dao động peak-to-peak (${delta.toFixed(2)}) vượt quá dung sai ${tolerance}`);
+            evalReasons.push(`Peak-to-peak delta (${delta.toFixed(2)}) exceeds tolerance ${tolerance}`);
           }
         }
 
         const overallPass = count > 0 && meanPass && stdDevPass && deltaPass;
         const statusMsg = overallPass
-          ? `Thống kê [${mode.toUpperCase()}] ${fieldName} (n=${count}): μ=${mean.toFixed(2)}, σ=${stdDev.toFixed(3)}, Δ=${delta.toFixed(2)}, [${min}, ${max}] ĐẠT`
-          : `Thống kê [${mode.toUpperCase()}] ${fieldName} (n=${count}): ${evalReasons.join('; ') || 'Không đạt'}`;
+          ? `Stats [${mode.toUpperCase()}] ${fieldName} (n=${count}): μ=${mean.toFixed(2)}, σ=${stdDev.toFixed(3)}, Δ=${delta.toFixed(2)}, [${min}, ${max}] PASSED`
+          : `Stats [${mode.toUpperCase()}] ${fieldName} (n=${count}): ${evalReasons.join('; ') || 'FAILED'}`;
 
         assertions.push({
           nodeId: node.id,
           nodeType: 'aggregate',
-          nodeLabel: node.label || `Thống kê chuyển động (${fieldName})`,
+          nodeLabel: node.label || `Motion Statistics (${fieldName})`,
           fieldName,
           operator: 'AGGREGATION',
           expectedValue: targetMean !== undefined ? { targetMean, maxStdDev, tolerance } : { maxStdDev, tolerance },
@@ -903,7 +903,7 @@ export class FlowGraphEngineService {
         assertions.push({
           nodeId: node.id,
           nodeType: 'comparator',
-          nodeLabel: node.label || `So sánh (${fieldName || 'payload'})`,
+          nodeLabel: node.label || `Compare (${fieldName || 'payload'})`,
           fieldName,
           operator,
           expectedValue: expected,
@@ -927,7 +927,7 @@ export class FlowGraphEngineService {
         assertions.push({
           nodeId: node.id,
           nodeType: 'counter',
-          nodeLabel: node.label || 'Đếm gói tin',
+          nodeLabel: node.label || 'Packet Counter',
           fieldName: 'packetCount',
           operator: 'GREATER_THAN_OR_EQUAL',
           expectedValue: minPackets,
@@ -935,8 +935,8 @@ export class FlowGraphEngineService {
           pass,
           severity,
           message: pass
-            ? `Thu thập đủ gói tin: ${actualCount}/${minPackets}`
-            : `Chưa thu thập đủ gói tin: ${actualCount}/${minPackets}`,
+            ? `Collected sufficient packets: ${actualCount}/${minPackets}`
+            : `Insufficient packets collected: ${actualCount}/${minPackets}`,
         });
 
         const outMsg = this.cloneMessage(message);
@@ -967,7 +967,7 @@ export class FlowGraphEngineService {
     tolerance = 0,
   ): { pass: boolean; message: string } {
     if (actual === undefined || actual === null) {
-      return { pass: false, message: 'Trường giá trị không tồn tại hoặc mang giá trị null' };
+      return { pass: false, message: 'Field value does not exist or is null' };
     }
 
     let pass = false;
@@ -979,7 +979,7 @@ export class FlowGraphEngineService {
           pass = Math.abs(actual - expected) <= tolerance;
           message = pass
             ? `${actual} == ${expected} (±${tolerance})`
-            : `${actual} lệch khỏi ${expected} quá dung sai ±${tolerance}`;
+            : `${actual} deviated from ${expected} beyond tolerance ±${tolerance}`;
         } else {
           pass = String(actual) === String(expected);
           message = pass ? `${actual} == ${expected}` : `${actual} != ${expected}`;
@@ -993,7 +993,7 @@ export class FlowGraphEngineService {
 
       case 'GREATER_THAN':
         pass = Number(actual) > Number(expected);
-        message = pass ? `${actual} > ${expected}` : `${actual} không lớn hơn ${expected}`;
+        message = pass ? `${actual} > ${expected}` : `${actual} is not greater than ${expected}`;
         break;
 
       case 'GREATER_THAN_OR_EQUAL':
@@ -1003,7 +1003,7 @@ export class FlowGraphEngineService {
 
       case 'LESS_THAN':
         pass = Number(actual) < Number(expected);
-        message = pass ? `${actual} < ${expected}` : `${actual} không nhỏ hơn ${expected}`;
+        message = pass ? `${actual} < ${expected}` : `${actual} is not less than ${expected}`;
         break;
 
       case 'LESS_THAN_OR_EQUAL':
@@ -1024,35 +1024,35 @@ export class FlowGraphEngineService {
         }
         pass = Number(actual) >= min && Number(actual) <= max;
         message = pass
-          ? `${actual} nằm trong khoảng [${min}, ${max}]`
-          : `${actual} nằm ngoài khoảng [${min}, ${max}]`;
+          ? `${actual} is within range [${min}, ${max}]`
+          : `${actual} is outside range [${min}, ${max}]`;
         break;
       }
 
       case 'IS_NOT_NULL':
         pass = actual !== null && actual !== undefined && actual !== '';
-        message = pass ? 'Tồn tại giá trị hợp lệ' : 'Giá trị bị null hoặc rỗng';
+        message = pass ? 'Valid value exists' : 'Value is null or empty';
         break;
 
       case 'CONTAINS':
         pass = String(actual).includes(String(expected));
-        message = pass ? `'${actual}' chứa '${expected}'` : `'${actual}' không chứa '${expected}'`;
+        message = pass ? `'${actual}' contains '${expected}'` : `'${actual}' does not contain '${expected}'`;
         break;
 
       case 'REGEX':
         try {
           const regex = new RegExp(String(expected));
           pass = regex.test(String(actual));
-          message = pass ? `${actual} khớp biểu thức chính quy` : `${actual} không khớp regex ${expected}`;
+          message = pass ? `${actual} matches pattern` : `${actual} does not match regex ${expected}`;
         } catch (e: any) {
           pass = false;
-          message = `Regex không hợp lệ: ${e.message}`;
+          message = `Invalid regex: ${e.message}`;
         }
         break;
 
       default:
         pass = false;
-        message = `Toán tử '${operator}' không được hỗ trợ`;
+        message = `Unsupported operator '${operator}'`;
     }
 
     return { pass, message };

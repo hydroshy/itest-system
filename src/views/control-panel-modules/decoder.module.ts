@@ -131,7 +131,7 @@ export const DECODER_TEMPLATE = `
                     class="px-2.5 py-1 bg-slate-900 border border-slate-700 rounded text-xs text-white font-mono focus:outline-none focus:border-purple-500 max-w-[200px]"
                   >
                     <option value="">-- Choose saved decoder --</option>
-                    <option v-for="d in decodersList" :key="d.id" :value="d.id">{{ d.id }} (FW: {{ d.firmwareVersion }})</option>
+                    <option v-for="d in decodersList" :key="d.id" :value="d.id">{{ d.id }} (FW: {{ formatFirmware(d.firmwareVersion) }})</option>
                   </select>
                 </div>
 

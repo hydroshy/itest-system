@@ -32,33 +32,46 @@ export class TestBuilderController {
   constructor(private readonly testBuilderService: TestBuilderService) {}
 
   @Get('templates')
-  @ApiOperation({ summary: 'Lấy danh sách tất cả kịch bản kiểm thử (Test Templates)' })
+  @ApiOperation({ summary: 'Get all test templates with assertions' })
   async findAll() {
     return await this.testBuilderService.findAll();
   }
 
   @Get('templates/:id')
-  @ApiOperation({ summary: 'Lấy chi tiết kịch bản kiểm định kèm danh sách assertions' })
+  @ApiOperation({ summary: 'Get test template details with assertions' })
   async findOne(@Param('id') id: string) {
     return await this.testBuilderService.findOne(id);
   }
 
   @Post('templates')
-  @ApiOperation({ summary: 'Tạo mới kịch bản kiểm định (hỗ trợ Visual Flow / Custom Script)' })
+  @ApiOperation({ summary: 'Create new test template (Visual Flow / Custom Script)' })
   async create(@Body() dto: CreateTestTemplateDto, @CurrentUser() user: User) {
     try {
       const author = user?.username || user?.fullName || 'admin';
       return await this.testBuilderService.create(dto, author);
     } catch (err: any) {
       throw new HttpException(
-        err.message || 'Không thể tạo kịch bản kiểm định',
+        err.message || 'Failed to create test template',
         err.status || HttpStatus.BAD_REQUEST,
       );
     }
   }
 
+  @Post('templates/sanitize')
+  @ApiOperation({ summary: 'Sanitize and migrate existing test templates and assertions to English' })
+  async sanitizeTemplates() {
+    try {
+      return await this.testBuilderService.sanitizeExistingTemplates();
+    } catch (err: any) {
+      throw new HttpException(
+        err.message || 'Failed to sanitize test templates',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+  }
+
   @Put('templates/:id')
-  @ApiOperation({ summary: 'Cập nhật kịch bản kiểm định' })
+  @ApiOperation({ summary: 'Update test template' })
   async update(
     @Param('id') id: string,
     @Body() dto: UpdateTestTemplateDto,
@@ -69,20 +82,20 @@ export class TestBuilderController {
       return await this.testBuilderService.update(id, dto, author);
     } catch (err: any) {
       throw new HttpException(
-        err.message || 'Không thể cập nhật kịch bản kiểm định',
+        err.message || 'Failed to update test template',
         err.status || HttpStatus.BAD_REQUEST,
       );
     }
   }
 
   @Delete('templates/:id')
-  @ApiOperation({ summary: 'Xóa kịch bản kiểm định' })
+  @ApiOperation({ summary: 'Delete test template' })
   async remove(@Param('id') id: string) {
     return await this.testBuilderService.remove(id);
   }
 
   @Get('available-fields')
-  @ApiOperation({ summary: 'Lấy danh sách field telemetry khả dụng từ SKU và FirmwareVersion' })
+  @ApiOperation({ summary: 'Get available telemetry fields from SKU and firmware version' })
   @ApiQuery({ name: 'sku', required: false })
   @ApiQuery({ name: 'firmwareVersion', required: false })
   async getAvailableFields(
@@ -93,33 +106,33 @@ export class TestBuilderController {
   }
 
   @Post('dry-run')
-  @ApiOperation({ summary: 'Chạy thử kịch bản kiểm định trong Sandbox với Mock Packet' })
+  @ApiOperation({ summary: 'Dry-run test template in sandbox with mock packet' })
   async dryRun(@Body() dto: DryRunTestDto) {
     try {
       return await this.testBuilderService.dryRun(dto);
     } catch (err: any) {
       throw new HttpException(
-        err.message || 'Lỗi khi chạy thử Dry-Run',
+        err.message || 'Dry-run execution error',
         HttpStatus.BAD_REQUEST,
       );
     }
   }
 
   @Post('flow/validate')
-  @ApiOperation({ summary: 'Kiểm tra tính hợp lệ của đồ thị Visual Flow (DAG cycle detection, connectivity)' })
+  @ApiOperation({ summary: 'Validate Visual Flow graph configuration (DAG cycle detection, connectivity)' })
   async validateFlow(@Body() dto: ValidateFlowDto) {
     try {
       return this.testBuilderService.validateFlowConfig(dto.flowConfig as any);
     } catch (err: any) {
       throw new HttpException(
-        err.message || 'Lỗi khi kiểm tra cấu hình đồ thị Flow',
+        err.message || 'Flow configuration validation error',
         HttpStatus.BAD_REQUEST,
       );
     }
   }
 
   @Post('flow/execute')
-  @ApiOperation({ summary: 'Thực thi trực tiếp đồ thị Visual Flow trong Graph DAG Engine' })
+  @ApiOperation({ summary: 'Execute Visual Flow graph directly in Graph DAG Engine' })
   async executeFlow(@Body() dto: ExecuteFlowDto) {
     try {
       return await this.testBuilderService.executeFlowGraph(
@@ -129,7 +142,7 @@ export class TestBuilderController {
       );
     } catch (err: any) {
       throw new HttpException(
-        err.message || 'Lỗi khi thực thi đồ thị Flow',
+        err.message || 'Flow graph execution error',
         HttpStatus.BAD_REQUEST,
       );
     }

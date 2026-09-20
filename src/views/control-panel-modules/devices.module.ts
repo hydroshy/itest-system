@@ -246,7 +246,7 @@ export const DEVICES_MODALS = `
             <select v-model="newDevice.decoderId" class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-white font-mono text-xs focus:outline-none focus:border-teal-500">
               <option value="">-- None (No Decoder) --</option>
               <option v-for="dec in decodersList" :key="dec.id" :value="dec.id">
-                {{ dec.id }} (SKU: {{ dec.sku }}, FW: {{ dec.firmwareVersion }})
+                {{ dec.id }} (SKU: {{ dec.sku }}, FW: {{ formatFirmware(dec.firmwareVersion) }})
               </option>
             </select>
             <p class="text-[10px] text-slate-500 mt-1">Automatically assigns decoder (SKU)_(FIRMWARE_VERSION) when SKU and Firmware are provided, or select manually.</p>

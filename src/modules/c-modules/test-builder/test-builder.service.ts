@@ -20,7 +20,7 @@ import {
   DryRunTestDto,
   CreateAssertionDto,
 } from './dto/test-builder.dto';
-import { cleanSku, resolveDecoderId } from '../../lorawan/common/lorawan-utils';
+import { cleanSku, resolveDecoderId, cleanFirmwareVersion } from '../../lorawan/common/lorawan-utils';
 
 export interface DiscoveredField {
   name: string;
@@ -55,6 +55,76 @@ export interface DryRunResponse {
   };
   flowResult?: FlowExecutionSummary;
   summary: string;
+}
+
+export const VI_TO_EN_FIELD_LABELS: Record<string, string> = {
+  // Common telemetry
+  'Cường độ tín hiệu (RSSI)': 'RSSI Signal Strength',
+  'Tỉ số tín hiệu / nhiễu (SNR)': 'Signal-to-Noise Ratio (SNR)',
+  'Bộ đếm gói (FCnt)': 'Frame Counter (FCnt)',
+  'LoRaWAN FPort': 'LoRaWAN FPort',
+
+  // Sensor fields
+  'Nồng độ CO2': 'CO2 Concentration',
+  'Nhiệt độ': 'Temperature',
+  'Nhiệt độ môi trường': 'Ambient Temperature',
+  'Độ ẩm': 'Humidity',
+  'Độ ẩm không khí': 'Air Humidity',
+  'Dung lượng pin': 'Battery Voltage',
+  'Điện áp pin': 'Battery Voltage',
+  'Mức chất lỏng': 'Liquid Level',
+  'Tỉ lệ thể tích': 'Volume Percentage',
+  'Trạng thái cảnh báo': 'Alarm Status',
+  'Điện áp pha': 'Phase Voltage',
+  'Dòng điện': 'Electric Current',
+  'Công suất tiêu thụ': 'Active Power',
+  'Giá trị cảm biến': 'Sensor Value',
+  'Trạng thái': 'Status',
+};
+
+export function formatFieldLabel(name: string): string {
+  return name
+    .replace(/([A-Z])/g, ' $1')
+    .replace(/[_-]/g, ' ')
+    .replace(/^./, (str) => str.toUpperCase())
+    .trim();
+}
+
+export function sanitizeFieldLabel(label?: string, fieldName?: string): string {
+  if (!label) return fieldName ? formatFieldLabel(fieldName) : '';
+  const trimmed = label.trim();
+  if (VI_TO_EN_FIELD_LABELS[trimmed]) {
+    return VI_TO_EN_FIELD_LABELS[trimmed];
+  }
+  let result = trimmed;
+  for (const [vi, en] of Object.entries(VI_TO_EN_FIELD_LABELS)) {
+    if (result.includes(vi)) {
+      result = result.replace(new RegExp(vi, 'g'), en);
+    }
+  }
+  return result;
+}
+
+export function sanitizeNodeLabel(label: string): string {
+  if (!label) return label;
+  return label
+    .replace(/So sánh thiết bị chuẩn/g, 'Reference Device Comparison')
+    .replace(/Thống kê chuyển động/g, 'Motion Statistics')
+    .replace(/Đếm gói tin/g, 'Packet Counter')
+    .replace(/So sánh/g, 'Compare');
+}
+
+export function sanitizeScript(script: string): string {
+  if (!script) return script;
+  return script
+    .replace(/Hàm kiểm định chất lượng cảm biến LoRaWAN/g, 'LoRaWAN Sensor Quality Verification Function')
+    .replace(/@param\s*\{Object\}\s*packet\s*-\s*Gói tin:/g, '@param {Object} packet - Packet:')
+    .replace(/@param\s*\{Object\}\s*context\s*-\s*Ngữ cảnh:/g, '@param {Object} context - Context:')
+    .replace(/Chưa đủ số lượng/g, 'Insufficient packet count:')
+    .replace(/gói tin/g, 'packets')
+    .replace(/Tín hiệu RSSI quá yếu:/g, 'RSSI signal too weak:')
+    .replace(/Nồng độ CO2/g, 'CO2 concentration')
+    .replace(/ngoài dải chuẩn/g, 'out of range');
 }
 
 @Injectable()
@@ -94,6 +164,7 @@ export class TestBuilderService implements OnModuleInit {
   async onModuleInit() {
     await this.ensureTables();
     await this.seedDefaultTemplates();
+    await this.sanitizeExistingTemplates();
   }
 
   private async ensureTables(): Promise<void> {
@@ -155,7 +226,7 @@ export class TestBuilderService implements OnModuleInit {
       const sampleFlowConfig = {
         nodes: [
           { id: 'node-in-1', type: 'lora-in', label: 'LoRaWAN Ingestion', x: 80, y: 160, params: { sku: 'WSLRW-CO2', fw: '1' } },
-          { id: 'node-ext-1', type: 'extractor', label: 'Field Extractor', x: 300, y: 160, params: { field: 'co2', label: 'Nồng độ CO2', unit: 'ppm' } },
+          { id: 'node-ext-1', type: 'extractor', label: 'Field Extractor', x: 300, y: 160, params: { field: 'co2', label: 'CO2 Concentration', unit: 'ppm' } },
           { id: 'node-comp-1', type: 'comparator', label: 'CO2 Standard Range', x: 540, y: 120, params: { operator: 'BETWEEN', min: 400, max: 2000, severity: 'ERROR' } },
           { id: 'node-rf-1', type: 'comparator', label: 'RSSI Minimum Check', x: 540, y: 240, params: { operator: 'GREATER_THAN', value: -120, severity: 'WARNING' } },
           { id: 'node-out-1', type: 'verdict', label: 'QA Verdict Pass/Fail', x: 800, y: 180, params: { autoStopOnPass: true } },
@@ -170,20 +241,20 @@ export class TestBuilderService implements OnModuleInit {
       };
 
       const defaultScript = `/**
- * Hàm kiểm định chất lượng cảm biến LoRaWAN
- * @param {Object} packet - Gói tin: { rssi, snr, fPort, decoded: { co2, temperature, humidity } }
- * @param {Object} context - Ngữ cảnh: { packetCount, minPackets, durationSeconds }
+ * LoRaWAN Sensor Quality Verification Function
+ * @param {Object} packet - Packet: { rssi, snr, fPort, decoded: { co2, temperature, humidity } }
+ * @param {Object} context - Context: { packetCount, minPackets, durationSeconds }
  */
 function evaluate(packet, context) {
   if (context.packetCount < context.minPackets) {
-    return { pass: false, reason: 'Chưa đủ số lượng ' + context.minPackets + ' gói tin' };
+    return { pass: false, reason: 'Insufficient packet count: ' + context.packetCount + '/' + context.minPackets };
   }
   if (packet.rssi < -120) {
-    return { pass: false, reason: 'Tín hiệu RSSI quá yếu: ' + packet.rssi + ' dBm' };
+    return { pass: false, reason: 'RSSI signal too weak: ' + packet.rssi + ' dBm' };
   }
   const decoded = packet.decoded || {};
   if (decoded.co2 !== undefined && (decoded.co2 < 400 || decoded.co2 > 2000)) {
-    return { pass: false, reason: 'Nồng độ CO2 (' + decoded.co2 + ' ppm) ngoài dải chuẩn 400 - 2000 ppm' };
+    return { pass: false, reason: 'CO2 concentration (' + decoded.co2 + ' ppm) out of range 400 - 2000 ppm' };
   }
   return { pass: true, metrics: { packetCount: context.packetCount, co2: decoded.co2, rssi: packet.rssi } };
 }`;
@@ -268,8 +339,8 @@ function evaluate(packet, context) {
     }
 
     const skuClean = cleanSku(dto.sku);
-    const fwClean = dto.firmwareVersion ? String(dto.firmwareVersion).trim() : '1';
-    const decoderId = resolveDecoderId(skuClean, parseInt(fwClean, 10) || 1);
+    const fwClean = cleanFirmwareVersion(dto.firmwareVersion) || '1';
+    const decoderId = resolveDecoderId(skuClean, fwClean);
 
     const template = repo.create({
       name: dto.name,
@@ -296,7 +367,7 @@ function evaluate(packet, context) {
         assertRepo.create({
           templateId: saved.id,
           fieldName: a.fieldName,
-          fieldLabel: a.fieldLabel || a.fieldName,
+          fieldLabel: sanitizeFieldLabel(a.fieldLabel, a.fieldName),
           operator: a.operator,
           expectedValue: a.expectedValue,
           tolerance: a.tolerance || 0,
@@ -320,12 +391,14 @@ function evaluate(packet, context) {
 
     if (dto.name !== undefined) template.name = dto.name;
     if (dto.description !== undefined) template.description = dto.description;
-    if (dto.sku !== undefined) {
-      template.sku = cleanSku(dto.sku);
-      if (dto.firmwareVersion !== undefined) {
-        template.firmwareVersion = String(dto.firmwareVersion);
-      }
-      template.decoderId = resolveDecoderId(template.sku, parseInt(template.firmwareVersion, 10) || 1) || undefined;
+    if (dto.sku !== undefined) template.sku = cleanSku(dto.sku);
+    if (dto.firmwareVersion !== undefined) {
+      template.firmwareVersion = cleanFirmwareVersion(dto.firmwareVersion) || '1';
+    } else if (template.firmwareVersion) {
+      template.firmwareVersion = cleanFirmwareVersion(template.firmwareVersion) || '1';
+    }
+    if (dto.sku !== undefined || dto.firmwareVersion !== undefined) {
+      template.decoderId = resolveDecoderId(template.sku, template.firmwareVersion) || undefined;
     }
     if (dto.executionMode !== undefined) template.executionMode = dto.executionMode;
     if (dto.flowConfig !== undefined) template.flowConfig = dto.flowConfig;
@@ -345,7 +418,7 @@ function evaluate(packet, context) {
           assertRepo.create({
             templateId: id,
             fieldName: a.fieldName,
-            fieldLabel: a.fieldLabel || a.fieldName,
+            fieldLabel: sanitizeFieldLabel(a.fieldLabel, a.fieldName),
             operator: a.operator,
             expectedValue: a.expectedValue,
             tolerance: a.tolerance || 0,
@@ -373,17 +446,17 @@ function evaluate(packet, context) {
 
   async getAvailableFields(sku?: string, firmwareVersion?: string): Promise<DiscoveredField[]> {
     const commonFields: DiscoveredField[] = [
-      { name: 'rssi', label: 'Cường độ tín hiệu (RSSI)', type: 'number', unit: 'dBm', sampleValue: -85 },
-      { name: 'snr', label: 'Tỉ số tín hiệu / nhiễu (SNR)', type: 'number', unit: 'dB', sampleValue: 7.5 },
+      { name: 'rssi', label: 'RSSI Signal Strength', type: 'number', unit: 'dBm', sampleValue: -85 },
+      { name: 'snr', label: 'Signal-to-Noise Ratio (SNR)', type: 'number', unit: 'dB', sampleValue: 7.5 },
       { name: 'fPort', label: 'LoRaWAN FPort', type: 'number', sampleValue: 1 },
-      { name: 'fCnt', label: 'Bộ đếm gói (FCnt)', type: 'number', sampleValue: 12 },
+      { name: 'fCnt', label: 'Frame Counter (FCnt)', type: 'number', sampleValue: 12 },
     ];
 
     if (!sku) return commonFields;
 
     const skuClean = cleanSku(sku);
-    const fwNum = parseInt(firmwareVersion || '1', 10) || 1;
-    const decoderId = resolveDecoderId(skuClean, fwNum);
+    const fwClean = cleanFirmwareVersion(firmwareVersion) || '1';
+    const decoderId = resolveDecoderId(skuClean, fwClean);
 
     let extractedSensorFields: DiscoveredField[] = [];
 
@@ -400,34 +473,34 @@ function evaluate(packet, context) {
     if (extractedSensorFields.length === 0) {
       if (skuClean.includes('CO2')) {
         extractedSensorFields = [
-          { name: 'co2', label: 'Nồng độ CO2', type: 'number', unit: 'ppm', sampleValue: 650 },
-          { name: 'temperature', label: 'Nhiệt độ', type: 'number', unit: '°C', sampleValue: 28.5 },
-          { name: 'humidity', label: 'Độ ẩm', type: 'number', unit: '%RH', sampleValue: 65.2 },
-          { name: 'battery', label: 'Dung lượng pin', type: 'number', unit: 'V', sampleValue: 3.6 },
+          { name: 'co2', label: 'CO2 Concentration', type: 'number', unit: 'ppm', sampleValue: 650 },
+          { name: 'temperature', label: 'Temperature', type: 'number', unit: '°C', sampleValue: 28.5 },
+          { name: 'humidity', label: 'Humidity', type: 'number', unit: '%RH', sampleValue: 65.2 },
+          { name: 'battery', label: 'Battery Voltage', type: 'number', unit: 'V', sampleValue: 3.6 },
         ];
       } else if (skuClean.includes('TH') || skuClean.includes('TEMP')) {
         extractedSensorFields = [
-          { name: 'temperature', label: 'Nhiệt độ môi trường', type: 'number', unit: '°C', sampleValue: 25.4 },
-          { name: 'humidity', label: 'Độ ẩm không khí', type: 'number', unit: '%RH', sampleValue: 60.0 },
-          { name: 'battery', label: 'Điện áp pin', type: 'number', unit: 'V', sampleValue: 3.6 },
+          { name: 'temperature', label: 'Ambient Temperature', type: 'number', unit: '°C', sampleValue: 25.4 },
+          { name: 'humidity', label: 'Air Humidity', type: 'number', unit: '%RH', sampleValue: 60.0 },
+          { name: 'battery', label: 'Battery Voltage', type: 'number', unit: 'V', sampleValue: 3.6 },
         ];
       } else if (skuClean.includes('LVL') || skuClean.includes('LEVEL')) {
         extractedSensorFields = [
-          { name: 'levelMm', label: 'Mức chất lỏng', type: 'number', unit: 'mm', sampleValue: 1250 },
-          { name: 'percentage', label: 'Tỉ lệ thể tích', type: 'number', unit: '%', sampleValue: 82.5 },
-          { name: 'alarmStatus', label: 'Trạng thái cảnh báo', type: 'string', sampleValue: 'NORMAL' },
+          { name: 'levelMm', label: 'Liquid Level', type: 'number', unit: 'mm', sampleValue: 1250 },
+          { name: 'percentage', label: 'Volume Percentage', type: 'number', unit: '%', sampleValue: 82.5 },
+          { name: 'alarmStatus', label: 'Alarm Status', type: 'string', sampleValue: 'NORMAL' },
         ];
       } else if (skuClean.includes('MB485') || skuClean.includes('MODBUS')) {
         extractedSensorFields = [
-          { name: 'voltage', label: 'Điện áp pha', type: 'number', unit: 'V', sampleValue: 220.5 },
-          { name: 'current', label: 'Dòng điện', type: 'number', unit: 'A', sampleValue: 4.8 },
-          { name: 'power', label: 'Công suất tiêu thụ', type: 'number', unit: 'kW', sampleValue: 1.05 },
+          { name: 'voltage', label: 'Phase Voltage', type: 'number', unit: 'V', sampleValue: 220.5 },
+          { name: 'current', label: 'Electric Current', type: 'number', unit: 'A', sampleValue: 4.8 },
+          { name: 'power', label: 'Active Power', type: 'number', unit: 'kW', sampleValue: 1.05 },
         ];
       } else {
         extractedSensorFields = [
-          { name: 'value', label: 'Giá trị cảm biến', type: 'number', sampleValue: 100 },
-          { name: 'battery', label: 'Điện áp pin', type: 'number', unit: 'V', sampleValue: 3.6 },
-          { name: 'status', label: 'Trạng thái', type: 'string', sampleValue: 'OK' },
+          { name: 'value', label: 'Sensor Value', type: 'number', sampleValue: 100 },
+          { name: 'battery', label: 'Battery Voltage', type: 'number', unit: 'V', sampleValue: 3.6 },
+          { name: 'status', label: 'Status', type: 'string', sampleValue: 'OK' },
         ];
       }
     }
@@ -554,8 +627,8 @@ function evaluate(packet, context) {
       scriptResult,
       flowResult,
       summary: overallPass
-        ? `Tất cả điều kiện kiểm thử đã ĐẠT chuẩn (${assertionResults.length} rules, ${executionTimeMs}ms)`
-        : `Kiểm thử KHÔNG ĐẠT chuẩn: Có lỗi vi phạm điều kiện (${executionTimeMs}ms)`,
+        ? `All test conditions PASSED (${assertionResults.length} rules, ${executionTimeMs}ms)`
+        : `Test FAILED: Assertion conditions violated (${executionTimeMs}ms)`,
     };
   }
 
@@ -596,7 +669,7 @@ function evaluate(packet, context) {
         actualValue: null,
         pass: false,
         severity,
-        message: `Trường '${assert.fieldName}' không tồn tại trong dữ liệu gói tin`,
+        message: `Field '${assert.fieldName}' does not exist in packet payload`,
       };
     }
 
@@ -606,7 +679,7 @@ function evaluate(packet, context) {
           pass = Math.abs(actual - expected) <= tolerance;
           message = pass
             ? `${actual} == ${expected} (±${tolerance})`
-            : `${actual} lệch khỏi ${expected} quá dung sai ±${tolerance}`;
+            : `${actual} deviated from ${expected} beyond tolerance ±${tolerance}`;
         } else {
           pass = String(actual) === String(expected);
           message = pass ? `${actual} == ${expected}` : `${actual} != ${expected}`;
@@ -615,17 +688,17 @@ function evaluate(packet, context) {
 
       case 'NOT_EQUALS':
         pass = String(actual) !== String(expected);
-        message = pass ? `${actual} != ${expected}` : `${actual} trùng với ${expected}`;
+        message = pass ? `${actual} != ${expected}` : `${actual} == ${expected}`;
         break;
 
       case 'GREATER_THAN':
         pass = Number(actual) > Number(expected);
-        message = pass ? `${actual} > ${expected}` : `${actual} không lớn hơn ${expected}`;
+        message = pass ? `${actual} > ${expected}` : `${actual} is not greater than ${expected}`;
         break;
 
       case 'LESS_THAN':
         pass = Number(actual) < Number(expected);
-        message = pass ? `${actual} < ${expected}` : `${actual} không nhỏ hơn ${expected}`;
+        message = pass ? `${actual} < ${expected}` : `${actual} is not less than ${expected}`;
         break;
 
       case 'BETWEEN':
@@ -641,34 +714,34 @@ function evaluate(packet, context) {
         }
         pass = Number(actual) >= min && Number(actual) <= max;
         message = pass
-          ? `${actual} nằm trong dải [${min}, ${max}]`
-          : `${actual} nằm ngoài dải [${min}, ${max}]`;
+          ? `${actual} is within range [${min}, ${max}]`
+          : `${actual} is outside range [${min}, ${max}]`;
         break;
 
       case 'IS_NOT_NULL':
         pass = actual !== null && actual !== undefined && actual !== '';
-        message = pass ? `Trường ${assert.fieldName} tồn tại giá trị` : `Trường rỗng`;
+        message = pass ? `Field ${assert.fieldName} has value` : `Field is empty`;
         break;
 
       case 'CONTAINS':
         pass = String(actual).includes(String(expected));
-        message = pass ? `${actual} chứa '${expected}'` : `${actual} không chứa '${expected}'`;
+        message = pass ? `${actual} contains '${expected}'` : `${actual} does not contain '${expected}'`;
         break;
 
       case 'REGEX':
         try {
           const reg = new RegExp(String(expected));
           pass = reg.test(String(actual));
-          message = pass ? `${actual} khớp biểu thức chính quy` : `${actual} không khớp regex ${expected}`;
+          message = pass ? `${actual} matches pattern` : `${actual} does not match regex ${expected}`;
         } catch (e: any) {
           pass = false;
-          message = `Regex không hợp lệ: ${e.message}`;
+          message = `Invalid regex: ${e.message}`;
         }
         break;
 
       default:
         pass = false;
-        message = `Toán tử '${operator}' không được hỗ trợ`;
+        message = `Unsupported operator '${operator}'`;
     }
 
     return {
@@ -725,7 +798,7 @@ function evaluate(packet, context) {
         if (typeof evaluate === 'function') {
           return evaluate(packet, context);
         }
-        throw new Error("Không tìm thấy hàm 'evaluate(packet, context)' trong script");
+        throw new Error("Function 'evaluate(packet, context)' not found in script");
       })()
     `;
 
@@ -737,14 +810,123 @@ function evaluate(packet, context) {
       if (output && typeof output === 'object') {
         return {
           pass: !!output.pass,
-          reason: output.reason || (output.pass ? undefined : 'Script trả về pass: false'),
+          reason: output.reason || (output.pass ? undefined : 'Script returned pass: false'),
           metrics: output.metrics || {},
           logs,
         };
       }
-      return { pass: false, reason: 'Script trả về kết quả không hợp lệ', logs };
+      return { pass: false, reason: 'Script returned invalid result', logs };
     } catch (err: any) {
-      return { pass: false, reason: `Lỗi thực thi script Sandbox: ${err.message}`, logs };
+      return { pass: false, reason: `Sandbox script execution error: ${err.message}`, logs };
     }
+  }
+
+  /**
+   * Sanitize existing test templates and assertions:
+   * - Translates Vietnamese labels to standardized English.
+   * - Strips leading 'v' or 'V' from firmware versions.
+   * - Normalizes flowConfig node labels and customScript texts.
+   */
+  async sanitizeExistingTemplates(): Promise<{ templatesUpdated: number; assertionsUpdated: number }> {
+    if (!this.dbService) {
+      return { templatesUpdated: 0, assertionsUpdated: 0 };
+    }
+
+    let templatesUpdated = 0;
+    let assertionsUpdated = 0;
+
+    try {
+      const templateRepo = this.getTemplateRepo();
+      const assertRepo = this.getAssertionRepo();
+
+      // 1. Sanitize Assertions
+      const assertions = await assertRepo.find();
+      const assertionsToSave: TestAssertionEntity[] = [];
+
+      for (const assert of assertions) {
+        const currentLabel = assert.fieldLabel;
+        const sanitized = sanitizeFieldLabel(currentLabel, assert.fieldName);
+        if (sanitized && sanitized !== currentLabel) {
+          assert.fieldLabel = sanitized;
+          assertionsToSave.push(assert);
+        }
+      }
+
+      if (assertionsToSave.length > 0) {
+        await assertRepo.save(assertionsToSave);
+        assertionsUpdated = assertionsToSave.length;
+        this.logger.log(`Sanitized ${assertionsUpdated} test assertion labels to English`);
+      }
+
+      // 2. Sanitize Templates
+      const templates = await templateRepo.find();
+      const templatesToSave: TestTemplateEntity[] = [];
+
+      for (const tpl of templates) {
+        let changed = false;
+
+        // Clean firmware version prefix 'v' or 'V'
+        const cleanFw = cleanFirmwareVersion(tpl.firmwareVersion) || '1';
+        if (cleanFw !== tpl.firmwareVersion) {
+          tpl.firmwareVersion = cleanFw;
+          tpl.decoderId = resolveDecoderId(tpl.sku, cleanFw) || tpl.decoderId;
+          changed = true;
+        }
+
+        // Sanitize flowConfig node labels and params
+        if (tpl.flowConfig && Array.isArray(tpl.flowConfig.nodes)) {
+          let flowConfigChanged = false;
+          for (const node of tpl.flowConfig.nodes) {
+            if (node.label) {
+              const cleanedNodeLabel = sanitizeNodeLabel(node.label);
+              if (cleanedNodeLabel !== node.label) {
+                node.label = cleanedNodeLabel;
+                flowConfigChanged = true;
+              }
+            }
+            if (node.params && node.params.label) {
+              const cleanedParamLabel = sanitizeFieldLabel(node.params.label, node.params.field);
+              if (cleanedParamLabel !== node.params.label) {
+                node.params.label = cleanedParamLabel;
+                flowConfigChanged = true;
+              }
+            }
+            if (node.params && node.params.fw) {
+              const cleanNodeFw = cleanFirmwareVersion(node.params.fw);
+              if (cleanNodeFw !== node.params.fw) {
+                node.params.fw = cleanNodeFw;
+                flowConfigChanged = true;
+              }
+            }
+          }
+          if (flowConfigChanged) {
+            changed = true;
+          }
+        }
+
+        // Sanitize customScript Vietnamese strings
+        if (tpl.customScript && typeof tpl.customScript === 'string') {
+          const cleanedScript = sanitizeScript(tpl.customScript);
+          if (cleanedScript !== tpl.customScript) {
+            tpl.customScript = cleanedScript;
+            changed = true;
+          }
+        }
+
+        if (changed) {
+          templatesToSave.push(tpl);
+        }
+      }
+
+      if (templatesToSave.length > 0) {
+        await templateRepo.save(templatesToSave);
+        templatesUpdated = templatesToSave.length;
+        this.logger.log(`Sanitized ${templatesUpdated} test templates (firmware version & labels) to English`);
+      }
+    } catch (err: any) {
+      this.logger.warn(`Error during test templates sanitization: ${err.message}`);
+    }
+
+    return { templatesUpdated, assertionsUpdated };
   }
 }
