@@ -12,7 +12,7 @@ services:
     environment:
       - PORT=3000
       - NODE_ENV=production
-      - DB_SYNCHRONIZE=true
+      - DB_SYNCHRONIZE=false
       - JWT_SECRET=Production_Super_Secret_Key_Change_Me_2025!
       - DB_ROUTING_CONFIG_PATH=/app/config/db-routing.config.json
       - OPS_AGENT_URL=http://ops_agent:3099

@@ -11,6 +11,11 @@ import {
   MODBUS_PRESETS_MODALS,
   MODBUS_PRESETS_SCRIPT,
 } from './control-panel-modules/modbus-presets.module';
+import {
+  TEST_BUILDER_TEMPLATE,
+  TEST_BUILDER_MODALS,
+  TEST_BUILDER_SCRIPT,
+} from './control-panel-modules/test-builder.module';
 
 export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
 <html lang="en">
@@ -503,6 +508,13 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
                 <span>Modbus Presets</span>
               </span>
             </button>
+
+            <button @click="switchTab('test-builder')" :class="{ active: activeTab === 'test-builder' }" class="nav-item">
+              <span class="flex items-center gap-2.5">
+                <i class="fa-solid fa-vial-circle-check w-4 text-center text-xs text-indigo-400"></i>
+                <span>Test Automation</span>
+              </span>
+            </button>
           </div>
         </div>
       </aside>
@@ -532,6 +544,11 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
           ${MODBUS_PRESETS_TEMPLATE}
         </div>
 
+        <!-- TAB 13: LORAWAN TEST AUTOMATION & SCENARIO BUILDER -->
+        <div v-show="activeTab === 'test-builder'" class="space-y-6">
+          ${TEST_BUILDER_TEMPLATE}
+        </div>
+
       </main>
     </div>
 
@@ -545,6 +562,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
     ${HMI_STUDIO_MODALS}
     ${DOWNLINK_MODALS}
     ${MODBUS_PRESETS_MODALS}
+    ${TEST_BUILDER_MODALS}
 
     <!-- TOAST NOTIFICATION -->
     <div v-if="toast.show" class="fixed top-4 right-4 z-50 flex items-center gap-2 px-4 py-3 rounded-xl shadow-2xl text-xs font-semibold" :class="toast.type === 'error' ? 'bg-red-950 border border-red-500 text-red-200' : (toast.type === 'success' ? 'bg-emerald-950 border border-emerald-500 text-emerald-200' : 'bg-sky-950 border border-sky-500 text-sky-200')">
@@ -585,6 +603,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
     }, 2500);
 
     ${MODBUS_PRESETS_SCRIPT}
+    ${TEST_BUILDER_SCRIPT}
 
     const { createApp, ref, computed, onMounted, watch } = Vue;
 
@@ -1111,6 +1130,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
             case 'hmi-studio': return 'HMI SCADA Studio';
             case 'downlink': return 'Downlink Actuator & Queue';
             case 'modbus-presets': return 'Modbus Presets & Templates';
+            case 'test-builder': return 'LoRaWAN Test Automation';
             default: return activeTab.value;
           }
         });
@@ -4780,6 +4800,13 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
           activeTab,
         });
 
+        const testBuilderModule = useTestBuilderModule({
+          showToast,
+          authHeaders,
+          currentUser,
+          activeTab,
+        });
+
         watch(activeTab, (newTab) => {
           try {
             window.history.replaceState(null, null, '#' + newTab);
@@ -4895,6 +4922,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
 
         return {
           ...modbusPresetsModule,
+          ...testBuilderModule,
           activeTab,
           sidebarOpen,
           userMenuOpen,
