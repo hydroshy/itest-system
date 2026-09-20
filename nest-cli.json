@@ -1,5 +1,9 @@
 {
   "$schema": "https://json.nestfactory.com/cli.json",
   "collection": "@nestjs/schematics",
-  "sourceRoot": "src"
+  "sourceRoot": "src",
+  "compilerOptions": {
+    "deleteOutDir": true,
+    "tsConfigPath": "tsconfig.build.json"
+  }
 }

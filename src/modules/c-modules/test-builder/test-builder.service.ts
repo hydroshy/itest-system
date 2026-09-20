@@ -177,13 +177,18 @@ function evaluate(packet, context) {
   return { pass: true, metrics: { packetCount: context.packetCount, co2: decoded.co2, rssi: packet.rssi } };
 }`;
 
+      const sampleDecoder = await this.getDecoderRepo().findOne({
+        where: [{ id: 'WSLRW-CO2_1' }, { sku: 'WSLRW-CO2' }],
+      });
+      const resolvedDecoderId = sampleDecoder ? sampleDecoder.id : null;
+
       const t1 = repo.create({
-        name: 'Kiểm định xuất xưởng WSLRW-CO2',
+        name: 'Factory QA Verification - WSLRW-CO2',
         code: 'TEMPLATE_WSLRW_CO2',
-        description: 'Kịch bản kiểm thử tự động CO2 và tín hiệu RF xuất xưởng cảm biến Daviteq',
+        description: 'Automated LoRaWAN telemetry and RF verification for Daviteq sensors',
         sku: 'WSLRW-CO2',
         firmwareVersion: '1',
-        decoderId: 'WSLRW-CO2_1',
+        decoderId: resolvedDecoderId,
         executionMode: 'FLOW',
         flowConfig: sampleFlowConfig,
         customScript: defaultScript,
@@ -199,7 +204,7 @@ function evaluate(packet, context) {
         assertRepo.create({
           templateId: savedT1.id,
           fieldName: 'co2',
-          fieldLabel: 'Nồng độ CO2',
+          fieldLabel: 'CO2 Concentration',
           operator: 'BETWEEN',
           expectedValue: { min: 400, max: 2000 },
           unit: 'ppm',
@@ -209,7 +214,7 @@ function evaluate(packet, context) {
         assertRepo.create({
           templateId: savedT1.id,
           fieldName: 'rssi',
-          fieldLabel: 'Cường độ sóng RSSI',
+          fieldLabel: 'RSSI Signal Strength',
           operator: 'GREATER_THAN',
           expectedValue: -120,
           unit: 'dBm',
