@@ -162,11 +162,16 @@ async function runTestSuite() {
   console.log('[Test 8] No fake fallback when decoder is not found');
   const availRes = await testBuilder.getAvailableFields('WSLRW-CO2', '1');
   assert.strictEqual(availRes.decoderFound, false);
-  assert.strictEqual(availRes.count, 4);
+  assert.strictEqual(availRes.count, 0, 'Must have count 0 for decoder fields when not found');
+  assert.strictEqual(availRes.totalCount, 4, 'Must have totalCount 4 for common fields');
   assert.deepStrictEqual(
     availRes.fields.map((f) => f.name),
     ['rssi', 'snr', 'fPort', 'fCnt'],
   );
+  // Verify clean labels without parentheses
+  for (const f of availRes.fields) {
+    assert(!f.label.includes('(') && !f.label.includes(')'), `Field label "${f.label}" should not have parentheses`);
+  }
   // Ensure 'co2', 'temperature', 'humidity', 'battery' are NOT in result
   assert.strictEqual(availRes.fields.find((f) => f.name === 'co2'), undefined);
   assert.strictEqual(availRes.fields.find((f) => f.name === 'battery'), undefined);

@@ -45,6 +45,7 @@ export interface AvailableFieldsResponse {
   decoderId?: string;
   decoderName?: string;
   count: number;
+  totalCount?: number;
 }
 
 
@@ -78,8 +79,8 @@ export interface DryRunResponse {
 export const VI_TO_EN_FIELD_LABELS: Record<string, string> = {
   // Common telemetry
   'Cường độ tín hiệu (RSSI)': 'RSSI Signal Strength',
-  'Tỉ số tín hiệu / nhiễu (SNR)': 'Signal-to-Noise Ratio (SNR)',
-  'Bộ đếm gói (FCnt)': 'Frame Counter (FCnt)',
+  'Tỉ số tín hiệu / nhiễu (SNR)': 'Signal-to-Noise Ratio',
+  'Bộ đếm gói (FCnt)': 'Frame Counter',
   'LoRaWAN FPort': 'LoRaWAN FPort',
 
   // Sensor fields
@@ -104,7 +105,7 @@ export function sanitizeFieldLabel(label?: string, fieldName?: string): string {
   if (!label) return fieldName ? formatFieldLabel(fieldName) : '';
   const trimmed = label.trim();
   if (VI_TO_EN_FIELD_LABELS[trimmed]) {
-    return VI_TO_EN_FIELD_LABELS[trimmed];
+    return VI_TO_EN_FIELD_LABELS[trimmed].replace(/\s*\([^)]*\)/g, '').trim();
   }
   let result = trimmed;
   for (const [vi, en] of Object.entries(VI_TO_EN_FIELD_LABELS)) {
@@ -112,7 +113,7 @@ export function sanitizeFieldLabel(label?: string, fieldName?: string): string {
       result = result.replace(new RegExp(vi, 'g'), en);
     }
   }
-  return result;
+  return result.replace(/\s*\([^)]*\)/g, '').trim();
 }
 
 export function sanitizeNodeLabel(label: string): string {
@@ -457,16 +458,17 @@ function evaluate(packet, context) {
   async getAvailableFields(sku?: string, firmwareVersion?: string): Promise<AvailableFieldsResponse> {
     const commonFields: DiscoveredField[] = [
       { name: 'rssi', label: 'RSSI Signal Strength', type: 'number', unit: 'dBm', sampleValue: -85 },
-      { name: 'snr', label: 'Signal-to-Noise Ratio (SNR)', type: 'number', unit: 'dB', sampleValue: 7.5 },
+      { name: 'snr', label: 'Signal-to-Noise Ratio', type: 'number', unit: 'dB', sampleValue: 7.5 },
       { name: 'fPort', label: 'LoRaWAN FPort', type: 'number', sampleValue: 1 },
-      { name: 'fCnt', label: 'Frame Counter (FCnt)', type: 'number', sampleValue: 12 },
+      { name: 'fCnt', label: 'Frame Counter', type: 'number', sampleValue: 12 },
     ];
 
     if (!sku) {
       return {
         fields: commonFields,
         decoderFound: false,
-        count: commonFields.length,
+        count: 0,
+        totalCount: commonFields.length,
       };
     }
 
@@ -495,7 +497,10 @@ function evaluate(packet, context) {
     // Absolutely NO fake/mock fallback. Only genuine decoder fields + common telemetry fields.
     const map = new Map<string, DiscoveredField>();
     for (const f of [...extractedSensorFields, ...commonFields]) {
-      map.set(f.name, f);
+      map.set(f.name, {
+        ...f,
+        label: (f.label || formatFieldLabel(f.name)).replace(/\s*\([^)]*\)/g, '').trim(),
+      });
     }
     const finalFields = Array.from(map.values());
 
@@ -504,7 +509,8 @@ function evaluate(packet, context) {
       decoderFound,
       decoderId: decoderFound ? decoderId : undefined,
       decoderName,
-      count: finalFields.length,
+      count: extractedSensorFields.length,
+      totalCount: finalFields.length,
     };
   }
 

@@ -4206,7 +4206,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
           const widget = trendTargetWidget.value;
           if (!widget) return;
           if (!trendSeriesForm.value.field) {
-            showToast('Vui lòng chọn hoặc nhập mã tag telemetry', 'warning');
+            showToast('Please select or enter telemetry tag', 'warning');
             return;
           }
           if (!widget.props) widget.props = {};
@@ -4226,7 +4226,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
           widget.props.series.push(newSeries);
           trendSeriesModal.value = false;
           fetchTrendHistoryForWidget(widget);
-          showToast('Đã thêm cảm biến ' + newSeries.label + ' vào đồ thị', 'success');
+          showToast('Added sensor ' + newSeries.label + ' to chart', 'success');
         };
 
         const removeTrendSeries = (widget, seriesId) => {

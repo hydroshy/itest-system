@@ -382,7 +382,8 @@ async function runRealDecoderTests() {
 
     // 7.4: getAvailableFields without SKU -> returns only 4 common fields
     const defaultRes = await testBuilder.getAvailableFields();
-    assert.strictEqual(defaultRes.count, 4);
+    assert.strictEqual(defaultRes.count, 0, 'No decoder fields without SKU');
+    assert.strictEqual(defaultRes.totalCount, 4, 'Total 4 common fields');
     assert.strictEqual(defaultRes.decoderFound, false);
     const defaultNames = defaultRes.fields.map(f => f.name);
     assert.deepStrictEqual(defaultNames.sort(), ['fCnt', 'fPort', 'rssi', 'snr']);
@@ -391,14 +392,16 @@ async function runRealDecoderTests() {
     // VERIFY ZERO FAKE FIELDS INJECTED (e.g. WSLRW-CO2, WSLRW-TH, WSLRW-LVL, WSLRW-MB485)
     const co2Res = await testBuilder.getAvailableFields('WSLRW-CO2', '1');
     assert.strictEqual(co2Res.decoderFound, false, 'No decoder found in DB without mock');
-    assert.strictEqual(co2Res.count, 4, 'Must only contain the 4 common fields');
+    assert.strictEqual(co2Res.count, 0, 'Must have 0 decoder fields when decoder not in DB');
+    assert.strictEqual(co2Res.totalCount, 4, 'Must only contain the 4 common fields in total');
     assert(!co2Res.fields.some(f => f.name === 'co2'), 'Must NOT contain fake co2');
     assert(!co2Res.fields.some(f => f.name === 'temperature'), 'Must NOT contain fake temperature');
     assert(!co2Res.fields.some(f => f.name === 'humidity'), 'Must NOT contain fake humidity');
     assert(!co2Res.fields.some(f => f.name === 'battery'), 'Must NOT contain fake battery');
 
     const mbRes = await testBuilder.getAvailableFields('WSLRW-MB485', '1');
-    assert.strictEqual(mbRes.count, 4, 'Must only contain 4 common fields for MB485 without decoder');
+    assert.strictEqual(mbRes.count, 0, 'Must have 0 decoder fields for MB485 without decoder');
+    assert.strictEqual(mbRes.totalCount, 4, 'Must only contain 4 common fields in total');
     assert(!mbRes.fields.some(f => f.name === 'voltage'), 'Must NOT contain fake voltage');
     assert(!mbRes.fields.some(f => f.name === 'current'), 'Must NOT contain fake current');
 

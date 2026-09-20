@@ -31,7 +31,7 @@ console.log('  -> PASS: Automatic sync on SKU/FW changes and manual Refresh Fiel
 // 3. Verify clear warning when no decoder registered (No Fake Fallback)
 console.log('\n[Test 3] No Registered Decoder Alert (Zero Fake Fields)');
 assert(tbContent.includes('No registered decoder found for this SKU/FW'), 'Must display clear warning message when no decoder found');
-assert(tbContent.includes('Không sử dụng mock fallback'), 'Must explicitly explain that mock fallback is disabled');
+assert(tbContent.includes('No mock fallback used') || tbContent.includes('Không sử dụng mock fallback'), 'Must explicitly explain that mock fallback is disabled');
 assert(tbContent.includes('realDecoderFields'), 'realDecoderFields computed property must be defined');
 assert(tbContent.includes('commonTelemetryFields'), 'commonTelemetryFields computed property must be defined');
 assert(!tbContent.includes("testAvailableFields.value[0]?.name || 'co2'"), 'Must not default to hardcoded fake co2 field');

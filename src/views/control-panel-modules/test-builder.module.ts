@@ -388,7 +388,7 @@ export const TEST_BUILDER_TEMPLATE = `
                   <div class="text-xs">
                     <div class="font-bold text-amber-300">No registered decoder found for this SKU/FW</div>
                     <div class="text-[10px] text-slate-400 mt-1 leading-relaxed">
-                      Chưa có Decoder trong DB cho <code class="text-amber-200 font-mono">{{ activeTestTemplate.sku }}_v{{ formatFirmware(activeTestTemplate.firmwareVersion) }}</code>. Không sử dụng mock fallback.
+                      No registered decoder found in DB for <code class="text-amber-200 font-mono">{{ activeTestTemplate.sku }}_v{{ formatFirmware(activeTestTemplate.firmwareVersion) }}</code>. No mock fallback used.
                     </div>
                   </div>
                 </div>
@@ -399,7 +399,7 @@ export const TEST_BUILDER_TEMPLATE = `
                     class="w-full py-1.5 px-2 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-200 text-[10px] font-bold flex items-center justify-center gap-1.5 transition cursor-pointer"
                   >
                     <i class="fa-solid fa-arrow-up-right-from-square text-[9px]"></i>
-                    <span>Tạo Decoder trong Decoder Manager</span>
+                    <span>Create Decoder in Decoder Manager</span>
                   </button>
                 </div>
               </div>
@@ -409,14 +409,14 @@ export const TEST_BUILDER_TEMPLATE = `
                   <i class="fa-solid fa-circle-check text-emerald-400 text-xs shrink-0"></i>
                   <div class="truncate">
                     <div class="text-[11px] font-bold text-emerald-300 font-mono truncate">{{ decoderExtractionStatus.decoderName || decoderExtractionStatus.decoderId }}</div>
-                    <div class="text-[9px] text-slate-400">{{ decoderExtractionStatus.realFieldsCount }} trường thực tế (AST & VM)</div>
+                    <div class="text-[9px] text-slate-400">{{ decoderExtractionStatus.realFieldsCount }} real fields (AST & VM)</div>
                   </div>
                 </div>
                 <button
                   type="button"
                   @click="navigateToDecoderManager(decoderExtractionStatus.decoderId)"
                   class="p-1 text-slate-400 hover:text-emerald-300 transition shrink-0 cursor-pointer"
-                  title="Xem trong Decoder Manager"
+                  title="View in Decoder Manager"
                 >
                   <i class="fa-solid fa-arrow-up-right-from-square text-xs"></i>
                 </button>
@@ -425,7 +425,7 @@ export const TEST_BUILDER_TEMPLATE = `
               <!-- Real Extracted Fields List -->
               <div v-if="realDecoderFields.length > 0" class="space-y-1 mb-2">
                 <div class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1 flex items-center justify-between">
-                  <span>Trường từ Decoder ({{ realDecoderFields.length }})</span>
+                  <span>DECODER FIELDS ({{ realDecoderFields.length }})</span>
                   <span class="text-[9px] text-emerald-400 font-mono">AST/VM</span>
                 </div>
                 <div class="max-h-40 overflow-y-auto space-y-1 pr-1 text-xs">
@@ -440,9 +440,14 @@ export const TEST_BUILDER_TEMPLATE = `
                       <span class="w-2 h-2 rounded-full bg-emerald-400 shrink-0"></span>
                       <span class="font-mono text-slate-200 group-hover:text-emerald-300 truncate">{{ f.name }}</span>
                     </div>
-                    <div class="flex items-center gap-1 shrink-0">
+                    <div class="flex items-center gap-1.5 shrink-0">
+                      <span
+                        class="text-[9px] px-1.5 py-0.5 rounded font-mono font-bold uppercase tracking-wider"
+                        :class="f.type === 'string' ? 'bg-sky-500/15 text-sky-300 border border-sky-500/30' : 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30'"
+                      >
+                        {{ f.type === 'string' ? 'STRING' : 'NUMBER' }}
+                      </span>
                       <span v-if="f.unit" class="text-[10px] px-1.5 py-0.2 rounded bg-slate-800 text-emerald-400 font-mono">{{ f.unit }}</span>
-                      <span v-else-if="f.type" class="text-[9px] px-1 py-0.2 rounded bg-slate-800/80 text-slate-400 font-mono">{{ f.type }}</span>
                       <i class="fa-solid fa-plus text-[10px] text-slate-600 group-hover:text-emerald-400 ml-1"></i>
                     </div>
                   </div>
@@ -452,7 +457,7 @@ export const TEST_BUILDER_TEMPLATE = `
               <!-- Common LoRaWAN Metadata Fields (RSSI, SNR, FCnt, FPort) -->
               <div v-if="commonTelemetryFields.length > 0" class="pt-2 border-t border-slate-800/60">
                 <div class="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1 flex items-center justify-between">
-                  <span>LoRaWAN Headers ({{ commonTelemetryFields.length }})</span>
+                  <span>LORAWAN HEADERS ({{ commonTelemetryFields.length }})</span>
                   <span class="text-[9px] text-slate-500 font-mono">Standard</span>
                 </div>
                 <div class="max-h-28 overflow-y-auto space-y-1 pr-1 text-xs">
@@ -463,7 +468,15 @@ export const TEST_BUILDER_TEMPLATE = `
                     class="p-1.5 rounded-lg bg-slate-950/60 border border-slate-800/60 hover:border-slate-700 flex items-center justify-between cursor-pointer group text-slate-400 hover:text-slate-200"
                   >
                     <span class="font-mono text-[11px] truncate">{{ f.name }}</span>
-                    <span v-if="f.unit" class="text-[9px] px-1 rounded bg-slate-800 text-slate-500 font-mono">{{ f.unit }}</span>
+                    <div class="flex items-center gap-1.5 shrink-0">
+                      <span
+                        class="text-[9px] px-1.5 py-0.5 rounded font-mono font-bold uppercase tracking-wider"
+                        :class="f.type === 'string' ? 'bg-sky-500/15 text-sky-300 border border-sky-500/30' : 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30'"
+                      >
+                        {{ f.type === 'string' ? 'STRING' : 'NUMBER' }}
+                      </span>
+                      <span v-if="f.unit" class="text-[9px] px-1 rounded bg-slate-800 text-slate-500 font-mono">{{ f.unit }}</span>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -559,7 +572,7 @@ export const TEST_BUILDER_TEMPLATE = `
                 <!-- Background Grid Pattern -->
                 <div class="absolute inset-0 bg-[radial-gradient(#334155_1px,transparent_1px)] [background-size:24px_24px] opacity-35 pointer-events-none"></div>
 
-                <!-- Interactive SVG Bézier Wire Layer -->
+                <!-- Interactive SVG Bezier Wire Layer -->
                 <svg
                   class="absolute inset-0 pointer-events-none z-10"
                   style="width: 2200px; height: 1400px;"
@@ -588,7 +601,7 @@ export const TEST_BUILDER_TEMPLATE = `
                       <title>Right-click wire for options</title>
                     </path>
 
-                    <!-- Visible SVG Bézier Wire -->
+                    <!-- Visible SVG Bezier Wire -->
                     <path
                       :d="getEdgePath(edge)"
                       :stroke="wireContextMenu.visible && wireContextMenu.edge && wireContextMenu.edge.id === edge.id ? '#38bdf8' : 'url(#flowWireGrad)'"
@@ -619,6 +632,7 @@ export const TEST_BUILDER_TEMPLATE = `
                     class="absolute w-72 p-3.5 rounded-xl border transition shadow-xl bg-slate-900/95 backdrop-blur-sm"
                     :class="getNodeCardClass(node.type)"
                     :style="{ left: getNodePosX(node) + 'px', top: getNodePosY(node) + 'px' }"
+                    @contextmenu.prevent.stop="openNodeContextMenu($event, node)"
                   >
                     <!-- Input Port Dot (Left) -->
                     <div
@@ -696,14 +710,14 @@ export const TEST_BUILDER_TEMPLATE = `
                           @change="onExtractorFieldChange(node)"
                           class="w-full px-2 py-1.5 rounded-lg bg-slate-950 border border-slate-700 text-white font-mono text-xs focus:border-indigo-500"
                         >
-                          <optgroup v-if="realDecoderFields.length > 0" label="Decoder Fields (AST/VM)">
+                          <optgroup v-if="realDecoderFields.length > 0" label="DECODER FIELDS (AST/VM)">
                             <option v-for="f in realDecoderFields" :key="f.name" :value="f.name">
-                              {{ f.name }} ({{ getFieldEnglishLabel(f) }})
+                              {{ f.name }} [{{ (f.type || 'number').toUpperCase() }}]
                             </option>
                           </optgroup>
-                          <optgroup label="LoRaWAN Headers">
+                          <optgroup label="LORAWAN HEADERS">
                             <option v-for="f in commonTelemetryFields" :key="f.name" :value="f.name">
-                              {{ f.name }} ({{ getFieldEnglishLabel(f) }})
+                              {{ f.name }} [{{ (f.type || 'number').toUpperCase() }}]
                             </option>
                           </optgroup>
                         </select>
@@ -1009,6 +1023,68 @@ export const TEST_BUILDER_TEMPLATE = `
                   </div>
                 </div>
 
+                <!-- Node Right-Click Context Menu -->
+                <div
+                  v-if="nodeContextMenu.visible && nodeContextMenu.node"
+                  :style="{ left: nodeContextMenu.x + 'px', top: nodeContextMenu.y + 'px' }"
+                  class="absolute z-50 w-60 rounded-xl bg-slate-900/95 border border-slate-700/80 shadow-2xl p-2 backdrop-blur-md text-xs select-none"
+                  @click.stop
+                  @contextmenu.prevent.stop
+                >
+                  <div class="px-2.5 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-800 flex items-center justify-between">
+                    <span class="flex items-center gap-1.5 truncate">
+                      <i :class="getNodeIcon(nodeContextMenu.node.type)"></i>
+                      <span class="truncate">{{ getNodeDisplayName(nodeContextMenu.node) }}</span>
+                    </span>
+                    <button type="button" @click="closeNodeContextMenu" class="text-slate-500 hover:text-white cursor-pointer ml-2">
+                      <i class="fa-solid fa-xmark"></i>
+                    </button>
+                  </div>
+                  <div class="py-1 space-y-1">
+                    <!-- Edit Script (Function / Script nodes only) -->
+                    <button
+                      v-if="nodeContextMenu.node.type === 'function' || nodeContextMenu.node.type === 'script'"
+                      type="button"
+                      @click="editScriptFromNodeMenu(nodeContextMenu.node)"
+                      class="w-full text-left px-2.5 py-2 rounded-lg hover:bg-teal-500/20 text-teal-300 hover:text-white flex items-center gap-2.5 transition cursor-pointer font-semibold"
+                    >
+                      <i class="fa-solid fa-code text-teal-400 text-xs"></i>
+                      <span>Edit Script</span>
+                    </button>
+
+                    <!-- Clone Node -->
+                    <button
+                      type="button"
+                      @click="cloneNodeFromMenu(nodeContextMenu.node)"
+                      class="w-full text-left px-2.5 py-2 rounded-lg hover:bg-slate-800 text-slate-200 hover:text-white flex items-center gap-2.5 transition cursor-pointer"
+                    >
+                      <i class="fa-regular fa-copy text-indigo-400 text-xs"></i>
+                      <span>Clone Node</span>
+                    </button>
+
+                    <!-- Disconnect Wires -->
+                    <button
+                      type="button"
+                      @click="disconnectWiresFromNode(nodeContextMenu.node.id)"
+                      class="w-full text-left px-2.5 py-2 rounded-lg hover:bg-amber-500/20 text-amber-300 hover:text-amber-200 flex items-center gap-2.5 transition cursor-pointer"
+                    >
+                      <i class="fa-solid fa-scissors text-amber-400 text-xs"></i>
+                      <span>Disconnect Wires</span>
+                    </button>
+
+                    <!-- Delete Node -->
+                    <button
+                      v-if="nodeContextMenu.node.type !== 'lora-in' && nodeContextMenu.node.type !== 'lora_in' && nodeContextMenu.node.type !== 'verdict'"
+                      type="button"
+                      @click="deleteNodeFromMenu(nodeContextMenu.node.id)"
+                      class="w-full text-left px-2.5 py-2 rounded-lg hover:bg-rose-500/20 text-rose-400 hover:text-rose-300 flex items-center gap-2.5 transition cursor-pointer"
+                    >
+                      <i class="fa-solid fa-trash-can text-rose-400 text-xs"></i>
+                      <span>Delete Node</span>
+                    </button>
+                  </div>
+                </div>
+
               </div>
             </div>
 
@@ -1123,10 +1199,10 @@ export const TEST_BUILDER_TEMPLATE = `
                   <i class="fa-solid fa-triangle-exclamation text-[10px]"></i>
                   <span>No registered decoder</span>
                 </div>
-                <div class="text-slate-400 mt-0.5">Không dùng field giả. Đăng ký Decoder để trích xuất trường thực tế.</div>
+                <div class="text-slate-400 mt-0.5">No fake fields used. Register a Decoder to extract real fields.</div>
               </div>
               <div v-else-if="realDecoderFields.length === 0" class="p-2 text-slate-500 text-[10px]">
-                Decoder không có telemetry fields.
+                Decoder has no telemetry fields.
               </div>
               <div v-else class="space-y-1 font-mono text-[11px] max-h-48 overflow-y-auto pr-1">
                 <div
@@ -1504,7 +1580,7 @@ export const TEST_BUILDER_MODALS = `
                     <i class="fa-solid fa-triangle-exclamation text-[9px]"></i>
                     <span>No registered decoder</span>
                   </div>
-                  <div class="text-slate-400 text-[9px] mt-0.5">Không dùng mock fallback.</div>
+                  <div class="text-slate-400 text-[9px] mt-0.5">No mock fallback used.</div>
                   <button type="button" @click="navigateToDecoderManager(activeTestTemplate?.sku)" class="text-[9px] text-amber-200 underline mt-1 cursor-pointer">Open Decoder Manager</button>
                 </div>
                 <div v-else-if="realDecoderFields.length === 0" class="text-[10px] text-slate-500 italic p-1">No sensor fields extracted</div>
@@ -1619,7 +1695,7 @@ export const TEST_BUILDER_MODALS = `
               <span>Quick Test & Extract Decoder Fields</span>
               <span class="text-[10px] px-2 py-0.5 rounded-full bg-teal-500/20 text-teal-300 font-mono">AST + Sandbox VM</span>
             </h3>
-            <p class="text-xs text-slate-400">Kiểm tra nhanh trường trả về từ mã JavaScript Decoder không cần lưu vào DB</p>
+            <p class="text-xs text-slate-400">Quickly test fields returned by JavaScript Decoder code without saving to database</p>
           </div>
         </div>
         <button @click="showQuickTestModal = false" class="text-slate-400 hover:text-white transition p-1 cursor-pointer">
@@ -1640,7 +1716,7 @@ export const TEST_BUILDER_MODALS = `
                 title="Load code from current registered decoder in DB"
               >
                 <i class="fa-solid fa-download text-[10px]"></i>
-                <span>Load Decoder Hiện Tại</span>
+                <span>Load Active Decoder</span>
               </button>
               <button
                 type="button"
@@ -1661,7 +1737,7 @@ export const TEST_BUILDER_MODALS = `
         </div>
 
         <div class="flex items-center justify-between">
-          <span class="text-[11px] text-slate-500">Chạy VM sandbox + AST Static Analysis để phát hiện trường thực tế</span>
+          <span class="text-[11px] text-slate-500">Run VM sandbox + AST Static Analysis to detect actual fields</span>
           <button
             type="button"
             @click="runQuickTestExtract"
@@ -1669,7 +1745,7 @@ export const TEST_BUILDER_MODALS = `
             class="px-4 py-2 rounded-xl bg-teal-600 hover:bg-teal-500 disabled:opacity-50 text-white text-xs font-bold flex items-center gap-2 transition cursor-pointer shadow-lg shadow-teal-600/20"
           >
             <i class="fa-solid" :class="isTestingQuickCode ? 'fa-spinner fa-spin' : 'fa-play'"></i>
-            <span>{{ isTestingQuickCode ? 'Analyzing...' : 'Trích Xuất Field Ngay' }}</span>
+            <span>{{ isTestingQuickCode ? 'Analyzing...' : 'Extract Fields Now' }}</span>
           </button>
         </div>
 
@@ -1679,7 +1755,7 @@ export const TEST_BUILDER_MODALS = `
             <div class="flex items-center gap-2">
               <i class="fa-solid" :class="quickTestResult.success ? 'fa-circle-check text-emerald-400' : 'fa-triangle-exclamation text-rose-400'"></i>
               <span class="text-xs font-bold" :class="quickTestResult.success ? 'text-emerald-300' : 'text-rose-300'">
-                {{ quickTestResult.success ? ('Tìm thấy ' + quickTestResult.count + ' trường thực tế:') : 'Lỗi trích xuất' }}
+                {{ quickTestResult.success ? ('Found ' + quickTestResult.count + ' actual fields:') : 'Extraction Error' }}
               </span>
             </div>
             <span v-if="quickTestResult.success" class="text-[10px] text-slate-400 font-mono">{{ quickTestResult.count }} fields</span>
@@ -1698,8 +1774,13 @@ export const TEST_BUILDER_MODALS = `
               >
                 <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
                 <strong class="text-slate-200">{{ f.name }}</strong>
+                <span
+                  class="text-[9px] px-1.5 py-0.5 rounded font-mono font-bold uppercase tracking-wider"
+                  :class="f.type === 'string' ? 'bg-sky-500/15 text-sky-300 border border-sky-500/30' : 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30'"
+                >
+                  {{ f.type === 'string' ? 'STRING' : 'NUMBER' }}
+                </span>
                 <span v-if="f.unit" class="text-[10px] text-emerald-400 bg-emerald-500/10 px-1 rounded">{{ f.unit }}</span>
-                <span v-if="f.type" class="text-[9px] text-slate-500">({{ f.type }})</span>
               </div>
             </div>
             <div class="pt-2 border-t border-slate-800 flex items-center justify-end">
@@ -1709,13 +1790,13 @@ export const TEST_BUILDER_MODALS = `
                 class="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer transition shadow-md"
               >
                 <i class="fa-solid fa-file-import text-xs"></i>
-                <span>Áp dụng vào Scenario hiện tại</span>
+                <span>Apply to Current Scenario</span>
               </button>
             </div>
           </div>
 
           <div v-else-if="quickTestResult.success && (!quickTestResult.fields || !quickTestResult.fields.length)" class="text-xs text-slate-400 mt-1">
-            Không phát hiện trường nào được gán hoặc trả về trong code.
+            No fields detected or assigned in code.
           </div>
         </div>
       </div>
@@ -1728,14 +1809,14 @@ export const TEST_BUILDER_MODALS = `
           class="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold flex items-center gap-2 transition cursor-pointer"
         >
           <i class="fa-solid fa-arrow-up-right-from-square text-xs text-indigo-400"></i>
-          <span>Mở Decoder Manager</span>
+          <span>Open Decoder Manager</span>
         </button>
         <button
           type="button"
           @click="showQuickTestModal = false"
           class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold transition cursor-pointer"
         >
-          Đóng
+          Close
         </button>
       </div>
     </div>
@@ -1791,6 +1872,7 @@ export const TEST_BUILDER_SCRIPT = `
     const draggingNode = ref(null);
     const dragStartPos = ref({ mouseX: 0, mouseY: 0, nodeX: 0, nodeY: 0 });
     const wireContextMenu = ref({ visible: false, x: 0, y: 0, edge: null });
+    const nodeContextMenu = ref({ visible: false, x: 0, y: 0, node: null });
     const wireTick = ref(0);
 
     const formatFirmware = (fw) => {
@@ -1826,7 +1908,7 @@ export const TEST_BUILDER_SCRIPT = `
         if (rawLabel && !/[\\u00C0-\\u1EF9]/.test(rawLabel) && !rawLabel.toLowerCase().includes('trích xuất')) {
           return rawLabel;
         }
-        return node.params?.field ? ('Field Extractor (' + node.params.field + ')') : 'Field Extractor';
+        return node.params?.field ? ('Field Extractor: ' + node.params.field) : 'Field Extractor';
       }
       return node.label || node.id || 'Node';
     };
@@ -1904,7 +1986,7 @@ export const TEST_BUILDER_SCRIPT = `
 
         if (node.type === 'extractor') {
           if (!node.label || /[\\u00C0-\\u1EF9]/.test(node.label) || node.label.toLowerCase().includes('trích xuất')) {
-            node.label = node.params?.field ? ('Field Extractor (' + node.params.field + ')') : 'Field Extractor';
+            node.label = node.params?.field ? ('Field Extractor: ' + node.params.field) : 'Field Extractor';
           }
           if (node.params?.label && (/[\\u00C0-\\u1EF9]/.test(node.params.label) || node.params.label.toLowerCase().includes('trích xuất') || node.params.label.toLowerCase().includes('nồng độ'))) {
             node.params.label = node.params.field || 'Field';
@@ -2138,8 +2220,83 @@ export const TEST_BUILDER_SCRIPT = `
       wireContextMenu.value.edge = null;
     };
 
+    const openNodeContextMenu = (event, node) => {
+      if (event) {
+        if (event.preventDefault) event.preventDefault();
+        if (event.stopPropagation) event.stopPropagation();
+      }
+      if (!node) return;
+      closeWireContextMenu();
+      if (canvasContainerRef.value) {
+        const rect = canvasContainerRef.value.getBoundingClientRect();
+        nodeContextMenu.value = {
+          visible: true,
+          x: Math.max(10, event.clientX - rect.left + canvasContainerRef.value.scrollLeft),
+          y: Math.max(10, event.clientY - rect.top + canvasContainerRef.value.scrollTop),
+          node
+        };
+      } else {
+        nodeContextMenu.value = {
+          visible: true,
+          x: event.clientX,
+          y: event.clientY,
+          node
+        };
+      }
+    };
+
+    const closeNodeContextMenu = () => {
+      nodeContextMenu.value.visible = false;
+      nodeContextMenu.value.node = null;
+    };
+
+    const editScriptFromNodeMenu = (node) => {
+      closeNodeContextMenu();
+      openFunctionScriptModal(node);
+    };
+
+    const cloneNodeFromMenu = (sourceNode) => {
+      if (!sourceNode || !activeTestTemplate.value) return;
+      closeNodeContextMenu();
+      if (!activeTestTemplate.value.flowConfig) activeTestTemplate.value.flowConfig = { nodes: [], edges: [] };
+      if (!Array.isArray(activeTestTemplate.value.flowConfig.nodes)) activeTestTemplate.value.flowConfig.nodes = [];
+
+      const newId = 'node-' + Date.now() + '-' + Math.random().toString(36).substring(2, 6);
+      const clonedNode = JSON.parse(JSON.stringify(sourceNode));
+      clonedNode.id = newId;
+
+      const posX = (Number.isFinite(clonedNode.position?.x) ? clonedNode.position.x : getNodePosX(clonedNode)) + 40;
+      const posY = (Number.isFinite(clonedNode.position?.y) ? clonedNode.position.y : getNodePosY(clonedNode)) + 40;
+      clonedNode.position = { x: posX, y: posY };
+      clonedNode.x = posX;
+      clonedNode.y = posY;
+      if (clonedNode.wires) delete clonedNode.wires;
+
+      activeTestTemplate.value.flowConfig.nodes.push(clonedNode);
+      wireTick.value++;
+      showToast('Cloned node: ' + getNodeDisplayName(sourceNode), 'success');
+    };
+
+    const disconnectWiresFromNode = (nodeId) => {
+      if (!nodeId || !activeTestTemplate.value?.flowConfig?.edges) return;
+      closeNodeContextMenu();
+      const prevCount = activeTestTemplate.value.flowConfig.edges.length;
+      activeTestTemplate.value.flowConfig.edges = activeTestTemplate.value.flowConfig.edges.filter(
+        e => (e.from || e.source) !== nodeId && (e.to || e.target) !== nodeId
+      );
+      const removedCount = prevCount - activeTestTemplate.value.flowConfig.edges.length;
+      wireTick.value++;
+      showToast('Disconnected ' + removedCount + ' wire(s) from node', 'info');
+    };
+
+    const deleteNodeFromMenu = (nodeId) => {
+      closeNodeContextMenu();
+      removeFlowNode(nodeId);
+    };
+
     const onCanvasContextMenu = (event) => {
       closeWireContextMenu();
+      closeNodeContextMenu();
     };
 
     const inspectWireConnection = (edge) => {
@@ -2184,6 +2341,7 @@ export const TEST_BUILDER_SCRIPT = `
         if (event.preventDefault) event.preventDefault();
       }
       closeWireContextMenu();
+      closeNodeContextMenu();
 
       const validX = getNodePosX(node);
       const validY = getNodePosY(node);
@@ -2236,6 +2394,7 @@ export const TEST_BUILDER_SCRIPT = `
 
     const onCanvasClick = () => {
       closeWireContextMenu();
+      closeNodeContextMenu();
       if (wireDraft.value.active) {
         wireDraft.value.active = false;
       }
@@ -2565,7 +2724,7 @@ export const TEST_BUILDER_SCRIPT = `
       } else if (activeTab) {
         activeTab.value = 'decoder';
       }
-      showToast('Đã chuyển sang Decoder Manager' + (targetDecoderId ? ': ' + targetDecoderId : ''), 'info');
+      showToast('Switched to Decoder Manager' + (targetDecoderId ? ': ' + targetDecoderId : ''), 'info');
     };
 
     const openQuickTestModal = () => {
@@ -2592,7 +2751,7 @@ export const TEST_BUILDER_SCRIPT = `
           const dec = await res.json();
           if (dec && dec.decoderCode) {
             quickTestCode.value = dec.decoderCode;
-            showToast('Đã tải code decoder ' + decoderId + ' từ DB', 'info');
+            showToast('Loaded decoder code ' + decoderId + ' from database', 'info');
             return;
           }
         }
@@ -2620,12 +2779,12 @@ export const TEST_BUILDER_SCRIPT = `
         '  };',
         '}'
       ].join('\\n');
-      showToast('Đã nạp template decoder mẫu', 'info');
+      showToast('Loaded sample decoder template', 'info');
     };
 
     const runQuickTestExtract = async () => {
       if (!quickTestCode.value.trim()) {
-        showToast('Vui lòng nhập code JavaScript Decoder', 'warning');
+        showToast('Please enter JavaScript Decoder code', 'warning');
         return;
       }
       isTestingQuickCode.value = true;
@@ -2642,13 +2801,13 @@ export const TEST_BUILDER_SCRIPT = `
         const data = await res.json();
         if (res.ok && data.success) {
           quickTestResult.value = data;
-          showToast('Trích xuất thành công ' + (data.count || 0) + ' trường từ AST/VM!', 'success');
+          showToast('Successfully extracted ' + (data.count || 0) + ' fields from AST/VM!', 'success');
         } else {
           quickTestResult.value = {
             success: false,
             count: 0,
             fields: [],
-            error: data.error || data.message || 'Lỗi trích xuất trường'
+            error: data.error || data.message || 'Field extraction error'
           };
         }
       } catch (err) {
@@ -2682,7 +2841,7 @@ export const TEST_BUILDER_SCRIPT = `
       };
       updateDryRunMockSample();
       showQuickTestModal.value = false;
-      showToast('Đã áp dụng ' + extracted.length + ' trường vào scenario hiện tại!', 'success');
+      showToast('Applied ' + extracted.length + ' fields to current scenario!', 'success');
     };
 
     const addFlowNode = (type) => {
@@ -2709,7 +2868,7 @@ export const TEST_BUILDER_SCRIPT = `
         node.label = 'LoRaWAN Ingestion';
         node.params = { sku: activeTestTemplate.value.sku, trigger: 'Uplink Telemetry Event' };
       } else if (type === 'extractor') {
-        node.label = defaultField ? ('Field Extractor (' + defaultField + ')') : 'Field Extractor';
+        node.label = defaultField ? ('Field Extractor: ' + defaultField) : 'Field Extractor';
         node.params = { field: defaultField, label: defaultField, unit: defaultUnit };
       } else if (type === 'reference_device' || type === 'golden_unit') {
         node.type = 'reference_device';
@@ -2782,7 +2941,7 @@ export const TEST_BUILDER_SCRIPT = `
       const node = {
         id: 'node-' + Date.now() + '-' + Math.random().toString(36).substring(2, 6),
         type: 'extractor',
-        label: 'Field Extractor (' + (field.name || 'field') + ')',
+        label: 'Field Extractor: ' + (field.name || 'field'),
         params: { field: field.name, label: englishLabel, unit: field.unit || '' },
         position: { x: posX, y: posY },
         x: posX,
@@ -2800,7 +2959,7 @@ export const TEST_BUILDER_SCRIPT = `
         node.params.label = getFieldEnglishLabel(f);
       }
       if (node.type === 'extractor') {
-        node.label = node.params.field ? ('Field Extractor (' + node.params.field + ')') : 'Field Extractor';
+        node.label = node.params.field ? ('Field Extractor: ' + node.params.field) : 'Field Extractor';
       }
     };
 
@@ -2813,6 +2972,7 @@ export const TEST_BUILDER_SCRIPT = `
         );
       }
       closeWireContextMenu();
+      closeNodeContextMenu();
       wireTick.value++;
       showToast('Removed node from Flow', 'info');
     };
@@ -3122,6 +3282,9 @@ export const TEST_BUILDER_SCRIPT = `
       if (wireContextMenu.value.visible) {
         closeWireContextMenu();
       }
+      if (nodeContextMenu.value.visible) {
+        closeNodeContextMenu();
+      }
     };
 
     onMounted(() => {
@@ -3158,6 +3321,13 @@ export const TEST_BUILDER_SCRIPT = `
       wireContextMenu,
       openWireContextMenu,
       closeWireContextMenu,
+      nodeContextMenu,
+      openNodeContextMenu,
+      closeNodeContextMenu,
+      editScriptFromNodeMenu,
+      cloneNodeFromMenu,
+      disconnectWiresFromNode,
+      deleteNodeFromMenu,
       onCanvasContextMenu,
       inspectWireConnection,
       deleteWireFromMenu,

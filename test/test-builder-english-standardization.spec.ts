@@ -16,20 +16,28 @@ async function runTests() {
   const testBuilder = new TestBuilderService();
   const flowEngine = new FlowGraphEngineService();
 
-  // Test 1: Available Fields & Decoder Field Extraction (100% English, No Fake Fallback)
+  // Test 1: Available Fields & Decoder Field Extraction (100% English, No Fake Fallback, No Parentheses)
   console.log('[Test 1] Available Telemetry Fields & Decoder Extraction (100% English)');
   const commonRes = await testBuilder.getAvailableFields();
   assert.strictEqual(commonRes.fields.length, 4);
+  assert.strictEqual(commonRes.count, 0, 'No decoder fields when no SKU');
+  assert.strictEqual(commonRes.totalCount, 4, 'Total 4 common fields');
   assert.strictEqual(commonRes.fields.find((f) => f.name === 'rssi')?.label, 'RSSI Signal Strength');
-  assert.strictEqual(commonRes.fields.find((f) => f.name === 'snr')?.label, 'Signal-to-Noise Ratio (SNR)');
+  assert.strictEqual(commonRes.fields.find((f) => f.name === 'snr')?.label, 'Signal-to-Noise Ratio');
   assert.strictEqual(commonRes.fields.find((f) => f.name === 'fPort')?.label, 'LoRaWAN FPort');
-  assert.strictEqual(commonRes.fields.find((f) => f.name === 'fCnt')?.label, 'Frame Counter (FCnt)');
+  assert.strictEqual(commonRes.fields.find((f) => f.name === 'fCnt')?.label, 'Frame Counter');
+  // Verify clean labels without parentheses
+  for (const f of commonRes.fields) {
+    assert(!f.label.includes('(') && !f.label.includes(')'), `Field label "${f.label}" should not have parentheses`);
+  }
 
   // Verify that fake hardcoded fallback is completely removed:
   // When no decoder is in DB, only common fields are returned, decoderFound is false
   const noDecoderRes = await testBuilder.getAvailableFields('WSLRW-CO2', 'v1');
   assert.strictEqual(noDecoderRes.decoderFound, false);
   assert.strictEqual(noDecoderRes.fields.length, 4);
+  assert.strictEqual(noDecoderRes.count, 0, 'No decoder fields in DB');
+  assert.strictEqual(noDecoderRes.totalCount, 4);
   assert.strictEqual(noDecoderRes.fields.find((f) => f.name === 'co2'), undefined);
 
   // Real Decoder AST + VM Extraction: CO2 sensor

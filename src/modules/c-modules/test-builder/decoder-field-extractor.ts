@@ -70,9 +70,9 @@ export const STANDARD_FIELD_LABELS: Record<string, string> = {
   baro: 'Barometric Pressure',
   altitude: 'Altitude',
   rssi: 'RSSI Signal Strength',
-  snr: 'Signal-to-Noise Ratio (SNR)',
+  snr: 'Signal-to-Noise Ratio',
   fport: 'LoRaWAN FPort',
-  fcnt: 'Frame Counter (FCnt)',
+  fcnt: 'Frame Counter',
   status: 'Status',
   value: 'Sensor Value',
   light: 'Light Intensity',
@@ -82,14 +82,16 @@ export const STANDARD_FIELD_LABELS: Record<string, string> = {
 
 export function formatFieldLabel(name: string): string {
   if (!name) return '';
-  const lower = name.toLowerCase().replace(/[^a-z0-9]/g, '');
+  const cleanName = name.replace(/\s*\([^)]*\)/g, '').trim();
+  const lower = cleanName.toLowerCase().replace(/[^a-z0-9]/g, '');
   if (STANDARD_FIELD_LABELS[lower]) {
     return STANDARD_FIELD_LABELS[lower];
   }
-  return name
+  return cleanName
     .replace(/([A-Z])/g, ' $1')
     .replace(/[_-]/g, ' ')
     .replace(/^./, (str) => str.toUpperCase())
+    .replace(/\s*\([^)]*\)/g, '')
     .trim();
 }
 
@@ -468,7 +470,7 @@ export function extractDecoderFields(code: string): DiscoveredField[] {
   // Ensure all fields have valid labels, units, and sample values
   return Array.from(mergedMap.values()).map((f) => ({
     name: f.name,
-    label: f.label || formatFieldLabel(f.name),
+    label: (f.label || formatFieldLabel(f.name)).replace(/\s*\([^)]*\)/g, '').trim(),
     type: f.type || 'number',
     unit: f.unit || inferUnit(f.name),
     sampleValue: f.sampleValue !== undefined ? f.sampleValue : inferSampleValue(f.name, f.type),
