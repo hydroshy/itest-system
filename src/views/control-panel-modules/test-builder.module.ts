@@ -822,8 +822,8 @@ export const TEST_BUILDER_TEMPLATE = `
                       <!-- 6. CUSTOM FUNCTION NODE -->
                       <div v-if="node.type === 'function' || node.type === 'script'" class="space-y-1.5">
                         <div class="p-2 rounded-lg bg-slate-950 border border-slate-800 font-mono text-[10px] text-teal-300 max-h-14 overflow-hidden">
-                          <div class="truncate">{{ (node.params.code || '// Custom Script evaluate()').split('\n')[0] }}</div>
-                          <div class="text-slate-500 truncate">{{ ((node.params.code || '').split('\n')[1]) || '...' }}</div>
+                          <div class="truncate">{{ getNodeScriptPreview(node.params?.code, 0) }}</div>
+                          <div class="text-slate-500 truncate">{{ getNodeScriptPreview(node.params?.code, 1) }}</div>
                         </div>
                         <button
                           type="button"
@@ -1597,6 +1597,15 @@ export const TEST_BUILDER_SCRIPT = `
         case 'output': return 'border-rose-500/50 ring-1 ring-rose-500/20 shadow-rose-950/20';
         default: return 'border-slate-800';
       }
+    };
+
+    const getNodeScriptPreview = (code, lineIndex) => {
+      const text = typeof code === 'string' && code.trim().length > 0 ? code : '// Custom Script evaluate()';
+      const lines = text.split(/\\r?\\n/);
+      if (lineIndex === 0) {
+        return lines[0] || '// Custom Script evaluate()';
+      }
+      return lines[lineIndex] || '...';
     };
 
     const getEdgePath = (edge) => {
@@ -2456,6 +2465,7 @@ export const TEST_BUILDER_SCRIPT = `
       getNodeBadgeClass,
       getNodeIcon,
       getNodeCardClass,
+      getNodeScriptPreview,
       getEdgePath,
       getEdgeMidX,
       getEdgeMidY,
