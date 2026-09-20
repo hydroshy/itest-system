@@ -19,7 +19,7 @@ export const TEST_BUILDER_TEMPLATE = `
           <div class="w-8 h-8 rounded-lg bg-indigo-500/20 border border-indigo-500/40 flex items-center justify-center text-indigo-400">
             <i class="fa-solid fa-vial-circle-check text-sm"></i>
           </div>
-          <span class="text-xs font-bold text-slate-300 uppercase tracking-wider">Kịch bản:</span>
+          <span class="text-xs font-bold text-slate-300 uppercase tracking-wider">Scenario:</span>
         </div>
 
         <select
@@ -84,7 +84,7 @@ export const TEST_BUILDER_TEMPLATE = `
           type="button"
           @click="openDryRunModal"
           class="px-3.5 py-2 rounded-xl bg-amber-600/20 hover:bg-amber-600/30 border border-amber-500/40 text-amber-300 text-xs font-bold flex items-center gap-2 cursor-pointer transition active:scale-95 shadow-sm"
-          title="Chạy thử kịch bản trong Sandbox"
+          title="Dry-run scenario in Sandbox"
         >
           <i class="fa-solid fa-bolt text-xs text-amber-400"></i>
           <span>Dry-Run Test</span>
@@ -97,7 +97,7 @@ export const TEST_BUILDER_TEMPLATE = `
           class="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white text-xs font-bold flex items-center gap-2 cursor-pointer transition active:scale-95"
         >
           <i class="fa-solid fa-plus text-xs text-sky-400"></i>
-          <span>Tạo mới</span>
+          <span>New Scenario</span>
         </button>
 
         <!-- Save Template -->
@@ -108,7 +108,7 @@ export const TEST_BUILDER_TEMPLATE = `
           class="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white text-xs font-bold flex items-center gap-2 cursor-pointer shadow-lg shadow-indigo-600/20 transition active:scale-95"
         >
           <i class="fa-solid" :class="isSavingTestTemplate ? 'fa-spinner fa-spin' : 'fa-floppy-disk'"></i>
-          <span>{{ isSavingTestTemplate ? 'Đang lưu...' : 'Lưu kịch bản' }}</span>
+          <span>{{ isSavingTestTemplate ? 'Saving...' : 'Save Scenario' }}</span>
         </button>
 
         <!-- Delete Template -->
@@ -116,7 +116,7 @@ export const TEST_BUILDER_TEMPLATE = `
           type="button"
           @click="openDeleteTestTemplateModal"
           class="p-2 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 text-rose-400 hover:text-rose-300 text-xs font-bold cursor-pointer transition"
-          title="Xóa kịch bản"
+          title="Delete Scenario"
         >
           <i class="fa-solid fa-trash-can text-xs"></i>
         </button>
@@ -127,7 +127,7 @@ export const TEST_BUILDER_TEMPLATE = `
     <div v-if="activeTestTemplate" class="relative">
 
       <!-- ================================================================= -->
-      <!-- CHẾ ĐỘ 1: NODE-RED STYLE VISUAL FLOW BUILDER                      -->
+      <!-- MODE 1: NODE-RED STYLE VISUAL FLOW BUILDER                         -->
       <!-- ================================================================= -->
       <div v-show="testBuilderMode === 'FLOW'" class="grid grid-cols-1 lg:grid-cols-12 gap-5">
         
@@ -139,7 +139,7 @@ export const TEST_BUILDER_TEMPLATE = `
                 <i class="fa-solid fa-cubes text-indigo-400"></i>
                 <span>Node Palette</span>
               </span>
-              <span class="text-[10px] text-slate-500">Bấm để thêm node</span>
+              <span class="text-[10px] text-slate-500">Click to add node</span>
             </div>
 
             <!-- Palette Items -->
@@ -155,7 +155,7 @@ export const TEST_BUILDER_TEMPLATE = `
                   </div>
                   <div>
                     <div class="text-xs font-semibold text-slate-200 group-hover:text-sky-300">Field Extractor</div>
-                    <div class="text-[10px] text-slate-500">Trích xuất field cảm biến</div>
+                    <div class="text-[10px] text-slate-500">Extract sensor field</div>
                   </div>
                 </div>
                 <i class="fa-solid fa-plus text-xs text-slate-600 group-hover:text-sky-400"></i>
@@ -172,7 +172,7 @@ export const TEST_BUILDER_TEMPLATE = `
                   </div>
                   <div>
                     <div class="text-xs font-semibold text-slate-200 group-hover:text-amber-300">Rule Comparator</div>
-                    <div class="text-[10px] text-slate-500">Ngưỡng & Điều kiện pass/fail</div>
+                    <div class="text-[10px] text-slate-500">Pass/Fail thresholds & conditions</div>
                   </div>
                 </div>
                 <i class="fa-solid fa-plus text-xs text-slate-600 group-hover:text-amber-400"></i>
@@ -189,7 +189,7 @@ export const TEST_BUILDER_TEMPLATE = `
                   </div>
                   <div>
                     <div class="text-xs font-semibold text-slate-200 group-hover:text-emerald-300">Packet Counter</div>
-                    <div class="text-[10px] text-slate-500">Đếm số gói tối thiểu</div>
+                    <div class="text-[10px] text-slate-500">Count minimum packets</div>
                   </div>
                 </div>
                 <i class="fa-solid fa-plus text-xs text-slate-600 group-hover:text-emerald-400"></i>
@@ -199,12 +199,12 @@ export const TEST_BUILDER_TEMPLATE = `
             <!-- Available Decoder Fields -->
             <div class="pt-3 border-t border-slate-800">
               <div class="text-xs font-bold text-slate-300 mb-2 flex items-center justify-between">
-                <span>Fields từ Decoder ({{ testAvailableFields.length }})</span>
+                <span>Decoder Fields ({{ testAvailableFields.length }})</span>
                 <button
                   type="button"
                   @click="fetchTestAvailableFields"
                   class="text-[10px] text-indigo-400 hover:text-indigo-300"
-                  title="Tải lại trường"
+                  title="Reload fields"
                 >
                   <i class="fa-solid fa-rotate-right"></i>
                 </button>
@@ -233,7 +233,7 @@ export const TEST_BUILDER_TEMPLATE = `
                 class="w-full py-2 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white text-xs font-semibold flex items-center justify-center gap-2 transition"
               >
                 <i class="fa-solid fa-file-code text-indigo-400"></i>
-                <span>Biên dịch sang JS Script</span>
+                <span>Compile to JS Script</span>
               </button>
             </div>
 
@@ -259,7 +259,7 @@ export const TEST_BUILDER_TEMPLATE = `
                   </span>
                 </div>
                 <div class="text-xs text-slate-500 font-mono">
-                  Tổng số node: <strong class="text-slate-200">{{ currentFlowNodes.length }}</strong>
+                  Total nodes: <strong class="text-slate-200">{{ currentFlowNodes.length }}</strong>
                 </div>
               </div>
 
@@ -306,7 +306,7 @@ export const TEST_BUILDER_TEMPLATE = `
                       type="button"
                       @click="removeFlowNode(node.id)"
                       class="text-slate-500 hover:text-rose-400 text-xs p-1 transition"
-                      title="Xóa node"
+                      title="Delete node"
                     >
                       <i class="fa-solid fa-xmark"></i>
                     </button>
@@ -324,7 +324,7 @@ export const TEST_BUILDER_TEMPLATE = `
 
                     <!-- EXTRACTOR NODE -->
                     <div v-if="node.type === 'extractor'" class="space-y-2">
-                      <label class="block text-[11px] text-slate-400 font-semibold">Chọn trường dữ liệu:</label>
+                      <label class="block text-[11px] text-slate-400 font-semibold">Select data field:</label>
                       <select
                         v-model="node.params.field"
                         @change="onExtractorFieldChange(node)"
@@ -335,7 +335,7 @@ export const TEST_BUILDER_TEMPLATE = `
                         </option>
                       </select>
                       <div class="flex items-center justify-between text-[10px] text-slate-400 font-mono">
-                        <span>Đơn vị: {{ node.params.unit || 'N/A' }}</span>
+                        <span>Unit: {{ node.params.unit || 'N/A' }}</span>
                         <span class="text-indigo-400">Path: decoded.{{ node.params.field }}</span>
                       </div>
                     </div>
@@ -344,7 +344,7 @@ export const TEST_BUILDER_TEMPLATE = `
                     <div v-if="node.type === 'comparator'" class="space-y-2">
                       <div class="grid grid-cols-2 gap-2">
                         <div>
-                          <label class="block text-[10px] text-slate-400">Trường:</label>
+                          <label class="block text-[10px] text-slate-400">Field:</label>
                           <select
                             v-model="node.params.field"
                             class="w-full px-2 py-1 rounded-lg bg-slate-950 border border-slate-700 text-white font-mono text-xs"
@@ -353,16 +353,16 @@ export const TEST_BUILDER_TEMPLATE = `
                           </select>
                         </div>
                         <div>
-                          <label class="block text-[10px] text-slate-400">Toán tử:</label>
+                          <label class="block text-[10px] text-slate-400">Operator:</label>
                           <select
                             v-model="node.params.operator"
                             class="w-full px-2 py-1 rounded-lg bg-slate-950 border border-slate-700 text-white font-mono text-xs"
                           >
-                            <option value="EQUALS">== Bằng</option>
-                            <option value="NOT_EQUALS">!= Khác</option>
-                            <option value="GREATER_THAN">&gt; Lớn hơn</option>
-                            <option value="LESS_THAN">&lt; Nhỏ hơn</option>
-                            <option value="BETWEEN">Dải [Min, Max]</option>
+                            <option value="EQUALS">== Equals</option>
+                            <option value="NOT_EQUALS">!= Not Equals</option>
+                            <option value="GREATER_THAN">&gt; Greater Than</option>
+                            <option value="LESS_THAN">&lt; Less Than</option>
+                            <option value="BETWEEN">Range [Min, Max]</option>
                           </select>
                         </div>
                       </div>
@@ -387,7 +387,7 @@ export const TEST_BUILDER_TEMPLATE = `
                         </div>
                       </div>
                       <div v-else>
-                        <label class="block text-[10px] text-slate-400">Giá trị chuẩn:</label>
+                        <label class="block text-[10px] text-slate-400">Expected value:</label>
                         <input
                           v-model="node.params.value"
                           class="w-full px-2 py-1 rounded-lg bg-slate-950 border border-slate-700 text-white font-mono text-xs"
@@ -396,7 +396,7 @@ export const TEST_BUILDER_TEMPLATE = `
 
                       <!-- Severity selection -->
                       <div class="flex items-center justify-between pt-1">
-                        <span class="text-[10px] text-slate-400">Mức phạt:</span>
+                        <span class="text-[10px] text-slate-400">Severity:</span>
                         <div class="flex items-center gap-1">
                           <button
                             type="button"
@@ -404,7 +404,7 @@ export const TEST_BUILDER_TEMPLATE = `
                             :class="node.params.severity === 'ERROR' ? 'bg-rose-500/20 text-rose-400 border-rose-500/40' : 'text-slate-500 border-transparent'"
                             class="px-2 py-0.5 rounded border text-[10px] font-bold uppercase transition"
                           >
-                            Fail (Lỗi)
+                            Fail (Error)
                           </button>
                           <button
                             type="button"
@@ -421,7 +421,7 @@ export const TEST_BUILDER_TEMPLATE = `
                     <!-- COUNTER NODE -->
                     <div v-if="node.type === 'counter'" class="space-y-2">
                       <div>
-                        <label class="block text-[10px] text-slate-400">Số gói tin tối thiểu:</label>
+                        <label class="block text-[10px] text-slate-400">Min packet count:</label>
                         <input
                           type="number"
                           v-model.number="node.params.minPackets"
@@ -430,7 +430,7 @@ export const TEST_BUILDER_TEMPLATE = `
                         />
                       </div>
                       <div class="text-[10px] text-slate-500">
-                        Chỉ đánh giá PASS khi thiết bị gửi tối thiểu {{ node.params.minPackets }} gói tin.
+                        Only evaluate PASS when device sends at least {{ node.params.minPackets }} packets.
                       </div>
                     </div>
 
@@ -438,10 +438,10 @@ export const TEST_BUILDER_TEMPLATE = `
                     <div v-if="node.type === 'verdict'" class="space-y-1.5 font-mono text-[11px] text-slate-400">
                       <div class="text-emerald-400 font-bold flex items-center gap-1.5">
                         <i class="fa-solid fa-check-double"></i>
-                        <span>Đánh giá kết quả QA</span>
+                        <span>QA Verdict Evaluation</span>
                       </div>
-                      <div>Tự động dừng khi pass: <strong class="text-white">BẬT</strong></div>
-                      <div>Kết luận: <strong class="text-emerald-300">PASS</strong> / <strong class="text-rose-400">FAIL</strong></div>
+                      <div>Auto-stop on pass: <strong class="text-white">ON</strong></div>
+                      <div>Verdict: <strong class="text-emerald-300">PASS</strong> / <strong class="text-rose-400">FAIL</strong></div>
                     </div>
 
                   </div>
@@ -454,7 +454,7 @@ export const TEST_BUILDER_TEMPLATE = `
             <div class="relative z-10 pt-4 mt-6 border-t border-slate-900 flex items-center justify-between text-xs text-slate-400 flex-wrap gap-2">
               <div class="flex items-center gap-2">
                 <i class="fa-solid fa-circle-info text-indigo-400"></i>
-                <span>Tất cả các node so khớp sẽ tự động được biên dịch thành danh sách Assertions trong Database.</span>
+                <span>All matching nodes will be automatically compiled into Database Assertions.</span>
               </div>
               <button
                 type="button"
@@ -462,7 +462,7 @@ export const TEST_BUILDER_TEMPLATE = `
                 class="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-indigo-300 text-xs font-bold transition flex items-center gap-1.5"
               >
                 <i class="fa-solid fa-arrows-rotate text-xs"></i>
-                <span>Đồng bộ Assertions</span>
+                <span>Sync Assertions</span>
               </button>
             </div>
 
@@ -472,7 +472,7 @@ export const TEST_BUILDER_TEMPLATE = `
       </div>
 
       <!-- ================================================================= -->
-      <!-- CHẾ ĐỘ 2: FUNCTION SCRIPT EDITOR (JAVASCRIPT VM SANDBOX)          -->
+      <!-- MODE 2: FUNCTION SCRIPT EDITOR (JAVASCRIPT VM SANDBOX)             -->
       <!-- ================================================================= -->
       <div v-show="testBuilderMode === 'SCRIPT'" class="grid grid-cols-1 lg:grid-cols-12 gap-5">
         
@@ -508,14 +508,14 @@ export const TEST_BUILDER_TEMPLATE = `
             <div class="p-3 rounded-xl bg-slate-950/80 border border-slate-800/80 flex items-center justify-between text-xs text-slate-400">
               <div class="flex items-center gap-2">
                 <i class="fa-solid fa-lightbulb text-amber-400"></i>
-                <span>Trả về object dạng <code class="text-indigo-300">{ pass: true/false, reason: '...' }</code> để xác định đạt hay rớt kiểm định.</span>
+                <span>Return object matching <code class="text-indigo-300">{ pass: true/false, reason: '...' }</code> to determine pass/fail verdict.</span>
               </div>
               <button
                 type="button"
                 @click="insertSampleScript"
                 class="text-indigo-400 hover:text-indigo-300 text-xs font-semibold"
               >
-                Chèn script mẫu
+                Insert sample script
               </button>
             </div>
 
@@ -529,14 +529,14 @@ export const TEST_BUILDER_TEMPLATE = `
             <div class="pb-2 border-b border-slate-800">
               <span class="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-2">
                 <i class="fa-solid fa-code text-indigo-400"></i>
-                <span>Biến số khả dụng</span>
+                <span>Available Variables</span>
               </span>
-              <p class="text-[10px] text-slate-500 mt-1">Click vào biến để chèn vào code</p>
+              <p class="text-[10px] text-slate-500 mt-1">Click variable to insert into code</p>
             </div>
 
             <!-- Predefined Objects -->
             <div class="space-y-2 text-xs">
-              <div class="text-[11px] font-bold text-slate-400 uppercase">1. Thuộc tính gói tin (packet)</div>
+              <div class="text-[11px] font-bold text-slate-400 uppercase">1. Packet Properties (packet)</div>
               <div class="space-y-1 font-mono text-[11px]">
                 <div @click="insertCodeSnippet('packet.rssi')" class="p-1.5 rounded bg-slate-950 hover:bg-slate-800 border border-slate-800/80 text-sky-400 cursor-pointer flex justify-between">
                   <span>packet.rssi</span>
@@ -552,7 +552,7 @@ export const TEST_BUILDER_TEMPLATE = `
                 </div>
               </div>
 
-              <div class="text-[11px] font-bold text-slate-400 uppercase pt-2">2. Dữ liệu cảm biến (packet.decoded)</div>
+              <div class="text-[11px] font-bold text-slate-400 uppercase pt-2">2. Sensor Telemetry (packet.decoded)</div>
               <div class="space-y-1 font-mono text-[11px] max-h-48 overflow-y-auto pr-1">
                 <div
                   v-for="f in testAvailableFields"
@@ -565,15 +565,15 @@ export const TEST_BUILDER_TEMPLATE = `
                 </div>
               </div>
 
-              <div class="text-[11px] font-bold text-slate-400 uppercase pt-2">3. Ngữ cảnh phiên (context)</div>
+              <div class="text-[11px] font-bold text-slate-400 uppercase pt-2">3. Session Context (context)</div>
               <div class="space-y-1 font-mono text-[11px]">
                 <div @click="insertCodeSnippet('context.packetCount')" class="p-1.5 rounded bg-slate-950 hover:bg-slate-800 border border-slate-800/80 text-amber-400 cursor-pointer flex justify-between">
                   <span>context.packetCount</span>
-                  <span class="text-slate-500 text-[10px]">Đã nhận</span>
+                  <span class="text-slate-500 text-[10px]">Received</span>
                 </div>
                 <div @click="insertCodeSnippet('context.minPackets')" class="p-1.5 rounded bg-slate-950 hover:bg-slate-800 border border-slate-800/80 text-amber-400 cursor-pointer flex justify-between">
                   <span>context.minPackets</span>
-                  <span class="text-slate-500 text-[10px]">Mục tiêu</span>
+                  <span class="text-slate-500 text-[10px]">Target</span>
                 </div>
               </div>
             </div>
@@ -591,15 +591,15 @@ export const TEST_BUILDER_TEMPLATE = `
         <i class="fa-solid fa-vial-virus"></i>
       </div>
       <div class="space-y-1">
-        <h3 class="text-base font-bold text-white">Chưa có kịch bản kiểm thử nào được chọn</h3>
-        <p class="text-xs text-slate-400">Chọn một kịch bản từ danh sách hoặc bấm "Tạo mới" để bắt đầu cấu hình.</p>
+        <h3 class="text-base font-bold text-white">No test scenario selected</h3>
+        <p class="text-xs text-slate-400">Select a scenario from the list or click "Create New" to start configuring.</p>
       </div>
       <button
         type="button"
         @click="openCreateTestTemplateModal"
         class="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold cursor-pointer transition shadow-lg shadow-indigo-600/20"
       >
-        Tạo kịch bản kiểm thử mới
+        Create New Test Scenario
       </button>
     </div>
 
@@ -618,8 +618,8 @@ export const TEST_BUILDER_MODALS = `
             <i class="fa-solid fa-bolt text-sm"></i>
           </div>
           <div>
-            <h3 class="text-sm font-bold text-white">Chạy thử Sandbox (Dry-Run Simulator)</h3>
-            <p class="text-xs text-slate-400">Mô phỏng gói tin Uplink để kiểm tra toàn bộ điều kiện và script</p>
+            <h3 class="text-sm font-bold text-white">Sandbox Dry-Run Simulator</h3>
+            <p class="text-xs text-slate-400">Simulate uplink packets to test all conditions and scripts</p>
           </div>
         </div>
         <button @click="showDryRunModal = false" class="text-slate-400 hover:text-white transition">
@@ -630,7 +630,7 @@ export const TEST_BUILDER_MODALS = `
       <!-- Dry Run Form -->
       <div class="space-y-3 text-xs">
         <div>
-          <label class="block text-slate-300 font-semibold mb-1">Dữ liệu Mock Packet (JSON Payload):</label>
+          <label class="block text-slate-300 font-semibold mb-1">Mock Packet Data (JSON Payload):</label>
           <textarea
             v-model="dryRunPayloadRaw"
             rows="6"
@@ -640,7 +640,7 @@ export const TEST_BUILDER_MODALS = `
 
         <div class="grid grid-cols-2 gap-3">
           <div>
-            <label class="block text-slate-400 mb-1">Số gói tin giả lập (packetCount):</label>
+            <label class="block text-slate-400 mb-1">Simulated packet count (packetCount):</label>
             <input
               type="number"
               v-model.number="dryRunContext.packetCount"
@@ -648,7 +648,7 @@ export const TEST_BUILDER_MODALS = `
             />
           </div>
           <div>
-            <label class="block text-slate-400 mb-1">Thời gian giả lập (durationSeconds):</label>
+            <label class="block text-slate-400 mb-1">Simulated duration (durationSeconds):</label>
             <input
               type="number"
               v-model.number="dryRunContext.durationSeconds"
@@ -662,7 +662,7 @@ export const TEST_BUILDER_MODALS = `
           <div class="flex items-center justify-between pb-2 mb-2 border-b border-slate-800">
             <span class="font-bold flex items-center gap-2" :class="dryRunResponse.pass ? 'text-emerald-400' : 'text-rose-400'">
               <i class="fa-solid" :class="dryRunResponse.pass ? 'fa-circle-check' : 'fa-circle-xmark'"></i>
-              <span>KẾT QUẢ: {{ dryRunResponse.pass ? 'PASSED (ĐẠT CHUẨN)' : 'FAILED (KHÔNG ĐẠT)' }}</span>
+              <span>VERDICT: {{ dryRunResponse.pass ? 'PASSED' : 'FAILED' }}</span>
             </span>
             <span class="text-[11px] font-mono text-slate-400">{{ dryRunResponse.executionTimeMs }}ms</span>
           </div>
@@ -685,7 +685,7 @@ export const TEST_BUILDER_MODALS = `
           <!-- Script result -->
           <div v-if="dryRunResponse.scriptResult" class="mt-2 pt-2 border-t border-slate-800/80 text-[11px] font-mono">
             <div>Script Verdict: <strong :class="dryRunResponse.scriptResult.pass ? 'text-emerald-400' : 'text-rose-400'">{{ dryRunResponse.scriptResult.pass ? 'PASS' : 'FAIL' }}</strong></div>
-            <div v-if="dryRunResponse.scriptResult.reason" class="text-rose-300 mt-0.5">Lý do: {{ dryRunResponse.scriptResult.reason }}</div>
+            <div v-if="dryRunResponse.scriptResult.reason" class="text-rose-300 mt-0.5">Reason: {{ dryRunResponse.scriptResult.reason }}</div>
           </div>
         </div>
       </div>
@@ -697,7 +697,7 @@ export const TEST_BUILDER_MODALS = `
           @click="showDryRunModal = false"
           class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold transition"
         >
-          Đóng
+          Close
         </button>
         <button
           type="button"
@@ -706,7 +706,7 @@ export const TEST_BUILDER_MODALS = `
           class="px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-500 disabled:opacity-50 text-white text-xs font-bold flex items-center gap-2 transition cursor-pointer"
         >
           <i class="fa-solid" :class="isRunningDryRun ? 'fa-spinner fa-spin' : 'fa-play'"></i>
-          <span>{{ isRunningDryRun ? 'Đang chạy...' : 'Chạy thử ngay' }}</span>
+          <span>{{ isRunningDryRun ? 'Running...' : 'Run Test Now' }}</span>
         </button>
       </div>
 
@@ -722,7 +722,7 @@ export const TEST_BUILDER_MODALS = `
           <div class="w-8 h-8 rounded-lg bg-indigo-500/20 border border-indigo-500/40 flex items-center justify-center text-indigo-400">
             <i class="fa-solid fa-plus text-sm"></i>
           </div>
-          <h3 class="text-sm font-bold text-white">Tạo kịch bản kiểm định mới</h3>
+          <h3 class="text-sm font-bold text-white">Create New Test Scenario</h3>
         </div>
         <button @click="showCreateTestTemplateModal = false" class="text-slate-400 hover:text-white transition">
           <i class="fa-solid fa-xmark text-base"></i>
@@ -731,28 +731,28 @@ export const TEST_BUILDER_MODALS = `
 
       <div class="space-y-3 text-xs">
         <div>
-          <label class="block text-slate-300 font-semibold mb-1">Tên kịch bản (*):</label>
+          <label class="block text-slate-300 font-semibold mb-1">Scenario Name (*):</label>
           <input
             v-model="newTestTemplateForm.name"
-            placeholder="vd: Kiểm định xuất xưởng WSLRW-CO2"
+            placeholder="e.g. Factory Acceptance Test WSLRW-CO2"
             class="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white font-medium"
           />
         </div>
 
         <div class="grid grid-cols-2 gap-3">
           <div>
-            <label class="block text-slate-300 font-semibold mb-1">Mã kịch bản (*):</label>
+            <label class="block text-slate-300 font-semibold mb-1">Scenario Code (*):</label>
             <input
               v-model="newTestTemplateForm.code"
-              placeholder="vd: TPL_CO2_EXP"
+              placeholder="e.g. TPL_CO2_EXP"
               class="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white font-mono uppercase"
             />
           </div>
           <div>
-            <label class="block text-slate-300 font-semibold mb-1">SKU thiết bị (*):</label>
+            <label class="block text-slate-300 font-semibold mb-1">Device SKU (*):</label>
             <input
               v-model="newTestTemplateForm.sku"
-              placeholder="vd: WSLRW-CO2"
+              placeholder="e.g. WSLRW-CO2"
               class="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white font-mono uppercase"
             />
           </div>
@@ -786,7 +786,7 @@ export const TEST_BUILDER_MODALS = `
         </div>
 
         <div>
-          <label class="block text-slate-400 mb-1">Mô tả mục tiêu kiểm định:</label>
+          <label class="block text-slate-400 mb-1">Description:</label>
           <textarea
             v-model="newTestTemplateForm.description"
             rows="2"
@@ -801,7 +801,7 @@ export const TEST_BUILDER_MODALS = `
           @click="showCreateTestTemplateModal = false"
           class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold transition"
         >
-          Hủy
+          Cancel
         </button>
         <button
           type="button"
@@ -810,7 +810,7 @@ export const TEST_BUILDER_MODALS = `
           class="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white text-xs font-bold flex items-center gap-2 transition cursor-pointer"
         >
           <i class="fa-solid" :class="isCreatingTestTemplate ? 'fa-spinner fa-spin' : 'fa-check'"></i>
-          <span>{{ isCreatingTestTemplate ? 'Đang tạo...' : 'Tạo kịch bản' }}</span>
+          <span>{{ isCreatingTestTemplate ? 'Creating...' : 'Create Scenario' }}</span>
         </button>
       </div>
 
@@ -956,7 +956,7 @@ export const TEST_BUILDER_SCRIPT = `
       }
 
       activeTestTemplate.value.flowConfig.nodes.push(node);
-      showToast('Đã thêm node: ' + node.label, 'success');
+      showToast('Added node: ' + node.label, 'success');
     };
 
     const addExtractorNodeForField = (field) => {
@@ -971,7 +971,7 @@ export const TEST_BUILDER_SCRIPT = `
         params: { field: field.name, label: field.label || field.name, unit: field.unit || '' }
       };
       activeTestTemplate.value.flowConfig.nodes.push(node);
-      showToast('Đã thêm Extractor cho trường: ' + field.name, 'success');
+      showToast('Added Extractor for field: ' + field.name, 'success');
     };
 
     const onExtractorFieldChange = (node) => {
@@ -985,7 +985,7 @@ export const TEST_BUILDER_SCRIPT = `
     const removeFlowNode = (nodeId) => {
       if (!activeTestTemplate.value || !activeTestTemplate.value.flowConfig) return;
       activeTestTemplate.value.flowConfig.nodes = activeTestTemplate.value.flowConfig.nodes.filter(n => n.id !== nodeId);
-      showToast('Đã gỡ node khỏi Flow', 'info');
+      showToast('Removed node from Flow', 'info');
     };
 
     const compileFlowToAssertions = () => {
@@ -1011,7 +1011,7 @@ export const TEST_BUILDER_SCRIPT = `
       });
 
       activeTestTemplate.value.assertions = assertions;
-      showToast('Đã đồng bộ ' + assertions.length + ' assertions từ Flow', 'success');
+      showToast('Synced ' + assertions.length + ' assertions from Flow', 'success');
       return assertions;
     };
 
@@ -1027,22 +1027,22 @@ export const TEST_BUILDER_SCRIPT = `
         ' */',
         'function evaluate(packet, context) {',
         '  if (context.packetCount < context.minPackets) {',
-        '    return { pass: false, reason: "Chưa đủ số lượng gói tin quy định (" + context.packetCount + "/" + context.minPackets + ")" };',
+        '    return { pass: false, reason: "Insufficient packet count (" + context.packetCount + "/" + context.minPackets + ")" };',
         '  }',
         '  const decoded = packet.decoded || {};'
       ];
 
       assertions.forEach(a => {
         if (a.operator === 'BETWEEN' && a.expectedValue) {
-          lines.push('  // Kiểm tra dải chuẩn: ' + a.fieldName);
+          lines.push('  // Range check: ' + a.fieldName);
           lines.push('  if (decoded.' + a.fieldName + ' !== undefined) {');
           lines.push('    if (decoded.' + a.fieldName + ' < ' + a.expectedValue.min + ' || decoded.' + a.fieldName + ' > ' + a.expectedValue.max + ') {');
-          lines.push('      return { pass: false, reason: "' + a.fieldName + ' (" + decoded.' + a.fieldName + ') ngoài dải chuẩn [' + a.expectedValue.min + ', ' + a.expectedValue.max + ']" };');
+          lines.push('      return { pass: false, reason: "' + a.fieldName + ' (" + decoded.' + a.fieldName + ') out of expected range [' + a.expectedValue.min + ', ' + a.expectedValue.max + ']" };');
           lines.push('    }');
           lines.push('  }');
         } else if (a.operator === 'GREATER_THAN') {
           lines.push('  if (packet.' + a.fieldName + ' !== undefined && packet.' + a.fieldName + ' <= ' + a.expectedValue + ') {');
-          lines.push('    return { pass: false, reason: "' + a.fieldName + ' không đạt ngưỡng > ' + a.expectedValue + '" };');
+          lines.push('    return { pass: false, reason: "' + a.fieldName + ' does not exceed threshold > ' + a.expectedValue + '" };');
           lines.push('  }');
         }
       });
@@ -1052,31 +1052,31 @@ export const TEST_BUILDER_SCRIPT = `
 
       activeTestTemplate.value.customScript = lines.join('\\n');
       testBuilderMode.value = 'SCRIPT';
-      showToast('Đã chuyển đổi Flow thành Function Script!', 'success');
+      showToast('Converted Flow to Function Script!', 'success');
     };
 
     const insertCodeSnippet = (snippet) => {
       if (!activeTestTemplate.value) return;
       activeTestTemplate.value.customScript = (activeTestTemplate.value.customScript || '') + ' ' + snippet;
-      showToast('Đã chèn biến: ' + snippet, 'info');
+      showToast('Inserted variable: ' + snippet, 'info');
     };
 
     const insertSampleScript = () => {
       if (!activeTestTemplate.value) return;
       activeTestTemplate.value.customScript = \`function evaluate(packet, context) {
   if (context.packetCount < context.minPackets) {
-    return { pass: false, reason: 'Chưa đủ ' + context.minPackets + ' gói tin' };
+    return { pass: false, reason: 'Insufficient packets: ' + context.packetCount + '/' + context.minPackets };
   }
   if (packet.rssi < -120) {
-    return { pass: false, reason: 'Tín hiệu RSSI yếu: ' + packet.rssi + ' dBm' };
+    return { pass: false, reason: 'Weak RSSI signal: ' + packet.rssi + ' dBm' };
   }
   const decoded = packet.decoded || {};
   if (decoded.temperature !== undefined && (decoded.temperature < 0 || decoded.temperature > 65)) {
-    return { pass: false, reason: 'Nhiệt độ bất thường: ' + decoded.temperature + ' °C' };
+    return { pass: false, reason: 'Abnormal temperature: ' + decoded.temperature + ' °C' };
   }
   return { pass: true, metrics: { packetCount: context.packetCount, temp: decoded.temperature } };
 }\`;
-      showToast('Đã nạp script mẫu chuẩn', 'success');
+      showToast('Sample script loaded successfully', 'success');
     };
 
     const saveCurrentTestTemplate = async () => {
@@ -1105,14 +1105,14 @@ export const TEST_BUILDER_SCRIPT = `
         });
 
         if (res.ok) {
-          showToast('Đã lưu kịch bản kiểm thử thành công!', 'success');
+          showToast('Test scenario saved successfully!', 'success');
           await fetchTestTemplates();
         } else {
           const errData = await res.json().catch(() => ({}));
-          showToast(errData.message || 'Lỗi khi lưu kịch bản', 'error');
+          showToast(errData.message || 'Failed to save test scenario', 'error');
         }
       } catch (err) {
-        showToast('Lỗi kết nối lưu kịch bản: ' + err.message, 'error');
+        showToast('Connection error while saving scenario: ' + err.message, 'error');
       } finally {
         isSavingTestTemplate.value = false;
       }
@@ -1124,7 +1124,7 @@ export const TEST_BUILDER_SCRIPT = `
 
     const createTestTemplate = async () => {
       if (!newTestTemplateForm.value.name || !newTestTemplateForm.value.code || !newTestTemplateForm.value.sku) {
-        showToast('Vui lòng điền đủ Tên, Mã kịch bản và SKU', 'warning');
+        showToast('Please provide Scenario Name, Code, and SKU', 'warning');
         return;
       }
       isCreatingTestTemplate.value = true;
@@ -1155,17 +1155,17 @@ export const TEST_BUILDER_SCRIPT = `
 
         if (res.ok) {
           const created = await res.json();
-          showToast('Tạo kịch bản kiểm thử mới thành công!', 'success');
+          showToast('New test scenario created successfully!', 'success');
           showCreateTestTemplateModal.value = false;
           await fetchTestTemplates();
           activeTestTemplateId.value = created.id;
           onTestTemplateSelectChange();
         } else {
           const err = await res.json().catch(() => ({}));
-          showToast(err.message || 'Không thể tạo kịch bản', 'error');
+          showToast(err.message || 'Failed to create test scenario', 'error');
         }
       } catch (err) {
-        showToast('Lỗi kết nối: ' + err.message, 'error');
+        showToast('Connection error: ' + err.message, 'error');
       } finally {
         isCreatingTestTemplate.value = false;
       }
@@ -1173,20 +1173,20 @@ export const TEST_BUILDER_SCRIPT = `
 
     const openDeleteTestTemplateModal = async () => {
       if (!activeTestTemplate.value) return;
-      if (!confirm('Bạn có chắc chắn muốn xóa kịch bản [' + activeTestTemplate.value.name + '] không?')) return;
+      if (!confirm('Are you sure you want to delete test scenario [' + activeTestTemplate.value.name + ']?')) return;
       try {
         const res = await fetch('/api/c-modules/test-builder/templates/' + activeTestTemplate.value.id, {
           method: 'DELETE',
           headers: credentials()
         });
         if (res.ok) {
-          showToast('Đã xóa kịch bản kiểm thử', 'success');
+          showToast('Test scenario deleted successfully', 'success');
           activeTestTemplateId.value = '';
           activeTestTemplate.value = null;
           await fetchTestTemplates();
         }
       } catch (err) {
-        showToast('Lỗi khi xóa: ' + err.message, 'error');
+        showToast('Failed to delete scenario: ' + err.message, 'error');
       }
     };
 
@@ -1203,7 +1203,7 @@ export const TEST_BUILDER_SCRIPT = `
         try {
           mockPacket = JSON.parse(dryRunPayloadRaw.value);
         } catch (e) {
-          showToast('JSON Payload không hợp lệ: ' + e.message, 'error');
+          showToast('Invalid JSON Payload: ' + e.message, 'error');
           isRunningDryRun.value = false;
           return;
         }
@@ -1225,13 +1225,13 @@ export const TEST_BUILDER_SCRIPT = `
 
         if (res.ok) {
           dryRunResponse.value = await res.json();
-          showToast('Chạy thử Dry-Run hoàn tất', dryRunResponse.value.pass ? 'success' : 'warning');
+          showToast('Dry-Run test completed', dryRunResponse.value.pass ? 'success' : 'warning');
         } else {
           const err = await res.json().catch(() => ({}));
-          showToast(err.message || 'Lỗi khi chạy dry run', 'error');
+          showToast(err.message || 'Error running dry-run test', 'error');
         }
       } catch (err) {
-        showToast('Lỗi kết nối dry run: ' + err.message, 'error');
+        showToast('Connection error during dry run: ' + err.message, 'error');
       } finally {
         isRunningDryRun.value = false;
       }

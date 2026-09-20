@@ -26,6 +26,8 @@
     "decoder": "core_db",
     "webhook_logs": "core_db",
     "hmi_screens": "core_db",
-    "modbus_presets": "core_db"
+    "modbus_presets": "core_db",
+    "test_templates": "core_db",
+    "test_assertions": "core_db"
   }
 }

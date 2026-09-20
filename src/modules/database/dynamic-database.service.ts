@@ -15,6 +15,8 @@ import { WebhookLogEntity } from '../c-modules/webhook-admin/entities/webhook-lo
 import { HmiScreenEntity } from '../c-modules/hmi-studio/entities/hmi-screen.entity';
 import { DownlinkLogEntity } from '../network-servers/entities/downlink-log.entity';
 import { ModbusPresetEntity } from '../c-modules/modbus-presets/entities/modbus-preset.entity';
+import { TestTemplateEntity } from '../c-modules/test-builder/entities/test-template.entity';
+import { TestAssertionEntity } from '../c-modules/test-builder/entities/test-assertion.entity';
 
 export const ALL_DATABASE_ENTITIES = [
   User,
@@ -30,6 +32,8 @@ export const ALL_DATABASE_ENTITIES = [
   HmiScreenEntity,
   DownlinkLogEntity,
   ModbusPresetEntity,
+  TestTemplateEntity,
+  TestAssertionEntity,
 ];
 
 export interface DbConnectionConfig {
