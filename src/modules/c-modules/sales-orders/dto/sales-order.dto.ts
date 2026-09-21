@@ -16,15 +16,20 @@ import { SalesOrderStatus, SalesOrderSource } from '../entities/sales-order.enti
 import { SalesOrderItemStatus } from '../entities/sales-order-item.entity';
 
 export class CreateSalesOrderItemDto {
+  @ApiPropertyOptional({ description: 'Catalog Item Code UUID (if selecting existing)' })
+  @IsOptional()
+  @IsUUID()
+  itemCodeId?: string;
+
   @ApiProperty({ description: 'Item Code within SO (e.g. ITEM-001, WSLRW-ATH-01)', example: 'ITEM-001' })
   @IsNotEmpty()
   @IsString()
   itemCode: string;
 
-  @ApiProperty({ description: 'Device SKU (e.g. WSLRW-ATH)', example: 'WSLRW-ATH' })
-  @IsNotEmpty()
+  @ApiPropertyOptional({ description: 'Device SKU (e.g. WSLRW-ATH)', example: 'WSLRW-ATH' })
+  @IsOptional()
   @IsString()
-  sku: string;
+  sku?: string;
 
   @ApiPropertyOptional({ description: 'Ordered quantity', example: 10, default: 1 })
   @IsOptional()
@@ -104,6 +109,11 @@ export class UpdateSalesOrderItemDto {
   @IsOptional()
   @IsUUID()
   id?: string;
+
+  @ApiPropertyOptional({ description: 'Catalog Item Code UUID' })
+  @IsOptional()
+  @IsUUID()
+  itemCodeId?: string;
 
   @ApiPropertyOptional({ description: 'Item Code' })
   @IsOptional()
@@ -238,4 +248,54 @@ export class QuerySalesOrderDto {
   @IsOptional()
   @IsString()
   source?: string;
+}
+
+export class AttachItemCodeLineDto {
+  @ApiPropertyOptional({ description: 'Catalog Item Code UUID (if selecting existing)' })
+  @IsOptional()
+  @IsUUID()
+  itemCodeId?: string;
+
+  @ApiProperty({ description: 'Item Code identifier', example: 'ITEM-WSLRW-ATH-01' })
+  @IsNotEmpty()
+  @IsString()
+  itemCode: string;
+
+  @ApiPropertyOptional({ description: 'Device SKU' })
+  @IsOptional()
+  @IsString()
+  sku?: string;
+
+  @ApiPropertyOptional({ description: 'Target firmware version without v prefix' })
+  @IsOptional()
+  @IsString()
+  firmwareVersion?: string;
+
+  @ApiPropertyOptional({ description: 'Ordered quantity', example: 50, default: 1 })
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  quantity?: number = 1;
+
+  @ApiPropertyOptional({ description: 'Test Template UUID' })
+  @IsOptional()
+  @IsUUID()
+  templateId?: string;
+
+  @ApiPropertyOptional({ description: 'Line item remarks' })
+  @IsOptional()
+  @IsString()
+  notes?: string;
+
+  @ApiPropertyOptional({ description: 'Metadata' })
+  @IsOptional()
+  metadata?: Record<string, any>;
+}
+
+export class AttachItemCodesDto {
+  @ApiProperty({ type: [AttachItemCodeLineDto], description: 'List of items to attach' })
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => AttachItemCodeLineDto)
+  items: AttachItemCodeLineDto[];
 }

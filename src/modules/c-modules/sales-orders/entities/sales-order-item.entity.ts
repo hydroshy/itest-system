@@ -11,6 +11,7 @@ import {
 } from 'typeorm';
 import { SalesOrderEntity } from './sales-order.entity';
 import { TestTemplateEntity } from '../../test-builder/entities/test-template.entity';
+import { ItemCodeEntity } from '../../item-codes/entities/item-code.entity';
 
 export enum SalesOrderItemStatus {
   PENDING = 'PENDING',
@@ -38,6 +39,17 @@ export class SalesOrderItemEntity {
   @Index('idx_sales_order_items_item_code')
   @Column({ type: 'varchar', length: 100 })
   itemCode: string;
+
+  @Index('idx_sales_order_items_item_code_id')
+  @Column({ type: 'uuid', nullable: true })
+  itemCodeId?: string;
+
+  @ManyToOne(() => ItemCodeEntity, {
+    nullable: true,
+    onDelete: 'SET NULL',
+  })
+  @JoinColumn({ name: 'itemCodeId' })
+  itemCodeRef?: ItemCodeEntity;
 
   @Index('idx_sales_order_items_sku')
   @Column({ type: 'varchar', length: 255 })

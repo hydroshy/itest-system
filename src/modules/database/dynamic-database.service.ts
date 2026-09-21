@@ -19,6 +19,7 @@ import { TestTemplateEntity } from '../c-modules/test-builder/entities/test-temp
 import { TestAssertionEntity } from '../c-modules/test-builder/entities/test-assertion.entity';
 import { SalesOrderEntity } from '../c-modules/sales-orders/entities/sales-order.entity';
 import { SalesOrderItemEntity } from '../c-modules/sales-orders/entities/sales-order-item.entity';
+import { ItemCodeEntity } from '../c-modules/item-codes/entities/item-code.entity';
 
 export const ALL_DATABASE_ENTITIES = [
   User,
@@ -38,6 +39,7 @@ export const ALL_DATABASE_ENTITIES = [
   TestAssertionEntity,
   SalesOrderEntity,
   SalesOrderItemEntity,
+  ItemCodeEntity,
 ];
 
 export interface DbConnectionConfig {

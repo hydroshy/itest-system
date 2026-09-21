@@ -19,11 +19,13 @@ import {
   CreateSalesOrderDto,
   UpdateSalesOrderDto,
   QuerySalesOrderDto,
+  AttachItemCodesDto,
 } from './dto/sales-order.dto';
 import { OdooImportDto, OdooOrderLineDto } from './dto/odoo-import.dto';
 import { CsvImportDto } from './dto/csv-import.dto';
 import { OdooApiSyncDto } from './dto/odoo-api-sync.dto';
 import { TestTemplateEntity } from '../test-builder/entities/test-template.entity';
+import { normalizeSoCode, sanitizeFirmwareVersion } from '../item-codes/item-code-utils';
 
 @Injectable()
 export class SalesOrdersService {
@@ -67,47 +69,105 @@ export class SalesOrdersService {
   }
 
   /**
+   * Resolve item fields through the Master Item Code Catalog waterfall (Spec Section 5.5):
+   * 1. Catalog ID Match (itemCodeId): If itemCodeId is given, load catalog record
+   * 2. Catalog Code Match (itemCode): If itemCodeId is omitted, lookup item_codes by itemCode
+   * 3. Fallback: sanitize firmwareVersion, validate SKU, and match template via findTemplateForSku
+   */
+  public async resolveItemFields(item: {
+    itemCodeId?: string;
+    itemCode: string;
+    sku?: string;
+    firmwareVersion?: string;
+    templateId?: string;
+    quantity?: number;
+    notes?: string;
+    metadata?: any;
+    status?: SalesOrderItemStatus;
+  }): Promise<Partial<SalesOrderItemEntity>> {
+    let resolvedItemCodeId = item.itemCodeId;
+    let resolvedSku = item.sku ? item.sku.trim() : undefined;
+    let rawFw = item.firmwareVersion;
+    let resolvedTemplateId = item.templateId;
+
+    // 1. Catalog ID Match
+    if (resolvedItemCodeId && typeof this.repository.findItemCodeById === 'function') {
+      const catalogItem = await this.repository.findItemCodeById(resolvedItemCodeId);
+      if (catalogItem) {
+        resolvedSku = resolvedSku || catalogItem.sku;
+        rawFw =
+          rawFw !== undefined && rawFw !== null && rawFw !== ''
+            ? rawFw
+            : catalogItem.firmwareVersion;
+        if (!resolvedTemplateId) {
+          resolvedTemplateId = catalogItem.defaultTemplateId;
+        }
+      }
+    } else if (item.itemCode && typeof this.repository.findItemCodeByCode === 'function') {
+      // 2. Catalog Code Match
+      const catalogItem = await this.repository.findItemCodeByCode(item.itemCode);
+      if (catalogItem) {
+        resolvedItemCodeId = catalogItem.id;
+        resolvedSku = resolvedSku || catalogItem.sku;
+        rawFw =
+          rawFw !== undefined && rawFw !== null && rawFw !== ''
+            ? rawFw
+            : catalogItem.firmwareVersion;
+        if (!resolvedTemplateId) {
+          resolvedTemplateId = catalogItem.defaultTemplateId;
+        }
+      }
+    }
+
+    // 3. Fallback & sanitization
+    const cleanFw = sanitizeFirmwareVersion(rawFw);
+    if (!resolvedSku) {
+      throw new BadRequestException(`Device SKU is required for Item Code '${item.itemCode}'`);
+    }
+
+    if (!resolvedTemplateId) {
+      const match = await this.repository.findTemplateForSku(resolvedSku, cleanFw);
+      if (match.matched && match.template) {
+        resolvedTemplateId = match.template.id;
+      }
+    }
+
+    return {
+      itemCodeId: resolvedItemCodeId,
+      itemCode: item.itemCode.trim(),
+      sku: resolvedSku,
+      firmwareVersion: cleanFw,
+      quantity: item.quantity !== undefined ? item.quantity : 1,
+      templateId: resolvedTemplateId,
+      notes: item.notes,
+      metadata: item.metadata || {},
+      status: item.status || SalesOrderItemStatus.PENDING,
+    };
+  }
+
+  /**
    * Create manual Sales Order with items & template auto-matching
    */
   public async create(dto: CreateSalesOrderDto, createdBy?: string): Promise<SalesOrderEntity> {
-    const existing = await this.repository.findBySoCode(dto.soCode);
+    const targetSoCode = normalizeSoCode(dto.soCode);
+    const existing = await this.repository.findBySoCode(targetSoCode);
     if (existing) {
-      throw new ConflictException(`Sales Order code '${dto.soCode}' already exists`);
+      throw new ConflictException(`Sales Order code '${targetSoCode}' already exists`);
     }
 
     if (!dto.items || dto.items.length === 0) {
       throw new BadRequestException('Sales Order must contain at least one Item Code');
     }
 
-    // Resolve templates for items where templateId is omitted
+    // Resolve templates & master catalog links for items
     const preparedItems: Partial<SalesOrderItemEntity>[] = [];
     for (const itemDto of dto.items) {
-      let resolvedTemplateId = itemDto.templateId;
-      if (!resolvedTemplateId) {
-        const match = await this.repository.findTemplateForSku(
-          itemDto.sku,
-          itemDto.firmwareVersion,
-        );
-        if (match.matched && match.template) {
-          resolvedTemplateId = match.template.id;
-        }
-      }
-
-      preparedItems.push({
-        itemCode: itemDto.itemCode.trim(),
-        sku: itemDto.sku.trim(),
-        quantity: itemDto.quantity || 1,
-        firmwareVersion: itemDto.firmwareVersion || '1.0',
-        templateId: resolvedTemplateId,
-        notes: itemDto.notes,
-        metadata: itemDto.metadata || {},
-        status: SalesOrderItemStatus.PENDING,
-      });
+      preparedItems.push(await this.resolveItemFields(itemDto));
     }
 
     const newSo = await this.repository.createSalesOrder(
       {
-        soCode: dto.soCode.trim(),
+        soCode: targetSoCode,
         customer: dto.customer?.trim(),
         orderDate: dto.orderDate ? new Date(dto.orderDate) : new Date(),
         status: dto.status || SalesOrderStatus.DRAFT,
@@ -124,6 +184,30 @@ export class SalesOrdersService {
   }
 
   /**
+   * Attach one or multiple catalog items into an existing Sales Order
+   */
+  public async attachItems(
+    salesOrderId: string,
+    dto: AttachItemCodesDto,
+  ): Promise<SalesOrderEntity> {
+    const order = await this.repository.findById(salesOrderId);
+    if (!order) {
+      throw new NotFoundException(`Sales Order [${salesOrderId}] not found`);
+    }
+
+    if (!dto.items || dto.items.length === 0) {
+      throw new BadRequestException('At least one Item Code must be provided to attach');
+    }
+
+    const preparedItems: Partial<SalesOrderItemEntity>[] = [];
+    for (const itemDto of dto.items) {
+      preparedItems.push(await this.resolveItemFields(itemDto));
+    }
+
+    return await this.repository.attachItemsToSalesOrder(order.id, preparedItems);
+  }
+
+  /**
    * Update Sales Order and its item list
    */
   public async update(id: string, dto: UpdateSalesOrderDto): Promise<SalesOrderEntity> {
@@ -132,10 +216,13 @@ export class SalesOrdersService {
       throw new NotFoundException(`Sales Order [${id}] not found`);
     }
 
-    if (dto.soCode && dto.soCode.trim() !== existing.soCode) {
-      const conflict = await this.repository.findBySoCode(dto.soCode);
-      if (conflict && conflict.id !== existing.id) {
-        throw new ConflictException(`Sales Order code '${dto.soCode}' already exists`);
+    if (dto.soCode) {
+      const normalizedCode = normalizeSoCode(dto.soCode);
+      if (normalizedCode !== existing.soCode) {
+        const conflict = await this.repository.findBySoCode(normalizedCode);
+        if (conflict && conflict.id !== existing.id) {
+          throw new ConflictException(`Sales Order code '${normalizedCode}' already exists`);
+        }
       }
     }
 
@@ -144,11 +231,32 @@ export class SalesOrdersService {
       preparedItems = [];
       for (const itemDto of dto.items) {
         let resolvedTemplateId = itemDto.templateId;
-        if (!resolvedTemplateId && itemDto.sku) {
-          const match = await this.repository.findTemplateForSku(
-            itemDto.sku,
-            itemDto.firmwareVersion,
-          );
+        let resolvedItemCodeId = itemDto.itemCodeId;
+        let sku = itemDto.sku?.trim();
+        let fw =
+          itemDto.firmwareVersion !== undefined
+            ? sanitizeFirmwareVersion(itemDto.firmwareVersion)
+            : undefined;
+
+        if (resolvedItemCodeId && !sku && typeof this.repository.findItemCodeById === 'function') {
+          const catalogItem = await this.repository.findItemCodeById(resolvedItemCodeId);
+          if (catalogItem) {
+            sku = catalogItem.sku;
+            fw = fw || catalogItem.firmwareVersion;
+            resolvedTemplateId = resolvedTemplateId || catalogItem.defaultTemplateId;
+          }
+        } else if (itemDto.itemCode && !resolvedItemCodeId && typeof this.repository.findItemCodeByCode === 'function') {
+          const catalogItem = await this.repository.findItemCodeByCode(itemDto.itemCode);
+          if (catalogItem) {
+            resolvedItemCodeId = catalogItem.id;
+            sku = sku || catalogItem.sku;
+            fw = fw || catalogItem.firmwareVersion;
+            resolvedTemplateId = resolvedTemplateId || catalogItem.defaultTemplateId;
+          }
+        }
+
+        if (!resolvedTemplateId && sku) {
+          const match = await this.repository.findTemplateForSku(sku, fw);
           if (match.matched && match.template) {
             resolvedTemplateId = match.template.id;
           }
@@ -156,10 +264,11 @@ export class SalesOrdersService {
 
         preparedItems.push({
           id: itemDto.id,
+          itemCodeId: resolvedItemCodeId,
           itemCode: itemDto.itemCode?.trim(),
-          sku: itemDto.sku?.trim(),
+          sku,
           quantity: itemDto.quantity,
-          firmwareVersion: itemDto.firmwareVersion,
+          firmwareVersion: fw || '1.0',
           templateId: resolvedTemplateId,
           testedQuantity: itemDto.testedQuantity,
           passedQuantity: itemDto.passedQuantity,
@@ -174,7 +283,7 @@ export class SalesOrdersService {
     const updated = await this.repository.updateSalesOrder(
       existing.id,
       {
-        soCode: dto.soCode ? dto.soCode.trim() : existing.soCode,
+        soCode: dto.soCode ? normalizeSoCode(dto.soCode) : existing.soCode,
         customer: dto.customer !== undefined ? dto.customer?.trim() : existing.customer,
         orderDate: dto.orderDate ? new Date(dto.orderDate) : existing.orderDate,
         status: dto.status || existing.status,
@@ -228,10 +337,11 @@ export class SalesOrdersService {
     const importedOrders: SalesOrderEntity[] = [];
 
     for (const rawOrder of ordersList) {
-      const soCode = (rawOrder.name || rawOrder.soCode || rawOrder.code || '').trim();
-      if (!soCode) {
+      const rawSoCode = (rawOrder.name || rawOrder.soCode || rawOrder.code || '').trim();
+      if (!rawSoCode) {
         throw new BadRequestException('Odoo order missing order name / soCode');
       }
+      const soCode = normalizeSoCode(rawSoCode);
 
       let customer = '';
       if (Array.isArray(rawOrder.partner_id) && rawOrder.partner_id[1]) {
@@ -257,24 +367,20 @@ export class SalesOrdersService {
           (line.name && line.name.length <= 50 && !line.name.includes('\n') ? line.name : null) ||
           `${soCode}-${String(idx + 1).padStart(2, '0')}`;
         const quantity = Math.max(1, Number(line.product_uom_qty || line.quantity) || 1);
-        const firmwareVersion = line.firmware_version || '1.0';
 
-        // Auto-match test template
-        const match = await this.repository.findTemplateForSku(sku, firmwareVersion);
-
-        preparedItems.push({
-          itemCode: itemCode.trim(),
-          sku: sku.trim(),
+        const prepared = await this.resolveItemFields({
+          itemCode,
+          sku,
+          firmwareVersion: line.firmware_version,
           quantity,
-          firmwareVersion,
-          templateId: match.matched && match.template ? match.template.id : undefined,
           notes: line.notes || (line.name && line.name !== itemCode ? line.name : undefined),
           metadata: {
             odooLineId: line.id,
             odooProductId: line.product_id,
           },
-          status: SalesOrderItemStatus.PENDING,
         });
+
+        preparedItems.push(prepared);
       }
 
       // Check if already exists
@@ -337,8 +443,9 @@ export class SalesOrdersService {
     const grouped = new Map<string, { orderInfo: any; items: any[] }>();
 
     for (const record of records) {
-      const soCode = (record['socode'] || record['so'] || record['code'] || '').trim();
-      if (!soCode) continue;
+      const rawSoCode = (record['socode'] || record['so'] || record['code'] || '').trim();
+      if (!rawSoCode) continue;
+      const soCode = normalizeSoCode(rawSoCode);
 
       if (!grouped.has(soCode)) {
         grouped.set(soCode, {
@@ -381,16 +488,14 @@ export class SalesOrdersService {
       const preparedItems: Partial<SalesOrderItemEntity>[] = [];
 
       for (const item of group.items) {
-        const match = await this.repository.findTemplateForSku(item.sku, item.firmwareVersion);
-        preparedItems.push({
+        const prepared = await this.resolveItemFields({
           itemCode: item.itemCode,
           sku: item.sku,
-          quantity: item.quantity,
           firmwareVersion: item.firmwareVersion,
-          templateId: match.matched && match.template ? match.template.id : undefined,
+          quantity: item.quantity,
           notes: item.notes,
-          status: SalesOrderItemStatus.PENDING,
         });
+        preparedItems.push(prepared);
       }
 
       const existing = await this.repository.findBySoCode(soCode);

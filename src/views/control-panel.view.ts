@@ -17,6 +17,11 @@ import {
   TEST_BUILDER_SCRIPT,
 } from './control-panel-modules/test-builder.module';
 import {
+  ITEM_CODES_TEMPLATE,
+  ITEM_CODES_MODALS,
+  ITEM_CODES_SCRIPT,
+} from './control-panel-modules/item-codes.module';
+import {
   SALES_ORDERS_TEMPLATE,
   SALES_ORDERS_MODALS,
   SALES_ORDERS_SCRIPT,
@@ -521,6 +526,13 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
               </span>
             </button>
 
+            <button @click="switchTab('item-codes')" :class="{ active: activeTab === 'item-codes' }" class="nav-item">
+              <span class="flex items-center gap-2.5">
+                <i class="fa-solid fa-barcode w-4 text-center text-xs text-cyan-400"></i>
+                <span>Item Code Catalog</span>
+              </span>
+            </button>
+
             <button @click="switchTab('sales-orders')" :class="{ active: activeTab === 'sales-orders' }" class="nav-item">
               <span class="flex items-center gap-2.5">
                 <i class="fa-solid fa-boxes-stacked w-4 text-center text-xs text-amber-400"></i>
@@ -561,7 +573,12 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
           ${TEST_BUILDER_TEMPLATE}
         </div>
 
-        <!-- TAB 14: SALES ORDERS & ITEM CODES (C-MODULE) -->
+        <!-- TAB 14: MASTER ITEM CODE CATALOG -->
+        <div v-show="activeTab === 'item-codes'" class="space-y-6">
+          ${ITEM_CODES_TEMPLATE}
+        </div>
+
+        <!-- TAB 15: SALES ORDERS & ITEM CODES -->
         <div v-show="activeTab === 'sales-orders'" class="space-y-6">
           ${SALES_ORDERS_TEMPLATE}
         </div>
@@ -580,6 +597,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
     ${DOWNLINK_MODALS}
     ${MODBUS_PRESETS_MODALS}
     ${TEST_BUILDER_MODALS}
+    ${ITEM_CODES_MODALS}
     ${SALES_ORDERS_MODALS}
 
     <!-- TOAST NOTIFICATION -->
@@ -622,6 +640,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
 
     ${MODBUS_PRESETS_SCRIPT}
     ${TEST_BUILDER_SCRIPT}
+    ${ITEM_CODES_SCRIPT}
     ${SALES_ORDERS_SCRIPT}
 
     const { createApp, ref, computed, onMounted, watch } = Vue;
@@ -1150,6 +1169,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
             case 'downlink': return 'Downlink Actuator & Queue';
             case 'modbus-presets': return 'Modbus Presets & Templates';
             case 'test-builder': return 'LoRaWAN Test Automation';
+            case 'item-codes': return 'Item Code Catalog';
             case 'sales-orders': return 'Sales Orders & Item Codes';
             default: return activeTab.value;
           }
@@ -4829,6 +4849,15 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
           decoderSearchQuery,
         });
 
+        const itemCodesModule = useItemCodesModule({
+          showToast,
+          authHeaders,
+          currentUser,
+          activeTab,
+          switchTab,
+          activeTestTemplateId: testBuilderModule.activeTestTemplateId,
+        });
+
         const salesOrdersModule = useSalesOrdersModule({
           showToast,
           authHeaders,
@@ -4892,6 +4921,15 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
             setTimeout(() => {
               modbusPresetsModule.initPresetsTabulator();
             }, 120);
+          }
+          if (newTab === 'item-codes') {
+            itemCodesModule.fetchItemCodes();
+            itemCodesModule.fetchCatalogAvailableTemplates();
+            if (itemCodesModule.itemCodesViewMode.value === 'tabulator') {
+              setTimeout(() => {
+                itemCodesModule.initItemCodesTabulator();
+              }, 120);
+            }
           }
           if (newTab === 'sales-orders') {
             salesOrdersModule.fetchSalesOrders();
@@ -4958,6 +4996,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
         return {
           ...modbusPresetsModule,
           ...testBuilderModule,
+          ...itemCodesModule,
           ...salesOrdersModule,
           activeTab,
           sidebarOpen,

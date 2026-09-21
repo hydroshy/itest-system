@@ -4,6 +4,8 @@ import { DynamicDatabaseService } from '../../database/dynamic-database.service'
 import { SalesOrderEntity, SalesOrderStatus, SalesOrderSource } from './entities/sales-order.entity';
 import { SalesOrderItemEntity, SalesOrderItemStatus } from './entities/sales-order-item.entity';
 import { TestTemplateEntity } from '../test-builder/entities/test-template.entity';
+import { ItemCodeEntity } from '../item-codes/entities/item-code.entity';
+import { sanitizeFirmwareVersion } from '../item-codes/item-code-utils';
 import { QuerySalesOrderDto } from './dto/sales-order.dto';
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -26,6 +28,10 @@ export class SalesOrdersRepository {
     return this.dbService.getRepositoryForTable('test_templates', TestTemplateEntity);
   }
 
+  public getItemCodeRepo(): Repository<ItemCodeEntity> {
+    return this.dbService.getRepositoryForTable('item_codes', ItemCodeEntity);
+  }
+
   public getDataSource(): DataSource {
     return this.dbService.getDataSourceForTable('sales_orders');
   }
@@ -45,6 +51,7 @@ export class SalesOrdersRepository {
       .createQueryBuilder('so')
       .leftJoinAndSelect('so.items', 'items')
       .leftJoinAndSelect('items.template', 'template')
+      .leftJoinAndSelect('items.itemCodeRef', 'itemCodeRef')
       .orderBy('so.createdAt', 'DESC')
       .skip(skip)
       .take(limit);
@@ -106,6 +113,7 @@ export class SalesOrdersRepository {
       .createQueryBuilder('so')
       .leftJoinAndSelect('so.items', 'items')
       .leftJoinAndSelect('items.template', 'template')
+      .leftJoinAndSelect('items.itemCodeRef', 'itemCodeRef')
       .where('so.id = :id', { id })
       .getOne();
   }
@@ -117,6 +125,7 @@ export class SalesOrdersRepository {
       .createQueryBuilder('so')
       .leftJoinAndSelect('so.items', 'items')
       .leftJoinAndSelect('items.template', 'template')
+      .leftJoinAndSelect('items.itemCodeRef', 'itemCodeRef')
       .where('so.soCode = :soCode', { soCode: soCode.trim() })
       .getOne();
   }
@@ -245,8 +254,80 @@ export class SalesOrdersRepository {
   public async findItem(salesOrderId: string, itemCode: string): Promise<SalesOrderItemEntity | null> {
     return await this.getItemRepo().findOne({
       where: { salesOrderId, itemCode },
-      relations: ['template', 'salesOrder'],
+      relations: ['template', 'salesOrder', 'itemCodeRef'],
     });
+  }
+
+  public async findItemCodeById(id: string): Promise<ItemCodeEntity | null> {
+    if (!id || !UUID_REGEX.test(id)) return null;
+    return await this.getItemCodeRepo().findOne({
+      where: { id },
+      relations: ['defaultTemplate'],
+    });
+  }
+
+  public async findItemCodeByCode(itemCode: string): Promise<ItemCodeEntity | null> {
+    if (!itemCode) return null;
+    return await this.getItemCodeRepo()
+      .createQueryBuilder('ic')
+      .leftJoinAndSelect('ic.defaultTemplate', 'defaultTemplate')
+      .where('LOWER(ic.itemCode) = LOWER(:itemCode)', { itemCode: itemCode.trim() })
+      .getOne();
+  }
+
+  public async attachItemsToSalesOrder(
+    salesOrderId: string,
+    itemsData: Partial<SalesOrderItemEntity>[],
+  ): Promise<SalesOrderEntity> {
+    const existing = await this.findById(salesOrderId);
+    if (!existing) {
+      throw new NotFoundException(`Sales Order [${salesOrderId}] not found`);
+    }
+
+    const itemRepo = this.getItemRepo();
+    const existingItems = existing.items || [];
+    const existingCodeMap = new Map(existingItems.map((it) => [it.itemCode.toLowerCase(), it]));
+
+    const itemsToSave: SalesOrderItemEntity[] = [];
+
+    for (const itemDto of itemsData) {
+      if (!itemDto.itemCode) continue;
+      const key = itemDto.itemCode.toLowerCase().trim();
+      const target = existingCodeMap.get(key);
+
+      if (target) {
+        // Increment quantity and update fields
+        target.quantity = (target.quantity || 0) + (itemDto.quantity || 1);
+        if (itemDto.itemCodeId) target.itemCodeId = itemDto.itemCodeId;
+        if (itemDto.sku) target.sku = itemDto.sku;
+        if (itemDto.firmwareVersion) target.firmwareVersion = itemDto.firmwareVersion;
+        if (itemDto.templateId) target.templateId = itemDto.templateId;
+        if (itemDto.notes) target.notes = itemDto.notes;
+        if (itemDto.metadata) target.metadata = { ...target.metadata, ...itemDto.metadata };
+        target.updatedAt = new Date();
+        itemsToSave.push(target);
+      } else {
+        const newItem = itemRepo.create({
+          ...itemDto,
+          salesOrderId: existing.id,
+          quantity: itemDto.quantity !== undefined ? itemDto.quantity : 1,
+          firmwareVersion: itemDto.firmwareVersion || '1.0',
+          status: itemDto.status || SalesOrderItemStatus.PENDING,
+          testedQuantity: 0,
+          passedQuantity: 0,
+          failedQuantity: 0,
+          metadata: itemDto.metadata || {},
+        });
+        itemsToSave.push(newItem);
+        existingCodeMap.set(key, newItem);
+      }
+    }
+
+    if (itemsToSave.length > 0) {
+      await itemRepo.save(itemsToSave);
+    }
+
+    return (await this.findById(existing.id))!;
   }
 
   public async findTemplateForSku(
@@ -268,7 +349,7 @@ export class SalesOrdersRepository {
     }
 
     const cleanSkuStr = sku.trim();
-    const cleanFwStr = firmwareVersion ? firmwareVersion.trim() : '1.0';
+    const cleanFwStr = firmwareVersion ? sanitizeFirmwareVersion(firmwareVersion) : '1.0';
     const templateRepo = this.getTemplateRepo();
 
     try {

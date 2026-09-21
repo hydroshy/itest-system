@@ -16,6 +16,7 @@ import { HmiStudioModule } from './modules/c-modules/hmi-studio/hmi-studio.modul
 import { ModbusPresetsModule } from './modules/c-modules/modbus-presets/modbus-presets.module';
 import { TestBuilderModule } from './modules/c-modules/test-builder/test-builder.module';
 import { SalesOrdersModule } from './modules/c-modules/sales-orders/sales-orders.module';
+import { ItemCodesModule } from './modules/c-modules/item-codes/item-codes.module';
 import { RealtimeModule } from './modules/realtime/realtime.module';
 import { AppController } from './app.controller';
 
@@ -41,6 +42,7 @@ import { AppController } from './app.controller';
     ModbusPresetsModule,
     TestBuilderModule,
     SalesOrdersModule,
+    ItemCodesModule,
   ],
   controllers: [AppController],
 })

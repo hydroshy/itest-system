@@ -30,6 +30,7 @@
     "test_templates": "core_db",
     "test_assertions": "core_db",
     "sales_orders": "core_db",
-    "sales_order_items": "core_db"
+    "sales_order_items": "core_db",
+    "item_codes": "core_db"
   }
 }

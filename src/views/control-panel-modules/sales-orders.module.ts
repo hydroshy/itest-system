@@ -1,20 +1,23 @@
 /**
- * C-Module: Sales Orders & Item Code Management
+ * Sales Orders & Item Code Management
  * Subsystem: Manufacturing & Testing Management
- * Standard: 100% English UI
+ * Standard: 100% English UI, Minimalist Clean UX
  * Features:
  *  - Sales Orders table with search, status filters, and source badges
  *  - Collapsible/Expanded Item Code sub-table with testing progress (tested, passed, failed)
+ *  - Standardized SKU_FW syntax (e.g. WSLRW-ATH_6, clean firmware without 'v')
+ *  - Standardized Sales Order code format (SO/2026/xxxxx)
+ *  - Fast Item Code Catalog Picker for SO line items
  *  - Dual View Mode: Responsive Tailwind Card Table + Tabulator 6.x Data Grid
- *  - Manual Sales Order Creation Modal with dynamic Item Code rows & template auto-matching
+ *  - Manual Sales Order Creation Modal with dynamic Item Code rows & catalog picker
  *  - Multi-tab Import Modal: Odoo JSON payload (webhook/export), CSV spreadsheet bulk upload, Odoo Remote API
  *  - Edit & Delete Sales Order modals with cascade confirmation
- *  - Real-time Item Test Status dialog linked to D-Module test sessions
- *  - Deep-link integration with C-Module Test Builder
+ *  - Real-time Item Test Status dialog linked to test sessions
+ *  - Deep-link integration with Test Builder
  */
 
 export const SALES_ORDERS_TEMPLATE = `
-  <!-- C-MODULE: SALES ORDERS & ITEM CODES -->
+  <!-- SALES ORDERS & ITEM CODES -->
   <div class="space-y-5">
 
     <!-- Top Action & Statistics Header Card -->
@@ -29,11 +32,8 @@ export const SALES_ORDERS_TEMPLATE = `
           <div>
             <div class="flex items-center gap-2 flex-wrap">
               <h2 class="text-base font-bold text-white tracking-wide">Sales Orders & Item Codes</h2>
-              <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/10 text-amber-300 border border-amber-500/25 uppercase font-mono">
-                C-Module
-              </span>
-              <span class="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-indigo-500/10 text-indigo-300 border border-indigo-500/25">
-                D-Module Bridge
+              <span class="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-500/10 text-amber-300 border border-amber-500/25 font-mono">
+                Production Orders
               </span>
             </div>
             <p class="text-xs text-slate-400 mt-0.5">
@@ -436,6 +436,7 @@ export const SALES_ORDERS_TEMPLATE = `
                               <th class="py-2 px-3">Item Code</th>
                               <th class="py-2 px-3">SKU</th>
                               <th class="py-2 px-3">FW</th>
+                              <th class="py-2 px-3">SKU_FW</th>
                               <th class="py-2 px-3 text-right">Quantity</th>
                               <th class="py-2 px-3">Assigned Test Template</th>
                               <th class="py-2 px-3 text-center">Tested / Pass / Fail</th>
@@ -445,7 +446,7 @@ export const SALES_ORDERS_TEMPLATE = `
                           </thead>
                           <tbody class="divide-y divide-slate-800/50">
                             <tr v-if="!so.items || so.items.length === 0">
-                              <td colspan="8" class="py-4 text-center text-slate-500 italic">
+                              <td colspan="9" class="py-4 text-center text-slate-500 italic">
                                 No Item Codes registered in this Sales Order. Click "Manage Items" to add line items.
                               </td>
                             </tr>
@@ -461,9 +462,18 @@ export const SALES_ORDERS_TEMPLATE = `
                                 {{ item.sku }}
                               </td>
 
-                              <!-- Firmware Version -->
+                              <!-- Firmware Version (Clean without 'v') -->
                               <td class="py-2 px-3 font-mono text-indigo-300">
-                                v{{ item.firmwareVersion || '1.0' }}
+                                <span class="px-1.5 py-0.5 rounded bg-indigo-500/10 border border-indigo-500/20 text-[11px]">
+                                  {{ sanitizeFw(item.firmwareVersion) }}
+                                </span>
+                              </td>
+
+                              <!-- Standard SKU_FW (e.g. WSLRW-ATH_6) -->
+                              <td class="py-2 px-3 font-mono">
+                                <span class="px-2 py-0.5 rounded bg-amber-500/10 text-amber-300 border border-amber-500/25 font-bold text-[11px] inline-flex items-center gap-1">
+                                  {{ formatSkuFw(item.sku, item.firmwareVersion) }}
+                                </span>
                               </td>
 
                               <!-- Quantity -->
@@ -527,7 +537,7 @@ export const SALES_ORDERS_TEMPLATE = `
                                     type="button"
                                     @click="inspectItemTestStatus(so.soCode, item.itemCode)"
                                     class="px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-sky-300 border border-slate-700 text-[10px] font-semibold flex items-center gap-1 cursor-pointer transition"
-                                    title="Check live D-Module test session status"
+                                    title="Check live test session status"
                                   >
                                     <i class="fa-solid fa-bolt text-[10px] text-amber-400"></i>
                                     <span>Test Status</span>
@@ -657,7 +667,7 @@ export const SALES_ORDERS_MODALS = `
               v-model="createSoForm.soCode"
               required
               type="text"
-              placeholder="e.g. SO-2026-001"
+              placeholder="e.g. SO/2026/00001"
               class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-xl text-white text-xs font-mono focus:border-amber-500 outline-none"
             />
           </div>
@@ -736,14 +746,26 @@ export const SALES_ORDERS_MODALS = `
               <p class="text-[11px] text-slate-400">Assign device SKU, target firmware, and link to automated test scenario templates.</p>
             </div>
 
-            <button
-              type="button"
-              @click="addCreateSoItemRow"
-              class="px-3 py-1.5 rounded-lg bg-sky-600 hover:bg-sky-500 text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow transition"
-            >
-              <i class="fa-solid fa-plus text-[10px]"></i>
-              <span>Add Item Row</span>
-            </button>
+            <div class="flex items-center gap-2">
+              <button
+                type="button"
+                @click="openCatalogPickerModal"
+                class="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow transition"
+                title="Select registered Item Codes from master catalog"
+              >
+                <i class="fa-solid fa-barcode text-[11px]"></i>
+                <span>Pick from Catalog</span>
+              </button>
+
+              <button
+                type="button"
+                @click="addCreateSoItemRow"
+                class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-semibold flex items-center gap-1.5 cursor-pointer shadow transition"
+              >
+                <i class="fa-solid fa-plus text-[10px]"></i>
+                <span>Add Item Row</span>
+              </button>
+            </div>
           </div>
 
           <!-- Dynamic Items Table -->
@@ -752,9 +774,10 @@ export const SALES_ORDERS_MODALS = `
               <thead class="bg-slate-950 text-slate-400 font-semibold border-b border-slate-800">
                 <tr>
                   <th class="py-2.5 px-3 w-36">Item Code *</th>
-                  <th class="py-2.5 px-3 w-40">SKU *</th>
-                  <th class="py-2.5 px-3 w-24">FW Ver</th>
-                  <th class="py-2.5 px-3 w-24">Qty</th>
+                  <th class="py-2.5 px-3 w-36">SKU *</th>
+                  <th class="py-2.5 px-3 w-20">FW</th>
+                  <th class="py-2.5 px-3 w-32">SKU_FW</th>
+                  <th class="py-2.5 px-3 w-20">Qty</th>
                   <th class="py-2.5 px-3">Linked Test Template</th>
                   <th class="py-2.5 px-3">Notes</th>
                   <th class="py-2.5 px-3 w-10 text-center"></th>
@@ -762,20 +785,30 @@ export const SALES_ORDERS_MODALS = `
               </thead>
               <tbody class="divide-y divide-slate-800/60">
                 <tr v-if="createSoForm.items.length === 0">
-                  <td colspan="7" class="py-6 text-center text-slate-500">
-                    No items added yet. Click &ldquo;Add Item Row&rdquo; to add the first item code.
+                  <td colspan="8" class="py-6 text-center text-slate-500">
+                    No items added yet. Click &ldquo;Pick from Catalog&rdquo; or &ldquo;Add Item Row&rdquo;.
                   </td>
                 </tr>
                 <tr v-for="(it, idx) in createSoForm.items" :key="idx" class="hover:bg-slate-800/30">
-                  <!-- Item Code -->
+                  <!-- Item Code with quick catalog picker -->
                   <td class="py-2 px-2.5">
-                    <input
-                      v-model="it.itemCode"
-                      required
-                      type="text"
-                      placeholder="ITEM-001"
-                      class="w-full px-2.5 py-1.5 bg-slate-900 border border-slate-700 rounded-lg text-white font-mono text-xs focus:border-amber-500 outline-none"
-                    />
+                    <div class="relative flex items-center">
+                      <input
+                        v-model="it.itemCode"
+                        required
+                        type="text"
+                        placeholder="ITEM-001"
+                        class="w-full pl-2.5 pr-7 py-1.5 bg-slate-900 border border-slate-700 rounded-lg text-white font-mono text-xs focus:border-amber-500 outline-none uppercase"
+                      />
+                      <button
+                        type="button"
+                        @click="openCatalogPickerForRow(idx)"
+                        class="absolute right-1 text-slate-400 hover:text-cyan-300 p-1 transition cursor-pointer"
+                        title="Pick Item Code from Catalog"
+                      >
+                        <i class="fa-solid fa-folder-open text-[11px]"></i>
+                      </button>
+                    </div>
                   </td>
 
                   <!-- SKU -->
@@ -790,15 +823,22 @@ export const SALES_ORDERS_MODALS = `
                     />
                   </td>
 
-                  <!-- Firmware Version -->
+                  <!-- Firmware Version (Sanitized strictly without 'v') -->
                   <td class="py-2 px-2.5">
                     <input
                       v-model="it.firmwareVersion"
-                      @change="onSkuOrFwChange(it)"
+                      @input="it.firmwareVersion = sanitizeFw(it.firmwareVersion); onSkuOrFwChange(it)"
                       type="text"
-                      placeholder="1.0"
+                      placeholder="6"
                       class="w-full px-2.5 py-1.5 bg-slate-900 border border-slate-700 rounded-lg text-white font-mono text-xs focus:border-amber-500 outline-none"
                     />
+                  </td>
+
+                  <!-- SKU_FW Standard Live Preview -->
+                  <td class="py-2 px-2.5 font-mono">
+                    <span class="px-2 py-1 rounded bg-amber-500/10 text-amber-300 border border-amber-500/25 font-bold text-[11px] inline-block">
+                      {{ formatSkuFw(it.sku, it.firmwareVersion) }}
+                    </span>
                   </td>
 
                   <!-- Quantity -->
@@ -820,7 +860,7 @@ export const SALES_ORDERS_MODALS = `
                       >
                         <option value="">(Auto-detect by SKU/FW)</option>
                         <option v-for="tpl in availableTestTemplates" :key="tpl.id" :value="tpl.id">
-                          {{ tpl.name }} ({{ tpl.sku }} v{{ tpl.firmwareVersion }})
+                          {{ tpl.name }} ({{ tpl.sku }}_{{ sanitizeFw(tpl.firmwareVersion) }})
                         </option>
                       </select>
                       <button
@@ -1005,7 +1045,7 @@ export const SALES_ORDERS_MODALS = `
                 <tr v-for="(line, lidx) in odooJsonPreview.lines" :key="lidx">
                   <td class="py-1 px-2 font-mono text-cyan-300">{{ line.itemCode }}</td>
                   <td class="py-1 px-2 font-mono text-purple-300">{{ line.sku }}</td>
-                  <td class="py-1 px-2 font-mono text-indigo-300">v{{ line.firmwareVersion || '1.0' }}</td>
+                  <td class="py-1 px-2 font-mono text-indigo-300">{{ sanitizeFw(line.firmwareVersion) }}</td>
                   <td class="py-1 px-2 font-mono text-right text-white">{{ line.quantity }}</td>
                 </tr>
               </tbody>
@@ -1071,7 +1111,7 @@ export const SALES_ORDERS_MODALS = `
           <textarea
             v-model="csvContent"
             rows="6"
-            placeholder="soCode,customer,orderDate,itemCode,sku,firmwareVersion,quantity,notes\nSO-2026-001,Daviteq IoT,2026-09-20,ITEM-001,WSLRW-ATH,1.4,50,Lot 1"
+            placeholder="soCode,customer,orderDate,itemCode,sku,firmwareVersion,quantity,notes\nSO/2026/00001,Daviteq IoT,2026-09-20,ITEM-001,WSLRW-ATH,6,50,Lot 1"
             class="w-full px-3 py-2.5 bg-slate-950 border border-slate-700 rounded-xl text-white font-mono text-xs focus:border-emerald-500 outline-none custom-scroll"
           ></textarea>
         </div>
@@ -1126,7 +1166,7 @@ export const SALES_ORDERS_MODALS = `
                   <td class="py-1 px-2 text-slate-200">{{ r.customer || '—' }}</td>
                   <td class="py-1 px-2 font-mono text-cyan-300">{{ r.itemCode }}</td>
                   <td class="py-1 px-2 font-mono text-purple-300">{{ r.sku }}</td>
-                  <td class="py-1 px-2 font-mono text-indigo-300">v{{ r.firmwareVersion || '1.0' }}</td>
+                  <td class="py-1 px-2 font-mono text-indigo-300">{{ sanitizeFw(r.firmwareVersion) }}</td>
                   <td class="py-1 px-2 font-mono text-right text-white">{{ r.quantity || 1 }}</td>
                 </tr>
               </tbody>
@@ -1335,14 +1375,26 @@ export const SALES_ORDERS_MODALS = `
               </h4>
             </div>
 
-            <button
-              type="button"
-              @click="addEditSoItemRow"
-              class="px-3 py-1.5 rounded-lg bg-sky-600 hover:bg-sky-500 text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow transition"
-            >
-              <i class="fa-solid fa-plus text-[10px]"></i>
-              <span>Add Item Row</span>
-            </button>
+            <div class="flex items-center gap-2">
+              <button
+                type="button"
+                @click="openCatalogPickerModal"
+                class="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow transition"
+                title="Select registered Item Codes from master catalog"
+              >
+                <i class="fa-solid fa-barcode text-[11px]"></i>
+                <span>Pick from Catalog</span>
+              </button>
+
+              <button
+                type="button"
+                @click="addEditSoItemRow"
+                class="px-3 py-1.5 rounded-lg bg-sky-600 hover:bg-sky-500 text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow transition"
+              >
+                <i class="fa-solid fa-plus text-[10px]"></i>
+                <span>Add Item Row</span>
+              </button>
+            </div>
           </div>
 
           <div class="border border-slate-800 rounded-xl overflow-x-auto custom-scroll bg-slate-950/60">
@@ -1350,9 +1402,10 @@ export const SALES_ORDERS_MODALS = `
               <thead class="bg-slate-950 text-slate-400 font-semibold border-b border-slate-800">
                 <tr>
                   <th class="py-2.5 px-3 w-36">Item Code *</th>
-                  <th class="py-2.5 px-3 w-40">SKU *</th>
-                  <th class="py-2.5 px-3 w-24">FW Ver</th>
-                  <th class="py-2.5 px-3 w-24">Qty</th>
+                  <th class="py-2.5 px-3 w-36">SKU *</th>
+                  <th class="py-2.5 px-3 w-20">FW</th>
+                  <th class="py-2.5 px-3 w-32">SKU_FW</th>
+                  <th class="py-2.5 px-3 w-20">Qty</th>
                   <th class="py-2.5 px-3">Linked Test Template</th>
                   <th class="py-2.5 px-3 w-10 text-center"></th>
                 </tr>
@@ -1360,12 +1413,22 @@ export const SALES_ORDERS_MODALS = `
               <tbody class="divide-y divide-slate-800/60">
                 <tr v-for="(it, idx) in editSoForm.items" :key="idx" class="hover:bg-slate-800/30">
                   <td class="py-2 px-2.5">
-                    <input
-                      v-model="it.itemCode"
-                      required
-                      type="text"
-                      class="w-full px-2.5 py-1.5 bg-slate-900 border border-slate-700 rounded-lg text-white font-mono text-xs focus:border-sky-500 outline-none"
-                    />
+                    <div class="relative flex items-center">
+                      <input
+                        v-model="it.itemCode"
+                        required
+                        type="text"
+                        class="w-full pl-2.5 pr-7 py-1.5 bg-slate-900 border border-slate-700 rounded-lg text-white font-mono text-xs focus:border-sky-500 outline-none uppercase"
+                      />
+                      <button
+                        type="button"
+                        @click="openCatalogPickerForRow(idx, true)"
+                        class="absolute right-1 text-slate-400 hover:text-cyan-300 p-1 transition cursor-pointer"
+                        title="Pick Item Code from Catalog"
+                      >
+                        <i class="fa-solid fa-folder-open text-[11px]"></i>
+                      </button>
+                    </div>
                   </td>
                   <td class="py-2 px-2.5">
                     <input
@@ -1379,10 +1442,15 @@ export const SALES_ORDERS_MODALS = `
                   <td class="py-2 px-2.5">
                     <input
                       v-model="it.firmwareVersion"
-                      @change="onSkuOrFwChange(it)"
+                      @input="it.firmwareVersion = sanitizeFw(it.firmwareVersion); onSkuOrFwChange(it)"
                       type="text"
                       class="w-full px-2.5 py-1.5 bg-slate-900 border border-slate-700 rounded-lg text-white font-mono text-xs focus:border-sky-500 outline-none"
                     />
+                  </td>
+                  <td class="py-2 px-2.5 font-mono">
+                    <span class="px-2 py-1 rounded bg-amber-500/10 text-amber-300 border border-amber-500/25 font-bold text-[11px] inline-block">
+                      {{ formatSkuFw(it.sku, it.firmwareVersion) }}
+                    </span>
                   </td>
                   <td class="py-2 px-2.5">
                     <input
@@ -1400,7 +1468,7 @@ export const SALES_ORDERS_MODALS = `
                       >
                         <option value="">(Auto-detect by SKU/FW)</option>
                         <option v-for="tpl in availableTestTemplates" :key="tpl.id" :value="tpl.id">
-                          {{ tpl.name }} ({{ tpl.sku }} v{{ tpl.firmwareVersion }})
+                          {{ tpl.name }} ({{ tpl.sku }}_{{ sanitizeFw(tpl.firmwareVersion) }})
                         </option>
                       </select>
                       <button
@@ -1564,7 +1632,7 @@ export const SALES_ORDERS_MODALS = `
               <tr v-for="it in selectedSoDetails.items" :key="it.id || it.itemCode" class="hover:bg-slate-800/30">
                 <td class="py-2 px-3 font-mono font-bold text-cyan-300">{{ it.itemCode }}</td>
                 <td class="py-2 px-3 font-mono text-purple-300">{{ it.sku }}</td>
-                <td class="py-2 px-3 font-mono text-indigo-300">v{{ it.firmwareVersion || '1.0' }}</td>
+                <td class="py-2 px-3 font-mono text-indigo-300">{{ sanitizeFw(it.firmwareVersion) }}</td>
                 <td class="py-2 px-3 font-mono text-right text-white">{{ it.quantity }}</td>
                 <td class="py-2 px-3 text-[11px]">
                   <span v-if="it.template" class="text-indigo-300 font-mono">{{ it.template.name }}</span>
@@ -1672,7 +1740,7 @@ export const SALES_ORDERS_MODALS = `
           </div>
 
           <div v-if="itemTestStatusData.testSession" class="flex items-center justify-between pt-1 border-t border-slate-800/80">
-            <span class="text-slate-400 font-medium">Test Session (D-Module):</span>
+            <span class="text-slate-400 font-medium">Test Session:</span>
             <span class="font-mono text-sky-300 font-semibold">
               {{ itemTestStatusData.testSession.sessionCode }} ({{ itemTestStatusData.testSession.status }})
             </span>
@@ -1699,6 +1767,154 @@ export const SALES_ORDERS_MODALS = `
         >
           Close
         </button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- MODAL: ITEM CODE CATALOG PICKER FOR SALES ORDERS -->
+  <div
+    v-if="showCatalogPickerModal"
+    class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto"
+    @click.self="showCatalogPickerModal = false"
+  >
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-2xl p-6 shadow-2xl space-y-4 animate-scale-in">
+      
+      <!-- Modal Header -->
+      <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+        <div class="flex items-center gap-2.5">
+          <div class="w-8 h-8 rounded-lg bg-indigo-500/10 border border-indigo-500/25 flex items-center justify-center text-indigo-400">
+            <i class="fa-solid fa-barcode text-sm"></i>
+          </div>
+          <div>
+            <h3 class="text-sm font-bold text-white">Select Item Codes from Catalog</h3>
+            <p class="text-[11px] text-slate-400">Attach existing catalog items with standardized SKU_FW and pre-mapped test templates.</p>
+          </div>
+        </div>
+        <button
+          type="button"
+          @click="showCatalogPickerModal = false"
+          class="text-slate-400 hover:text-white text-xs p-1"
+        >
+          <i class="fa-solid fa-xmark text-sm"></i>
+        </button>
+      </div>
+
+      <!-- Search Toolbar -->
+      <div class="flex items-center gap-2">
+        <div class="relative flex-1">
+          <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-xs pointer-events-none"></i>
+          <input
+            v-model="catalogPickerSearch"
+            type="text"
+            placeholder="Search by Item Code, SKU, SKU_FW (e.g. WSLRW-ATH_6)..."
+            class="w-full pl-8 pr-3 py-2 bg-slate-950 border border-slate-700 rounded-xl text-white text-xs font-mono focus:border-indigo-500 outline-none"
+          />
+        </div>
+        <button
+          type="button"
+          @click="fetchCatalogItemsForPicker"
+          class="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-semibold border border-slate-700 cursor-pointer"
+          title="Refresh catalog items"
+        >
+          <i class="fa-solid fa-arrows-rotate"></i>
+        </button>
+      </div>
+
+      <!-- Items Table List -->
+      <div class="max-h-72 overflow-y-auto custom-scroll border border-slate-800 rounded-xl bg-slate-950/60">
+        <table class="w-full text-left text-xs">
+          <thead class="bg-slate-950 text-slate-400 font-semibold border-b border-slate-800 sticky top-0">
+            <tr>
+              <th class="py-2.5 px-3 w-10 text-center">
+                <input
+                  type="checkbox"
+                  @change="toggleSelectAllCatalogItems"
+                  :checked="isAllCatalogSelected"
+                  class="rounded bg-slate-900 border-slate-700 text-indigo-600"
+                />
+              </th>
+              <th class="py-2.5 px-3">Item Code</th>
+              <th class="py-2.5 px-3">SKU</th>
+              <th class="py-2.5 px-3">FW</th>
+              <th class="py-2.5 px-3">SKU_FW</th>
+              <th class="py-2.5 px-3">Default Template</th>
+              <th class="py-2.5 px-3 text-right">Action</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-800/60">
+            <tr v-if="filteredCatalogForPicker.length === 0">
+              <td colspan="7" class="py-8 text-center text-slate-500">
+                No items match your search in the catalog.
+              </td>
+            </tr>
+            <tr
+              v-for="catItem in filteredCatalogForPicker"
+              :key="catItem.itemCode"
+              class="hover:bg-slate-800/40 transition cursor-pointer"
+              @click="toggleCatalogItemSelection(catItem)"
+            >
+              <td class="py-2.5 px-3 text-center" @click.stop>
+                <input
+                  type="checkbox"
+                  :value="catItem.itemCode"
+                  v-model="selectedCatalogItemCodes"
+                  class="rounded bg-slate-900 border-slate-700 text-indigo-600"
+                />
+              </td>
+              <td class="py-2.5 px-3 font-mono font-bold text-cyan-300">
+                {{ catItem.itemCode }}
+              </td>
+              <td class="py-2.5 px-3 font-mono text-purple-300 font-semibold">
+                {{ catItem.sku }}
+              </td>
+              <td class="py-2.5 px-3 font-mono text-indigo-300">
+                {{ sanitizeFw(catItem.firmwareVersion) }}
+              </td>
+              <td class="py-2.5 px-3 font-mono">
+                <span class="px-2 py-0.5 rounded bg-amber-500/10 text-amber-300 border border-amber-500/25 font-bold text-[11px]">
+                  {{ formatSkuFw(catItem.sku, catItem.firmwareVersion) }}
+                </span>
+              </td>
+              <td class="py-2.5 px-3 font-mono text-[11px] text-slate-300">
+                {{ catItem.templateName || (catItem.template && catItem.template.name) || '—' }}
+              </td>
+              <td class="py-2.5 px-3 text-right" @click.stop>
+                <button
+                  type="button"
+                  @click="attachSingleCatalogItem(catItem)"
+                  class="px-2.5 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-[11px] font-semibold transition cursor-pointer"
+                >
+                  Attach
+                </button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Modal Footer -->
+      <div class="flex items-center justify-between pt-3 border-t border-slate-800">
+        <div class="text-xs text-slate-400 font-mono">
+          <span class="text-indigo-400 font-bold">{{ selectedCatalogItemCodes.length }}</span> items selected
+        </div>
+        <div class="flex items-center gap-2">
+          <button
+            type="button"
+            @click="showCatalogPickerModal = false"
+            class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold text-xs cursor-pointer transition"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            @click="attachSelectedCatalogItems"
+            :disabled="selectedCatalogItemCodes.length === 0"
+            class="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs cursor-pointer shadow transition disabled:opacity-50"
+          >
+            Attach Selected ({{ selectedCatalogItemCodes.length }})
+          </button>
+        </div>
       </div>
 
     </div>
@@ -1793,6 +2009,224 @@ export const SALES_ORDERS_SCRIPT = `
       soCode: '',
       odooId: null
     });
+
+    // Helper: sanitize firmware version (strictly no 'v' or 'V')
+    const sanitizeFw = (rawFw) => {
+      if (!rawFw || typeof rawFw !== 'string') return '1.0';
+      const clean = rawFw.trim().replace(/^[vV]+/, '');
+      return clean.length > 0 ? clean : '1.0';
+    };
+
+    // Helper: format standard SKU_FW
+    const formatSkuFw = (sku, rawFw) => {
+      const cleanSku = (sku || '').trim().toUpperCase();
+      const cleanFw = sanitizeFw(rawFw);
+      return cleanSku ? cleanSku + '_' + cleanFw : '';
+    };
+
+    // Helper: normalize SO Code to SO/YYYY/xxxxx format
+    const normalizeSoCode = (rawSoCode, defaultYear = 2026) => {
+      const trimmed = (rawSoCode || '').trim();
+      if (!trimmed) return trimmed;
+      if (/^SO\/\d{4}\/[A-Za-z0-9_-]+$/.test(trimmed)) {
+        return trimmed;
+      }
+      const hyphenMatch = trimmed.match(/^SO-(\d{4})-(\d+)$/i);
+      if (hyphenMatch) {
+        const year = hyphenMatch[1];
+        const seq = hyphenMatch[2].padStart(5, '0');
+        return 'SO/' + year + '/' + seq;
+      }
+      const odooMatch = trimmed.match(/^SO-?0*(\d+)$/i);
+      if (odooMatch) {
+        const seq = odooMatch[1].padStart(5, '0');
+        return 'SO/' + defaultYear + '/' + seq;
+      }
+      return trimmed;
+    };
+
+    // Catalog Picker State for SO line items
+    const showCatalogPickerModal = ref(false);
+    const catalogPickerSearch = ref('');
+    const selectedCatalogItemCodes = ref([]);
+    const catalogItemsCache = ref([]);
+    const catalogPickerTargetRow = ref(-1);
+    const catalogPickerIsEdit = ref(false);
+
+    const getCatalogFallbackSeed = () => [
+      {
+        itemCode: 'ITEM-001',
+        sku: 'WSLRW-ATH',
+        firmwareVersion: '6',
+        skuFw: 'WSLRW-ATH_6',
+        templateName: 'WSLRW-ATH Standard Sensor Scenario',
+        defaultTemplateId: '',
+        description: 'Daviteq Ambient Temperature & Humidity sensor'
+      },
+      {
+        itemCode: 'ITEM-002',
+        sku: 'WSLRW-ATH',
+        firmwareVersion: '1.4',
+        skuFw: 'WSLRW-ATH_1.4',
+        templateName: 'WSLRW-ATH Standard Sensor Scenario',
+        defaultTemplateId: '',
+        description: 'Daviteq ATH sensor legacy firmware'
+      },
+      {
+        itemCode: 'ITEM-003',
+        sku: 'WSL-MOD',
+        firmwareVersion: '2.1',
+        skuFw: 'WSL-MOD_2.1',
+        templateName: 'Modbus RS485 Master Suite',
+        defaultTemplateId: '',
+        description: 'Wireless Modbus RS485 Master'
+      },
+      {
+        itemCode: 'ITEM-004',
+        sku: 'WSL-RTD',
+        firmwareVersion: '1.0',
+        skuFw: 'WSL-RTD_1.0',
+        templateName: 'RTD Temperature Transmitter Scenario',
+        defaultTemplateId: '',
+        description: 'Wireless RTD Transmitter'
+      }
+    ];
+
+    const fetchCatalogItemsForPicker = async () => {
+      try {
+        const endpoints = ['/api/c-modules/item-codes/picker', '/api/c-modules/item-codes', '/api/item-codes'];
+        let loaded = false;
+        for (const ep of endpoints) {
+          try {
+            const res = await fetch(ep, { headers: credentials() });
+            if (res.ok) {
+              const data = await res.json();
+              const list = Array.isArray(data) ? data : (data.data || data.items || []);
+              if (list.length > 0) {
+                catalogItemsCache.value = list.map(it => ({
+                  ...it,
+                  firmwareVersion: sanitizeFw(it.firmwareVersion || it.firmware_version),
+                  skuFw: it.skuFw || it.sku_fw || formatSkuFw(it.sku, it.firmwareVersion || it.firmware_version)
+                }));
+                loaded = true;
+                break;
+              }
+            }
+          } catch(e) {}
+        }
+        if (!loaded && catalogItemsCache.value.length === 0) {
+          catalogItemsCache.value = getCatalogFallbackSeed();
+        }
+      } catch (e) {
+        if (catalogItemsCache.value.length === 0) {
+          catalogItemsCache.value = getCatalogFallbackSeed();
+        }
+      }
+    };
+
+    const filteredCatalogForPicker = computed(() => {
+      let list = catalogItemsCache.value || [];
+      const q = (catalogPickerSearch.value || '').trim().toLowerCase();
+      if (q) {
+        list = list.filter(it =>
+          (it.itemCode || '').toLowerCase().includes(q) ||
+          (it.sku || '').toLowerCase().includes(q) ||
+          (it.skuFw || '').toLowerCase().includes(q) ||
+          (it.templateName || '').toLowerCase().includes(q) ||
+          (it.description || '').toLowerCase().includes(q)
+        );
+      }
+      return list;
+    });
+
+    const isAllCatalogSelected = computed(() => {
+      const filtered = filteredCatalogForPicker.value;
+      if (filtered.length === 0) return false;
+      return filtered.every(it => selectedCatalogItemCodes.value.includes(it.itemCode));
+    });
+
+    const toggleSelectAllCatalogItems = () => {
+      const filtered = filteredCatalogForPicker.value;
+      if (isAllCatalogSelected.value) {
+        selectedCatalogItemCodes.value = [];
+      } else {
+        selectedCatalogItemCodes.value = filtered.map(it => it.itemCode);
+      }
+    };
+
+    const toggleCatalogItemSelection = (catItem) => {
+      const idx = selectedCatalogItemCodes.value.indexOf(catItem.itemCode);
+      if (idx === -1) {
+        selectedCatalogItemCodes.value.push(catItem.itemCode);
+      } else {
+        selectedCatalogItemCodes.value.splice(idx, 1);
+      }
+    };
+
+    const openCatalogPickerModal = () => {
+      catalogPickerTargetRow.value = -1;
+      catalogPickerIsEdit.value = false;
+      selectedCatalogItemCodes.value = [];
+      catalogPickerSearch.value = '';
+      showCatalogPickerModal.value = true;
+      fetchCatalogItemsForPicker();
+    };
+
+    const openCatalogPickerForRow = (rowIndex, isEdit = false) => {
+      catalogPickerTargetRow.value = rowIndex;
+      catalogPickerIsEdit.value = isEdit;
+      selectedCatalogItemCodes.value = [];
+      catalogPickerSearch.value = '';
+      showCatalogPickerModal.value = true;
+      fetchCatalogItemsForPicker();
+    };
+
+    const attachSingleCatalogItem = (catItem) => {
+      const cleanFw = sanitizeFw(catItem.firmwareVersion);
+      if (catalogPickerTargetRow.value >= 0) {
+        const targetList = catalogPickerIsEdit.value ? editSoForm.value.items : createSoForm.value.items;
+        if (targetList[catalogPickerTargetRow.value]) {
+          targetList[catalogPickerTargetRow.value].itemCode = catItem.itemCode;
+          targetList[catalogPickerTargetRow.value].sku = catItem.sku;
+          targetList[catalogPickerTargetRow.value].firmwareVersion = cleanFw;
+          targetList[catalogPickerTargetRow.value].templateId = catItem.defaultTemplateId || catItem.templateId || '';
+          if (catItem.description && !targetList[catalogPickerTargetRow.value].notes) {
+            targetList[catalogPickerTargetRow.value].notes = catItem.description;
+          }
+        }
+      } else {
+        const targetList = catalogPickerIsEdit.value ? editSoForm.value.items : createSoForm.value.items;
+        targetList.push({
+          itemCode: catItem.itemCode,
+          sku: catItem.sku,
+          firmwareVersion: cleanFw,
+          quantity: 1,
+          templateId: catItem.defaultTemplateId || catItem.templateId || '',
+          notes: catItem.description || ''
+        });
+      }
+      showToast('Attached ' + catItem.itemCode + ' (' + formatSkuFw(catItem.sku, cleanFw) + ')', 'success');
+      showCatalogPickerModal.value = false;
+    };
+
+    const attachSelectedCatalogItems = () => {
+      const selected = catalogItemsCache.value.filter(it => selectedCatalogItemCodes.value.includes(it.itemCode));
+      if (selected.length === 0) return;
+      const targetList = catalogPickerIsEdit.value ? editSoForm.value.items : createSoForm.value.items;
+      selected.forEach(catItem => {
+        const cleanFw = sanitizeFw(catItem.firmwareVersion);
+        targetList.push({
+          itemCode: catItem.itemCode,
+          sku: catItem.sku,
+          firmwareVersion: cleanFw,
+          quantity: 1,
+          templateId: catItem.defaultTemplateId || catItem.templateId || '',
+          notes: catItem.description || ''
+        });
+      });
+      showToast('Attached ' + selected.length + ' item(s) from catalog', 'success');
+      showCatalogPickerModal.value = false;
+    };
 
     // Tabulator Instance
     let soTabulatorInstance = null;
@@ -2167,8 +2601,10 @@ export const SALES_ORDERS_SCRIPT = `
 
     // Create SO Modal Handlers
     const openCreateSoModal = () => {
+      const year = new Date().getFullYear();
+      const seq = String(Math.floor(1 + Math.random() * 99999)).padStart(5, '0');
       createSoForm.value = {
-        soCode: 'SO-' + new Date().getFullYear() + '-' + Math.floor(100 + Math.random() * 900),
+        soCode: 'SO/' + year + '/' + seq,
         customer: '',
         orderDate: new Date().toISOString().substring(0, 10),
         status: 'DRAFT',
@@ -2178,7 +2614,7 @@ export const SALES_ORDERS_SCRIPT = `
           {
             itemCode: 'ITEM-001',
             sku: 'WSLRW-ATH',
-            firmwareVersion: '1.4',
+            firmwareVersion: '6',
             quantity: 10,
             templateId: '',
             notes: ''
@@ -2195,7 +2631,7 @@ export const SALES_ORDERS_SCRIPT = `
       createSoForm.value.items.push({
         itemCode: 'ITEM-' + padded,
         sku: 'WSLRW-ATH',
-        firmwareVersion: '1.4',
+        firmwareVersion: '6',
         quantity: 1,
         templateId: '',
         notes: ''
@@ -2220,6 +2656,9 @@ export const SALES_ORDERS_SCRIPT = `
         return;
       }
 
+      // Auto-normalize SO Code
+      createSoForm.value.soCode = normalizeSoCode(createSoForm.value.soCode);
+
       isSavingSo.value = true;
       try {
         const payload = {
@@ -2233,7 +2672,7 @@ export const SALES_ORDERS_SCRIPT = `
             itemCode: it.itemCode.trim(),
             sku: it.sku.trim(),
             quantity: Number(it.quantity) || 1,
-            firmwareVersion: it.firmwareVersion?.trim() || '1.0',
+            firmwareVersion: sanitizeFw(it.firmwareVersion?.trim() || '1.0'),
             templateId: it.templateId || undefined,
             notes: it.notes?.trim() || undefined
           }))
@@ -2273,7 +2712,7 @@ export const SALES_ORDERS_SCRIPT = `
           id: it.id,
           itemCode: it.itemCode,
           sku: it.sku,
-          firmwareVersion: it.firmwareVersion || '1.0',
+          firmwareVersion: sanitizeFw(it.firmwareVersion || '1.0'),
           quantity: it.quantity || 1,
           templateId: it.templateId || (it.template ? it.template.id : ''),
           notes: it.notes || ''
@@ -2289,7 +2728,7 @@ export const SALES_ORDERS_SCRIPT = `
       editSoForm.value.items.push({
         itemCode: 'ITEM-' + padded,
         sku: 'WSLRW-ATH',
-        firmwareVersion: '1.4',
+        firmwareVersion: '6',
         quantity: 1,
         templateId: '',
         notes: ''
@@ -2306,6 +2745,14 @@ export const SALES_ORDERS_SCRIPT = `
 
     const submitEditSo = async () => {
       if (!editingSo.value) return;
+      if (!editSoForm.value.soCode.trim()) {
+        showToast('SO Code is required', 'error');
+        return;
+      }
+
+      // Auto-normalize SO Code
+      editSoForm.value.soCode = normalizeSoCode(editSoForm.value.soCode);
+
       isSavingSo.value = true;
       try {
         const payload = {
@@ -2318,7 +2765,7 @@ export const SALES_ORDERS_SCRIPT = `
             itemCode: it.itemCode.trim(),
             sku: it.sku.trim(),
             quantity: Number(it.quantity) || 1,
-            firmwareVersion: it.firmwareVersion?.trim() || '1.0',
+            firmwareVersion: sanitizeFw(it.firmwareVersion?.trim() || '1.0'),
             templateId: it.templateId || undefined,
             notes: it.notes?.trim() || undefined
           }))
@@ -2430,7 +2877,7 @@ export const SALES_ORDERS_SCRIPT = `
 
     const loadSampleOdooJson = () => {
       odooJsonPayload.value = JSON.stringify({
-        name: 'SO-2026-ODOO-001',
+        name: 'SO/2026/00001',
         partner_id: [14, 'Daviteq Smart Factory Solutions'],
         date_order: '2026-09-20 08:30:00',
         state: 'sale',
@@ -2441,7 +2888,7 @@ export const SALES_ORDERS_SCRIPT = `
             default_code: 'WSLRW-ATH',
             item_code: 'WSLRW-ATH-01',
             product_uom_qty: 50,
-            firmware_version: '1.4',
+            firmware_version: '6',
             notes: 'Batch 1 - High Accuracy'
           },
           {
@@ -2526,8 +2973,8 @@ export const SALES_ORDERS_SCRIPT = `
     const loadSampleCsv = () => {
       csvContent.value = [
         'soCode,customer,orderDate,itemCode,sku,firmwareVersion,quantity,notes',
-        'SO-2026-CSV-001,Daviteq IoT Corp,2026-09-20,ITEM-001,WSLRW-ATH,1.4,50,Lot 1 Ambient Sensors',
-        'SO-2026-CSV-001,Daviteq IoT Corp,2026-09-20,ITEM-002,WSLRW-CLW,1.0,20,Lot 2 Current Loops'
+        'SO/2026/00001,Daviteq IoT Corp,2026-09-20,ITEM-001,WSLRW-ATH,6,50,Lot 1 Ambient Sensors',
+        'SO/2026/00001,Daviteq IoT Corp,2026-09-20,ITEM-002,WSLRW-CLW,1.0,20,Lot 2 Current Loops'
       ].join('\\n');
       previewCsv();
     };
@@ -2743,6 +3190,21 @@ export const SALES_ORDERS_SCRIPT = `
       previewCsv,
       submitImportCsv,
       submitSyncOdooApi,
+      sanitizeFw,
+      formatSkuFw,
+      normalizeSoCode,
+      showCatalogPickerModal,
+      catalogPickerSearch,
+      selectedCatalogItemCodes,
+      filteredCatalogForPicker,
+      isAllCatalogSelected,
+      fetchCatalogItemsForPicker,
+      toggleSelectAllCatalogItems,
+      toggleCatalogItemSelection,
+      openCatalogPickerModal,
+      openCatalogPickerForRow,
+      attachSingleCatalogItem,
+      attachSelectedCatalogItems,
     };
   }
 `;

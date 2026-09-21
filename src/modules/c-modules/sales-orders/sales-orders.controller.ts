@@ -20,6 +20,7 @@ import {
   CreateSalesOrderDto,
   UpdateSalesOrderDto,
   QuerySalesOrderDto,
+  AttachItemCodesDto,
 } from './dto/sales-order.dto';
 import { CsvImportDto } from './dto/csv-import.dto';
 import { OdooApiSyncDto } from './dto/odoo-api-sync.dto';
@@ -80,6 +81,15 @@ export class SalesOrdersController {
   @ApiOperation({ summary: 'Delete sales order (cascades to items)' })
   async remove(@Param('id') id: string) {
     return await this.service.remove(id);
+  }
+
+  @Post(':id/attach-items')
+  @ApiOperation({ summary: 'Attach one or multiple catalog items into an existing Sales Order' })
+  async attachItems(
+    @Param('id') id: string,
+    @Body() dto: AttachItemCodesDto,
+  ) {
+    return await this.service.attachItems(id, dto);
   }
 
   @Post('import/odoo-json')
