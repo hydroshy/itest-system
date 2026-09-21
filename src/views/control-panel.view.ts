@@ -546,42 +546,103 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
       <!-- MAIN CONTENT AREA -->
       <main class="flex-1 overflow-y-auto custom-scroll p-4 sm:p-6 lg:p-8 space-y-6">
         
+        <!-- GLOBAL DEGRADED NOTIFICATION BANNER (TIER 3) -->
+        <div v-if="hasDegradedModules" class="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-between gap-3 text-xs text-amber-300">
+          <div class="flex items-center gap-2.5">
+            <i class="fa-solid fa-triangle-exclamation text-amber-400 text-sm"></i>
+            <span>
+              <strong>Hệ thống hoạt động ở chế độ cô lập:</strong> 
+              Phát hiện {{ degradedModulesList.length }} module gặp sự cố và đã được cách ly an toàn ({{ degradedModulesList.map(m => m.title).join(', ') }}). Các phân hệ khác không bị ảnh hưởng.
+            </span>
+          </div>
+          <button @click="switchTab('overview')" class="px-3 py-1 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-[11px] font-bold text-amber-200 transition cursor-pointer">
+            Về Tổng Quan
+          </button>
+        </div>
 
-        ${OVERVIEW_TEMPLATE}
+        <!-- TAB 1: OVERVIEW & DATABASE -->
+        <c-module-boundary module-id="overview" title="Overview Hub" icon="fa-solid fa-chart-pie" :active="activeTab === 'overview' || activeTab === 'database'">
+          <div v-if="activeTab === 'overview' || activeTab === 'database'">
+            ${OVERVIEW_TEMPLATE}
+          </div>
+        </c-module-boundary>
 
-        ${NETWORK_SERVERS_TEMPLATE}
+        <!-- TAB 2: NETWORK SERVERS -->
+        <c-module-boundary module-id="network-servers" title="Network Servers" icon="fa-solid fa-tower-broadcast" :active="activeTab === 'network-servers'">
+          <div v-if="activeTab === 'network-servers'">
+            ${NETWORK_SERVERS_TEMPLATE}
+          </div>
+        </c-module-boundary>
 
-        ${SYSTEM_MODULES_TEMPLATE}
+        <!-- TAB 3: SYSTEM MODULES, ROLES, USERS -->
+        <c-module-boundary module-id="modules" title="Dashboard Modules & Governance" icon="fa-solid fa-cubes" :active="activeTab === 'modules' || activeTab === 'roles' || activeTab === 'users'">
+          <div v-if="activeTab === 'modules' || activeTab === 'roles' || activeTab === 'users'">
+            ${SYSTEM_MODULES_TEMPLATE}
+          </div>
+        </c-module-boundary>
 
-        ${DEVICES_TEMPLATE}
+        <!-- TAB 7: DEVICES -->
+        <c-module-boundary module-id="devices" title="Device Fleet" icon="fa-solid fa-microchip" :active="activeTab === 'devices'">
+          <div v-if="activeTab === 'devices'">
+            ${DEVICES_TEMPLATE}
+          </div>
+        </c-module-boundary>
 
-        ${WEBHOOKS_TEMPLATE}
+        <!-- TAB 8: WEBHOOKS -->
+        <c-module-boundary module-id="webhooks" title="Webhook Manager" icon="fa-solid fa-satellite-dish" :active="activeTab === 'webhooks'">
+          <div v-if="activeTab === 'webhooks'">
+            ${WEBHOOKS_TEMPLATE}
+          </div>
+        </c-module-boundary>
 
-        ${DECODER_TEMPLATE}
+        <!-- TAB 9: DECODER -->
+        <c-module-boundary module-id="decoder" title="Decoder Manager" icon="fa-solid fa-code" :active="activeTab === 'decoder'">
+          <div v-if="activeTab === 'decoder'">
+            ${DECODER_TEMPLATE}
+          </div>
+        </c-module-boundary>
 
-        ${HMI_STUDIO_TEMPLATE}
+        <!-- TAB 10: HMI STUDIO -->
+        <c-module-boundary module-id="hmi-studio" title="HMI SCADA Studio" icon="fa-solid fa-palette" :active="activeTab === 'hmi-studio'">
+          <div v-if="activeTab === 'hmi-studio'">
+            ${HMI_STUDIO_TEMPLATE}
+          </div>
+        </c-module-boundary>
 
-        ${DOWNLINK_TEMPLATE}
+        <!-- TAB 11: DOWNLINK -->
+        <c-module-boundary module-id="downlink" title="Downlink Controller" icon="fa-solid fa-paper-plane" :active="activeTab === 'downlink'">
+          <div v-if="activeTab === 'downlink'">
+            ${DOWNLINK_TEMPLATE}
+          </div>
+        </c-module-boundary>
 
         <!-- TAB 12: MODBUS PRESETS & TEMPLATES MANAGER -->
-        <div v-show="activeTab === 'modbus-presets'" class="space-y-6">
-          ${MODBUS_PRESETS_TEMPLATE}
-        </div>
+        <c-module-boundary module-id="modbus-presets" title="Modbus Presets & Templates" icon="fa-solid fa-file-excel" :active="activeTab === 'modbus-presets'">
+          <div v-if="activeTab === 'modbus-presets'" class="space-y-6">
+            ${MODBUS_PRESETS_TEMPLATE}
+          </div>
+        </c-module-boundary>
 
         <!-- TAB 13: LORAWAN TEST AUTOMATION & SCENARIO BUILDER -->
-        <div v-show="activeTab === 'test-builder'" class="space-y-6">
-          ${TEST_BUILDER_TEMPLATE}
-        </div>
+        <c-module-boundary module-id="test-builder" title="Test Automation Builder" icon="fa-solid fa-vial-circle-check" :active="activeTab === 'test-builder'">
+          <div v-if="activeTab === 'test-builder'" class="space-y-6">
+            ${TEST_BUILDER_TEMPLATE}
+          </div>
+        </c-module-boundary>
 
         <!-- TAB 14: MASTER ITEM CODE CATALOG -->
-        <div v-show="activeTab === 'item-codes'" class="space-y-6">
-          ${ITEM_CODES_TEMPLATE}
-        </div>
+        <c-module-boundary module-id="item-codes" title="Master Item Codes" icon="fa-solid fa-barcode" :active="activeTab === 'item-codes'">
+          <div v-if="activeTab === 'item-codes'" class="space-y-6">
+            ${ITEM_CODES_TEMPLATE}
+          </div>
+        </c-module-boundary>
 
         <!-- TAB 15: SALES ORDERS & ITEM CODES -->
-        <div v-show="activeTab === 'sales-orders'" class="space-y-6">
-          ${SALES_ORDERS_TEMPLATE}
-        </div>
+        <c-module-boundary module-id="sales-orders" title="Sales Orders" icon="fa-solid fa-file-invoice-dollar" :active="activeTab === 'sales-orders'">
+          <div v-if="activeTab === 'sales-orders'" class="space-y-6">
+            ${SALES_ORDERS_TEMPLATE}
+          </div>
+        </c-module-boundary>
 
       </main>
     </div>
@@ -622,7 +683,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
     }
   </script>
   <script>
-    // Fail-safe: remove v-cloak if error happens or Vue fails to mount within 2.5s
+    // Fail-safe: remove v-cloak if error happens or Vue fails to mount within 1.0s
     window.addEventListener('error', function(e) {
       console.error('[Global Page Error]:', e.error || e.message);
       var appEl = document.getElementById('app');
@@ -636,14 +697,719 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
         console.warn('Vue mounting safety timer triggered: removing v-cloak');
         appEl.removeAttribute('v-cloak');
       }
-    }, 2500);
+    }, 1000);
 
-    ${MODBUS_PRESETS_SCRIPT}
-    ${TEST_BUILDER_SCRIPT}
-    ${ITEM_CODES_SCRIPT}
-    ${SALES_ORDERS_SCRIPT}
+    try {
+      ${MODBUS_PRESETS_SCRIPT}
+    } catch (e) {
+      console.error('[Module Script Load Error: modbus-presets]', e);
+    }
+    try {
+      ${TEST_BUILDER_SCRIPT}
+    } catch (e) {
+      console.error('[Module Script Load Error: test-builder]', e);
+    }
+    try {
+      ${ITEM_CODES_SCRIPT}
+    } catch (e) {
+      console.error('[Module Script Load Error: item-codes]', e);
+    }
+    try {
+      ${SALES_ORDERS_SCRIPT}
+    } catch (e) {
+      console.error('[Module Script Load Error: sales-orders]', e);
+    }
+
+    // --- TIER 1: SANDBOX LOADER & DEFENSIVE FALLBACK FACTORIES (ADR-0002) ---
+    // ponytail: safeExecuteModuleSetup keeps root setup infallible across all 15 C-Modules
+    function safeExecuteModuleSetup(moduleId, setupFn, ctx, fallbackFactory) {
+      try {
+        if (typeof setupFn !== 'function') {
+          throw new Error("Module '" + moduleId + "' setup function is not defined");
+        }
+        const result = setupFn(ctx);
+        return result || (fallbackFactory ? fallbackFactory() : {});
+      } catch (err) {
+        console.error("[Sandbox Loader CRASH]: Failed to execute setup for module '" + moduleId + "':", err);
+        if (ctx && ctx.moduleStatesRegistry) {
+          ctx.moduleStatesRegistry.setModuleError(moduleId, err, 'setup');
+        } else if (window.__cp_module_states_store) {
+          window.__cp_module_states_store.setModuleError(moduleId, err, 'setup');
+        }
+        return fallbackFactory ? fallbackFactory() : {};
+      }
+    }
+
+    function createModbusPresetsFallback() {
+      const ref = (typeof Vue !== 'undefined' && Vue.ref) ? Vue.ref : function(v) { return { value: v }; };
+      return {
+        presetsList: ref([]),
+        activePresetId: ref(''),
+        activePreset: ref({ name: 'Fallback Mode', registers: [] }),
+        presetRegisters: ref([]),
+        selectedPresetRowCount: ref(0),
+        checkedRegistersCount: ref(0),
+        isSavingPreset: ref(false),
+        presetFilterQuery: ref(''),
+        showImportExcelModal: ref(false),
+        showCreateTemplateModal: ref(false),
+        showDeletePresetModal: ref(false),
+        showDeleteSelectedModal: ref(false),
+        showAddRegisterModal: ref(false),
+        isProcessingImport: ref(false),
+        newRegisterForm: ref({}),
+        importForm: ref({}),
+        createForm: ref({}),
+        fetchPresets: function() {},
+        selectPreset: function() {},
+        onPresetSelectChange: function() {},
+        addPresetRow: function() {},
+        openAddRegisterModal: function() {},
+        confirmAddRegisterModal: function() {},
+        deleteSelectedPresetRows: function() {},
+        openDeleteSelectedModal: function() {},
+        confirmDeleteSelectedPresetRows: function() {},
+        saveCurrentPreset: function() {},
+        deleteCurrentPreset: function() {},
+        openDeletePresetModal: function() {},
+        confirmDeletePreset: function() {},
+        openImportModal: function() {},
+        openCreateModal: function() {},
+        confirmCreateTemplate: function() {},
+        onExcelFileSelect: function() {},
+        onExcelFileDrop: function() {},
+        clearImportFile: function() {},
+        confirmImportExcel: function() {},
+        exportPresetCSV: function() {},
+        filterPresetsTable: function() {},
+        initPresetsTabulator: function() {},
+      };
+    }
+
+    function createTestBuilderFallback() {
+      const ref = (typeof Vue !== 'undefined' && Vue.ref) ? Vue.ref : function(v) { return { value: v }; };
+      return {
+        testTemplatesList: ref([]),
+        activeTestTemplateId: ref(''),
+        activeTestTemplate: ref(null),
+        testBuilderMode: ref('flow'),
+        testAvailableFields: ref([]),
+        isSavingTestTemplate: ref(false),
+        isCreatingTestTemplate: ref(false),
+        isRunningDryRun: ref(false),
+        showCreateTestTemplateModal: ref(false),
+        showDryRunModal: ref(false),
+        newTestTemplateForm: ref({}),
+        dryRunPayloadRaw: ref(''),
+        dryRunContext: ref({}),
+        dryRunResponse: ref(null),
+        currentFlowNodes: ref([]),
+        currentFlowEdges: ref([]),
+        canvasContainerRef: ref(null),
+        wireDraft: ref(null),
+        draggingNode: ref(null),
+        wireContextMenu: ref({ visible: false, x: 0, y: 0, edgeId: null }),
+        nodeContextMenu: ref({ visible: false, x: 0, y: 0, nodeId: null }),
+        openWireContextMenu: function() {},
+        closeWireContextMenu: function() {},
+        openNodeContextMenu: function() {},
+        closeNodeContextMenu: function() {},
+        editScriptFromNodeMenu: function() {},
+        cloneNodeFromMenu: function() {},
+        disconnectWiresFromNode: function() {},
+        deleteNodeFromMenu: function() {},
+        onCanvasContextMenu: function() {},
+        inspectWireConnection: function() {},
+        deleteWireFromMenu: function() {},
+        formatFirmware: function(fw) { return fw || ''; },
+        getNodePosX: function() { return 0; },
+        getNodePosY: function() { return 0; },
+        getFieldEnglishLabel: function(f) { return f || ''; },
+        getNodeDisplayName: function() { return ''; },
+        showFunctionScriptModal: ref(false),
+        editingFunctionNode: ref(null),
+        functionScriptBuffer: ref(''),
+        functionScriptTestResult: ref(null),
+        isTestingFunctionScript: ref(false),
+        getNodeBadgeClass: function() { return ''; },
+        getNodeIcon: function() { return ''; },
+        getNodeCardClass: function() { return ''; },
+        getNodeScriptPreview: function() { return ''; },
+        getEdgePath: function() { return ''; },
+        getEdgeMidX: function() { return 0; },
+        getEdgeMidY: function() { return 0; },
+        getDraftWirePath: function() { return ''; },
+        onOutputPortClick: function() {},
+        onInputPortClick: function() {},
+        removeFlowEdge: function() {},
+        onCanvasMouseMove: function() {},
+        onCanvasMouseUp: function() {},
+        onCanvasClick: function() {},
+        cancelWireDraft: function() {},
+        onNodeHeaderMouseDown: function() {},
+        autoArrangeNodes: function() {},
+        autoWirePipeline: function() {},
+        clearFlowWires: function() {},
+        openFunctionScriptModal: function() {},
+        saveFunctionScript: function() {},
+        insertScriptVariable: function() {},
+        applyScriptTemplate: function() {},
+        testFunctionScriptInModal: function() {},
+        onTestTemplateSelectChange: function() {},
+        fetchTestAvailableFields: function() {},
+        addFlowNode: function() {},
+        addExtractorNodeForField: function() {},
+        onExtractorFieldChange: function() {},
+        removeFlowNode: function() {},
+        compileFlowToAssertions: function() {},
+        convertFlowToScript: function() {},
+        insertCodeSnippet: function() {},
+        insertSampleScript: function() {},
+        saveCurrentTestTemplate: function() {},
+        openCreateTestTemplateModal: function() {},
+        createTestTemplate: function() {},
+        openDeleteTestTemplateModal: function() {},
+        openDryRunModal: function() {},
+        executeDryRun: function() {},
+        decoderExtractionStatus: ref({}),
+        showQuickTestModal: ref(false),
+        quickTestCode: ref(''),
+        isTestingQuickCode: ref(false),
+        quickTestResult: ref(null),
+        commonTelemetryFields: ref([]),
+        realDecoderFields: ref([]),
+        navigateToDecoderManager: function() {},
+        openQuickTestModal: function() {},
+        loadActiveDecoderCodeIntoQuickTest: function() {},
+        loadSampleQuickTestCode: function() {},
+        runQuickTestExtract: function() {},
+        applyQuickTestFieldsToScenario: function() {},
+      };
+    }
+
+    function createItemCodesFallback() {
+      const ref = (typeof Vue !== 'undefined' && Vue.ref) ? Vue.ref : function(v) { return { value: v }; };
+      return {
+        itemCodesList: ref([]),
+        itemCodesLoading: ref(false),
+        itemCodesSearchQuery: ref(''),
+        itemCodesStatusFilter: ref('all'),
+        itemCodesViewMode: ref('card'),
+        catalogAvailableTemplates: ref([]),
+        isSavingCatalogItem: ref(false),
+        showCreateItemCodeModal: ref(false),
+        showEditItemCodeModal: ref(false),
+        showDeleteItemCodeModal: ref(false),
+        createItemCodeForm: ref({}),
+        editingCatalogItem: ref(null),
+        itemCodeToDelete: ref(null),
+        uniqueCatalogSkusCount: ref(0),
+        filteredItemCodes: ref([]),
+        setCatalogViewMode: function() {},
+        initItemCodesTabulator: function() {},
+        fetchItemCodes: function() {},
+        fetchCatalogAvailableTemplates: function() {},
+        sanitizeFw: function(fw) { return fw || '1.0'; },
+        formatSkuFw: function(sku, fw) { return sku ? sku + '_' + (fw || '1.0') : ''; },
+        copyText: function() {},
+        navigateToTestBuilder: function() {},
+        toggleItemActive: function() {},
+        openCreateItemCodeModal: function() {},
+        submitCreateItemCode: function() {},
+        openEditItemCodeModal: function() {},
+        submitEditItemCode: function() {},
+        openDeleteItemCodeModal: function() {},
+        submitDeleteItemCode: function() {},
+      };
+    }
+
+    function createSalesOrdersFallback() {
+      const ref = (typeof Vue !== 'undefined' && Vue.ref) ? Vue.ref : function(v) { return { value: v }; };
+      return {
+        salesOrdersList: ref([]),
+        soLoading: ref(false),
+        soSearchQuery: ref(''),
+        soStatusFilter: ref('all'),
+        soSourceFilter: ref('all'),
+        soTableViewMode: ref('card'),
+        soPagination: ref({ page: 1, limit: 10, total: 0, pages: 1 }),
+        soStats: ref({ totalOrders: 0, totalItems: 0, totalUnits: 0, testedUnits: 0, passedUnits: 0, passRate: 0 }),
+        expandedSoIds: ref([]),
+        availableTestTemplates: ref([]),
+        showCreateSoModal: ref(false),
+        showEditSoModal: ref(false),
+        showDeleteSoModal: ref(false),
+        showImportSoModal: ref(false),
+        showSoDetailsModal: ref(false),
+        showItemTestStatusModal: ref(false),
+        isSavingSo: ref(false),
+        isImportingSo: ref(false),
+        isDeletingSo: ref(false),
+        editingSo: ref(null),
+        soToDelete: ref(null),
+        selectedSoDetails: ref(null),
+        itemTestStatusData: ref({}),
+        createSoForm: ref({ items: [] }),
+        editSoForm: ref({ items: [] }),
+        importActiveTab: ref('json'),
+        odooJsonPayload: ref(''),
+        odooJsonPreview: ref(null),
+        csvContent: ref(''),
+        csvOverwriteExisting: ref(false),
+        csvPreviewRows: ref([]),
+        odooApiForm: ref({}),
+        isSoExpanded: function() { return false; },
+        toggleSoExpand: function() {},
+        formatDate: function() { return ''; },
+        formatDateTime: function() { return ''; },
+        calculateTotalQuantity: function() { return 0; },
+        calculateProgress: function() { return 0; },
+        getStatusBadgeClass: function() { return ''; },
+        getStatusDotClass: function() { return ''; },
+        getStatusTextColor: function() { return ''; },
+        getItemStatusBadgeClass: function() { return ''; },
+        getSourceBadgeClass: function() { return ''; },
+        getSourceIcon: function() { return ''; },
+        setSoViewMode: function() {},
+        initSoTabulator: function() {},
+        fetchSalesOrders: function() {},
+        onSoSearch: function() {},
+        changeSoPage: function() {},
+        fetchAvailableTemplatesForDropdown: function() {},
+        triggerAutoDetectTemplate: function() {},
+        onSkuOrFwChange: function() {},
+        autoResolveItemTemplate: function() {},
+        openCreateSoModal: function() {},
+        addCreateSoItemRow: function() {},
+        removeCreateSoItemRow: function() {},
+        submitCreateSo: function() {},
+        openEditSoModal: function() {},
+        addEditSoItemRow: function() {},
+        removeEditSoItemRow: function() {},
+        submitEditSo: function() {},
+        openDeleteSoModal: function() {},
+        confirmDeleteSo: function() {},
+        openSoDetails: function() {},
+        inspectItemTestStatus: function() {},
+        navigateToTestBuilder: function() {},
+        openImportSoModal: function() {},
+        loadSampleOdooJson: function() {},
+        previewOdooJson: function() {},
+        submitImportOdooJson: function() {},
+        loadSampleCsv: function() {},
+        clickCsvFileInput: function() {},
+        onCsvFileSelected: function() {},
+        previewCsv: function() {},
+        submitImportCsv: function() {},
+        submitSyncOdooApi: function() {},
+        sanitizeFw: function(fw) { return fw || '1.0'; },
+        formatSkuFw: function(sku, fw) { return sku ? sku + '_' + (fw || '1.0') : ''; },
+        normalizeSoCode: function(code) { return code || ''; },
+        showCatalogPickerModal: ref(false),
+        catalogPickerSearch: ref(''),
+        selectedCatalogItemCodes: ref([]),
+        filteredCatalogForPicker: ref([]),
+        isAllCatalogSelected: ref(false),
+        fetchCatalogItemsForPicker: function() {},
+        toggleSelectAllCatalogItems: function() {},
+        toggleCatalogItemSelection: function() {},
+        openCatalogPickerModal: function() {},
+        openCatalogPickerForRow: function() {},
+        attachSingleCatalogItem: function() {},
+        attachSelectedCatalogItems: function() {},
+      };
+    }
+
+    window.safeExecuteModuleSetup = safeExecuteModuleSetup;
+    window.createModbusPresetsFallback = createModbusPresetsFallback;
+    window.createTestBuilderFallback = createTestBuilderFallback;
+    window.createItemCodesFallback = createItemCodesFallback;
+    window.createSalesOrdersFallback = createSalesOrdersFallback;
 
     const { createApp, ref, computed, onMounted, watch } = Vue;
+
+    // --- TIER 3: REACTIVE MODULE STATE REGISTRY (useModuleStates) ---
+    function useModuleStates() {
+      const { reactive, computed } = Vue;
+
+      const states = reactive({
+        'overview': { id: 'c-overview-hub', tabId: 'overview', title: 'Overview Hub', icon: 'fa-solid fa-chart-pie', status: 'READY', error: null, retryCount: 0, lastActive: Date.now(), bypassed: false },
+        'network-servers': { id: 'c-network-servers', tabId: 'network-servers', title: 'Network Servers', icon: 'fa-solid fa-tower-broadcast', status: 'READY', error: null, retryCount: 0, lastActive: 0, bypassed: false },
+        'modules': { id: 'c-d-module-manager', tabId: 'modules', title: 'Dashboard Modules & Governance', icon: 'fa-solid fa-cubes', status: 'READY', error: null, retryCount: 0, lastActive: 0, bypassed: false },
+        'database': { id: 'c-database-routing', tabId: 'database', title: 'Database Manager', icon: 'fa-solid fa-database', status: 'READY', error: null, retryCount: 0, lastActive: 0, bypassed: false },
+        'roles': { id: 'c-roles-rbac', tabId: 'roles', title: 'Roles & RBAC', icon: 'fa-solid fa-shield-halved', status: 'READY', error: null, retryCount: 0, lastActive: 0, bypassed: false },
+        'users': { id: 'c-user-directory', tabId: 'users', title: 'User Directory', icon: 'fa-solid fa-users', status: 'READY', error: null, retryCount: 0, lastActive: 0, bypassed: false },
+        'devices': { id: 'c-device-fleet-admin', tabId: 'devices', title: 'Device Fleet', icon: 'fa-solid fa-microchip', status: 'READY', error: null, retryCount: 0, lastActive: 0, bypassed: false },
+        'webhooks': { id: 'c-webhook-admin', tabId: 'webhooks', title: 'Webhook Manager', icon: 'fa-solid fa-satellite-dish', status: 'READY', error: null, retryCount: 0, lastActive: 0, bypassed: false },
+        'decoder': { id: 'c-decoder-admin', tabId: 'decoder', title: 'Decoder Manager', icon: 'fa-solid fa-code', status: 'READY', error: null, retryCount: 0, lastActive: 0, bypassed: false },
+        'hmi-studio': { id: 'c-hmi-studio', tabId: 'hmi-studio', title: 'HMI SCADA Studio', icon: 'fa-solid fa-palette', status: 'READY', error: null, retryCount: 0, lastActive: 0, bypassed: false },
+        'downlink': { id: 'c-downlink-controller', tabId: 'downlink', title: 'Downlink Controller', icon: 'fa-solid fa-paper-plane', status: 'READY', error: null, retryCount: 0, lastActive: 0, bypassed: false },
+        'modbus-presets': { id: 'c-modbus-presets', tabId: 'modbus-presets', title: 'Modbus Presets & Templates', icon: 'fa-solid fa-file-excel', status: 'READY', error: null, retryCount: 0, lastActive: 0, bypassed: false },
+        'test-builder': { id: 'c-test-builder', tabId: 'test-builder', title: 'Test Automation Builder', icon: 'fa-solid fa-vial-circle-check', status: 'READY', error: null, retryCount: 0, lastActive: 0, bypassed: false },
+        'item-codes': { id: 'c-item-codes', tabId: 'item-codes', title: 'Master Item Codes', icon: 'fa-solid fa-barcode', status: 'READY', error: null, retryCount: 0, lastActive: 0, bypassed: false },
+        'sales-orders': { id: 'c-sales-orders', tabId: 'sales-orders', title: 'Sales Orders', icon: 'fa-solid fa-file-invoice-dollar', status: 'READY', error: null, retryCount: 0, lastActive: 0, bypassed: false },
+      });
+
+      const normalizeKey = (tabOrId) => {
+        if (!tabOrId) return '';
+        if (states[tabOrId]) return tabOrId;
+        const clean = tabOrId.replace(/^c-/, '');
+        if (states[clean]) return clean;
+        const found = Object.values(states).find(m => m.id === tabOrId);
+        return found ? found.tabId : clean;
+      };
+
+      const getModuleState = (tabId) => {
+        const key = normalizeKey(tabId);
+        return states[key] || null;
+      };
+
+      const setModuleError = (tabId, error, phase = 'runtime') => {
+        const key = normalizeKey(tabId);
+        const mod = states[key];
+        if (!mod) return;
+        mod.status = 'ERROR';
+        mod.bypassed = true;
+        mod.error = {
+          message: error?.message || String(error),
+          stack: error?.stack || '',
+          phase: phase,
+          timestamp: Date.now(),
+          time: new Date().toLocaleTimeString(),
+        };
+        console.error("[C-Module Isolation Guard] Module '" + tabId + "' failed during '" + phase + "':", error);
+      };
+
+      const retryModule = (tabId) => {
+        const key = normalizeKey(tabId);
+        const mod = states[key];
+        if (!mod) return;
+        if (mod.retryCount >= 3) {
+          console.warn("[Circuit Breaker] Module '" + tabId + "' exceeded max retries (3). Remains LOCKED in BYPASS.");
+          return;
+        }
+        mod.retryCount += 1;
+        mod.status = 'READY';
+        mod.bypassed = false;
+        mod.error = null;
+        mod.lastActive = Date.now();
+      };
+
+      const bypassModule = (tabId) => {
+        const key = normalizeKey(tabId);
+        const mod = states[key];
+        if (!mod) return;
+        mod.status = 'BYPASS';
+        mod.bypassed = true;
+      };
+
+      const resetModule = (tabId) => {
+        const key = normalizeKey(tabId);
+        const mod = states[key];
+        if (!mod) return;
+        mod.status = 'READY';
+        mod.bypassed = false;
+        mod.error = null;
+        mod.retryCount = 0;
+      };
+
+      const isModuleBypassed = (tabId) => {
+        const key = normalizeKey(tabId);
+        const mod = states[key];
+        return !mod || mod.bypassed || mod.status === 'ERROR' || mod.status === 'BYPASS';
+      };
+
+      const hasDegradedModules = computed(() => {
+        return Object.values(states).some(m => m.status === 'ERROR' || m.bypassed);
+      });
+
+      const degradedModulesList = computed(() => {
+        return Object.values(states).filter(m => m.status === 'ERROR' || m.bypassed);
+      });
+
+      return {
+        moduleStates: states,
+        getModuleState,
+        setModuleError,
+        retryModule,
+        bypassModule,
+        resetModule,
+        isModuleBypassed,
+        hasDegradedModules,
+        degradedModulesList,
+      };
+    }
+
+    const moduleStatesStore = useModuleStates();
+    window.__cp_module_states_store = moduleStatesStore;
+
+    // --- TIER 2: VUE 3 ERROR BOUNDARY COMPONENT (CModuleBoundary) ---
+    const CModuleBoundary = {
+      name: 'CModuleBoundary',
+      props: {
+        moduleId: {
+          type: String,
+          required: true,
+        },
+        title: {
+          type: String,
+          default: 'Module Phân Hệ',
+        },
+        icon: {
+          type: String,
+          default: 'fa-solid fa-cube',
+        },
+        active: {
+          type: Boolean,
+          default: true,
+        }
+      },
+      setup(props) {
+        const { ref, onErrorCaptured } = Vue;
+
+        const hasError = ref(false);
+        const errorDetails = ref(null);
+        const showTechDetails = ref(false);
+        const copySuccess = ref(false);
+
+        const getStore = () => window.__cp_module_states_store;
+
+        onErrorCaptured((err, instance, info) => {
+          console.error("[C-Module ErrorBoundary Caught: " + props.moduleId + "]", err, info);
+          hasError.value = true;
+          errorDetails.value = {
+            message: err?.message || String(err),
+            stack: err?.stack || 'No stack trace available',
+            info: info || 'Render/Lifecycle Phase',
+            time: new Date().toLocaleTimeString(),
+          };
+
+          const store = getStore();
+          if (store) {
+            store.setModuleError(props.moduleId, err, 'render');
+          }
+
+          // QUAN TRỌNG NHẤT: TRẢ VỀ FALSE ĐỂ CHẶN LỖI LAN TRUYỀN LÊN ROOT APP
+          return false;
+        });
+
+        const handleRetry = () => {
+          hasError.value = false;
+          errorDetails.value = null;
+          showTechDetails.value = false;
+          const store = getStore();
+          if (store) {
+            store.retryModule(props.moduleId);
+          }
+        };
+
+        const handleGoOverview = () => {
+          window.location.hash = '#overview';
+          if (window.__cp_switch_tab) {
+            window.__cp_switch_tab('overview');
+          }
+        };
+
+        const getErrorMessage = () => {
+          if (errorDetails.value && errorDetails.value.message) return errorDetails.value.message;
+          const store = getStore();
+          if (store) {
+            const st = store.getModuleState(props.moduleId);
+            if (st && st.error && st.error.message) return st.error.message;
+          }
+          return 'Module gặp sự cố nội bộ trong quá trình biên dịch hoặc hiển thị.';
+        };
+
+        const getErrorTime = () => {
+          if (errorDetails.value && errorDetails.value.time) return errorDetails.value.time;
+          const store = getStore();
+          if (store) {
+            const st = store.getModuleState(props.moduleId);
+            if (st && st.error && st.error.time) return st.error.time;
+          }
+          return 'Vừa xong';
+        };
+
+        const getErrorStack = () => {
+          if (errorDetails.value && errorDetails.value.stack) return errorDetails.value.stack;
+          const store = getStore();
+          if (store) {
+            const st = store.getModuleState(props.moduleId);
+            if (st && st.error && st.error.stack) return st.error.stack;
+          }
+          return 'Không có stack trace';
+        };
+
+        const getErrorInfo = () => {
+          if (errorDetails.value && errorDetails.value.info) return errorDetails.value.info;
+          const store = getStore();
+          if (store) {
+            const st = store.getModuleState(props.moduleId);
+            if (st && st.error && st.error.phase) return 'Phase: ' + st.error.phase;
+          }
+          return 'Render/Lifecycle Phase';
+        };
+
+        const isMaxRetriesExceeded = () => {
+          const store = getStore();
+          if (store) {
+            const st = store.getModuleState(props.moduleId);
+            return (st?.retryCount || 0) >= 3;
+          }
+          return false;
+        };
+
+        const copyErrorLog = () => {
+          const msg = getErrorMessage();
+          const stack = getErrorStack();
+          const info = getErrorInfo();
+          const time = getErrorTime();
+          const text = "Module: " + props.moduleId + " (" + props.title + ")\\nTime: " + time + "\\nError: " + msg + "\\nTrace: " + info + "\\nStack: " + stack;
+          try {
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+              navigator.clipboard.writeText(text).then(() => {
+                copySuccess.value = true;
+                setTimeout(() => { copySuccess.value = false; }, 2000);
+              });
+            }
+          } catch(e) {
+            console.warn('Clipboard write failed', e);
+          }
+        };
+
+        const isBypassed = () => {
+          if (hasError.value) return true;
+          const store = getStore();
+          if (store) {
+            return store.isModuleBypassed(props.moduleId);
+          }
+          return false;
+        };
+
+        return {
+          hasError,
+          errorDetails,
+          showTechDetails,
+          copySuccess,
+          isBypassed,
+          getErrorMessage,
+          getErrorTime,
+          getErrorStack,
+          getErrorInfo,
+          isMaxRetriesExceeded,
+          handleRetry,
+          handleGoOverview,
+          copyErrorLog,
+        };
+      },
+      template: \`
+        <div class="c-module-boundary-wrapper w-full" :data-module-id="moduleId">
+          
+          <!-- 1. FALLBACK BANNER (Hiển thị khi module bị lỗi hoặc ở trạng thái BYPASS) -->
+          <div v-if="isBypassed()" class="p-6 sm:p-8 rounded-2xl bg-gradient-to-br from-slate-900/95 via-slate-900/90 to-red-950/30 border border-red-500/30 shadow-2xl space-y-6 my-4 transition-all">
+            
+            <!-- Header Banner -->
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-red-500/20">
+              <div class="flex items-center gap-4">
+                <div class="w-12 h-12 rounded-xl bg-red-500/10 border border-red-500/30 flex items-center justify-center text-red-400 text-xl shadow-inner">
+                  <i class="fa-solid fa-triangle-exclamation animate-pulse"></i>
+                </div>
+                <div>
+                  <div class="flex items-center gap-2.5 flex-wrap">
+                    <h3 class="text-base font-bold text-white tracking-wide">{{ title }}</h3>
+                    <span class="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-red-500/20 text-red-300 border border-red-500/40">
+                      ISOLATED / BYPASSED
+                    </span>
+                  </div>
+                  <p class="text-xs text-slate-400 mt-1">
+                    Phân hệ đã được cô lập tự động để bảo vệ tính toàn vẹn của Control Panel.
+                  </p>
+                </div>
+              </div>
+
+              <!-- Nút hành động nhanh -->
+              <div class="flex items-center gap-2.5 flex-wrap">
+                <button
+                  type="button"
+                  @click="handleRetry"
+                  :disabled="isMaxRetriesExceeded()"
+                  class="px-4 py-2 rounded-xl bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white text-xs font-bold flex items-center gap-2 shadow-lg shadow-red-600/20 transition active:scale-95 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <i class="fa-solid fa-arrows-rotate"></i>
+                  <span>{{ isMaxRetriesExceeded() ? 'Đã khóa Retry (Quá 3 lần)' : 'Thử Tải Lại Module' }}</span>
+                </button>
+
+                <button
+                  type="button"
+                  @click="handleGoOverview"
+                  class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-semibold flex items-center gap-2 transition active:scale-95 cursor-pointer"
+                >
+                  <i class="fa-solid fa-house text-slate-400"></i>
+                  <span>Về Overview</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Warning if locked -->
+            <div v-if="isMaxRetriesExceeded()" class="p-3 bg-amber-500/10 border border-amber-500/30 rounded-xl text-xs text-amber-300 flex items-center gap-2">
+              <i class="fa-solid fa-lock text-amber-400"></i>
+              <span>Module bị lỗi nghiêm trọng liên tiếp 3 lần. Vui lòng kiểm tra console hoặc liên hệ bộ phận phát triển để xử lý.</span>
+            </div>
+
+            <!-- Chi tiết thông báo lỗi thân thiện -->
+            <div class="p-4 rounded-xl bg-slate-950/70 border border-slate-800 text-xs space-y-2">
+              <div class="flex items-center justify-between text-slate-300 font-semibold">
+                <span class="flex items-center gap-2 text-rose-400">
+                  <i class="fa-solid fa-bug"></i>
+                  <span>Nguyên nhân phát sinh:</span>
+                </span>
+                <span class="text-[11px] font-mono text-slate-500">{{ getErrorTime() }}</span>
+              </div>
+              <div class="font-mono text-rose-300 bg-red-950/30 p-2.5 rounded-lg border border-red-900/40 select-all break-all">
+                {{ getErrorMessage() }}
+              </div>
+            </div>
+
+            <!-- Accordion Kỹ thuật & Copy Log -->
+            <div class="space-y-2">
+              <div class="flex items-center justify-between">
+                <button
+                  type="button"
+                  @click="showTechDetails = !showTechDetails"
+                  class="text-xs text-slate-400 hover:text-slate-200 transition flex items-center gap-1.5 cursor-pointer"
+                >
+                  <i class="fa-solid" :class="showTechDetails ? 'fa-chevron-down' : 'fa-chevron-right'"></i>
+                  <span>{{ showTechDetails ? 'Ẩn thông tin kỹ thuật' : 'Xem chi tiết kỹ thuật (Stack Trace)' }}</span>
+                </button>
+
+                <button
+                  v-if="showTechDetails"
+                  type="button"
+                  @click="copyErrorLog"
+                  class="text-xs text-sky-400 hover:text-sky-300 transition flex items-center gap-1 cursor-pointer"
+                >
+                  <i class="fa-solid" :class="copySuccess ? 'fa-check text-emerald-400' : 'fa-copy'"></i>
+                  <span>{{ copySuccess ? 'Đã sao chép!' : 'Sao chép nhật ký lỗi' }}</span>
+                </button>
+              </div>
+
+              <div v-if="showTechDetails" class="p-3.5 rounded-xl bg-slate-950 border border-slate-800 text-[11px] font-mono text-slate-400 overflow-x-auto max-h-56 custom-scroll space-y-1.5">
+                <div><strong class="text-slate-300">Phase:</strong> {{ getErrorInfo() }}</div>
+                <div><strong class="text-slate-300">Stack:</strong></div>
+                <pre class="text-slate-500 whitespace-pre-wrap">{{ getErrorStack() }}</pre>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- 2. NORMAL SLOT (Hiển thị nội dung C-Module khi không có lỗi) -->
+          <div v-else>
+            <slot></slot>
+          </div>
+
+        </div>
+      \`
+    };
 
     const getStoredUser = () => {
       try {
@@ -1178,7 +1944,9 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
         const switchTab = (tab) => {
           activeTab.value = tab;
           sidebarOpen.value = false;
+          window.__cp_current_tab = tab;
         };
+        window.__cp_switch_tab = switchTab;
 
         const groupedPermissions = computed(() => {
           const groups = {
@@ -4833,39 +5601,63 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
           }
         };
 
-        const modbusPresetsModule = useModbusPresetsModule({
-          showToast,
-          authHeaders,
-          currentUser,
-          activeTab,
-        });
+        const modbusPresetsModule = safeExecuteModuleSetup(
+          'c-modbus-presets',
+          typeof useModbusPresetsModule === 'function' ? (ctx => useModbusPresetsModule(ctx)) : null,
+          {
+            showToast,
+            authHeaders,
+            currentUser,
+            activeTab,
+            moduleStatesRegistry: moduleStatesStore,
+          },
+          createModbusPresetsFallback
+        );
 
-        const testBuilderModule = useTestBuilderModule({
-          showToast,
-          authHeaders,
-          currentUser,
-          activeTab,
-          switchTab,
-          decoderSearchQuery,
-        });
+        const testBuilderModule = safeExecuteModuleSetup(
+          'c-test-builder',
+          typeof useTestBuilderModule === 'function' ? (ctx => useTestBuilderModule(ctx)) : null,
+          {
+            showToast,
+            authHeaders,
+            currentUser,
+            activeTab,
+            switchTab,
+            decoderSearchQuery,
+            moduleStatesRegistry: moduleStatesStore,
+          },
+          createTestBuilderFallback
+        );
 
-        const itemCodesModule = useItemCodesModule({
-          showToast,
-          authHeaders,
-          currentUser,
-          activeTab,
-          switchTab,
-          activeTestTemplateId: testBuilderModule.activeTestTemplateId,
-        });
+        const itemCodesModule = safeExecuteModuleSetup(
+          'c-item-codes',
+          typeof useItemCodesModule === 'function' ? (ctx => useItemCodesModule(ctx)) : null,
+          {
+            showToast,
+            authHeaders,
+            currentUser,
+            activeTab,
+            switchTab,
+            activeTestTemplateId: testBuilderModule ? testBuilderModule.activeTestTemplateId : undefined,
+            moduleStatesRegistry: moduleStatesStore,
+          },
+          createItemCodesFallback
+        );
 
-        const salesOrdersModule = useSalesOrdersModule({
-          showToast,
-          authHeaders,
-          currentUser,
-          activeTab,
-          switchTab,
-          activeTestTemplateId: testBuilderModule.activeTestTemplateId,
-        });
+        const salesOrdersModule = safeExecuteModuleSetup(
+          'c-sales-orders',
+          typeof useSalesOrdersModule === 'function' ? (ctx => useSalesOrdersModule(ctx)) : null,
+          {
+            showToast,
+            authHeaders,
+            currentUser,
+            activeTab,
+            switchTab,
+            activeTestTemplateId: testBuilderModule ? testBuilderModule.activeTestTemplateId : undefined,
+            moduleStatesRegistry: moduleStatesStore,
+          },
+          createSalesOrdersFallback
+        );
 
         watch(activeTab, (newTab) => {
           try {
@@ -4917,23 +5709,37 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
             stopDeviceQueuePolling();
           }
           if (newTab === 'modbus-presets') {
-            modbusPresetsModule.fetchPresets();
+            if (modbusPresetsModule && typeof modbusPresetsModule.fetchPresets === 'function') {
+              modbusPresetsModule.fetchPresets();
+            }
             setTimeout(() => {
-              modbusPresetsModule.initPresetsTabulator();
+              if (modbusPresetsModule && typeof modbusPresetsModule.initPresetsTabulator === 'function') {
+                modbusPresetsModule.initPresetsTabulator();
+              }
             }, 120);
           }
           if (newTab === 'item-codes') {
-            itemCodesModule.fetchItemCodes();
-            itemCodesModule.fetchCatalogAvailableTemplates();
-            if (itemCodesModule.itemCodesViewMode.value === 'tabulator') {
+            if (itemCodesModule && typeof itemCodesModule.fetchItemCodes === 'function') {
+              itemCodesModule.fetchItemCodes();
+            }
+            if (itemCodesModule && typeof itemCodesModule.fetchCatalogAvailableTemplates === 'function') {
+              itemCodesModule.fetchCatalogAvailableTemplates();
+            }
+            if (itemCodesModule && itemCodesModule.itemCodesViewMode && itemCodesModule.itemCodesViewMode.value === 'tabulator') {
               setTimeout(() => {
-                itemCodesModule.initItemCodesTabulator();
+                if (typeof itemCodesModule.initItemCodesTabulator === 'function') {
+                  itemCodesModule.initItemCodesTabulator();
+                }
               }, 120);
             }
           }
           if (newTab === 'sales-orders') {
-            salesOrdersModule.fetchSalesOrders();
-            salesOrdersModule.fetchAvailableTemplatesForDropdown();
+            if (salesOrdersModule && typeof salesOrdersModule.fetchSalesOrders === 'function') {
+              salesOrdersModule.fetchSalesOrders();
+            }
+            if (salesOrdersModule && typeof salesOrdersModule.fetchAvailableTemplatesForDropdown === 'function') {
+              salesOrdersModule.fetchAvailableTemplatesForDropdown();
+            }
           }
         });
 
@@ -4974,9 +5780,13 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
               initHmiRealtimeStream();
             }
             if (hash === 'modbus-presets') {
-              modbusPresetsModule.fetchPresets();
+              if (modbusPresetsModule && typeof modbusPresetsModule.fetchPresets === 'function') {
+                modbusPresetsModule.fetchPresets();
+              }
               setTimeout(() => {
-                modbusPresetsModule.initPresetsTabulator();
+                if (modbusPresetsModule && typeof modbusPresetsModule.initPresetsTabulator === 'function') {
+                  modbusPresetsModule.initPresetsTabulator();
+                }
               }, 150);
             }
           } else {
@@ -5336,15 +6146,24 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
           onDeviceSkuOrFwChange,
           resendDownlink,
           copyText,
+          hasDegradedModules: moduleStatesStore.hasDegradedModules,
+          degradedModulesList: moduleStatesStore.degradedModulesList,
+          moduleStates: moduleStatesStore.moduleStates,
+          isModuleBypassed: moduleStatesStore.isModuleBypassed,
         };
       }
     });
+
+    app.component('c-module-boundary', CModuleBoundary);
 
     app.config.errorHandler = function(err, vm, info) {
       console.error('[Vue Error Handler]:', err, info);
       var appEl = document.getElementById('app');
       if (appEl && appEl.hasAttribute('v-cloak')) {
         appEl.removeAttribute('v-cloak');
+      }
+      if (window.__cp_module_states_store && window.__cp_current_tab) {
+        window.__cp_module_states_store.setModuleError(window.__cp_current_tab, err, 'runtime');
       }
     };
 

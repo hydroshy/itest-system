@@ -2028,16 +2028,17 @@ export const SALES_ORDERS_SCRIPT = `
     const normalizeSoCode = (rawSoCode, defaultYear = 2026) => {
       const trimmed = (rawSoCode || '').trim();
       if (!trimmed) return trimmed;
-      if (/^SO\/\d{4}\/[A-Za-z0-9_-]+$/.test(trimmed)) {
-        return trimmed;
+      const standardMatch = trimmed.match(/^SO\\/(\\d{4})\\/([A-Za-z0-9_-]+)$/i);
+      if (standardMatch) {
+        return 'SO/' + standardMatch[1] + '/' + standardMatch[2];
       }
-      const hyphenMatch = trimmed.match(/^SO-(\d{4})-(\d+)$/i);
+      const hyphenMatch = trimmed.match(/^SO-(\\d{4})-(\\d+)$/i);
       if (hyphenMatch) {
         const year = hyphenMatch[1];
         const seq = hyphenMatch[2].padStart(5, '0');
         return 'SO/' + year + '/' + seq;
       }
-      const odooMatch = trimmed.match(/^SO-?0*(\d+)$/i);
+      const odooMatch = trimmed.match(/^SO-?0*(\\d+)$/i);
       if (odooMatch) {
         const seq = odooMatch[1].padStart(5, '0');
         return 'SO/' + defaultYear + '/' + seq;
