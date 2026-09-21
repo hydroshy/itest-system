@@ -1819,6 +1819,15 @@ export const SALES_ORDERS_MODALS = `
         >
           <i class="fa-solid fa-arrows-rotate"></i>
         </button>
+        <button
+          type="button"
+          @click="openQuickCreateItemCodeModal"
+          class="px-3.5 py-2 bg-cyan-600 hover:bg-cyan-500 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-lg shadow-cyan-600/20 transition active:scale-95 whitespace-nowrap"
+          title="Register a new Item Code into catalog"
+        >
+          <i class="fa-solid fa-plus text-xs"></i>
+          <span>+ Create Item Code</span>
+        </button>
       </div>
 
       <!-- Items Table List -->
@@ -1844,8 +1853,18 @@ export const SALES_ORDERS_MODALS = `
           </thead>
           <tbody class="divide-y divide-slate-800/60">
             <tr v-if="filteredCatalogForPicker.length === 0">
-              <td colspan="7" class="py-8 text-center text-slate-500">
-                No items match your search in the catalog.
+              <td colspan="7" class="py-8 text-center text-slate-400">
+                <div class="space-y-2">
+                  <p class="text-xs text-slate-400">No items match your search in the catalog.</p>
+                  <button
+                    type="button"
+                    @click="openQuickCreateItemCodeModal"
+                    class="px-3 py-1.5 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-bold inline-flex items-center gap-1.5 shadow transition cursor-pointer"
+                  >
+                    <i class="fa-solid fa-plus text-xs"></i>
+                    <span>+ Create New Item Code</span>
+                  </button>
+                </div>
               </td>
             </tr>
             <tr
@@ -1917,6 +1936,119 @@ export const SALES_ORDERS_MODALS = `
         </div>
       </div>
 
+    </div>
+  </div>
+
+  <!-- MODAL: QUICK CREATE ITEM CODE FROM SALES ORDER PICKER -->
+  <div
+    v-if="showQuickCreateItemModal"
+    class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto"
+    @click.self="showQuickCreateItemModal = false"
+  >
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-lg p-6 shadow-2xl space-y-4 animate-scale-in">
+      <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+        <div class="flex items-center gap-2.5">
+          <div class="w-8 h-8 rounded-lg bg-cyan-500/10 border border-cyan-500/25 flex items-center justify-center text-cyan-400">
+            <i class="fa-solid fa-barcode text-sm"></i>
+          </div>
+          <div>
+            <h3 class="text-sm font-bold text-white">Create New Master Item Code</h3>
+            <p class="text-[11px] text-slate-400">Register into catalog and automatically attach to this Sales Order.</p>
+          </div>
+        </div>
+        <button
+          type="button"
+          @click="showQuickCreateItemModal = false"
+          class="text-slate-400 hover:text-white text-xs p-1"
+        >
+          <i class="fa-solid fa-xmark text-sm"></i>
+        </button>
+      </div>
+
+      <form @submit.prevent="submitQuickCreateItemCode" class="space-y-3 text-xs">
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-slate-300 font-semibold mb-1">Item Code *</label>
+            <input
+              v-model="quickCreateItemForm.itemCode"
+              required
+              type="text"
+              placeholder="e.g. ITEM-005"
+              class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-xl text-white font-mono text-xs focus:border-cyan-500 outline-none uppercase"
+            />
+          </div>
+          <div>
+            <label class="block text-slate-300 font-semibold mb-1">Device SKU *</label>
+            <input
+              v-model="quickCreateItemForm.sku"
+              required
+              type="text"
+              placeholder="e.g. WSLRW-ATH"
+              class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-xl text-white font-mono text-xs focus:border-cyan-500 outline-none uppercase"
+            />
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-slate-300 font-semibold mb-1">Firmware Version *</label>
+            <input
+              v-model="quickCreateItemForm.firmwareVersion"
+              @input="quickCreateItemForm.firmwareVersion = sanitizeFw(quickCreateItemForm.firmwareVersion)"
+              required
+              type="text"
+              placeholder="e.g. 6 or 1.4"
+              class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-xl text-white font-mono text-xs focus:border-cyan-500 outline-none"
+            />
+          </div>
+          <div>
+            <label class="block text-slate-300 font-semibold mb-1">SKU_FW (Standard)</label>
+            <div class="px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl font-mono text-xs text-amber-300 font-bold">
+              {{ formatSkuFw(quickCreateItemForm.sku, quickCreateItemForm.firmwareVersion) || '—' }}
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-slate-300 font-semibold mb-1">Default Test Template</label>
+          <select
+            v-model="quickCreateItemForm.templateId"
+            class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-xl text-white font-mono text-xs focus:border-cyan-500 outline-none"
+          >
+            <option value="">(None - Select or assign later)</option>
+            <option v-for="tpl in availableTestTemplates" :key="tpl.id" :value="tpl.id">
+              {{ tpl.name }} ({{ tpl.sku }}_{{ sanitizeFw(tpl.firmwareVersion) }})
+            </option>
+          </select>
+        </div>
+
+        <div class="flex items-center justify-between pt-3 border-t border-slate-800">
+          <button
+            type="button"
+            @click="switchToCatalogTab"
+            class="text-[11px] text-cyan-400 hover:text-cyan-300 underline font-medium cursor-pointer"
+          >
+            Open Full Item Codes Catalog &rarr;
+          </button>
+          <div class="flex items-center gap-2">
+            <button
+              type="button"
+              @click="showQuickCreateItemModal = false"
+              class="px-3.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold text-xs cursor-pointer transition"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              :disabled="isSavingCatalogItemInSo"
+              class="px-4 py-1.5 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white font-bold text-xs cursor-pointer shadow transition disabled:opacity-50 flex items-center gap-1.5"
+            >
+              <i v-if="isSavingCatalogItemInSo" class="fa-solid fa-spinner fa-spin text-xs"></i>
+              <span>Create &amp; Attach</span>
+            </button>
+          </div>
+        </div>
+      </form>
     </div>
   </div>
 `;
@@ -2010,12 +2142,14 @@ export const SALES_ORDERS_SCRIPT = `
       odooId: null
     });
 
-    // Helper: sanitize firmware version (strictly no 'v' or 'V')
+    // Helper: sanitize firmware version (strictly no 'v' or 'V' and strip trailing .0)
     const sanitizeFw = (rawFw) => {
-      if (!rawFw || typeof rawFw !== 'string') return '1.0';
-      const clean = rawFw.trim().replace(/^[vV]+/, '');
-      return clean.length > 0 ? clean : '1.0';
+      if (rawFw === null || rawFw === undefined || rawFw === '') return '1';
+      let clean = String(rawFw).trim().replace(/^[vV]+/, '');
+      clean = clean.replace(/(\.0+)+$/, '');
+      return clean.length > 0 ? clean : '1';
     };
+    const formatFirmware = sanitizeFw;
 
     // Helper: format standard SKU_FW
     const formatSkuFw = (sku, rawFw) => {
@@ -2085,8 +2219,8 @@ export const SALES_ORDERS_SCRIPT = `
       {
         itemCode: 'ITEM-004',
         sku: 'WSL-RTD',
-        firmwareVersion: '1.0',
-        skuFw: 'WSL-RTD_1.0',
+        firmwareVersion: '1',
+        skuFw: 'WSL-RTD_1',
         templateName: 'RTD Temperature Transmitter Scenario',
         defaultTemplateId: '',
         description: 'Wireless RTD Transmitter'
@@ -2227,6 +2361,109 @@ export const SALES_ORDERS_SCRIPT = `
       });
       showToast('Attached ' + selected.length + ' item(s) from catalog', 'success');
       showCatalogPickerModal.value = false;
+    };
+
+    // Quick Create Item Code Modal inside Sales Orders
+    const showQuickCreateItemModal = ref(false);
+    const isSavingCatalogItemInSo = ref(false);
+    const quickCreateItemForm = ref({
+      itemCode: '',
+      sku: 'WSLRW-ATH',
+      firmwareVersion: '6',
+      templateId: '',
+      description: ''
+    });
+
+    const openQuickCreateItemCodeModal = () => {
+      const searchSeed = (catalogPickerSearch.value || '').trim();
+      quickCreateItemForm.value = {
+        itemCode: searchSeed.toUpperCase().startsWith('ITEM-') ? searchSeed.toUpperCase() : ('ITEM-' + Math.floor(100 + Math.random() * 900)),
+        sku: 'WSLRW-ATH',
+        firmwareVersion: '6',
+        templateId: availableTestTemplates.value[0]?.id || '',
+        description: ''
+      };
+      showQuickCreateItemModal.value = true;
+    };
+
+    const switchToCatalogTab = () => {
+      showQuickCreateItemModal.value = false;
+      showCatalogPickerModal.value = false;
+      if (typeof switchTab === 'function') {
+        switchTab('item-codes');
+      }
+    };
+
+    const submitQuickCreateItemCode = async () => {
+      if (!quickCreateItemForm.value.itemCode.trim()) {
+        showToast('Item Code is required', 'error');
+        return;
+      }
+      if (!quickCreateItemForm.value.sku.trim()) {
+        showToast('SKU is required', 'error');
+        return;
+      }
+      isSavingCatalogItemInSo.value = true;
+      const cleanFw = sanitizeFw(quickCreateItemForm.value.firmwareVersion);
+      const sku = quickCreateItemForm.value.sku.trim().toUpperCase();
+      const skuFw = formatSkuFw(sku, cleanFw);
+      const tplId = quickCreateItemForm.value.templateId || null;
+      const matchedTpl = tplId ? availableTestTemplates.value.find(t => t.id === tplId) : null;
+      const payload = {
+        itemCode: quickCreateItemForm.value.itemCode.trim().toUpperCase(),
+        sku,
+        firmwareVersion: cleanFw,
+        skuFw,
+        defaultTemplateId: tplId,
+        description: quickCreateItemForm.value.description?.trim() || null,
+        isActive: true
+      };
+
+      try {
+        let createdItem = null;
+        const endpoints = ['/api/c-modules/item-codes', '/api/item-codes'];
+        for (const ep of endpoints) {
+          try {
+            const res = await fetch(ep, {
+              method: 'POST',
+              headers: credentials(),
+              body: JSON.stringify(payload)
+            });
+            if (res.ok) {
+              createdItem = await res.json();
+              break;
+            }
+          } catch(e) {}
+        }
+        if (!createdItem) {
+          createdItem = {
+            id: 'item-' + Date.now(),
+            ...payload,
+            defaultTemplateId: tplId || '',
+            templateName: matchedTpl ? matchedTpl.name : ''
+          };
+        }
+
+        const pickerItem = {
+          itemCode: createdItem.itemCode,
+          sku: createdItem.sku,
+          firmwareVersion: cleanFw,
+          skuFw,
+          defaultTemplateId: tplId || '',
+          templateName: matchedTpl ? matchedTpl.name : ''
+        };
+
+        catalogItemsCache.value.unshift(pickerItem);
+
+        attachSingleCatalogItem(pickerItem);
+        showQuickCreateItemModal.value = false;
+        showCatalogPickerModal.value = false;
+        showToast('Item Code created and attached: ' + pickerItem.itemCode, 'success');
+      } catch (err) {
+        showToast('Failed to create Item Code', 'error');
+      } finally {
+        isSavingCatalogItemInSo.value = false;
+      }
     };
 
     // Tabulator Instance
@@ -2673,7 +2910,7 @@ export const SALES_ORDERS_SCRIPT = `
             itemCode: it.itemCode.trim(),
             sku: it.sku.trim(),
             quantity: Number(it.quantity) || 1,
-            firmwareVersion: sanitizeFw(it.firmwareVersion?.trim() || '1.0'),
+            firmwareVersion: sanitizeFw(it.firmwareVersion?.trim() || '1'),
             templateId: it.templateId || undefined,
             notes: it.notes?.trim() || undefined
           }))
@@ -2713,7 +2950,7 @@ export const SALES_ORDERS_SCRIPT = `
           id: it.id,
           itemCode: it.itemCode,
           sku: it.sku,
-          firmwareVersion: sanitizeFw(it.firmwareVersion || '1.0'),
+          firmwareVersion: sanitizeFw(it.firmwareVersion || '1'),
           quantity: it.quantity || 1,
           templateId: it.templateId || (it.template ? it.template.id : ''),
           notes: it.notes || ''
@@ -2766,7 +3003,7 @@ export const SALES_ORDERS_SCRIPT = `
             itemCode: it.itemCode.trim(),
             sku: it.sku.trim(),
             quantity: Number(it.quantity) || 1,
-            firmwareVersion: sanitizeFw(it.firmwareVersion?.trim() || '1.0'),
+            firmwareVersion: sanitizeFw(it.firmwareVersion?.trim() || '1'),
             templateId: it.templateId || undefined,
             notes: it.notes?.trim() || undefined
           }))
@@ -2898,7 +3135,7 @@ export const SALES_ORDERS_SCRIPT = `
             default_code: 'WSLRW-CLW',
             item_code: 'WSLRW-CLW-01',
             product_uom_qty: 25,
-            firmware_version: '1.0',
+            firmware_version: '1',
             notes: 'Standard 4-20mA'
           }
         ]
@@ -2918,7 +3155,7 @@ export const SALES_ORDERS_SCRIPT = `
         const lines = (parsed.order_line || []).map((l, idx) => ({
           itemCode: l.item_code || l.name || ('ITEM-' + (idx + 1)),
           sku: l.default_code || (Array.isArray(l.product_id) ? l.product_id[1] : 'SKU-GENERAL'),
-          firmwareVersion: l.firmware_version || '1.0',
+          firmwareVersion: sanitizeFw(l.firmware_version || '1'),
           quantity: Number(l.product_uom_qty) || 1
         }));
 
@@ -3032,7 +3269,7 @@ export const SALES_ORDERS_SCRIPT = `
           customer: customerIdx !== -1 ? cols[customerIdx] : '',
           itemCode: cols[itemCodeIdx] || '',
           sku: cols[skuIdx] || '',
-          firmwareVersion: fwIdx !== -1 ? cols[fwIdx] : '1.0',
+          firmwareVersion: fwIdx !== -1 ? sanitizeFw(cols[fwIdx]) : '1',
           quantity: qtyIdx !== -1 ? Number(cols[qtyIdx]) || 1 : 1
         });
       }
@@ -3192,6 +3429,7 @@ export const SALES_ORDERS_SCRIPT = `
       submitImportCsv,
       submitSyncOdooApi,
       sanitizeFw,
+      formatFirmware,
       formatSkuFw,
       normalizeSoCode,
       showCatalogPickerModal,
@@ -3206,6 +3444,12 @@ export const SALES_ORDERS_SCRIPT = `
       openCatalogPickerForRow,
       attachSingleCatalogItem,
       attachSelectedCatalogItems,
+      showQuickCreateItemModal,
+      isSavingCatalogItemInSo,
+      quickCreateItemForm,
+      openQuickCreateItemCodeModal,
+      switchToCatalogTab,
+      submitQuickCreateItemCode,
     };
   }
 `;

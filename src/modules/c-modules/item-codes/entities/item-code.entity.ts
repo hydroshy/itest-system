@@ -23,7 +23,7 @@ export class ItemCodeEntity {
   @Column({ type: 'varchar', length: 255 })
   sku: string;
 
-  @Column({ type: 'varchar', length: 100, default: '1.0' })
+  @Column({ type: 'varchar', length: 100, default: '1' })
   firmwareVersion: string;
 
   @Index('idx_item_codes_sku_fw')
@@ -32,7 +32,7 @@ export class ItemCodeEntity {
 
   @Index('idx_item_codes_default_template_id')
   @Column({ type: 'uuid', nullable: true })
-  defaultTemplateId?: string;
+  defaultTemplateId?: string | null;
 
   @ManyToOne(() => TestTemplateEntity, {
     nullable: true,

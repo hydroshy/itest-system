@@ -23,6 +23,7 @@ import {
 } from '../src/modules/c-modules/sales-orders/dto/sales-order.dto';
 import { OdooImportDto } from '../src/modules/c-modules/sales-orders/dto/odoo-import.dto';
 import { CsvImportDto } from '../src/modules/c-modules/sales-orders/dto/csv-import.dto';
+import { sanitizeFirmwareVersion } from '../src/modules/c-modules/item-codes/item-code-utils';
 import { SalesOrdersService } from '../src/modules/c-modules/sales-orders/sales-orders.service';
 import { SalesOrdersController } from '../src/modules/c-modules/sales-orders/sales-orders.controller';
 import { C_MODULES_REGISTRY } from '../src/modules/c-modules/c-module-registry';
@@ -71,10 +72,10 @@ function createMockDatabase(): MockDatabase {
       } as any,
       {
         id: '22222222-2222-2222-2222-222222222222',
-        name: 'WSLRW-ATH Legacy Test Template v1.0',
-        code: 'TT-WSLRW-ATH-1.0',
+        name: 'WSLRW-ATH Legacy Test Template v1',
+        code: 'TT-WSLRW-ATH-1',
         sku: 'WSLRW-ATH',
-        firmwareVersion: '1.0',
+        firmwareVersion: '1',
         isActive: true,
         executionMode: 'FLOW',
         flowConfig: { nodes: [], connections: [] },
@@ -87,9 +88,9 @@ function createMockDatabase(): MockDatabase {
       {
         id: '33333333-3333-3333-3333-333333333333',
         name: 'WSLRW-CLW Cleanroom Monitor Template',
-        code: 'TT-WSLRW-CLW-1.0',
+        code: 'TT-WSLRW-CLW-1',
         sku: 'WSLRW-CLW',
-        firmwareVersion: '1.0',
+        firmwareVersion: '1',
         isActive: true,
         executionMode: 'SCRIPT',
         flowConfig: { nodes: [], connections: [] },
@@ -228,7 +229,7 @@ function createMockRepository(db: MockDatabase) {
           itemCode: it.itemCode!,
           sku: it.sku!,
           quantity: it.quantity || 1,
-          firmwareVersion: it.firmwareVersion || '1.0',
+          firmwareVersion: it.firmwareVersion ? sanitizeFirmwareVersion(it.firmwareVersion) : '1',
           templateId: it.templateId,
           template: db.templates.find((t) => t.id === it.templateId),
           testedQuantity: it.testedQuantity || 0,
@@ -280,7 +281,7 @@ function createMockRepository(db: MockDatabase) {
               itemCode: itemDto.itemCode!,
               sku: itemDto.sku!,
               quantity: itemDto.quantity || 1,
-              firmwareVersion: itemDto.firmwareVersion || '1.0',
+              firmwareVersion: itemDto.firmwareVersion ? sanitizeFirmwareVersion(itemDto.firmwareVersion) : '1',
               templateId: itemDto.templateId,
               template: db.templates.find((t) => t.id === itemDto.templateId),
               testedQuantity: itemDto.testedQuantity || 0,
@@ -340,7 +341,7 @@ function createMockRepository(db: MockDatabase) {
       }
 
       const cleanSku = sku.trim().toLowerCase();
-      const cleanFw = firmwareVersion ? firmwareVersion.trim() : '1.0';
+      const cleanFw = firmwareVersion ? sanitizeFirmwareVersion(firmwareVersion) : '1';
 
       // 1. Exact match (SKU + Firmware Version)
       const exact = db.templates.find(

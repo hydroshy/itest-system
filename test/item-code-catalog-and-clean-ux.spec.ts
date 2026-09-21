@@ -232,11 +232,11 @@ async function runScenario2() {
   assert.strictEqual(sanitizeFirmwareVersion('V6'), '6');
   assert.strictEqual(sanitizeFirmwareVersion('v1.4'), '1.4');
   assert.strictEqual(sanitizeFirmwareVersion('V1.4.2'), '1.4.2');
-  assert.strictEqual(sanitizeFirmwareVersion('vvv2.0'), '2.0');
+  assert.strictEqual(sanitizeFirmwareVersion('vvv2.0'), '2');
   assert.strictEqual(sanitizeFirmwareVersion('6'), '6');
-  assert.strictEqual(sanitizeFirmwareVersion(''), '1.0');
-  assert.strictEqual(sanitizeFirmwareVersion(undefined), '1.0');
-  console.log('  [PASS] 2.1: sanitizeFirmwareVersion strips leading v/V and handles fallbacks');
+  assert.strictEqual(sanitizeFirmwareVersion(''), '1');
+  assert.strictEqual(sanitizeFirmwareVersion(undefined), '1');
+  console.log('  [PASS] 2.1: sanitizeFirmwareVersion strips leading v/V, trailing .0, and defaults to 1');
 
   // 2.2 formatSkuFw
   assert.strictEqual(formatSkuFw('wslrw-ath', '6'), 'WSLRW-ATH_6');

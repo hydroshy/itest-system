@@ -1222,7 +1222,9 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
 
         const formatFirmware = (fw) => {
           if (fw === undefined || fw === null || fw === '') return '—';
-          return String(fw).replace(/^[vV]/, '').trim() || '—';
+          let clean = String(fw).replace(/^[vV]/, '').trim();
+          clean = clean.replace(/(\.0+)+$/, '');
+          return clean || '—';
         };
 
         const selectedDeviceNetworkServer = computed(() => {

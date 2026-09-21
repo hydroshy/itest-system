@@ -268,7 +268,7 @@ export class SalesOrdersService {
           itemCode: itemDto.itemCode?.trim(),
           sku,
           quantity: itemDto.quantity,
-          firmwareVersion: fw || '1.0',
+          firmwareVersion: fw || '1',
           templateId: resolvedTemplateId,
           testedQuantity: itemDto.testedQuantity,
           passedQuantity: itemDto.passedQuantity,
@@ -465,7 +465,7 @@ export class SalesOrdersService {
         `${soCode}-${String(grouped.get(soCode)!.items.length + 1).padStart(2, '0')}`
       ).trim();
       const sku = (record['sku'] || record['productsku'] || 'WSLRW-GENERIC').trim();
-      const firmwareVersion = (record['firmwareversion'] || record['firmware'] || record['fw'] || '1.0').trim();
+      const firmwareVersion = sanitizeFirmwareVersion((record['firmwareversion'] || record['firmware'] || record['fw'] || '1').trim());
       const quantity = Math.max(1, parseInt(record['quantity'] || record['qty'] || '1', 10) || 1);
       const itemNotes = (record['notes'] || record['itemnotes'] || '').trim();
 
@@ -575,7 +575,7 @@ export class SalesOrdersService {
           default_code: 'WSLRW-CLW',
           product_uom_qty: 5,
           item_code: `${targetSo}-02`,
-          firmware_version: '1.0',
+          firmware_version: '1',
         },
       ],
     };

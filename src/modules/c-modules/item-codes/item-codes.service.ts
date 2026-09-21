@@ -59,7 +59,11 @@ export class ItemCodesService {
     const firmwareVersion = sanitizeFirmwareVersion(dto.firmwareVersion);
     const skuFw = formatSkuFw(sku, firmwareVersion);
 
-    let defaultTemplateId = dto.defaultTemplateId;
+    let defaultTemplateId =
+      dto.defaultTemplateId && typeof dto.defaultTemplateId === 'string' && dto.defaultTemplateId.trim() !== ''
+        ? dto.defaultTemplateId.trim()
+        : undefined;
+
     if (!defaultTemplateId) {
       const match = await this.repository.findMatchingTemplate(sku, firmwareVersion);
       if (match) {
@@ -99,13 +103,24 @@ export class ItemCodesService {
         : existing.firmwareVersion;
     const updatedSkuFw = formatSkuFw(updatedSku, updatedFw);
 
-    let updatedTemplateId =
-      dto.defaultTemplateId !== undefined ? dto.defaultTemplateId : existing.defaultTemplateId;
+    let updatedTemplateId: string | null | undefined;
 
-    if (!updatedTemplateId && (dto.sku || dto.firmwareVersion)) {
-      const match = await this.repository.findMatchingTemplate(updatedSku, updatedFw);
-      if (match) {
-        updatedTemplateId = match.id;
+    if (dto.defaultTemplateId !== undefined) {
+      if (
+        dto.defaultTemplateId === null ||
+        (typeof dto.defaultTemplateId === 'string' && dto.defaultTemplateId.trim() === '')
+      ) {
+        updatedTemplateId = null;
+      } else {
+        updatedTemplateId = dto.defaultTemplateId.trim();
+      }
+    } else {
+      updatedTemplateId = existing.defaultTemplateId || null;
+      if (!updatedTemplateId && (dto.sku || dto.firmwareVersion !== undefined)) {
+        const match = await this.repository.findMatchingTemplate(updatedSku, updatedFw);
+        if (match) {
+          updatedTemplateId = match.id;
+        }
       }
     }
 

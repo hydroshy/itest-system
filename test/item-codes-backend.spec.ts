@@ -60,10 +60,10 @@ async function runTests() {
   // sanitizeFirmwareVersion
   assert.strictEqual(sanitizeFirmwareVersion('v6'), '6', "Leading 'v' must be stripped");
   assert.strictEqual(sanitizeFirmwareVersion('V1.4'), '1.4', "Leading 'V' must be stripped");
-  assert.strictEqual(sanitizeFirmwareVersion('vv2.0'), '2.0', "Multiple leading 'v's must be stripped");
-  assert.strictEqual(sanitizeFirmwareVersion('1.0'), '1.0');
-  assert.strictEqual(sanitizeFirmwareVersion(''), '1.0');
-  assert.strictEqual(sanitizeFirmwareVersion(undefined), '1.0');
+  assert.strictEqual(sanitizeFirmwareVersion('vv2.0'), '2', "Multiple leading 'v's and trailing '.0' must be stripped");
+  assert.strictEqual(sanitizeFirmwareVersion('1.0'), '1', "Trailing '.0' must be stripped");
+  assert.strictEqual(sanitizeFirmwareVersion(''), '1', "Empty must default to '1'");
+  assert.strictEqual(sanitizeFirmwareVersion(undefined), '1', "Undefined must default to '1'");
 
   // formatSkuFw
   assert.strictEqual(formatSkuFw('wslrw-ath', '6'), 'WSLRW-ATH_6', 'SKU must be capitalized and joined with FW');

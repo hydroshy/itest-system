@@ -1881,7 +1881,9 @@ export const TEST_BUILDER_SCRIPT = `
 
     const formatFirmware = (fw) => {
       if (fw === undefined || fw === null || fw === '') return '1';
-      return String(fw).replace(/^[vV]/, '').trim() || '1';
+      let clean = String(fw).replace(/^[vV]/, '').trim();
+      clean = clean.replace(/(\.0+)+$/, '');
+      return clean || '1';
     };
 
     const getNodePosX = (node) => {
@@ -2084,7 +2086,45 @@ export const TEST_BUILDER_SCRIPT = `
       return lines[lineIndex] || '...';
     };
 
-    const getEdgePath = (edge) => {
+    const computeWirePath = (x1, y1, x2, y2) => {
+      x1 = Number(x1);
+      y1 = Number(y1);
+      x2 = Number(x2);
+      y2 = Number(y2);
+      if (!Number.isFinite(x1) || !Number.isFinite(y1) || !Number.isFinite(x2) || !Number.isFinite(y2)) return '';
+
+      const dist = Math.hypot(x2 - x1, y2 - y1);
+      // Degenerate / coincident endpoints or distance near 0: render an arc loop
+      if (dist < 15) {
+        const loopR = 50;
+        return 'M ' + x1 + ' ' + y1 + ' C ' + (x1 + loopR) + ' ' + (y1 - loopR) + ', ' + (x2 - loopR) + ' ' + (y2 - loopR) + ', ' + x2 + ' ' + y2;
+      }
+
+      // Backward wire or co-located nodes (x2 <= x1): apply loop offset so wire does not collapse
+      if (x2 <= x1) {
+        const dx = Math.max(60, Math.abs(x1 - x2) * 0.4);
+        const dy = Math.max(50, 80 - Math.min(60, Math.abs(y2 - y1) * 0.3));
+        const signY = y1 <= y2 ? -1 : 1;
+        const cp1x = x1 + dx;
+        const cp1y = y1 + signY * dy;
+        const cp2x = x2 - dx;
+        const cp2y = y2 + signY * dy;
+        return 'M ' + x1 + ' ' + y1 + ' C ' + cp1x + ' ' + cp1y + ', ' + cp2x + ' ' + cp2y + ', ' + x2 + ' ' + y2;
+      }
+
+      // Forward wire: check if horizontal gap is small and dy is near 0 to avoid flat collapse
+      let dx = (x2 - x1) * 0.5;
+      if (dx < 50) {
+        if (Math.abs(y2 - y1) < 15) {
+          const cpY = y1 - 25;
+          return 'M ' + x1 + ' ' + y1 + ' C ' + (x1 + 40) + ' ' + cpY + ', ' + (x2 - 40) + ' ' + cpY + ', ' + x2 + ' ' + y2;
+        }
+        dx = 50;
+      }
+      return 'M ' + x1 + ' ' + y1 + ' C ' + (x1 + dx) + ' ' + y1 + ', ' + (x2 - dx) + ' ' + y2 + ', ' + x2 + ' ' + y2;
+    };
+
+    const getWirePath = (edge) => {
       const _ = wireTick.value;
       if (!edge) return '';
       const fromId = edge.from || edge.source;
@@ -2096,9 +2136,10 @@ export const TEST_BUILDER_SCRIPT = `
       const y1 = getNodePosY(fromNode) + 30;
       const x2 = getNodePosX(toNode);
       const y2 = getNodePosY(toNode) + 30;
-      const dx = Math.max(50, Math.abs(x2 - x1) * 0.5);
-      return 'M ' + x1 + ' ' + y1 + ' C ' + (x1 + dx) + ' ' + y1 + ', ' + (x2 - dx) + ' ' + y2 + ', ' + x2 + ' ' + y2;
+      return computeWirePath(x1, y1, x2, y2);
     };
+
+    const getEdgePath = getWirePath;
 
     const getEdgeMidX = (edge) => {
       if (!edge) return 0;
@@ -2130,9 +2171,7 @@ export const TEST_BUILDER_SCRIPT = `
       const y1 = Number(wireDraft.value.startY);
       const x2 = Number(wireDraft.value.currentX);
       const y2 = Number(wireDraft.value.currentY);
-      if (!Number.isFinite(x1) || !Number.isFinite(y1) || !Number.isFinite(x2) || !Number.isFinite(y2)) return '';
-      const dx = Math.max(50, Math.abs(x2 - x1) * 0.5);
-      return 'M ' + x1 + ' ' + y1 + ' C ' + (x1 + dx) + ' ' + y1 + ', ' + (x2 - dx) + ' ' + y2 + ', ' + x2 + ' ' + y2;
+      return computeWirePath(x1, y1, x2, y2);
     };
 
     const onOutputPortClick = (node, event) => {
@@ -3363,6 +3402,8 @@ export const TEST_BUILDER_SCRIPT = `
       getNodeIcon,
       getNodeCardClass,
       getNodeScriptPreview,
+      computeWirePath,
+      getWirePath,
       getEdgePath,
       getEdgeMidX,
       getEdgeMidY,

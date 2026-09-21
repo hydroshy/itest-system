@@ -153,7 +153,7 @@ export class SalesOrdersRepository {
           ...item,
           salesOrderId: savedSo.id,
           quantity: item.quantity !== undefined ? item.quantity : 1,
-          firmwareVersion: item.firmwareVersion || '1.0',
+          firmwareVersion: item.firmwareVersion ? sanitizeFirmwareVersion(item.firmwareVersion) : '1',
           status: item.status || SalesOrderItemStatus.PENDING,
           testedQuantity: item.testedQuantity || 0,
           passedQuantity: item.passedQuantity || 0,
@@ -217,7 +217,7 @@ export class SalesOrdersRepository {
             ...itemDto,
             salesOrderId: savedSo.id,
             quantity: itemDto.quantity !== undefined ? itemDto.quantity : 1,
-            firmwareVersion: itemDto.firmwareVersion || '1.0',
+            firmwareVersion: itemDto.firmwareVersion ? sanitizeFirmwareVersion(itemDto.firmwareVersion) : '1',
             status: itemDto.status || SalesOrderItemStatus.PENDING,
             testedQuantity: itemDto.testedQuantity || 0,
             passedQuantity: itemDto.passedQuantity || 0,
@@ -311,7 +311,7 @@ export class SalesOrdersRepository {
           ...itemDto,
           salesOrderId: existing.id,
           quantity: itemDto.quantity !== undefined ? itemDto.quantity : 1,
-          firmwareVersion: itemDto.firmwareVersion || '1.0',
+          firmwareVersion: itemDto.firmwareVersion ? sanitizeFirmwareVersion(itemDto.firmwareVersion) : '1',
           status: itemDto.status || SalesOrderItemStatus.PENDING,
           testedQuantity: 0,
           passedQuantity: 0,
@@ -349,7 +349,7 @@ export class SalesOrdersRepository {
     }
 
     const cleanSkuStr = sku.trim();
-    const cleanFwStr = firmwareVersion ? sanitizeFirmwareVersion(firmwareVersion) : '1.0';
+    const cleanFwStr = firmwareVersion ? sanitizeFirmwareVersion(firmwareVersion) : '1';
     const templateRepo = this.getTemplateRepo();
 
     try {

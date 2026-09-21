@@ -37,10 +37,10 @@ export class CreateSalesOrderItemDto {
   @Min(1)
   quantity?: number = 1;
 
-  @ApiPropertyOptional({ description: 'Target firmware version', example: '1.0', default: '1.0' })
+  @ApiPropertyOptional({ description: 'Target firmware version', example: '1', default: '1' })
   @IsOptional()
   @IsString()
-  firmwareVersion?: string = '1.0';
+  firmwareVersion?: string = '1';
 
   @ApiPropertyOptional({ description: 'Explicit Test Template UUID (optional, auto-mapped if omitted)' })
   @IsOptional()

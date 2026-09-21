@@ -821,7 +821,10 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
         onCanvasContextMenu: function() {},
         inspectWireConnection: function() {},
         deleteWireFromMenu: function() {},
-        formatFirmware: function(fw) { return fw || ''; },
+        formatFirmware: function(fw) {
+          if (!fw) return '';
+          return String(fw).replace(/^[vV]/, '').trim().replace(/(\.0+)+$/, '') || '';
+        },
         getNodePosX: function() { return 0; },
         getNodePosY: function() { return 0; },
         getFieldEnglishLabel: function(f) { return f || ''; },
@@ -835,6 +838,8 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
         getNodeIcon: function() { return ''; },
         getNodeCardClass: function() { return ''; },
         getNodeScriptPreview: function() { return ''; },
+        computeWirePath: function() { return ''; },
+        getWirePath: function() { return ''; },
         getEdgePath: function() { return ''; },
         getEdgeMidX: function() { return 0; },
         getEdgeMidY: function() { return 0; },
@@ -1566,7 +1571,9 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
 
         const formatFirmware = (fw) => {
           if (fw === undefined || fw === null || fw === '') return '—';
-          return String(fw).replace(/^[vV]/, '').trim() || '—';
+          let clean = String(fw).replace(/^[vV]/, '').trim();
+          clean = clean.replace(/(\.0+)+$/, '');
+          return clean || '—';
         };
 
         const selectedDeviceNetworkServer = computed(() => {

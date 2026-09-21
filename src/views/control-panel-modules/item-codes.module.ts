@@ -53,10 +53,10 @@ export const ITEM_CODES_TEMPLATE = `
           <button
             type="button"
             @click="openCreateItemCodeModal"
-            class="px-4 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-bold flex items-center gap-2 cursor-pointer shadow-lg shadow-cyan-600/20 transition active:scale-95"
+            class="px-5 py-2.5 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white text-xs font-bold flex items-center gap-2 cursor-pointer shadow-lg shadow-cyan-500/25 border border-cyan-400/30 transition-all duration-200 hover:scale-[1.02] active:scale-95"
             title="Register a new Master Item Code"
           >
-            <i class="fa-solid fa-plus text-xs"></i>
+            <i class="fa-solid fa-plus-circle text-sm"></i>
             <span>+ Create Item Code</span>
           </button>
         </div>
@@ -189,10 +189,26 @@ export const ITEM_CODES_TEMPLATE = `
           </thead>
           <tbody class="divide-y divide-slate-800/60">
             <tr v-if="filteredItemCodes.length === 0">
-              <td colspan="8" class="py-12 text-center text-slate-500">
-                <i class="fa-solid fa-barcode text-3xl mb-3 block opacity-40"></i>
-                <p class="text-sm font-semibold text-slate-400">No Item Codes Found</p>
-                <p class="text-xs text-slate-500 mt-1">Try adjusting your search criteria or register a new Item Code.</p>
+              <td colspan="8" class="py-12 text-center text-slate-400">
+                <div class="max-w-md mx-auto space-y-3">
+                  <div class="w-12 h-12 mx-auto rounded-2xl bg-cyan-500/10 border border-cyan-500/25 flex items-center justify-center text-cyan-400">
+                    <i class="fa-solid fa-barcode text-xl"></i>
+                  </div>
+                  <div>
+                    <p class="text-sm font-bold text-white">No Item Codes Found</p>
+                    <p class="text-xs text-slate-400 mt-1">Get started by creating your first Master Item Code with clean firmware version.</p>
+                  </div>
+                  <div class="pt-2">
+                    <button
+                      type="button"
+                      @click="openCreateItemCodeModal"
+                      class="px-4 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white font-bold text-xs inline-flex items-center gap-2 shadow-lg shadow-cyan-600/20 cursor-pointer transition active:scale-95"
+                    >
+                      <i class="fa-solid fa-plus text-xs"></i>
+                      <span>+ Create First Item Code</span>
+                    </button>
+                  </div>
+                </div>
               </td>
             </tr>
 
@@ -404,7 +420,12 @@ export const ITEM_CODES_MODALS = `
 
         <!-- Default Test Template Mapping -->
         <div>
-          <label class="block text-slate-300 font-semibold mb-1">Default Test Template</label>
+          <div class="flex items-center justify-between mb-1">
+            <label class="block text-slate-300 font-semibold">Default Test Template</label>
+            <span v-if="createItemCodeForm.defaultTemplateId" class="text-[10px] text-cyan-400 font-mono flex items-center gap-1">
+              <i class="fa-solid fa-circle-check"></i> Scenario Linked
+            </span>
+          </div>
           <select
             v-model="createItemCodeForm.defaultTemplateId"
             class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-xl text-white font-mono text-xs focus:border-cyan-500 outline-none"
@@ -414,7 +435,7 @@ export const ITEM_CODES_MODALS = `
               {{ tpl.name }} ({{ tpl.sku }}_{{ sanitizeFw(tpl.firmwareVersion) }})
             </option>
           </select>
-          <p class="text-[10px] text-slate-500 mt-1">Automated test scenario pre-linked to this Item Code</p>
+          <p class="text-[10px] text-slate-500 mt-1">Pre-link automated test scenario to this Item Code for 1-click execution</p>
         </div>
 
         <!-- Description -->
@@ -539,7 +560,12 @@ export const ITEM_CODES_MODALS = `
 
         <!-- Default Test Template Mapping -->
         <div>
-          <label class="block text-slate-300 font-semibold mb-1">Default Test Template</label>
+          <div class="flex items-center justify-between mb-1">
+            <label class="block text-slate-300 font-semibold">Default Test Template</label>
+            <span v-if="editingCatalogItem.defaultTemplateId" class="text-[10px] text-sky-400 font-mono flex items-center gap-1">
+              <i class="fa-solid fa-circle-check"></i> Scenario Linked
+            </span>
+          </div>
           <select
             v-model="editingCatalogItem.defaultTemplateId"
             class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-xl text-white font-mono text-xs focus:border-sky-500 outline-none"
@@ -549,6 +575,7 @@ export const ITEM_CODES_MODALS = `
               {{ tpl.name }} ({{ tpl.sku }}_{{ sanitizeFw(tpl.firmwareVersion) }})
             </option>
           </select>
+          <p class="text-[10px] text-slate-500 mt-1">Select test scenario to bind with this Item Code</p>
         </div>
 
         <!-- Description -->
@@ -654,12 +681,14 @@ export const ITEM_CODES_SCRIPT = `
       return { ...h, 'Content-Type': 'application/json' };
     };
 
-    // Helper: sanitize firmware version (strictly no 'v' or 'V')
+    // Helper: sanitize firmware version (strictly no 'v' or 'V' and strip trailing .0)
     const sanitizeFw = (rawFw) => {
-      if (!rawFw || typeof rawFw !== 'string') return '1.0';
-      const clean = rawFw.trim().replace(/^[vV]+/, '');
-      return clean.length > 0 ? clean : '1.0';
+      if (rawFw === null || rawFw === undefined || rawFw === '') return '1';
+      let clean = String(rawFw).trim().replace(/^[vV]+/, '');
+      clean = clean.replace(/(\.0+)+$/, '');
+      return clean.length > 0 ? clean : '1';
     };
+    const formatFirmware = sanitizeFw;
 
     // Helper: format standard SKU_FW
     const formatSkuFw = (sku, rawFw) => {
@@ -667,6 +696,13 @@ export const ITEM_CODES_SCRIPT = `
       const cleanFw = sanitizeFw(rawFw);
       return cleanSku ? cleanSku + '_' + cleanFw : '';
     };
+
+    // Seed templates fallback
+    const getInitialTemplatesSeed = () => [
+      { id: 'seed-tpl-001', name: 'WSLRW-ATH Standard Sensor Scenario', sku: 'WSLRW-ATH', firmwareVersion: '6' },
+      { id: 'seed-tpl-002', name: 'Modbus RS485 Master Suite', sku: 'WSL-MOD', firmwareVersion: '2.1' },
+      { id: 'seed-tpl-003', name: 'RTD Temperature Transmitter Scenario', sku: 'WSL-RTD', firmwareVersion: '1' }
+    ];
 
     // Seed data fallback
     const getInitialCatalogSeed = () => [
@@ -676,7 +712,7 @@ export const ITEM_CODES_SCRIPT = `
         sku: 'WSLRW-ATH',
         firmwareVersion: '6',
         skuFw: 'WSLRW-ATH_6',
-        defaultTemplateId: '',
+        defaultTemplateId: 'seed-tpl-001',
         templateName: 'WSLRW-ATH Standard Sensor Scenario',
         description: 'Daviteq Ambient Temperature & Humidity LoRaWAN sensor',
         isActive: true,
@@ -688,7 +724,7 @@ export const ITEM_CODES_SCRIPT = `
         sku: 'WSLRW-ATH',
         firmwareVersion: '1.4',
         skuFw: 'WSLRW-ATH_1.4',
-        defaultTemplateId: '',
+        defaultTemplateId: 'seed-tpl-001',
         templateName: 'WSLRW-ATH Standard Sensor Scenario',
         description: 'Daviteq ATH sensor legacy firmware release',
         isActive: true,
@@ -700,7 +736,7 @@ export const ITEM_CODES_SCRIPT = `
         sku: 'WSL-MOD',
         firmwareVersion: '2.1',
         skuFw: 'WSL-MOD_2.1',
-        defaultTemplateId: '',
+        defaultTemplateId: 'seed-tpl-002',
         templateName: 'Modbus RS485 Master Suite',
         description: 'Wireless Modbus RS485 Master Converter',
         isActive: true,
@@ -710,9 +746,9 @@ export const ITEM_CODES_SCRIPT = `
         id: 'seed-item-004',
         itemCode: 'ITEM-004',
         sku: 'WSL-RTD',
-        firmwareVersion: '1.0',
-        skuFw: 'WSL-RTD_1.0',
-        defaultTemplateId: '',
+        firmwareVersion: '1',
+        skuFw: 'WSL-RTD_1',
+        defaultTemplateId: 'seed-tpl-003',
         templateName: 'RTD Temperature Transmitter Scenario',
         description: 'Wireless RTD Temperature Transmitter',
         isActive: true,
@@ -726,7 +762,7 @@ export const ITEM_CODES_SCRIPT = `
     const itemCodesSearchQuery = Vue.ref('');
     const itemCodesStatusFilter = Vue.ref('ALL');
     const itemCodesViewMode = Vue.ref('reactive'); // 'reactive' | 'tabulator'
-    const catalogAvailableTemplates = Vue.ref([]);
+    const catalogAvailableTemplates = Vue.ref(getInitialTemplatesSeed());
     const isSavingCatalogItem = Vue.ref(false);
 
     // Modal states
@@ -747,7 +783,7 @@ export const ITEM_CODES_SCRIPT = `
       id: '',
       itemCode: '',
       sku: '',
-      firmwareVersion: '1.0',
+      firmwareVersion: '1',
       defaultTemplateId: '',
       description: '',
       isActive: true
@@ -884,11 +920,19 @@ export const ITEM_CODES_SCRIPT = `
         if (data) {
           const list = Array.isArray(data) ? data : (data.data || data.items || []);
           if (list.length > 0) {
-            itemCodesList.value = list.map(it => ({
-              ...it,
-              firmwareVersion: sanitizeFw(it.firmwareVersion || it.firmware_version),
-              skuFw: it.skuFw || it.sku_fw || formatSkuFw(it.sku, it.firmwareVersion || it.firmware_version)
-            }));
+            itemCodesList.value = list.map(it => {
+              const cleanFw = sanitizeFw(it.firmwareVersion || it.firmware_version);
+              const tplId = it.defaultTemplateId || (it.defaultTemplate && it.defaultTemplate.id) || '';
+              const matchedTpl = catalogAvailableTemplates.value.find(t => t.id === tplId);
+              const tplName = it.templateName || (it.defaultTemplate && it.defaultTemplate.name) || (it.template && it.template.name) || (matchedTpl ? matchedTpl.name : '');
+              return {
+                ...it,
+                firmwareVersion: cleanFw,
+                skuFw: it.skuFw || it.sku_fw || formatSkuFw(it.sku, cleanFw),
+                defaultTemplateId: tplId,
+                templateName: tplName
+              };
+            });
           }
         }
       } catch (err) {
@@ -904,10 +948,31 @@ export const ITEM_CODES_SCRIPT = `
     // Fetch available templates
     const fetchCatalogAvailableTemplates = async () => {
       try {
-        const res = await fetch('/api/test-automation/templates', { headers: credentials(), credentials: 'include' });
-        if (res.ok) {
-          const data = await res.json();
-          catalogAvailableTemplates.value = Array.isArray(data) ? data : (data.templates || []);
+        const endpoints = ['/api/c-modules/test-builder/templates', '/api/test-automation/templates'];
+        let data = null;
+        for (const ep of endpoints) {
+          try {
+            const res = await fetch(ep, { headers: credentials(), credentials: 'include' });
+            if (res.ok) {
+              data = await res.json();
+              break;
+            }
+          } catch(e) {}
+        }
+
+        if (data) {
+          const list = Array.isArray(data) ? data : (data.templates || []);
+          if (list.length > 0) {
+            catalogAvailableTemplates.value = list;
+            // Update any existing item codes lacking templateName
+            itemCodesList.value.forEach(it => {
+              const tId = it.defaultTemplateId || (it.defaultTemplate && it.defaultTemplate.id);
+              if (tId && (!it.templateName || it.templateName === 'No Template' || it.templateName === 'Scenario linked')) {
+                const found = list.find(t => t.id === tId);
+                if (found) it.templateName = found.name;
+              }
+            });
+          }
         }
       } catch (err) {
         console.warn('Failed to load templates for catalog dropdown:', err);
@@ -953,16 +1018,16 @@ export const ITEM_CODES_SCRIPT = `
 
     // Modal Handlers
     const openCreateItemCodeModal = () => {
+      fetchCatalogAvailableTemplates();
       createItemCodeForm.value = {
         itemCode: 'ITEM-' + Math.floor(100 + Math.random() * 900),
         sku: 'WSLRW-ATH',
         firmwareVersion: '6',
-        defaultTemplateId: '',
+        defaultTemplateId: catalogAvailableTemplates.value[0]?.id || '',
         description: '',
         isActive: true
       };
       showCreateItemCodeModal.value = true;
-      fetchCatalogAvailableTemplates();
     };
 
     const submitCreateItemCode = async () => {
@@ -979,18 +1044,21 @@ export const ITEM_CODES_SCRIPT = `
       const cleanFw = sanitizeFw(createItemCodeForm.value.firmwareVersion);
       const sku = createItemCodeForm.value.sku.trim().toUpperCase();
       const skuFw = formatSkuFw(sku, cleanFw);
+      const tplId = createItemCodeForm.value.defaultTemplateId || null;
+      const matchedTpl = tplId ? catalogAvailableTemplates.value.find(t => t.id === tplId) : null;
       const payload = {
         itemCode: createItemCodeForm.value.itemCode.trim().toUpperCase(),
         sku,
         firmwareVersion: cleanFw,
         skuFw,
-        defaultTemplateId: createItemCodeForm.value.defaultTemplateId || null,
+        defaultTemplateId: tplId,
         description: createItemCodeForm.value.description?.trim() || null,
         isActive: createItemCodeForm.value.isActive !== false
       };
 
       try {
         let saved = false;
+        let resData = null;
         const endpoints = ['/api/c-modules/item-codes', '/api/item-codes'];
         for (const ep of endpoints) {
           try {
@@ -1001,23 +1069,21 @@ export const ITEM_CODES_SCRIPT = `
               body: JSON.stringify(payload)
             });
             if (res.ok) {
-              const resData = await res.json();
-              itemCodesList.value.unshift(resData);
+              resData = await res.json();
               saved = true;
               break;
             }
           } catch(e) {}
         }
 
-        if (!saved) {
-          // Local catalog fallback
-          const localItem = {
-            id: 'item-' + Date.now(),
-            ...payload,
-            createdAt: new Date().toISOString()
-          };
-          itemCodesList.value.unshift(localItem);
-        }
+        const localItem = {
+          id: resData?.id || ('item-' + Date.now()),
+          ...payload,
+          defaultTemplateId: tplId || '',
+          templateName: matchedTpl ? matchedTpl.name : (resData?.defaultTemplate?.name || ''),
+          createdAt: resData?.createdAt || new Date().toISOString()
+        };
+        itemCodesList.value.unshift(localItem);
 
         if (showToast) showToast('Item Code ' + payload.itemCode + ' created successfully', 'success');
         showCreateItemCodeModal.value = false;
@@ -1032,17 +1098,17 @@ export const ITEM_CODES_SCRIPT = `
     };
 
     const openEditItemCodeModal = (item) => {
+      fetchCatalogAvailableTemplates();
       editingCatalogItem.value = {
         id: item.id || '',
         itemCode: item.itemCode,
         sku: item.sku,
         firmwareVersion: sanitizeFw(item.firmwareVersion),
-        defaultTemplateId: item.defaultTemplateId || '',
+        defaultTemplateId: item.defaultTemplateId || (item.defaultTemplate && item.defaultTemplate.id) || '',
         description: item.description || '',
         isActive: item.isActive !== false
       };
       showEditItemCodeModal.value = true;
-      fetchCatalogAvailableTemplates();
     };
 
     const submitEditItemCode = async () => {
@@ -1050,11 +1116,13 @@ export const ITEM_CODES_SCRIPT = `
       const cleanFw = sanitizeFw(editingCatalogItem.value.firmwareVersion);
       const sku = editingCatalogItem.value.sku.trim().toUpperCase();
       const skuFw = formatSkuFw(sku, cleanFw);
+      const tplId = editingCatalogItem.value.defaultTemplateId || null;
+      const matchedTpl = tplId ? catalogAvailableTemplates.value.find(t => t.id === tplId) : null;
       const payload = {
         sku,
         firmwareVersion: cleanFw,
         skuFw,
-        defaultTemplateId: editingCatalogItem.value.defaultTemplateId || null,
+        defaultTemplateId: tplId,
         description: editingCatalogItem.value.description?.trim() || null,
         isActive: editingCatalogItem.value.isActive !== false
       };
@@ -1082,7 +1150,9 @@ export const ITEM_CODES_SCRIPT = `
         if (idx !== -1) {
           itemCodesList.value[idx] = {
             ...itemCodesList.value[idx],
-            ...payload
+            ...payload,
+            defaultTemplateId: tplId || '',
+            templateName: matchedTpl ? matchedTpl.name : (itemCodesList.value[idx].templateName || '')
           };
         }
 
@@ -1133,6 +1203,9 @@ export const ITEM_CODES_SCRIPT = `
       }
     };
 
+    // Preload available test templates on module setup
+    fetchCatalogAvailableTemplates();
+
     return {
       itemCodesList,
       itemCodesLoading,
@@ -1154,6 +1227,7 @@ export const ITEM_CODES_SCRIPT = `
       fetchItemCodes,
       fetchCatalogAvailableTemplates,
       sanitizeFw,
+      formatFirmware,
       formatSkuFw,
       copyText,
       navigateToTestBuilder,

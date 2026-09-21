@@ -5,6 +5,7 @@ import { ItemCodeEntity } from './entities/item-code.entity';
 import { TestTemplateEntity } from '../test-builder/entities/test-template.entity';
 import { SalesOrderItemEntity } from '../sales-orders/entities/sales-order-item.entity';
 import { QueryItemCodeDto, ItemCodePickerItemDto } from './dto/item-code.dto';
+import { sanitizeFirmwareVersion } from './item-code-utils';
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -128,7 +129,8 @@ export class ItemCodesRepository {
       ...data,
       metadata: data.metadata || {},
     });
-    return await repo.save(item);
+    const saved = await repo.save(item);
+    return (await this.findById(saved.id)) || saved;
   }
 
   public async updateItemCode(id: string, data: Partial<ItemCodeEntity>): Promise<ItemCodeEntity> {
@@ -141,7 +143,14 @@ export class ItemCodesRepository {
       ...data,
       updatedAt: new Date(),
     });
-    return await repo.save(existing);
+    if (data.defaultTemplateId === null) {
+      existing.defaultTemplateId = null as any;
+      existing.defaultTemplate = null as any;
+    } else if (data.defaultTemplateId !== undefined && data.defaultTemplateId !== existing.defaultTemplateId) {
+      existing.defaultTemplate = undefined as any;
+    }
+    await repo.save(existing);
+    return (await this.findById(id))!;
   }
 
   public async deleteItemCode(id: string): Promise<boolean> {
@@ -162,10 +171,11 @@ export class ItemCodesRepository {
 
   public async findMatchingTemplate(sku: string, firmwareVersion: string): Promise<TestTemplateEntity | null> {
     if (!sku) return null;
+    const cleanFw = sanitizeFirmwareVersion(firmwareVersion);
     return await this.getTemplateRepo()
       .createQueryBuilder('tt')
       .where('LOWER(tt.sku) = LOWER(:sku)', { sku: sku.trim() })
-      .andWhere('tt.firmwareVersion = :fw', { fw: firmwareVersion.trim() })
+      .andWhere('tt.firmwareVersion = :fw', { fw: cleanFw })
       .andWhere('tt.isActive = :active', { active: true })
       .orderBy('tt.createdAt', 'DESC')
       .getOne();

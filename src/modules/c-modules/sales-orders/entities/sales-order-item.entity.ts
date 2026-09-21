@@ -58,7 +58,7 @@ export class SalesOrderItemEntity {
   @Column({ type: 'int', default: 1 })
   quantity: number;
 
-  @Column({ type: 'varchar', length: 100, default: '1.0' })
+  @Column({ type: 'varchar', length: 100, default: '1' })
   firmwareVersion: string;
 
   @Index('idx_sales_order_items_template_id')

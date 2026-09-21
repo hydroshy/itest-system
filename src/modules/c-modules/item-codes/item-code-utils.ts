@@ -9,21 +9,24 @@ export const SO_CODE_REGEX = /^SO\/\d{4}\/[A-Za-z0-9_-]+$/;
 export const STRICT_SO_CODE_REGEX = /^SO\/\d{4}\/\d{5}$/;
 
 /**
- * Strips any leading 'v' or 'V' from firmware version strings.
- * Defaults to '1.0' if empty.
- * Examples: 'v6' -> '6', 'V1.4' -> '1.4', '1.0' -> '1.0', '' -> '1.0'
+ * Strips any leading 'v' or 'V' and trailing '.0' segments repeatedly.
+ * Defaults to '1' if empty or invalid.
+ * Examples: 'v6' -> '6', 'V1.4' -> '1.4', '1.0' -> '1', '2.0.0' -> '2', '1.4.0' -> '1.4', '' -> '1'
  */
 export function sanitizeFirmwareVersion(rawFw?: string | null): string {
   if (!rawFw || typeof rawFw !== 'string' || rawFw.trim() === '') {
-    return '1.0';
+    return '1';
   }
-  const clean = rawFw.trim().replace(/^[vV]+/, '');
-  return clean.length > 0 ? clean : '1.0';
+  let clean = rawFw.trim().replace(/^[vV]+/, '');
+  clean = clean.replace(/(?:\.0)+$/, '');
+  return clean.length > 0 ? clean : '1';
 }
 
 /**
  * Builds the canonical SKU_FW string.
- * Example: formatSkuFw('wslrw-ath', 'v6') -> 'WSLRW-ATH_6'
+ * Example: formatSkuFw('WSLRW-ATH', '6')   -> 'WSLRW-ATH_6'
+ * Example: formatSkuFw('WSLRW-CO2', '2.0') -> 'WSLRW-CO2_2'
+ * Example: formatSkuFw('WSLRW-STC', '1.0') -> 'WSLRW-STC_1'
  * Example: formatSkuFw('WSLRW-CLW', '1.4') -> 'WSLRW-CLW_1.4'
  */
 export function formatSkuFw(sku: string, rawFw?: string | null): string {
@@ -33,23 +36,27 @@ export function formatSkuFw(sku: string, rawFw?: string | null): string {
 }
 
 /**
- * Validates whether firmwareVersion is clean (no 'v' prefix, valid version chars).
- * Valid: '6', '1.4', '2.0.1'
- * Invalid: 'v6', 'V1.4', 'abc', ''
+ * Validates whether firmwareVersion is clean (no 'v' prefix, no trailing '.0').
+ * Valid: '6', '1.4', '2.1'
+ * Invalid: 'v6', 'V1.4', '1.0', '2.0.0', 'abc', ''
  */
 export function isValidFirmwareVersion(fw?: string | null): boolean {
   if (!fw || typeof fw !== 'string') return false;
-  return /^[0-9]+(\.[0-9]+)*$/.test(fw.trim());
+  const trimmed = fw.trim();
+  if (!/^[0-9]+(\.[0-9]+)*$/.test(trimmed)) return false;
+  return !/(?:\.0)+$/.test(trimmed);
 }
 
 /**
- * Validates complete SKU_FW string.
- * Valid: 'WSLRW-ATH_6', 'WSLRW-CLW_1.4'
- * Invalid: 'WSLRW-ATH_v6', 'wslrw-ath_6', 'WSLRW-ATH'
+ * Validates canonical SKU_FW string: <SKU>_<cleanFw>
+ * Valid: 'WSLRW-ATH_6', 'WSLRW-CO2_2', 'WSLRW-CLW_1.4'
+ * Invalid: 'WSLRW-ATH_6.0', 'WSLRW-CO2_v2', 'WSLRW-STC_1.0', 'wslrw-ath_6'
  */
 export function isValidSkuFw(skuFw?: string | null): boolean {
   if (!skuFw || typeof skuFw !== 'string') return false;
-  return /^[A-Z0-9_-]+_[0-9]+(\.[0-9]+)*$/.test(skuFw.trim());
+  const trimmed = skuFw.trim();
+  if (!/^[A-Z0-9_-]+_[0-9]+(\.[0-9]+)*$/.test(trimmed)) return false;
+  return !/(?:\.0)+$/.test(trimmed);
 }
 
 /**

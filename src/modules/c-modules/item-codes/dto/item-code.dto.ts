@@ -6,6 +6,7 @@ import {
   IsBoolean,
   IsInt,
   Min,
+  ValidateIf,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
@@ -21,15 +22,16 @@ export class CreateItemCodeDto {
   @IsString()
   sku: string;
 
-  @ApiPropertyOptional({ description: 'Firmware version without v prefix', example: '6', default: '1.0' })
+  @ApiPropertyOptional({ description: 'Firmware version without v prefix', example: '6', default: '1' })
   @IsOptional()
   @IsString()
-  firmwareVersion?: string = '1.0';
+  firmwareVersion?: string = '1';
 
   @ApiPropertyOptional({ description: 'Default Test Template UUID' })
   @IsOptional()
+  @ValidateIf((_, val) => val !== '' && val !== null && val !== undefined)
   @IsUUID()
-  defaultTemplateId?: string;
+  defaultTemplateId?: string | null;
 
   @ApiPropertyOptional({ description: 'Item description', example: 'Temperature & Humidity Sensor' })
   @IsOptional()
@@ -64,8 +66,9 @@ export class UpdateItemCodeDto {
 
   @ApiPropertyOptional({ description: 'Default Test Template UUID' })
   @IsOptional()
+  @ValidateIf((_, val) => val !== '' && val !== null && val !== undefined)
   @IsUUID()
-  defaultTemplateId?: string;
+  defaultTemplateId?: string | null;
 
   @ApiPropertyOptional({ description: 'Item description' })
   @IsOptional()
