@@ -17,6 +17,8 @@ import { DownlinkLogEntity } from '../network-servers/entities/downlink-log.enti
 import { ModbusPresetEntity } from '../c-modules/modbus-presets/entities/modbus-preset.entity';
 import { TestTemplateEntity } from '../c-modules/test-builder/entities/test-template.entity';
 import { TestAssertionEntity } from '../c-modules/test-builder/entities/test-assertion.entity';
+import { SalesOrderEntity } from '../c-modules/sales-orders/entities/sales-order.entity';
+import { SalesOrderItemEntity } from '../c-modules/sales-orders/entities/sales-order-item.entity';
 
 export const ALL_DATABASE_ENTITIES = [
   User,
@@ -34,6 +36,8 @@ export const ALL_DATABASE_ENTITIES = [
   ModbusPresetEntity,
   TestTemplateEntity,
   TestAssertionEntity,
+  SalesOrderEntity,
+  SalesOrderItemEntity,
 ];
 
 export interface DbConnectionConfig {

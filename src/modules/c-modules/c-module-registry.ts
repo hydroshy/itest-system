@@ -133,4 +133,14 @@ export const C_MODULES_REGISTRY: CModule[] = [
     routeHash: '#modbus-presets',
     requiredPermission: 'lorawan:device:read',
   },
+  {
+    id: 'c-sales-orders',
+    code: 'C_MOD_SALES_ORDERS',
+    title: 'Sales Orders & Item Codes',
+    description: 'Manage Sales Orders (SO), Item Codes, Odoo ERP synchronization, CSV import, and test template linkages.',
+    icon: 'fa-solid fa-file-invoice-dollar',
+    category: 'Governance',
+    routeHash: '#sales-orders',
+    requiredPermission: 'sales_orders:read',
+  },
 ];

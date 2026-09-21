@@ -16,6 +16,11 @@ import {
   TEST_BUILDER_MODALS,
   TEST_BUILDER_SCRIPT,
 } from './control-panel-modules/test-builder.module';
+import {
+  SALES_ORDERS_TEMPLATE,
+  SALES_ORDERS_MODALS,
+  SALES_ORDERS_SCRIPT,
+} from './control-panel-modules/sales-orders.module';
 
 export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
 <html lang="en">
@@ -515,6 +520,13 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
                 <span>Test Automation</span>
               </span>
             </button>
+
+            <button @click="switchTab('sales-orders')" :class="{ active: activeTab === 'sales-orders' }" class="nav-item">
+              <span class="flex items-center gap-2.5">
+                <i class="fa-solid fa-boxes-stacked w-4 text-center text-xs text-amber-400"></i>
+                <span>Sales Orders & Items</span>
+              </span>
+            </button>
           </div>
         </div>
       </aside>
@@ -549,6 +561,11 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
           ${TEST_BUILDER_TEMPLATE}
         </div>
 
+        <!-- TAB 14: SALES ORDERS & ITEM CODES (C-MODULE) -->
+        <div v-show="activeTab === 'sales-orders'" class="space-y-6">
+          ${SALES_ORDERS_TEMPLATE}
+        </div>
+
       </main>
     </div>
 
@@ -563,6 +580,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
     ${DOWNLINK_MODALS}
     ${MODBUS_PRESETS_MODALS}
     ${TEST_BUILDER_MODALS}
+    ${SALES_ORDERS_MODALS}
 
     <!-- TOAST NOTIFICATION -->
     <div v-if="toast.show" class="fixed top-4 right-4 z-50 flex items-center gap-2 px-4 py-3 rounded-xl shadow-2xl text-xs font-semibold" :class="toast.type === 'error' ? 'bg-red-950 border border-red-500 text-red-200' : (toast.type === 'success' ? 'bg-emerald-950 border border-emerald-500 text-emerald-200' : 'bg-sky-950 border border-sky-500 text-sky-200')">
@@ -604,6 +622,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
 
     ${MODBUS_PRESETS_SCRIPT}
     ${TEST_BUILDER_SCRIPT}
+    ${SALES_ORDERS_SCRIPT}
 
     const { createApp, ref, computed, onMounted, watch } = Vue;
 
@@ -1131,6 +1150,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
             case 'downlink': return 'Downlink Actuator & Queue';
             case 'modbus-presets': return 'Modbus Presets & Templates';
             case 'test-builder': return 'LoRaWAN Test Automation';
+            case 'sales-orders': return 'Sales Orders & Item Codes';
             default: return activeTab.value;
           }
         });
@@ -4809,6 +4829,15 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
           decoderSearchQuery,
         });
 
+        const salesOrdersModule = useSalesOrdersModule({
+          showToast,
+          authHeaders,
+          currentUser,
+          activeTab,
+          switchTab,
+          activeTestTemplateId: testBuilderModule.activeTestTemplateId,
+        });
+
         watch(activeTab, (newTab) => {
           try {
             window.history.replaceState(null, null, '#' + newTab);
@@ -4863,6 +4892,10 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
             setTimeout(() => {
               modbusPresetsModule.initPresetsTabulator();
             }, 120);
+          }
+          if (newTab === 'sales-orders') {
+            salesOrdersModule.fetchSalesOrders();
+            salesOrdersModule.fetchAvailableTemplatesForDropdown();
           }
         });
 
@@ -4925,6 +4958,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
         return {
           ...modbusPresetsModule,
           ...testBuilderModule,
+          ...salesOrdersModule,
           activeTab,
           sidebarOpen,
           userMenuOpen,
