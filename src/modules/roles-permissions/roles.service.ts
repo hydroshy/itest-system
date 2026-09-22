@@ -88,6 +88,12 @@ export class RolesService implements OnModuleInit, OnApplicationBootstrap {
 
         { name: 'modbus_presets:read', module: 'modbus_presets', action: 'read', description: 'View Modbus Register Presets' },
         { name: 'modbus_presets:manage', module: 'modbus_presets', action: 'manage', description: 'Create, Edit & Import Modbus Presets' },
+
+        { name: 'test_session:read', module: 'test_automation', action: 'read', description: 'View Product Test Sessions & Results' },
+        { name: 'test_session:execute', module: 'test_automation', action: 'execute', description: 'Run & Execute Product Test Sessions' },
+        { name: 'test_session:manage', module: 'test_automation', action: 'manage', description: 'Full Management of Product Test Sessions & Reports' },
+        { name: 'lorawan:test_session:read', module: 'test_automation', action: 'read', description: 'View LoRaWAN Product Test Sessions' },
+        { name: 'lorawan:test_session:execute', module: 'test_automation', action: 'execute', description: 'Execute LoRaWAN Product Test Sessions' },
       ];
 
       // 1. Insert or update default permissions atomically

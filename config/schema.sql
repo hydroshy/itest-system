@@ -234,4 +234,114 @@ CREATE INDEX IF NOT EXISTS "idx_downlink_logs_deveui" ON "downlink_logs" ("devEU
 CREATE INDEX IF NOT EXISTS "idx_downlink_logs_created_at" ON "downlink_logs" ("createdAt" DESC);
 CREATE INDEX IF NOT EXISTS "idx_downlink_logs_status" ON "downlink_logs" ("status");
 
+-- 16. Test Templates & Assertions (C-Module Test Builder)
+CREATE TABLE IF NOT EXISTS "test_templates" (
+  "id" UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  "name" VARCHAR(255) NOT NULL,
+  "code" VARCHAR(100) NOT NULL UNIQUE,
+  "description" TEXT,
+  "sku" VARCHAR(255) NOT NULL,
+  "firmwareVersion" VARCHAR(100) NOT NULL,
+  "decoderId" VARCHAR(255) REFERENCES "decoder"("id") ON DELETE SET NULL,
+  "executionMode" VARCHAR(50) NOT NULL DEFAULT 'FLOW',
+  "flowConfig" JSONB NOT NULL DEFAULT '{}'::jsonb,
+  "customScript" TEXT,
+  "timeoutSeconds" INT NOT NULL DEFAULT 60,
+  "minPacketsRequired" INT NOT NULL DEFAULT 1,
+  "isActive" BOOLEAN NOT NULL DEFAULT true,
+  "metadata" JSONB NOT NULL DEFAULT '{}'::jsonb,
+  "createdBy" VARCHAR(255),
+  "createdAt" TIMESTAMPTZ NOT NULL DEFAULT now(),
+  "updatedAt" TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS "test_assertions" (
+  "id" UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  "templateId" UUID NOT NULL REFERENCES "test_templates"("id") ON DELETE CASCADE,
+  "fieldName" VARCHAR(255) NOT NULL,
+  "fieldLabel" VARCHAR(255),
+  "operator" VARCHAR(50) NOT NULL,
+  "expectedValue" JSONB,
+  "tolerance" DOUBLE PRECISION DEFAULT 0,
+  "unit" VARCHAR(50),
+  "severity" VARCHAR(50) NOT NULL DEFAULT 'ERROR',
+  "orderIndex" INT NOT NULL DEFAULT 0,
+  "description" TEXT,
+  "createdAt" TIMESTAMPTZ NOT NULL DEFAULT now(),
+  "updatedAt" TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- 17. Test Sessions (D-Module Product Test Automation)
+CREATE TABLE IF NOT EXISTS "test_sessions" (
+  "id" UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  "sessionCode" VARCHAR(100) NOT NULL UNIQUE,
+  "soCode" VARCHAR(100) NOT NULL,
+  "itemCode" VARCHAR(100) NOT NULL,
+  "templateId" UUID REFERENCES "test_templates"("id") ON DELETE RESTRICT,
+  "totalDevices" INT NOT NULL DEFAULT 0,
+  "passedDevices" INT NOT NULL DEFAULT 0,
+  "failedDevices" INT NOT NULL DEFAULT 0,
+  "status" VARCHAR(50) NOT NULL DEFAULT 'PENDING',
+  "startTime" TIMESTAMPTZ,
+  "endTime" TIMESTAMPTZ,
+  "operatorId" VARCHAR(255),
+  "notes" TEXT,
+  "metadata" JSONB NOT NULL DEFAULT '{}'::jsonb,
+  "createdAt" TIMESTAMPTZ NOT NULL DEFAULT now(),
+  "updatedAt" TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS "idx_test_sessions_so_code" ON "test_sessions" ("soCode");
+CREATE INDEX IF NOT EXISTS "idx_test_sessions_item_code" ON "test_sessions" ("itemCode");
+CREATE INDEX IF NOT EXISTS "idx_test_sessions_status" ON "test_sessions" ("status");
+
+-- 18. Test Device Runs & Packet Logs (D-Module Execution)
+CREATE TABLE IF NOT EXISTS "test_device_runs" (
+  "id" UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  "sessionId" UUID NOT NULL REFERENCES "test_sessions"("id") ON DELETE CASCADE,
+  "devEUI" VARCHAR(50) NOT NULL,
+  "deviceId" UUID REFERENCES "devices"("id") ON DELETE SET NULL,
+  "sku" VARCHAR(255) NOT NULL,
+  "firmwareVersion" VARCHAR(100) NOT NULL,
+  "status" VARCHAR(50) NOT NULL DEFAULT 'WAITING',
+  "totalPackets" INT NOT NULL DEFAULT 0,
+  "passedAssertions" INT NOT NULL DEFAULT 0,
+  "failedAssertions" INT NOT NULL DEFAULT 0,
+  "summaryReport" JSONB NOT NULL DEFAULT '{}'::jsonb,
+  "rssiAvg" DOUBLE PRECISION,
+  "snrAvg" DOUBLE PRECISION,
+  "batteryVoltage" DOUBLE PRECISION,
+  "startedAt" TIMESTAMPTZ,
+  "completedAt" TIMESTAMPTZ,
+  "failureReason" TEXT,
+  "createdAt" TIMESTAMPTZ NOT NULL DEFAULT now(),
+  "updatedAt" TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CONSTRAINT "UQ_test_device_runs_session_deveui" UNIQUE ("sessionId", "devEUI")
+);
+
+CREATE INDEX IF NOT EXISTS "idx_test_device_runs_session_id" ON "test_device_runs" ("sessionId");
+CREATE INDEX IF NOT EXISTS "idx_test_device_runs_deveui" ON "test_device_runs" ("devEUI");
+CREATE INDEX IF NOT EXISTS "idx_test_device_runs_status" ON "test_device_runs" ("status");
+
+CREATE TABLE IF NOT EXISTS "test_packet_logs" (
+  "id" UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  "deviceRunId" UUID NOT NULL REFERENCES "test_device_runs"("id") ON DELETE CASCADE,
+  "devEUI" VARCHAR(50) NOT NULL,
+  "fPort" INT NOT NULL DEFAULT 1,
+  "fCnt" INT NOT NULL DEFAULT 0,
+  "payloadHex" TEXT NOT NULL,
+  "decodedData" JSONB,
+  "assertionResults" JSONB NOT NULL DEFAULT '[]'::jsonb,
+  "isPass" BOOLEAN NOT NULL DEFAULT false,
+  "rssi" DOUBLE PRECISION,
+  "snr" DOUBLE PRECISION,
+  "gatewayId" VARCHAR(100),
+  "receivedAt" TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS "idx_test_packet_logs_device_run_id" ON "test_packet_logs" ("deviceRunId");
+CREATE INDEX IF NOT EXISTS "idx_test_packet_logs_deveui" ON "test_packet_logs" ("devEUI");
+CREATE INDEX IF NOT EXISTS "idx_test_packet_logs_received_at" ON "test_packet_logs" ("receivedAt");
+
+
 

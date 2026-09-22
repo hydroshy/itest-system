@@ -3,6 +3,7 @@ import { TELEMETRY_TEMPLATE } from './dashboard-modules/telemetry.module';
 import { HMI_SCADA_TEMPLATE, HMI_SCADA_MODALS, HMI_SCADA_SCRIPT } from './dashboard-modules/hmi-scada.module';
 import { DOWNLINK_TEMPLATE, DOWNLINK_MODALS, DOWNLINK_SCRIPT } from './dashboard-modules/downlink.module';
 import { SERIAL_UART_TEMPLATE, SERIAL_UART_MODALS, SERIAL_UART_SCRIPT } from './dashboard-modules/serial-uart.module';
+import { TEST_AUTOMATION_TEMPLATE, TEST_AUTOMATION_MODALS, TEST_AUTOMATION_SCRIPT } from './dashboard-modules/test-automation.module';
 
 export const DASHBOARD_HTML = `<!DOCTYPE html>
 <html lang="en">
@@ -443,6 +444,8 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
           ${DOWNLINK_TEMPLATE}
 
           ${SERIAL_UART_TEMPLATE}
+ 
+          ${TEST_AUTOMATION_TEMPLATE}
 
           <!-- General Module Template for independent module source extension -->
           <div v-else class="text-center py-10 space-y-4">
@@ -474,6 +477,8 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
       ${DOWNLINK_MODALS}
 
       ${SERIAL_UART_MODALS}
+ 
+      ${TEST_AUTOMATION_MODALS}
 
     </div>
 
@@ -521,6 +526,8 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
     ${DOWNLINK_SCRIPT}
 
     ${SERIAL_UART_SCRIPT}
+ 
+    ${TEST_AUTOMATION_SCRIPT}
 
     const { createApp, ref, computed, onMounted, onUnmounted, nextTick, watch } = Vue;
 
@@ -1321,6 +1328,7 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
         const serialModule = useSerialModule({ showToast, authHeaders, activeFeature, copyText });
         const downlinkModule = useDownlinkModule({ showToast, authHeaders, activeFeature, devicesList, networkServersList, initRealtimeConnection, copyText });
         const hmiModule = useHmiModule({ showToast, authHeaders, activeFeature, devicesList, networkServersList, currentUser, telemetryList, fetchDevices: () => fetchDevices(), fetchNetworkServers: () => fetchNetworkServers(), initRealtimeConnection });
+        const testAutomationModule = useTestAutomationModule({ showToast, authHeaders, activeFeature, copyText });
 
         // Destructure module variables for seamless template & method access
         const {
@@ -1544,6 +1552,24 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
                 }
               });
 
+              // Product Test Automation Realtime Events
+              socketClient.on('test_device:packet_received', (data) => {
+                testAutomationModule.handleTestRealtimeEvent('test_device:packet_received', data);
+              });
+              socketClient.on('test_device:status_changed', (data) => {
+                testAutomationModule.handleTestRealtimeEvent('test_device:status_changed', data);
+              });
+              socketClient.on('test_session:progress', (data) => {
+                testAutomationModule.handleTestRealtimeEvent('test_session:progress', data);
+              });
+              socketClient.on('test_session:status_changed', (data) => {
+                testAutomationModule.fetchTestSessions();
+              });
+              socketClient.on('test_session:completed', (data) => {
+                showToast('Test Session [' + (data?.sessionCode || '') + '] COMPLETED!', 'success');
+                testAutomationModule.fetchTestSessions();
+              });
+
               return;
             } catch(e) {
               console.warn('Socket.IO initialization failed, falling back to SSE:', e);
@@ -1634,6 +1660,9 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
                 serialModule.initTabulatorTable();
               }
             });
+          } else if (feature.id === 'test-automation' || feature.id === 'product-test-automation') {
+            testAutomationModule.fetchTestSessions();
+            initRealtimeConnection();
           }
         };
 
@@ -1721,6 +1750,9 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
                         serialModule.initTabulatorTable();
                       }
                     });
+                  } else if (found.id === 'test-automation' || found.id === 'product-test-automation') {
+                    testAutomationModule.fetchTestSessions();
+                    initRealtimeConnection();
                   }
                 }
               }
@@ -2139,6 +2171,7 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
           ...hmiModule,
           ...downlinkModule,
           ...serialModule,
+          ...testAutomationModule,
         };
       }
     });

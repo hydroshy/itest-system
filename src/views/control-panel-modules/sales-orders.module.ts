@@ -1750,6 +1750,16 @@ export const SALES_ORDERS_MODALS = `
 
       <!-- Action Footer -->
       <div class="flex items-center justify-end gap-2 pt-2 border-t border-slate-800">
+        <a
+          href="/dashboard#test-automation"
+          target="_blank"
+          class="px-3.5 py-2 rounded-xl bg-cyan-600/20 hover:bg-cyan-600/30 text-cyan-300 border border-cyan-500/40 text-xs font-bold flex items-center gap-1.5 cursor-pointer transition"
+          title="Open Factory Test Workbench in D-Module"
+        >
+          <i class="fa-solid fa-vial-circle-check text-[10px]"></i>
+          <span>Open in Test Workbench</span>
+        </a>
+
         <button
           v-if="itemTestStatusData.testTemplate"
           type="button"

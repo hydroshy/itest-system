@@ -93,6 +93,19 @@ export const DEFAULT_D_MODULES: DModule[] = [
     status: 'active',
     isActive: true,
   },
+  {
+    id: 'test-automation',
+    code: 'D_MOD_TEST_AUTOMATION',
+    title: 'PRODUCT TEST AUTOMATION',
+    description: 'Industrial LoRaWAN product testing workbench: execute test sessions by SO & Item Code, live DevEUI verification grid, packet assertion audit, and QA certification.',
+    icon: 'fa-solid fa-vial-circle-check',
+    color: 'from-blue-600 to-cyan-600',
+    badge: 'QA & Factory',
+    category: 'Monitoring',
+    requiredPermission: 'lorawan:device:read',
+    status: 'active',
+    isActive: true,
+  },
 ];
 
 

@@ -31,6 +31,9 @@
     "test_assertions": "core_db",
     "sales_orders": "core_db",
     "sales_order_items": "core_db",
-    "item_codes": "core_db"
+    "item_codes": "core_db",
+    "test_sessions": "core_db",
+    "test_device_runs": "core_db",
+    "test_packet_logs": "core_db"
   }
 }
