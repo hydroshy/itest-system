@@ -4,6 +4,7 @@ import {
   NotFoundException,
   BadRequestException,
   Optional,
+  OnModuleInit,
 } from '@nestjs/common';
 import { TestAutomationRepository } from './test-automation.repository';
 import { TestSessionEntity, TestSessionStatus } from './entities/test-session.entity';
@@ -13,6 +14,7 @@ import { CreateTestSessionDto } from './dto/create-test-session.dto';
 import { SimulatePacketDto } from './dto/simulate-packet.dto';
 import { QueryTestSessionDto } from './dto/query-test-session.dto';
 import { RealtimeGateway } from '../../realtime/realtime.gateway';
+import { RealtimeService } from '../../realtime/realtime.service';
 import {
   cleanDevEUI,
   cleanHexPayload,
@@ -30,13 +32,60 @@ export interface AssertionEvalResult {
 }
 
 @Injectable()
-export class TestAutomationService {
+export class TestAutomationService implements OnModuleInit {
   private readonly logger = new Logger(TestAutomationService.name);
 
   constructor(
     private readonly repository: TestAutomationRepository,
     @Optional() private readonly realtimeGateway?: RealtimeGateway,
+    @Optional() private readonly realtimeService?: RealtimeService,
   ) {}
+
+  onModuleInit() {
+    if (this.realtimeService) {
+      this.realtimeService.getStream().subscribe((msg: any) => {
+        try {
+          if (msg && msg.type === 'telemetry' && msg.data) {
+            this.handleLiveUplinkTelemetry(msg.data);
+          }
+        } catch (err: any) {
+          this.logger.debug(`Error handling live uplink stream in test automation: ${err.message}`);
+        }
+      });
+    }
+  }
+
+  private async handleLiveUplinkTelemetry(telemetry: any) {
+    const rawDev = telemetry.devEUI || telemetry.devEui;
+    if (!rawDev) return;
+    const cleanEUI = cleanDevEUI(rawDev);
+    if (!cleanEUI) return;
+
+    // Check if there is an active running session for this device
+    const match = await this.repository.findActiveDeviceRunForDevEUI(cleanEUI);
+    if (!match || match.run.status !== 'RUNNING') return;
+
+    this.logger.log(
+      `Live telemetry matched active test device [${cleanEUI}] in session [${match.session.sessionCode}]`,
+    );
+
+    const rawHex = telemetry.payloadHex || telemetry.payload || telemetry.dataHex || '00';
+    const cleanHex = cleanHexPayload(rawHex) || '00';
+
+    try {
+      await this.processPacket({
+        devEUI: cleanEUI,
+        payloadHex: cleanHex,
+        fPort: Number(telemetry.fPort) || 1,
+        fCnt: Number(telemetry.fCnt) || (match.run.totalPackets || 0) + 1,
+        rssi: telemetry.rssi != null ? Number(telemetry.rssi) : -75,
+        snr: telemetry.snr != null ? Number(telemetry.snr) : 9.5,
+        gatewayId: telemetry.gatewayId || 'LNS-LIVE',
+      });
+    } catch (e: any) {
+      this.logger.warn(`Failed to process live test packet for [${cleanEUI}]: ${e.message}`);
+    }
+  }
 
   /**
    * Helper to parse and sanitize a list of DevEUIs from an array or multiline text
@@ -240,6 +289,69 @@ export class TestAutomationService {
       sessionCode: session.sessionCode,
       status: session.status,
       endTime: session.endTime,
+    });
+
+    return session;
+  }
+
+  /**
+   * Complete and finalize a test session (e.g. when template duration expires or operator completes)
+   */
+  public async completeSession(id: string): Promise<TestSessionEntity> {
+    const session = await this.getSessionById(id);
+    if (session.status === 'COMPLETED') {
+      return session;
+    }
+
+    session.status = 'COMPLETED';
+    session.endTime = new Date();
+
+    const minPackets = session.template?.minPacketsRequired || 1;
+    let passed = 0;
+    let failed = 0;
+
+    if (session.deviceRuns) {
+      for (const run of session.deviceRuns) {
+        if (run.status === 'RUNNING' || run.status === 'WAITING') {
+          if ((run.totalPackets || 0) >= minPackets && (run.failedAssertions || 0) === 0) {
+            run.status = 'PASSED';
+          } else {
+            run.status = 'TIMEOUT';
+            run.failureReason = `Test duration expired (received ${run.totalPackets || 0}/${minPackets} required valid packets)`;
+          }
+          run.completedAt = new Date();
+          await this.repository.saveDeviceRun(run);
+        }
+
+        if (run.status === 'PASSED') passed++;
+        else failed++;
+      }
+    }
+
+    session.passedDevices = passed;
+    session.failedDevices = failed;
+    session.totalDevices = session.deviceRuns?.length || 0;
+    await this.repository.saveSession(session);
+
+    this.logger.log(`Completed Test Session [${session.sessionCode}]: ${passed} PASSED, ${failed} FAILED`);
+
+    this.broadcastEvent('test_session:status_changed', {
+      sessionId: session.id,
+      sessionCode: session.sessionCode,
+      status: session.status,
+      endTime: session.endTime,
+      passedDevices: session.passedDevices,
+      failedDevices: session.failedDevices,
+    });
+
+    this.broadcastEvent('test_session:completed', {
+      sessionId: session.id,
+      sessionCode: session.sessionCode,
+      status: session.status,
+      endTime: session.endTime,
+      passedDevices: session.passedDevices,
+      failedDevices: session.failedDevices,
+      totalDevices: session.totalDevices,
     });
 
     return session;

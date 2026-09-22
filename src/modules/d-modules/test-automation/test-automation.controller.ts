@@ -68,6 +68,12 @@ export class TestAutomationController {
     return await this.service.abortSession(id, reason);
   }
 
+  @Post('sessions/:id/complete')
+  @ApiOperation({ summary: 'Finalize and complete a test session' })
+  async completeSession(@Param('id') id: string) {
+    return await this.service.completeSession(id);
+  }
+
   @Get('sessions/:id/summary')
   @ApiOperation({
     summary: 'Get real-time test progress metrics and pass/fail summary',

@@ -1328,7 +1328,16 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
         const serialModule = useSerialModule({ showToast, authHeaders, activeFeature, copyText });
         const downlinkModule = useDownlinkModule({ showToast, authHeaders, activeFeature, devicesList, networkServersList, initRealtimeConnection, copyText });
         const hmiModule = useHmiModule({ showToast, authHeaders, activeFeature, devicesList, networkServersList, currentUser, telemetryList, fetchDevices: () => fetchDevices(), fetchNetworkServers: () => fetchNetworkServers(), initRealtimeConnection });
-        const testAutomationModule = useTestAutomationModule({ showToast, authHeaders, activeFeature, copyText });
+        const testAutomationModule = useTestAutomationModule({
+          showToast,
+          authHeaders,
+          activeFeature,
+          copyText,
+          devicesList,
+          currentUser,
+          fetchDevices: () => fetchDevices(),
+          initRealtimeConnection,
+        });
 
         // Destructure module variables for seamless template & method access
         const {
@@ -1661,7 +1670,9 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
               }
             });
           } else if (feature.id === 'test-automation' || feature.id === 'product-test-automation') {
+            if (testAutomationModule.fetchSalesOrders) testAutomationModule.fetchSalesOrders();
             testAutomationModule.fetchTestSessions();
+            fetchDevices();
             initRealtimeConnection();
           }
         };
@@ -1751,7 +1762,9 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
                       }
                     });
                   } else if (found.id === 'test-automation' || found.id === 'product-test-automation') {
+                    if (testAutomationModule.fetchSalesOrders) testAutomationModule.fetchSalesOrders();
                     testAutomationModule.fetchTestSessions();
+                    fetchDevices();
                     initRealtimeConnection();
                   }
                 }
