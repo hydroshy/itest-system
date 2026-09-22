@@ -29,8 +29,8 @@ export const DEVICES_TEMPLATE = `
                   <tr>
                     <th class="py-2.5 px-3.5">DevEUI</th>
                     <th class="py-2.5 px-3.5">Device Name</th>
-                    <th class="py-2.5 px-3.5">SKU</th>
-                    <th class="py-2.5 px-3.5">Firmware</th>
+                    <th class="py-2.5 px-3.5">SKU / FW</th>
+                    <th class="py-2.5 px-3.5">Item Code / SO</th>
                     <th class="py-2.5 px-3.5">Created By</th>
                     <th class="py-2.5 px-3.5">Network Server</th>
                     <th class="py-2.5 px-3.5">Region Profile</th>
@@ -47,8 +47,23 @@ export const DEVICES_TEMPLATE = `
                   <tr v-for="d in devicesList" :key="d.id || d.devEUI" class="hover:bg-slate-800/30 transition">
                     <td class="py-2.5 px-3.5 font-mono font-bold text-sky-400">{{ d.devEUI }}</td>
                     <td class="py-2.5 px-3.5 font-bold text-white">{{ d.name || '--' }}</td>
-                    <td class="py-2.5 px-3.5 font-mono text-cyan-300 font-semibold">{{ d.sku || '—' }}</td>
-                    <td class="py-2.5 px-3.5 font-mono text-purple-300 font-semibold">{{ formatFirmware(d.firmwareVersion) }}</td>
+                    <td class="py-2.5 px-3.5 font-mono text-xs">
+                      <div class="text-cyan-300 font-semibold">{{ d.sku || '—' }}</div>
+                      <div class="text-[10px] text-purple-300">{{ formatFirmware(d.firmwareVersion) }}</div>
+                    </td>
+                    <td class="py-2.5 px-3.5">
+                      <div class="flex flex-col gap-1 items-start">
+                        <span v-if="d.itemCode?.itemCode" @click="viewItemCodeForDevice(d)" class="px-2 py-0.5 rounded bg-cyan-500/15 text-cyan-300 border border-cyan-500/30 text-[10px] font-mono font-bold inline-flex items-center gap-1 cursor-pointer hover:bg-cyan-500/25 transition" title="View in Item Code Catalog">
+                          <i class="fa-solid fa-barcode text-[9px]"></i>
+                          {{ d.itemCode.itemCode }}
+                        </span>
+                        <span v-if="d.salesOrder?.soCode" @click="viewSalesOrderForDevice(d)" class="px-2 py-0.5 rounded bg-amber-500/15 text-amber-300 border border-amber-500/30 text-[10px] font-mono font-bold inline-flex items-center gap-1 cursor-pointer hover:bg-amber-500/25 transition" title="View Sales Order">
+                          <i class="fa-solid fa-boxes-stacked text-[9px]"></i>
+                          {{ d.salesOrder.soCode }}
+                        </span>
+                        <span v-if="!d.itemCode?.itemCode && !d.salesOrder?.soCode" class="text-slate-500 text-[10px] italic">—</span>
+                      </div>
+                    </td>
                     <td class="py-2.5 px-3.5">
                       <span v-if="d.owner" class="px-2 py-0.5 rounded bg-purple-500/10 text-purple-300 border border-purple-500/20 text-[11px] font-medium inline-flex items-center gap-1.5">
                         <i class="fa-solid fa-user text-[10px]"></i>
@@ -102,6 +117,9 @@ export const DEVICES_TEMPLATE = `
                     </td>
                     <td class="py-2.5 px-3.5 text-right">
                       <div class="flex items-center justify-end gap-1.5">
+                        <button @click="sendDownlinkForDevice(d)" title="Send Downlink Hex/Preset Command" class="p-1.5 rounded bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 border border-blue-500/20 text-xs cursor-pointer">
+                          <i class="fa-solid fa-paper-plane"></i>
+                        </button>
                         <button @click="checkDeviceHealth(d)" :disabled="checkingHealthDevEUI === d.devEUI" title="Check Health & Online Status from Network Server API" class="p-1.5 rounded bg-teal-500/10 hover:bg-teal-500/20 text-teal-400 border border-teal-500/20 text-xs cursor-pointer disabled:opacity-50">
                           <i class="fa-solid fa-heart-pulse" :class="checkingHealthDevEUI === d.devEUI ? 'animate-spin' : ''"></i>
                         </button>
@@ -209,11 +227,45 @@ export const DEVICES_MODALS = `
             <input v-model="newDevice.appKey" type="text" required maxlength="32" minlength="32" class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-white font-mono uppercase focus:outline-none focus:border-teal-500" />
           </div>
 
+          <!-- Item Code Catalog Quick Select (Auto-fills SKU, FW & Decoder) -->
+          <div class="p-3 bg-slate-950/80 rounded-xl border border-cyan-500/20 space-y-1.5">
+            <div class="flex items-center justify-between">
+              <label class="block font-bold text-cyan-300 text-xs flex items-center gap-1.5">
+                <i class="fa-solid fa-barcode"></i> Item Code Catalog Quick Select
+              </label>
+              <span class="text-[10px] text-slate-400">Auto-populates SKU & FW</span>
+            </div>
+            <select
+              v-model="newDevice.itemCodeId"
+              @change="onItemCodeSelectedForDevice(newDevice.itemCodeId)"
+              class="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white font-mono text-xs focus:outline-none focus:border-cyan-500"
+            >
+              <option value="">-- Manual Entry / Custom SKU --</option>
+              <option v-for="ic in itemCodesList" :key="ic.id" :value="ic.id">
+                {{ ic.itemCode }} ({{ ic.skuFw || (ic.sku + '_' + ic.firmwareVersion) }}){{ ic.description ? ' - ' + ic.description : '' }}
+              </option>
+            </select>
+          </div>
+
+          <!-- Linked Sales Order (Optional) -->
+          <div>
+            <label class="block font-semibold text-slate-300 mb-1 flex items-center justify-between">
+              <span>Linked Sales Order (Optional)</span>
+              <span v-if="newDevice.salesOrderId" class="text-amber-400 font-mono text-[10px]">SO Linked</span>
+            </label>
+            <select v-model="newDevice.salesOrderId" class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-white font-mono text-xs focus:outline-none focus:border-amber-500">
+              <option value="">-- None (Standalone Fleet Device) --</option>
+              <option v-for="so in salesOrdersList" :key="so.id" :value="so.id">
+                {{ so.soCode }} &bull; {{ so.customerName || 'Daviteq Customer' }} ({{ so.status }})
+              </option>
+            </select>
+          </div>
+
           <!-- 2 Columns: Product SKU & Firmware Version -->
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label class="block font-semibold text-slate-300 mb-1">
-                Product SKU <span class="text-slate-500 font-normal text-[11px]">(Optional)</span>
+                Product SKU <span class="text-slate-500 font-normal text-[11px]">(Auto-filled or manual)</span>
               </label>
               <input
                 v-model="newDevice.sku"

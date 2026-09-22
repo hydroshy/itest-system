@@ -154,9 +154,67 @@ export const DOWNLINK_TEMPLATE = `
                   </div>
                 </div>
 
-                <!-- 1.3 HEX PAYLOAD -->
-                <div class="space-y-1.5">
-                  <div class="flex items-center justify-between">
+                <!-- 1.3 HEX PAYLOAD & COMMAND PRESETS -->
+                <div class="space-y-2">
+                  <!-- Quick Preset Command Selection -->
+                  <div class="space-y-1">
+                    <div class="flex items-center justify-between text-[11px] text-slate-400">
+                      <span>Quick Command Presets:</span>
+                      <span class="text-[10px] text-indigo-400">1-click insert</span>
+                    </div>
+                    <div class="flex flex-wrap gap-1.5">
+                      <button
+                        type="button"
+                        @click="downlinkForm.payloadHex = '01FF'; downlinkForm.fPort = 1"
+                        class="px-2 py-0.5 rounded bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-700 hover:border-indigo-500 text-[10px] font-mono cursor-pointer transition"
+                        title="Reboot / Reset Device"
+                      >
+                        ⚡ Reset (01FF)
+                      </button>
+                      <button
+                        type="button"
+                        @click="downlinkForm.payloadHex = '0101'; downlinkForm.fPort = 1"
+                        class="px-2 py-0.5 rounded bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-700 hover:border-indigo-500 text-[10px] font-mono cursor-pointer transition"
+                        title="Trigger Instant Uplink Telemetry"
+                      >
+                        📡 Request Uplink (0101)
+                      </button>
+                      <button
+                        type="button"
+                        @click="downlinkForm.payloadHex = '02003C'; downlinkForm.fPort = 1"
+                        class="px-2 py-0.5 rounded bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-700 hover:border-indigo-500 text-[10px] font-mono cursor-pointer transition"
+                        title="Set Interval 60s (0x003C)"
+                      >
+                        ⏱ 60s Interval (02003C)
+                      </button>
+                      <button
+                        type="button"
+                        @click="downlinkForm.payloadHex = '02012C'; downlinkForm.fPort = 1"
+                        class="px-2 py-0.5 rounded bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-700 hover:border-indigo-500 text-[10px] font-mono cursor-pointer transition"
+                        title="Set Interval 300s / 5min (0x012C)"
+                      >
+                        ⏱ 300s Interval (02012C)
+                      </button>
+                      <button
+                        type="button"
+                        @click="downlinkForm.payloadHex = '020384'; downlinkForm.fPort = 1"
+                        class="px-2 py-0.5 rounded bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-700 hover:border-indigo-500 text-[10px] font-mono cursor-pointer transition"
+                        title="Set Interval 900s / 15min (0x0384)"
+                      >
+                        ⏱ 900s Interval (020384)
+                      </button>
+                      <button
+                        type="button"
+                        @click="downlinkForm.payloadHex = '0300'; downlinkForm.fPort = 1"
+                        class="px-2 py-0.5 rounded bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-700 hover:border-indigo-500 text-[10px] font-mono cursor-pointer transition"
+                        title="Query Device Internal Configuration"
+                      >
+                        🔍 Query Config (0300)
+                      </button>
+                    </div>
+                  </div>
+
+                  <div class="flex items-center justify-between pt-1">
                     <label class="block text-xs font-bold text-slate-300 uppercase">
                       HEX PAYLOAD
                     </label>

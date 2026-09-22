@@ -1,6 +1,8 @@
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, ManyToOne, JoinColumn } from 'typeorm';
 import { NetworkServerEntity } from '../../network-servers/entities/network-server.entity';
 import { User } from '../../users/entities/user.entity';
+import { ItemCodeEntity } from '../../c-modules/item-codes/entities/item-code.entity';
+import { SalesOrderEntity } from '../../c-modules/sales-orders/entities/sales-order.entity';
 
 @Entity('devices')
 export class DeviceEntity {
@@ -56,6 +58,20 @@ export class DeviceEntity {
 
   @Column({ nullable: true })
   decoderId?: string;
+
+  @Column({ nullable: true })
+  itemCodeId?: string;
+
+  @ManyToOne(() => ItemCodeEntity, { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'itemCodeId' })
+  itemCode?: ItemCodeEntity;
+
+  @Column({ nullable: true })
+  salesOrderId?: string;
+
+  @ManyToOne(() => SalesOrderEntity, { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'salesOrderId' })
+  salesOrder?: SalesOrderEntity;
 
   @Column({ nullable: true })
   sku?: string;

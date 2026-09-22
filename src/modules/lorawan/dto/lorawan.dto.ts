@@ -35,6 +35,14 @@ export class RegisterDeviceDto {
 
   @IsString()
   @IsOptional()
+  itemCodeId?: string;
+
+  @IsString()
+  @IsOptional()
+  salesOrderId?: string;
+
+  @IsString()
+  @IsOptional()
   sku?: string;
 
   @IsString()

@@ -10,6 +10,8 @@ import { TelemetryEntity } from './entities/telemetry.entity';
 import { NetworkServerEntity } from '../network-servers/entities/network-server.entity';
 import { DecoderEntity } from '../c-modules/decoder-admin/entities/decoder.entity';
 import { WebhookLogEntity } from '../c-modules/webhook-admin/entities/webhook-log.entity';
+import { ItemCodeEntity } from '../c-modules/item-codes/entities/item-code.entity';
+import { SalesOrderEntity } from '../c-modules/sales-orders/entities/sales-order.entity';
 import { RegisterDeviceDto, RegisterGatewayDto } from './dto/lorawan.dto';
 
 function isUserSuperAdmin(user?: any): boolean {
@@ -49,10 +51,20 @@ export class LorawanService implements OnModuleInit {
       await ds.query(`
         ALTER TABLE "devices" ADD COLUMN IF NOT EXISTS "sku" VARCHAR(255);
         ALTER TABLE "devices" ADD COLUMN IF NOT EXISTS "firmwareVersion" VARCHAR(100);
+        ALTER TABLE "devices" ADD COLUMN IF NOT EXISTS "itemCodeId" UUID;
+        ALTER TABLE "devices" ADD COLUMN IF NOT EXISTS "salesOrderId" UUID;
       `);
     } catch (e: any) {
       this.logger.warn(`ensureDeviceColumns warning: ${e.message}`);
     }
+  }
+
+  private get itemCodeRepo() {
+    return this.dbService.getRepositoryForTable('item_codes', ItemCodeEntity);
+  }
+
+  private get salesOrderRepo() {
+    return this.dbService.getRepositoryForTable('sales_orders', SalesOrderEntity);
   }
 
   private get deviceRepo() {
@@ -161,8 +173,23 @@ export class LorawanService implements OnModuleInit {
 
     let payloadFormatterScript = dto.payloadFormatterScript || undefined;
     let decoderId = dto.decoderId ? dto.decoderId.trim() : undefined;
-    const cleanSkuVal = cleanSku(dto.sku);
-    const cleanFw = cleanFirmwareVersion(dto.firmwareVersion);
+    let itemCodeId = dto.itemCodeId ? dto.itemCodeId.trim() : undefined;
+    let salesOrderId = dto.salesOrderId ? dto.salesOrderId.trim() : undefined;
+    let cleanSkuVal = cleanSku(dto.sku);
+    let cleanFw = cleanFirmwareVersion(dto.firmwareVersion);
+
+    // Auto-resolve SKU & Firmware from itemCode if provided and not explicitly set
+    if (itemCodeId && (!cleanSkuVal || !cleanFw)) {
+      try {
+        const ic = await this.itemCodeRepo.findOne({ where: { id: itemCodeId } });
+        if (ic) {
+          if (!cleanSkuVal) cleanSkuVal = ic.sku;
+          if (!cleanFw) cleanFw = ic.firmwareVersion;
+        }
+      } catch (err: any) {
+        this.logger.warn(`Could not resolve itemCode [${itemCodeId}]: ${err.message}`);
+      }
+    }
 
     // Auto-assign decoder `${sku}_${firmwareVersion}` when SKU and firmwareVersion are provided
     const autoDecoder = resolveDecoderId(cleanSkuVal, cleanFw);
@@ -194,6 +221,8 @@ export class LorawanService implements OnModuleInit {
         networkServerId: dto.networkServerId || undefined,
         regionProfileId: dto.regionProfileId || undefined,
         decoderId: decoderId || undefined,
+        itemCodeId: itemCodeId || undefined,
+        salesOrderId: salesOrderId || undefined,
         sku: cleanSkuVal || undefined,
         firmwareVersion: cleanFw || undefined,
         payloadFormatterScript,
@@ -214,6 +243,12 @@ export class LorawanService implements OnModuleInit {
       }
       device.networkServerId = dto.networkServerId || undefined as any;
       device.regionProfileId = dto.regionProfileId || undefined as any;
+      if (itemCodeId !== undefined) {
+        device.itemCodeId = itemCodeId || (null as any);
+      }
+      if (salesOrderId !== undefined) {
+        device.salesOrderId = salesOrderId || (null as any);
+      }
       if (cleanSkuVal !== undefined) {
         device.sku = cleanSkuVal;
       }
@@ -268,6 +303,8 @@ export class LorawanService implements OnModuleInit {
     if (dto.activationType !== undefined) device.activationMode = dto.activationType;
     if (dto.payloadFormatterScript !== undefined) device.payloadFormatterScript = dto.payloadFormatterScript;
     if (dto.isActive !== undefined) device.isActive = Boolean(dto.isActive);
+    if (dto.itemCodeId !== undefined) device.itemCodeId = dto.itemCodeId ? dto.itemCodeId.trim() : (null as any);
+    if (dto.salesOrderId !== undefined) device.salesOrderId = dto.salesOrderId ? dto.salesOrderId.trim() : (null as any);
 
     if (dto.sku !== undefined) device.sku = cleanSku(dto.sku) || (null as any);
     if (dto.firmwareVersion !== undefined) device.firmwareVersion = cleanFirmwareVersion(dto.firmwareVersion) || (null as any);
@@ -914,13 +951,13 @@ export class LorawanService implements OnModuleInit {
     let devices: DeviceEntity[];
     if (isSuperAdmin || !user || !user.id) {
       devices = await this.deviceRepo.find({
-        relations: ['networkServer', 'owner'],
+        relations: ['networkServer', 'owner', 'itemCode', 'salesOrder'],
         order: { createdAt: 'DESC' },
       });
     } else {
       devices = await this.deviceRepo.find({
         where: { ownerId: user.id },
-        relations: ['networkServer', 'owner'],
+        relations: ['networkServer', 'owner', 'itemCode', 'salesOrder'],
         order: { createdAt: 'DESC' },
       });
     }
@@ -952,6 +989,18 @@ export class LorawanService implements OnModuleInit {
         isOnline,
         neverJoined: lastSeenTime === 0,
         regionProfileName: regionProfileName || d.regionProfileId || '',
+        itemCode: d.itemCode ? {
+          id: d.itemCode.id,
+          itemCode: d.itemCode.itemCode,
+          sku: d.itemCode.sku,
+          firmwareVersion: d.itemCode.firmwareVersion,
+          defaultTemplateId: d.itemCode.defaultTemplateId,
+        } : (d.itemCodeId ? { id: d.itemCodeId } : null),
+        salesOrder: d.salesOrder ? {
+          id: d.salesOrder.id,
+          soCode: d.salesOrder.soCode,
+          customer: d.salesOrder.customer,
+        } : (d.salesOrderId ? { id: d.salesOrderId } : null),
         owner: d.owner ? {
           id: d.owner.id,
           username: d.owner.username,
@@ -965,7 +1014,7 @@ export class LorawanService implements OnModuleInit {
   async findOneDevice(devEUI: string, user?: any): Promise<DeviceEntity> {
     const device = await this.deviceRepo.findOne({
       where: { devEUI: devEUI.toUpperCase() },
-      relations: ['networkServer', 'owner'],
+      relations: ['networkServer', 'owner', 'itemCode', 'salesOrder'],
     });
     if (!device) {
       throw new NotFoundException(`Device with DevEUI ${devEUI} not found`);

@@ -1550,6 +1550,8 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
           devEUI: '',
           networkServerId: '',
           regionProfileId: '',
+          itemCodeId: '',
+          salesOrderId: '',
           sku: '',
           firmwareVersion: '',
           decoderId: '',
@@ -1567,6 +1569,45 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
           if (cleanSku && cleanFw) {
             newDevice.value.decoderId = cleanSku + '_' + cleanFw;
           }
+        };
+
+        const onItemCodeSelectedForDevice = (itemCodeId) => {
+          if (!itemCodeId) return;
+          const list = Array.isArray(itemCodesList.value) ? itemCodesList.value : [];
+          const found = list.find(i => i.id === itemCodeId || i.itemCode === itemCodeId);
+          if (found) {
+            newDevice.value.itemCodeId = found.id;
+            newDevice.value.sku = found.sku;
+            newDevice.value.firmwareVersion = found.firmwareVersion;
+            onDeviceSkuOrFwChange();
+          }
+        };
+
+        const sendDownlinkForDevice = (d) => {
+          if (!d) return;
+          if (typeof selectDownlinkDevice === 'function') {
+            selectDownlinkDevice(d);
+          } else {
+            downlinkForm.value.devEUI = d.devEUI;
+            downlinkDeviceSearch.value = d.name ? (d.name + ' - ' + d.devEUI) : d.devEUI;
+          }
+          switchTab('downlink');
+        };
+
+        const viewItemCodeForDevice = (d) => {
+          if (!d) return;
+          if (typeof itemCodesSearchQuery !== 'undefined' && itemCodesSearchQuery?.value !== undefined) {
+            itemCodesSearchQuery.value = d.itemCode?.itemCode || d.sku || '';
+          }
+          switchTab('item-codes');
+        };
+
+        const viewSalesOrderForDevice = (d) => {
+          if (!d) return;
+          if (typeof soSearchQuery !== 'undefined' && soSearchQuery?.value !== undefined) {
+            soSearchQuery.value = d.salesOrder?.soCode || '';
+          }
+          switchTab('sales-orders');
         };
 
         const formatFirmware = (fw) => {
@@ -2745,6 +2786,8 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
             devEUI: '',
             networkServerId: defaultNsId,
             regionProfileId: defaultRegionId,
+            itemCodeId: '',
+            salesOrderId: '',
             sku: '',
             firmwareVersion: '',
             decoderId: '',
@@ -2773,6 +2816,8 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
             devEUI: d.devEUI || '',
             networkServerId: nsId,
             regionProfileId: regId,
+            itemCodeId: d.itemCodeId || (d.itemCode ? d.itemCode.id : ''),
+            salesOrderId: d.salesOrderId || (d.salesOrder ? d.salesOrder.id : ''),
             sku: d.sku || '',
             firmwareVersion: formatFirmware(d.firmwareVersion) === '—' ? '' : formatFirmware(d.firmwareVersion),
             decoderId: d.decoderId || '',
@@ -2815,6 +2860,8 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
                 devEUI: cleanDevEUI,
                 networkServerId: newDevice.value.networkServerId || undefined,
                 regionProfileId: newDevice.value.regionProfileId || undefined,
+                itemCodeId: newDevice.value.itemCodeId || undefined,
+                salesOrderId: newDevice.value.salesOrderId || undefined,
                 sku: newDevice.value.sku ? newDevice.value.sku.trim().toUpperCase() : undefined,
                 firmwareVersion: newDevice.value.firmwareVersion ? String(newDevice.value.firmwareVersion).replace(/^[vV]/, '').trim() : undefined,
                 decoderId: newDevice.value.decoderId || undefined,
@@ -5937,6 +5984,10 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
           isDeviceOnline,
           syncDevice,
           testDevice,
+          onItemCodeSelectedForDevice,
+          sendDownlinkForDevice,
+          viewItemCodeForDevice,
+          viewSalesOrderForDevice,
           runSandboxDecode,
           decodersList,
           loadingDecoders,

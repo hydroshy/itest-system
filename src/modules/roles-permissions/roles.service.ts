@@ -73,6 +73,21 @@ export class RolesService implements OnModuleInit, OnApplicationBootstrap {
         { name: 'lorawan:webhooks:read', module: 'lorawan', action: 'read', description: 'View Webhook Ingestion URLs' },
         { name: 'lorawan:decoder:read', module: 'lorawan', action: 'read', description: 'Access Payload Formatter Sandbox and View Decoders' },
         { name: 'lorawan:decoder:manage', module: 'lorawan', action: 'manage', description: 'Create, Edit and Delete Payload Decoders' },
+
+        { name: 'item_codes:read', module: 'item_codes', action: 'read', description: 'View Item Code Catalog' },
+        { name: 'item_codes:manage', module: 'item_codes', action: 'manage', description: 'Create, Edit & Delete Item Codes' },
+
+        { name: 'sales_orders:read', module: 'sales_orders', action: 'read', description: 'View Sales Orders & Items' },
+        { name: 'sales_orders:manage', module: 'sales_orders', action: 'manage', description: 'Create, Import & Manage Sales Orders' },
+
+        { name: 'test_builder:read', module: 'test_builder', action: 'read', description: 'View Test Templates & Automation Flows' },
+        { name: 'test_builder:manage', module: 'test_builder', action: 'manage', description: 'Create & Edit Test Templates & Assertion Rules' },
+
+        { name: 'hmi_studio:read', module: 'hmi_studio', action: 'read', description: 'View HMI SCADA Screens & Synoptic Panels' },
+        { name: 'hmi_studio:manage', module: 'hmi_studio', action: 'manage', description: 'Design, Edit & Delete HMI SCADA Screens' },
+
+        { name: 'modbus_presets:read', module: 'modbus_presets', action: 'read', description: 'View Modbus Register Presets' },
+        { name: 'modbus_presets:manage', module: 'modbus_presets', action: 'manage', description: 'Create, Edit & Import Modbus Presets' },
       ];
 
       // 1. Insert or update default permissions atomically
@@ -89,7 +104,7 @@ export class RolesService implements OnModuleInit, OnApplicationBootstrap {
       const allPermRows = await ds.query(`SELECT "id", "name", "module" FROM "permission";`);
       const allPermIds = allPermRows.map((r: any) => r.id);
       const subAdminPermIds = allPermRows.filter((r: any) => !r.name.includes('users:permissions:update')).map((r: any) => r.id);
-      const operatorPermIds = allPermRows.filter((r: any) => r.module === 'lorawan').map((r: any) => r.id);
+      const operatorPermIds = allPermRows.filter((r: any) => r.module === 'lorawan' || r.name.endsWith(':read')).map((r: any) => r.id);
 
       // 2. Ensure SUPER_ADMIN role exists
       const superAdminResult = await ds.query(
