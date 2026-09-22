@@ -98,6 +98,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
       background: rgba(10, 15, 30, 0.95);
       backdrop-filter: blur(16px);
       border-right: 1px solid rgba(30, 41, 59, 0.8);
+      transition: width 0.2s cubic-bezier(0.4, 0, 0.2, 1), padding 0.2s cubic-bezier(0.4, 0, 0.2, 1);
     }
     .glass-card {
       background: rgba(15, 23, 42, 0.65);
@@ -119,6 +120,10 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
       user-select: none;
       width: 100%;
       text-align: left;
+    }
+    .nav-item.collapsed {
+      justify-content: center !important;
+      padding: 0.55rem 0.4rem !important;
     }
     .nav-item:hover {
       color: #ffffff;
@@ -336,6 +341,16 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
           <i class="fa-solid fa-bars text-sm"></i>
         </button>
 
+        <!-- Desktop Sidebar Collapse Toggle Button -->
+        <button
+          type="button"
+          @click="toggleSidebarCollapse"
+          class="hidden md:flex items-center justify-center p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 border border-slate-800 transition cursor-pointer"
+          :title="sidebarCollapsed ? 'Mở rộng thanh điều hướng (Expand Sidebar)' : 'Thu nhỏ thanh điều hướng (Collapse Sidebar)'"
+        >
+          <i class="fa-solid text-sm" :class="sidebarCollapsed ? 'fa-bars-staggered text-sky-400' : 'fa-bars text-slate-400'"></i>
+        </button>
+
         <!-- Breadcrumb Active Section Indicator -->
         <div v-if="activeTab !== 'overview'" class="hidden sm:flex items-center gap-2 pl-3 border-l border-slate-800 text-xs text-slate-400">
           <button @click="switchTab('overview')" class="hover:text-white transition flex items-center gap-1 font-medium cursor-pointer">
@@ -427,131 +442,265 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
 
       <!-- LEFT SIDEBAR NAVIGATION -->
       <aside
-        :class="sidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'"
-        class="fixed md:static inset-y-0 left-0 z-30 w-60 glass-sidebar flex flex-col justify-between p-3.5 transition-transform duration-200 ease-in-out md:flex-shrink-0 mt-14 md:mt-0"
+        :class="[
+          sidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0',
+          sidebarCollapsed ? 'md:w-[68px] p-2' : 'md:w-60 p-3.5'
+        ]"
+        class="fixed md:static inset-y-0 left-0 z-30 glass-sidebar flex flex-col justify-between transition-all duration-200 ease-in-out md:flex-shrink-0 mt-14 md:mt-0"
       >
-        <div class="space-y-5 custom-scroll overflow-y-auto flex-1 pr-1">
+        <!-- Sidebar Collapse Toggle Action Header (Desktop) -->
+        <div class="hidden md:flex items-center pb-2.5 mb-1.5 border-b border-slate-800/80" :class="sidebarCollapsed ? 'justify-center' : 'justify-between px-1'">
+          <span v-if="!sidebarCollapsed" class="text-[10px] font-extrabold uppercase tracking-wider text-slate-500">Navigation</span>
+          <button
+            type="button"
+            @click="toggleSidebarCollapse"
+            class="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition cursor-pointer flex items-center justify-center"
+            :title="sidebarCollapsed ? 'Mở rộng thanh điều hướng (Expand Sidebar)' : 'Thu nhỏ thanh điều hướng (Collapse Sidebar)'"
+          >
+            <i class="fa-solid text-xs" :class="sidebarCollapsed ? 'fa-angles-right text-sky-400' : 'fa-angles-left text-slate-400'"></i>
+          </button>
+        </div>
+
+        <div class="space-y-4 custom-scroll overflow-y-auto flex-1 pr-0.5">
           <!-- GROUP 1: CORE GOVERNANCE -->
           <div class="space-y-1">
-            <div class="px-2 pb-1.5 text-[10px] font-extrabold uppercase tracking-wider text-slate-500">Core Governance</div>
+            <div v-if="!sidebarCollapsed" class="px-2 pb-1 text-[10px] font-extrabold uppercase tracking-wider text-slate-500 truncate">
+              Core Governance
+            </div>
+            <div v-else class="my-1.5 border-t border-slate-800/80 mx-1"></div>
             
-            <button @click="switchTab('overview')" :class="{ active: activeTab === 'overview' }" class="nav-item">
-              <span class="flex items-center gap-2.5">
+            <button
+              @click="switchTab('overview')"
+              :class="{ active: activeTab === 'overview', collapsed: sidebarCollapsed }"
+              :title="sidebarCollapsed ? 'Overview Hub' : ''"
+              class="nav-item"
+            >
+              <span class="flex items-center" :class="sidebarCollapsed ? 'justify-center w-full' : 'gap-2.5'">
                 <i class="fa-solid fa-chart-pie w-4 text-center text-xs text-sky-400"></i>
-                <span>Overview Hub</span>
+                <span v-if="!sidebarCollapsed" class="truncate">Overview Hub</span>
               </span>
             </button>
 
-            <button @click="switchTab('modules')" :class="{ active: activeTab === 'modules' }" class="nav-item">
-              <span class="flex items-center gap-2.5">
+            <button
+              @click="switchTab('modules')"
+              :class="{ active: activeTab === 'modules', collapsed: sidebarCollapsed }"
+              :title="sidebarCollapsed ? 'Dashboard module Manager' : ''"
+              class="nav-item"
+            >
+              <span class="flex items-center" :class="sidebarCollapsed ? 'justify-center w-full' : 'gap-2.5'">
                 <i class="fa-solid fa-cubes w-4 text-center text-xs text-cyan-400"></i>
-                <span>Dashboard module Manager</span>
+                <span v-if="!sidebarCollapsed" class="truncate">Dashboard module Manager</span>
               </span>
             </button>
 
-            <button @click="switchTab('database')" :class="{ active: activeTab === 'database' }" class="nav-item">
-              <span class="flex items-center gap-2.5">
+            <button
+              @click="switchTab('database')"
+              :class="{ active: activeTab === 'database', collapsed: sidebarCollapsed }"
+              :title="sidebarCollapsed ? 'Database Manager' : ''"
+              class="nav-item"
+            >
+              <span class="flex items-center" :class="sidebarCollapsed ? 'justify-center w-full' : 'gap-2.5'">
                 <i class="fa-solid fa-database w-4 text-center text-xs text-indigo-400"></i>
-                <span>Database Manager</span>
-              </span>
-            </button>
-
-            <button @click="switchTab('roles')" :class="{ active: activeTab === 'roles' }" class="nav-item">
-              <span class="flex items-center gap-2.5">
-                <i class="fa-solid fa-shield-halved w-4 text-center text-xs text-amber-400"></i>
-                <span>Roles & RBAC</span>
-              </span>
-            </button>
-
-            <button @click="switchTab('users')" :class="{ active: activeTab === 'users' }" class="nav-item">
-              <span class="flex items-center gap-2.5">
-                <i class="fa-solid fa-users w-4 text-center text-xs text-emerald-400"></i>
-                <span>User Accounts</span>
+                <span v-if="!sidebarCollapsed" class="truncate">Database Manager</span>
               </span>
             </button>
           </div>
 
-          <!-- GROUP 2: INFRASTRUCTURE & IOT -->
+          <!-- GROUP 2: ORDER MANAGEMENT (MỤC RIÊNG VỀ ĐƠN HÀNG) -->
           <div class="space-y-1">
-            <div class="px-2 pb-1.5 text-[10px] font-extrabold uppercase tracking-wider text-slate-500">Infrastructure & IoT</div>
+            <div v-if="!sidebarCollapsed" class="px-2 pb-1 text-[10px] font-extrabold uppercase tracking-wider text-amber-500/90 flex items-center justify-between">
+              <span class="truncate">Order Management</span>
+              <span class="px-1.5 py-0.2 rounded text-[9px] font-mono font-bold bg-amber-500/10 text-amber-400 border border-amber-500/20">SO</span>
+            </div>
+            <div v-else class="my-1.5 border-t border-amber-500/20 mx-1"></div>
 
-            <button @click="switchTab('network-servers')" :class="{ active: activeTab === 'network-servers' }" class="nav-item">
-              <span class="flex items-center gap-2.5">
-                <i class="fa-solid fa-tower-broadcast w-4 text-center text-xs text-sky-400"></i>
-                <span>Network Servers</span>
-              </span>
-            </button>
-
-            <button @click="switchTab('devices')" :class="{ active: activeTab === 'devices' }" class="nav-item">
-              <span class="flex items-center gap-2.5">
-                <i class="fa-solid fa-microchip w-4 text-center text-xs text-teal-400"></i>
-                <span>Device Fleet</span>
-              </span>
-            </button>
-
-            <button @click="switchTab('webhooks')" :class="{ active: activeTab === 'webhooks' }" class="nav-item">
-              <span class="flex items-center gap-2.5">
-                <i class="fa-solid fa-satellite-dish w-4 text-center text-xs text-sky-400"></i>
-                <span>Webhook Manager</span>
-              </span>
-            </button>
-
-            <button @click="switchTab('decoder')" :class="{ active: activeTab === 'decoder' }" class="nav-item">
-              <span class="flex items-center gap-2.5">
-                <i class="fa-solid fa-code w-4 text-center text-xs text-purple-400"></i>
-                <span>Decoder Manager</span>
-              </span>
-            </button>
-
-            <button @click="switchTab('hmi-studio')" :class="{ active: activeTab === 'hmi-studio' }" class="nav-item">
-              <span class="flex items-center gap-2.5">
-                <i class="fa-solid fa-palette w-4 text-center text-xs text-amber-400"></i>
-                <span>HMI SCADA Studio</span>
-              </span>
-            </button>
-
-            <button @click="switchTab('downlink')" :class="{ active: activeTab === 'downlink' }" class="nav-item">
-              <span class="flex items-center gap-2.5">
-                <i class="fa-solid fa-paper-plane w-4 text-center text-xs text-indigo-400"></i>
-                <span>Downlink Actuator</span>
-              </span>
-            </button>
-
-            <button @click="switchTab('modbus-presets')" :class="{ active: activeTab === 'modbus-presets' }" class="nav-item">
-              <span class="flex items-center gap-2.5">
-                <i class="fa-solid fa-file-excel w-4 text-center text-xs text-emerald-400"></i>
-                <span>Modbus Presets</span>
-              </span>
-            </button>
-
-            <button @click="switchTab('test-builder')" :class="{ active: activeTab === 'test-builder' }" class="nav-item">
-              <span class="flex items-center gap-2.5">
-                <i class="fa-solid fa-vial-circle-check w-4 text-center text-xs text-indigo-400"></i>
-                <span>Test Automation</span>
-              </span>
-            </button>
-
-            <button @click="switchTab('item-codes')" :class="{ active: activeTab === 'item-codes' }" class="nav-item">
-              <span class="flex items-center gap-2.5">
-                <i class="fa-solid fa-barcode w-4 text-center text-xs text-cyan-400"></i>
-                <span>Item Code Catalog</span>
-              </span>
-            </button>
-
-            <button @click="switchTab('sales-orders')" :class="{ active: activeTab === 'sales-orders' }" class="nav-item">
-              <span class="flex items-center gap-2.5">
+            <button
+              @click="switchTab('sales-orders')"
+              :class="{ active: activeTab === 'sales-orders', collapsed: sidebarCollapsed }"
+              :title="sidebarCollapsed ? 'Sales Orders & Items' : ''"
+              class="nav-item"
+            >
+              <span class="flex items-center" :class="sidebarCollapsed ? 'justify-center w-full' : 'gap-2.5'">
                 <i class="fa-solid fa-boxes-stacked w-4 text-center text-xs text-amber-400"></i>
-                <span>Sales Orders & Items</span>
+                <span v-if="!sidebarCollapsed" class="truncate">Sales Orders & Items</span>
               </span>
             </button>
 
-            <button @click="switchTab('sensor-types')" :class="{ active: activeTab === 'sensor-types' }" class="nav-item">
-              <span class="flex items-center gap-2.5">
-                <i class="fa-solid fa-microchip w-4 text-center text-xs text-sky-400"></i>
-                <span>Sensor Types & SKU</span>
+            <button
+              @click="switchTab('item-codes')"
+              :class="{ active: activeTab === 'item-codes', collapsed: sidebarCollapsed }"
+              :title="sidebarCollapsed ? 'Item Code Catalog' : ''"
+              class="nav-item"
+            >
+              <span class="flex items-center" :class="sidebarCollapsed ? 'justify-center w-full' : 'gap-2.5'">
+                <i class="fa-solid fa-barcode w-4 text-center text-xs text-cyan-400"></i>
+                <span v-if="!sidebarCollapsed" class="truncate">Item Code Catalog</span>
               </span>
             </button>
           </div>
+
+          <!-- GROUP 3: ACCESS & SECURITY (MỤC RIÊNG VỀ PHÂN QUYỀN) -->
+          <div class="space-y-1">
+            <div v-if="!sidebarCollapsed" class="px-2 pb-1 text-[10px] font-extrabold uppercase tracking-wider text-emerald-500/90 flex items-center justify-between">
+              <span class="truncate">Access & Security</span>
+              <span class="px-1.5 py-0.2 rounded text-[9px] font-mono font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">RBAC</span>
+            </div>
+            <div v-else class="my-1.5 border-t border-emerald-500/20 mx-1"></div>
+
+            <button
+              @click="switchTab('roles')"
+              :class="{ active: activeTab === 'roles', collapsed: sidebarCollapsed }"
+              :title="sidebarCollapsed ? 'Roles & RBAC' : ''"
+              class="nav-item"
+            >
+              <span class="flex items-center" :class="sidebarCollapsed ? 'justify-center w-full' : 'gap-2.5'">
+                <i class="fa-solid fa-shield-halved w-4 text-center text-xs text-amber-400"></i>
+                <span v-if="!sidebarCollapsed" class="truncate">Roles & RBAC</span>
+              </span>
+            </button>
+
+            <button
+              @click="switchTab('users')"
+              :class="{ active: activeTab === 'users', collapsed: sidebarCollapsed }"
+              :title="sidebarCollapsed ? 'User Accounts' : ''"
+              class="nav-item"
+            >
+              <span class="flex items-center" :class="sidebarCollapsed ? 'justify-center w-full' : 'gap-2.5'">
+                <i class="fa-solid fa-users w-4 text-center text-xs text-emerald-400"></i>
+                <span v-if="!sidebarCollapsed" class="truncate">User Accounts</span>
+              </span>
+            </button>
+          </div>
+
+          <!-- GROUP 4: INFRASTRUCTURE & IOT -->
+          <div class="space-y-1">
+            <div v-if="!sidebarCollapsed" class="px-2 pb-1 text-[10px] font-extrabold uppercase tracking-wider text-slate-500 truncate">
+              Infrastructure & IoT
+            </div>
+            <div v-else class="my-1.5 border-t border-slate-800/80 mx-1"></div>
+
+            <button
+              @click="switchTab('network-servers')"
+              :class="{ active: activeTab === 'network-servers', collapsed: sidebarCollapsed }"
+              :title="sidebarCollapsed ? 'Network Servers' : ''"
+              class="nav-item"
+            >
+              <span class="flex items-center" :class="sidebarCollapsed ? 'justify-center w-full' : 'gap-2.5'">
+                <i class="fa-solid fa-tower-broadcast w-4 text-center text-xs text-sky-400"></i>
+                <span v-if="!sidebarCollapsed" class="truncate">Network Servers</span>
+              </span>
+            </button>
+
+            <button
+              @click="switchTab('devices')"
+              :class="{ active: activeTab === 'devices', collapsed: sidebarCollapsed }"
+              :title="sidebarCollapsed ? 'Device Fleet' : ''"
+              class="nav-item"
+            >
+              <span class="flex items-center" :class="sidebarCollapsed ? 'justify-center w-full' : 'gap-2.5'">
+                <i class="fa-solid fa-microchip w-4 text-center text-xs text-teal-400"></i>
+                <span v-if="!sidebarCollapsed" class="truncate">Device Fleet</span>
+              </span>
+            </button>
+
+            <button
+              @click="switchTab('sensor-types')"
+              :class="{ active: activeTab === 'sensor-types', collapsed: sidebarCollapsed }"
+              :title="sidebarCollapsed ? 'Sensor Types & SKU' : ''"
+              class="nav-item"
+            >
+              <span class="flex items-center" :class="sidebarCollapsed ? 'justify-center w-full' : 'gap-2.5'">
+                <i class="fa-solid fa-microchip w-4 text-center text-xs text-sky-400"></i>
+                <span v-if="!sidebarCollapsed" class="truncate">Sensor Types & SKU</span>
+              </span>
+            </button>
+
+            <button
+              @click="switchTab('webhooks')"
+              :class="{ active: activeTab === 'webhooks', collapsed: sidebarCollapsed }"
+              :title="sidebarCollapsed ? 'Webhook Manager' : ''"
+              class="nav-item"
+            >
+              <span class="flex items-center" :class="sidebarCollapsed ? 'justify-center w-full' : 'gap-2.5'">
+                <i class="fa-solid fa-satellite-dish w-4 text-center text-xs text-sky-400"></i>
+                <span v-if="!sidebarCollapsed" class="truncate">Webhook Manager</span>
+              </span>
+            </button>
+
+            <button
+              @click="switchTab('decoder')"
+              :class="{ active: activeTab === 'decoder', collapsed: sidebarCollapsed }"
+              :title="sidebarCollapsed ? 'Decoder Manager' : ''"
+              class="nav-item"
+            >
+              <span class="flex items-center" :class="sidebarCollapsed ? 'justify-center w-full' : 'gap-2.5'">
+                <i class="fa-solid fa-code w-4 text-center text-xs text-purple-400"></i>
+                <span v-if="!sidebarCollapsed" class="truncate">Decoder Manager</span>
+              </span>
+            </button>
+
+            <button
+              @click="switchTab('hmi-studio')"
+              :class="{ active: activeTab === 'hmi-studio', collapsed: sidebarCollapsed }"
+              :title="sidebarCollapsed ? 'HMI SCADA Studio' : ''"
+              class="nav-item"
+            >
+              <span class="flex items-center" :class="sidebarCollapsed ? 'justify-center w-full' : 'gap-2.5'">
+                <i class="fa-solid fa-palette w-4 text-center text-xs text-amber-400"></i>
+                <span v-if="!sidebarCollapsed" class="truncate">HMI SCADA Studio</span>
+              </span>
+            </button>
+
+            <button
+              @click="switchTab('downlink')"
+              :class="{ active: activeTab === 'downlink', collapsed: sidebarCollapsed }"
+              :title="sidebarCollapsed ? 'Downlink Actuator' : ''"
+              class="nav-item"
+            >
+              <span class="flex items-center" :class="sidebarCollapsed ? 'justify-center w-full' : 'gap-2.5'">
+                <i class="fa-solid fa-paper-plane w-4 text-center text-xs text-indigo-400"></i>
+                <span v-if="!sidebarCollapsed" class="truncate">Downlink Actuator</span>
+              </span>
+            </button>
+
+            <button
+              @click="switchTab('modbus-presets')"
+              :class="{ active: activeTab === 'modbus-presets', collapsed: sidebarCollapsed }"
+              :title="sidebarCollapsed ? 'Modbus Presets' : ''"
+              class="nav-item"
+            >
+              <span class="flex items-center" :class="sidebarCollapsed ? 'justify-center w-full' : 'gap-2.5'">
+                <i class="fa-solid fa-file-excel w-4 text-center text-xs text-emerald-400"></i>
+                <span v-if="!sidebarCollapsed" class="truncate">Modbus Presets</span>
+              </span>
+            </button>
+
+            <button
+              @click="switchTab('test-builder')"
+              :class="{ active: activeTab === 'test-builder', collapsed: sidebarCollapsed }"
+              :title="sidebarCollapsed ? 'Test Automation' : ''"
+              class="nav-item"
+            >
+              <span class="flex items-center" :class="sidebarCollapsed ? 'justify-center w-full' : 'gap-2.5'">
+                <i class="fa-solid fa-vial-circle-check w-4 text-center text-xs text-indigo-400"></i>
+                <span v-if="!sidebarCollapsed" class="truncate">Test Automation</span>
+              </span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Bottom Section: Quick Collapse Action in Footer (Desktop) -->
+        <div class="hidden md:flex pt-2 mt-2 border-t border-slate-800/80" :class="sidebarCollapsed ? 'justify-center' : 'justify-between items-center px-1 text-xs text-slate-500'">
+          <span v-if="!sidebarCollapsed" class="text-[10px] font-mono text-slate-500">Daviteq CP</span>
+          <button
+            type="button"
+            @click="toggleSidebarCollapse"
+            class="p-1 rounded-lg hover:bg-slate-800 hover:text-white text-slate-400 transition cursor-pointer flex items-center gap-1.5 text-xs"
+            :title="sidebarCollapsed ? 'Mở rộng thanh điều hướng (Expand Sidebar)' : 'Thu nhỏ thanh điều hướng (Collapse Sidebar)'"
+          >
+            <i class="fa-solid text-xs" :class="sidebarCollapsed ? 'fa-angles-right text-sky-400' : 'fa-angles-left text-slate-400'"></i>
+            <span v-if="!sidebarCollapsed" class="text-[10px] font-semibold">Thu nhỏ</span>
+          </button>
         </div>
       </aside>
 
@@ -1482,6 +1631,13 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
       setup() {
         const activeTab = ref('overview');
         const sidebarOpen = ref(false);
+        const sidebarCollapsed = ref(typeof localStorage !== 'undefined' ? localStorage.getItem('cp_sidebar_collapsed') === 'true' : false);
+        const toggleSidebarCollapse = () => {
+          sidebarCollapsed.value = !sidebarCollapsed.value;
+          try {
+            localStorage.setItem('cp_sidebar_collapsed', String(sidebarCollapsed.value));
+          } catch(e) {}
+        };
         const userMenuOpen = ref(false);
         const currentUser = ref(getStoredUser());
 
@@ -5944,6 +6100,8 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
           ...sensorTypesModule,
           activeTab,
           sidebarOpen,
+          sidebarCollapsed,
+          toggleSidebarCollapse,
           userMenuOpen,
           userInitials,
           handleGlobalClick,
