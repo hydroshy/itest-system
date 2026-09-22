@@ -26,6 +26,11 @@ import {
   SALES_ORDERS_MODALS,
   SALES_ORDERS_SCRIPT,
 } from './control-panel-modules/sales-orders.module';
+import {
+  SENSOR_TYPES_TEMPLATE,
+  SENSOR_TYPES_MODALS,
+  SENSOR_TYPES_SCRIPT,
+} from './control-panel-modules/sensor-types.module';
 
 export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
 <html lang="en">
@@ -539,6 +544,13 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
                 <span>Sales Orders & Items</span>
               </span>
             </button>
+
+            <button @click="switchTab('sensor-types')" :class="{ active: activeTab === 'sensor-types' }" class="nav-item">
+              <span class="flex items-center gap-2.5">
+                <i class="fa-solid fa-microchip w-4 text-center text-xs text-sky-400"></i>
+                <span>Sensor Types & SKU</span>
+              </span>
+            </button>
           </div>
         </div>
       </aside>
@@ -644,6 +656,13 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
           </div>
         </c-module-boundary>
 
+        <!-- TAB 16: LORAWAN SENSOR TYPES -->
+        <c-module-boundary module-id="sensor-types" title="LoRaWAN Sensor Types" icon="fa-solid fa-microchip" :active="activeTab === 'sensor-types'">
+          <div v-if="activeTab === 'sensor-types'" class="space-y-6">
+            ${SENSOR_TYPES_TEMPLATE}
+          </div>
+        </c-module-boundary>
+
       </main>
     </div>
 
@@ -660,6 +679,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
     ${TEST_BUILDER_MODALS}
     ${ITEM_CODES_MODALS}
     ${SALES_ORDERS_MODALS}
+    ${SENSOR_TYPES_MODALS}
 
     <!-- TOAST NOTIFICATION -->
     <div v-if="toast.show" class="fixed top-4 right-4 z-50 flex items-center gap-2 px-4 py-3 rounded-xl shadow-2xl text-xs font-semibold" :class="toast.type === 'error' ? 'bg-red-950 border border-red-500 text-red-200' : (toast.type === 'success' ? 'bg-emerald-950 border border-emerald-500 text-emerald-200' : 'bg-sky-950 border border-sky-500 text-sky-200')">
@@ -718,6 +738,11 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
       ${SALES_ORDERS_SCRIPT}
     } catch (e) {
       console.error('[Module Script Load Error: sales-orders]', e);
+    }
+    try {
+      ${SENSOR_TYPES_SCRIPT}
+    } catch (e) {
+      console.error('[Module Script Load Error: sensor-types]', e);
     }
 
     // --- TIER 1: SANDBOX LOADER & DEFENSIVE FALLBACK FACTORIES (ADR-0002) ---
@@ -1027,11 +1052,36 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
       };
     }
 
+    function createSensorTypesFallback() {
+      const ref = (typeof Vue !== 'undefined' && Vue.ref) ? Vue.ref : function(v) { return { value: v }; };
+      return {
+        sensorTypesList: ref([]),
+        loadingSensorTypes: ref(false),
+        sensorTypeFilter: ref(''),
+        showSensorTypeModal: ref(false),
+        isEditingSensorType: ref(false),
+        isSavingSensorType: ref(false),
+        showDeleteSensorTypeModal: ref(false),
+        deletingSensorType: ref(null),
+        sensorTypeForm: ref({}),
+        filteredSensorTypes: ref([]),
+        fetchSensorTypes: function() {},
+        onSensorTypeFilterChange: function() {},
+        openAddSensorTypeModal: function() {},
+        openEditSensorTypeModal: function() {},
+        closeSensorTypeModal: function() {},
+        saveSensorType: function() {},
+        openDeleteSensorTypeModal: function() {},
+        confirmDeleteSensorType: function() {},
+      };
+    }
+
     window.safeExecuteModuleSetup = safeExecuteModuleSetup;
     window.createModbusPresetsFallback = createModbusPresetsFallback;
     window.createTestBuilderFallback = createTestBuilderFallback;
     window.createItemCodesFallback = createItemCodesFallback;
     window.createSalesOrdersFallback = createSalesOrdersFallback;
+    window.createSensorTypesFallback = createSensorTypesFallback;
 
     const { createApp, ref, computed, onMounted, watch } = Vue;
 
@@ -1055,6 +1105,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
         'test-builder': { id: 'c-test-builder', tabId: 'test-builder', title: 'Test Automation Builder', icon: 'fa-solid fa-vial-circle-check', status: 'READY', error: null, retryCount: 0, lastActive: 0, bypassed: false },
         'item-codes': { id: 'c-item-codes', tabId: 'item-codes', title: 'Master Item Codes', icon: 'fa-solid fa-barcode', status: 'READY', error: null, retryCount: 0, lastActive: 0, bypassed: false },
         'sales-orders': { id: 'c-sales-orders', tabId: 'sales-orders', title: 'Sales Orders', icon: 'fa-solid fa-file-invoice-dollar', status: 'READY', error: null, retryCount: 0, lastActive: 0, bypassed: false },
+        'sensor-types': { id: 'c-sensor-types', tabId: 'sensor-types', title: 'LoRaWAN Sensor Types', icon: 'fa-solid fa-microchip', status: 'READY', error: null, retryCount: 0, lastActive: 0, bypassed: false },
       });
 
       const normalizeKey = (tabOrId) => {
@@ -5715,6 +5766,20 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
           createSalesOrdersFallback
         );
 
+        const sensorTypesModule = safeExecuteModuleSetup(
+          'c-sensor-types',
+          typeof useSensorTypesModule === 'function' ? (ctx => useSensorTypesModule(ctx)) : null,
+          {
+            showToast,
+            authHeaders,
+            currentUser,
+            activeTab,
+            switchTab,
+            moduleStatesRegistry: moduleStatesStore,
+          },
+          createSensorTypesFallback
+        );
+
         watch(activeTab, (newTab) => {
           try {
             window.history.replaceState(null, null, '#' + newTab);
@@ -5797,6 +5862,11 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
               salesOrdersModule.fetchAvailableTemplatesForDropdown();
             }
           }
+          if (newTab === 'sensor-types') {
+            if (sensorTypesModule && typeof sensorTypesModule.fetchSensorTypes === 'function') {
+              sensorTypesModule.fetchSensorTypes();
+            }
+          }
         });
 
         const initControlPanel = async () => {
@@ -5871,6 +5941,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
           ...testBuilderModule,
           ...itemCodesModule,
           ...salesOrdersModule,
+          ...sensorTypesModule,
           activeTab,
           sidebarOpen,
           userMenuOpen,

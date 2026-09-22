@@ -17,6 +17,7 @@ import { ModbusPresetsModule } from './modules/c-modules/modbus-presets/modbus-p
 import { TestBuilderModule } from './modules/c-modules/test-builder/test-builder.module';
 import { SalesOrdersModule } from './modules/c-modules/sales-orders/sales-orders.module';
 import { ItemCodesModule } from './modules/c-modules/item-codes/item-codes.module';
+import { SensorTypesModule } from './modules/c-modules/sensor-types/sensor-types.module';
 import { RealtimeModule } from './modules/realtime/realtime.module';
 import { AppController } from './app.controller';
 
@@ -43,6 +44,7 @@ import { AppController } from './app.controller';
     TestBuilderModule,
     SalesOrdersModule,
     ItemCodesModule,
+    SensorTypesModule,
   ],
   controllers: [AppController],
 })

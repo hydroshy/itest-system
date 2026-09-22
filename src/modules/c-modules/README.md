@@ -8,7 +8,7 @@ Thư mục này chứa toàn bộ các **Module quản trị, hạ tầng và gi
 - **Tiền tố:** `c-` (viết tắt của **Control Panel Module**) hoặc `C_MOD_` cho mã code.
 - **Mục đích:** Cung cấp khả năng cấu hình hạ tầng, quản trị người dùng, phân quyền RBAC và quản lý các D-Module trên toàn hệ thống.
 
-### Danh sách 15 C-Modules tiêu chuẩn:
+### Danh sách 16 C-Modules tiêu chuẩn:
 | Nhóm chức năng | Tên thư mục | Mã Code | Tên hiển thị | Vai trò & Khả năng hoạt động |
 | :--- | :--- | :--- | :--- | :--- |
 | **I. Quản trị lõi** | **`overview-hub/`** | `C_MOD_OVERVIEW` | **Overview Hub** | Trung tâm thống kê số liệu toàn hệ thống, DevOps container runtime, và điều hướng nhanh 1-click. |
@@ -20,6 +20,7 @@ Thư mục này chứa toàn bộ các **Module quản trị, hạ tầng và gi
 | | **`device-fleet-admin/`** | `C_MOD_DEVICE_FLEET` | **Device Fleet Oversight** | Giám sát toàn bộ thiết bị trong hệ thống, liên kết Item Code, Sales Order, DevEUI, keys. |
 | | **`webhook-admin/`** | `C_MOD_WEBHOOKS` | **Webhook Manager** | Quản lý và kiểm tra các endpoint nhận webhook từ Network Servers, retention log. |
 | | **`downlink-admin/`** | `C_MOD_DOWNLINK_CONTROLLER`| **Downlink Actuator** | Truyền lệnh downlink Hex/Preset xuống thiết bị, quản lý hàng đợi và audit log. |
+| | **`sensor-types/`** | `C_MOD_SENSOR_TYPES` | **Sensor Types** | Quản lý mã nhận dạng cảm biến phần cứng (ví dụ: 71 -> WSLRW-LKS), định tuyến SKU, Region và Class. |
 | **III. R&D & Giao diện** | **`decoder-admin/`** | `C_MOD_DECODER` | **Decoder Manager** | Quản lý decoder JavaScript theo SKU & Firmware version, sandbox test và AST field analysis. |
 | | **`hmi-studio/`** | `C_MOD_HMI_STUDIO` | **HMI SCADA Studio** | Thiết kế giao diện SCADA công nghiệp Wecon, gắn Tag cảm biến telemetry, runtime view. |
 | | **`modbus-presets/`** | `C_MOD_MODBUS_PRESETS` | **Modbus Presets** | Quản lý thanh ghi Modbus, import cấu hình template từ Excel (RD1, Engineering, Full...). |

@@ -492,6 +492,23 @@ export const OVERVIEW_TEMPLATE = `
                 <div class="text-xs text-teal-400 font-semibold flex items-center gap-1.5 pt-1">
                   <span>Configure Presets</span> <i class="fa-solid fa-arrow-right text-[10px] group-hover:translate-x-1 transition"></i>
                 </div>
+              <!-- Card: Sensor Types -->
+              <div @click="switchTab('sensor-types')" class="p-4 bg-slate-950/80 hover:bg-slate-900/80 rounded-xl border border-slate-800 hover:border-sky-500/40 transition cursor-pointer space-y-3 group">
+                <div class="flex items-center justify-between">
+                  <div class="w-10 h-10 rounded-xl bg-sky-500/10 border border-sky-500/30 flex items-center justify-center text-sky-400 text-base shadow-inner group-hover:scale-105 transition">
+                    <i class="fa-solid fa-microchip"></i>
+                  </div>
+                  <span class="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-sky-500/10 text-sky-300 border border-sky-500/20">
+                    {{ sensorTypesList?.length || 0 }} Mappings
+                  </span>
+                </div>
+                <div>
+                  <h3 class="text-sm font-bold text-white group-hover:text-sky-400 transition">LoRaWAN Sensor Types</h3>
+                  <p class="text-xs text-slate-400 mt-1 leading-relaxed">Map Modbus Register 103 codes (e.g. 71 → WSLRW-LKS) to hardware SKUs, regions, and LoRaWAN classes.</p>
+                </div>
+                <div class="text-xs text-sky-400 font-semibold flex items-center gap-1.5 pt-1">
+                  <span>Manage Sensor Types</span> <i class="fa-solid fa-arrow-right text-[10px] group-hover:translate-x-1 transition"></i>
+                </div>
               </div>
 
             </div>

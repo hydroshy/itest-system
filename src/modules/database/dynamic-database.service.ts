@@ -20,6 +20,7 @@ import { TestAssertionEntity } from '../c-modules/test-builder/entities/test-ass
 import { SalesOrderEntity } from '../c-modules/sales-orders/entities/sales-order.entity';
 import { SalesOrderItemEntity } from '../c-modules/sales-orders/entities/sales-order-item.entity';
 import { ItemCodeEntity } from '../c-modules/item-codes/entities/item-code.entity';
+import { SensorTypeEntity } from '../c-modules/sensor-types/entities/sensor-type.entity';
 import { TestSessionEntity } from '../d-modules/test-automation/entities/test-session.entity';
 import { TestDeviceRunEntity } from '../d-modules/test-automation/entities/test-device-run.entity';
 import { TestPacketLogEntity } from '../d-modules/test-automation/entities/test-packet-log.entity';
@@ -43,6 +44,7 @@ export const ALL_DATABASE_ENTITIES = [
   SalesOrderEntity,
   SalesOrderItemEntity,
   ItemCodeEntity,
+  SensorTypeEntity,
   TestSessionEntity,
   TestDeviceRunEntity,
   TestPacketLogEntity,

@@ -620,6 +620,14 @@ export const SERIAL_UART_TEMPLATE = `          <div v-else-if="activeFeature.id 
                     </button>
                     <button
                       type="button"
+                      @click="rawTx.format = 'HEX'; rawTx.text = '01 03 01 03 00 09 74 30'"
+                      class="px-2 py-0.5 rounded bg-slate-900 hover:bg-slate-800 border border-amber-500/30 text-amber-300 font-mono text-[10px] cursor-pointer"
+                      title="Read Reg 259 (SERIAL_NUMBER, 9 regs, FC 3)"
+                    >
+                      Modbus Read FC03 (Reg 259, Len 9 - Serial Number)
+                    </button>
+                    <button
+                      type="button"
                       @click="rawTx.format = 'HEX'; rawTx.text = '01 04 00 00 00 02 71 CB'"
                       class="px-2 py-0.5 rounded bg-slate-900 hover:bg-slate-800 border border-slate-800 text-cyan-400 font-mono text-[10px] cursor-pointer"
                     >

@@ -24,10 +24,10 @@ async function runCModuleEcosystemTests() {
   console.log('======================================================================');
 
   // --------------------------------------------------------------------
-  // TEST 1: Master C-Module Registry (All 15 C-Modules Registered)
+  // TEST 1: Master C-Module Registry (All 16 C-Modules Registered)
   // --------------------------------------------------------------------
   console.log('\n[TEST 1] Verifying Master C-Module Registry (C_MODULES_REGISTRY)...');
-  assert.strictEqual(C_MODULES_REGISTRY.length, 15, 'Registry must contain exactly 15 C-Modules');
+  assert.strictEqual(C_MODULES_REGISTRY.length, 16, 'Registry must contain exactly 16 C-Modules');
 
   const expectedModuleCodes = [
     'C_MOD_OVERVIEW',
@@ -45,6 +45,7 @@ async function runCModuleEcosystemTests() {
     'C_MOD_SALES_ORDERS',
     'C_MOD_ITEM_CODES',
     'C_MOD_TEST_BUILDER',
+    'C_MOD_SENSOR_TYPES',
   ];
 
   for (const code of expectedModuleCodes) {
@@ -240,8 +241,44 @@ async function runCModuleEcosystemTests() {
   assert.ok(DOWNLINK_TEMPLATE.includes("downlinkForm.payloadHex = '0300'"), 'Downlink must support Query Config preset');
   console.log('  -> PASS: Downlink Actuator includes 1-click command presets.');
 
+  // --------------------------------------------------------------------
+  // TEST 7: Modbus UART Register 259 (SERIAL_NUMBER: FC 3, 9 Regs, String)
+  // --------------------------------------------------------------------
+  console.log('\n[TEST 7] Verifying Modbus UART Register 259 Specification...');
+  const presetsJsonPath = path.resolve(__dirname, '../config/modbus-presets.json');
+  assert.ok(fs.existsSync(presetsJsonPath), 'config/modbus-presets.json must exist');
+  const presetsData = JSON.parse(fs.readFileSync(presetsJsonPath, 'utf8'));
+  const fullTemplate = presetsData.find((p: any) => p.id === 'tpl_memmap-lks-full-template_mu66p7nj');
+  assert.ok(fullTemplate, 'MEMMAP LKS - FULL TEMPLATE must exist in presets');
+  const reg259 = fullTemplate.registers.find((r: any) => r.reg === 259);
+  assert.ok(reg259, 'Register 259 must be configured in Modbus presets');
+  assert.strictEqual(reg259.fc, 3, 'Register 259 must use Function Code 3 (Read Holding Registers)');
+  assert.strictEqual(reg259.numreg, 9, 'Register 259 must span 9 registers (18 bytes ASCII string)');
+  assert.strictEqual(reg259.format, 'string', 'Register 259 format must be string');
+  assert.strictEqual(reg259.parameter, 'SERIAL_NUMBER', 'Register 259 parameter name must be SERIAL_NUMBER');
+
+  const testAutoModulePath = path.resolve(__dirname, '../src/views/dashboard-modules/test-automation.module.ts');
+  const testAutoContent = fs.readFileSync(testAutoModulePath, 'utf8');
+  assert.ok(
+    testAutoContent.includes('readModbusRegistersFromPort(1, 259, 9)'),
+    'test-automation.module.ts must read Reg 259 with length 9 using FC 3',
+  );
+  assert.ok(
+    testAutoContent.includes('SERIAL_NUMBER (Reg 259)'),
+    'test-automation.module.ts must label SERIAL_NUMBER with Reg 259 in UI',
+  );
+
+  const serialUartPath = path.resolve(__dirname, '../src/views/dashboard-modules/serial-uart.module.ts');
+  const serialUartContent = fs.readFileSync(serialUartPath, 'utf8');
+  assert.ok(
+    serialUartContent.includes('01 03 01 03 00 09 74 30'),
+    'serial-uart.module.ts must include quick test shortcut for Reg 259 (FC 3, 9 regs)',
+  );
+
+  console.log('  -> PASS: Register 259 (FC 3, 9 regs, string format) is strictly validated across presets, UART onboarding, and UI.');
+
   console.log('\n======================================================================');
-  console.log('ALL 6 ECOSYSTEM INTEGRATION TESTS PASSED WITH 100% COMPLIANCE!');
+  console.log('ALL 7 ECOSYSTEM INTEGRATION TESTS PASSED WITH 100% COMPLIANCE!');
   console.log('======================================================================\n');
 }
 
@@ -249,3 +286,4 @@ runCModuleEcosystemTests().catch((err) => {
   console.error('\n❌ TEST FAILED:', err);
   process.exit(1);
 });
+

@@ -163,4 +163,14 @@ export const C_MODULES_REGISTRY: CModule[] = [
     routeHash: '#test-builder',
     requiredPermission: 'test_builder:read',
   },
+  {
+    id: 'c-sensor-types',
+    code: 'C_MOD_SENSOR_TYPES',
+    title: 'LoRaWAN Sensor Types',
+    description: 'Manage LoRaWAN Sensor Type decimal codes (e.g. 71 -> WSLRW-LKS) mapped to hardware SKUs, regions, and classes.',
+    icon: 'fa-solid fa-microchip',
+    category: 'Infrastructure',
+    routeHash: '#sensor-types',
+    requiredPermission: 'lorawan:device:read',
+  },
 ];

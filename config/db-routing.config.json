@@ -34,6 +34,7 @@
     "item_codes": "core_db",
     "test_sessions": "core_db",
     "test_device_runs": "core_db",
-    "test_packet_logs": "core_db"
+    "test_packet_logs": "core_db",
+    "sensor_types": "core_db"
   }
 }
