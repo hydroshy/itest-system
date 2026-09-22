@@ -492,6 +492,8 @@ export const OVERVIEW_TEMPLATE = `
                 <div class="text-xs text-teal-400 font-semibold flex items-center gap-1.5 pt-1">
                   <span>Configure Presets</span> <i class="fa-solid fa-arrow-right text-[10px] group-hover:translate-x-1 transition"></i>
                 </div>
+              </div>
+
               <!-- Card: Sensor Types -->
               <div @click="switchTab('sensor-types')" class="p-4 bg-slate-950/80 hover:bg-slate-900/80 rounded-xl border border-slate-800 hover:border-sky-500/40 transition cursor-pointer space-y-3 group">
                 <div class="flex items-center justify-between">

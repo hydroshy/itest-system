@@ -277,8 +277,47 @@ async function runCModuleEcosystemTests() {
 
   console.log('  -> PASS: Register 259 (FC 3, 9 regs, string format) is strictly validated across presets, UART onboarding, and UI.');
 
+  // --------------------------------------------------------------------
+  // TEST 8: HTML DOM & Template Tag Balance Across All C-Modules
+  // --------------------------------------------------------------------
+  console.log('\n[TEST 8] Verifying HTML DOM & Template Tag Balance Across All C-Modules...');
+  const modulesDir = path.resolve(__dirname, '../src/views/control-panel-modules');
+  const moduleFiles = fs.readdirSync(modulesDir).filter((f) => f.endsWith('.module.ts'));
+  assert.ok(moduleFiles.length >= 13, 'Must have at least 13 module files in control-panel-modules');
+
+  for (const file of moduleFiles) {
+    const filePath = path.join(modulesDir, file);
+    const content = fs.readFileSync(filePath, 'utf8');
+    const openDivs = (content.match(/<div\b/gi) || []).length;
+    const closeDivs = (content.match(/<\/div>/gi) || []).length;
+    assert.strictEqual(
+      openDivs,
+      closeDivs,
+      `Template file [${file}] must have balanced <div> tags (found ${openDivs} open, ${closeDivs} close, diff ${openDivs - closeDivs})`,
+    );
+  }
+
+  const cpViewPath = path.resolve(__dirname, '../src/views/control-panel.view.ts');
+  const cpViewContent = fs.readFileSync(cpViewPath, 'utf8');
+  const cpOpenDivs = (cpViewContent.match(/<div\b/gi) || []).length;
+  const cpCloseDivs = (cpViewContent.match(/<\/div>/gi) || []).length;
+  assert.strictEqual(
+    cpOpenDivs,
+    cpCloseDivs,
+    `control-panel.view.ts must have balanced <div> tags (found ${cpOpenDivs} open, ${cpCloseDivs} close)`,
+  );
+
+  const openBoundaries = (cpViewContent.match(/<c-module-boundary\b/gi) || []).length;
+  const closeBoundaries = (cpViewContent.match(/<\/c-module-boundary>/gi) || []).length;
+  assert.strictEqual(
+    openBoundaries,
+    closeBoundaries,
+    `control-panel.view.ts must have balanced <c-module-boundary> tags (found ${openBoundaries} open, ${closeBoundaries} close)`,
+  );
+  console.log('  -> PASS: All control panel module templates and boundary tags are strictly balanced (0 tag drift).');
+
   console.log('\n======================================================================');
-  console.log('ALL 7 ECOSYSTEM INTEGRATION TESTS PASSED WITH 100% COMPLIANCE!');
+  console.log('ALL 8 ECOSYSTEM INTEGRATION TESTS PASSED WITH 100% COMPLIANCE!');
   console.log('======================================================================\n');
 }
 
