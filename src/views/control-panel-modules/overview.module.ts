@@ -25,7 +25,7 @@ export const OVERVIEW_TEMPLATE = `
                 <span>Network Servers</span>
                 <i class="fa-solid fa-tower-broadcast text-sky-400 text-sm"></i>
               </div>
-              <div class="text-xl font-extrabold text-white pt-1">{{ networkServersList.length || '--' }}</div>
+              <div class="text-xl font-extrabold text-white pt-1">{{ networkServersList?.length || '--' }}</div>
               <div class="text-[11px] text-slate-500">ThingPark & ChirpStack v4</div>
             </div>
 
@@ -35,7 +35,7 @@ export const OVERVIEW_TEMPLATE = `
                 <span>Device Fleet</span>
                 <i class="fa-solid fa-microchip text-teal-400 text-sm"></i>
               </div>
-              <div class="text-xl font-extrabold text-white pt-1">{{ devicesList.length || '--' }}</div>
+              <div class="text-xl font-extrabold text-white pt-1">{{ devicesList?.length || '--' }}</div>
               <div class="text-[11px] text-slate-500">Registered End-Devices</div>
             </div>
 
@@ -45,7 +45,7 @@ export const OVERVIEW_TEMPLATE = `
                 <span>System Roles</span>
                 <i class="fa-solid fa-shield-halved text-amber-400 text-sm"></i>
               </div>
-              <div class="text-xl font-extrabold text-white pt-1">{{ rolesList.length || '--' }}</div>
+              <div class="text-xl font-extrabold text-white pt-1">{{ rolesList?.length || '--' }}</div>
               <div class="text-[11px] text-slate-500">RBAC Role Definitions</div>
             </div>
 
@@ -55,7 +55,7 @@ export const OVERVIEW_TEMPLATE = `
                 <span>Item Code Catalog</span>
                 <i class="fa-solid fa-barcode text-cyan-400 text-sm"></i>
               </div>
-              <div class="text-xl font-extrabold text-white pt-1">{{ itemCodesList.length || dbHealth?.tableStats?.item_codes?.recordCount || '--' }}</div>
+              <div class="text-xl font-extrabold text-white pt-1">{{ itemCodesList?.length || dbHealth?.tableStats?.item_codes?.recordCount || '--' }}</div>
               <div class="text-[11px] text-slate-500">Master Commercial SKUs</div>
             </div>
 
@@ -65,7 +65,7 @@ export const OVERVIEW_TEMPLATE = `
                 <span>Sales Orders</span>
                 <i class="fa-solid fa-boxes-stacked text-amber-400 text-sm"></i>
               </div>
-              <div class="text-xl font-extrabold text-white pt-1">{{ salesOrdersList.length || dbHealth?.tableStats?.sales_orders?.recordCount || '--' }}</div>
+              <div class="text-xl font-extrabold text-white pt-1">{{ salesOrdersList?.length || dbHealth?.tableStats?.sales_orders?.recordCount || '--' }}</div>
               <div class="text-[11px] text-slate-500">Odoo ERP & Batch Orders</div>
             </div>
 
@@ -85,7 +85,7 @@ export const OVERVIEW_TEMPLATE = `
                 <span>Payload Decoders</span>
                 <i class="fa-solid fa-code text-purple-400 text-sm"></i>
               </div>
-              <div class="text-xl font-extrabold text-white pt-1">{{ decodersList.length || dbHealth?.tableStats?.decoder?.recordCount || '--' }}</div>
+              <div class="text-xl font-extrabold text-white pt-1">{{ decodersList?.length || dbHealth?.tableStats?.decoder?.recordCount || '--' }}</div>
               <div class="text-[11px] text-slate-500">JavaScript Sandbox Parsers</div>
             </div>
           </div>
@@ -100,9 +100,9 @@ export const OVERVIEW_TEMPLATE = `
                 <div>
                   <div class="flex items-center gap-2">
                     <h2 class="text-base font-extrabold text-white">System Runtime & Git Lifecycle Manager</h2>
-                    <span :class="systemVersionInfo.opsAgent?.online ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/25' : 'bg-amber-500/10 text-amber-400 border-amber-500/25'" class="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold border flex items-center gap-1">
-                      <span :class="systemVersionInfo.opsAgent?.online ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'" class="w-1.5 h-1.5 rounded-full"></span>
-                      {{ systemVersionInfo.opsAgent?.online ? 'OPS AGENT ONLINE' : 'STANDALONE MODE' }}
+                    <span :class="systemVersionInfo?.opsAgent?.online ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/25' : 'bg-amber-500/10 text-amber-400 border-amber-500/25'" class="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold border flex items-center gap-1">
+                      <span :class="systemVersionInfo?.opsAgent?.online ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'" class="w-1.5 h-1.5 rounded-full"></span>
+                      {{ systemVersionInfo?.opsAgent?.online ? 'OPS AGENT ONLINE' : 'STANDALONE MODE' }}
                     </span>
                   </div>
                   <p class="text-xs text-slate-400 mt-0.5">Live Git commit tracking, Docker container orchestration, and server lifecycle operations</p>
@@ -130,7 +130,7 @@ export const OVERVIEW_TEMPLATE = `
                   <i :class="loadingSystemVersion ? 'animate-spin' : ''" class="fa-solid fa-arrows-rotate"></i> Refresh
                 </button>
                 <button
-                  v-if="systemVersionInfo.opsAgent?.online"
+                  v-if="systemVersionInfo?.opsAgent?.online"
                   @click="openServerLogsDialog"
                   class="px-3 py-1.5 rounded-lg bg-sky-500/15 hover:bg-sky-500/25 text-sky-300 border border-sky-500/30 text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition"
                   title="View live container logs"
@@ -153,20 +153,20 @@ export const OVERVIEW_TEMPLATE = `
               <div class="p-3.5 bg-slate-950/80 rounded-xl border border-slate-800/80 space-y-1">
                 <div class="text-[11px] text-slate-400 font-medium flex items-center justify-between">
                   <span>Git Commit Hash</span>
-                  <span class="px-1.5 py-0.2 rounded text-[9px] font-mono bg-sky-500/20 text-sky-300">{{ systemVersionInfo.git?.branch || 'main' }}</span>
+                  <span class="px-1.5 py-0.2 rounded text-[9px] font-mono bg-sky-500/20 text-sky-300">{{ systemVersionInfo?.git?.branch || 'main' }}</span>
                 </div>
                 <div class="flex items-center justify-between pt-1">
-                  <span class="text-sm font-mono font-bold text-sky-400">#{{ systemVersionInfo.git?.shortHash || 'unknown' }}</span>
+                  <span class="text-sm font-mono font-bold text-sky-400">#{{ systemVersionInfo?.git?.shortHash || 'unknown' }}</span>
                   <button
-                    @click="copyCommitHash(systemVersionInfo.git?.commitHash)"
+                    @click="copyCommitHash(systemVersionInfo?.git?.commitHash)"
                     class="p-1 rounded text-slate-400 hover:text-white hover:bg-slate-800 transition text-xs cursor-pointer"
                     title="Copy Full Commit Hash"
                   >
                     <i class="fa-regular fa-copy"></i>
                   </button>
                 </div>
-                <div class="text-[10px] text-slate-500 truncate" :title="systemVersionInfo.git?.commitHash">
-                  {{ systemVersionInfo.git?.commitHash || 'Loading hash...' }}
+                <div class="text-[10px] text-slate-500 truncate" :title="systemVersionInfo?.git?.commitHash">
+                  {{ systemVersionInfo?.git?.commitHash || 'Loading hash...' }}
                 </div>
               </div>
 
@@ -176,11 +176,11 @@ export const OVERVIEW_TEMPLATE = `
                   <span>Last Commit Message</span>
                   <i class="fa-solid fa-code-commit text-slate-500 text-xs"></i>
                 </div>
-                <div class="text-xs font-bold text-white line-clamp-1 pt-1" :title="systemVersionInfo.git?.commitMessage">
-                  {{ systemVersionInfo.git?.commitMessage || 'Production build' }}
+                <div class="text-xs font-bold text-white line-clamp-1 pt-1" :title="systemVersionInfo?.git?.commitMessage">
+                  {{ systemVersionInfo?.git?.commitMessage || 'Production build' }}
                 </div>
                 <div class="text-[10px] text-slate-400 flex items-center gap-1.5">
-                  <span><i class="fa-regular fa-user mr-1"></i>{{ systemVersionInfo.git?.author || 'Daviteq Team' }}</span>
+                  <span><i class="fa-regular fa-user mr-1"></i>{{ systemVersionInfo?.git?.author || 'Daviteq Team' }}</span>
                 </div>
               </div>
 
@@ -188,13 +188,13 @@ export const OVERVIEW_TEMPLATE = `
               <div class="p-3.5 bg-slate-950/80 rounded-xl border border-slate-800/80 space-y-1">
                 <div class="text-[11px] text-slate-400 font-medium flex items-center justify-between">
                   <span>Engine Runtime</span>
-                  <span class="text-emerald-400 font-mono text-[10px] font-bold">Node.js {{ systemVersionInfo.server?.nodeVersion || 'v20' }}</span>
+                  <span class="text-emerald-400 font-mono text-[10px] font-bold">Node.js {{ systemVersionInfo?.server?.nodeVersion || 'v20' }}</span>
                 </div>
                 <div class="text-sm font-mono font-bold text-white pt-1">
-                  {{ formatUptime(systemVersionInfo.server?.uptimeSeconds) }}
+                  {{ formatUptime(systemVersionInfo?.server?.uptimeSeconds) }}
                 </div>
                 <div class="text-[10px] text-slate-500">
-                  Platform: {{ systemVersionInfo.server?.platform || 'linux' }} ({{ systemVersionInfo.server?.environment || 'production' }})
+                  Platform: {{ systemVersionInfo?.server?.platform || 'linux' }} ({{ systemVersionInfo?.server?.environment || 'production' }})
                 </div>
               </div>
 
@@ -202,8 +202,8 @@ export const OVERVIEW_TEMPLATE = `
               <div class="p-3.5 bg-slate-950/80 rounded-xl border border-slate-800/80 space-y-1">
                 <div class="text-[11px] text-slate-400 font-medium flex items-center justify-between">
                   <span>Target Container</span>
-                  <span :class="systemVersionInfo.opsAgent?.dockerAvailable ? 'text-emerald-400' : 'text-slate-400'" class="font-mono text-[10px] font-bold">
-                    {{ systemVersionInfo.opsAgent?.dockerAvailable ? 'DOCKER ACTIVE' : 'STANDALONE' }}
+                  <span :class="systemVersionInfo?.opsAgent?.dockerAvailable ? 'text-emerald-400' : 'text-slate-400'" class="font-mono text-[10px] font-bold">
+                    {{ systemVersionInfo?.opsAgent?.dockerAvailable ? 'DOCKER ACTIVE' : 'STANDALONE' }}
                   </span>
                 </div>
                 <div class="text-xs font-mono font-bold text-slate-200 pt-1 flex items-center gap-1.5">
@@ -235,7 +235,7 @@ export const OVERVIEW_TEMPLATE = `
                     <i class="fa-solid fa-tower-broadcast"></i>
                   </div>
                   <span class="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-sky-500/10 text-sky-300 border border-sky-500/20">
-                    {{ networkServersList.length }} Configured
+                    {{ networkServersList?.length || 0 }} Configured
                   </span>
                 </div>
                 <div>
@@ -254,7 +254,7 @@ export const OVERVIEW_TEMPLATE = `
                     <i class="fa-solid fa-cubes"></i>
                   </div>
                   <span class="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-cyan-500/10 text-cyan-300 border border-cyan-500/20">
-                    {{ modulesList.length }} Modules
+                    {{ modulesList?.length || 0 }} Modules
                   </span>
                 </div>
                 <div>
@@ -292,7 +292,7 @@ export const OVERVIEW_TEMPLATE = `
                     <i class="fa-solid fa-shield-halved"></i>
                   </div>
                   <span class="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-amber-500/10 text-amber-300 border border-amber-500/20">
-                    {{ rolesList.length }} Roles
+                    {{ rolesList?.length || 0 }} Roles
                   </span>
                 </div>
                 <div>
@@ -311,7 +311,7 @@ export const OVERVIEW_TEMPLATE = `
                     <i class="fa-solid fa-users"></i>
                   </div>
                   <span class="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-emerald-500/10 text-emerald-300 border border-emerald-500/20">
-                    {{ usersList.length }} Users
+                    {{ usersList?.length || 0 }} Users
                   </span>
                 </div>
                 <div>
@@ -330,7 +330,7 @@ export const OVERVIEW_TEMPLATE = `
                     <i class="fa-solid fa-microchip"></i>
                   </div>
                   <span class="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-teal-500/10 text-teal-300 border border-teal-500/20">
-                    {{ devicesList.length }} Devices
+                    {{ devicesList?.length || 0 }} Devices
                   </span>
                 </div>
                 <div>
@@ -349,7 +349,7 @@ export const OVERVIEW_TEMPLATE = `
                     <i class="fa-solid fa-code"></i>
                   </div>
                   <span class="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-purple-500/10 text-purple-300 border border-purple-500/20">
-                    {{ decodersList.length || dbHealth?.tableStats?.decoder?.recordCount || 0 }} Decoders
+                    {{ decodersList?.length || dbHealth?.tableStats?.decoder?.recordCount || 0 }} Decoders
                   </span>
                 </div>
                 <div>
@@ -368,7 +368,7 @@ export const OVERVIEW_TEMPLATE = `
                     <i class="fa-solid fa-barcode"></i>
                   </div>
                   <span class="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-cyan-500/10 text-cyan-300 border border-cyan-500/20">
-                    {{ itemCodesList.length || dbHealth?.tableStats?.item_codes?.recordCount || 0 }} Items
+                    {{ itemCodesList?.length || dbHealth?.tableStats?.item_codes?.recordCount || 0 }} Items
                   </span>
                 </div>
                 <div>
@@ -387,7 +387,7 @@ export const OVERVIEW_TEMPLATE = `
                     <i class="fa-solid fa-boxes-stacked"></i>
                   </div>
                   <span class="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-amber-500/10 text-amber-300 border border-amber-500/20">
-                    {{ salesOrdersList.length || dbHealth?.tableStats?.sales_orders?.recordCount || 0 }} Orders
+                    {{ salesOrdersList?.length || dbHealth?.tableStats?.sales_orders?.recordCount || 0 }} Orders
                   </span>
                 </div>
                 <div>
@@ -425,7 +425,7 @@ export const OVERVIEW_TEMPLATE = `
                     <i class="fa-solid fa-palette"></i>
                   </div>
                   <span class="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-rose-500/10 text-rose-300 border border-rose-500/20">
-                    {{ hmiScreensList.length }} Screens
+                    {{ hmiScreensList?.length || 0 }} Screens
                   </span>
                 </div>
                 <div>
@@ -444,7 +444,7 @@ export const OVERVIEW_TEMPLATE = `
                     <i class="fa-solid fa-paper-plane"></i>
                   </div>
                   <span class="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-blue-500/10 text-blue-300 border border-blue-500/20">
-                    {{ downlinkHistory.length }} Sent
+                    {{ downlinkHistory?.length || 0 }} Sent
                   </span>
                 </div>
                 <div>
@@ -463,7 +463,7 @@ export const OVERVIEW_TEMPLATE = `
                     <i class="fa-solid fa-satellite-dish"></i>
                   </div>
                   <span class="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-sky-500/10 text-sky-300 border border-sky-500/20">
-                    {{ dbHealth?.tableStats?.webhook_logs?.recordCount || webhookLogs.length || 0 }} Packets
+                    {{ dbHealth?.tableStats?.webhook_logs?.recordCount || webhookLogs?.length || 0 }} Packets
                   </span>
                 </div>
                 <div>
@@ -482,7 +482,7 @@ export const OVERVIEW_TEMPLATE = `
                     <i class="fa-solid fa-file-excel"></i>
                   </div>
                   <span class="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-teal-500/10 text-teal-300 border border-teal-500/20">
-                    {{ modbusPresetsList.length }} Presets
+                    {{ (modbusPresetsList?.length ?? presetsList?.length ?? 0) }} Presets
                   </span>
                 </div>
                 <div>
@@ -526,7 +526,7 @@ export const OVERVIEW_TEMPLATE = `
             </div>
 
             <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
-              <div v-for="(conn, key) in dbHealth.connections" :key="key" class="p-4 bg-slate-950/70 rounded-xl border border-slate-800 space-y-2">
+              <div v-for="(conn, key) in (dbHealth?.connections || {})" :key="key" class="p-4 bg-slate-950/70 rounded-xl border border-slate-800 space-y-2">
                 <div class="flex items-center justify-between">
                   <span class="font-mono font-bold text-white text-xs">{{ conn.name }}</span>
                   <span :class="conn.isAlive ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/25' : 'bg-red-500/10 text-red-400 border-red-500/25'" class="px-2 py-0.5 rounded-full text-[10px] font-bold border">
@@ -559,7 +559,7 @@ export const OVERVIEW_TEMPLATE = `
                   </tr>
                 </thead>
                 <tbody class="divide-y divide-slate-800/60">
-                  <tr v-for="(stat, tableName) in dbHealth.tableStats" :key="tableName" class="hover:bg-slate-800/30 transition">
+                  <tr v-for="(stat, tableName) in (dbHealth?.tableStats || {})" :key="tableName" class="hover:bg-slate-800/30 transition">
                     <td class="py-2.5 px-3.5 font-bold text-white">{{ tableName }}</td>
                     <td class="py-2.5 px-3.5 text-sky-400">{{ stat.routedTo }}</td>
                     <td class="py-2.5 px-3.5 text-emerald-400 font-bold">{{ Number(stat.recordCount).toLocaleString() }} rows</td>
@@ -589,7 +589,7 @@ export const OVERVIEW_MODALS = `
 
         <div class="p-3.5 bg-red-950/20 border border-red-500/25 rounded-xl text-xs text-red-300 space-y-2">
           <p><strong>Warning:</strong> Restarting will briefly disconnect active API requests and WebSocket sessions. The NestJS backend container (<code>nest_lorawan_app</code>) will shut down gracefully and restart.</p>
-          <p class="text-[11px] text-slate-400">Current Commit: <span class="font-mono text-cyan-300 font-bold">#{{ systemVersionInfo.git?.shortHash }}</span> ({{ systemVersionInfo.git?.branch }})</p>
+          <p class="text-[11px] text-slate-400">Current Commit: <span class="font-mono text-cyan-300 font-bold">#{{ systemVersionInfo?.git?.shortHash }}</span> ({{ systemVersionInfo?.git?.branch }})</p>
         </div>
 
         <div class="flex items-center justify-end gap-2.5 pt-2">
@@ -650,11 +650,11 @@ export const OVERVIEW_MODALS = `
 
 
     <!-- FLOATING RESTART OVERLAY -->
-    <div v-if="restartProgress.active" class="fixed bottom-6 right-6 z-50 p-4 rounded-2xl bg-slate-900 border border-sky-500/40 shadow-2xl flex items-center gap-3">
+    <div v-if="restartProgress?.active" class="fixed bottom-6 right-6 z-50 p-4 rounded-2xl bg-slate-900 border border-sky-500/40 shadow-2xl flex items-center gap-3">
       <i class="fa-solid fa-spinner fa-spin text-sky-400 text-xl"></i>
       <div>
-        <div class="text-xs font-bold text-white">{{ restartProgress.message || 'Restarting Backend Server...' }}</div>
-        <div class="text-[10px] text-slate-400">Reconnecting automatically (Attempt {{ restartProgress.countdown }}s)...</div>
+        <div class="text-xs font-bold text-white">{{ restartProgress?.message || 'Restarting Backend Server...' }}</div>
+        <div class="text-[10px] text-slate-400">Reconnecting automatically (Attempt {{ restartProgress?.countdown }}s)...</div>
       </div>
     </div>
 

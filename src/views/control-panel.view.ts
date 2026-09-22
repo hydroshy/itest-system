@@ -742,8 +742,10 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
 
     function createModbusPresetsFallback() {
       const ref = (typeof Vue !== 'undefined' && Vue.ref) ? Vue.ref : function(v) { return { value: v }; };
+      const emptyPresets = ref([]);
       return {
-        presetsList: ref([]),
+        presetsList: emptyPresets,
+        modbusPresetsList: emptyPresets,
         activePresetId: ref(''),
         activePreset: ref({ name: 'Fallback Mode', registers: [] }),
         presetRegisters: ref([]),
@@ -5810,6 +5812,9 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
           fetchDevices();
           fetchDecoders();
           fetchWebhookStats();
+          if (modbusPresetsModule && typeof modbusPresetsModule.fetchPresets === 'function') {
+            modbusPresetsModule.fetchPresets();
+          }
           
           const hash = window.location.hash.replace('#', '').trim();
           if (hash && hash !== 'telemetry') {
@@ -5857,7 +5862,11 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
           initControlPanel();
         });
 
+        const modbusPresetsList = (modbusPresetsModule && (modbusPresetsModule.modbusPresetsList || modbusPresetsModule.presetsList)) || ref([]);
+
         return {
+          modbusPresetsList,
+          presetsList: modbusPresetsList,
           ...modbusPresetsModule,
           ...testBuilderModule,
           ...itemCodesModule,

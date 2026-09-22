@@ -156,7 +156,24 @@ async function runCModuleEcosystemTests() {
       `Overview template must contain quick jump card for [${card}]`,
     );
   }
-  console.log('  -> PASS: Overview Hub features 8-card metric banner and 14 quick navigation cards.');
+
+  // Verify safe optional chaining and no raw unsafe .length calls on potentially undefined lists
+  assert.ok(
+    !OVERVIEW_TEMPLATE.includes('{{ modbusPresetsList.length }}'),
+    'OVERVIEW_TEMPLATE must not make unsafe direct length call on modbusPresetsList without fallback',
+  );
+  assert.ok(
+    OVERVIEW_TEMPLATE.includes('modbusPresetsList?.length') || OVERVIEW_TEMPLATE.includes('presetsList?.length'),
+    'OVERVIEW_TEMPLATE must safely access presets count with optional chaining and fallback',
+  );
+
+  const cpViewSource = fs.readFileSync(path.resolve(__dirname, '../src/views/control-panel.view.ts'), 'utf8');
+  assert.ok(
+    cpViewSource.includes('modbusPresetsList'),
+    'control-panel.view.ts must provide modbusPresetsList in setup return and fallback factory',
+  );
+
+  console.log('  -> PASS: Overview Hub features 8-card metric banner, 14 quick navigation cards, and safe reactive variable bindings.');
 
   // --------------------------------------------------------------------
   // TEST 5: Device Fleet Integration with Item Codes & Sales Orders

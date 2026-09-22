@@ -1722,6 +1722,7 @@ export const MODBUS_PRESETS_SCRIPT = `
 
     return {
       presetsList,
+      modbusPresetsList: presetsList,
       activePresetId,
       activePreset,
       presetRegisters,
