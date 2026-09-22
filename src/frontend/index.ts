@@ -1,0 +1,36 @@
+/**
+ * Daviteq Frontend Application Layer
+ * Contains all client-side pages, SPA templates, and feature modules.
+ */
+
+// Pages
+export { LOGIN_HTML } from './pages/login.page';
+export { DASHBOARD_HTML } from './pages/dashboard.page';
+export { CONTROL_PANEL_HTML } from './pages/control-panel.page';
+
+// Control Panel Feature Modules
+export * from './modules/control-panel/overview.module';
+export * from './modules/control-panel/devices.module';
+export * from './modules/control-panel/network-servers.module';
+export * from './modules/control-panel/downlink.module';
+export * from './modules/control-panel/webhooks.module';
+export * from './modules/control-panel/decoder.module';
+export * from './modules/control-panel/hmi-studio.module';
+export * from './modules/control-panel/modbus-presets.module';
+export * from './modules/control-panel/sales-orders.module';
+export * from './modules/control-panel/item-codes.module';
+export * from './modules/control-panel/test-builder.module';
+export * from './modules/control-panel/system-modules.module';
+
+// Dashboard User Feature Modules
+export * from './modules/dashboard/device-manager.module';
+export * from './modules/dashboard/test-automation.module';
+export * from './modules/dashboard/telemetry.module';
+export * from './modules/dashboard/hmi-scada.module';
+export {
+  DOWNLINK_TEMPLATE as DASHBOARD_DOWNLINK_TEMPLATE,
+  DOWNLINK_MODALS as DASHBOARD_DOWNLINK_MODALS,
+  DOWNLINK_SCRIPT as DASHBOARD_DOWNLINK_SCRIPT,
+} from './modules/dashboard/downlink.module';
+export * from './modules/dashboard/serial-uart.module';
+

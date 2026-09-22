@@ -1,0 +1,16 @@
+/**
+ * Identity & Access Control Domain Subsystem
+ * Encapsulates Authentication, RBAC, and User administration.
+ */
+
+export * from './identity-subsystem.module';
+export * from './identity-diagnostic.service';
+export * from '../../modules/auth/auth.service';
+export * from '../../modules/auth/auth.controller';
+export * from '../../modules/users/users.service';
+export * from '../../modules/users/users.controller';
+export * from '../../modules/users/entities/user.entity';
+export * from '../../modules/roles-permissions/roles.service';
+export * from '../../modules/roles-permissions/roles.controller';
+export * from '../../modules/roles-permissions/entities/role.entity';
+export * from '../../modules/roles-permissions/entities/permission.entity';
