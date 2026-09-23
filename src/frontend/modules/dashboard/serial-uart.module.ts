@@ -2230,7 +2230,7 @@ function useSerialModule(ctx) {
 
             row.status = 'OK';
             row.exception = 'WRITE_OK';
-            // khi ghi xong thì tự xóa tick box
+            // auto uncheck after write completion
             row.checked = false;
             showToast('Write successfully to register ' + row.reg, 'success');
           } catch(e) {

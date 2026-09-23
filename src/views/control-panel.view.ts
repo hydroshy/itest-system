@@ -62,15 +62,36 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
   </script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=PT+Serif:ital,wght@0,400;0,700;1,400;1,700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <script>
+    (function() {
+      try {
+        var saved = localStorage.getItem('dvt_theme');
+        var theme = (saved === 'dark') ? 'dark' : 'light';
+        document.documentElement.classList.add(theme === 'dark' ? 'theme-dark' : 'theme-light');
+      } catch(e) {
+        document.documentElement.classList.add('theme-light');
+      }
+    })();
+  </script>
   <style>
     @keyframes pageFadeIn {
       from { opacity: 0; transform: translateY(4px); }
       to { opacity: 1; transform: translateY(0); }
     }
+    /* Minimalist Typography with Google PT Serif */
+    body, input, button, select, textarea, p, h1, h2, h3, h4, h5, h6, span, label, a, td, th {
+      font-family: 'PT Serif', Georgia, Cambria, 'Times New Roman', Times, serif;
+    }
+    .font-mono, code, pre, .mono, [class*="font-mono"] {
+      font-family: 'JetBrains Mono', monospace !important;
+    }
+    .fa, .fas, .fa-solid, .fa-regular, .fa-brands {
+      font-family: "Font Awesome 6 Free", "Font Awesome 6 Brands" !important;
+    }
+
     body {
       background-color: #030712;
-      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       margin: 0;
       padding: 0;
       color: #f1f5f9;
@@ -78,6 +99,215 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
       overflow-x: hidden;
       animation: pageFadeIn 0.22s cubic-bezier(0.16, 1, 0.3, 1) forwards;
       transition: opacity 0.15s ease, transform 0.15s ease;
+    }
+
+    /* =========================================================================
+       THEME ENGINE: WHITE MODE (DEFAULT) & DARK MODE
+       Minimalist, clean, uncluttered, business-grade styling
+       ========================================================================= */
+    html.theme-light,
+    html.theme-light body,
+    body.theme-light {
+      background-color: #f8fafc !important;
+      color: #0f172a !important;
+    }
+
+    .theme-light .glass-header {
+      background: rgba(255, 255, 255, 0.96) !important;
+      border-bottom: 1px solid #e2e8f0 !important;
+      box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.04) !important;
+      backdrop-filter: blur(12px) !important;
+    }
+
+    .theme-light .glass-sidebar {
+      background: #ffffff !important;
+      border-right: 1px solid #e2e8f0 !important;
+      box-shadow: 1px 0 3px 0 rgba(0, 0, 0, 0.02) !important;
+    }
+
+    .theme-light .glass-card {
+      background: #ffffff !important;
+      border: 1px solid #e2e8f0 !important;
+      box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.04) !important;
+      color: #0f172a !important;
+    }
+    .theme-light .glass-card:hover {
+      border-color: #cbd5e1 !important;
+      box-shadow: 0 6px 16px -4px rgba(0, 0, 0, 0.08) !important;
+    }
+
+    .theme-light .bg-slate-900,
+    .theme-light .bg-slate-950,
+    .theme-light .bg-slate-900\/90,
+    .theme-light .bg-slate-900\/80,
+    .theme-light .bg-slate-900\/70,
+    .theme-light .bg-slate-900\/60,
+    .theme-light .bg-slate-900\/50,
+    .theme-light .bg-slate-900\/40,
+    .theme-light .bg-slate-950\/90,
+    .theme-light .bg-slate-950\/80,
+    .theme-light .bg-slate-950\/70,
+    .theme-light .bg-slate-950\/60,
+    .theme-light .bg-slate-950\/50,
+    .theme-light [class*="bg-slate-900"],
+    .theme-light [class*="bg-slate-950"] {
+      background-color: #ffffff !important;
+    }
+
+    .theme-light .bg-slate-800,
+    .theme-light .bg-slate-800\/80,
+    .theme-light .bg-slate-800\/60,
+    .theme-light .bg-slate-800\/50,
+    .theme-light .bg-slate-800\/40,
+    .theme-light .bg-slate-800\/30,
+    .theme-light [class*="bg-slate-800"] {
+      background-color: #f1f5f9 !important;
+    }
+
+    .theme-light .border-slate-800,
+    .theme-light .border-slate-800\/80,
+    .theme-light .border-slate-800\/50,
+    .theme-light .border-slate-700,
+    .theme-light .border-slate-700\/80,
+    .theme-light .border-slate-700\/50,
+    .theme-light [class*="border-slate-800"],
+    .theme-light [class*="border-slate-700"] {
+      border-color: #e2e8f0 !important;
+    }
+
+    .theme-light .text-white {
+      color: #0f172a !important;
+    }
+    .theme-light .text-slate-100,
+    .theme-light .text-slate-200 {
+      color: #1e293b !important;
+    }
+    .theme-light .text-slate-300,
+    .theme-light .text-slate-400 {
+      color: #475569 !important;
+    }
+    .theme-light .text-slate-500 {
+      color: #64748b !important;
+    }
+    .theme-light .text-slate-600 {
+      color: #94a3b8 !important;
+    }
+
+    .theme-light .text-sky-400 { color: #0284c7 !important; }
+    .theme-light .text-emerald-400 { color: #059669 !important; }
+    .theme-light .text-amber-400, .theme-light .text-amber-300 { color: #d97706 !important; }
+    .theme-light .text-red-400, .theme-light .text-rose-400 { color: #dc2626 !important; }
+    .theme-light .text-purple-400, .theme-light .text-violet-400 { color: #7c3aed !important; }
+
+    .theme-light input,
+    .theme-light select,
+    .theme-light textarea {
+      background-color: #ffffff !important;
+      color: #0f172a !important;
+      border-color: #cbd5e1 !important;
+    }
+    .theme-light input::placeholder,
+    .theme-light textarea::placeholder {
+      color: #94a3b8 !important;
+    }
+    .theme-light input:focus,
+    .theme-light select:focus,
+    .theme-light textarea:focus {
+      border-color: #0284c7 !important;
+      box-shadow: 0 0 0 2px rgba(2, 132, 199, 0.15) !important;
+    }
+
+    .theme-light .nav-item {
+      color: #475569 !important;
+    }
+    .theme-light .nav-item:hover {
+      color: #0f172a !important;
+      background-color: #f1f5f9 !important;
+    }
+    .theme-light .nav-item.active {
+      color: #0284c7 !important;
+      background-color: #e0f2fe !important;
+      border: 1px solid #bae6fd !important;
+      box-shadow: none !important;
+    }
+
+    .theme-light .modal-backdrop {
+      background: rgba(15, 23, 42, 0.45) !important;
+      backdrop-filter: blur(4px) !important;
+    }
+
+    .theme-light .tabulator {
+      background-color: #ffffff !important;
+      border: 1px solid #e2e8f0 !important;
+      color: #0f172a !important;
+    }
+    .theme-light .tabulator .tabulator-header {
+      background-color: #f8fafc !important;
+      border-bottom: 2px solid #e2e8f0 !important;
+      color: #475569 !important;
+    }
+    .theme-light .tabulator .tabulator-header .tabulator-col {
+      background-color: #f8fafc !important;
+      border-right: 1px solid #f1f5f9 !important;
+    }
+    .theme-light .tabulator .tabulator-row {
+      background-color: #ffffff !important;
+      border-bottom: 1px solid #f1f5f9 !important;
+      color: #1e293b !important;
+    }
+    .theme-light .tabulator .tabulator-row:hover {
+      background-color: #f8fafc !important;
+    }
+    .theme-light .tabulator .tabulator-row.tabulator-selected {
+      background-color: #f0f9ff !important;
+      color: #0369a1 !important;
+      box-shadow: inset 0 0 0 1px rgba(2, 132, 199, 0.3) !important;
+    }
+    .theme-light .tabulator .tabulator-row.tabulator-selected .tabulator-cell {
+      background-color: rgba(2, 132, 199, 0.06) !important;
+      color: #0369a1 !important;
+    }
+    .theme-light .tabulator .tabulator-row.tabulator-selected .tabulator-cell:first-child {
+      background-color: #0284c7 !important;
+      color: #ffffff !important;
+    }
+    .theme-light .tabulator .tabulator-cell {
+      border-right: 1px solid #f1f5f9 !important;
+    }
+
+    .theme-light .custom-scroll::-webkit-scrollbar-track {
+      background: #f8fafc !important;
+    }
+    .theme-light .custom-scroll::-webkit-scrollbar-thumb {
+      background: #cbd5e1 !important;
+      border: 2px solid #f8fafc !important;
+    }
+    .theme-light .custom-scroll::-webkit-scrollbar-thumb:hover {
+      background: #94a3b8 !important;
+    }
+
+    .theme-toggle-btn {
+      transition: all 0.15s ease;
+    }
+    .theme-light .theme-toggle-btn {
+      background-color: #ffffff !important;
+      border-color: #cbd5e1 !important;
+      color: #334155 !important;
+    }
+    .theme-light .theme-toggle-btn:hover {
+      background-color: #f1f5f9 !important;
+      border-color: #94a3b8 !important;
+      color: #0f172a !important;
+    }
+    .theme-dark .theme-toggle-btn {
+      background-color: rgba(15, 23, 42, 0.9) !important;
+      border-color: #334155 !important;
+      color: #cbd5e1 !important;
+    }
+    .theme-dark .theme-toggle-btn:hover {
+      background-color: #1e293b !important;
+      border-color: #475569 !important;
+      color: #ffffff !important;
     }
     body.page-transitioning {
       opacity: 0;
@@ -346,9 +576,9 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
           type="button"
           @click="toggleSidebarCollapse"
           class="hidden md:flex items-center justify-center p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 border border-slate-800 transition cursor-pointer"
-          :title="sidebarCollapsed ? 'Mở rộng thanh điều hướng (Expand Sidebar)' : 'Thu nhỏ thanh điều hướng (Collapse Sidebar)'"
+          :title="sidebarCollapsed ? 'Expand navigation' : 'Collapse navigation'"
         >
-          <i class="fa-solid text-sm" :class="sidebarCollapsed ? 'fa-bars-staggered text-sky-400' : 'fa-bars text-slate-400'"></i>
+          <i class="fa-solid text-sm" :class="sidebarCollapsed ? 'fa-bars text-sky-400' : 'fa-bars text-slate-400'"></i>
         </button>
 
         <!-- Breadcrumb Active Section Indicator -->
@@ -363,6 +593,17 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
 
       <!-- Right Actions & User Menu Dropdown -->
       <div class="flex items-center gap-2.5">
+        <!-- Theme Switcher Button -->
+        <button
+          type="button"
+          @click="toggleTheme"
+          class="theme-toggle-btn flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-800 hover:border-slate-700 transition cursor-pointer select-none text-xs font-semibold"
+          :title="currentTheme === 'light' ? 'Switch to Dark Mode' : 'Switch to Light Mode'"
+        >
+          <i :class="currentTheme === 'light' ? 'fa-solid fa-moon text-slate-600' : 'fa-solid fa-sun text-amber-400'" class="text-xs"></i>
+          <span class="hidden sm:inline">{{ currentTheme === 'light' ? 'Dark' : 'Light' }}</span>
+        </button>
+
         <div class="relative">
           <button
             @click.stop="userMenuOpen = !userMenuOpen"
@@ -444,262 +685,262 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
       <aside
         :class="[
           sidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0',
-          sidebarCollapsed ? 'md:w-[68px] p-2' : 'md:w-60 p-3.5'
+          sidebarCollapsed ? 'md:w-0 md:p-0 md:border-r-0 md:overflow-hidden md:opacity-0 md:pointer-events-none' : 'md:w-60 p-3.5'
         ]"
         class="fixed md:static inset-y-0 left-0 z-30 glass-sidebar flex flex-col justify-between transition-all duration-200 ease-in-out md:flex-shrink-0 mt-14 md:mt-0"
       >
         <!-- Sidebar Collapse Toggle Action Header (Desktop) -->
-        <div class="hidden md:flex items-center pb-2.5 mb-1.5 border-b border-slate-800/80" :class="sidebarCollapsed ? 'justify-center' : 'justify-between px-1'">
-          <span v-if="!sidebarCollapsed" class="text-[10px] font-extrabold uppercase tracking-wider text-slate-500">Navigation</span>
+        <div class="hidden md:flex items-center pb-2.5 mb-1.5 border-b border-slate-800/80 justify-between px-1">
+          <span class="text-[10px] font-extrabold uppercase tracking-wider text-slate-500">Navigation</span>
           <button
             type="button"
             @click="toggleSidebarCollapse"
             class="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition cursor-pointer flex items-center justify-center"
-            :title="sidebarCollapsed ? 'Mở rộng thanh điều hướng (Expand Sidebar)' : 'Thu nhỏ thanh điều hướng (Collapse Sidebar)'"
+            title="Collapse navigation"
           >
-            <i class="fa-solid text-xs" :class="sidebarCollapsed ? 'fa-angles-right text-sky-400' : 'fa-angles-left text-slate-400'"></i>
+            <i class="fa-solid text-xs fa-angles-left text-slate-400"></i>
           </button>
         </div>
 
         <div class="space-y-4 custom-scroll overflow-y-auto flex-1 pr-0.5">
           <!-- GROUP 1: CORE GOVERNANCE -->
           <div class="space-y-1">
-            <div v-if="!sidebarCollapsed" class="px-2 pb-1 text-[10px] font-extrabold uppercase tracking-wider text-slate-500 truncate">
+            <div class="px-2 pb-1 text-[10px] font-extrabold uppercase tracking-wider text-slate-500 truncate">
               Core Governance
             </div>
-            <div v-else class="my-1.5 border-t border-slate-800/80 mx-1"></div>
+            
             
             <button
               @click="switchTab('overview')"
-              :class="{ active: activeTab === 'overview', collapsed: sidebarCollapsed }"
-              :title="sidebarCollapsed ? 'Overview Hub' : ''"
+              :class="{ active: activeTab === 'overview' }"
+              
               class="nav-item"
             >
-              <span class="flex items-center" :class="sidebarCollapsed ? 'justify-center w-full' : 'gap-2.5'">
+              <span class="flex items-center" class="gap-2.5">
                 <i class="fa-solid fa-chart-pie w-4 text-center text-xs text-sky-400"></i>
-                <span v-if="!sidebarCollapsed" class="truncate">Overview Hub</span>
+                <span class="truncate">Overview Hub</span>
               </span>
             </button>
 
             <button
               @click="switchTab('modules')"
-              :class="{ active: activeTab === 'modules', collapsed: sidebarCollapsed }"
-              :title="sidebarCollapsed ? 'Dashboard module Manager' : ''"
+              :class="{ active: activeTab === 'modules' }"
+              
               class="nav-item"
             >
-              <span class="flex items-center" :class="sidebarCollapsed ? 'justify-center w-full' : 'gap-2.5'">
+              <span class="flex items-center" class="gap-2.5">
                 <i class="fa-solid fa-cubes w-4 text-center text-xs text-cyan-400"></i>
-                <span v-if="!sidebarCollapsed" class="truncate">Dashboard module Manager</span>
+                <span class="truncate">Dashboard module Manager</span>
               </span>
             </button>
 
             <button
               @click="switchTab('database')"
-              :class="{ active: activeTab === 'database', collapsed: sidebarCollapsed }"
-              :title="sidebarCollapsed ? 'Database Manager' : ''"
+              :class="{ active: activeTab === 'database' }"
+              
               class="nav-item"
             >
-              <span class="flex items-center" :class="sidebarCollapsed ? 'justify-center w-full' : 'gap-2.5'">
+              <span class="flex items-center" class="gap-2.5">
                 <i class="fa-solid fa-database w-4 text-center text-xs text-indigo-400"></i>
-                <span v-if="!sidebarCollapsed" class="truncate">Database Manager</span>
+                <span class="truncate">Database Manager</span>
               </span>
             </button>
           </div>
 
-          <!-- GROUP 2: ORDER MANAGEMENT (MỤC RIÊNG VỀ ĐƠN HÀNG) -->
+          <!-- GROUP 2: ORDER MANAGEMENT -->
           <div class="space-y-1">
-            <div v-if="!sidebarCollapsed" class="px-2 pb-1 text-[10px] font-extrabold uppercase tracking-wider text-amber-500/90 flex items-center justify-between">
+            <div class="px-2 pb-1 text-[10px] font-extrabold uppercase tracking-wider text-amber-500/90 flex items-center justify-between">
               <span class="truncate">Order Management</span>
               <span class="px-1.5 py-0.2 rounded text-[9px] font-mono font-bold bg-amber-500/10 text-amber-400 border border-amber-500/20">SO</span>
             </div>
-            <div v-else class="my-1.5 border-t border-amber-500/20 mx-1"></div>
+            
 
             <button
               @click="switchTab('sales-orders')"
-              :class="{ active: activeTab === 'sales-orders', collapsed: sidebarCollapsed }"
+              :class="{ active: activeTab === 'sales-orders' }"
               :title="sidebarCollapsed ? 'Sales Orders & Items' : ''"
               class="nav-item"
             >
-              <span class="flex items-center" :class="sidebarCollapsed ? 'justify-center w-full' : 'gap-2.5'">
+              <span class="flex items-center" class="gap-2.5">
                 <i class="fa-solid fa-boxes-stacked w-4 text-center text-xs text-amber-400"></i>
-                <span v-if="!sidebarCollapsed" class="truncate">Sales Orders & Items</span>
+                <span class="truncate">Sales Orders & Items</span>
               </span>
             </button>
 
             <button
               @click="switchTab('item-codes')"
-              :class="{ active: activeTab === 'item-codes', collapsed: sidebarCollapsed }"
-              :title="sidebarCollapsed ? 'Item Code Catalog' : ''"
+              :class="{ active: activeTab === 'item-codes' }"
+              
               class="nav-item"
             >
-              <span class="flex items-center" :class="sidebarCollapsed ? 'justify-center w-full' : 'gap-2.5'">
+              <span class="flex items-center" class="gap-2.5">
                 <i class="fa-solid fa-barcode w-4 text-center text-xs text-cyan-400"></i>
-                <span v-if="!sidebarCollapsed" class="truncate">Item Code Catalog</span>
+                <span class="truncate">Item Code Catalog</span>
               </span>
             </button>
           </div>
 
-          <!-- GROUP 3: ACCESS & SECURITY (MỤC RIÊNG VỀ PHÂN QUYỀN) -->
+          <!-- GROUP 3: ACCESS & SECURITY -->
           <div class="space-y-1">
-            <div v-if="!sidebarCollapsed" class="px-2 pb-1 text-[10px] font-extrabold uppercase tracking-wider text-emerald-500/90 flex items-center justify-between">
+            <div class="px-2 pb-1 text-[10px] font-extrabold uppercase tracking-wider text-emerald-500/90 flex items-center justify-between">
               <span class="truncate">Access & Security</span>
               <span class="px-1.5 py-0.2 rounded text-[9px] font-mono font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">RBAC</span>
             </div>
-            <div v-else class="my-1.5 border-t border-emerald-500/20 mx-1"></div>
+            
 
             <button
               @click="switchTab('roles')"
-              :class="{ active: activeTab === 'roles', collapsed: sidebarCollapsed }"
-              :title="sidebarCollapsed ? 'Roles & RBAC' : ''"
+              :class="{ active: activeTab === 'roles' }"
+              
               class="nav-item"
             >
-              <span class="flex items-center" :class="sidebarCollapsed ? 'justify-center w-full' : 'gap-2.5'">
+              <span class="flex items-center" class="gap-2.5">
                 <i class="fa-solid fa-shield-halved w-4 text-center text-xs text-amber-400"></i>
-                <span v-if="!sidebarCollapsed" class="truncate">Roles & RBAC</span>
+                <span class="truncate">Roles & RBAC</span>
               </span>
             </button>
 
             <button
               @click="switchTab('users')"
-              :class="{ active: activeTab === 'users', collapsed: sidebarCollapsed }"
-              :title="sidebarCollapsed ? 'User Accounts' : ''"
+              :class="{ active: activeTab === 'users' }"
+              
               class="nav-item"
             >
-              <span class="flex items-center" :class="sidebarCollapsed ? 'justify-center w-full' : 'gap-2.5'">
+              <span class="flex items-center" class="gap-2.5">
                 <i class="fa-solid fa-users w-4 text-center text-xs text-emerald-400"></i>
-                <span v-if="!sidebarCollapsed" class="truncate">User Accounts</span>
+                <span class="truncate">User Accounts</span>
               </span>
             </button>
           </div>
 
           <!-- GROUP 4: INFRASTRUCTURE & IOT -->
           <div class="space-y-1">
-            <div v-if="!sidebarCollapsed" class="px-2 pb-1 text-[10px] font-extrabold uppercase tracking-wider text-slate-500 truncate">
+            <div class="px-2 pb-1 text-[10px] font-extrabold uppercase tracking-wider text-slate-500 truncate">
               Infrastructure & IoT
             </div>
-            <div v-else class="my-1.5 border-t border-slate-800/80 mx-1"></div>
+            
 
             <button
               @click="switchTab('network-servers')"
-              :class="{ active: activeTab === 'network-servers', collapsed: sidebarCollapsed }"
-              :title="sidebarCollapsed ? 'Network Servers' : ''"
+              :class="{ active: activeTab === 'network-servers' }"
+              
               class="nav-item"
             >
-              <span class="flex items-center" :class="sidebarCollapsed ? 'justify-center w-full' : 'gap-2.5'">
+              <span class="flex items-center" class="gap-2.5">
                 <i class="fa-solid fa-tower-broadcast w-4 text-center text-xs text-sky-400"></i>
-                <span v-if="!sidebarCollapsed" class="truncate">Network Servers</span>
+                <span class="truncate">Network Servers</span>
               </span>
             </button>
 
             <button
               @click="switchTab('devices')"
-              :class="{ active: activeTab === 'devices', collapsed: sidebarCollapsed }"
-              :title="sidebarCollapsed ? 'Device Fleet' : ''"
+              :class="{ active: activeTab === 'devices' }"
+              
               class="nav-item"
             >
-              <span class="flex items-center" :class="sidebarCollapsed ? 'justify-center w-full' : 'gap-2.5'">
+              <span class="flex items-center" class="gap-2.5">
                 <i class="fa-solid fa-microchip w-4 text-center text-xs text-teal-400"></i>
-                <span v-if="!sidebarCollapsed" class="truncate">Device Fleet</span>
+                <span class="truncate">Device Fleet</span>
               </span>
             </button>
 
             <button
               @click="switchTab('sensor-types')"
-              :class="{ active: activeTab === 'sensor-types', collapsed: sidebarCollapsed }"
-              :title="sidebarCollapsed ? 'Sensor Types & SKU' : ''"
+              :class="{ active: activeTab === 'sensor-types' }"
+              
               class="nav-item"
             >
-              <span class="flex items-center" :class="sidebarCollapsed ? 'justify-center w-full' : 'gap-2.5'">
+              <span class="flex items-center" class="gap-2.5">
                 <i class="fa-solid fa-microchip w-4 text-center text-xs text-sky-400"></i>
-                <span v-if="!sidebarCollapsed" class="truncate">Sensor Types & SKU</span>
+                <span class="truncate">Sensor Types & SKU</span>
               </span>
             </button>
 
             <button
               @click="switchTab('webhooks')"
-              :class="{ active: activeTab === 'webhooks', collapsed: sidebarCollapsed }"
-              :title="sidebarCollapsed ? 'Webhook Manager' : ''"
+              :class="{ active: activeTab === 'webhooks' }"
+              
               class="nav-item"
             >
-              <span class="flex items-center" :class="sidebarCollapsed ? 'justify-center w-full' : 'gap-2.5'">
+              <span class="flex items-center" class="gap-2.5">
                 <i class="fa-solid fa-satellite-dish w-4 text-center text-xs text-sky-400"></i>
-                <span v-if="!sidebarCollapsed" class="truncate">Webhook Manager</span>
+                <span class="truncate">Webhook Manager</span>
               </span>
             </button>
 
             <button
               @click="switchTab('decoder')"
-              :class="{ active: activeTab === 'decoder', collapsed: sidebarCollapsed }"
-              :title="sidebarCollapsed ? 'Decoder Manager' : ''"
+              :class="{ active: activeTab === 'decoder' }"
+              
               class="nav-item"
             >
-              <span class="flex items-center" :class="sidebarCollapsed ? 'justify-center w-full' : 'gap-2.5'">
+              <span class="flex items-center" class="gap-2.5">
                 <i class="fa-solid fa-code w-4 text-center text-xs text-purple-400"></i>
-                <span v-if="!sidebarCollapsed" class="truncate">Decoder Manager</span>
+                <span class="truncate">Decoder Manager</span>
               </span>
             </button>
 
             <button
               @click="switchTab('hmi-studio')"
-              :class="{ active: activeTab === 'hmi-studio', collapsed: sidebarCollapsed }"
-              :title="sidebarCollapsed ? 'HMI SCADA Studio' : ''"
+              :class="{ active: activeTab === 'hmi-studio' }"
+              
               class="nav-item"
             >
-              <span class="flex items-center" :class="sidebarCollapsed ? 'justify-center w-full' : 'gap-2.5'">
+              <span class="flex items-center" class="gap-2.5">
                 <i class="fa-solid fa-palette w-4 text-center text-xs text-amber-400"></i>
-                <span v-if="!sidebarCollapsed" class="truncate">HMI SCADA Studio</span>
+                <span class="truncate">HMI SCADA Studio</span>
               </span>
             </button>
 
             <button
               @click="switchTab('downlink')"
-              :class="{ active: activeTab === 'downlink', collapsed: sidebarCollapsed }"
-              :title="sidebarCollapsed ? 'Downlink Actuator' : ''"
+              :class="{ active: activeTab === 'downlink' }"
+              
               class="nav-item"
             >
-              <span class="flex items-center" :class="sidebarCollapsed ? 'justify-center w-full' : 'gap-2.5'">
+              <span class="flex items-center" class="gap-2.5">
                 <i class="fa-solid fa-paper-plane w-4 text-center text-xs text-indigo-400"></i>
-                <span v-if="!sidebarCollapsed" class="truncate">Downlink Actuator</span>
+                <span class="truncate">Downlink Actuator</span>
               </span>
             </button>
 
             <button
               @click="switchTab('modbus-presets')"
-              :class="{ active: activeTab === 'modbus-presets', collapsed: sidebarCollapsed }"
-              :title="sidebarCollapsed ? 'Modbus Presets' : ''"
+              :class="{ active: activeTab === 'modbus-presets' }"
+              
               class="nav-item"
             >
-              <span class="flex items-center" :class="sidebarCollapsed ? 'justify-center w-full' : 'gap-2.5'">
+              <span class="flex items-center" class="gap-2.5">
                 <i class="fa-solid fa-file-excel w-4 text-center text-xs text-emerald-400"></i>
-                <span v-if="!sidebarCollapsed" class="truncate">Modbus Presets</span>
+                <span class="truncate">Modbus Presets</span>
               </span>
             </button>
 
             <button
               @click="switchTab('test-builder')"
-              :class="{ active: activeTab === 'test-builder', collapsed: sidebarCollapsed }"
-              :title="sidebarCollapsed ? 'Test Automation' : ''"
+              :class="{ active: activeTab === 'test-builder' }"
+              
               class="nav-item"
             >
-              <span class="flex items-center" :class="sidebarCollapsed ? 'justify-center w-full' : 'gap-2.5'">
+              <span class="flex items-center" class="gap-2.5">
                 <i class="fa-solid fa-vial-circle-check w-4 text-center text-xs text-indigo-400"></i>
-                <span v-if="!sidebarCollapsed" class="truncate">Test Automation</span>
+                <span class="truncate">Test Automation</span>
               </span>
             </button>
           </div>
         </div>
 
         <!-- Bottom Section: Quick Collapse Action in Footer (Desktop) -->
-        <div class="hidden md:flex pt-2 mt-2 border-t border-slate-800/80" :class="sidebarCollapsed ? 'justify-center' : 'justify-between items-center px-1 text-xs text-slate-500'">
-          <span v-if="!sidebarCollapsed" class="text-[10px] font-mono text-slate-500">Daviteq CP</span>
+        <div class="hidden md:flex pt-2 mt-2 border-t border-slate-800/80 justify-between items-center px-1 text-xs text-slate-500">
+          <span class="text-[10px] font-mono text-slate-500">Daviteq CP</span>
           <button
             type="button"
             @click="toggleSidebarCollapse"
             class="p-1 rounded-lg hover:bg-slate-800 hover:text-white text-slate-400 transition cursor-pointer flex items-center gap-1.5 text-xs"
-            :title="sidebarCollapsed ? 'Mở rộng thanh điều hướng (Expand Sidebar)' : 'Thu nhỏ thanh điều hướng (Collapse Sidebar)'"
+            title="Collapse navigation"
           >
-            <i class="fa-solid text-xs" :class="sidebarCollapsed ? 'fa-angles-right text-sky-400' : 'fa-angles-left text-slate-400'"></i>
-            <span v-if="!sidebarCollapsed" class="text-[10px] font-semibold">Thu nhỏ</span>
+            <i class="fa-solid text-xs fa-angles-left text-slate-400"></i>
+            <span class="text-[10px] font-semibold">Collapse</span>
           </button>
         </div>
       </aside>
@@ -712,12 +953,12 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
           <div class="flex items-center gap-2.5">
             <i class="fa-solid fa-triangle-exclamation text-amber-400 text-sm"></i>
             <span>
-              <strong>Hệ thống hoạt động ở chế độ cô lập:</strong> 
-              Phát hiện {{ degradedModulesList.length }} module gặp sự cố và đã được cách ly an toàn ({{ degradedModulesList.map(m => m.title).join(', ') }}). Các phân hệ khác không bị ảnh hưởng.
+              <strong>System running in isolated mode:</strong> 
+              Detected {{ degradedModulesList.length }} problematic module(s) isolated safely ({{ degradedModulesList.map(m => m.title).join(", ") }}). Other modules remain unaffected.
             </span>
           </div>
           <button @click="switchTab('overview')" class="px-3 py-1 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-[11px] font-bold text-amber-200 transition cursor-pointer">
-            Về Tổng Quan
+            Return to Overview
           </button>
         </div>
 
@@ -1360,7 +1601,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
         },
         title: {
           type: String,
-          default: 'Module Phân Hệ',
+          default: 'Subsystem Module',
         },
         icon: {
           type: String,
@@ -1396,7 +1637,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
             store.setModuleError(props.moduleId, err, 'render');
           }
 
-          // QUAN TRỌNG NHẤT: TRẢ VỀ FALSE ĐỂ CHẶN LỖI LAN TRUYỀN LÊN ROOT APP
+          // Prevent error propagation to root app
           return false;
         });
 
@@ -1424,7 +1665,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
             const st = store.getModuleState(props.moduleId);
             if (st && st.error && st.error.message) return st.error.message;
           }
-          return 'Module gặp sự cố nội bộ trong quá trình biên dịch hoặc hiển thị.';
+          return 'Subsystem encountered an internal error during compilation or rendering.';
         };
 
         const getErrorTime = () => {
@@ -1434,7 +1675,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
             const st = store.getModuleState(props.moduleId);
             if (st && st.error && st.error.time) return st.error.time;
           }
-          return 'Vừa xong';
+          return 'Just now';
         };
 
         const getErrorStack = () => {
@@ -1444,7 +1685,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
             const st = store.getModuleState(props.moduleId);
             if (st && st.error && st.error.stack) return st.error.stack;
           }
-          return 'Không có stack trace';
+          return 'No stack trace available';
         };
 
         const getErrorInfo = () => {
@@ -1512,7 +1753,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
       template: \`
         <div class="c-module-boundary-wrapper w-full" :data-module-id="moduleId">
           
-          <!-- 1. FALLBACK BANNER (Hiển thị khi module bị lỗi hoặc ở trạng thái BYPASS) -->
+          <!-- 1. FALLBACK BANNER -->
           <div v-if="isBypassed()" class="p-6 sm:p-8 rounded-2xl bg-gradient-to-br from-slate-900/95 via-slate-900/90 to-red-950/30 border border-red-500/30 shadow-2xl space-y-6 my-4 transition-all">
             
             <!-- Header Banner -->
@@ -1529,12 +1770,12 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
                     </span>
                   </div>
                   <p class="text-xs text-slate-400 mt-1">
-                    Phân hệ đã được cô lập tự động để bảo vệ tính toàn vẹn của Control Panel.
+                    This subsystem was automatically isolated to protect Control Panel stability.
                   </p>
                 </div>
               </div>
 
-              <!-- Nút hành động nhanh -->
+              <!-- Quick Actions -->
               <div class="flex items-center gap-2.5 flex-wrap">
                 <button
                   type="button"
@@ -1543,7 +1784,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
                   class="px-4 py-2 rounded-xl bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white text-xs font-bold flex items-center gap-2 shadow-lg shadow-red-600/20 transition active:scale-95 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <i class="fa-solid fa-arrows-rotate"></i>
-                  <span>{{ isMaxRetriesExceeded() ? 'Đã khóa Retry (Quá 3 lần)' : 'Thử Tải Lại Module' }}</span>
+                  <span>{{ isMaxRetriesExceeded() ? 'Retry Locked (Max 3 reached)' : 'Retry Loading Module' }}</span>
                 </button>
 
                 <button
@@ -1552,7 +1793,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
                   class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-semibold flex items-center gap-2 transition active:scale-95 cursor-pointer"
                 >
                   <i class="fa-solid fa-house text-slate-400"></i>
-                  <span>Về Overview</span>
+                  <span>Return to Overview</span>
                 </button>
               </div>
             </div>
@@ -1560,15 +1801,15 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
             <!-- Warning if locked -->
             <div v-if="isMaxRetriesExceeded()" class="p-3 bg-amber-500/10 border border-amber-500/30 rounded-xl text-xs text-amber-300 flex items-center gap-2">
               <i class="fa-solid fa-lock text-amber-400"></i>
-              <span>Module bị lỗi nghiêm trọng liên tiếp 3 lần. Vui lòng kiểm tra console hoặc liên hệ bộ phận phát triển để xử lý.</span>
+              <span>Module failed 3 consecutive times. Please check the browser console or contact engineering.</span>
             </div>
 
-            <!-- Chi tiết thông báo lỗi thân thiện -->
+            <!-- Error details -->
             <div class="p-4 rounded-xl bg-slate-950/70 border border-slate-800 text-xs space-y-2">
               <div class="flex items-center justify-between text-slate-300 font-semibold">
                 <span class="flex items-center gap-2 text-rose-400">
                   <i class="fa-solid fa-bug"></i>
-                  <span>Nguyên nhân phát sinh:</span>
+                  <span>Root cause:</span>
                 </span>
                 <span class="text-[11px] font-mono text-slate-500">{{ getErrorTime() }}</span>
               </div>
@@ -1577,7 +1818,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
               </div>
             </div>
 
-            <!-- Accordion Kỹ thuật & Copy Log -->
+            <!-- Technical Details Accordion -->
             <div class="space-y-2">
               <div class="flex items-center justify-between">
                 <button
@@ -1586,7 +1827,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
                   class="text-xs text-slate-400 hover:text-slate-200 transition flex items-center gap-1.5 cursor-pointer"
                 >
                   <i class="fa-solid" :class="showTechDetails ? 'fa-chevron-down' : 'fa-chevron-right'"></i>
-                  <span>{{ showTechDetails ? 'Ẩn thông tin kỹ thuật' : 'Xem chi tiết kỹ thuật (Stack Trace)' }}</span>
+                  <span>{{ showTechDetails ? 'Hide Technical Details' : 'View Technical Details (Stack Trace)' }}</span>
                 </button>
 
                 <button
@@ -1596,7 +1837,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
                   class="text-xs text-sky-400 hover:text-sky-300 transition flex items-center gap-1 cursor-pointer"
                 >
                   <i class="fa-solid" :class="copySuccess ? 'fa-check text-emerald-400' : 'fa-copy'"></i>
-                  <span>{{ copySuccess ? 'Đã sao chép!' : 'Sao chép nhật ký lỗi' }}</span>
+                  <span>{{ copySuccess ? 'Copied!' : 'Copy Error Log' }}</span>
                 </button>
               </div>
 
@@ -1609,7 +1850,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
 
           </div>
 
-          <!-- 2. NORMAL SLOT (Hiển thị nội dung C-Module khi không có lỗi) -->
+          <!-- 2. NORMAL SLOT -->
           <div v-else>
             <slot></slot>
           </div>
@@ -1631,6 +1872,20 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
       setup() {
         const activeTab = ref('overview');
         const sidebarOpen = ref(false);
+        const currentTheme = ref(typeof localStorage !== 'undefined' ? (localStorage.getItem('dvt_theme') === 'dark' ? 'dark' : 'light') : 'light');
+        const toggleTheme = () => {
+          currentTheme.value = currentTheme.value === 'light' ? 'dark' : 'light';
+          try {
+            localStorage.setItem('dvt_theme', currentTheme.value);
+          } catch(e) {}
+          if (currentTheme.value === 'dark') {
+            document.documentElement.classList.remove('theme-light');
+            document.documentElement.classList.add('theme-dark');
+          } else {
+            document.documentElement.classList.remove('theme-dark');
+            document.documentElement.classList.add('theme-light');
+          }
+        };
         const sidebarCollapsed = ref(typeof localStorage !== 'undefined' ? localStorage.getItem('cp_sidebar_collapsed') === 'true' : false);
         const toggleSidebarCollapse = () => {
           sidebarCollapsed.value = !sidebarCollapsed.value;
@@ -6102,6 +6357,8 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
           sidebarOpen,
           sidebarCollapsed,
           toggleSidebarCollapse,
+          currentTheme,
+          toggleTheme,
           userMenuOpen,
           userInitials,
           handleGlobalClick,

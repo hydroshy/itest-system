@@ -649,7 +649,7 @@ export const HMI_STUDIO_TEMPLATE = `
                           type="button"
                           @click.stop="openAddTrendSeriesModal(w)"
                           class="px-2 py-1 rounded-lg bg-sky-500/15 hover:bg-sky-500/25 border border-sky-500/30 text-sky-300 text-[10px] font-semibold flex items-center gap-1 cursor-pointer transition"
-                          title="Thêm cảm biến vào biểu đồ (Y-Axis)"
+                          title="Add sensor to chart (Y-Axis)"
                         >
                           <i class="fa-solid fa-plus text-[9px]"></i>
                           <span>Sensor</span>
@@ -750,14 +750,14 @@ export const HMI_STUDIO_TEMPLATE = `
                         class="absolute inset-0 flex flex-col items-center justify-center p-4 text-center bg-slate-950/80"
                       >
                         <i class="fa-solid fa-chart-line text-slate-600 text-2xl mb-1"></i>
-                        <span class="text-slate-400 text-[11px] font-medium">Chưa có cảm biến nào được thêm vào trục Y</span>
+                        <span class="text-slate-400 text-[11px] font-medium">No sensors added to Y-Axis yet</span>
                         <button
                           type="button"
                           @click.stop="openAddTrendSeriesModal(w)"
                           class="mt-2 px-3 py-1 bg-sky-600 hover:bg-sky-500 text-white rounded-lg text-[10px] font-bold flex items-center gap-1.5 cursor-pointer shadow-lg transition"
                         >
                           <i class="fa-solid fa-plus"></i>
-                          <span>Thêm Cảm Biến Vào Đồ Thị</span>
+                          <span>Add Sensor to Chart</span>
                         </button>
                       </div>
                     </div>
@@ -771,7 +771,7 @@ export const HMI_STUDIO_TEMPLATE = `
                           @click.stop="toggleTrendSeriesVisible(w, s.id)"
                           class="flex items-center gap-1.5 px-2 py-0.5 rounded-md border transition cursor-pointer select-none"
                           :class="s.visible !== false ? 'bg-slate-900/90 border-slate-700 text-white' : 'bg-slate-950/50 border-slate-800 text-slate-500 opacity-60 line-through'"
-                          :title="'Bấm để ẩn/hiện: ' + s.label"
+                          :title="'Click to toggle: ' + s.label"
                         >
                           <span class="w-2.5 h-2.5 rounded-full shrink-0" :style="{ backgroundColor: s.color || '#38bdf8' }"></span>
                           <span class="font-semibold truncate max-w-[120px]">{{ s.label || s.field }}</span>
@@ -783,7 +783,7 @@ export const HMI_STUDIO_TEMPLATE = `
                             type="button"
                             @click.stop="removeTrendSeries(w, s.id)"
                             class="ml-1 text-slate-500 hover:text-red-400 text-[9px] p-0.5 cursor-pointer"
-                            title="Xóa series này"
+                            title="Remove this series"
                           >
                             <i class="fa-solid fa-xmark"></i>
                           </button>
@@ -791,7 +791,7 @@ export const HMI_STUDIO_TEMPLATE = `
                       </div>
 
                       <div class="text-[9px] text-slate-500 flex items-center gap-2">
-                        <span>{{ (trendPointsMap[w.id] || []).length }} điểm mẫu</span>
+                        <span>{{ (trendPointsMap[w.id] || []).length }} data points</span>
                       </div>
                     </div>
                   </div>
@@ -907,39 +907,39 @@ export const HMI_STUDIO_TEMPLATE = `
                 <!-- Section 3: Tag Binding Engine (Auto-Detection Enabled) -->
                 <div v-if="selectedWidget.type === 'realtime-trend'" class="space-y-3 border-t border-slate-800 pt-3">
                   <div class="flex items-center justify-between">
-                    <span class="text-[10px] font-extrabold uppercase text-slate-500">Cảm Biến Trục Y (Series)</span>
+                    <span class="text-[10px] font-extrabold uppercase text-slate-500">Y-Axis Sensors (Series)</span>
                     <button
                       type="button"
                       @click="openAddTrendSeriesModal(selectedWidget)"
                       class="px-2 py-0.5 rounded bg-sky-500/20 hover:bg-sky-500/30 text-sky-300 text-[10px] font-bold flex items-center gap-1 cursor-pointer transition border border-sky-500/30"
                     >
                       <i class="fa-solid fa-plus text-[9px]"></i>
-                      <span>Thêm Sensor</span>
+                      <span>Add Sensor</span>
                     </button>
                   </div>
 
                   <!-- Default Metabase Time Range for this widget -->
                   <div class="space-y-1">
-                    <label class="text-[10px] text-slate-400">Khoảng thời gian mặc định (Time Filter)</label>
+                    <label class="text-[10px] text-slate-400">Default Time Range (Time Filter)</label>
                     <select
                       v-model="selectedWidget.props.timeRange"
                       @change="fetchTrendHistoryForWidget(selectedWidget)"
                       class="w-full bg-slate-950 border border-slate-700 rounded px-2 py-1.5 text-white text-xs"
                     >
-                      <option value="15m">15 phút gần nhất (15m)</option>
-                      <option value="1h">1 giờ gần nhất (1h)</option>
-                      <option value="6h">6 giờ gần nhất (6h)</option>
-                      <option value="24h">24 giờ gần nhất (24h)</option>
-                      <option value="7d">7 ngày gần nhất (7d)</option>
-                      <option value="30d">30 ngày gần nhất (30d)</option>
+                      <option value="15m">Last 15 minutes (15m)</option>
+                      <option value="1h">Last 1 hour (1h)</option>
+                      <option value="6h">Last 6 hours (6h)</option>
+                      <option value="24h">Last 24 hours (24h)</option>
+                      <option value="7d">Last 7 days (7d)</option>
+                      <option value="30d">Last 30 days (30d)</option>
                     </select>
                   </div>
 
                   <!-- Series List -->
                   <div class="space-y-2">
-                    <div class="text-[10px] text-slate-400 font-bold uppercase">Danh Sách Cảm Biến / Tag Trục Y ({{ getTrendSeries(selectedWidget).length }})</div>
+                    <div class="text-[10px] text-slate-400 font-bold uppercase">Y-Axis Sensors / Tags List ({{ getTrendSeries(selectedWidget).length }})</div>
                     <div v-if="getTrendSeries(selectedWidget).length === 0" class="p-3 rounded-lg bg-slate-950 border border-dashed border-slate-800 text-center text-slate-500 text-[11px]">
-                      Chưa có cảm biến nào. Bấm nút "+ Thêm Sensor" để gán cảm biến vào đồ thị.
+                      No sensors assigned. Click "+ Add Sensor" to attach sensors to this chart.
                     </div>
                     <div
                       v-for="s in getTrendSeries(selectedWidget)"
@@ -956,7 +956,7 @@ export const HMI_STUDIO_TEMPLATE = `
                             type="button"
                             @click="toggleTrendSeriesVisible(selectedWidget, s.id)"
                             class="p-1 text-slate-400 hover:text-white text-xs cursor-pointer"
-                            :title="s.visible !== false ? 'Ẩn khỏi đồ thị' : 'Hiện lại trên đồ thị'"
+                            :title="s.visible !== false ? 'Hide from chart' : 'Show on chart'"
                           >
                             <i :class="s.visible !== false ? 'fa-solid fa-eye text-emerald-400' : 'fa-solid fa-eye-slash text-slate-600'"></i>
                           </button>
@@ -964,7 +964,7 @@ export const HMI_STUDIO_TEMPLATE = `
                             type="button"
                             @click="removeTrendSeries(selectedWidget, s.id)"
                             class="p-1 text-slate-400 hover:text-red-400 text-xs cursor-pointer"
-                            title="Xóa cảm biến này"
+                            title="Remove this sensor"
                           >
                             <i class="fa-solid fa-trash-can"></i>
                           </button>
@@ -1244,7 +1244,7 @@ export const HMI_STUDIO_MODALS = `
         <div class="flex items-center justify-between pb-3 border-b border-slate-800">
           <h3 class="text-sm font-bold text-white uppercase flex items-center gap-2">
             <i class="fa-solid fa-chart-line text-sky-400"></i>
-            <span>Thêm Cảm Biến Vào Đồ Thị Trend (Trục Y)</span>
+            <span>Add Sensor to Trend Chart (Y-Axis)</span>
           </h3>
           <button @click="trendSeriesModal = false" class="text-slate-400 hover:text-white cursor-pointer">
             <i class="fa-solid fa-xmark"></i>
@@ -1252,30 +1252,30 @@ export const HMI_STUDIO_MODALS = `
         </div>
 
         <div class="space-y-4 text-xs">
-          <!-- Step 1: Chọn thiết bị (Device) -->
+          <!-- Step 1: Select Device -->
           <div>
             <label class="block text-slate-300 font-bold mb-1 flex items-center gap-1.5">
               <span class="w-4 h-4 rounded-full bg-sky-500/20 text-sky-400 flex items-center justify-center text-[10px]">1</span>
-              <span>Chọn Thiết Bị Cảm Biến (DevEUI)</span>
+              <span>Select Sensor Device (DevEUI)</span>
             </label>
             <select
               v-model="trendSeriesForm.devEUI"
               @change="fetchDetectedTrendFields(trendSeriesForm.devEUI)"
               class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white text-xs focus:ring-1 focus:ring-sky-500"
             >
-              <option value="">-- Chọn Thiết Bị --</option>
+              <option value="">-- Select Device --</option>
               <option v-for="d in devicesList" :key="d.devEUI" :value="d.devEUI">
                 {{ d.name ? d.name + ' (' + d.devEUI + ')' : d.devEUI }}
               </option>
             </select>
           </div>
 
-          <!-- Step 2: Chọn tag/field giải mã của cảm biến -->
+          <!-- Step 2: Select decoded tag/field -->
           <div>
             <div class="flex items-center justify-between mb-1">
               <label class="text-slate-300 font-bold flex items-center gap-1.5">
                 <span class="w-4 h-4 rounded-full bg-sky-500/20 text-sky-400 flex items-center justify-center text-[10px]">2</span>
-                <span>Chọn Tag / Thông Số Cảm Biến</span>
+                <span>Select Tag / Sensor Parameter</span>
               </label>
               <button
                 v-if="trendSeriesForm.devEUI"
@@ -1284,19 +1284,19 @@ export const HMI_STUDIO_MODALS = `
                 class="text-slate-400 hover:text-sky-400 text-[11px] flex items-center gap-1 cursor-pointer"
               >
                 <i class="fa-solid fa-arrows-rotate" :class="{ 'animate-spin': loadingTrendFields }"></i>
-                <span>Quét lại tags</span>
+                <span>Rescan Tags</span>
               </button>
             </div>
 
             <!-- Loading tags -->
             <div v-if="loadingTrendFields" class="p-3 rounded-lg bg-slate-950 border border-slate-800 text-center text-slate-400">
               <i class="fa-solid fa-spinner animate-spin text-sky-400 mr-2"></i>
-              <span>Đang quét payload dữ liệu từ cảm biến...</span>
+              <span>Scanning telemetry payload from sensor...</span>
             </div>
 
             <!-- Tag pills -->
             <div v-else-if="detectedTrendFields.length > 0" class="p-2.5 rounded-xl bg-slate-950 border border-slate-800 space-y-2">
-              <div class="text-[10px] text-slate-400">Bấm chọn một thông số bên dưới:</div>
+              <div class="text-[10px] text-slate-400">Select a parameter below:</div>
               <div class="flex flex-wrap gap-1.5 max-h-40 overflow-y-auto custom-scroll pr-1">
                 <button
                   v-for="f in detectedTrendFields"
@@ -1313,13 +1313,13 @@ export const HMI_STUDIO_MODALS = `
             </div>
 
             <div v-else-if="trendSeriesForm.devEUI" class="p-2.5 rounded-xl bg-slate-950 border border-slate-800 text-slate-400 italic">
-              Thiết bị chưa có gói tin uplink trong DB. Bạn có thể nhập mã tag thủ công bên dưới.
+              Device has no uplink packets in database yet. You can manually enter the tag field below.
             </div>
 
             <!-- Field Name & Unit inputs -->
             <div class="grid grid-cols-2 gap-2 mt-2">
               <div>
-                <label class="text-[10px] text-slate-400">Mã Tag (Field)</label>
+                <label class="text-[10px] text-slate-400">Tag Code (Field)</label>
                 <input
                   type="text"
                   v-model="trendSeriesForm.field"
@@ -1328,7 +1328,7 @@ export const HMI_STUDIO_MODALS = `
                 />
               </div>
               <div>
-                <label class="text-[10px] text-slate-400">Đơn vị đo (Unit)</label>
+                <label class="text-[10px] text-slate-400">Unit of Measure</label>
                 <input
                   type="text"
                   v-model="trendSeriesForm.unit"
@@ -1339,22 +1339,22 @@ export const HMI_STUDIO_MODALS = `
             </div>
           </div>
 
-          <!-- Step 3: Tên hiển thị và Màu sắc đường đồ thị -->
+          <!-- Step 3: Display Label and Line Color -->
           <div class="grid grid-cols-2 gap-3 pt-1">
             <div>
               <label class="block text-slate-300 font-bold mb-1 flex items-center gap-1.5">
                 <span class="w-4 h-4 rounded-full bg-sky-500/20 text-sky-400 flex items-center justify-center text-[10px]">3</span>
-                <span>Tên Hiển Thị (Label)</span>
+                <span>Display Label</span>
               </label>
               <input
                 type="text"
                 v-model="trendSeriesForm.label"
-                placeholder="e.g. Cảm biến 01 - Nhiệt độ"
+                placeholder="e.g. Sensor 01 - Temperature"
                 class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-1.5 text-white"
               />
             </div>
             <div>
-              <label class="block text-slate-300 font-bold mb-1">Màu Sắc Đường Đồ Thị</label>
+              <label class="block text-slate-300 font-bold mb-1">Series Line Color</label>
               <div class="flex items-center gap-2">
                 <input
                   type="color"
@@ -1379,11 +1379,11 @@ export const HMI_STUDIO_MODALS = `
 
         <div class="flex items-center justify-end gap-2 pt-3 border-t border-slate-800">
           <button @click="trendSeriesModal = false" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold cursor-pointer">
-            Hủy
+            Cancel
           </button>
           <button @click="saveTrendSeries" class="px-4 py-1.5 rounded-lg bg-sky-600 hover:bg-sky-500 text-white text-xs font-bold cursor-pointer shadow-md flex items-center gap-1.5">
             <i class="fa-solid fa-check"></i>
-            <span>Thêm Vào Đồ Thị</span>
+            <span>Add to Chart</span>
           </button>
         </div>
       </div>

@@ -115,10 +115,10 @@ export const TEST_AUTOMATION_TEMPLATE = `          <div v-else-if="activeFeature
                     @click="openDeviceOnboardModal"
                     :disabled="!selectedSoCode || isBatchTesting"
                     class="px-3.5 py-2.5 rounded-xl bg-cyan-600/25 hover:bg-cyan-600/40 text-cyan-300 border border-cyan-500/40 text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-lg shadow-cyan-950/30 transition disabled:opacity-50"
-                    title="Đọc Serial UART theo template và Đăng ký thiết bị lên ChirpStack"
+                    title="Read Serial UART per template and register device to ChirpStack"
                   >
                     <i class="fa-solid fa-microchip text-xs text-cyan-400"></i>
-                    <span>Đăng Ký Thiết Bị (UART)</span>
+                    <span>Register Device (UART)</span>
                   </button>
 
                   <button
@@ -414,7 +414,7 @@ export const TEST_AUTOMATION_TEMPLATE = `          <div v-else-if="activeFeature
                   </div>
                 </div>
 
-                <!-- THE EASY-TO-READ BATCH LIST (DẠNG LIST DỄ NHÌN) -->
+                <!-- THE EASY-TO-READ BATCH LIST -->
                 <div v-else class="overflow-x-auto rounded-2xl border border-slate-800 bg-slate-950/80 shadow-inner">
                   <table class="w-full text-left text-xs">
                     <thead class="bg-slate-950 text-slate-400 text-[10px] uppercase font-bold tracking-wider border-b border-slate-800">
@@ -444,7 +444,7 @@ export const TEST_AUTOMATION_TEMPLATE = `          <div v-else-if="activeFeature
                         <!-- Index -->
                         <td class="py-2.5 px-3.5 text-center text-slate-500 text-[11px]">{{ idx + 1 }}</td>
 
-                        <!-- 1. ONLINE STATUS (DẠNG ĐÃ ONLINE HAY CHƯA) -->
+                        <!-- 1. ONLINE STATUS (LIVE ONLINE / OFFLINE) -->
                         <td class="py-2.5 px-3.5">
                           <span
                             v-if="dev.isOnline"
@@ -566,7 +566,7 @@ export const TEST_AUTOMATION_TEMPLATE = `          <div v-else-if="activeFeature
 
 export const TEST_AUTOMATION_MODALS = `
       <!-- ======================================================== -->
-      <!-- 1. MODAL: BATCH TEST COMPLETION POPUP (THỜI GIAN KẾT THÚC) -->
+      <!-- 1. MODAL: BATCH TEST COMPLETION POPUP -->
       <!-- ======================================================== -->
       <div v-if="showCompletionModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-md animate-in fade-in">
         <div class="w-full max-w-xl bg-slate-900 border border-slate-700 rounded-2xl p-6 space-y-5 shadow-2xl text-slate-200 animate-in zoom-in-95">
@@ -910,10 +910,10 @@ export const TEST_AUTOMATION_MODALS = `
               </div>
               <div>
                 <h3 class="text-base font-bold text-white flex items-center gap-2">
-                  <span>Đăng Ký Thiết Bị Qua Serial UART</span>
+                  <span>Register Device via Serial UART</span>
                   <span class="px-2 py-0.5 rounded-full text-[10px] font-mono bg-cyan-500/10 text-cyan-300 border border-cyan-500/20">ChirpStack Automated</span>
                 </h3>
-                <p class="text-xs text-slate-400 mt-0.5">Đọc thông số phần cứng theo template Modbus <strong>template_dvt.csv</strong>, đối chiếu SO & đăng ký lên Network Server.</p>
+                <p class="text-xs text-slate-400 mt-0.5">Read hardware parameters per Modbus template <strong>template_dvt.csv</strong>, verify SO & register to Network Server.</p>
               </div>
             </div>
             <button type="button" @click="closeDeviceOnboardModal" class="text-slate-400 hover:text-white text-lg p-1 cursor-pointer">
@@ -926,7 +926,7 @@ export const TEST_AUTOMATION_MODALS = `
             <div class="flex items-center gap-4 flex-wrap">
               <span>SO: <strong class="text-cyan-300">{{ selectedSoCode }}</strong></span>
               <span class="text-slate-600">|</span>
-              <span>Target Item: <strong class="text-amber-300">{{ selectedItemCode || 'Chưa chọn' }}</strong></span>
+              <span>Target Item: <strong class="text-amber-300">{{ selectedItemCode || 'None' }}</strong></span>
               <span class="text-slate-600">|</span>
               <span>Operator: <strong class="text-slate-300">{{ currentUser?.username || 'admin' }}</strong></span>
             </div>
@@ -940,7 +940,7 @@ export const TEST_AUTOMATION_MODALS = `
             <div class="flex items-center justify-between">
               <h4 class="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-2">
                 <span class="w-5 h-5 rounded-full bg-slate-800 text-cyan-400 inline-flex items-center justify-center text-[10px]">1</span>
-                <span>Kết Nối Cổng Serial UART (9600 8-N-1)</span>
+                <span>Connect Serial UART Port (9600 8-N-1)</span>
               </h4>
               <div class="flex items-center gap-2">
                 <span :class="uartConnected ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30' : 'bg-slate-800 text-slate-400 border-slate-700'" class="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold border flex items-center gap-1.5">
@@ -992,11 +992,11 @@ export const TEST_AUTOMATION_MODALS = `
                   @click="readDeviceViaUart"
                   :disabled="!uartConnected || uartReading"
                   class="px-4 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-md shadow-indigo-950/40 disabled:opacity-50"
-                  title="Đọc các thanh ghi Modbus trên thiết bị theo template_dvt.csv"
+                  title="Read Modbus registers on device per template_dvt.csv"
                 >
                   <i v-if="uartReading" class="fa-solid fa-circle-notch animate-spin text-amber-400"></i>
                   <i v-else class="fa-solid fa-bolt text-amber-400"></i>
-                  <span>Đọc Thiết Bị (UART)</span>
+                  <span>Read Device (UART)</span>
                 </button>
 
                 <button
@@ -1004,10 +1004,10 @@ export const TEST_AUTOMATION_MODALS = `
                   @click="simulateReadDeviceUart"
                   :disabled="uartReading"
                   class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-amber-300 border border-amber-500/30 text-xs font-semibold flex items-center gap-1.5 cursor-pointer"
-                  title="Mô phỏng đọc thông số chuẩn từ @example/template_dvt.csv"
+                  title="Simulate reading standard parameters from @example/template_dvt.csv"
                 >
                   <i class="fa-solid fa-flask"></i>
-                  <span>Mô Phỏng Đọc (@template_dvt.csv)</span>
+                  <span>Simulate Read (@template_dvt.csv)</span>
                 </button>
               </div>
             </div>
@@ -1024,11 +1024,11 @@ export const TEST_AUTOMATION_MODALS = `
             <div class="flex items-center justify-between border-b border-slate-800 pb-2">
               <h4 class="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-2">
                 <span class="w-5 h-5 rounded-full bg-slate-800 text-amber-400 inline-flex items-center justify-center text-[10px]">2</span>
-                <span>Thông Tin Phần Cứng & Đối Chiếu Đơn Hàng</span>
+                <span>Hardware Information & Order Verification</span>
               </h4>
               <span :class="readDeviceInfo.itemCodeMatch ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30' : 'bg-amber-500/10 text-amber-400 border-amber-500/30'" class="px-2.5 py-0.5 rounded-full text-[11px] font-bold border flex items-center gap-1.5">
                 <i :class="readDeviceInfo.itemCodeMatch ? 'fa-solid fa-check text-emerald-400' : 'fa-solid fa-triangle-exclamation text-amber-400'"></i>
-                <span>{{ readDeviceInfo.itemCodeMatch ? 'ITEM_CODE KHỚP VỚI SO' : 'ITEM_CODE KHÁC VỚI SO' }}</span>
+                <span>{{ readDeviceInfo.itemCodeMatch ? 'ITEM_CODE MATCHES SO' : 'ITEM_CODE MISMATCH' }}</span>
               </span>
             </div>
 
@@ -1072,7 +1072,7 @@ export const TEST_AUTOMATION_MODALS = `
                 <span class="font-mono font-bold text-white">{{ readDeviceInfo.regionCode }} / Class {{ readDeviceInfo.devClass }}</span>
               </div>
               <div>
-                <span class="text-slate-400 block text-[10px]">Người Khởi Tạo:</span>
+                <span class="text-slate-400 block text-[10px]">Created By:</span>
                 <span class="font-mono font-bold text-emerald-300">{{ currentUser?.username || 'admin' }}</span>
               </div>
             </div>
@@ -1081,13 +1081,13 @@ export const TEST_AUTOMATION_MODALS = `
             <div class="p-4 bg-gradient-to-r from-slate-950 via-slate-900 to-slate-950 rounded-xl border border-indigo-500/30 space-y-3">
               <label class="block text-xs font-bold text-slate-200">
                 <i class="fa-solid fa-barcode text-cyan-400 mr-1.5"></i>
-                Yêu cầu nhập lại <span class="text-amber-300 font-mono">SERIAL_NUMBER</span> để xác nhận: <span class="text-rose-400">*</span>
+                Please re-enter <span class="text-amber-300 font-mono">SERIAL_NUMBER</span> to confirm: <span class="text-rose-400">*</span>
               </label>
               <div class="flex items-center gap-2">
                 <input
                   type="text"
                   v-model="confirmSerialNumberInput"
-                  placeholder="Nhập hoặc quét mã vạch SERIAL_NUMBER..."
+                  placeholder="Enter or scan barcode SERIAL_NUMBER..."
                   class="flex-1 px-3.5 py-2.5 bg-slate-950 border border-slate-700 rounded-xl text-white font-mono text-xs focus:ring-1 focus:ring-cyan-500 focus:outline-none"
                   @keyup.enter="isSerialNumberConfirmed ? submitRegisterToChirpstack() : null"
                 />
@@ -1095,7 +1095,7 @@ export const TEST_AUTOMATION_MODALS = `
                   type="button"
                   @click="confirmSerialNumberInput = readDeviceInfo.serialNumber"
                   class="px-3 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white text-xs font-mono cursor-pointer transition"
-                  title="Sao chép tự động"
+                  title="Auto copy"
                 >
                   <i class="fa-regular fa-copy"></i>
                 </button>
@@ -1105,11 +1105,11 @@ export const TEST_AUTOMATION_MODALS = `
               <div v-if="confirmSerialNumberInput" class="text-xs flex items-center gap-1.5">
                 <span v-if="isSerialNumberConfirmed" class="text-emerald-400 font-bold flex items-center gap-1.5">
                   <i class="fa-solid fa-circle-check"></i>
-                  <span>SERIAL_NUMBER chính xác! Sẵn sàng đăng ký lên ChirpStack.</span>
+                  <span>SERIAL_NUMBER verified! Ready to register to ChirpStack.</span>
                 </span>
                 <span v-else class="text-rose-400 font-bold flex items-center gap-1.5">
                   <i class="fa-solid fa-circle-xmark"></i>
-                  <span>Chưa khớp với SERIAL_NUMBER đọc được từ thiết bị.</span>
+                  <span>Does not match SERIAL_NUMBER read from device.</span>
                 </span>
               </div>
             </div>
@@ -1122,7 +1122,7 @@ export const TEST_AUTOMATION_MODALS = `
               @click="closeDeviceOnboardModal"
               class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold cursor-pointer transition"
             >
-              Đóng
+              Close
             </button>
 
             <button
@@ -1133,7 +1133,7 @@ export const TEST_AUTOMATION_MODALS = `
             >
               <i v-if="isRegisteringToChirpstack" class="fa-solid fa-circle-notch animate-spin"></i>
               <i v-else class="fa-solid fa-cloud-arrow-up"></i>
-              <span>Xác Nhận & Đăng Ký Lên ChirpStack</span>
+              <span>Confirm & Register to ChirpStack</span>
             </button>
           </div>
         </div>
@@ -1802,11 +1802,11 @@ function useTestAutomationModule(ctx) {
   // UART Device Onboarding & Registration Methods
   const openDeviceOnboardModal = () => {
     if (!selectedSoCode.value) {
-      showToast('Vui lòng chọn Sales Order (SO) trước khi bắt đầu đăng ký thiết bị.', 'warning');
+      showToast('Please select a Sales Order (SO) before registering devices.', 'warning');
       return;
     }
     confirmSerialNumberInput.value = '';
-    uartLogMessage.value = 'Sẵn sàng kết nối cổng COM hoặc chọn Mô Phỏng Đọc (@template_dvt.csv)';
+    uartLogMessage.value = 'Ready to connect COM port or click Simulate Read (@template_dvt.csv)';
     showDeviceOnboardModal.value = true;
   };
 
@@ -1816,7 +1816,7 @@ function useTestAutomationModule(ctx) {
 
   const selectUartPort = async () => {
     if (!navigator.serial) {
-      showToast('Trình duyệt không hỗ trợ Web Serial API (Vui lòng dùng Google Chrome / Microsoft Edge).', 'error');
+      showToast('Browser does not support Web Serial API (Please use Google Chrome or Microsoft Edge).', 'error');
       return;
     }
     try {
@@ -1828,12 +1828,12 @@ function useTestAutomationModule(ctx) {
         desc = 'VID: 0x' + info.usbVendorId.toString(16).toUpperCase() + ' PID: 0x' + (info.usbProductId ? info.usbProductId.toString(16).toUpperCase() : '');
       }
       uartPortInfo.value = desc;
-      uartLogMessage.value = 'Đã chọn cổng: ' + desc;
-      showToast('Đã chọn cổng COM: ' + desc, 'info');
+      uartLogMessage.value = 'Port selected: ' + desc;
+      showToast('COM Port selected: ' + desc, 'info');
     } catch (e) {
       if (e.name !== 'NotFoundError') {
-        uartLogMessage.value = 'Lỗi chọn cổng: ' + (e.message || e);
-        showToast('Lỗi chọn cổng COM: ' + (e.message || e), 'error');
+        uartLogMessage.value = 'Port selection error: ' + (e.message || e);
+        showToast('COM Port selection error: ' + (e.message || e), 'error');
       }
     }
   };
@@ -1853,13 +1853,13 @@ function useTestAutomationModule(ctx) {
         bufferSize: 255,
       });
       uartConnected.value = true;
-      uartLogMessage.value = 'Đã kết nối cổng COM thành công @ 9600 bps, 8-N-1';
-      showToast('Đã kết nối cổng COM thành công', 'success');
+      uartLogMessage.value = 'Connected to COM port successfully @ 9600 bps, 8-N-1';
+      showToast('Connected to COM port successfully', 'success');
     } catch (e) {
       console.error('Serial connect error:', e);
       uartConnected.value = false;
-      uartLogMessage.value = 'Lỗi kết nối cổng COM: ' + (e.message || e);
-      showToast('Lỗi kết nối cổng: ' + (e.message || e), 'error');
+      uartLogMessage.value = 'COM port connection error: ' + (e.message || e);
+      showToast('Port connection error: ' + (e.message || e), 'error');
     } finally {
       uartConnecting.value = false;
     }
@@ -1873,8 +1873,8 @@ function useTestAutomationModule(ctx) {
     }
     uartConnected.value = false;
     uartPortInfo.value = '';
-    uartLogMessage.value = 'Đã ngắt kết nối cổng UART';
-    showToast('Đã ngắt kết nối UART', 'info');
+    uartLogMessage.value = 'UART port disconnected';
+    showToast('UART disconnected', 'info');
   };
 
   const calcModbusCRC16Local = (bytes) => {
@@ -1906,7 +1906,7 @@ function useTestAutomationModule(ctx) {
 
   const readModbusRegistersFromPort = async (slave, reg, numreg, timeoutMs = 1200) => {
     if (!uartPort.value || !uartPort.value.readable || !uartPort.value.writable) {
-      throw new Error('Cổng UART không khả dụng');
+      throw new Error('UART port is not available');
     }
     const req = buildModbusReadReq(slave, 3, reg, numreg);
     const writer = uartPort.value.writable.getWriter();
@@ -1933,19 +1933,19 @@ function useTestAutomationModule(ctx) {
       reader.releaseLock();
     }
 
-    if (rxBuffer.length < 5) throw new Error('Không nhận được phản hồi từ thiết bị');
+    if (rxBuffer.length < 5) throw new Error('No response received from device');
     const byteCount = rxBuffer[2];
     return rxBuffer.slice(3, 3 + byteCount);
   };
 
   const readDeviceViaUart = async () => {
     if (!uartPort.value || !uartConnected.value) {
-      showToast('Vui lòng kết nối cổng Serial UART trước khi đọc.', 'warning');
+      showToast('Please connect Serial UART port before reading.', 'warning');
       return;
     }
 
     uartReading.value = true;
-    uartLogMessage.value = 'Đang gửi lệnh Modbus FC03 đọc thông số phần cứng theo template_dvt.csv...';
+    uartLogMessage.value = 'Sending Modbus FC03 query to read hardware parameters per template_dvt.csv...';
     try {
       const bytesToAscii = (bytes) => {
         if (!bytes || !bytes.length) return '';
@@ -2004,7 +2004,7 @@ function useTestAutomationModule(ctx) {
         if (readIc) itemCode = readIc;
       } catch (ioErr) {
         console.warn('Hardware read timeout or partial response, fallback to template default:', ioErr);
-        uartLogMessage.value = 'Phần cứng phản hồi chậm, áp dụng định dạng chuẩn template_dvt.csv';
+        uartLogMessage.value = 'Hardware response slow, applying standard template_dvt.csv format';
       }
 
       // Cut first char as SHORT_FW: '1F0926' -> '1'
@@ -2056,11 +2056,11 @@ function useTestAutomationModule(ctx) {
       };
 
       confirmSerialNumberInput.value = '';
-      uartLogMessage.value = 'Đã đọc thành công thông số thiết bị từ UART: Reg 259 (SERIAL_NUMBER: ' + serialNumber + '), Reg 386 (ITEM_CODE: ' + itemCode + '), SKU: ' + sku + ', FW: ' + shortFw;
-      showToast('Đã đọc dữ liệu thành công từ cổng UART (SERIAL_NUMBER: ' + serialNumber + ')', 'success');
+      uartLogMessage.value = 'Successfully read device parameters from UART: Reg 259 (SERIAL_NUMBER: ' + serialNumber + '), Reg 386 (ITEM_CODE: ' + itemCode + '), SKU: ' + sku + ', FW: ' + shortFw;
+      showToast('Successfully read data from UART port (SERIAL_NUMBER: ' + serialNumber + ')', 'success');
     } catch (e) {
-      uartLogMessage.value = 'Lỗi đọc UART: ' + (e.message || e);
-      showToast('Lỗi đọc UART: ' + (e.message || e), 'error');
+      uartLogMessage.value = 'UART read error: ' + (e.message || e);
+      showToast('UART read error: ' + (e.message || e), 'error');
     } finally {
       uartReading.value = false;
     }
@@ -2068,7 +2068,7 @@ function useTestAutomationModule(ctx) {
 
   const simulateReadDeviceUart = async () => {
     uartReading.value = true;
-    uartLogMessage.value = 'Đang mô phỏng đọc các thanh ghi Modbus theo @example/template_dvt.csv...';
+    uartLogMessage.value = 'Simulating Modbus registers read per @example/template_dvt.csv...';
     try {
       const longFw = '1F0926';
       // Cut first char as SHORT_FW: '1F0926' -> '1'
@@ -2125,11 +2125,11 @@ function useTestAutomationModule(ctx) {
       };
 
       confirmSerialNumberInput.value = '';
-      uartLogMessage.value = 'Mô phỏng đọc thành công 10 thanh ghi từ template @example/template_dvt.csv: Reg 259 (SERIAL_NUMBER: ' + serialNumber + '), Reg 386 (ITEM_CODE: ' + itemCode + '), SKU: ' + sku + ', FW: ' + shortFw;
-      showToast('Đã đọc dữ liệu thành công từ @example/template_dvt.csv (SERIAL_NUMBER: ' + serialNumber + ')', 'success');
+      uartLogMessage.value = 'Simulated reading 10 registers from template @example/template_dvt.csv: Reg 259 (SERIAL_NUMBER: ' + serialNumber + '), Reg 386 (ITEM_CODE: ' + itemCode + '), SKU: ' + sku + ', FW: ' + shortFw;
+      showToast('Successfully read data from @example/template_dvt.csv (SERIAL_NUMBER: ' + serialNumber + ')', 'success');
     } catch (e) {
-      uartLogMessage.value = 'Lỗi mô phỏng đọc: ' + (e.message || e);
-      showToast('Lỗi: ' + (e.message || e), 'error');
+      uartLogMessage.value = 'Simulation read error: ' + (e.message || e);
+      showToast('Error: ' + (e.message || e), 'error');
     } finally {
       uartReading.value = false;
     }
@@ -2137,7 +2137,7 @@ function useTestAutomationModule(ctx) {
 
   const submitRegisterToChirpstack = async () => {
     if (!isSerialNumberConfirmed.value) {
-      showToast('Vui lòng nhập chính xác SERIAL_NUMBER để xác nhận đăng ký.', 'warning');
+      showToast('Please enter exact SERIAL_NUMBER to confirm onboarding.', 'warning');
       return;
     }
     isRegisteringToChirpstack.value = true;
@@ -2180,7 +2180,7 @@ function useTestAutomationModule(ctx) {
       } catch (e) {}
 
       if (!res.ok && resData.message && !resData.message.includes('already exists')) {
-        throw new Error(resData.message || 'Lỗi đăng ký thiết bị lên ChirpStack');
+        throw new Error(resData.message || 'ChirpStack device registration error');
       }
 
       // Add to active batch devices list
@@ -2207,10 +2207,10 @@ function useTestAutomationModule(ctx) {
       // Refresh fleet
       if (fetchDevices) fetchDevices();
 
-      showToast('Thiết bị ' + info.serialNumber + ' (' + info.devEUI + ') đã được đăng ký thành công lên ChirpStack và thêm vào đợt kiểm thử!', 'success');
+      showToast('Device ' + info.serialNumber + ' (' + info.devEUI + ') successfully registered to ChirpStack and added to test batch!', 'success');
       showDeviceOnboardModal.value = false;
     } catch (err) {
-      showToast('Lỗi đăng ký ChirpStack: ' + err.message, 'error');
+      showToast('ChirpStack registration error: ' + err.message, 'error');
     } finally {
       isRegisteringToChirpstack.value = false;
     }

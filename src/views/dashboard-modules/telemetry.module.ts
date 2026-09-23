@@ -51,9 +51,9 @@ export const TELEMETRY_TEMPLATE = `          <div v-else-if="activeFeature.id ==
             <!-- TOP CONTROLS PANEL: CONTROLS (LEFT) + DEVICE INFO (RIGHT) -->
             <div class="grid grid-cols-1 lg:grid-cols-12 gap-4 items-stretch">
 
-              <!-- BÊN TRÁI (lg:col-span-7): CHỌN DEVICE, TIME RANGE, NÚT SHOW & DELETE -->
+              <!-- LEFT (lg:col-span-7): SELECT DEVICE, TIME RANGE, SHOW & DELETE BUTTONS -->
               <div class="lg:col-span-7 bg-slate-900/80 border border-slate-800 rounded-2xl p-4 sm:p-5 flex flex-col justify-between space-y-4 shadow-xl">
-                <!-- 1. Chọn Device -->
+                <!-- 1. Select Device -->
                 <div class="space-y-1.5">
                   <div class="flex items-center justify-between">
                     <label class="block text-[11px] font-bold text-purple-300 uppercase tracking-wider">
@@ -75,7 +75,7 @@ export const TELEMETRY_TEMPLATE = `          <div v-else-if="activeFeature.id ==
                   </select>
                 </div>
 
-                <!-- 2. Chọn Time Range -->
+                <!-- 2. Select Time Range -->
                 <div class="space-y-1.5">
                   <div class="flex items-center justify-between">
                     <label class="block text-[11px] font-bold text-sky-300 uppercase tracking-wider">
@@ -111,7 +111,7 @@ export const TELEMETRY_TEMPLATE = `          <div v-else-if="activeFeature.id ==
                   <p class="text-[10px] text-slate-500">Leave empty to show all packets</p>
                 </div>
 
-                <!-- 3. Nút SHOW & DELETE -->
+                <!-- 3. SHOW & DELETE Buttons -->
                 <div class="flex items-center gap-3 pt-2 border-t border-slate-800">
                   <button
                     @click="showTelemetry"
@@ -133,7 +133,7 @@ export const TELEMETRY_TEMPLATE = `          <div v-else-if="activeFeature.id ==
                 </div>
               </div>
 
-              <!-- BÊN PHẢI (lg:col-span-5): PHẦN HIỂN THỊ DEVICE INFO -->
+              <!-- RIGHT (lg:col-span-5): DEVICE INFO DISPLAY -->
               <div class="lg:col-span-5 bg-slate-900/80 border border-slate-800 rounded-2xl p-4 sm:p-5 flex flex-col justify-between shadow-xl">
                 <div>
                   <div class="flex items-center justify-between text-[11px] font-bold text-purple-300 uppercase tracking-wider pb-3 border-b border-slate-800/80">

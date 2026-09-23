@@ -493,7 +493,7 @@ export const DECODER_TEMPLATE = `
                       :key="rIdx"
                       class="hover:bg-slate-800/50 transition group"
                     >
-                      <!-- Time Cell (Chủ lực) -->
+                      <!-- Time Cell (Primary) -->
                       <td class="py-2 px-3 whitespace-nowrap font-bold text-white bg-slate-950/40 border-r border-slate-800/80">
                         <span class="text-purple-300 font-sans font-semibold">{{ formatDateTime(row.time) }}</span>
                       </td>

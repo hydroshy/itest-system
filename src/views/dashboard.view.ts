@@ -39,7 +39,18 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
   <script src="https://cdn.jsdelivr.net/npm/socket.io-client@4.7.4/dist/socket.io.min.js"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=PT+Serif:ital,wght@0,400;0,700;1,400;1,700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <script>
+    (function() {
+      try {
+        var saved = localStorage.getItem('dvt_theme');
+        var theme = (saved === 'dark') ? 'dark' : 'light';
+        document.documentElement.classList.add(theme === 'dark' ? 'theme-dark' : 'theme-light');
+      } catch(e) {
+        document.documentElement.classList.add('theme-light');
+      }
+    })();
+  </script>
   <style>
     /* Tabulator Modern Dark Theme Customization */
     .tabulator {
@@ -171,9 +182,19 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
       from { opacity: 0; transform: translateY(4px); }
       to { opacity: 1; transform: translateY(0); }
     }
+    /* Minimalist Typography with Google PT Serif */
+    body, input, button, select, textarea, p, h1, h2, h3, h4, h5, h6, span, label, a, td, th {
+      font-family: 'PT Serif', Georgia, Cambria, 'Times New Roman', Times, serif;
+    }
+    .font-mono, code, pre, .mono, [class*="font-mono"] {
+      font-family: 'JetBrains Mono', monospace !important;
+    }
+    .fa, .fas, .fa-solid, .fa-regular, .fa-brands {
+      font-family: "Font Awesome 6 Free", "Font Awesome 6 Brands" !important;
+    }
+
     body {
       background-color: #030712;
-      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       margin: 0;
       padding: 0;
       color: #f1f5f9;
@@ -181,6 +202,215 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
       overflow-x: hidden;
       animation: pageFadeIn 0.22s cubic-bezier(0.16, 1, 0.3, 1) forwards;
       transition: opacity 0.15s ease, transform 0.15s ease;
+    }
+
+    /* =========================================================================
+       THEME ENGINE: WHITE MODE (DEFAULT) & DARK MODE
+       Minimalist, clean, uncluttered, business-grade styling
+       ========================================================================= */
+    html.theme-light,
+    html.theme-light body,
+    body.theme-light {
+      background-color: #f8fafc !important;
+      color: #0f172a !important;
+    }
+
+    .theme-light .glass-header {
+      background: rgba(255, 255, 255, 0.96) !important;
+      border-bottom: 1px solid #e2e8f0 !important;
+      box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.04) !important;
+      backdrop-filter: blur(12px) !important;
+    }
+
+    .theme-light .glass-sidebar {
+      background: #ffffff !important;
+      border-right: 1px solid #e2e8f0 !important;
+      box-shadow: 1px 0 3px 0 rgba(0, 0, 0, 0.02) !important;
+    }
+
+    .theme-light .glass-card {
+      background: #ffffff !important;
+      border: 1px solid #e2e8f0 !important;
+      box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.04) !important;
+      color: #0f172a !important;
+    }
+    .theme-light .glass-card:hover {
+      border-color: #cbd5e1 !important;
+      box-shadow: 0 6px 16px -4px rgba(0, 0, 0, 0.08) !important;
+    }
+
+    .theme-light .bg-slate-900,
+    .theme-light .bg-slate-950,
+    .theme-light .bg-slate-900\/90,
+    .theme-light .bg-slate-900\/80,
+    .theme-light .bg-slate-900\/70,
+    .theme-light .bg-slate-900\/60,
+    .theme-light .bg-slate-900\/50,
+    .theme-light .bg-slate-900\/40,
+    .theme-light .bg-slate-950\/90,
+    .theme-light .bg-slate-950\/80,
+    .theme-light .bg-slate-950\/70,
+    .theme-light .bg-slate-950\/60,
+    .theme-light .bg-slate-950\/50,
+    .theme-light [class*="bg-slate-900"],
+    .theme-light [class*="bg-slate-950"] {
+      background-color: #ffffff !important;
+    }
+
+    .theme-light .bg-slate-800,
+    .theme-light .bg-slate-800\/80,
+    .theme-light .bg-slate-800\/60,
+    .theme-light .bg-slate-800\/50,
+    .theme-light .bg-slate-800\/40,
+    .theme-light .bg-slate-800\/30,
+    .theme-light [class*="bg-slate-800"] {
+      background-color: #f1f5f9 !important;
+    }
+
+    .theme-light .border-slate-800,
+    .theme-light .border-slate-800\/80,
+    .theme-light .border-slate-800\/50,
+    .theme-light .border-slate-700,
+    .theme-light .border-slate-700\/80,
+    .theme-light .border-slate-700\/50,
+    .theme-light [class*="border-slate-800"],
+    .theme-light [class*="border-slate-700"] {
+      border-color: #e2e8f0 !important;
+    }
+
+    .theme-light .text-white {
+      color: #0f172a !important;
+    }
+    .theme-light .text-slate-100,
+    .theme-light .text-slate-200 {
+      color: #1e293b !important;
+    }
+    .theme-light .text-slate-300,
+    .theme-light .text-slate-400 {
+      color: #475569 !important;
+    }
+    .theme-light .text-slate-500 {
+      color: #64748b !important;
+    }
+    .theme-light .text-slate-600 {
+      color: #94a3b8 !important;
+    }
+
+    .theme-light .text-sky-400 { color: #0284c7 !important; }
+    .theme-light .text-emerald-400 { color: #059669 !important; }
+    .theme-light .text-amber-400, .theme-light .text-amber-300 { color: #d97706 !important; }
+    .theme-light .text-red-400, .theme-light .text-rose-400 { color: #dc2626 !important; }
+    .theme-light .text-purple-400, .theme-light .text-violet-400 { color: #7c3aed !important; }
+
+    .theme-light input,
+    .theme-light select,
+    .theme-light textarea {
+      background-color: #ffffff !important;
+      color: #0f172a !important;
+      border-color: #cbd5e1 !important;
+    }
+    .theme-light input::placeholder,
+    .theme-light textarea::placeholder {
+      color: #94a3b8 !important;
+    }
+    .theme-light input:focus,
+    .theme-light select:focus,
+    .theme-light textarea:focus {
+      border-color: #0284c7 !important;
+      box-shadow: 0 0 0 2px rgba(2, 132, 199, 0.15) !important;
+    }
+
+    .theme-light .nav-item {
+      color: #475569 !important;
+    }
+    .theme-light .nav-item:hover {
+      color: #0f172a !important;
+      background-color: #f1f5f9 !important;
+    }
+    .theme-light .nav-item.active {
+      color: #0284c7 !important;
+      background-color: #e0f2fe !important;
+      border: 1px solid #bae6fd !important;
+      box-shadow: none !important;
+    }
+
+    .theme-light .modal-backdrop {
+      background: rgba(15, 23, 42, 0.45) !important;
+      backdrop-filter: blur(4px) !important;
+    }
+
+    .theme-light .tabulator {
+      background-color: #ffffff !important;
+      border: 1px solid #e2e8f0 !important;
+      color: #0f172a !important;
+    }
+    .theme-light .tabulator .tabulator-header {
+      background-color: #f8fafc !important;
+      border-bottom: 2px solid #e2e8f0 !important;
+      color: #475569 !important;
+    }
+    .theme-light .tabulator .tabulator-header .tabulator-col {
+      background-color: #f8fafc !important;
+      border-right: 1px solid #f1f5f9 !important;
+    }
+    .theme-light .tabulator .tabulator-row {
+      background-color: #ffffff !important;
+      border-bottom: 1px solid #f1f5f9 !important;
+      color: #1e293b !important;
+    }
+    .theme-light .tabulator .tabulator-row:hover {
+      background-color: #f8fafc !important;
+    }
+    .theme-light .tabulator .tabulator-row.tabulator-selected {
+      background-color: #f0f9ff !important;
+      color: #0369a1 !important;
+      box-shadow: inset 0 0 0 1px rgba(2, 132, 199, 0.3) !important;
+    }
+    .theme-light .tabulator .tabulator-row.tabulator-selected .tabulator-cell {
+      background-color: rgba(2, 132, 199, 0.06) !important;
+      color: #0369a1 !important;
+    }
+    .theme-light .tabulator .tabulator-row.tabulator-selected .tabulator-cell:first-child {
+      background-color: #0284c7 !important;
+      color: #ffffff !important;
+    }
+    .theme-light .tabulator .tabulator-cell {
+      border-right: 1px solid #f1f5f9 !important;
+    }
+
+    .theme-light .custom-scroll::-webkit-scrollbar-track {
+      background: #f8fafc !important;
+    }
+    .theme-light .custom-scroll::-webkit-scrollbar-thumb {
+      background: #cbd5e1 !important;
+      border: 2px solid #f8fafc !important;
+    }
+    .theme-light .custom-scroll::-webkit-scrollbar-thumb:hover {
+      background: #94a3b8 !important;
+    }
+
+    .theme-toggle-btn {
+      transition: all 0.15s ease;
+    }
+    .theme-light .theme-toggle-btn {
+      background-color: #ffffff !important;
+      border-color: #cbd5e1 !important;
+      color: #334155 !important;
+    }
+    .theme-light .theme-toggle-btn:hover {
+      background-color: #f1f5f9 !important;
+      border-color: #94a3b8 !important;
+      color: #0f172a !important;
+    }
+    .theme-dark .theme-toggle-btn {
+      background-color: rgba(15, 23, 42, 0.9) !important;
+      border-color: #334155 !important;
+      color: #cbd5e1 !important;
+    }
+    .theme-dark .theme-toggle-btn:hover {
+      background-color: #1e293b !important;
+      border-color: #475569 !important;
+      color: #ffffff !important;
     }
     body.page-transitioning {
       opacity: 0;
@@ -278,6 +508,17 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
 
       <!-- Right Actions & User Menu -->
       <div class="flex items-center gap-2.5">
+        <!-- Theme Switcher Button -->
+        <button
+          type="button"
+          @click="toggleTheme"
+          class="theme-toggle-btn flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-800 hover:border-slate-700 transition cursor-pointer select-none text-xs font-semibold"
+          :title="currentTheme === 'light' ? 'Switch to Dark Mode' : 'Switch to Light Mode'"
+        >
+          <i :class="currentTheme === 'light' ? 'fa-solid fa-moon text-slate-600' : 'fa-solid fa-sun text-amber-400'" class="text-xs"></i>
+          <span class="hidden sm:inline">{{ currentTheme === 'light' ? 'Dark' : 'Light' }}</span>
+        </button>
+
         <!-- User Menu Dropdown Button -->
         <div class="relative">
           <button
@@ -534,6 +775,20 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
     const app = createApp({
       setup() {
         const currentUser = ref({});
+        const currentTheme = ref(typeof localStorage !== 'undefined' ? (localStorage.getItem('dvt_theme') === 'dark' ? 'dark' : 'light') : 'light');
+        const toggleTheme = () => {
+          currentTheme.value = currentTheme.value === 'light' ? 'dark' : 'light';
+          try {
+            localStorage.setItem('dvt_theme', currentTheme.value);
+          } catch(e) {}
+          if (currentTheme.value === 'dark') {
+            document.documentElement.classList.remove('theme-light');
+            document.documentElement.classList.add('theme-dark');
+          } else {
+            document.documentElement.classList.remove('theme-dark');
+            document.documentElement.classList.add('theme-light');
+          }
+        };
         const accessibleFeatures = ref([]);
         const activeFeature = ref(null);
         const userMenuOpen = ref(false);
@@ -2073,6 +2328,8 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
 
         return {
           currentUser,
+          currentTheme,
+          toggleTheme,
           accessibleFeatures,
           activeFeature,
           userMenuOpen,

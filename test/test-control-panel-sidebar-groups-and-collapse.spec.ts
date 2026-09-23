@@ -78,8 +78,8 @@ assert.ok(
   'Must persist collapse preference in localStorage',
 );
 assert.ok(
-  cpContent.includes("md:w-[68px]") || cpContent.includes("w-[68px]"),
-  'Sidebar must support compact width (md:w-[68px]) when collapsed',
+  cpContent.includes("md:w-0") || cpContent.includes("w-0"),
+  'Sidebar must support full collapse (md:w-0) without showing mini icons',
 );
 assert.ok(
   cpContent.includes('md:w-60'),
@@ -88,22 +88,18 @@ assert.ok(
 console.log('  -> PASS: Sidebar collapse state, persistence, and dynamic width verified.\n');
 
 // --------------------------------------------------------------------
-// TEST 5: Collapsed State Tooltips & Icon Centering
+// TEST 5: Full Collapse (Zero Mini-Icons) & Smooth Animation
 // --------------------------------------------------------------------
-console.log('[TEST 5] Verifying Tooltips & Collapsed Icon Styling...');
+console.log('[TEST 5] Verifying Full Collapse (Zero Mini-Icons) & Smooth Animation...');
 assert.ok(
-  cpContent.includes(':title="sidebarCollapsed ?'),
-  'Nav items must provide tooltip when sidebar is collapsed',
-);
-assert.ok(
-  cpContent.includes('.nav-item.collapsed') || cpContent.includes('collapsed: sidebarCollapsed'),
-  'Must style nav-items appropriately when collapsed',
+  cpContent.includes('md:overflow-hidden') || cpContent.includes('overflow-hidden'),
+  'Sidebar must hide overflow when collapsed to prevent mini-icons leaking',
 );
 assert.ok(
   cpContent.includes('transition: width') || cpContent.includes('transition-all'),
   'Sidebar must animate smoothly between expanded and collapsed states',
 );
-console.log('  -> PASS: Tooltip and icon centering behavior verified.\n');
+console.log('  -> PASS: Zero mini-icons on collapse and smooth animation verified.\n');
 
 // --------------------------------------------------------------------
 // TEST 6: Setup Return Object Exposure
