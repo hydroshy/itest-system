@@ -39,7 +39,7 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
   <script src="https://cdn.jsdelivr.net/npm/socket.io-client@4.7.4/dist/socket.io.min.js"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=PT+Serif:ital,wght@0,400;0,700;1,400;1,700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
   <script>
     (function() {
       try {
@@ -182,9 +182,9 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
       from { opacity: 0; transform: translateY(4px); }
       to { opacity: 1; transform: translateY(0); }
     }
-    /* Minimalist Typography with Google PT Serif */
+    /* Modern Typography with Google Inter */
     body, input, button, select, textarea, p, h1, h2, h3, h4, h5, h6, span, label, a, td, th {
-      font-family: 'PT Serif', Georgia, Cambria, 'Times New Roman', Times, serif;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     }
     .font-mono, code, pre, .mono, [class*="font-mono"] {
       font-family: 'JetBrains Mono', monospace !important;
@@ -230,6 +230,7 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
 
     .theme-light .glass-card {
       background: #ffffff !important;
+      background-image: none !important;
       border: 1px solid #e2e8f0 !important;
       box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.04) !important;
       color: #0f172a !important;
@@ -239,45 +240,124 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
       box-shadow: 0 6px 16px -4px rgba(0, 0, 0, 0.08) !important;
     }
 
+    /* Primary cards, containers, and dialogs */
     .theme-light .bg-slate-900,
-    .theme-light .bg-slate-950,
-    .theme-light .bg-slate-900\/90,
-    .theme-light .bg-slate-900\/80,
-    .theme-light .bg-slate-900\/70,
-    .theme-light .bg-slate-900\/60,
-    .theme-light .bg-slate-900\/50,
-    .theme-light .bg-slate-900\/40,
-    .theme-light .bg-slate-950\/90,
-    .theme-light .bg-slate-950\/80,
-    .theme-light .bg-slate-950\/70,
-    .theme-light .bg-slate-950\/60,
-    .theme-light .bg-slate-950\/50,
-    .theme-light [class*="bg-slate-900"],
-    .theme-light [class*="bg-slate-950"] {
+    .theme-light [class*="bg-slate-900"] {
       background-color: #ffffff !important;
-    }
-
-    .theme-light .bg-slate-800,
-    .theme-light .bg-slate-800\/80,
-    .theme-light .bg-slate-800\/60,
-    .theme-light .bg-slate-800\/50,
-    .theme-light .bg-slate-800\/40,
-    .theme-light .bg-slate-800\/30,
-    .theme-light [class*="bg-slate-800"] {
-      background-color: #f1f5f9 !important;
-    }
-
-    .theme-light .border-slate-800,
-    .theme-light .border-slate-800\/80,
-    .theme-light .border-slate-800\/50,
-    .theme-light .border-slate-700,
-    .theme-light .border-slate-700\/80,
-    .theme-light .border-slate-700\/50,
-    .theme-light [class*="border-slate-800"],
-    .theme-light [class*="border-slate-700"] {
       border-color: #e2e8f0 !important;
     }
 
+    /* Sub-panels, wells, summary boxes, badges, table headers */
+    .theme-light .bg-slate-950,
+    .theme-light [class*="bg-slate-950"] {
+      background-color: #f8fafc !important;
+      border-color: #e2e8f0 !important;
+    }
+
+    /* Secondary elements, chips, hover states */
+    .theme-light .bg-slate-800,
+    .theme-light .bg-slate-700,
+    .theme-light [class*="bg-slate-800"],
+    .theme-light [class*="bg-slate-700"] {
+      background-color: #f1f5f9 !important;
+      border-color: #e2e8f0 !important;
+    }
+
+    /* Dark gradient elimination on containers and banners */
+    .theme-light [class*="from-slate-"],
+    .theme-light [class*="via-slate-"],
+    .theme-light [class*="to-slate-"],
+    .theme-light [class*="from-black"],
+    .theme-light [class*="to-black"],
+    .theme-light [class*="from-emerald-950"],
+    .theme-light [class*="to-emerald-950"],
+    .theme-light [class*="from-amber-950"],
+    .theme-light [class*="to-amber-950"],
+    .theme-light [class*="from-cyan-950"],
+    .theme-light [class*="to-cyan-950"],
+    .theme-light [class*="from-sky-950"],
+    .theme-light [class*="to-sky-950"],
+    .theme-light [class*="from-red-950"],
+    .theme-light [class*="to-red-950"],
+    .theme-light [class*="from-rose-950"],
+    .theme-light [class*="to-rose-950"] {
+      background-image: none !important;
+      background-color: #ffffff !important;
+    }
+
+    /* Colored dark accents mapped to clean light-theme tints */
+    .theme-light [class*="bg-emerald-950"] {
+      background-color: #ecfdf5 !important;
+      border-color: #a7f3d0 !important;
+      color: #065f46 !important;
+    }
+    .theme-light [class*="bg-red-950"],
+    .theme-light [class*="bg-rose-950"] {
+      background-color: #fef2f2 !important;
+      border-color: #fecaca !important;
+      color: #991b1b !important;
+    }
+    .theme-light [class*="bg-amber-950"] {
+      background-color: #fffbeb !important;
+      border-color: #fde68a !important;
+      color: #92400e !important;
+    }
+    .theme-light [class*="bg-cyan-950"] {
+      background-color: #ecfeff !important;
+      border-color: #a5f3fc !important;
+      color: #155e75 !important;
+    }
+    .theme-light [class*="bg-sky-950"] {
+      background-color: #f0f9ff !important;
+      border-color: #bae6fd !important;
+      color: #075985 !important;
+    }
+    .theme-light [class*="bg-indigo-950"] {
+      background-color: #eef2ff !important;
+      border-color: #c7d2fe !important;
+      color: #3730a3 !important;
+    }
+    .theme-light [class*="bg-purple-950"] {
+      background-color: #faf5ff !important;
+      border-color: #e9d5ff !important;
+      color: #581c87 !important;
+    }
+
+    /* Modal Backdrop Overlays & Inner Dialog Cards */
+    .theme-light .modal-backdrop,
+    .theme-light .fixed.inset-0,
+    .theme-light [class*="fixed"][class*="inset-0"],
+    .theme-light .fixed.inset-0[class*="bg-slate-950"],
+    .theme-light .fixed.inset-0[class*="bg-black"] {
+      background: rgba(15, 23, 42, 0.48) !important;
+      backdrop-filter: blur(4px) !important;
+    }
+
+    .theme-light .fixed.inset-0 > div,
+    .theme-light .modal-backdrop > div,
+    .theme-light .fixed.inset-0 .bg-slate-900,
+    .theme-light .fixed.inset-0 .glass-card,
+    .theme-light .modal-backdrop .bg-slate-900,
+    .theme-light .modal-backdrop .glass-card {
+      background-color: #ffffff !important;
+      border-color: #e2e8f0 !important;
+      color: #0f172a !important;
+      box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1) !important;
+    }
+
+    /* Borders & Dividers */
+    .theme-light .border-slate-800,
+    .theme-light .border-slate-700,
+    .theme-light .border-slate-900,
+    .theme-light [class*="border-slate-800"],
+    .theme-light [class*="border-slate-700"],
+    .theme-light [class*="border-slate-900"],
+    .theme-light [class*="divide-slate-800"],
+    .theme-light [class*="divide-slate-700"] {
+      border-color: #e2e8f0 !important;
+    }
+
+    /* Text Colors */
     .theme-light .text-white {
       color: #0f172a !important;
     }
@@ -296,11 +376,73 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
       color: #94a3b8 !important;
     }
 
-    .theme-light .text-sky-400 { color: #0284c7 !important; }
-    .theme-light .text-emerald-400 { color: #059669 !important; }
-    .theme-light .text-amber-400, .theme-light .text-amber-300 { color: #d97706 !important; }
-    .theme-light .text-red-400, .theme-light .text-rose-400 { color: #dc2626 !important; }
-    .theme-light .text-purple-400, .theme-light .text-violet-400 { color: #7c3aed !important; }
+    /* Neon/Pale text enhancements for light backgrounds */
+    .theme-light .text-sky-300, .theme-light .text-sky-400 { color: #0284c7 !important; }
+    .theme-light .text-cyan-300, .theme-light .text-cyan-400 { color: #0891b2 !important; }
+    .theme-light .text-emerald-300, .theme-light .text-emerald-400 { color: #047857 !important; }
+    .theme-light .text-amber-300, .theme-light .text-amber-400 { color: #b45309 !important; }
+    .theme-light .text-red-300, .theme-light .text-red-400,
+    .theme-light .text-rose-300, .theme-light .text-rose-400 { color: #be123c !important; }
+    .theme-light .text-purple-300, .theme-light .text-purple-400,
+    .theme-light .text-violet-300, .theme-light .text-violet-400 { color: #6d28d9 !important; }
+    .theme-light .text-indigo-300, .theme-light .text-indigo-400 { color: #4338ca !important; }
+    .theme-light .text-teal-300, .theme-light .text-teal-400 { color: #0f766e !important; }
+
+    /* Maintain white text on solid/gradient colored action buttons */
+    .theme-light button[class*="bg-sky-600"],
+    .theme-light button[class*="bg-blue-600"],
+    .theme-light button[class*="bg-cyan-600"],
+    .theme-light button[class*="bg-emerald-600"],
+    .theme-light button[class*="bg-red-600"],
+    .theme-light button[class*="bg-rose-600"],
+    .theme-light button[class*="bg-indigo-600"],
+    .theme-light a[class*="bg-sky-600"],
+    .theme-light a[class*="bg-blue-600"],
+    .theme-light a[class*="bg-cyan-600"],
+    .theme-light a[class*="bg-emerald-600"],
+    .theme-light a[class*="bg-red-600"],
+    .theme-light [class*="bg-gradient-"] .text-white,
+    .theme-light [class*="bg-gradient-"][class*="text-white"],
+    .theme-light [class*="bg-sky-600"] .text-white,
+    .theme-light [class*="bg-blue-600"] .text-white,
+    .theme-light [class*="bg-cyan-600"] .text-white,
+    .theme-light [class*="bg-emerald-600"] .text-white,
+    .theme-light [class*="bg-red-600"] .text-white,
+    .theme-light [class*="bg-rose-600"] .text-white,
+    .theme-light [class*="bg-indigo-600"] .text-white {
+      color: #ffffff !important;
+    }
+
+    /* HTML Tables & Log Viewers */
+    .theme-light thead,
+    .theme-light thead tr,
+    .theme-light thead th,
+    .theme-light thead[class*="bg-slate-"],
+    .theme-light tr[class*="bg-slate-900"],
+    .theme-light tr[class*="bg-slate-950"] {
+      background-color: #f8fafc !important;
+      color: #475569 !important;
+      border-color: #e2e8f0 !important;
+    }
+    .theme-light tbody tr {
+      background-color: #ffffff !important;
+      color: #1e293b !important;
+    }
+    .theme-light tbody tr:hover {
+      background-color: #f8fafc !important;
+    }
+    .theme-light td,
+    .theme-light th {
+      border-color: #e2e8f0 !important;
+    }
+
+    /* Pre, Code, and Monospace Logs */
+    .theme-light pre,
+    .theme-light code {
+      background-color: #f1f5f9 !important;
+      color: #0f172a !important;
+      border-color: #cbd5e1 !important;
+    }
 
     .theme-light input,
     .theme-light select,
@@ -332,11 +474,6 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
       background-color: #e0f2fe !important;
       border: 1px solid #bae6fd !important;
       box-shadow: none !important;
-    }
-
-    .theme-light .modal-backdrop {
-      background: rgba(15, 23, 42, 0.45) !important;
-      backdrop-filter: blur(4px) !important;
     }
 
     .theme-light .tabulator {
@@ -508,17 +645,6 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
 
       <!-- Right Actions & User Menu -->
       <div class="flex items-center gap-2.5">
-        <!-- Theme Switcher Button -->
-        <button
-          type="button"
-          @click="toggleTheme"
-          class="theme-toggle-btn flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-800 hover:border-slate-700 transition cursor-pointer select-none text-xs font-semibold"
-          :title="currentTheme === 'light' ? 'Switch to Dark Mode' : 'Switch to Light Mode'"
-        >
-          <i :class="currentTheme === 'light' ? 'fa-solid fa-moon text-slate-600' : 'fa-solid fa-sun text-amber-400'" class="text-xs"></i>
-          <span class="hidden sm:inline">{{ currentTheme === 'light' ? 'Dark' : 'Light' }}</span>
-        </button>
-
         <!-- User Menu Dropdown Button -->
         <div class="relative">
           <button
@@ -546,6 +672,31 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
                 <span class="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-sky-500/10 text-sky-400 border border-sky-500/20">
                   {{ isSuperAdmin ? 'SUPER_ADMIN' : (currentUser.roles?.[0]?.name || currentUser.userType || 'USER') }}
                 </span>
+              </div>
+            </div>
+
+            <!-- Theme Mode Selection: Light / Dark -->
+            <div class="space-y-1.5 pb-3 border-b border-slate-800">
+              <div class="text-[10px] font-bold uppercase tracking-wider text-slate-500">Theme Mode</div>
+              <div class="grid grid-cols-2 gap-1.5 p-1 rounded-xl bg-slate-950/60 border border-slate-800/80">
+                <button
+                  type="button"
+                  @click="setTheme('light')"
+                  class="flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-lg text-xs font-semibold transition cursor-pointer select-none"
+                  :class="currentTheme === 'light' ? 'bg-white text-slate-900 shadow-sm border border-slate-200' : 'text-slate-400 hover:text-slate-200'"
+                >
+                  <i class="fa-solid fa-sun text-amber-500 text-[11px]"></i>
+                  <span>Light</span>
+                </button>
+                <button
+                  type="button"
+                  @click="setTheme('dark')"
+                  class="flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-lg text-xs font-semibold transition cursor-pointer select-none"
+                  :class="currentTheme === 'dark' ? 'bg-slate-800 text-white shadow-sm border border-slate-700' : 'text-slate-400 hover:text-slate-200'"
+                >
+                  <i class="fa-solid fa-moon text-sky-400 text-[11px]"></i>
+                  <span>Dark</span>
+                </button>
               </div>
             </div>
 
@@ -776,18 +927,21 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
       setup() {
         const currentUser = ref({});
         const currentTheme = ref(typeof localStorage !== 'undefined' ? (localStorage.getItem('dvt_theme') === 'dark' ? 'dark' : 'light') : 'light');
-        const toggleTheme = () => {
-          currentTheme.value = currentTheme.value === 'light' ? 'dark' : 'light';
+        const setTheme = (theme) => {
+          currentTheme.value = theme;
           try {
-            localStorage.setItem('dvt_theme', currentTheme.value);
+            localStorage.setItem('dvt_theme', theme);
           } catch(e) {}
-          if (currentTheme.value === 'dark') {
+          if (theme === 'dark') {
             document.documentElement.classList.remove('theme-light');
             document.documentElement.classList.add('theme-dark');
           } else {
             document.documentElement.classList.remove('theme-dark');
             document.documentElement.classList.add('theme-light');
           }
+        };
+        const toggleTheme = () => {
+          setTheme(currentTheme.value === 'light' ? 'dark' : 'light');
         };
         const accessibleFeatures = ref([]);
         const activeFeature = ref(null);
@@ -2329,6 +2483,7 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
         return {
           currentUser,
           currentTheme,
+          setTheme,
           toggleTheme,
           accessibleFeatures,
           activeFeature,
