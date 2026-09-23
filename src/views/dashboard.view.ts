@@ -39,7 +39,7 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
   <script src="https://cdn.jsdelivr.net/npm/socket.io-client@4.7.4/dist/socket.io.min.js"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=PT+Serif:ital,wght@0,400;0,700;1,400;1,700&family=Ubuntu:ital,wght@0,300;0,400;0,500;0,700;1,300;1,400;1,500;1,700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Azeret+Mono:ital,wght@0,300..900;1,300..900&family=Host+Grotesk:ital,wght@0,300..800;1,300..800&family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap" rel="stylesheet">
   <script>
     (function() {
       try {
@@ -57,7 +57,7 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
       background-color: #0b1329 !important;
       border: 1px solid #1e293b !important;
       font-size: 12px !important;
-      font-family: 'JetBrains Mono', monospace !important;
+      font-family: 'Azeret Mono', monospace !important;
     }
     .tabulator .tabulator-header {
       background-color: #0f172a !important;
@@ -136,7 +136,7 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
       border-radius: 4px;
       padding: 2px 6px !important;
       font-size: 12px !important;
-      font-family: 'JetBrains Mono', monospace !important;
+      font-family: 'Azeret Mono', monospace !important;
       outline: none !important;
       box-shadow: 0 0 0 2px rgba(14, 165, 233, 0.2) !important;
     }
@@ -148,7 +148,7 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
       color: #e2e8f0 !important;
       padding: 4px !important;
       font-size: 12px !important;
-      font-family: 'JetBrains Mono', monospace !important;
+      font-family: 'Azeret Mono', monospace !important;
     }
     .tabulator-menu .tabulator-menu-item {
       padding: 6px 12px !important;
@@ -166,7 +166,7 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
       border-radius: 6px !important;
       color: #e2e8f0 !important;
       font-size: 12px !important;
-      font-family: 'JetBrains Mono', monospace !important;
+      font-family: 'Azeret Mono', monospace !important;
       box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5) !important;
     }
     .tabulator-edit-list .tabulator-edit-list-item {
@@ -215,12 +215,16 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
       color: #334155 !important;
     }
 
-    /* Minimalist Typography with Google PT Serif */
-    body, input, button, select, textarea, p, h1, h2, h3, h4, h5, h6, span, label, a, td, th {
-      font-family: 'PT Serif', Georgia, Cambria, 'Times New Roman', Times, serif;
+    /* Modern Industrial Typography (keyvo.com stack: Inter, Host Grotesk, Azeret Mono) */
+    body, input, button, select, textarea, p, span, label, a, td, th {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
+    h1, h2, h3, h4, h5, h6, .font-heading, .brand-title, [class*="font-heading"] {
+      font-family: 'Host Grotesk', 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      letter-spacing: -0.015em;
     }
     .font-mono, code, pre, .mono, [class*="font-mono"] {
-      font-family: 'JetBrains Mono', monospace !important;
+      font-family: 'Azeret Mono', monospace !important;
     }
     .fa, .fas, .fa-solid, .fa-regular, .fa-brands {
       font-family: "Font Awesome 6 Free", "Font Awesome 6 Brands" !important;
@@ -390,15 +394,36 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
       border-color: #e2e8f0 !important;
     }
 
-    /* Text Colors */
-    .theme-light .text-white {
+    /* =========================================================================
+       TEXT COLORS & HIGH CONTRAST IN LIGHT MODE
+       ========================================================================= */
+    /* Universal dark text for headings, labels, strong, spans on light mode */
+    .theme-light h1:not([class*="bg-sky-600"] *):not([class*="bg-blue-600"] *):not([class*="bg-cyan-600"] *):not([class*="bg-emerald-600"] *):not([class*="bg-rose-600"] *):not([class*="bg-indigo-600"] *),
+    .theme-light h2:not([class*="bg-sky-600"] *):not([class*="bg-blue-600"] *):not([class*="bg-cyan-600"] *):not([class*="bg-emerald-600"] *):not([class*="bg-rose-600"] *):not([class*="bg-indigo-600"] *),
+    .theme-light h3:not([class*="bg-sky-600"] *):not([class*="bg-blue-600"] *):not([class*="bg-cyan-600"] *):not([class*="bg-emerald-600"] *):not([class*="bg-rose-600"] *):not([class*="bg-indigo-600"] *),
+    .theme-light h4:not([class*="bg-sky-600"] *):not([class*="bg-blue-600"] *):not([class*="bg-cyan-600"] *):not([class*="bg-emerald-600"] *):not([class*="bg-rose-600"] *):not([class*="bg-indigo-600"] *),
+    .theme-light h5,
+    .theme-light h6 {
       color: #0f172a !important;
     }
+
+    .theme-light strong:not([class*="text-"]):not([class*="bg-sky-600"] *):not([class*="bg-blue-600"] *):not([class*="bg-cyan-600"] *):not([class*="bg-emerald-600"] *):not([class*="bg-rose-600"] *):not([class*="bg-indigo-600"] *) {
+      color: #0f172a !important;
+    }
+
+    /* Text white conversion to dark slate (except on solid action buttons) */
+    .theme-light .text-white,
+    .theme-light [class*="text-white"]:not(button):not(a):not(button *):not(a *):not([class*="bg-sky-600"] *):not([class*="bg-blue-600"] *):not([class*="bg-cyan-600"] *):not([class*="bg-emerald-600"] *):not([class*="bg-red-600"] *):not([class*="bg-rose-600"] *):not([class*="bg-indigo-600"] *):not([class*="bg-purple-600"] *):not([class*="bg-amber-600"] *) {
+      color: #0f172a !important;
+    }
+
     .theme-light .text-slate-100,
     .theme-light .text-slate-200 {
       color: #1e293b !important;
     }
-    .theme-light .text-slate-300,
+    .theme-light .text-slate-300 {
+      color: #334155 !important;
+    }
     .theme-light .text-slate-400 {
       color: #475569 !important;
     }
@@ -406,53 +431,190 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
       color: #64748b !important;
     }
     .theme-light .text-slate-600 {
-      color: #94a3b8 !important;
+      color: #64748b !important;
+    }
+
+    /* Hover states: NEVER turn text white on light backgrounds! */
+    .theme-light [class*="hover:text-white"]:hover:not([class*="bg-sky-600"]):not([class*="bg-blue-600"]):not([class*="bg-cyan-600"]):not([class*="bg-emerald-600"]):not([class*="bg-rose-600"]):not([class*="bg-red-600"]):not([class*="bg-indigo-600"]):not([class*="bg-purple-600"]) {
+      color: #0f172a !important;
+    }
+    .theme-light [class*="hover:bg-slate-800"]:hover,
+    .theme-light [class*="hover:bg-slate-700"]:hover {
+      background-color: #e2e8f0 !important;
+      color: #0f172a !important;
     }
 
     /* Neon/Pale text enhancements for light backgrounds */
-    .theme-light .text-sky-300, .theme-light .text-sky-400 { color: #0284c7 !important; }
-    .theme-light .text-cyan-300, .theme-light .text-cyan-400 { color: #0891b2 !important; }
-    .theme-light .text-emerald-300, .theme-light .text-emerald-400 { color: #047857 !important; }
-    .theme-light .text-amber-300, .theme-light .text-amber-400 { color: #b45309 !important; }
-    .theme-light .text-red-300, .theme-light .text-red-400,
-    .theme-light .text-rose-300, .theme-light .text-rose-400 { color: #be123c !important; }
-    .theme-light .text-purple-300, .theme-light .text-purple-400,
-    .theme-light .text-violet-300, .theme-light .text-violet-400 { color: #6d28d9 !important; }
-    .theme-light .text-indigo-300, .theme-light .text-indigo-400 { color: #4338ca !important; }
-    .theme-light .text-teal-300, .theme-light .text-teal-400 { color: #0f766e !important; }
+    .theme-light .text-sky-200, .theme-light .text-sky-300, .theme-light .text-sky-400,
+    .theme-light [class*="text-sky-300"], .theme-light [class*="text-sky-400"] {
+      color: #0284c7 !important;
+    }
+    .theme-light .text-cyan-200, .theme-light .text-cyan-300, .theme-light .text-cyan-400,
+    .theme-light [class*="text-cyan-300"], .theme-light [class*="text-cyan-400"] {
+      color: #0891b2 !important;
+    }
+    .theme-light .text-emerald-200, .theme-light .text-emerald-300, .theme-light .text-emerald-400,
+    .theme-light [class*="text-emerald-300"], .theme-light [class*="text-emerald-400"] {
+      color: #047857 !important;
+    }
+    .theme-light .text-amber-200, .theme-light .text-amber-300, .theme-light .text-amber-400,
+    .theme-light [class*="text-amber-300"], .theme-light [class*="text-amber-400"] {
+      color: #b45309 !important;
+    }
+    .theme-light .text-red-200, .theme-light .text-red-300, .theme-light .text-red-400,
+    .theme-light .text-rose-200, .theme-light .text-rose-300, .theme-light .text-rose-400,
+    .theme-light [class*="text-rose-300"], .theme-light [class*="text-red-300"] {
+      color: #be123c !important;
+    }
+    .theme-light .text-purple-200, .theme-light .text-purple-300, .theme-light .text-purple-400,
+    .theme-light .text-violet-200, .theme-light .text-violet-300, .theme-light .text-violet-400,
+    .theme-light [class*="text-purple-300"] {
+      color: #6d28d9 !important;
+    }
+    .theme-light .text-indigo-200, .theme-light .text-indigo-300, .theme-light .text-indigo-400,
+    .theme-light [class*="text-indigo-300"] {
+      color: #4338ca !important;
+    }
+    .theme-light .text-teal-200, .theme-light .text-teal-300, .theme-light .text-teal-400 {
+      color: #0f766e !important;
+    }
 
-    /* Maintain white text ONLY on solid/gradient colored action buttons and badges */
-    .theme-light button[class*="bg-sky-600"],
-    .theme-light button[class*="bg-blue-600"],
-    .theme-light button[class*="bg-cyan-600"],
-    .theme-light button[class*="bg-emerald-600"],
-    .theme-light button[class*="bg-red-600"],
-    .theme-light button[class*="bg-rose-600"],
-    .theme-light button[class*="bg-indigo-600"],
-    .theme-light button[class*="bg-sky-"],
-    .theme-light button[class*="bg-blue-"],
-    .theme-light button[class*="bg-cyan-"],
-    .theme-light button[class*="bg-emerald-"],
-    .theme-light button[class*="bg-red-"],
-    .theme-light button[class*="bg-rose-"],
-    .theme-light button[class*="bg-indigo-"],
-    .theme-light button[class*="bg-gradient-"],
-    .theme-light a[class*="bg-sky-"],
-    .theme-light a[class*="bg-blue-"],
-    .theme-light a[class*="bg-cyan-"],
-    .theme-light a[class*="bg-emerald-"],
-    .theme-light a[class*="bg-red-"],
-    .theme-light a[class*="bg-rose-"],
-    .theme-light a[class*="bg-indigo-"],
-    .theme-light a[class*="bg-gradient-"],
-    .theme-light button[class*="bg-gradient-"] *,
-    .theme-light a[class*="bg-gradient-"] *,
-    .theme-light button[class*="bg-emerald-"] *,
-    .theme-light button[class*="bg-rose-"] *,
-    .theme-light button[class*="bg-cyan-"] *,
-    .theme-light button[class*="bg-blue-"] *,
-    .theme-light button[class*="bg-indigo-"] * {
+    .theme-light [class*="hover:text-cyan-300"]:hover,
+    .theme-light [class*="group-hover:text-cyan-300"] {
+      color: #0891b2 !important;
+    }
+    .theme-light [class*="hover:text-sky-300"]:hover,
+    .theme-light [class*="group-hover:text-sky-400"] {
+      color: #0284c7 !important;
+    }
+
+    /* =========================================================================
+       SOLID COLORED ACTION BUTTONS - CRISP WHITE TEXT PRESERVED
+       ========================================================================= */
+    .theme-light button[class*="bg-sky-600"]:not([class*="/"]),
+    .theme-light button[class*="bg-sky-700"]:not([class*="/"]),
+    .theme-light button[class*="bg-blue-600"]:not([class*="/"]),
+    .theme-light button[class*="bg-blue-700"]:not([class*="/"]),
+    .theme-light button[class*="bg-cyan-600"]:not([class*="/"]),
+    .theme-light button[class*="bg-cyan-700"]:not([class*="/"]),
+    .theme-light button[class*="bg-emerald-600"]:not([class*="/"]),
+    .theme-light button[class*="bg-emerald-700"]:not([class*="/"]),
+    .theme-light button[class*="bg-red-600"]:not([class*="/"]),
+    .theme-light button[class*="bg-red-700"]:not([class*="/"]),
+    .theme-light button[class*="bg-rose-600"]:not([class*="/"]),
+    .theme-light button[class*="bg-rose-700"]:not([class*="/"]),
+    .theme-light button[class*="bg-indigo-600"]:not([class*="/"]),
+    .theme-light button[class*="bg-indigo-700"]:not([class*="/"]),
+    .theme-light button[class*="bg-purple-600"]:not([class*="/"]),
+    .theme-light button[class*="bg-purple-700"]:not([class*="/"]),
+    .theme-light button[class*="bg-amber-600"]:not([class*="/"]),
+    .theme-light button[class*="bg-amber-700"]:not([class*="/"]),
+    .theme-light button[class*="bg-gradient-"]:not([class*="slate"]):not([class*="black"]):not([class*="/"]),
+    .theme-light a[class*="bg-sky-600"]:not([class*="/"]),
+    .theme-light a[class*="bg-blue-600"]:not([class*="/"]),
+    .theme-light a[class*="bg-cyan-600"]:not([class*="/"]),
+    .theme-light a[class*="bg-emerald-600"]:not([class*="/"]),
+    .theme-light a[class*="bg-red-600"]:not([class*="/"]),
+    .theme-light a[class*="bg-rose-600"]:not([class*="/"]),
+    .theme-light a[class*="bg-indigo-600"]:not([class*="/"]),
+    .theme-light a[class*="bg-purple-600"]:not([class*="/"]),
+    .theme-light a[class*="bg-amber-600"]:not([class*="/"]),
+    .theme-light a[class*="bg-gradient-"]:not([class*="slate"]):not([class*="black"]):not([class*="/"]) {
       color: #ffffff !important;
+    }
+
+    .theme-light button[class*="bg-sky-600"]:not([class*="/"]) *,
+    .theme-light button[class*="bg-sky-700"]:not([class*="/"]) *,
+    .theme-light button[class*="bg-blue-600"]:not([class*="/"]) *,
+    .theme-light button[class*="bg-blue-700"]:not([class*="/"]) *,
+    .theme-light button[class*="bg-cyan-600"]:not([class*="/"]) *,
+    .theme-light button[class*="bg-cyan-700"]:not([class*="/"]) *,
+    .theme-light button[class*="bg-emerald-600"]:not([class*="/"]) *,
+    .theme-light button[class*="bg-emerald-700"]:not([class*="/"]) *,
+    .theme-light button[class*="bg-red-600"]:not([class*="/"]) *,
+    .theme-light button[class*="bg-red-700"]:not([class*="/"]) *,
+    .theme-light button[class*="bg-rose-600"]:not([class*="/"]) *,
+    .theme-light button[class*="bg-rose-700"]:not([class*="/"]) *,
+    .theme-light button[class*="bg-indigo-600"]:not([class*="/"]) *,
+    .theme-light button[class*="bg-indigo-700"]:not([class*="/"]) *,
+    .theme-light button[class*="bg-purple-600"]:not([class*="/"]) *,
+    .theme-light button[class*="bg-purple-700"]:not([class*="/"]) *,
+    .theme-light button[class*="bg-amber-600"]:not([class*="/"]) *,
+    .theme-light button[class*="bg-amber-700"]:not([class*="/"]) *,
+    .theme-light button[class*="bg-gradient-"]:not([class*="slate"]):not([class*="black"]):not([class*="/"]) *,
+    .theme-light a[class*="bg-sky-600"]:not([class*="/"]) *,
+    .theme-light a[class*="bg-blue-600"]:not([class*="/"]) *,
+    .theme-light a[class*="bg-cyan-600"]:not([class*="/"]) *,
+    .theme-light a[class*="bg-emerald-600"]:not([class*="/"]) *,
+    .theme-light a[class*="bg-red-600"]:not([class*="/"]) *,
+    .theme-light a[class*="bg-rose-600"]:not([class*="/"]) *,
+    .theme-light a[class*="bg-indigo-600"]:not([class*="/"]) *,
+    .theme-light a[class*="bg-purple-600"]:not([class*="/"]) *,
+    .theme-light a[class*="bg-amber-600"]:not([class*="/"]) *,
+    .theme-light a[class*="bg-gradient-"]:not([class*="slate"]):not([class*="black"]):not([class*="/"]) * {
+      color: #ffffff !important;
+    }
+
+    /* =========================================================================
+       SUBTLE / TINTED ACTION BUTTONS - HIGH CONTRAST DARK TEXT IN LIGHT MODE
+       ========================================================================= */
+    .theme-light button[class*="bg-cyan-"][class*="/"],
+    .theme-light a[class*="bg-cyan-"][class*="/"] {
+      background-color: #e0f2fe !important;
+      border-color: #7dd3fc !important;
+      color: #0369a1 !important;
+    }
+    .theme-light button[class*="bg-cyan-"][class*="/"] *,
+    .theme-light a[class*="bg-cyan-"][class*="/"] * {
+      color: #0369a1 !important;
+    }
+
+    .theme-light button[class*="bg-indigo-"][class*="/"],
+    .theme-light a[class*="bg-indigo-"][class*="/"] {
+      background-color: #e0e7ff !important;
+      border-color: #a5b4fc !important;
+      color: #4338ca !important;
+    }
+    .theme-light button[class*="bg-indigo-"][class*="/"] *,
+    .theme-light a[class*="bg-indigo-"][class*="/"] * {
+      color: #4338ca !important;
+    }
+
+    .theme-light button[class*="bg-emerald-"][class*="/"],
+    .theme-light a[class*="bg-emerald-"][class*="/"] {
+      background-color: #dcfce7 !important;
+      border-color: #86efac !important;
+      color: #047857 !important;
+    }
+    .theme-light button[class*="bg-emerald-"][class*="/"] *,
+    .theme-light a[class*="bg-emerald-"][class*="/"] * {
+      color: #047857 !important;
+    }
+
+    .theme-light button[class*="bg-amber-"][class*="/"],
+    .theme-light a[class*="bg-amber-"][class*="/"] {
+      background-color: #fef3c7 !important;
+      border-color: #fcd34d !important;
+      color: #b45309 !important;
+    }
+    .theme-light button[class*="bg-amber-"][class*="/"] *,
+    .theme-light a[class*="bg-amber-"][class*="/"] * {
+      color: #b45309 !important;
+    }
+
+    .theme-light button[class*="bg-rose-"][class*="/"],
+    .theme-light button[class*="bg-red-"][class*="/"],
+    .theme-light a[class*="bg-rose-"][class*="/"],
+    .theme-light a[class*="bg-red-"][class*="/"] {
+      background-color: #fee2e2 !important;
+      border-color: #fca5a5 !important;
+      color: #b91c1c !important;
+    }
+    .theme-light button[class*="bg-rose-"][class*="/"] *,
+    .theme-light button[class*="bg-red-"][class*="/"] *,
+    .theme-light a[class*="bg-rose-"][class*="/"] *,
+    .theme-light a[class*="bg-red-"][class*="/"] * {
+      color: #b91c1c !important;
     }
 
     /* Product Test Automation Workbench - Comprehensive Light Mode Rules */
@@ -669,7 +831,7 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
       transform: translateY(-4px);
       pointer-events: none;
     }
-    .font-mono { font-family: 'JetBrains Mono', monospace !important; }
+    .font-mono { font-family: 'Azeret Mono', monospace !important; }
     .custom-scroll::-webkit-scrollbar { width: 6px; height: 10px; }
     .custom-scroll::-webkit-scrollbar-track { background: #090d16; border-radius: 6px; }
     .custom-scroll::-webkit-scrollbar-thumb { background: #475569; border-radius: 6px; border: 2px solid #090d16; }

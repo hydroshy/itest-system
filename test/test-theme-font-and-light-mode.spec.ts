@@ -14,15 +14,19 @@ function runTests() {
   const dashContent = fs.readFileSync(dashPath, 'utf8');
   const loginContent = fs.readFileSync(loginPath, 'utf8');
 
-  // [TEST 1] Font Migration (Google Ubuntu / PT Serif)
-  console.log('[TEST 1] Verifying Google Ubuntu Font Migration across views...');
+  // [TEST 1] Font Migration (Keyvo Typography Stack: Inter, Host Grotesk, Azeret Mono)
+  console.log('[TEST 1] Verifying Keyvo Typography Stack (Inter, Host Grotesk, Azeret Mono) across views...');
   for (const [name, content] of [['Control Panel', cpContent], ['Dashboard', dashContent], ['Login', loginContent]]) {
-    const hasUbuntu = content.includes('Ubuntu') && content.includes("'Ubuntu'");
-    const hasPtSerif = content.includes('PT+Serif') && content.includes("'PT Serif'");
-    if (!hasUbuntu && !hasPtSerif) {
-      throw new Error(`[FAIL] ${name} does not reference Google Ubuntu or PT Serif font!`);
+    const hasInter = content.includes('Inter') && (content.includes("'Inter'") || content.includes('family=Inter'));
+    const hasHostGrotesk = content.includes('Host+Grotesk') || content.includes('Host Grotesk');
+    const hasAzeret = content.includes('Azeret+Mono') || content.includes('Azeret Mono');
+    if (!hasInter) {
+      throw new Error(`[FAIL] ${name} does not reference Google Inter font!`);
     }
-    console.log(`  -> PASS: ${name} fully migrated to Google Ubuntu font.`);
+    if (name !== 'Login' && (!hasHostGrotesk || !hasAzeret)) {
+      throw new Error(`[FAIL] ${name} does not reference Host Grotesk or Azeret Mono font!`);
+    }
+    console.log(`  -> PASS: ${name} fully migrated to Keyvo Typography Stack (Inter, Host Grotesk, Azeret Mono).`);
   }
 
   // [TEST 2] Relocate Theme Switcher from Navbar Header into User Dropdown Card
