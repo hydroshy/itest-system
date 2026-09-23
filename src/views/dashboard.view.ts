@@ -39,7 +39,7 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
   <script src="https://cdn.jsdelivr.net/npm/socket.io-client@4.7.4/dist/socket.io.min.js"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=PT+Serif:ital,wght@0,400;0,700;1,400;1,700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
   <script>
     (function() {
       try {
@@ -182,9 +182,9 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
       from { opacity: 0; transform: translateY(4px); }
       to { opacity: 1; transform: translateY(0); }
     }
-    /* Modern Typography with Google Inter */
+    /* Expressive Typography with Google PT Serif */
     body, input, button, select, textarea, p, h1, h2, h3, h4, h5, h6, span, label, a, td, th {
-      font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      font-family: 'PT Serif', Georgia, 'Times New Roman', serif;
     }
     .font-mono, code, pre, .mono, [class*="font-mono"] {
       font-family: 'JetBrains Mono', monospace !important;

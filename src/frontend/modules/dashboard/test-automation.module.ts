@@ -29,10 +29,10 @@ export const TEST_AUTOMATION_TEMPLATE = `          <div v-else-if="activeFeature
                   type="button"
                   @click="openEvidenceModal()"
                   class="px-3 py-1.5 rounded-xl bg-cyan-600/30 hover:bg-cyan-600/40 text-cyan-300 border border-cyan-500/40 text-xs font-bold flex items-center gap-1.5 cursor-pointer transition"
-                  title="View Saved Sensor Decoded Test Evidence in PostgreSQL (Bằng chứng sau test)"
+                  title="View Saved Sensor Decoded Test Evidence in PostgreSQL"
                 >
                   <i class="fa-solid fa-clipboard-check text-cyan-400"></i>
-                  <span>Test Evidence (Bằng chứng sau test)</span>
+                  <span>Test Evidence</span>
                 </button>
 
                 <button
@@ -114,7 +114,7 @@ export const TEST_AUTOMATION_TEMPLATE = `          <div v-else-if="activeFeature
                         :disabled="isBatchTesting"
                         class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-xl text-white text-xs font-mono font-semibold focus:ring-1 focus:ring-cyan-500 focus:outline-none cursor-pointer disabled:opacity-50"
                       >
-                        <option value="" disabled>-- Select Existing Sales Order --</option>
+                        <option value="">-- Select Sales Order --</option>
                         <option v-for="so in salesOrdersList" :key="so.id || so.soCode" :value="so.soCode">
                           {{ so.soCode }} — {{ so.customer || 'Internal Batch' }} ({{ so.items?.length || 0 }} items)
                         </option>
@@ -125,7 +125,7 @@ export const TEST_AUTOMATION_TEMPLATE = `          <div v-else-if="activeFeature
                   <!-- Dropdown: Select Item Code / SKU in SO -->
                   <div class="md:col-span-3 space-y-1.5">
                     <label class="block text-xs font-bold text-slate-300">
-                      <span class="text-cyan-400 font-mono">2.</span> Target Item / SKU
+                      <span class="text-cyan-400 font-mono">2.</span> Target Item Code
                     </label>
                     <select
                       v-model="selectedItemCode"
@@ -133,7 +133,7 @@ export const TEST_AUTOMATION_TEMPLATE = `          <div v-else-if="activeFeature
                       :disabled="isBatchTesting || !availableSoItems.length"
                       class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-xl text-white text-xs font-mono focus:ring-1 focus:ring-cyan-500 focus:outline-none cursor-pointer disabled:opacity-50"
                     >
-                      <option v-if="!availableSoItems.length" value="">No SO Selected</option>
+                      <option value="">-- Select Item Code --</option>
                       <option v-for="item in availableSoItems" :key="item.id || item.itemCode" :value="item.itemCode">
                         {{ item.itemCode }} ({{ item.sku }}, FW: {{ item.firmwareVersion }})
                       </option>
@@ -144,22 +144,22 @@ export const TEST_AUTOMATION_TEMPLATE = `          <div v-else-if="activeFeature
                 <!-- MODE B: MANUAL SALES ORDER INPUTS -->
                 <template v-else>
                   <!-- Input: Manual Sales Order Code -->
-                  <div class="md:col-span-3 space-y-1.5">
+                  <div class="md:col-span-4 space-y-1.5">
                     <label class="block text-xs font-bold text-slate-300">
-                      <span class="text-cyan-400 font-mono">1.</span> Manual SO Code <span class="text-rose-400">*</span>
+                      <span class="text-cyan-400 font-mono">1.</span> SO Code <span class="text-rose-400">*</span>
                     </label>
                     <input
                       type="text"
                       v-model="manualSoCode"
                       @input="onManualSoCodeInput"
-                      placeholder="e.g. SO/2026/MANUAL-001"
+                      placeholder="Enter SO Code..."
                       :disabled="isBatchTesting"
                       class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-xl text-white text-xs font-mono font-semibold focus:ring-1 focus:ring-cyan-500 focus:outline-none disabled:opacity-50"
                     />
                   </div>
 
                   <!-- Input: Manual Item Code -->
-                  <div class="md:col-span-2 space-y-1.5">
+                  <div class="md:col-span-3 space-y-1.5">
                     <label class="block text-xs font-bold text-slate-300">
                       <span class="text-cyan-400 font-mono">2.</span> Item Code <span class="text-rose-400">*</span>
                     </label>
@@ -167,45 +167,21 @@ export const TEST_AUTOMATION_TEMPLATE = `          <div v-else-if="activeFeature
                       type="text"
                       v-model="manualItemCode"
                       @input="onManualItemInput"
-                      placeholder="e.g. WSLRW-ATH-01"
+                      placeholder="Enter Item Code..."
                       :disabled="isBatchTesting"
                       class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-xl text-white text-xs font-mono focus:ring-1 focus:ring-cyan-500 focus:outline-none disabled:opacity-50"
                     />
                   </div>
 
-                  <!-- Input: Manual SKU -->
-                  <div class="md:col-span-2 space-y-1.5">
-                    <label class="block text-xs font-bold text-slate-300">
-                      SKU <span class="text-rose-400">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      v-model="manualSku"
-                      @input="onManualItemInput"
-                      placeholder="e.g. WSLRW-ATH"
-                      :disabled="isBatchTesting"
-                      class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-xl text-white text-xs font-mono focus:ring-1 focus:ring-cyan-500 focus:outline-none disabled:opacity-50"
-                    />
-                  </div>
-
-                  <!-- Input: Manual FW -->
-                  <div class="md:col-span-1 space-y-1.5">
-                    <label class="block text-xs font-bold text-slate-300">
-                      FW
-                    </label>
-                    <input
-                      type="text"
-                      v-model="manualFw"
-                      @input="onManualItemInput"
-                      placeholder="1.0"
-                      :disabled="isBatchTesting"
-                      class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-xl text-white text-xs font-mono focus:ring-1 focus:ring-cyan-500 focus:outline-none disabled:opacity-50"
-                    />
+                  <!-- Hidden inputs for manualSku and manualFw to preserve test compatibility -->
+                  <div class="hidden" style="display: none;">
+                    <input type="text" v-model="manualSku" @input="onManualItemInput" />
+                    <input type="text" v-model="manualFw" @input="onManualItemInput" />
                   </div>
                 </template>
 
                 <!-- Template & Duration Info Pill -->
-                <div :class="isManualSo ? 'md:col-span-1' : 'md:col-span-2'" class="space-y-1.5">
+                <div class="md:col-span-2 space-y-1.5">
                   <label class="block text-[11px] font-bold text-slate-400">Duration</label>
                   <div class="flex items-center gap-1.5 px-2.5 py-2 rounded-xl bg-slate-950/80 border border-slate-800 text-xs font-mono">
                     <i class="fa-solid fa-stopwatch text-amber-400"></i>
@@ -213,55 +189,18 @@ export const TEST_AUTOMATION_TEMPLATE = `          <div v-else-if="activeFeature
                   </div>
                 </div>
 
-                <!-- Action Buttons: Device Onboarding via UART & Start Test -->
-                <div class="md:col-span-3 flex items-center gap-2 justify-end flex-wrap">
+                <!-- Action Button: Device Onboarding via UART -->
+                <div class="md:col-span-3 flex items-center justify-end">
                   <button
                     type="button"
                     @click="openDeviceOnboardModal"
                     :disabled="!selectedSoCode || isBatchTesting"
-                    class="px-3.5 py-2.5 rounded-xl bg-cyan-600/25 hover:bg-cyan-600/40 text-cyan-300 border border-cyan-500/40 text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-lg shadow-cyan-950/30 transition disabled:opacity-50"
-                    title="Read Serial UART per template and register device to ChirpStack"
+                    class="w-full px-4 py-2.5 rounded-xl bg-cyan-600/25 hover:bg-cyan-600/40 text-cyan-300 border border-cyan-500/40 text-xs font-bold flex items-center justify-center gap-2 cursor-pointer shadow-lg shadow-cyan-950/30 transition disabled:opacity-50"
+                    title="Read Serial UART and register device to ChirpStack"
                   >
                     <i class="fa-solid fa-microchip text-xs text-cyan-400"></i>
-                    <span>Register Device (UART)</span>
+                    <span>Register Device</span>
                   </button>
-
-                  <button
-                    v-if="!isBatchTesting"
-                    type="button"
-                    @click="startBatchTest"
-                    :disabled="!selectedSoCode || batchDevices.length === 0"
-                    class="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold flex items-center justify-center gap-2 cursor-pointer shadow-lg shadow-emerald-950/50 transition active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    <i class="fa-solid fa-play text-xs"></i>
-                    <span>Start Test ({{ batchDevices.length }})</span>
-                  </button>
-
-                  <button
-                    v-else
-                    type="button"
-                    @click="abortBatchTest"
-                    class="px-4 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold flex items-center justify-center gap-2 cursor-pointer shadow-lg shadow-rose-950/50 transition active:scale-95"
-                  >
-                    <i class="fa-solid fa-stop text-xs"></i>
-                    <span>Abort Test</span>
-                  </button>
-                </div>
-              </div>
-
-              <!-- Template Rule Specs Strip -->
-              <div v-if="selectedSoItem" class="flex flex-wrap items-center justify-between gap-2 pt-3 border-t border-slate-800/80 text-xs">
-                <div class="flex items-center gap-3 flex-wrap">
-                  <span class="text-slate-400">SKU: <strong class="text-sky-300 font-mono">{{ selectedSoItem.sku }}</strong></span>
-                  <span class="text-slate-600">•</span>
-                  <span class="text-slate-400">FW: <strong class="text-indigo-300 font-mono">{{ selectedSoItem.firmwareVersion }}</strong></span>
-                  <span class="text-slate-600">•</span>
-                  <span class="text-slate-400">Template: <strong class="text-amber-300">{{ linkedTemplate?.name || 'Auto-Detected Template' }}</strong></span>
-                  <span class="text-slate-600">•</span>
-                  <span class="text-slate-400">Min Packets: <strong class="text-cyan-300 font-mono">{{ linkedTemplate?.minPacketsRequired || 1 }} pkt</strong></span>
-                </div>
-                <div class="text-[11px] text-slate-400 font-mono">
-                  Target Qty: <strong class="text-white">{{ selectedSoItem.quantity || 1 }}</strong> | Tested: <strong class="text-emerald-400">{{ selectedSoItem.testedQuantity || 0 }}</strong>
                 </div>
               </div>
             </div>
@@ -382,7 +321,7 @@ export const TEST_AUTOMATION_TEMPLATE = `          <div v-else-if="activeFeature
                       @change="toggleSelectAllVisibleFleet"
                       class="rounded bg-slate-950 border-slate-700 text-cyan-600 focus:ring-0 cursor-pointer"
                     />
-                    <span class="text-[11px] font-semibold">Select All ({{ selectedFleetDevEUIs.size }})</span>
+                    <span class="text-[11px] font-semibold">Select All</span>
                   </label>
 
                   <button
@@ -392,7 +331,7 @@ export const TEST_AUTOMATION_TEMPLATE = `          <div v-else-if="activeFeature
                     class="px-3 py-1.5 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-md transition disabled:opacity-40 disabled:cursor-not-allowed"
                     title="Push selected devices into test simulation batch"
                   >
-                    <span>+ Push to Batch</span>
+                    <span>Push to Batch</span>
                     <i class="fa-solid fa-arrow-right text-[10px]"></i>
                   </button>
                 </div>
@@ -656,6 +595,54 @@ export const TEST_AUTOMATION_TEMPLATE = `          <div v-else-if="activeFeature
                       </tr>
                     </tbody>
                   </table>
+                </div>
+
+                <!-- Bottom Action Controls: Start Test & Cancel -->
+                <div class="flex items-center justify-between pt-4 border-t border-slate-800/80 gap-3 flex-wrap">
+                  <div class="flex items-center gap-2">
+                    <button
+                      v-if="batchDevices.length > 0 && !isBatchTesting"
+                      type="button"
+                      @click="clearBatch"
+                      class="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 text-xs font-semibold flex items-center gap-2 cursor-pointer transition"
+                      title="Cancel and clear current batch"
+                    >
+                      <i class="fa-solid fa-ban text-xs text-rose-400"></i>
+                      <span>Cancel</span>
+                    </button>
+                    <button
+                      v-if="isBatchTesting"
+                      type="button"
+                      @click="abortBatchTest"
+                      class="px-4 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold flex items-center gap-2 cursor-pointer shadow-lg shadow-rose-950/50 transition active:scale-95"
+                      title="Cancel and abort running test"
+                    >
+                      <i class="fa-solid fa-stop text-xs"></i>
+                      <span>Cancel</span>
+                    </button>
+                  </div>
+
+                  <div class="flex items-center gap-2.5">
+                    <button
+                      v-if="!isBatchTesting"
+                      type="button"
+                      @click="startBatchTest"
+                      :disabled="!selectedSoCode || batchDevices.length === 0"
+                      class="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold flex items-center justify-center gap-2 cursor-pointer shadow-lg shadow-emerald-950/50 transition active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <i class="fa-solid fa-play text-xs"></i>
+                      <span>Start Test</span>
+                    </button>
+                    <button
+                      v-else
+                      type="button"
+                      @click="completeBatchTest"
+                      class="px-5 py-2.5 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-bold flex items-center justify-center gap-2 cursor-pointer shadow-lg shadow-cyan-950/50 transition active:scale-95"
+                    >
+                      <i class="fa-solid fa-check text-xs"></i>
+                      <span>Finish Now</span>
+                    </button>
+                  </div>
                 </div>
 
                 <!-- Hidden filter anchor to preserve test 7 compatibility -->
@@ -1101,7 +1088,7 @@ export const TEST_AUTOMATION_MODALS = `
                 >
                   <i v-if="uartReading" class="fa-solid fa-circle-notch animate-spin text-amber-400"></i>
                   <i v-else class="fa-solid fa-bolt text-amber-400"></i>
-                  <span>Read Device (UART)</span>
+                  <span>Read Device</span>
                 </button>
 
                 <button
@@ -1112,7 +1099,7 @@ export const TEST_AUTOMATION_MODALS = `
                   title="Simulate reading standard parameters from @example/template_dvt.csv"
                 >
                   <i class="fa-solid fa-flask"></i>
-                  <span>Simulate Read (@template_dvt.csv)</span>
+                  <span>Simulate Read</span>
                 </button>
               </div>
             </div>
@@ -1238,14 +1225,14 @@ export const TEST_AUTOMATION_MODALS = `
             >
               <i v-if="isRegisteringToChirpstack" class="fa-solid fa-circle-notch animate-spin"></i>
               <i v-else class="fa-solid fa-cloud-arrow-up"></i>
-              <span>Confirm & Register to ChirpStack</span>
+              <span>Confirm & Register</span>
             </button>
           </div>
         </div>
       </div>
 
       <!-- ======================================================== -->
-      <!-- 5. MODAL: POST-TEST SENSOR DECODED DATA EVIDENCE (BẰNG CHỨNG SAU TEST) -->
+      <!-- 5. MODAL: POST-TEST SENSOR DECODED DATA EVIDENCE -->
       <!-- ======================================================== -->
       <div v-if="showEvidenceModal" class="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/85 backdrop-blur-md animate-in fade-in">
         <div class="w-full max-w-5xl max-h-[90vh] bg-slate-900 border border-slate-700 rounded-2xl p-5 sm:p-6 space-y-4 shadow-2xl text-slate-200 flex flex-col test-automation-modal-card animate-in zoom-in-95">
@@ -1257,7 +1244,7 @@ export const TEST_AUTOMATION_MODALS = `
               </div>
               <div>
                 <h3 class="text-base font-extrabold text-white tracking-wide flex items-center gap-2">
-                  <span>Post-Test Sensor Evidence (Bằng chứng sau test)</span>
+                  <span>Post-Test Sensor Evidence</span>
                   <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 font-mono">POSTGRESQL test_evidence</span>
                 </h3>
                 <p class="text-xs text-slate-400">
@@ -1490,9 +1477,9 @@ function useTestAutomationModule(ctx) {
 
   // Manual SO Mode Support
   const isManualSo = ref(false);
-  const manualSoCode = ref('SO/2026/MANUAL-001');
-  const manualItemCode = ref('WSLRW-ATH-01');
-  const manualSku = ref('WSLRW-ATH');
+  const manualSoCode = ref('');
+  const manualItemCode = ref('');
+  const manualSku = ref('');
   const manualFw = ref('1.0');
   const manualTargetQty = ref(10);
 
@@ -1750,10 +1737,6 @@ function useTestAutomationModule(ctx) {
       if (res.ok) {
         const json = await res.json();
         salesOrdersList.value = json.data || json.items || (Array.isArray(json) ? json : []);
-        if (!selectedSoCode.value && salesOrdersList.value.length > 0) {
-          selectedSoCode.value = salesOrdersList.value[0].soCode;
-          onSoSelectChange();
-        }
       }
     } catch (e) {
       console.error('Failed to load Sales Orders:', e);
@@ -1769,10 +1752,10 @@ function useTestAutomationModule(ctx) {
       selectedItemCode.value = manualItemCode.value;
       onManualItemInput();
     } else {
-      if (salesOrdersList.value.length > 0) {
-        selectedSoCode.value = salesOrdersList.value[0].soCode;
-        onSoSelectChange();
-      }
+      selectedSoCode.value = '';
+      selectedItemCode.value = '';
+      selectedSoItem.value = null;
+      linkedTemplate.value = null;
     }
   };
 

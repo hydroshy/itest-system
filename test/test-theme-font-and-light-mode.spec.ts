@@ -14,16 +14,13 @@ function runTests() {
   const dashContent = fs.readFileSync(dashPath, 'utf8');
   const loginContent = fs.readFileSync(loginPath, 'utf8');
 
-  // [TEST 1] Font Inter Migration
-  console.log('[TEST 1] Verifying Google Inter Font Migration across views...');
+  // [TEST 1] Font PT Serif Migration
+  console.log('[TEST 1] Verifying Google PT Serif Font Migration across views...');
   for (const [name, content] of [['Control Panel', cpContent], ['Dashboard', dashContent], ['Login', loginContent]]) {
-    if (content.includes('PT+Serif') || content.includes('PT Serif')) {
-      throw new Error(`[FAIL] ${name} still contains PT Serif!`);
+    if (!content.includes('PT+Serif') || !content.includes("'PT Serif'")) {
+      throw new Error(`[FAIL] ${name} does not reference Google PT Serif font!`);
     }
-    if (!content.includes('family=Inter') || !content.includes("'Inter'")) {
-      throw new Error(`[FAIL] ${name} does not reference Google Inter font!`);
-    }
-    console.log(`  -> PASS: ${name} fully migrated to Google Inter font.`);
+    console.log(`  -> PASS: ${name} fully migrated to Google PT Serif font.`);
   }
 
   // [TEST 2] Relocate Theme Switcher from Navbar Header into User Dropdown Card
