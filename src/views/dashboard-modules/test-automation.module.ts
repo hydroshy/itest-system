@@ -71,49 +71,187 @@ export const TEST_AUTOMATION_TEMPLATE = `          <div v-else-if="activeFeature
             <div class="bg-gradient-to-r from-slate-900 via-slate-900/95 to-slate-950 p-4 sm:p-5 rounded-2xl border border-slate-800 shadow-xl space-y-3">
               <!-- Input Fields Grid (Only 2 fields: SO and ITEM_CODE, plus Register Device button; no 1. 2. prefix, no Duration) -->
               <div class="grid grid-cols-1 md:grid-cols-12 gap-4 items-end">
-                <!-- Field 1: SO (Fillable Dropdown List) -->
-                <div class="md:col-span-5 space-y-1.5">
-                  <label class="block text-xs font-bold text-slate-300">
-                    SO <span class="text-rose-400">*</span>
-                  </label>
+                <!-- Field 1: SO (Searchable Dropdown with Top 5 Recent & Digits Matching) -->
+                <div class="md:col-span-5 space-y-1.5 relative so-dropdown-wrapper" ref="soDropdownContainer">
+                  <div class="flex items-center justify-between">
+                    <label class="block text-xs font-bold text-slate-300">
+                      SO <span class="text-rose-400">*</span>
+                    </label>
+                    <span v-if="selectedSo" class="text-[10px] text-cyan-400 font-mono flex items-center gap-1">
+                      <i class="fa-solid fa-circle-check text-[9px]"></i> Valid SO
+                    </span>
+                    <span v-else-if="manualSoCode && !selectedSo" class="text-[10px] text-amber-400 font-mono">
+                      Not found
+                    </span>
+                  </div>
+
                   <div class="relative">
                     <input
                       type="text"
-                      list="so-code-dropdown-options"
                       v-model="manualSoCode"
-                      @input="onManualSoCodeInput"
-                      @change="onManualSoCodeChange"
-                      placeholder="Enter or select SO..."
+                      @focus="openSoDropdown"
+                      @click="openSoDropdown"
+                      @input="onSoInputTyped"
+                      placeholder="Type digits or select SO..."
                       :disabled="isBatchTesting"
-                      class="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-700 rounded-xl text-white text-xs font-mono font-semibold focus:ring-1 focus:ring-cyan-500 focus:outline-none disabled:opacity-50"
+                      autocomplete="off"
+                      class="w-full pl-3.5 pr-9 py-2.5 bg-slate-950 border border-slate-700 rounded-xl text-white text-xs font-mono font-semibold focus:ring-1 focus:ring-cyan-500 focus:border-cyan-500 focus:outline-none disabled:opacity-50 transition"
                     />
-                    <datalist id="so-code-dropdown-options">
+
+                    <!-- Chevron Dropdown Toggle Button -->
+                    <button
+                      type="button"
+                      tabindex="-1"
+                      @click.stop="toggleSoDropdown"
+                      :disabled="isBatchTesting"
+                      class="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-cyan-400 cursor-pointer disabled:opacity-40"
+                    >
+                      <i class="fa-solid fa-chevron-down text-xs transition-transform duration-200" :class="{ 'rotate-180 text-cyan-400': soDropdownOpen }"></i>
+                    </button>
+
+                    <!-- Custom Dropdown Menu -->
+                    <div
+                      v-if="soDropdownOpen"
+                      class="absolute left-0 right-0 mt-1.5 z-50 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl max-h-64 overflow-y-auto custom-scroll animate-in fade-in"
+                    >
+                      <!-- Header Hint -->
+                      <div class="px-3 py-1.5 border-b border-slate-800 text-[10px] uppercase tracking-wider font-semibold text-slate-400 flex items-center justify-between bg-slate-950/70">
+                        <span>{{ !manualSoCode.trim() ? '5 Most Recent Sales Orders' : 'Matching Sales Orders (' + filteredSoList.length + ')' }}</span>
+                        <span class="font-mono text-[9px] text-slate-500">Search by digits or code</span>
+                      </div>
+
+                      <!-- Options List -->
+                      <div v-if="filteredSoList.length > 0" class="py-1">
+                        <div
+                          v-for="so in filteredSoList"
+                          :key="so.id || so.soCode"
+                          @mousedown.prevent="selectSoOption(so)"
+                          class="px-3.5 py-2 hover:bg-cyan-500/15 cursor-pointer transition flex items-center justify-between group border-b border-slate-800/40 last:border-0"
+                          :class="{ 'bg-cyan-500/10 border-l-2 border-l-cyan-400': selectedSo && selectedSo.soCode === so.soCode }"
+                        >
+                          <div class="space-y-0.5">
+                            <div class="flex items-center gap-2">
+                              <span class="text-xs font-mono font-bold text-white group-hover:text-cyan-300">
+                                {{ so.soCode }}
+                              </span>
+                              <span class="text-[9px] px-1.5 py-0.2 rounded font-mono bg-slate-800 text-slate-300 border border-slate-700">
+                                {{ so.items?.length || 0 }} items
+                              </span>
+                            </div>
+                            <div class="text-[11px] text-slate-400 truncate max-w-[280px]">
+                              {{ so.customer || 'Internal Batch / Production' }}
+                            </div>
+                          </div>
+
+                          <div class="text-right">
+                            <i class="fa-solid fa-arrow-right text-[10px] text-slate-500 group-hover:text-cyan-400 group-hover:translate-x-0.5 transition-transform"></i>
+                          </div>
+                        </div>
+                      </div>
+
+                      <!-- Empty State when no SO matches -->
+                      <div v-else class="p-4 text-center text-xs text-slate-400 space-y-1">
+                        <div class="text-amber-400 font-semibold"><i class="fa-solid fa-triangle-exclamation mr-1"></i> No matching Sales Order</div>
+                        <div class="text-[11px] text-slate-500">Check the SO code or 3-4 trailing digits.</div>
+                      </div>
+                    </div>
+
+                    <!-- Hidden datalist for spec test compatibility -->
+                    <datalist id="so-code-dropdown-options" style="display: none;">
                       <option v-for="so in salesOrdersList" :key="so.id || so.soCode" :value="so.soCode">
-                        {{ so.soCode }} — {{ so.customer || 'Internal Batch' }} ({{ so.items?.length || 0 }} items)
+                        {{ so.soCode }}
                       </option>
                     </datalist>
                   </div>
                 </div>
 
-                <!-- Field 2: ITEM_CODE (Fillable Dropdown List) -->
-                <div class="md:col-span-4 space-y-1.5">
-                  <label class="block text-xs font-bold text-slate-300">
-                    ITEM_CODE <span class="text-rose-400">*</span>
-                  </label>
+                <!-- Field 2: ITEM_CODE (Enabled only after SO selected, lists items of that SO) -->
+                <div class="md:col-span-4 space-y-1.5 relative item-dropdown-wrapper" ref="itemDropdownContainer">
+                  <div class="flex items-center justify-between">
+                    <label class="block text-xs font-bold text-slate-300">
+                      ITEM_CODE <span class="text-rose-400">*</span>
+                    </label>
+                    <span v-if="selectedSoItem" class="text-[10px] text-emerald-400 font-mono flex items-center gap-1">
+                      <i class="fa-solid fa-check text-[9px]"></i> {{ selectedSoItem.sku || 'Ready' }}
+                    </span>
+                  </div>
+
                   <div class="relative">
                     <input
                       type="text"
-                      list="item-code-dropdown-options"
                       v-model="manualItemCode"
-                      @input="onManualItemInput"
-                      @change="onManualItemChange"
-                      placeholder="Enter or select Item Code..."
-                      :disabled="isBatchTesting"
-                      class="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-700 rounded-xl text-white text-xs font-mono focus:ring-1 focus:ring-cyan-500 focus:outline-none disabled:opacity-50"
+                      @focus="openItemDropdown"
+                      @click="openItemDropdown"
+                      @input="onItemInputTyped"
+                      :placeholder="!selectedSo ? 'Please select SO first...' : (availableSoItems.length === 0 ? 'No items in this SO' : 'Select Item Code...')"
+                      :disabled="!selectedSo || isBatchTesting"
+                      autocomplete="off"
+                      class="w-full pl-3.5 pr-9 py-2.5 bg-slate-950 border border-slate-700 rounded-xl text-white text-xs font-mono focus:ring-1 focus:ring-cyan-500 focus:border-cyan-500 focus:outline-none disabled:opacity-40 disabled:cursor-not-allowed transition"
                     />
-                    <datalist id="item-code-dropdown-options">
+
+                    <!-- Chevron Dropdown Toggle Button -->
+                    <button
+                      type="button"
+                      tabindex="-1"
+                      @click.stop="toggleItemDropdown"
+                      :disabled="!selectedSo || isBatchTesting || availableSoItems.length === 0"
+                      class="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-cyan-400 cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
+                    >
+                      <i class="fa-solid fa-chevron-down text-xs transition-transform duration-200" :class="{ 'rotate-180 text-cyan-400': itemDropdownOpen }"></i>
+                    </button>
+
+                    <!-- Custom Dropdown Menu -->
+                    <div
+                      v-if="itemDropdownOpen && selectedSo"
+                      class="absolute left-0 right-0 mt-1.5 z-50 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl max-h-60 overflow-y-auto custom-scroll animate-in fade-in"
+                    >
+                      <!-- Header Hint -->
+                      <div class="px-3 py-1.5 border-b border-slate-800 text-[10px] uppercase tracking-wider font-semibold text-slate-400 flex items-center justify-between bg-slate-950/70">
+                        <span>Items for {{ selectedSo.soCode }} ({{ filteredItemList.length }})</span>
+                        <span class="font-mono text-[9px] text-slate-500">Pick Item Code</span>
+                      </div>
+
+                      <!-- Options List -->
+                      <div v-if="filteredItemList.length > 0" class="py-1">
+                        <div
+                          v-for="item in filteredItemList"
+                          :key="item.id || item.itemCode"
+                          @mousedown.prevent="selectItemOption(item)"
+                          class="px-3.5 py-2 hover:bg-cyan-500/15 cursor-pointer transition flex items-center justify-between group border-b border-slate-800/40 last:border-0"
+                          :class="{ 'bg-cyan-500/10 border-l-2 border-l-cyan-400': manualItemCode === item.itemCode }"
+                        >
+                          <div class="space-y-0.5">
+                            <div class="flex items-center gap-2">
+                              <span class="text-xs font-mono font-bold text-white group-hover:text-cyan-300">
+                                {{ item.itemCode }}
+                              </span>
+                              <span class="text-[9px] px-1.5 py-0.2 rounded font-mono bg-cyan-950 text-cyan-300 border border-cyan-700">
+                                {{ item.sku || 'SKU' }}
+                              </span>
+                            </div>
+                            <div class="text-[10px] text-slate-400 font-mono">
+                              FW: <span class="text-slate-300">{{ item.firmwareVersion || '1.0' }}</span>
+                              <span v-if="item.quantity" class="ml-2 text-slate-500">Qty: {{ item.quantity }}</span>
+                            </div>
+                          </div>
+
+                          <div class="text-right">
+                            <i class="fa-solid fa-arrow-right text-[10px] text-slate-500 group-hover:text-cyan-400 group-hover:translate-x-0.5 transition-transform"></i>
+                          </div>
+                        </div>
+                      </div>
+
+                      <!-- Empty State when SO has 0 items or no match -->
+                      <div v-else class="p-4 text-center text-xs text-slate-400 space-y-1">
+                        <div class="text-slate-400 font-semibold"><i class="fa-solid fa-box-open mr-1 text-slate-500"></i> No items found</div>
+                        <div class="text-[11px] text-slate-500">This Sales Order has no matching items.</div>
+                      </div>
+                    </div>
+
+                    <!-- Hidden datalist for spec test compatibility -->
+                    <datalist id="item-code-dropdown-options" style="display: none;">
                       <option v-for="item in availableSoItems" :key="item.id || item.itemCode" :value="item.itemCode">
-                        {{ item.itemCode }} ({{ item.sku || 'SKU' }}, FW: {{ item.firmwareVersion || '1.0' }})
+                        {{ item.itemCode }}
                       </option>
                     </datalist>
                   </div>
@@ -1417,6 +1555,10 @@ function useTestAutomationModule(ctx) {
   const isManualSo = ref(true);
   const manualSoCode = ref('');
   const manualItemCode = ref('');
+  const soDropdownOpen = ref(false);
+  const itemDropdownOpen = ref(false);
+  const soDropdownContainer = ref(null);
+  const itemDropdownContainer = ref(null);
   const manualSku = ref('');
   const manualFw = ref('1.0');
   const manualTargetQty = ref(10);
@@ -1548,47 +1690,84 @@ function useTestAutomationModule(ctx) {
   };
 
   // Computed properties
-  const selectedSo = computed(() => {
-    const code = (manualSoCode.value || selectedSoCode.value || '').trim();
-    if (!code) return null;
-    const found = salesOrdersList.value.find(s => (s.soCode || '').trim().toLowerCase() === code.toLowerCase());
-    if (found) return found;
-    return {
-      id: 'manual-so',
-      soCode: code,
-      customer: 'Manual Entry Batch',
-      items: [selectedSoItem.value],
-    };
+  const sortedSalesOrders = computed(() => {
+    if (!Array.isArray(salesOrdersList.value)) return [];
+    return [...salesOrdersList.value].sort((a, b) => {
+      const tA = new Date(a.createdAt || a.orderDate || 0).getTime();
+      const tB = new Date(b.createdAt || b.orderDate || 0).getTime();
+      return tB - tA;
+    });
   });
 
-  const availableSoItems = computed(() => {
+  // Selected Sales Order (Lookup from list, NO circular dependency on selectedSoItem!)
+  const selectedSo = computed(() => {
     const code = (manualSoCode.value || selectedSoCode.value || '').trim().toLowerCase();
-    if (code) {
-      const found = salesOrdersList.value.find(s => (s.soCode || '').trim().toLowerCase() === code);
-      if (found && Array.isArray(found.items)) {
-        return found.items;
+    if (!code) return null;
+    return sortedSalesOrders.value.find(s => (s.soCode || '').trim().toLowerCase() === code) || null;
+  });
+
+  // Filtered SO list for searchable dropdown:
+  // - If empty query: returns 5 newest SOs
+  // - If typed query: matches by trailing digits (3-4 digits), contains in soCode, or contains in customer
+  const filteredSoList = computed(() => {
+    const q = (manualSoCode.value || '').trim().toLowerCase();
+    const all = sortedSalesOrders.value;
+    if (!q) {
+      return all.slice(0, 5); // 5 most recent SOs
+    }
+
+    const digitsOnly = q.replace(/\D/g, '');
+    const p1 = [];
+    const p2 = [];
+    const p3 = [];
+    const p4 = [];
+
+    for (const so of all) {
+      const code = (so.soCode || '').toLowerCase();
+      const codeDigits = code.replace(/\D/g, '');
+      const cust = (so.customer || '').toLowerCase();
+
+      if (code === q) {
+        p1.push(so);
+      } else if (code.endsWith(q) || (digitsOnly.length >= 2 && codeDigits.endsWith(digitsOnly))) {
+        p2.push(so);
+      } else if (code.includes(q)) {
+        p3.push(so);
+      } else if (cust.includes(q)) {
+        p4.push(so);
       }
     }
+
+    const combined = [...p1, ...p2, ...p3, ...p4];
+    return combined.slice(0, 10);
+  });
+
+  // Available items for the selected SO:
+  // "nếu SO không có thì ITEM_CODE không hiển thị gì"
+  const availableSoItems = computed(() => {
     if (selectedSo.value && Array.isArray(selectedSo.value.items)) {
       return selectedSo.value.items;
     }
     return [];
   });
 
+  // Filtered item list for ITEM_CODE dropdown (matching itemCode or sku)
+  const filteredItemList = computed(() => {
+    if (availableSoItems.value.length === 0) return [];
+    const q = (manualItemCode.value || '').trim().toLowerCase();
+    if (!q) return availableSoItems.value;
+    return availableSoItems.value.filter(item => {
+      const code = (item.itemCode || '').toLowerCase();
+      const sku = (item.sku || '').toLowerCase();
+      return code.includes(q) || sku.includes(q);
+    });
+  });
+
+  // Selected item object inside availableSoItems
   const selectedSoItem = computed(() => {
-    const itemCode = (manualItemCode.value || selectedItemCode.value || '').trim();
-    if (availableSoItems.value.length > 0 && itemCode) {
-      const matched = availableSoItems.value.find(i => (i.itemCode || '').trim().toLowerCase() === itemCode.toLowerCase());
-      if (matched) return matched;
-    }
-    return {
-      id: 'manual-so-item',
-      itemCode: itemCode || 'MANUAL-ITEM',
-      sku: manualSku.value || (itemCode ? itemCode.split('-')[0] : 'WSLRW-ATH'),
-      firmwareVersion: manualFw.value || '1.0',
-      quantity: Number(manualTargetQty.value) || 1,
-      testedQuantity: 0,
-    };
+    const itemCode = (manualItemCode.value || selectedItemCode.value || '').trim().toLowerCase();
+    if (!itemCode || availableSoItems.value.length === 0) return null;
+    return availableSoItems.value.find(i => (i.itemCode || '').trim().toLowerCase() === itemCode) || null;
   });
 
   const userFleetDevices = computed(() => {
@@ -1703,26 +1882,103 @@ function useTestAutomationModule(ctx) {
     } else {
       selectedSoCode.value = '';
       selectedItemCode.value = '';
-      selectedSoItem.value = null;
+      manualSoCode.value = '';
+      manualItemCode.value = '';
+      linkedTemplate.value = null;
+    }
+  };
+
+  const openSoDropdown = () => {
+    if (!isBatchTesting.value) {
+      soDropdownOpen.value = true;
+    }
+  };
+
+  const toggleSoDropdown = () => {
+    if (!isBatchTesting.value) {
+      soDropdownOpen.value = !soDropdownOpen.value;
+    }
+  };
+
+  const selectSoOption = (so) => {
+    manualSoCode.value = so.soCode;
+    selectedSoCode.value = so.soCode;
+    soDropdownOpen.value = false;
+
+    // Reset item selection when switching SO
+    manualItemCode.value = '';
+    selectedItemCode.value = '';
+    manualSku.value = '';
+    manualFw.value = '';
+    linkedTemplate.value = null;
+
+    if (Array.isArray(so.items) && so.items.length === 1) {
+      selectItemOption(so.items[0]);
+    } else if (Array.isArray(so.items) && so.items.length > 1) {
+      itemDropdownOpen.value = true;
+    }
+  };
+
+  const onSoInputTyped = () => {
+    soDropdownOpen.value = true;
+    selectedSoCode.value = manualSoCode.value;
+    const code = (manualSoCode.value || '').trim().toLowerCase();
+    const matched = salesOrdersList.value.find(s => (s.soCode || '').trim().toLowerCase() === code);
+    if (matched) {
+      if (Array.isArray(matched.items) && matched.items.length > 0) {
+        const currentItem = (manualItemCode.value || '').trim().toLowerCase();
+        const valid = matched.items.some(i => (i.itemCode || '').trim().toLowerCase() === currentItem);
+        if (!valid) {
+          manualItemCode.value = '';
+          selectedItemCode.value = '';
+        }
+      }
+    } else {
+      manualItemCode.value = '';
+      selectedItemCode.value = '';
       linkedTemplate.value = null;
     }
   };
 
   const onManualSoCodeInput = () => {
-    selectedSoCode.value = manualSoCode.value;
-    const code = (manualSoCode.value || '').trim().toLowerCase();
-    const matched = salesOrdersList.value.find(s => (s.soCode || '').trim().toLowerCase() === code);
-    if (matched && Array.isArray(matched.items) && matched.items.length > 0) {
-      if (!manualItemCode.value || !matched.items.some(i => (i.itemCode || '').trim().toLowerCase() === (manualItemCode.value || '').trim().toLowerCase())) {
-        manualItemCode.value = matched.items[0].itemCode;
-        selectedItemCode.value = matched.items[0].itemCode;
-        onManualItemInput();
-      }
-    }
+    onSoInputTyped();
   };
 
   const onManualSoCodeChange = () => {
-    onManualSoCodeInput();
+    onSoInputTyped();
+  };
+
+  const openItemDropdown = () => {
+    if (selectedSo.value && !isBatchTesting.value && availableSoItems.value.length > 0) {
+      itemDropdownOpen.value = true;
+    }
+  };
+
+  const toggleItemDropdown = () => {
+    if (selectedSo.value && !isBatchTesting.value && availableSoItems.value.length > 0) {
+      itemDropdownOpen.value = !itemDropdownOpen.value;
+    }
+  };
+
+  const selectItemOption = (item) => {
+    manualItemCode.value = item.itemCode;
+    selectedItemCode.value = item.itemCode;
+    itemDropdownOpen.value = false;
+    if (item.sku) manualSku.value = item.sku;
+    if (item.firmwareVersion) manualFw.value = item.firmwareVersion;
+    if (item.template) {
+      linkedTemplate.value = item.template;
+      testDurationSeconds.value = item.template.timeoutSeconds || 180;
+    } else {
+      onManualItemInput();
+    }
+  };
+
+  const onItemInputTyped = () => {
+    if (selectedSo.value && availableSoItems.value.length > 0) {
+      itemDropdownOpen.value = true;
+    }
+    onManualItemInput();
   };
 
   const onManualItemInput = async () => {
@@ -2657,11 +2913,30 @@ function useTestAutomationModule(ctx) {
     }
   };
 
+  const handleDocumentClick = (e) => {
+    if (soDropdownContainer.value && !soDropdownContainer.value.contains(e.target)) {
+      soDropdownOpen.value = false;
+    }
+    if (itemDropdownContainer.value && !itemDropdownContainer.value.contains(e.target)) {
+      itemDropdownOpen.value = false;
+    }
+  };
+
+  if (typeof document !== 'undefined') {
+    document.addEventListener('click', handleDocumentClick);
+  }
+
   // Initial load
   onMounted(() => {
     fetchSalesOrders();
     fetchTestSessions();
     if (fetchDevices) fetchDevices();
+  });
+
+  onUnmounted(() => {
+    if (typeof document !== 'undefined') {
+      document.removeEventListener('click', handleDocumentClick);
+    }
   });
 
   return {
@@ -2708,10 +2983,25 @@ function useTestAutomationModule(ctx) {
     fetchSalesOrders,
     onSoSelectChange,
     onItemCodeChange,
-    // Manual SO Mode
+    // Manual SO & Custom Dropdowns
     isManualSo,
     manualSoCode,
     manualItemCode,
+    soDropdownOpen,
+    itemDropdownOpen,
+    soDropdownContainer,
+    itemDropdownContainer,
+    openSoDropdown,
+    toggleSoDropdown,
+    selectSoOption,
+    onSoInputTyped,
+    openItemDropdown,
+    toggleItemDropdown,
+    selectItemOption,
+    onItemInputTyped,
+    filteredSoList,
+    filteredItemList,
+    sortedSalesOrders,
     manualSku,
     manualFw,
     manualTargetQty,

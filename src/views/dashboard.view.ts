@@ -39,7 +39,7 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
   <script src="https://cdn.jsdelivr.net/npm/socket.io-client@4.7.4/dist/socket.io.min.js"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Ubuntu:ital,wght@0,300;0,400;0,500;0,700;1,300;1,400;1,500;1,700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=PT+Serif:ital,wght@0,400;0,700;1,400;1,700&family=Ubuntu:ital,wght@0,300;0,400;0,500;0,700;1,300;1,400;1,500;1,700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
   <script>
     (function() {
       try {
@@ -182,9 +182,42 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
       from { opacity: 0; transform: translateY(4px); }
       to { opacity: 1; transform: translateY(0); }
     }
-    /* Expressive Typography with Google Ubuntu */
+        /* Searchable Dropdowns (SO & ITEM_CODE) in White Mode & Dark Mode */
+    .so-dropdown-wrapper .z-50,
+    .item-dropdown-wrapper .z-50 {
+      box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.35), 0 10px 10px -5px rgba(0, 0, 0, 0.2);
+    }
+    .theme-light .so-dropdown-wrapper .bg-slate-900,
+    .theme-light .item-dropdown-wrapper .bg-slate-900 {
+      background-color: #ffffff !important;
+      border-color: #cbd5e1 !important;
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.05) !important;
+    }
+    .theme-light .so-dropdown-wrapper .bg-slate-950\/70,
+    .theme-light .item-dropdown-wrapper .bg-slate-950\/70 {
+      background-color: #f8fafc !important;
+      border-color: #e2e8f0 !important;
+      color: #475569 !important;
+    }
+    .theme-light .so-dropdown-wrapper .border-slate-800,
+    .theme-light .so-dropdown-wrapper .border-slate-800\/40,
+    .theme-light .item-dropdown-wrapper .border-slate-800,
+    .theme-light .item-dropdown-wrapper .border-slate-800\/40 {
+      border-color: #f1f5f9 !important;
+    }
+    .theme-light .so-dropdown-wrapper .hover\:bg-cyan-500\/15:hover,
+    .theme-light .item-dropdown-wrapper .hover\:bg-cyan-500\/15:hover {
+      background-color: #f0f9ff !important;
+    }
+    .theme-light .so-dropdown-wrapper .bg-slate-800,
+    .theme-light .item-dropdown-wrapper .bg-slate-800 {
+      background-color: #e2e8f0 !important;
+      color: #334155 !important;
+    }
+
+    /* Minimalist Typography with Google PT Serif */
     body, input, button, select, textarea, p, h1, h2, h3, h4, h5, h6, span, label, a, td, th {
-      font-family: 'Ubuntu', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      font-family: 'PT Serif', Georgia, Cambria, 'Times New Roman', Times, serif;
     }
     .font-mono, code, pre, .mono, [class*="font-mono"] {
       font-family: 'JetBrains Mono', monospace !important;
