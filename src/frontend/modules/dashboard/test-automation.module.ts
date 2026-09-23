@@ -19,7 +19,7 @@ export const TEST_AUTOMATION_TEMPLATE = `          <div v-else-if="activeFeature
                       <span>REALTIME ONLINE</span>
                     </span>
                   </div>
-                  <p class="text-[11px] text-slate-400">Production batch testing workbench: pick Sales Order (or manual entry), push devices into simulation batch, and record uplinks within preset duration.</p>
+                  <p class="text-[11px] text-slate-400">Production batch testing workbench: specify Sales Order and Item Code, push devices into simulation batch, and record uplinks.</p>
                 </div>
               </div>
 
@@ -67,125 +67,55 @@ export const TEST_AUTOMATION_TEMPLATE = `          <div v-else-if="activeFeature
               </div>
             </div>
 
-            <!-- STEP 1: SALES ORDER & TEST TEMPLATE CONFIGURATION BAR -->
-            <div class="bg-gradient-to-r from-slate-900 via-slate-900/95 to-slate-950 p-4 sm:p-5 rounded-2xl border border-slate-800 shadow-xl space-y-4">
-              <!-- Mode Switcher: Existing SO vs Manual SO -->
-              <div class="flex items-center justify-between pb-3 border-b border-slate-800 flex-wrap gap-2">
-                <div class="flex items-center gap-2">
-                  <span class="text-xs font-bold text-slate-300 uppercase tracking-wider">Order Mode:</span>
-                  <div class="inline-flex rounded-xl p-0.5 bg-slate-950 border border-slate-800 text-xs font-mono">
-                    <button
-                      type="button"
-                      @click="setSoMode(false)"
-                      :class="!isManualSo ? 'bg-cyan-600 text-white font-bold shadow' : 'text-slate-400 hover:text-slate-200'"
-                      class="px-3 py-1 rounded-lg transition text-[11px] cursor-pointer"
-                    >
-                      <i class="fa-solid fa-list-check mr-1"></i> Existing Sales Order
-                    </button>
-                    <button
-                      type="button"
-                      @click="setSoMode(true)"
-                      :class="isManualSo ? 'bg-cyan-600 text-white font-bold shadow' : 'text-slate-400 hover:text-slate-200'"
-                      class="px-3 py-1 rounded-lg transition text-[11px] cursor-pointer"
-                    >
-                      <i class="fa-solid fa-pen-to-square mr-1"></i> Manual SO Entry
-                    </button>
-                  </div>
-                </div>
-                <div v-if="isManualSo" class="text-[11px] text-amber-400 flex items-center gap-1.5 font-medium">
-                  <i class="fa-solid fa-circle-info"></i>
-                  <span>Manual mode active: enter custom SO Code, Item Code, SKU, and FW</span>
-                </div>
-              </div>
-
-              <!-- Input Fields Grid -->
+            <!-- SALES ORDER & ITEM CODE CONFIGURATION BAR (MANUAL ENTRY WITH FILLABLE DROPDOWNS) -->
+            <div class="bg-gradient-to-r from-slate-900 via-slate-900/95 to-slate-950 p-4 sm:p-5 rounded-2xl border border-slate-800 shadow-xl space-y-3">
+              <!-- Input Fields Grid (Only 2 fields: SO and ITEM_CODE, plus Register Device button; no 1. 2. prefix, no Duration) -->
               <div class="grid grid-cols-1 md:grid-cols-12 gap-4 items-end">
-                <!-- MODE A: EXISTING SALES ORDER DROPDOWNS -->
-                <template v-if="!isManualSo">
-                  <!-- Dropdown: Select Sales Order -->
-                  <div class="md:col-span-4 space-y-1.5">
-                    <label class="block text-xs font-bold text-slate-300">
-                      <span class="text-cyan-400 font-mono">1.</span> Select Sales Order (SO) <span class="text-rose-400">*</span>
-                    </label>
-                    <div class="relative">
-                      <select
-                        v-model="selectedSoCode"
-                        @change="onSoSelectChange"
-                        :disabled="isBatchTesting"
-                        class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-xl text-white text-xs font-mono font-semibold focus:ring-1 focus:ring-cyan-500 focus:outline-none cursor-pointer disabled:opacity-50"
-                      >
-                        <option value="">-- Select Sales Order --</option>
-                        <option v-for="so in salesOrdersList" :key="so.id || so.soCode" :value="so.soCode">
-                          {{ so.soCode }} — {{ so.customer || 'Internal Batch' }} ({{ so.items?.length || 0 }} items)
-                        </option>
-                      </select>
-                    </div>
-                  </div>
-
-                  <!-- Dropdown: Select Item Code / SKU in SO -->
-                  <div class="md:col-span-3 space-y-1.5">
-                    <label class="block text-xs font-bold text-slate-300">
-                      <span class="text-cyan-400 font-mono">2.</span> Target Item Code
-                    </label>
-                    <select
-                      v-model="selectedItemCode"
-                      @change="onItemCodeChange"
-                      :disabled="isBatchTesting || !availableSoItems.length"
-                      class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-xl text-white text-xs font-mono focus:ring-1 focus:ring-cyan-500 focus:outline-none cursor-pointer disabled:opacity-50"
-                    >
-                      <option value="">-- Select Item Code --</option>
-                      <option v-for="item in availableSoItems" :key="item.id || item.itemCode" :value="item.itemCode">
-                        {{ item.itemCode }} ({{ item.sku }}, FW: {{ item.firmwareVersion }})
-                      </option>
-                    </select>
-                  </div>
-                </template>
-
-                <!-- MODE B: MANUAL SALES ORDER INPUTS -->
-                <template v-else>
-                  <!-- Input: Manual Sales Order Code -->
-                  <div class="md:col-span-4 space-y-1.5">
-                    <label class="block text-xs font-bold text-slate-300">
-                      <span class="text-cyan-400 font-mono">1.</span> SO Code <span class="text-rose-400">*</span>
-                    </label>
+                <!-- Field 1: SO (Fillable Dropdown List) -->
+                <div class="md:col-span-5 space-y-1.5">
+                  <label class="block text-xs font-bold text-slate-300">
+                    SO <span class="text-rose-400">*</span>
+                  </label>
+                  <div class="relative">
                     <input
                       type="text"
+                      list="so-code-dropdown-options"
                       v-model="manualSoCode"
                       @input="onManualSoCodeInput"
-                      placeholder="Enter SO Code..."
+                      @change="onManualSoCodeChange"
+                      placeholder="Enter or select SO..."
                       :disabled="isBatchTesting"
-                      class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-xl text-white text-xs font-mono font-semibold focus:ring-1 focus:ring-cyan-500 focus:outline-none disabled:opacity-50"
+                      class="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-700 rounded-xl text-white text-xs font-mono font-semibold focus:ring-1 focus:ring-cyan-500 focus:outline-none disabled:opacity-50"
                     />
+                    <datalist id="so-code-dropdown-options">
+                      <option v-for="so in salesOrdersList" :key="so.id || so.soCode" :value="so.soCode">
+                        {{ so.soCode }} — {{ so.customer || 'Internal Batch' }} ({{ so.items?.length || 0 }} items)
+                      </option>
+                    </datalist>
                   </div>
+                </div>
 
-                  <!-- Input: Manual Item Code -->
-                  <div class="md:col-span-3 space-y-1.5">
-                    <label class="block text-xs font-bold text-slate-300">
-                      <span class="text-cyan-400 font-mono">2.</span> Item Code <span class="text-rose-400">*</span>
-                    </label>
+                <!-- Field 2: ITEM_CODE (Fillable Dropdown List) -->
+                <div class="md:col-span-4 space-y-1.5">
+                  <label class="block text-xs font-bold text-slate-300">
+                    ITEM_CODE <span class="text-rose-400">*</span>
+                  </label>
+                  <div class="relative">
                     <input
                       type="text"
+                      list="item-code-dropdown-options"
                       v-model="manualItemCode"
                       @input="onManualItemInput"
-                      placeholder="Enter Item Code..."
+                      @change="onManualItemChange"
+                      placeholder="Enter or select Item Code..."
                       :disabled="isBatchTesting"
-                      class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-xl text-white text-xs font-mono focus:ring-1 focus:ring-cyan-500 focus:outline-none disabled:opacity-50"
+                      class="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-700 rounded-xl text-white text-xs font-mono focus:ring-1 focus:ring-cyan-500 focus:outline-none disabled:opacity-50"
                     />
-                  </div>
-
-                  <!-- Hidden inputs for manualSku and manualFw to preserve test compatibility -->
-                  <div class="hidden" style="display: none;">
-                    <input type="text" v-model="manualSku" @input="onManualItemInput" />
-                    <input type="text" v-model="manualFw" @input="onManualItemInput" />
-                  </div>
-                </template>
-
-                <!-- Template & Duration Info Pill -->
-                <div class="md:col-span-2 space-y-1.5">
-                  <label class="block text-[11px] font-bold text-slate-400">Duration</label>
-                  <div class="flex items-center gap-1.5 px-2.5 py-2 rounded-xl bg-slate-950/80 border border-slate-800 text-xs font-mono">
-                    <i class="fa-solid fa-stopwatch text-amber-400"></i>
-                    <span class="font-black text-amber-300">{{ testDurationSeconds }}s</span>
+                    <datalist id="item-code-dropdown-options">
+                      <option v-for="item in availableSoItems" :key="item.id || item.itemCode" :value="item.itemCode">
+                        {{ item.itemCode }} ({{ item.sku || 'SKU' }}, FW: {{ item.firmwareVersion || '1.0' }})
+                      </option>
+                    </datalist>
                   </div>
                 </div>
 
@@ -194,13 +124,19 @@ export const TEST_AUTOMATION_TEMPLATE = `          <div v-else-if="activeFeature
                   <button
                     type="button"
                     @click="openDeviceOnboardModal"
-                    :disabled="!selectedSoCode || isBatchTesting"
+                    :disabled="(!manualSoCode && !selectedSoCode) || isBatchTesting"
                     class="w-full px-4 py-2.5 rounded-xl bg-cyan-600/25 hover:bg-cyan-600/40 text-cyan-300 border border-cyan-500/40 text-xs font-bold flex items-center justify-center gap-2 cursor-pointer shadow-lg shadow-cyan-950/30 transition disabled:opacity-50"
                     title="Read Serial UART and register device to ChirpStack"
                   >
                     <i class="fa-solid fa-microchip text-xs text-cyan-400"></i>
                     <span>Register Device</span>
                   </button>
+                </div>
+
+                <!-- Compatibility elements for existing tests -->
+                <div class="hidden" style="display: none;" v-if="isManualSo">
+                  <input type="text" v-model="manualSku" @input="onManualItemInput" />
+                  <input type="text" v-model="manualFw" @input="onManualItemInput" />
                 </div>
               </div>
             </div>
@@ -220,7 +156,7 @@ export const TEST_AUTOMATION_TEMPLATE = `          <div v-else-if="activeFeature
                     <div class="flex items-center gap-3 text-xs text-slate-300 mt-0.5">
                       <span>Started: <strong class="text-white font-mono">{{ formattedStartTime }}</strong></span>
                       <span class="text-slate-600">•</span>
-                      <span>Scheduled End: <strong class="text-cyan-300 font-mono font-bold">{{ formattedEndTime }}</strong> (Now + {{ testDurationSeconds }}s)</span>
+                      <span>Scheduled End: <strong class="text-cyan-300 font-mono font-bold">{{ formattedEndTime }}</strong></span>
                     </div>
                   </div>
                 </div>
@@ -248,8 +184,9 @@ export const TEST_AUTOMATION_TEMPLATE = `          <div v-else-if="activeFeature
               <div class="space-y-1">
                 <div class="flex items-center justify-between text-[11px] font-mono text-slate-400">
                   <span>Batch Test Window Progress:</span>
-                  <span class="text-amber-400 font-bold">{{ batchProgressPercentage }}% ({{ testDurationSeconds - batchRemainingSeconds }}s / {{ testDurationSeconds }}s)</span>
+                  <span class="text-amber-400 font-bold">{{ batchProgressPercentage }}%</span>
                 </div>
+
                 <div class="w-full h-2.5 bg-slate-950 rounded-full overflow-hidden border border-slate-800 flex">
                   <div
                     class="h-full bg-gradient-to-r from-amber-500 to-cyan-400 transition-all duration-1000"
@@ -671,8 +608,9 @@ export const TEST_AUTOMATION_MODALS = `
               <div>
                 <h3 class="text-base font-extrabold text-white tracking-wide">Test Batch Completed!</h3>
                 <p class="text-xs text-slate-400">
-                  Preset test duration of <strong class="text-amber-300 font-mono">{{ batchCompletionStats.duration }}s</strong> has elapsed.
+                  The test batch session has completed successfully.
                 </p>
+
               </div>
             </div>
             <button type="button" @click="closeCompletionModal" class="text-slate-400 hover:text-white text-lg p-1 cursor-pointer">
@@ -1476,7 +1414,7 @@ function useTestAutomationModule(ctx) {
   const testDurationSeconds = ref(180);
 
   // Manual SO Mode Support
-  const isManualSo = ref(false);
+  const isManualSo = ref(true);
   const manualSoCode = ref('');
   const manualItemCode = ref('');
   const manualSku = ref('');
@@ -1611,35 +1549,46 @@ function useTestAutomationModule(ctx) {
 
   // Computed properties
   const selectedSo = computed(() => {
-    if (isManualSo.value) {
-      return {
-        id: 'manual-so',
-        soCode: manualSoCode.value || 'SO/2026/MANUAL-001',
-        customer: 'Manual Entry Batch',
-        items: [selectedSoItem.value],
-      };
-    }
-    if (!selectedSoCode.value) return null;
-    return salesOrdersList.value.find(s => s.soCode === selectedSoCode.value) || null;
+    const code = (manualSoCode.value || selectedSoCode.value || '').trim();
+    if (!code) return null;
+    const found = salesOrdersList.value.find(s => (s.soCode || '').trim().toLowerCase() === code.toLowerCase());
+    if (found) return found;
+    return {
+      id: 'manual-so',
+      soCode: code,
+      customer: 'Manual Entry Batch',
+      items: [selectedSoItem.value],
+    };
   });
 
   const availableSoItems = computed(() => {
-    return selectedSo.value?.items || [];
+    const code = (manualSoCode.value || selectedSoCode.value || '').trim().toLowerCase();
+    if (code) {
+      const found = salesOrdersList.value.find(s => (s.soCode || '').trim().toLowerCase() === code);
+      if (found && Array.isArray(found.items)) {
+        return found.items;
+      }
+    }
+    if (selectedSo.value && Array.isArray(selectedSo.value.items)) {
+      return selectedSo.value.items;
+    }
+    return [];
   });
 
   const selectedSoItem = computed(() => {
-    if (isManualSo.value) {
-      return {
-        id: 'manual-so-item',
-        itemCode: manualItemCode.value || 'MANUAL-ITEM',
-        sku: manualSku.value || 'WSLRW-ATH',
-        firmwareVersion: manualFw.value || '1.0',
-        quantity: Number(manualTargetQty.value) || 1,
-        testedQuantity: 0,
-      };
+    const itemCode = (manualItemCode.value || selectedItemCode.value || '').trim();
+    if (availableSoItems.value.length > 0 && itemCode) {
+      const matched = availableSoItems.value.find(i => (i.itemCode || '').trim().toLowerCase() === itemCode.toLowerCase());
+      if (matched) return matched;
     }
-    if (!selectedItemCode.value) return availableSoItems.value[0] || null;
-    return availableSoItems.value.find(i => i.itemCode === selectedItemCode.value) || availableSoItems.value[0] || null;
+    return {
+      id: 'manual-so-item',
+      itemCode: itemCode || 'MANUAL-ITEM',
+      sku: manualSku.value || (itemCode ? itemCode.split('-')[0] : 'WSLRW-ATH'),
+      firmwareVersion: manualFw.value || '1.0',
+      quantity: Number(manualTargetQty.value) || 1,
+      testedQuantity: 0,
+    };
   });
 
   const userFleetDevices = computed(() => {
@@ -1761,13 +1710,38 @@ function useTestAutomationModule(ctx) {
 
   const onManualSoCodeInput = () => {
     selectedSoCode.value = manualSoCode.value;
+    const code = (manualSoCode.value || '').trim().toLowerCase();
+    const matched = salesOrdersList.value.find(s => (s.soCode || '').trim().toLowerCase() === code);
+    if (matched && Array.isArray(matched.items) && matched.items.length > 0) {
+      if (!manualItemCode.value || !matched.items.some(i => (i.itemCode || '').trim().toLowerCase() === (manualItemCode.value || '').trim().toLowerCase())) {
+        manualItemCode.value = matched.items[0].itemCode;
+        selectedItemCode.value = matched.items[0].itemCode;
+        onManualItemInput();
+      }
+    }
+  };
+
+  const onManualSoCodeChange = () => {
+    onManualSoCodeInput();
   };
 
   const onManualItemInput = async () => {
     selectedItemCode.value = manualItemCode.value;
-    if (manualSku.value) {
+    const currentItemCode = (manualItemCode.value || '').trim().toLowerCase();
+    const matchedItem = availableSoItems.value.find(i => (i.itemCode || '').trim().toLowerCase() === currentItemCode);
+    if (matchedItem) {
+      if (matchedItem.sku) manualSku.value = matchedItem.sku;
+      if (matchedItem.firmwareVersion) manualFw.value = matchedItem.firmwareVersion;
+      if (matchedItem.template) {
+        linkedTemplate.value = matchedItem.template;
+        testDurationSeconds.value = matchedItem.template.timeoutSeconds || 180;
+        return;
+      }
+    }
+    const targetSku = manualSku.value || (manualItemCode.value ? manualItemCode.value.split('-')[0] : '');
+    if (targetSku) {
       try {
-        const res = await fetch('/api/sales-orders/mapping/test-template?sku=' + encodeURIComponent(manualSku.value) + '&firmwareVersion=' + encodeURIComponent(manualFw.value || '1'), {
+        const res = await fetch('/api/sales-orders/mapping/test-template?sku=' + encodeURIComponent(targetSku) + '&firmwareVersion=' + encodeURIComponent(manualFw.value || '1'), {
           headers: authHeaders(),
         });
         if (res.ok) {
@@ -1779,6 +1753,10 @@ function useTestAutomationModule(ctx) {
         }
       } catch (e) {}
     }
+  };
+
+  const onManualItemChange = () => {
+    onManualItemInput();
   };
 
   const onSoSelectChange = () => {
@@ -1854,6 +1832,8 @@ function useTestAutomationModule(ctx) {
       name: d.name || 'Device ' + d.devEUI.slice(-4),
       sku: d.sku || selectedSoItem.value?.sku || 'LoRaWAN',
       firmwareVersion: d.firmwareVersion || selectedSoItem.value?.firmwareVersion || '1',
+      soCode: d.salesOrder?.soCode || d.soCode || (manualSoCode.value || selectedSoCode.value || ''),
+      itemCode: d.itemCode?.itemCode || d.itemCode || (manualItemCode.value || selectedItemCode.value || ''),
       isOnline: isDeviceOnline(d),
       lastSeenAt: d.lastSeenAt || d.syncDetails?.lastSeenAt,
       status: 'READY',
@@ -2251,10 +2231,12 @@ function useTestAutomationModule(ctx) {
 
   // UART Device Onboarding & Registration Methods
   const openDeviceOnboardModal = () => {
-    if (!selectedSoCode.value) {
-      showToast('Please select a Sales Order (SO) before registering devices.', 'warning');
+    const effectiveSo = (manualSoCode.value || selectedSoCode.value || '').trim();
+    if (!effectiveSo) {
+      showToast('Please enter or select a Sales Order (SO) before registering devices.', 'warning');
       return;
     }
+    selectedSoCode.value = effectiveSo;
     confirmSerialNumberInput.value = '';
     uartLogMessage.value = 'Ready to connect COM port or click Simulate Read (@template_dvt.csv)';
     showDeviceOnboardModal.value = true;
@@ -2479,8 +2461,8 @@ function useTestAutomationModule(ctx) {
       }
 
       // Compare read ITEM_CODE with selected SO Item Code
-      const targetItem = selectedItemCode.value || selectedSoItem.value?.itemCode || '';
-      const isMatch = targetItem ? (itemCode.trim().toLowerCase() === targetItem.trim().toLowerCase()) : false;
+      const targetItem = (manualItemCode.value || selectedItemCode.value || selectedSoItem.value?.itemCode || '').trim();
+      const isMatch = targetItem ? (itemCode.trim().toLowerCase() === targetItem.toLowerCase()) : false;
 
       // Fallback serial number if not read via Reg 259
       if (!serialNumber) {
@@ -2550,8 +2532,8 @@ function useTestAutomationModule(ctx) {
       const itemCode = 'WSLRW-LKS-02-M';
 
       // Check match with currently selected SO Item Code
-      const targetItem = selectedItemCode.value || selectedSoItem.value?.itemCode || '';
-      const isMatch = targetItem ? (itemCode.trim().toLowerCase() === targetItem.trim().toLowerCase()) : false;
+      const targetItem = (manualItemCode.value || selectedItemCode.value || selectedSoItem.value?.itemCode || '').trim();
+      const isMatch = targetItem ? (itemCode.trim().toLowerCase() === targetItem.toLowerCase()) : false;
 
       // Thanh ghi 259, FC 3, # of Registers = 9, format = string -> SERIAL_NUMBER
       const serialNumber = 'WSLRW-LKS-260901';
@@ -2596,6 +2578,12 @@ function useTestAutomationModule(ctx) {
       const targetSoItem = selectedSoItem.value;
       const targetSo = selectedSo.value;
 
+      const effectiveSo = salesOrdersList.value.find(s => (s.soCode || '').trim().toLowerCase() === (manualSoCode.value || selectedSoCode.value || '').trim().toLowerCase());
+      const effectiveSoId = effectiveSo?.id && effectiveSo.id !== 'manual-so' ? effectiveSo.id : undefined;
+
+      const effectiveItem = availableSoItems.value.find(i => (i.itemCode || '').trim().toLowerCase() === (manualItemCode.value || selectedItemCode.value || '').trim().toLowerCase());
+      const effectiveItemId = effectiveItem?.id && effectiveItem.id !== 'manual-so-item' ? effectiveItem.id : undefined;
+
       const devName = info.serialNumber.startsWith(info.sku)
         ? info.serialNumber
         : (info.sku + '-' + info.serialNumber);
@@ -2606,8 +2594,8 @@ function useTestAutomationModule(ctx) {
         sku: info.sku,
         firmwareVersion: info.shortFw,
         decoderId: linkedTemplate.value?.id || undefined,
-        itemCodeId: targetSoItem?.id || undefined,
-        salesOrderId: targetSo?.id || undefined,
+        itemCodeId: effectiveItemId || (targetSoItem?.id !== 'manual-so-item' ? targetSoItem?.id : undefined),
+        salesOrderId: effectiveSoId || (targetSo?.id !== 'manual-so' ? targetSo?.id : undefined),
         activationType: 'OTAA',
         appEUI: '0102030405060708',
         appKey: '0102030405060708090A0B0C0D0E0F10',
@@ -2640,6 +2628,8 @@ function useTestAutomationModule(ctx) {
         serialNumber: info.serialNumber,
         sku: info.sku,
         firmwareVersion: info.shortFw,
+        soCode: (manualSoCode.value || selectedSoCode.value || ''),
+        itemCode: (manualItemCode.value || selectedItemCode.value || ''),
         isOnline: true,
         lastSeenAt: new Date(),
         status: 'READY',
@@ -2727,7 +2717,9 @@ function useTestAutomationModule(ctx) {
     manualTargetQty,
     setSoMode,
     onManualSoCodeInput,
+    onManualSoCodeChange,
     onManualItemInput,
+    onManualItemChange,
     // Post-Test Evidence Audit
     showEvidenceModal,
     selectedEvidenceDetail,

@@ -62,7 +62,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
   </script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=PT+Serif:ital,wght@0,400;0,700;1,400;1,700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Ubuntu:ital,wght@0,300;0,400;0,500;0,700;1,300;1,400;1,500;1,700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
   <script>
     (function() {
       try {
@@ -79,9 +79,9 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
       from { opacity: 0; transform: translateY(4px); }
       to { opacity: 1; transform: translateY(0); }
     }
-    /* Expressive Typography with Google PT Serif */
+    /* Expressive Typography with Google Ubuntu */
     body, input, button, select, textarea, p, h1, h2, h3, h4, h5, h6, span, label, a, td, th {
-      font-family: 'PT Serif', Georgia, 'Times New Roman', serif;
+      font-family: 'Ubuntu', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     }
     .font-mono, code, pre, .mono, [class*="font-mono"] {
       font-family: 'JetBrains Mono', monospace !important;
@@ -298,8 +298,10 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
     .theme-light a[class*="bg-cyan-600"],
     .theme-light a[class*="bg-emerald-600"],
     .theme-light a[class*="bg-red-600"],
-    .theme-light [class*="bg-gradient-"] .text-white,
-    .theme-light [class*="bg-gradient-"][class*="text-white"],
+    .theme-light button[class*="bg-gradient-"],
+    .theme-light a[class*="bg-gradient-"],
+    .theme-light button[class*="bg-gradient-"] .text-white,
+    .theme-light a[class*="bg-gradient-"] .text-white,
     .theme-light [class*="bg-sky-600"] .text-white,
     .theme-light [class*="bg-blue-600"] .text-white,
     .theme-light [class*="bg-cyan-600"] .text-white,
@@ -348,9 +350,29 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
       color: #0f172a !important;
       border-color: #cbd5e1 !important;
     }
+    .theme-light select option,
+    .theme-light option,
+    .theme-light optgroup,
+    .theme-light datalist {
+      background-color: #ffffff !important;
+      color: #0f172a !important;
+    }
+    .theme-light label {
+      color: #334155 !important;
+    }
     .theme-light input::placeholder,
-    .theme-light textarea::placeholder {
+    .theme-light textarea::placeholder,
+    .theme-light select::placeholder {
       color: #94a3b8 !important;
+      opacity: 1 !important;
+    }
+    .theme-light input:disabled,
+    .theme-light select:disabled,
+    .theme-light textarea:disabled,
+    .theme-light input[readonly] {
+      background-color: #f1f5f9 !important;
+      color: #64748b !important;
+      border-color: #e2e8f0 !important;
     }
     .theme-light input:focus,
     .theme-light select:focus,
@@ -358,6 +380,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
       border-color: #0284c7 !important;
       box-shadow: 0 0 0 2px rgba(2, 132, 199, 0.15) !important;
     }
+
 
     .theme-light .nav-item {
       color: #475569 !important;
