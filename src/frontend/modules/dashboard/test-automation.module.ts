@@ -80,9 +80,6 @@ export const TEST_AUTOMATION_TEMPLATE = `          <div v-else-if="activeFeature
                     <span v-if="selectedSo" class="text-[10px] text-cyan-400 font-mono flex items-center gap-1">
                       <i class="fa-solid fa-circle-check text-[9px]"></i> Valid SO
                     </span>
-                    <span v-else-if="manualSoCode && !selectedSo" class="text-[10px] text-amber-400 font-mono">
-                      Not found
-                    </span>
                   </div>
 
                   <div class="relative">
@@ -109,19 +106,13 @@ export const TEST_AUTOMATION_TEMPLATE = `          <div v-else-if="activeFeature
                       <i class="fa-solid fa-chevron-down text-xs transition-transform duration-200" :class="{ 'rotate-180 text-cyan-400': soDropdownOpen }"></i>
                     </button>
 
-                    <!-- Custom Dropdown Menu -->
+                    <!-- Custom Dropdown Menu (Implicit: only displays when there are matching SOs) -->
                     <div
-                      v-if="soDropdownOpen"
+                      v-if="soDropdownOpen && filteredSoList.length > 0"
                       class="absolute left-0 right-0 mt-1.5 z-50 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl max-h-64 overflow-y-auto custom-scroll animate-in fade-in"
                     >
-                      <!-- Header Hint -->
-                      <div class="px-3 py-1.5 border-b border-slate-800 text-[10px] uppercase tracking-wider font-semibold text-slate-400 flex items-center justify-between bg-slate-950/70">
-                        <span>{{ !manualSoCode.trim() ? '5 Most Recent Sales Orders' : 'Matching Sales Orders (' + filteredSoList.length + ')' }}</span>
-                        <span class="font-mono text-[9px] text-slate-500">Search by digits or code</span>
-                      </div>
-
                       <!-- Options List -->
-                      <div v-if="filteredSoList.length > 0" class="py-1">
+                      <div class="py-1">
                         <div
                           v-for="so in filteredSoList"
                           :key="so.id || so.soCode"
@@ -148,12 +139,6 @@ export const TEST_AUTOMATION_TEMPLATE = `          <div v-else-if="activeFeature
                           </div>
                         </div>
                       </div>
-
-                      <!-- Empty State when no SO matches -->
-                      <div v-else class="p-4 text-center text-xs text-slate-400 space-y-1">
-                        <div class="text-amber-400 font-semibold"><i class="fa-solid fa-triangle-exclamation mr-1"></i> No matching Sales Order</div>
-                        <div class="text-[11px] text-slate-500">Check the SO code or 3-4 trailing digits.</div>
-                      </div>
                     </div>
 
                     <!-- Hidden datalist for spec test compatibility -->
@@ -165,7 +150,7 @@ export const TEST_AUTOMATION_TEMPLATE = `          <div v-else-if="activeFeature
                   </div>
                 </div>
 
-                <!-- Field 2: ITEM_CODE (Enabled only after SO selected, lists items of that SO) -->
+                <!-- Field 2: ITEM_CODE (Enabled when SO has input, can be typed manually or selected from SO items) -->
                 <div class="md:col-span-4 space-y-1.5 relative item-dropdown-wrapper" ref="itemDropdownContainer">
                   <div class="flex items-center justify-between">
                     <label class="block text-xs font-bold text-slate-300">
@@ -183,36 +168,31 @@ export const TEST_AUTOMATION_TEMPLATE = `          <div v-else-if="activeFeature
                       @focus="openItemDropdown"
                       @click="openItemDropdown"
                       @input="onItemInputTyped"
-                      :placeholder="!selectedSo ? 'Please select SO first...' : (availableSoItems.length === 0 ? 'No items in this SO' : 'Select Item Code...')"
-                      :disabled="!selectedSo || isBatchTesting"
+                      :placeholder="!(manualSoCode && manualSoCode.trim()) ? 'Please enter SO first...' : (availableSoItems.length > 0 ? 'Type or select Item Code...' : 'Type Item Code...')"
+                      :disabled="!(manualSoCode && manualSoCode.trim()) || isBatchTesting"
                       autocomplete="off"
                       class="w-full pl-3.5 pr-9 py-2.5 bg-slate-950 border border-slate-700 rounded-xl text-white text-xs font-mono focus:ring-1 focus:ring-cyan-500 focus:border-cyan-500 focus:outline-none disabled:opacity-40 disabled:cursor-not-allowed transition"
                     />
 
-                    <!-- Chevron Dropdown Toggle Button -->
+                    <!-- Chevron Dropdown Toggle Button (Shown when SO has items to pick) -->
                     <button
+                      v-if="availableSoItems.length > 0"
                       type="button"
                       tabindex="-1"
                       @click.stop="toggleItemDropdown"
-                      :disabled="!selectedSo || isBatchTesting || availableSoItems.length === 0"
+                      :disabled="isBatchTesting"
                       class="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-cyan-400 cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
                     >
                       <i class="fa-solid fa-chevron-down text-xs transition-transform duration-200" :class="{ 'rotate-180 text-cyan-400': itemDropdownOpen }"></i>
                     </button>
 
-                    <!-- Custom Dropdown Menu -->
+                    <!-- Custom Dropdown Menu (Implicit: only displays when there are matching items) -->
                     <div
-                      v-if="itemDropdownOpen && selectedSo"
+                      v-if="itemDropdownOpen && availableSoItems.length > 0 && filteredItemList.length > 0"
                       class="absolute left-0 right-0 mt-1.5 z-50 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl max-h-60 overflow-y-auto custom-scroll animate-in fade-in"
                     >
-                      <!-- Header Hint -->
-                      <div class="px-3 py-1.5 border-b border-slate-800 text-[10px] uppercase tracking-wider font-semibold text-slate-400 flex items-center justify-between bg-slate-950/70">
-                        <span>Items for {{ selectedSo.soCode }} ({{ filteredItemList.length }})</span>
-                        <span class="font-mono text-[9px] text-slate-500">Pick Item Code</span>
-                      </div>
-
                       <!-- Options List -->
-                      <div v-if="filteredItemList.length > 0" class="py-1">
+                      <div class="py-1">
                         <div
                           v-for="item in filteredItemList"
                           :key="item.id || item.itemCode"
@@ -240,12 +220,6 @@ export const TEST_AUTOMATION_TEMPLATE = `          <div v-else-if="activeFeature
                           </div>
                         </div>
                       </div>
-
-                      <!-- Empty State when SO has 0 items or no match -->
-                      <div v-else class="p-4 text-center text-xs text-slate-400 space-y-1">
-                        <div class="text-slate-400 font-semibold"><i class="fa-solid fa-box-open mr-1 text-slate-500"></i> No items found</div>
-                        <div class="text-[11px] text-slate-500">This Sales Order has no matching items.</div>
-                      </div>
                     </div>
 
                     <!-- Hidden datalist for spec test compatibility -->
@@ -262,7 +236,7 @@ export const TEST_AUTOMATION_TEMPLATE = `          <div v-else-if="activeFeature
                   <button
                     type="button"
                     @click="openDeviceOnboardModal"
-                    :disabled="(!manualSoCode && !selectedSoCode) || isBatchTesting"
+                    :disabled="!(manualSoCode && manualSoCode.trim()) || !(manualItemCode && manualItemCode.trim()) || isBatchTesting"
                     class="w-full px-4 py-2.5 rounded-xl bg-cyan-600/25 hover:bg-cyan-600/40 text-cyan-300 border border-cyan-500/40 text-xs font-bold flex items-center justify-center gap-2 cursor-pointer shadow-lg shadow-cyan-950/30 transition disabled:opacity-50"
                     title="Read Serial UART and register device to ChirpStack"
                   >
@@ -1923,20 +1897,23 @@ function useTestAutomationModule(ctx) {
     soDropdownOpen.value = true;
     selectedSoCode.value = manualSoCode.value;
     const code = (manualSoCode.value || '').trim().toLowerCase();
+    if (!code) {
+      selectedSoCode.value = '';
+      manualItemCode.value = '';
+      selectedItemCode.value = '';
+      linkedTemplate.value = null;
+      return;
+    }
     const matched = salesOrdersList.value.find(s => (s.soCode || '').trim().toLowerCase() === code);
     if (matched) {
       if (Array.isArray(matched.items) && matched.items.length > 0) {
         const currentItem = (manualItemCode.value || '').trim().toLowerCase();
         const valid = matched.items.some(i => (i.itemCode || '').trim().toLowerCase() === currentItem);
-        if (!valid) {
+        if (currentItem && !valid) {
           manualItemCode.value = '';
           selectedItemCode.value = '';
         }
       }
-    } else {
-      manualItemCode.value = '';
-      selectedItemCode.value = '';
-      linkedTemplate.value = null;
     }
   };
 
@@ -1949,13 +1926,13 @@ function useTestAutomationModule(ctx) {
   };
 
   const openItemDropdown = () => {
-    if (selectedSo.value && !isBatchTesting.value && availableSoItems.value.length > 0) {
+    if (!isBatchTesting.value && availableSoItems.value.length > 0) {
       itemDropdownOpen.value = true;
     }
   };
 
   const toggleItemDropdown = () => {
-    if (selectedSo.value && !isBatchTesting.value && availableSoItems.value.length > 0) {
+    if (!isBatchTesting.value && availableSoItems.value.length > 0) {
       itemDropdownOpen.value = !itemDropdownOpen.value;
     }
   };
@@ -1975,7 +1952,7 @@ function useTestAutomationModule(ctx) {
   };
 
   const onItemInputTyped = () => {
-    if (selectedSo.value && availableSoItems.value.length > 0) {
+    if (availableSoItems.value.length > 0) {
       itemDropdownOpen.value = true;
     }
     onManualItemInput();
@@ -2492,7 +2469,13 @@ function useTestAutomationModule(ctx) {
       showToast('Please enter or select a Sales Order (SO) before registering devices.', 'warning');
       return;
     }
+    const effectiveItem = (manualItemCode.value || selectedItemCode.value || '').trim();
+    if (!effectiveItem) {
+      showToast('Please enter or select an Item Code before registering devices.', 'warning');
+      return;
+    }
     selectedSoCode.value = effectiveSo;
+    selectedItemCode.value = effectiveItem;
     confirmSerialNumberInput.value = '';
     uartLogMessage.value = 'Ready to connect COM port or click Simulate Read (@template_dvt.csv)';
     showDeviceOnboardModal.value = true;
