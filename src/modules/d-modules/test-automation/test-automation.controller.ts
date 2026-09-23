@@ -19,6 +19,8 @@ import { TestAutomationService } from './test-automation.service';
 import { CreateTestSessionDto } from './dto/create-test-session.dto';
 import { SimulatePacketDto } from './dto/simulate-packet.dto';
 import { QueryTestSessionDto } from './dto/query-test-session.dto';
+import { CreateTestEvidenceDto } from './dto/create-test-evidence.dto';
+import { QueryTestEvidenceDto } from './dto/query-test-evidence.dto';
 
 @ApiTags('D-Module: Product Test Automation Workbench')
 @Controller(['api/d-modules/test-run', 'api/d-modules/test-automation'])
@@ -124,5 +126,42 @@ export class TestAutomationController {
       `attachment; filename="${report.fileName}"`,
     );
     return res.send(report.content);
+  }
+
+  @Get('evidence')
+  @ApiOperation({ summary: 'List post-test sensor decoded evidence for audit compliance' })
+  async getEvidences(@Query() query: QueryTestEvidenceDto) {
+    return await this.service.getEvidences(query);
+  }
+
+  @Post('evidence')
+  @ApiOperation({ summary: 'Manually record post-test evidence with decoded sensor fields' })
+  async createEvidence(
+    @Body() dto: CreateTestEvidenceDto,
+    @CurrentUser() user: User,
+  ) {
+    const operator = user?.username || user?.email || 'qa-operator';
+    return await this.service.createEvidence(dto, operator);
+  }
+
+  @Get('evidence/export')
+  @ApiOperation({ summary: 'Export post-test sensor evidence to CSV for compliance audit' })
+  async exportEvidence(
+    @Query() query: QueryTestEvidenceDto,
+    @Res() res: Response,
+  ) {
+    const report = await this.service.exportEvidenceCsv(query);
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="${report.fileName}"`,
+    );
+    return res.send(report.content);
+  }
+
+  @Get('evidence/:id')
+  @ApiOperation({ summary: 'Get single test evidence record with all decoded sensor fields' })
+  async getEvidenceById(@Param('id') id: string) {
+    return await this.service.getEvidenceById(id);
   }
 }

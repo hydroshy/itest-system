@@ -4,10 +4,12 @@ import { DynamicDatabaseService } from '../../database/dynamic-database.service'
 import { TestSessionEntity, TestSessionStatus } from './entities/test-session.entity';
 import { TestDeviceRunEntity, TestDeviceStatus } from './entities/test-device-run.entity';
 import { TestPacketLogEntity } from './entities/test-packet-log.entity';
+import { TestEvidenceEntity } from './entities/test-evidence.entity';
 import { TestTemplateEntity } from '../../c-modules/test-builder/entities/test-template.entity';
 import { ItemCodeEntity } from '../../c-modules/item-codes/entities/item-code.entity';
 import { SalesOrderEntity } from '../../c-modules/sales-orders/entities/sales-order.entity';
 import { QueryTestSessionDto } from './dto/query-test-session.dto';
+import { QueryTestEvidenceDto } from './dto/query-test-evidence.dto';
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -19,6 +21,7 @@ export class TestAutomationRepository {
   private memorySessions = new Map<string, TestSessionEntity>();
   private memoryDeviceRuns = new Map<string, TestDeviceRunEntity>();
   private memoryPacketLogs = new Map<string, TestPacketLogEntity[]>();
+  private memoryEvidences = new Map<string, TestEvidenceEntity>();
 
   constructor(private readonly dbService: DynamicDatabaseService) {}
 
@@ -44,6 +47,10 @@ export class TestAutomationRepository {
 
   public getSalesOrderRepo(): Repository<SalesOrderEntity> {
     return this.dbService.getRepositoryForTable('sales_orders', SalesOrderEntity);
+  }
+
+  public getEvidenceRepo(): Repository<TestEvidenceEntity> {
+    return this.dbService.getRepositoryForTable('test_evidence', TestEvidenceEntity);
   }
 
   public async findSessions(query: QueryTestSessionDto): Promise<{
@@ -364,5 +371,154 @@ export class TestAutomationRepository {
       this.logger.debug(`Database fallback for findItemCode: ${err.message}`);
       return null;
     }
+  }
+
+  public async saveEvidence(evidence: TestEvidenceEntity): Promise<TestEvidenceEntity> {
+    try {
+      const saved = await this.getEvidenceRepo().save(evidence);
+      this.memoryEvidences.set(saved.id, saved);
+      return saved;
+    } catch (err: any) {
+      this.logger.debug(`Database save fallback for saveEvidence: ${err.message}`);
+      if (!evidence.id) {
+        evidence.id = `mem-ev-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`;
+      }
+      if (!evidence.testedAt) evidence.testedAt = new Date();
+      if (!evidence.createdAt) evidence.createdAt = new Date();
+      evidence.updatedAt = new Date();
+      this.memoryEvidences.set(evidence.id, evidence);
+      return evidence;
+    }
+  }
+
+  public async findEvidences(query: QueryTestEvidenceDto): Promise<{
+    items: TestEvidenceEntity[];
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+  }> {
+    const page = Math.max(1, Number(query.page) || 1);
+    const limit = Math.max(1, Math.min(100, Number(query.limit) || 20));
+    const skip = (page - 1) * limit;
+
+    try {
+      const qb = this.getEvidenceRepo()
+        .createQueryBuilder('ev')
+        .leftJoinAndSelect('ev.session', 'session')
+        .orderBy('ev.testedAt', 'DESC')
+        .skip(skip)
+        .take(limit);
+
+      if (query.soCode && query.soCode.trim()) {
+        qb.andWhere('LOWER(ev.soCode) = LOWER(:soCode)', { soCode: query.soCode.trim() });
+      }
+
+      if (query.itemCode && query.itemCode.trim()) {
+        qb.andWhere('LOWER(ev.itemCode) = LOWER(:itemCode)', { itemCode: query.itemCode.trim() });
+      }
+
+      if (query.devEUI && query.devEUI.trim()) {
+        qb.andWhere('UPPER(ev.devEUI) = UPPER(:devEUI)', { devEUI: query.devEUI.trim() });
+      }
+
+      if (query.serialNumber && query.serialNumber.trim()) {
+        qb.andWhere('LOWER(ev.serialNumber) LIKE LOWER(:serial)', {
+          serial: `%${query.serialNumber.trim()}%`,
+        });
+      }
+
+      if (query.sku && query.sku.trim()) {
+        qb.andWhere('LOWER(ev.sku) = LOWER(:sku)', { sku: query.sku.trim() });
+      }
+
+      if (query.verdict && query.verdict.trim() && query.verdict.toUpperCase() !== 'ALL') {
+        qb.andWhere('UPPER(ev.verdict) = UPPER(:verdict)', { verdict: query.verdict.trim() });
+      }
+
+      if (query.sessionId && query.sessionId.trim() && UUID_REGEX.test(query.sessionId.trim())) {
+        qb.andWhere('ev.sessionId = :sessionId', { sessionId: query.sessionId.trim() });
+      }
+
+      if (query.search && query.search.trim()) {
+        const s = `%${query.search.trim()}%`;
+        qb.andWhere(
+          '(UPPER(ev.devEUI) LIKE UPPER(:s) OR LOWER(ev.serialNumber) LIKE LOWER(:s) OR LOWER(ev.soCode) LIKE LOWER(:s) OR LOWER(ev.itemCode) LIKE LOWER(:s))',
+          { s },
+        );
+      }
+
+      const [items, total] = await qb.getManyAndCount();
+      return {
+        items,
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit) || 1,
+      };
+    } catch (err: any) {
+      this.logger.debug(`Database fallback for findEvidences: ${err.message}`);
+      let list = Array.from(this.memoryEvidences.values());
+
+      if (query.soCode && query.soCode.trim()) {
+        const sc = query.soCode.trim().toLowerCase();
+        list = list.filter((e) => e.soCode?.toLowerCase() === sc);
+      }
+      if (query.itemCode && query.itemCode.trim()) {
+        const ic = query.itemCode.trim().toLowerCase();
+        list = list.filter((e) => e.itemCode?.toLowerCase() === ic);
+      }
+      if (query.devEUI && query.devEUI.trim()) {
+        const eui = query.devEUI.trim().toUpperCase();
+        list = list.filter((e) => e.devEUI?.toUpperCase() === eui);
+      }
+      if (query.serialNumber && query.serialNumber.trim()) {
+        const sn = query.serialNumber.trim().toLowerCase();
+        list = list.filter((e) => e.serialNumber?.toLowerCase().includes(sn));
+      }
+      if (query.verdict && query.verdict.trim() && query.verdict.toUpperCase() !== 'ALL') {
+        const v = query.verdict.trim().toUpperCase();
+        list = list.filter((e) => e.verdict?.toUpperCase() === v);
+      }
+      if (query.sessionId && query.sessionId.trim()) {
+        list = list.filter((e) => e.sessionId === query.sessionId?.trim());
+      }
+      if (query.search && query.search.trim()) {
+        const s = query.search.trim().toLowerCase();
+        list = list.filter(
+          (e) =>
+            e.devEUI?.toLowerCase().includes(s) ||
+            e.serialNumber?.toLowerCase().includes(s) ||
+            e.soCode?.toLowerCase().includes(s) ||
+            e.itemCode?.toLowerCase().includes(s),
+        );
+      }
+
+      list.sort((a, b) => new Date(b.testedAt).getTime() - new Date(a.testedAt).getTime());
+      const total = list.length;
+      const items = list.slice(skip, skip + limit);
+      return {
+        items,
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit) || 1,
+      };
+    }
+  }
+
+  public async findEvidenceById(id: string): Promise<TestEvidenceEntity | null> {
+    try {
+      if (UUID_REGEX.test(id)) {
+        const ev = await this.getEvidenceRepo().findOne({
+          where: { id },
+          relations: ['session', 'deviceRun'],
+        });
+        if (ev) return ev;
+      }
+    } catch (err: any) {
+      this.logger.debug(`Database fallback for findEvidenceById: ${err.message}`);
+    }
+    return this.memoryEvidences.get(id) || null;
   }
 }

@@ -58,4 +58,12 @@ export class SimulatePacketDto {
   @IsNumber()
   @IsOptional()
   fCnt?: number;
+
+  @ApiPropertyOptional({
+    description: 'Hardware Serial Number (Modbus Reg 259)',
+    example: 'WSLRW-ATH-260901',
+  })
+  @IsString()
+  @IsOptional()
+  serialNumber?: string;
 }

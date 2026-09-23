@@ -2,7 +2,7 @@
 // D-MODULE: PRODUCT TEST AUTOMATION WORKBENCH
 // ========================================================
 
-export const TEST_AUTOMATION_TEMPLATE = `          <div v-else-if="activeFeature.id === 'test-automation' || activeFeature.id === 'product-test-automation'" class="space-y-5">
+export const TEST_AUTOMATION_TEMPLATE = `          <div v-else-if="activeFeature.id === 'test-automation' || activeFeature.id === 'product-test-automation'" class="test-automation-container space-y-5">
             <!-- Top Toolbar & Module Info -->
             <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4 bg-slate-900/80 p-4 rounded-2xl border border-slate-800 shadow-md">
               <div class="flex items-center gap-3">
@@ -19,12 +19,22 @@ export const TEST_AUTOMATION_TEMPLATE = `          <div v-else-if="activeFeature
                       <span>REALTIME ONLINE</span>
                     </span>
                   </div>
-                  <p class="text-[11px] text-slate-400">Production batch testing workbench: pick Sales Order, push devices into simulation batch, and record uplinks within preset duration.</p>
+                  <p class="text-[11px] text-slate-400">Production batch testing workbench: pick Sales Order (or manual entry), push devices into simulation batch, and record uplinks within preset duration.</p>
                 </div>
               </div>
 
               <!-- Top Quick Actions -->
               <div class="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  @click="openEvidenceModal()"
+                  class="px-3 py-1.5 rounded-xl bg-cyan-600/30 hover:bg-cyan-600/40 text-cyan-300 border border-cyan-500/40 text-xs font-bold flex items-center gap-1.5 cursor-pointer transition"
+                  title="View Saved Sensor Decoded Test Evidence in PostgreSQL (Bằng chứng sau test)"
+                >
+                  <i class="fa-solid fa-clipboard-check text-cyan-400"></i>
+                  <span>Test Evidence (Bằng chứng sau test)</span>
+                </button>
+
                 <button
                   type="button"
                   @click="openSimulatePacketModal()"
@@ -59,52 +69,147 @@ export const TEST_AUTOMATION_TEMPLATE = `          <div v-else-if="activeFeature
 
             <!-- STEP 1: SALES ORDER & TEST TEMPLATE CONFIGURATION BAR -->
             <div class="bg-gradient-to-r from-slate-900 via-slate-900/95 to-slate-950 p-4 sm:p-5 rounded-2xl border border-slate-800 shadow-xl space-y-4">
-              <div class="grid grid-cols-1 md:grid-cols-12 gap-4 items-end">
-                <!-- Dropdown: Select Sales Order -->
-                <div class="md:col-span-4 space-y-1.5">
-                  <label class="block text-xs font-bold text-slate-300">
-                    <span class="text-cyan-400 font-mono">1.</span> Select Sales Order (SO) <span class="text-rose-400">*</span>
-                  </label>
-                  <div class="relative">
-                    <select
-                      v-model="selectedSoCode"
-                      @change="onSoSelectChange"
-                      :disabled="isBatchTesting"
-                      class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-xl text-white text-xs font-mono font-semibold focus:ring-1 focus:ring-cyan-500 focus:outline-none cursor-pointer disabled:opacity-50"
+              <!-- Mode Switcher: Existing SO vs Manual SO -->
+              <div class="flex items-center justify-between pb-3 border-b border-slate-800 flex-wrap gap-2">
+                <div class="flex items-center gap-2">
+                  <span class="text-xs font-bold text-slate-300 uppercase tracking-wider">Order Mode:</span>
+                  <div class="inline-flex rounded-xl p-0.5 bg-slate-950 border border-slate-800 text-xs font-mono">
+                    <button
+                      type="button"
+                      @click="setSoMode(false)"
+                      :class="!isManualSo ? 'bg-cyan-600 text-white font-bold shadow' : 'text-slate-400 hover:text-slate-200'"
+                      class="px-3 py-1 rounded-lg transition text-[11px] cursor-pointer"
                     >
-                      <option value="" disabled>-- Select Existing Sales Order --</option>
-                      <option v-for="so in salesOrdersList" :key="so.id || so.soCode" :value="so.soCode">
-                        {{ so.soCode }} — {{ so.customer || 'Internal Batch' }} ({{ so.items?.length || 0 }} items)
+                      <i class="fa-solid fa-list-check mr-1"></i> Existing Sales Order
+                    </button>
+                    <button
+                      type="button"
+                      @click="setSoMode(true)"
+                      :class="isManualSo ? 'bg-cyan-600 text-white font-bold shadow' : 'text-slate-400 hover:text-slate-200'"
+                      class="px-3 py-1 rounded-lg transition text-[11px] cursor-pointer"
+                    >
+                      <i class="fa-solid fa-pen-to-square mr-1"></i> Manual SO Entry
+                    </button>
+                  </div>
+                </div>
+                <div v-if="isManualSo" class="text-[11px] text-amber-400 flex items-center gap-1.5 font-medium">
+                  <i class="fa-solid fa-circle-info"></i>
+                  <span>Manual mode active: enter custom SO Code, Item Code, SKU, and FW</span>
+                </div>
+              </div>
+
+              <!-- Input Fields Grid -->
+              <div class="grid grid-cols-1 md:grid-cols-12 gap-4 items-end">
+                <!-- MODE A: EXISTING SALES ORDER DROPDOWNS -->
+                <template v-if="!isManualSo">
+                  <!-- Dropdown: Select Sales Order -->
+                  <div class="md:col-span-4 space-y-1.5">
+                    <label class="block text-xs font-bold text-slate-300">
+                      <span class="text-cyan-400 font-mono">1.</span> Select Sales Order (SO) <span class="text-rose-400">*</span>
+                    </label>
+                    <div class="relative">
+                      <select
+                        v-model="selectedSoCode"
+                        @change="onSoSelectChange"
+                        :disabled="isBatchTesting"
+                        class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-xl text-white text-xs font-mono font-semibold focus:ring-1 focus:ring-cyan-500 focus:outline-none cursor-pointer disabled:opacity-50"
+                      >
+                        <option value="" disabled>-- Select Existing Sales Order --</option>
+                        <option v-for="so in salesOrdersList" :key="so.id || so.soCode" :value="so.soCode">
+                          {{ so.soCode }} — {{ so.customer || 'Internal Batch' }} ({{ so.items?.length || 0 }} items)
+                        </option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <!-- Dropdown: Select Item Code / SKU in SO -->
+                  <div class="md:col-span-3 space-y-1.5">
+                    <label class="block text-xs font-bold text-slate-300">
+                      <span class="text-cyan-400 font-mono">2.</span> Target Item / SKU
+                    </label>
+                    <select
+                      v-model="selectedItemCode"
+                      @change="onItemCodeChange"
+                      :disabled="isBatchTesting || !availableSoItems.length"
+                      class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-xl text-white text-xs font-mono focus:ring-1 focus:ring-cyan-500 focus:outline-none cursor-pointer disabled:opacity-50"
+                    >
+                      <option v-if="!availableSoItems.length" value="">No SO Selected</option>
+                      <option v-for="item in availableSoItems" :key="item.id || item.itemCode" :value="item.itemCode">
+                        {{ item.itemCode }} ({{ item.sku }}, FW: {{ item.firmwareVersion }})
                       </option>
                     </select>
                   </div>
-                </div>
+                </template>
 
-                <!-- Dropdown: Select Item Code / SKU in SO -->
-                <div class="md:col-span-3 space-y-1.5">
-                  <label class="block text-xs font-bold text-slate-300">
-                    <span class="text-cyan-400 font-mono">2.</span> Target Item / SKU
-                  </label>
-                  <select
-                    v-model="selectedItemCode"
-                    @change="onItemCodeChange"
-                    :disabled="isBatchTesting || !availableSoItems.length"
-                    class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-xl text-white text-xs font-mono focus:ring-1 focus:ring-cyan-500 focus:outline-none cursor-pointer disabled:opacity-50"
-                  >
-                    <option v-if="!availableSoItems.length" value="">No SO Selected</option>
-                    <option v-for="item in availableSoItems" :key="item.id || item.itemCode" :value="item.itemCode">
-                      {{ item.itemCode }} ({{ item.sku }}, FW: {{ item.firmwareVersion }})
-                    </option>
-                  </select>
-                </div>
+                <!-- MODE B: MANUAL SALES ORDER INPUTS -->
+                <template v-else>
+                  <!-- Input: Manual Sales Order Code -->
+                  <div class="md:col-span-3 space-y-1.5">
+                    <label class="block text-xs font-bold text-slate-300">
+                      <span class="text-cyan-400 font-mono">1.</span> Manual SO Code <span class="text-rose-400">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      v-model="manualSoCode"
+                      @input="onManualSoCodeInput"
+                      placeholder="e.g. SO/2026/MANUAL-001"
+                      :disabled="isBatchTesting"
+                      class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-xl text-white text-xs font-mono font-semibold focus:ring-1 focus:ring-cyan-500 focus:outline-none disabled:opacity-50"
+                    />
+                  </div>
+
+                  <!-- Input: Manual Item Code -->
+                  <div class="md:col-span-2 space-y-1.5">
+                    <label class="block text-xs font-bold text-slate-300">
+                      <span class="text-cyan-400 font-mono">2.</span> Item Code <span class="text-rose-400">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      v-model="manualItemCode"
+                      @input="onManualItemInput"
+                      placeholder="e.g. WSLRW-ATH-01"
+                      :disabled="isBatchTesting"
+                      class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-xl text-white text-xs font-mono focus:ring-1 focus:ring-cyan-500 focus:outline-none disabled:opacity-50"
+                    />
+                  </div>
+
+                  <!-- Input: Manual SKU -->
+                  <div class="md:col-span-2 space-y-1.5">
+                    <label class="block text-xs font-bold text-slate-300">
+                      SKU <span class="text-rose-400">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      v-model="manualSku"
+                      @input="onManualItemInput"
+                      placeholder="e.g. WSLRW-ATH"
+                      :disabled="isBatchTesting"
+                      class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-xl text-white text-xs font-mono focus:ring-1 focus:ring-cyan-500 focus:outline-none disabled:opacity-50"
+                    />
+                  </div>
+
+                  <!-- Input: Manual FW -->
+                  <div class="md:col-span-1 space-y-1.5">
+                    <label class="block text-xs font-bold text-slate-300">
+                      FW
+                    </label>
+                    <input
+                      type="text"
+                      v-model="manualFw"
+                      @input="onManualItemInput"
+                      placeholder="1.0"
+                      :disabled="isBatchTesting"
+                      class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-xl text-white text-xs font-mono focus:ring-1 focus:ring-cyan-500 focus:outline-none disabled:opacity-50"
+                    />
+                  </div>
+                </template>
 
                 <!-- Template & Duration Info Pill -->
-                <div class="md:col-span-2 space-y-1.5">
-                  <label class="block text-[11px] font-bold text-slate-400">Preset Duration</label>
-                  <div class="flex items-center gap-2 px-3 py-2 rounded-xl bg-slate-950/80 border border-slate-800 text-xs font-mono">
+                <div :class="isManualSo ? 'md:col-span-1' : 'md:col-span-2'" class="space-y-1.5">
+                  <label class="block text-[11px] font-bold text-slate-400">Duration</label>
+                  <div class="flex items-center gap-1.5 px-2.5 py-2 rounded-xl bg-slate-950/80 border border-slate-800 text-xs font-mono">
                     <i class="fa-solid fa-stopwatch text-amber-400"></i>
                     <span class="font-black text-amber-300">{{ testDurationSeconds }}s</span>
-                    <span class="text-[10px] text-slate-500">({{ Math.round(testDurationSeconds / 60) }}m)</span>
                   </div>
                 </div>
 
@@ -1138,6 +1243,237 @@ export const TEST_AUTOMATION_MODALS = `
           </div>
         </div>
       </div>
+
+      <!-- ======================================================== -->
+      <!-- 5. MODAL: POST-TEST SENSOR DECODED DATA EVIDENCE (BẰNG CHỨNG SAU TEST) -->
+      <!-- ======================================================== -->
+      <div v-if="showEvidenceModal" class="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/85 backdrop-blur-md animate-in fade-in">
+        <div class="w-full max-w-5xl max-h-[90vh] bg-slate-900 border border-slate-700 rounded-2xl p-5 sm:p-6 space-y-4 shadow-2xl text-slate-200 flex flex-col test-automation-modal-card animate-in zoom-in-95">
+          <!-- Header -->
+          <div class="flex items-center justify-between border-b border-slate-800 pb-3 shrink-0">
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 rounded-xl bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center text-cyan-400 text-lg">
+                <i class="fa-solid fa-clipboard-check"></i>
+              </div>
+              <div>
+                <h3 class="text-base font-extrabold text-white tracking-wide flex items-center gap-2">
+                  <span>Post-Test Sensor Evidence (Bằng chứng sau test)</span>
+                  <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 font-mono">POSTGRESQL test_evidence</span>
+                </h3>
+                <p class="text-xs text-slate-400">
+                  Durable verification proof of decoded sensor fields, Modbus Reg 259 serial numbers, and assertions.
+                </p>
+              </div>
+            </div>
+            <button type="button" @click="showEvidenceModal = false" class="text-slate-400 hover:text-white text-lg p-1 cursor-pointer">
+              <i class="fa-solid fa-xmark"></i>
+            </button>
+          </div>
+
+          <!-- Filter & Action Ribbon -->
+          <div class="flex flex-wrap items-center justify-between gap-3 bg-slate-950/60 p-3 rounded-xl border border-slate-800 shrink-0">
+            <div class="flex flex-wrap items-center gap-2 flex-1 min-w-[280px]">
+              <div class="relative flex-1 min-w-[180px]">
+                <i class="fa-solid fa-magnifying-glass absolute left-3 top-2.5 text-xs text-slate-500"></i>
+                <input
+                  type="text"
+                  v-model="evidenceSearchQuery"
+                  @input="fetchEvidences"
+                  placeholder="Search DevEUI, Serial (Reg 259), SO Code, Item..."
+                  class="w-full pl-8 pr-3 py-1.5 bg-slate-900 border border-slate-700 rounded-xl text-white text-xs font-mono placeholder-slate-500 focus:ring-1 focus:ring-cyan-500 focus:outline-none"
+                />
+              </div>
+              <select
+                v-model="evidenceVerdictFilter"
+                @change="fetchEvidences"
+                class="px-2.5 py-1.5 bg-slate-900 border border-slate-700 rounded-xl text-white text-xs font-mono focus:outline-none cursor-pointer"
+              >
+                <option value="ALL">All Verdicts</option>
+                <option value="PASSED">PASSED Only</option>
+                <option value="FAILED">FAILED Only</option>
+              </select>
+            </div>
+
+            <div class="flex items-center gap-2">
+              <button
+                type="button"
+                @click="exportEvidenceCsvReport"
+                class="px-3 py-1.5 rounded-xl bg-emerald-600/30 hover:bg-emerald-600/40 text-emerald-300 border border-emerald-500/40 text-xs font-bold flex items-center gap-1.5 cursor-pointer transition"
+                title="Export Evidence to CSV"
+              >
+                <i class="fa-solid fa-file-csv"></i>
+                <span>Export CSV</span>
+              </button>
+              <button
+                type="button"
+                @click="fetchEvidences"
+                class="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white text-xs cursor-pointer transition"
+                title="Refresh Evidence"
+              >
+                <i class="fa-solid fa-arrows-rotate" :class="{ 'animate-spin': loadingEvidences }"></i>
+              </button>
+            </div>
+          </div>
+
+          <!-- Evidence List Table -->
+          <div class="flex-1 overflow-y-auto min-h-[220px] rounded-xl border border-slate-800 bg-slate-950/40">
+            <div v-if="loadingEvidences" class="p-8 text-center text-slate-400 text-xs flex items-center justify-center gap-2">
+              <i class="fa-solid fa-circle-notch animate-spin text-cyan-400"></i>
+              <span>Loading test evidence records...</span>
+            </div>
+            <div v-else-if="evidenceList.length === 0" class="p-8 text-center text-slate-500 text-xs space-y-2">
+              <i class="fa-regular fa-folder-open text-2xl text-slate-600"></i>
+              <p>No test evidence records found matching current filter.</p>
+            </div>
+            <table v-else class="w-full text-left text-xs border-collapse">
+              <thead class="sticky top-0 bg-slate-900 border-b border-slate-800 text-[10px] uppercase font-bold text-slate-400 font-mono">
+                <tr>
+                  <th class="py-2.5 px-3">Tested At</th>
+                  <th class="py-2.5 px-3">DevEUI</th>
+                  <th class="py-2.5 px-3">SERIAL_NUMBER (Reg 259)</th>
+                  <th class="py-2.5 px-3">SO Code</th>
+                  <th class="py-2.5 px-3">Item / SKU</th>
+                  <th class="py-2.5 px-3 text-center">Verdict</th>
+                  <th class="py-2.5 px-3">Decoded Sensor Fields</th>
+                  <th class="py-2.5 px-3 text-center">Action</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-slate-800/80">
+                <tr v-for="ev in evidenceList" :key="ev.id" class="hover:bg-slate-900/50 transition">
+                  <td class="py-2 px-3 text-slate-400 font-mono text-[11px] whitespace-nowrap">
+                    {{ formatTimestamp(ev.testedAt || ev.createdAt) }}
+                  </td>
+                  <td class="py-2 px-3 font-mono font-bold text-cyan-300">
+                    <span @click="copyText(ev.devEUI)" class="cursor-pointer hover:underline" title="Click to copy">
+                      {{ ev.devEUI }}
+                    </span>
+                  </td>
+                  <td class="py-2 px-3 font-mono font-bold text-amber-300">
+                    {{ ev.serialNumber || '--' }}
+                  </td>
+                  <td class="py-2 px-3 font-mono text-slate-300">
+                    {{ ev.soCode || '--' }}
+                  </td>
+                  <td class="py-2 px-3 text-slate-300 text-[11px]">
+                    <div>{{ ev.itemCode || '--' }}</div>
+                    <div class="text-[9px] text-slate-500 font-mono">{{ ev.sku }} (FW: {{ ev.firmwareVersion || '1.0' }})</div>
+                  </td>
+                  <td class="py-2 px-3 text-center">
+                    <span
+                      :class="ev.verdict === 'PASSED' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30' : 'bg-rose-500/10 text-rose-400 border-rose-500/30'"
+                      class="px-2 py-0.5 rounded-full text-[10px] font-bold border"
+                    >
+                      {{ ev.verdict }}
+                    </span>
+                  </td>
+                  <td class="py-2 px-3 font-mono text-[11px] text-slate-300 max-w-[260px] truncate" :title="JSON.stringify(ev.decodedFields)">
+                    <span v-for="(v, k) in ev.decodedFields" :key="k" class="inline-block mr-1.5 px-1.5 py-0.5 rounded bg-slate-800 text-[10px]">
+                      {{ k }}: <strong class="text-cyan-300">{{ v }}</strong>
+                    </span>
+                  </td>
+                  <td class="py-2 px-3 text-center whitespace-nowrap">
+                    <button
+                      type="button"
+                      @click="selectedEvidenceDetail = ev"
+                      class="px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white text-[11px] font-bold cursor-pointer transition"
+                      title="Inspect Complete Evidence & Audit Data"
+                    >
+                      <i class="fa-regular fa-eye mr-1"></i> Inspect
+                    </button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Total Count Footer -->
+          <div class="flex items-center justify-between text-xs text-slate-400 px-1 pt-2 shrink-0">
+            <span>Showing {{ evidenceList.length }} evidence records</span>
+            <span class="font-mono text-cyan-400 font-bold">Total in DB: {{ evidenceTotalCount }}</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- SUB-MODAL: SINGLE EVIDENCE DETAIL INSPECTOR -->
+      <div v-if="selectedEvidenceDetail" class="fixed inset-0 z-60 flex items-center justify-center p-4 bg-slate-950/90 backdrop-blur-md animate-in fade-in">
+        <div class="w-full max-w-2xl bg-slate-900 border border-slate-700 rounded-2xl p-6 space-y-4 shadow-2xl text-slate-200 animate-in zoom-in-95 max-h-[85vh] overflow-y-auto test-automation-modal-card">
+          <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+            <div>
+              <h3 class="text-sm font-bold text-white flex items-center gap-2">
+                <i class="fa-solid fa-microchip text-cyan-400"></i>
+                <span>Evidence Detail: {{ selectedEvidenceDetail.devEUI }}</span>
+              </h3>
+              <p class="text-[11px] text-slate-400 font-mono">
+                Serial (Reg 259): <strong class="text-amber-300">{{ selectedEvidenceDetail.serialNumber || 'N/A' }}</strong> | SO: {{ selectedEvidenceDetail.soCode }}
+              </p>
+            </div>
+            <button type="button" @click="selectedEvidenceDetail = null" class="text-slate-400 hover:text-white text-lg p-1 cursor-pointer">
+              <i class="fa-solid fa-xmark"></i>
+            </button>
+          </div>
+
+          <!-- Hardware & Verification Summary Cards -->
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center text-xs font-mono">
+            <div class="p-2.5 rounded-xl bg-slate-950 border border-slate-800">
+              <span class="text-[10px] text-slate-400 block">SERIAL_NUMBER (Reg 259)</span>
+              <strong class="text-amber-300">{{ selectedEvidenceDetail.serialNumber || '--' }}</strong>
+            </div>
+            <div class="p-2.5 rounded-xl bg-slate-950 border border-slate-800">
+              <span class="text-[10px] text-slate-400 block">VERDICT</span>
+              <span :class="selectedEvidenceDetail.verdict === 'PASSED' ? 'text-emerald-400' : 'text-rose-400'" class="font-black">
+                {{ selectedEvidenceDetail.verdict }}
+              </span>
+            </div>
+            <div class="p-2.5 rounded-xl bg-slate-950 border border-slate-800">
+              <span class="text-[10px] text-slate-400 block">BATTERY</span>
+              <strong class="text-emerald-300">{{ selectedEvidenceDetail.batteryVoltage ? selectedEvidenceDetail.batteryVoltage + 'V' : '--' }}</strong>
+            </div>
+            <div class="p-2.5 rounded-xl bg-slate-950 border border-slate-800">
+              <span class="text-[10px] text-slate-400 block">TESTED AT</span>
+              <span class="text-slate-300 text-[10px]">{{ formatTimestamp(selectedEvidenceDetail.testedAt) }}</span>
+            </div>
+          </div>
+
+          <!-- Decoded Sensor Fields (Evidence) -->
+          <div class="space-y-1.5">
+            <div class="flex items-center justify-between text-xs font-bold text-slate-300 uppercase tracking-wider">
+              <span>Decoded Sensor Fields (All Fields from Decoder)</span>
+              <button type="button" @click="copyText(JSON.stringify(selectedEvidenceDetail.decodedFields, null, 2))" class="text-[10px] text-cyan-400 hover:underline cursor-pointer">
+                <i class="fa-regular fa-copy mr-1"></i> Copy JSON
+              </button>
+            </div>
+            <div class="p-3 bg-slate-950 rounded-xl border border-slate-800">
+              <div v-if="!selectedEvidenceDetail.decodedFields || Object.keys(selectedEvidenceDetail.decodedFields).length === 0" class="text-slate-500 text-xs italic">
+                No decoded fields captured
+              </div>
+              <div v-else class="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                <div v-for="(val, key) in selectedEvidenceDetail.decodedFields" :key="key" class="p-2 rounded-lg bg-slate-900 border border-slate-800">
+                  <span class="text-[10px] text-slate-400 block uppercase font-mono">{{ key }}</span>
+                  <span class="text-xs font-bold font-mono text-cyan-300 break-all">{{ val }}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Raw Hex Payload & Assertions -->
+          <div class="space-y-1.5">
+            <span class="text-xs font-bold text-slate-300 uppercase tracking-wider block">Raw Uplink Payload (Hex)</span>
+            <div class="p-2.5 bg-slate-950 rounded-xl border border-slate-800 font-mono text-xs text-amber-300 break-all flex items-center justify-between">
+              <span>{{ selectedEvidenceDetail.payloadHex }}</span>
+              <button type="button" @click="copyText(selectedEvidenceDetail.payloadHex)" class="text-slate-400 hover:text-white ml-2 cursor-pointer">
+                <i class="fa-regular fa-copy"></i>
+              </button>
+            </div>
+          </div>
+
+          <!-- Footer -->
+          <div class="flex justify-end pt-2 border-t border-slate-800">
+            <button type="button" @click="selectedEvidenceDetail = null" class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold cursor-pointer">
+              Close
+            </button>
+          </div>
+        </div>
+      </div>
 `;
 
 export const TEST_AUTOMATION_SCRIPT = `
@@ -1151,6 +1487,23 @@ function useTestAutomationModule(ctx) {
   const selectedItemCode = ref('');
   const linkedTemplate = ref(null);
   const testDurationSeconds = ref(180);
+
+  // Manual SO Mode Support
+  const isManualSo = ref(false);
+  const manualSoCode = ref('SO/2026/MANUAL-001');
+  const manualItemCode = ref('WSLRW-ATH-01');
+  const manualSku = ref('WSLRW-ATH');
+  const manualFw = ref('1.0');
+  const manualTargetQty = ref(10);
+
+  // Post-Test Evidence Audit (Bằng chứng sau test)
+  const showEvidenceModal = ref(false);
+  const selectedEvidenceDetail = ref(null);
+  const evidenceList = ref([]);
+  const evidenceTotalCount = ref(0);
+  const loadingEvidences = ref(false);
+  const evidenceSearchQuery = ref('');
+  const evidenceVerdictFilter = ref('ALL');
 
   // User Fleet Devices
   const fleetSearchQuery = ref('');
@@ -1271,6 +1624,14 @@ function useTestAutomationModule(ctx) {
 
   // Computed properties
   const selectedSo = computed(() => {
+    if (isManualSo.value) {
+      return {
+        id: 'manual-so',
+        soCode: manualSoCode.value || 'SO/2026/MANUAL-001',
+        customer: 'Manual Entry Batch',
+        items: [selectedSoItem.value],
+      };
+    }
     if (!selectedSoCode.value) return null;
     return salesOrdersList.value.find(s => s.soCode === selectedSoCode.value) || null;
   });
@@ -1280,6 +1641,16 @@ function useTestAutomationModule(ctx) {
   });
 
   const selectedSoItem = computed(() => {
+    if (isManualSo.value) {
+      return {
+        id: 'manual-so-item',
+        itemCode: manualItemCode.value || 'MANUAL-ITEM',
+        sku: manualSku.value || 'WSLRW-ATH',
+        firmwareVersion: manualFw.value || '1.0',
+        quantity: Number(manualTargetQty.value) || 1,
+        testedQuantity: 0,
+      };
+    }
     if (!selectedItemCode.value) return availableSoItems.value[0] || null;
     return availableSoItems.value.find(i => i.itemCode === selectedItemCode.value) || availableSoItems.value[0] || null;
   });
@@ -1388,6 +1759,42 @@ function useTestAutomationModule(ctx) {
       console.error('Failed to load Sales Orders:', e);
     } finally {
       loadingSalesOrders.value = false;
+    }
+  };
+
+  const setSoMode = (isManual) => {
+    isManualSo.value = isManual;
+    if (isManual) {
+      selectedSoCode.value = manualSoCode.value;
+      selectedItemCode.value = manualItemCode.value;
+      onManualItemInput();
+    } else {
+      if (salesOrdersList.value.length > 0) {
+        selectedSoCode.value = salesOrdersList.value[0].soCode;
+        onSoSelectChange();
+      }
+    }
+  };
+
+  const onManualSoCodeInput = () => {
+    selectedSoCode.value = manualSoCode.value;
+  };
+
+  const onManualItemInput = async () => {
+    selectedItemCode.value = manualItemCode.value;
+    if (manualSku.value) {
+      try {
+        const res = await fetch('/api/sales-orders/mapping/test-template?sku=' + encodeURIComponent(manualSku.value) + '&firmwareVersion=' + encodeURIComponent(manualFw.value || '1'), {
+          headers: authHeaders(),
+        });
+        if (res.ok) {
+          const tpl = await res.json();
+          if (tpl && tpl.id) {
+            linkedTemplate.value = tpl;
+            testDurationSeconds.value = tpl.timeoutSeconds || 180;
+          }
+        }
+      } catch (e) {}
     }
   };
 
@@ -1507,11 +1914,13 @@ function useTestAutomationModule(ctx) {
     try {
       // 1. Create Session on backend
       const payload = {
-        soCode: selectedSoCode.value,
-        itemCode: selectedItemCode.value || selectedSoItem.value?.itemCode || 'GENERIC',
+        soCode: isManualSo.value ? manualSoCode.value : selectedSoCode.value,
+        itemCode: isManualSo.value ? manualItemCode.value : (selectedItemCode.value || selectedSoItem.value?.itemCode || 'GENERIC'),
+        sku: isManualSo.value ? manualSku.value : (selectedSoItem.value?.sku || undefined),
+        firmwareVersion: isManualSo.value ? manualFw.value : (selectedSoItem.value?.firmwareVersion || undefined),
         templateId: linkedTemplate.value?.id || undefined,
         devEUIs: batchDevices.value.map(d => d.devEUI),
-        notes: 'Operator batch test (' + batchDevices.value.length + ' units)',
+        notes: isManualSo.value ? ('Manual SO: ' + manualSoCode.value + ' (' + batchDevices.value.length + ' units)') : ('Operator batch test (' + batchDevices.value.length + ' units)'),
         autoStart: true,
       };
 
@@ -1714,8 +2123,15 @@ function useTestAutomationModule(ctx) {
   const openSimulatePacketModal = (targetDevEUI) => {
     if (targetDevEUI) {
       simulateForm.value.devEUI = targetDevEUI;
+      const match = batchDevices.value.find(d => d.devEUI === targetDevEUI);
+      if (match?.serialNumber) {
+        simulateForm.value.serialNumber = match.serialNumber;
+      }
     } else if (batchDevices.value.length > 0) {
       simulateForm.value.devEUI = batchDevices.value[0].devEUI;
+      if (batchDevices.value[0].serialNumber) {
+        simulateForm.value.serialNumber = batchDevices.value[0].serialNumber;
+      }
     }
     showSimulateModal.value = true;
   };
@@ -1763,6 +2179,11 @@ function useTestAutomationModule(ctx) {
             match.failureReason = result.run?.failureReason || 'Assertion failed';
           }
         }
+
+        // Refresh evidence list if open
+        if (showEvidenceModal.value) {
+          fetchEvidences();
+        }
       } else {
         const err = await res.json();
         showToast(err.message || 'Simulation failed', 'error');
@@ -1781,6 +2202,52 @@ function useTestAutomationModule(ctx) {
     }
     const url = '/api/d-modules/test-run/sessions/' + encodeURIComponent(activeTestSession.value.id) + '/export?format=' + format;
     window.open(url, '_blank');
+  };
+
+  // Post-Test Evidence Handlers (Bằng chứng sau test)
+  const formatTimestamp = (d) => {
+    if (!d) return '--';
+    try {
+      const dt = new Date(d);
+      return isNaN(dt.getTime()) ? String(d) : dt.toLocaleString();
+    } catch (e) {
+      return String(d);
+    }
+  };
+
+  const fetchEvidences = async () => {
+    loadingEvidences.value = true;
+    try {
+      const params = new URLSearchParams();
+      if (evidenceSearchQuery.value) params.append('search', evidenceSearchQuery.value);
+      if (evidenceVerdictFilter.value && evidenceVerdictFilter.value !== 'ALL') params.append('verdict', evidenceVerdictFilter.value);
+      params.append('limit', '50');
+
+      const res = await fetch('/api/d-modules/test-run/evidence?' + params.toString(), {
+        headers: authHeaders(),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        evidenceList.value = data.items || [];
+        evidenceTotalCount.value = data.total || 0;
+      }
+    } catch (e) {
+      console.warn('Failed to fetch test evidence:', e);
+    } finally {
+      loadingEvidences.value = false;
+    }
+  };
+
+  const openEvidenceModal = () => {
+    showEvidenceModal.value = true;
+    fetchEvidences();
+  };
+
+  const exportEvidenceCsvReport = () => {
+    const params = new URLSearchParams();
+    if (evidenceSearchQuery.value) params.append('search', evidenceSearchQuery.value);
+    if (evidenceVerdictFilter.value && evidenceVerdictFilter.value !== 'ALL') params.append('verdict', evidenceVerdictFilter.value);
+    window.open('/api/d-modules/test-run/evidence/export?' + params.toString(), '_blank');
   };
 
   // Compatibility methods
@@ -2187,6 +2654,7 @@ function useTestAutomationModule(ctx) {
       const newBatchDevice = {
         devEUI: info.devEUI,
         name: regPayload.name,
+        serialNumber: info.serialNumber,
         sku: info.sku,
         firmwareVersion: info.shortFw,
         isOnline: true,
@@ -2267,6 +2735,28 @@ function useTestAutomationModule(ctx) {
     fetchSalesOrders,
     onSoSelectChange,
     onItemCodeChange,
+    // Manual SO Mode
+    isManualSo,
+    manualSoCode,
+    manualItemCode,
+    manualSku,
+    manualFw,
+    manualTargetQty,
+    setSoMode,
+    onManualSoCodeInput,
+    onManualItemInput,
+    // Post-Test Evidence Audit
+    showEvidenceModal,
+    selectedEvidenceDetail,
+    evidenceList,
+    evidenceTotalCount,
+    loadingEvidences,
+    evidenceSearchQuery,
+    evidenceVerdictFilter,
+    openEvidenceModal,
+    fetchEvidences,
+    exportEvidenceCsvReport,
+    formatTimestamp,
     toggleSelectFleetDevice,
     toggleSelectAllVisibleFleet,
     pushSelectedFleetToBatch,

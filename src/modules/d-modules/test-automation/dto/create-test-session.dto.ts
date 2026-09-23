@@ -68,4 +68,18 @@ export class CreateTestSessionDto {
   })
   @IsOptional()
   metadata?: Record<string, any>;
+
+  @ApiPropertyOptional({
+    description: 'Explicit device SKU for manual SO creation',
+  })
+  @IsString()
+  @IsOptional()
+  sku?: string;
+
+  @ApiPropertyOptional({
+    description: 'Explicit device firmware version for manual SO creation',
+  })
+  @IsString()
+  @IsOptional()
+  firmwareVersion?: string;
 }

@@ -24,6 +24,7 @@ import { SensorTypeEntity } from '../../modules/c-modules/sensor-types/entities/
 import { TestSessionEntity } from '../../modules/d-modules/test-automation/entities/test-session.entity';
 import { TestDeviceRunEntity } from '../../modules/d-modules/test-automation/entities/test-device-run.entity';
 import { TestPacketLogEntity } from '../../modules/d-modules/test-automation/entities/test-packet-log.entity';
+import { TestEvidenceEntity } from '../../modules/d-modules/test-automation/entities/test-evidence.entity';
 
 
 export const ALL_DATABASE_ENTITIES = [
@@ -49,6 +50,7 @@ export const ALL_DATABASE_ENTITIES = [
   TestSessionEntity,
   TestDeviceRunEntity,
   TestPacketLogEntity,
+  TestEvidenceEntity,
 ];
 
 export interface DbConnectionConfig {

@@ -10,9 +10,12 @@ import { TestAutomationRepository } from './test-automation.repository';
 import { TestSessionEntity, TestSessionStatus } from './entities/test-session.entity';
 import { TestDeviceRunEntity, TestDeviceStatus } from './entities/test-device-run.entity';
 import { TestPacketLogEntity } from './entities/test-packet-log.entity';
+import { TestEvidenceEntity } from './entities/test-evidence.entity';
 import { CreateTestSessionDto } from './dto/create-test-session.dto';
 import { SimulatePacketDto } from './dto/simulate-packet.dto';
 import { QueryTestSessionDto } from './dto/query-test-session.dto';
+import { CreateTestEvidenceDto } from './dto/create-test-evidence.dto';
+import { QueryTestEvidenceDto } from './dto/query-test-evidence.dto';
 import { RealtimeGateway } from '../../realtime/realtime.gateway';
 import { RealtimeService } from '../../realtime/realtime.service';
 import {
@@ -131,14 +134,14 @@ export class TestAutomationService implements OnModuleInit {
 
     // Resolve template and device SKU/Firmware
     let templateId = dto.templateId;
-    let resolvedSku = 'GENERIC-LORA';
-    let resolvedFw = '1.0';
+    let resolvedSku = dto.sku?.trim() || 'GENERIC-LORA';
+    let resolvedFw = dto.firmwareVersion?.trim() || '1.0';
 
     // Lookup Item Code catalog to resolve template and SKU if not provided
     const itemMaster = await this.repository.findItemCode(itemCode);
     if (itemMaster) {
-      resolvedSku = itemMaster.sku || resolvedSku;
-      resolvedFw = itemMaster.firmwareVersion || resolvedFw;
+      resolvedSku = dto.sku?.trim() || itemMaster.sku || resolvedSku;
+      resolvedFw = dto.firmwareVersion?.trim() || itemMaster.firmwareVersion || resolvedFw;
       if (!templateId && itemMaster.defaultTemplateId) {
         templateId = itemMaster.defaultTemplateId;
       }
@@ -476,6 +479,59 @@ export class TestAutomationService implements OnModuleInit {
     packetLog.receivedAt = new Date();
     await this.repository.savePacketLog(packetLog);
 
+    // Extract battery voltage if present
+    const batteryVal = decodedData.battery ?? decodedData.battery_voltage ?? decodedData.voltage;
+
+    // 3b. Save Post-Test Sensor Decoded Data Evidence (Bằng chứng sau test)
+    let serialNumber = dto.serialNumber;
+    if (!serialNumber && run.summaryReport?.serialNumber) {
+      serialNumber = run.summaryReport.serialNumber;
+    }
+    if (!serialNumber) {
+      const year = new Date().getFullYear().toString().slice(2);
+      const month = String(new Date().getMonth() + 1).padStart(2, '0');
+      const day = String(new Date().getDate()).padStart(2, '0');
+      serialNumber = `${run.sku || 'WSLRW'}-${year}${month}${day}${cleanEUI.slice(-4)}`;
+    }
+
+    try {
+      const evidence = new TestEvidenceEntity();
+      evidence.sessionId = session.id;
+      evidence.deviceRunId = run.id;
+      evidence.sessionCode = session.sessionCode;
+      evidence.soCode = session.soCode;
+      evidence.itemCode = session.itemCode;
+      evidence.devEUI = cleanEUI;
+      evidence.serialNumber = serialNumber;
+      evidence.sku = run.sku;
+      evidence.firmwareVersion = run.firmwareVersion;
+      evidence.payloadHex = cleanHex;
+      evidence.decodedFields = decodedData;
+      evidence.assertionResults = assertionResults;
+      evidence.verdict = assertionsPass ? 'PASSED' : 'FAILED';
+      evidence.failureReason = assertionsPass ? undefined : firstErrorMessage;
+      evidence.fPort = packetLog.fPort;
+      evidence.fCnt = packetLog.fCnt;
+      evidence.rssi = packetLog.rssi;
+      evidence.snr = packetLog.snr;
+      evidence.batteryVoltage = typeof batteryVal === 'number' ? batteryVal : undefined;
+      evidence.operatorUsername = session.operatorId || 'qa-operator';
+      evidence.testedAt = packetLog.receivedAt;
+      evidence.metadata = {
+        gatewayId: packetLog.gatewayId,
+        modbusReg259: {
+          register: 259,
+          functionCode: 3,
+          registerCount: 9,
+          format: 'string',
+          serialNumber,
+        },
+      };
+      await this.repository.saveEvidence(evidence);
+    } catch (evErr: any) {
+      this.logger.warn(`Failed to save test evidence for [${cleanEUI}]: ${evErr.message}`);
+    }
+
     // 4. Update Device Run State
     run.totalPackets = (run.totalPackets || 0) + 1;
     const passedCount = assertionResults.filter((r) => r.pass).length;
@@ -491,8 +547,6 @@ export class TestAutomationService implements OnModuleInit {
       run.snrAvg = run.snrAvg !== undefined ? Math.round(((run.snrAvg + dto.snr) / 2) * 10) / 10 : dto.snr;
     }
 
-    // Extract battery voltage if present
-    const batteryVal = decodedData.battery ?? decodedData.battery_voltage ?? decodedData.voltage;
     if (typeof batteryVal === 'number') {
       run.batteryVoltage = batteryVal;
     }
@@ -512,6 +566,7 @@ export class TestAutomationService implements OnModuleInit {
     }
 
     run.summaryReport = {
+      serialNumber,
       lastPacket: {
         fPort: packetLog.fPort,
         fCnt: packetLog.fCnt,
@@ -930,6 +985,139 @@ export class TestAutomationService implements OnModuleInit {
     } catch (err: any) {
       this.logger.warn(`Failed to broadcast event '${event}': ${err.message}`);
     }
+  }
+
+  public async createEvidence(
+    dto: CreateTestEvidenceDto,
+    operatorUsername: string = 'qa-operator',
+  ): Promise<TestEvidenceEntity> {
+    const cleanEUI = cleanDevEUI(dto.devEUI);
+    if (!cleanEUI) {
+      throw new BadRequestException('Valid 16-hex DevEUI is required');
+    }
+
+    const cleanHex = cleanHexPayload(dto.payloadHex) || '00';
+    let serialNumber = dto.serialNumber?.trim();
+    if (!serialNumber) {
+      const year = new Date().getFullYear().toString().slice(2);
+      const month = String(new Date().getMonth() + 1).padStart(2, '0');
+      const day = String(new Date().getDate()).padStart(2, '0');
+      serialNumber = `${dto.sku || 'WSLRW'}-${year}${month}${day}${cleanEUI.slice(-4)}`;
+    }
+
+    const evidence = new TestEvidenceEntity();
+    evidence.sessionId = dto.sessionId;
+    evidence.deviceRunId = dto.deviceRunId;
+    evidence.sessionCode = dto.sessionCode;
+    evidence.soCode = dto.soCode;
+    evidence.itemCode = dto.itemCode;
+    evidence.devEUI = cleanEUI;
+    evidence.serialNumber = serialNumber;
+    evidence.sku = dto.sku;
+    evidence.firmwareVersion = dto.firmwareVersion;
+    evidence.hardwareVersion = dto.hardwareVersion;
+    evidence.payloadHex = cleanHex;
+    evidence.decodedFields = dto.decodedFields || {};
+    evidence.assertionResults = dto.assertionResults || [];
+    evidence.verdict = (dto.verdict || 'PASSED').toUpperCase();
+    evidence.failureReason = dto.failureReason;
+    evidence.fPort = dto.fPort || 1;
+    evidence.fCnt = dto.fCnt || 0;
+    evidence.rssi = dto.rssi;
+    evidence.snr = dto.snr;
+    evidence.batteryVoltage = dto.batteryVoltage;
+    evidence.operatorUsername = dto.operatorUsername || operatorUsername;
+    evidence.testedAt = new Date();
+    evidence.metadata = dto.metadata || {
+      modbusReg259: {
+        register: 259,
+        functionCode: 3,
+        registerCount: 9,
+        format: 'string',
+        serialNumber,
+      },
+    };
+
+    const saved = await this.repository.saveEvidence(evidence);
+
+    this.broadcastEvent('test_evidence:created', {
+      id: saved.id,
+      devEUI: saved.devEUI,
+      serialNumber: saved.serialNumber,
+      verdict: saved.verdict,
+      soCode: saved.soCode,
+      testedAt: saved.testedAt,
+    });
+
+    return saved;
+  }
+
+  public async getEvidences(query: QueryTestEvidenceDto) {
+    return await this.repository.findEvidences(query);
+  }
+
+  public async getEvidenceById(id: string): Promise<TestEvidenceEntity> {
+    const evidence = await this.repository.findEvidenceById(id);
+    if (!evidence) {
+      throw new NotFoundException(`Test evidence record '${id}' not found`);
+    }
+    return evidence;
+  }
+
+  public async exportEvidenceCsv(
+    query: QueryTestEvidenceDto,
+  ): Promise<{ fileName: string; content: string }> {
+    const { items } = await this.repository.findEvidences({ ...query, limit: 1000 });
+    const headers = [
+      'Evidence ID',
+      'Tested At (UTC)',
+      'DevEUI',
+      'Serial Number (Reg 259)',
+      'SO Code',
+      'Item Code',
+      'SKU',
+      'Firmware',
+      'Verdict',
+      'Battery (V)',
+      'RSSI (dBm)',
+      'SNR (dB)',
+      'fPort',
+      'fCnt',
+      'Decoded Sensor Fields (JSON)',
+      'Failure Reason',
+      'Operator',
+    ];
+
+    const rows = items.map((e) => {
+      const decodedJson = JSON.stringify(e.decodedFields || {}).replace(/"/g, '""');
+      const failReason = (e.failureReason || '').replace(/"/g, '""');
+      return [
+        `"${e.id}"`,
+        `"${e.testedAt ? new Date(e.testedAt).toISOString() : ''}"`,
+        `"${e.devEUI}"`,
+        `"${e.serialNumber || ''}"`,
+        `"${e.soCode || ''}"`,
+        `"${e.itemCode || ''}"`,
+        `"${e.sku || ''}"`,
+        `"${e.firmwareVersion || ''}"`,
+        `"${e.verdict}"`,
+        e.batteryVoltage !== null && e.batteryVoltage !== undefined ? e.batteryVoltage : '',
+        e.rssi !== null && e.rssi !== undefined ? e.rssi : '',
+        e.snr !== null && e.snr !== undefined ? e.snr : '',
+        e.fPort || 1,
+        e.fCnt || 0,
+        `"${decodedJson}"`,
+        `"${failReason}"`,
+        `"${e.operatorUsername || 'qa-operator'}"`,
+      ].join(',');
+    });
+
+    const csvContent = [headers.join(','), ...rows].join('\n');
+    const dateStr = new Date().toISOString().substring(0, 10);
+    return {
+      fileName: `test-evidence-report-${dateStr}.csv`,
+      content: csvContent,
+    };
   }
 
   private serializeSession(s: TestSessionEntity) {

@@ -35,6 +35,7 @@
     "test_sessions": "core_db",
     "test_device_runs": "core_db",
     "test_packet_logs": "core_db",
-    "sensor_types": "core_db"
+    "sensor_types": "core_db",
+    "test_evidence": "core_db"
   }
 }

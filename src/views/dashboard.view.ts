@@ -388,7 +388,7 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
     .theme-light .text-indigo-300, .theme-light .text-indigo-400 { color: #4338ca !important; }
     .theme-light .text-teal-300, .theme-light .text-teal-400 { color: #0f766e !important; }
 
-    /* Maintain white text on solid/gradient colored action buttons */
+    /* Maintain white text ONLY on solid/gradient colored action buttons and badges */
     .theme-light button[class*="bg-sky-600"],
     .theme-light button[class*="bg-blue-600"],
     .theme-light button[class*="bg-cyan-600"],
@@ -396,21 +396,71 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
     .theme-light button[class*="bg-red-600"],
     .theme-light button[class*="bg-rose-600"],
     .theme-light button[class*="bg-indigo-600"],
-    .theme-light a[class*="bg-sky-600"],
-    .theme-light a[class*="bg-blue-600"],
-    .theme-light a[class*="bg-cyan-600"],
-    .theme-light a[class*="bg-emerald-600"],
-    .theme-light a[class*="bg-red-600"],
-    .theme-light [class*="bg-gradient-"] .text-white,
-    .theme-light [class*="bg-gradient-"][class*="text-white"],
-    .theme-light [class*="bg-sky-600"] .text-white,
-    .theme-light [class*="bg-blue-600"] .text-white,
-    .theme-light [class*="bg-cyan-600"] .text-white,
-    .theme-light [class*="bg-emerald-600"] .text-white,
-    .theme-light [class*="bg-red-600"] .text-white,
-    .theme-light [class*="bg-rose-600"] .text-white,
-    .theme-light [class*="bg-indigo-600"] .text-white {
+    .theme-light button[class*="bg-sky-"],
+    .theme-light button[class*="bg-blue-"],
+    .theme-light button[class*="bg-cyan-"],
+    .theme-light button[class*="bg-emerald-"],
+    .theme-light button[class*="bg-red-"],
+    .theme-light button[class*="bg-rose-"],
+    .theme-light button[class*="bg-indigo-"],
+    .theme-light button[class*="bg-gradient-"],
+    .theme-light a[class*="bg-sky-"],
+    .theme-light a[class*="bg-blue-"],
+    .theme-light a[class*="bg-cyan-"],
+    .theme-light a[class*="bg-emerald-"],
+    .theme-light a[class*="bg-red-"],
+    .theme-light a[class*="bg-rose-"],
+    .theme-light a[class*="bg-indigo-"],
+    .theme-light a[class*="bg-gradient-"],
+    .theme-light button[class*="bg-gradient-"] *,
+    .theme-light a[class*="bg-gradient-"] *,
+    .theme-light button[class*="bg-emerald-"] *,
+    .theme-light button[class*="bg-rose-"] *,
+    .theme-light button[class*="bg-cyan-"] *,
+    .theme-light button[class*="bg-blue-"] *,
+    .theme-light button[class*="bg-indigo-"] * {
       color: #ffffff !important;
+    }
+
+    /* Product Test Automation Workbench - Comprehensive Light Mode Rules */
+    .theme-light .test-automation-container,
+    .theme-light .test-automation-container .text-white,
+    .theme-light [v-show*="test-automation"] .text-white {
+      color: #0f172a !important;
+    }
+    .theme-light .test-automation-container .text-slate-200,
+    .theme-light .test-automation-container .text-slate-300 {
+      color: #1e293b !important;
+    }
+    .theme-light .test-automation-container .text-slate-400 {
+      color: #475569 !important;
+    }
+    .theme-light .test-automation-container .text-slate-500 {
+      color: #64748b !important;
+    }
+    .theme-light .test-automation-container select,
+    .theme-light .test-automation-container input {
+      background-color: #ffffff !important;
+      color: #0f172a !important;
+      border-color: #cbd5e1 !important;
+    }
+    .theme-light .test-automation-container .bg-slate-950,
+    .theme-light .test-automation-container .bg-slate-900 {
+      background-color: #ffffff !important;
+      border-color: #e2e8f0 !important;
+    }
+    .theme-light .test-automation-container .bg-slate-800 {
+      background-color: #f1f5f9 !important;
+      color: #334155 !important;
+      border-color: #cbd5e1 !important;
+    }
+    .theme-light .test-automation-modal-card {
+      background-color: #ffffff !important;
+      color: #0f172a !important;
+      border-color: #e2e8f0 !important;
+    }
+    .theme-light .test-automation-modal-card .text-white {
+      color: #0f172a !important;
     }
 
     /* HTML Tables & Log Viewers */
