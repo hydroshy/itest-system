@@ -10,6 +10,8 @@ import { ItemCodeEntity } from '../../c-modules/item-codes/entities/item-code.en
 import { SalesOrderEntity } from '../../c-modules/sales-orders/entities/sales-order.entity';
 import { QueryTestSessionDto } from './dto/query-test-session.dto';
 import { QueryTestEvidenceDto } from './dto/query-test-evidence.dto';
+import { DeviceEntity } from '../../lorawan/entities/device.entity';
+import { TelemetryEntity } from '../../lorawan/entities/telemetry.entity';
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -520,5 +522,170 @@ export class TestAutomationRepository {
       this.logger.debug(`Database fallback for findEvidenceById: ${err.message}`);
     }
     return this.memoryEvidences.get(id) || null;
+  }
+
+  public async findDeviceTrace(devEUI: string): Promise<{
+    devEUI: string;
+    isOnline: boolean;
+    lastSeenAt: string | null;
+    rssi: number | null;
+    snr: number | null;
+  }> {
+    const cleanEui = (devEUI || '').trim().toUpperCase();
+    if (!cleanEui) {
+      return { devEUI: '', isOnline: false, lastSeenAt: null, rssi: null, snr: null };
+    }
+    try {
+      const deviceRepo = this.dbService.getRepositoryForTable('devices', DeviceEntity);
+      let device = await deviceRepo.findOne({
+        where: { devEUI: cleanEui },
+      });
+      if (!device) {
+        device = await deviceRepo.findOne({
+          where: { devEUI: cleanEui.toLowerCase() },
+        });
+      }
+
+      const telemetryRepo = this.dbService.getRepositoryForTable('uplink_telemetry', TelemetryEntity);
+      let latestTelemetry = await telemetryRepo.findOne({
+        where: { devEui: cleanEui },
+        order: { timestamp: 'DESC' },
+      });
+      if (!latestTelemetry) {
+        latestTelemetry = await telemetryRepo.findOne({
+          where: { devEui: cleanEui.toLowerCase() },
+          order: { timestamp: 'DESC' },
+        });
+      }
+
+      let lastSeenDate: Date | null = null;
+      if (latestTelemetry?.timestamp) {
+        lastSeenDate = new Date(latestTelemetry.timestamp);
+      }
+      if (device?.lastSeenAt) {
+        const dSeen = new Date(device.lastSeenAt);
+        if (!lastSeenDate || dSeen.getTime() > lastSeenDate.getTime()) {
+          lastSeenDate = dSeen;
+        }
+      }
+      if (device?.syncDetails?.lastSeenAt) {
+        const dSeen = new Date(device.syncDetails.lastSeenAt);
+        if (!isNaN(dSeen.getTime()) && (!lastSeenDate || dSeen.getTime() > lastSeenDate.getTime())) {
+          lastSeenDate = dSeen;
+        }
+      }
+
+      let rssi = latestTelemetry?.rssi != null ? Number(latestTelemetry.rssi) : null;
+      let snr = latestTelemetry?.snr != null ? Number(latestTelemetry.snr) : null;
+      if (rssi == null && device?.syncDetails?.rssi != null) {
+        rssi = Number(device.syncDetails.rssi);
+      }
+      if (snr == null && device?.syncDetails?.snr != null) {
+        snr = Number(device.syncDetails.snr);
+      }
+
+      const memLogs = this.memoryPacketLogs.get(cleanEui) || this.memoryPacketLogs.get(cleanEui.toLowerCase()) || [];
+      if (memLogs.length > 0) {
+        const lastMem = memLogs[memLogs.length - 1];
+        const memDate = lastMem.receivedAt ? new Date(lastMem.receivedAt) : new Date();
+        if (!lastSeenDate || memDate.getTime() > lastSeenDate.getTime()) {
+          lastSeenDate = memDate;
+        }
+        if (rssi == null && lastMem.rssi != null) rssi = Number(lastMem.rssi);
+        if (snr == null && lastMem.snr != null) snr = Number(lastMem.snr);
+      }
+
+      // Check memory device runs if no DB telemetry found
+      for (const run of this.memoryDeviceRuns.values()) {
+        if ((run.devEUI || '').toUpperCase() === cleanEui) {
+          const runLogs = this.memoryPacketLogs.get(run.id) || [];
+          if (runLogs.length > 0) {
+            const first = runLogs[0];
+            const logDate = first.receivedAt ? new Date(first.receivedAt) : new Date();
+            if (!lastSeenDate || logDate.getTime() > lastSeenDate.getTime()) {
+              lastSeenDate = logDate;
+            }
+            if (rssi == null && first.rssi != null) rssi = Number(first.rssi);
+            if (snr == null && first.snr != null) snr = Number(first.snr);
+          } else if (run.totalPackets > 0 || run.rssiAvg != null || run.snrAvg != null) {
+            const runDate = run.updatedAt ? new Date(run.updatedAt) : new Date();
+            if (!lastSeenDate || runDate.getTime() > lastSeenDate.getTime()) {
+              lastSeenDate = runDate;
+            }
+            if (rssi == null && run.rssiAvg != null) rssi = Number(run.rssiAvg);
+            if (snr == null && run.snrAvg != null) snr = Number(run.snrAvg);
+          }
+        }
+      }
+
+      const now = Date.now();
+      const lastSeenMs = lastSeenDate ? lastSeenDate.getTime() : 0;
+      // Online if lastSeen within 24 hours and device is active
+      const isOnline = Boolean(device?.isActive !== false && lastSeenMs > 0 && (now - lastSeenMs) < (24 * 60 * 60 * 1000));
+
+      return {
+        devEUI: cleanEui,
+        isOnline,
+        lastSeenAt: lastSeenDate ? lastSeenDate.toISOString() : null,
+        rssi,
+        snr,
+      };
+    } catch (err: any) {
+      this.logger.debug(`Database fallback for findDeviceTrace: ${err.message}`);
+      for (const run of this.memoryDeviceRuns.values()) {
+        if ((run.devEUI || '').toUpperCase() === cleanEui) {
+          const runLogs = this.memoryPacketLogs.get(run.id) || [];
+          if (runLogs.length > 0) {
+            const first = runLogs[0];
+            return {
+              devEUI: cleanEui,
+              isOnline: true,
+              lastSeenAt: first.receivedAt ? new Date(first.receivedAt).toISOString() : new Date().toISOString(),
+              rssi: first.rssi != null ? Number(first.rssi) : (run.rssiAvg != null ? Number(run.rssiAvg) : null),
+              snr: first.snr != null ? Number(first.snr) : (run.snrAvg != null ? Number(run.snrAvg) : null),
+            };
+          }
+          if (run.totalPackets > 0 || run.rssiAvg != null || run.snrAvg != null) {
+            return {
+              devEUI: cleanEui,
+              isOnline: true,
+              lastSeenAt: run.updatedAt ? new Date(run.updatedAt).toISOString() : new Date().toISOString(),
+              rssi: run.rssiAvg != null ? Number(run.rssiAvg) : null,
+              snr: run.snrAvg != null ? Number(run.snrAvg) : null,
+            };
+          }
+        }
+      }
+
+      const logs = this.memoryPacketLogs.get(cleanEui) || this.memoryPacketLogs.get(cleanEui.toLowerCase()) || [];
+      if (logs.length > 0) {
+        const last = logs[0];
+        return {
+          devEUI: cleanEui,
+          isOnline: true,
+          lastSeenAt: last.receivedAt ? new Date(last.receivedAt).toISOString() : new Date().toISOString(),
+          rssi: last.rssi != null ? Number(last.rssi) : null,
+          snr: last.snr != null ? Number(last.snr) : null,
+        };
+      }
+      return {
+        devEUI: cleanEui,
+        isOnline: false,
+        lastSeenAt: null,
+        rssi: null,
+        snr: null,
+      };
+    }
+  }
+
+  public async findBatchDeviceTrace(devEUIs: string[]): Promise<Array<{
+    devEUI: string;
+    isOnline: boolean;
+    lastSeenAt: string | null;
+    rssi: number | null;
+    snr: number | null;
+  }>> {
+    const list = Array.isArray(devEUIs) ? devEUIs : [];
+    return await Promise.all(list.map((eui) => this.findDeviceTrace(eui)));
   }
 }

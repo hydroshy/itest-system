@@ -100,6 +100,22 @@ export class TestAutomationController {
     return await this.service.retryDeviceRun(deviceRunId);
   }
 
+  @Get('devices/:devEUI/trace')
+  @ApiOperation({
+    summary: 'Trace real-time online status, RSSI and SNR for a device before test',
+  })
+  async getDeviceTrace(@Param('devEUI') devEUI: string) {
+    return await this.service.getDeviceTrace(devEUI);
+  }
+
+  @Post('devices/trace-batch')
+  @ApiOperation({
+    summary: 'Batch trace real-time online status, RSSI and SNR for devices before test',
+  })
+  async getBatchDeviceTrace(@Body('devEUIs') devEUIs: string[]) {
+    return await this.service.getBatchDeviceTrace(devEUIs || []);
+  }
+
   @Post('simulate-packet')
   @ApiOperation({
     summary:

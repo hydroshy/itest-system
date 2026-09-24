@@ -576,8 +576,20 @@ export const TEST_AUTOMATION_TEMPLATE = `          <div v-else-if="activeFeature
                     </p>
                   </div>
 
-                  <!-- Clear Batch Action -->
+                  <!-- Batch Actions (Trace Status & Clear) -->
                   <div class="flex items-center gap-2">
+                    <button
+                      v-if="batchDevices.length > 0"
+                      type="button"
+                      @click="fetchBatchDevicesTrace"
+                      :disabled="loadingTrace"
+                      class="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-teal-300 text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition disabled:opacity-50"
+                      title="Trace real-time online status, RSSI and SNR from server API"
+                    >
+                      <i class="fa-solid fa-arrows-rotate text-[11px]" :class="{ 'animate-spin': loadingTrace }"></i>
+                      <span>Trace Status</span>
+                    </button>
+
                     <button
                       v-if="!isBatchTesting && batchDevices.length > 0"
                       type="button"
@@ -616,10 +628,8 @@ export const TEST_AUTOMATION_TEMPLATE = `          <div v-else-if="activeFeature
                         <th class="py-3 px-3.5">Online Status</th>
                         <th class="py-3 px-3.5">DevEUI</th>
                         <th class="py-3 px-3.5">Name / Model</th>
-                        <th class="py-3 px-3.5 text-center">RSSI / SNR</th>
-                        <th class="py-3 px-3.5 text-center">Battery</th>
-                        <th class="py-3 px-3.5 text-center">Recorded Pkts</th>
-                        <th class="py-3 px-3.5">Test Verdict</th>
+                        <th class="py-3 px-3.5 text-center">RSSI (best) | SNR (best)</th>
+                        <th class="py-3 px-3.5">Status</th>
                         <th class="py-3 px-3.5 text-right">Actions</th>
                       </tr>
                     </thead>
@@ -637,10 +647,17 @@ export const TEST_AUTOMATION_TEMPLATE = `          <div v-else-if="activeFeature
                         <!-- Index -->
                         <td class="py-2.5 px-3.5 text-center text-slate-500 text-[11px]">{{ idx + 1 }}</td>
 
-                        <!-- 1. ONLINE STATUS (LIVE ONLINE / OFFLINE) -->
+                        <!-- 1. ONLINE STATUS (LIVE CHECK VIA SERVER API) -->
                         <td class="py-2.5 px-3.5">
                           <span
-                            v-if="dev.isOnline"
+                            v-if="dev.isCheckingOnline"
+                            class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold bg-amber-500/10 text-amber-400 border border-amber-500/25"
+                          >
+                            <i class="fa-solid fa-circle-notch animate-spin text-[9px]"></i>
+                            <span>CHECKING...</span>
+                          </span>
+                          <span
+                            v-else-if="dev.isOnline"
                             class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/25 shadow-sm"
                             :title="'Online: last seen ' + formatLastSeen(dev.lastSeenAt)"
                           >
@@ -670,27 +687,18 @@ export const TEST_AUTOMATION_TEMPLATE = `          <div v-else-if="activeFeature
                           <div class="text-[9px] text-slate-500 font-normal">{{ dev.sku || selectedSoItem?.sku || 'LoRaWAN' }}</div>
                         </td>
 
-                        <!-- 4. RSSI / SNR -->
-                        <td class="py-2.5 px-3.5 text-center text-[11px] text-slate-300">
-                          {{ dev.rssi !== undefined && dev.rssi !== null ? dev.rssi + ' dBm' : '--' }}
-                        </td>
-
-                        <!-- 5. Battery -->
-                        <td class="py-2.5 px-3.5 text-center text-[11px]" :class="dev.batteryVoltage && dev.batteryVoltage < 2.8 ? 'text-amber-400 font-bold' : 'text-emerald-400'">
-                          {{ dev.batteryVoltage ? dev.batteryVoltage + 'V' : '--' }}
-                        </td>
-
-                        <!-- 6. Recorded Uplink Packets Count -->
-                        <td class="py-2.5 px-3.5 text-center">
-                          <span
-                            class="px-2 py-0.5 rounded text-[11px] font-bold font-mono"
-                            :class="dev.totalPackets > 0 ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30' : 'bg-slate-800 text-slate-400'"
-                          >
-                            {{ dev.totalPackets || 0 }} pkt
+                        <!-- 4. RSSI (best) | SNR (best) -->
+                        <td class="py-2.5 px-3.5 text-center text-[11px] font-mono">
+                          <span v-if="dev.rssi !== undefined && dev.rssi !== null" class="text-cyan-300 font-semibold">
+                            {{ dev.rssi }} dBm
+                            <span v-if="dev.snr !== undefined && dev.snr !== null" class="text-slate-400">
+                              | <span class="text-emerald-300">{{ dev.snr > 0 ? '+' + dev.snr : dev.snr }} dB</span>
+                            </span>
                           </span>
+                          <span v-else class="text-slate-600">--</span>
                         </td>
 
-                        <!-- 7. Test Status / Assertion Verdict -->
+                        <!-- 5. Test Status / Assertion Verdict -->
                         <td class="py-2.5 px-3.5">
                           <span
                             class="px-2.5 py-0.5 rounded-full text-[10px] font-bold border font-mono uppercase inline-flex items-center gap-1"
@@ -700,15 +708,26 @@ export const TEST_AUTOMATION_TEMPLATE = `          <div v-else-if="activeFeature
                             <i v-else-if="dev.status === 'PASSED'" class="fa-solid fa-check text-[9px]"></i>
                             <i v-else-if="dev.status === 'FAILED' || dev.status === 'TIMEOUT'" class="fa-solid fa-xmark text-[9px]"></i>
                             <i v-else class="fa-solid fa-clock text-[9px]"></i>
-                            <span>{{ dev.status }}</span>
+                            <span>{{ dev.status || 'READY' }}</span>
                           </span>
                           <div v-if="dev.failureReason" class="text-[9px] text-rose-400 truncate max-w-xs mt-0.5" :title="dev.failureReason">
                             {{ dev.failureReason }}
                           </div>
                         </td>
 
-                        <!-- 8. Row Actions -->
+                        <!-- 6. Row Actions -->
                         <td class="py-2.5 px-3.5 text-right space-x-1">
+                          <!-- Live status trace button -->
+                          <button
+                            type="button"
+                            @click="fetchSingleDeviceTrace(dev.devEUI)"
+                            :disabled="dev.isCheckingOnline"
+                            class="px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-teal-300 text-[11px] cursor-pointer transition disabled:opacity-50"
+                            title="Trace live status & RSSI/SNR from server API"
+                          >
+                            <i class="fa-solid fa-arrows-rotate text-[10px]" :class="{ 'animate-spin': dev.isCheckingOnline }"></i>
+                          </button>
+
                           <!-- Audit log -->
                           <button
                             v-if="dev.deviceRunId"
@@ -720,12 +739,12 @@ export const TEST_AUTOMATION_TEMPLATE = `          <div v-else-if="activeFeature
                             <i class="fa-solid fa-receipt"></i>
                           </button>
 
-                          <!-- Simulate injection -->
+                          <!-- Simulate injection (Dev Testing) -->
                           <button
                             type="button"
                             @click="openSimulatePacketModal(dev.devEUI)"
                             class="px-2 py-1 rounded bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 text-[11px] cursor-pointer"
-                            title="Simulate Packet"
+                            title="Simulate Packet (Dev Testing)"
                           >
                             <i class="fa-solid fa-bolt"></i>
                           </button>
@@ -1769,6 +1788,7 @@ function useTestAutomationModule(ctx) {
   // Center Stage: Test Batch Devices List (Simulation List)
   const batchDevices = ref([]);
   const isBatchTesting = ref(false);
+  const loadingTrace = ref(false);
   const batchStartTime = ref(null);
   const batchScheduledEndTime = ref(null);
   const batchRemainingSeconds = ref(0);
@@ -2278,35 +2298,116 @@ function useTestAutomationModule(ctx) {
     selectedFleetDevEUIs.value = new Set(selectedFleetDevEUIs.value);
   };
 
+  const fetchSingleDeviceTrace = async (devEUI) => {
+    if (!devEUI) return;
+    const cleanEui = String(devEUI).trim().toUpperCase();
+    const match = batchDevices.value.find(d => (d.devEUI || '').toUpperCase() === cleanEui);
+    if (match) match.isCheckingOnline = true;
+    try {
+      const res = await fetch('/api/d-modules/test-run/devices/' + encodeURIComponent(cleanEui) + '/trace', {
+        headers: authHeaders(),
+      });
+      if (res.ok) {
+        const trace = await res.json();
+        if (match) {
+          match.isOnline = Boolean(trace.isOnline);
+          match.lastSeenAt = trace.lastSeenAt || null;
+          match.rssi = (trace.rssi !== null && trace.rssi !== undefined) ? trace.rssi : null;
+          match.snr = (trace.snr !== null && trace.snr !== undefined) ? trace.snr : null;
+        }
+      }
+    } catch (e) {
+      console.warn('Trace single device error:', e);
+    } finally {
+      if (match) match.isCheckingOnline = false;
+    }
+  };
+
+  const fetchBatchDevicesTrace = async () => {
+    if (!batchDevices.value || batchDevices.value.length === 0) return;
+    loadingTrace.value = true;
+    batchDevices.value.forEach(d => { d.isCheckingOnline = true; });
+    const euiList = batchDevices.value.map(d => d.devEUI).filter(Boolean);
+    try {
+      const res = await fetch('/api/d-modules/test-run/devices/trace-batch', {
+        method: 'POST',
+        headers: {
+          ...authHeaders(),
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ devEUIs: euiList }),
+      });
+      if (res.ok) {
+        const traceList = await res.json();
+        if (Array.isArray(traceList)) {
+          for (const trace of traceList) {
+            const m = batchDevices.value.find(d => (d.devEUI || '').toUpperCase() === (trace.devEUI || '').toUpperCase());
+            if (m) {
+              m.isOnline = Boolean(trace.isOnline);
+              m.lastSeenAt = trace.lastSeenAt || null;
+              m.rssi = (trace.rssi !== null && trace.rssi !== undefined) ? trace.rssi : null;
+              m.snr = (trace.snr !== null && trace.snr !== undefined) ? trace.snr : null;
+            }
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('Trace batch devices error:', e);
+    } finally {
+      batchDevices.value.forEach(d => { d.isCheckingOnline = false; });
+      loadingTrace.value = false;
+    }
+  };
+
   const pushSelectedFleetToBatch = () => {
     const toAdd = availableFleetDevices.value.filter(d => selectedFleetDevEUIs.value.has(d.devEUI));
     for (const d of toAdd) {
-      pushSingleDeviceToBatch(d);
+      if (batchDevices.value.some(x => x.devEUI === d.devEUI)) continue;
+      batchDevices.value.push({
+        devEUI: d.devEUI,
+        name: d.name || 'Device ' + d.devEUI.slice(-4),
+        sku: d.sku || selectedSoItem.value?.sku || 'LoRaWAN',
+        firmwareVersion: d.firmwareVersion || selectedSoItem.value?.firmwareVersion || '1',
+        soCode: d.salesOrder?.soCode || d.soCode || (manualSoCode.value || selectedSoCode.value || ''),
+        itemCode: d.itemCode?.itemCode || d.itemCode || (manualItemCode.value || selectedItemCode.value || ''),
+        isCheckingOnline: true,
+        isOnline: false,
+        lastSeenAt: d.lastSeenAt || d.syncDetails?.lastSeenAt || null,
+        status: 'READY',
+        totalPackets: 0,
+        rssi: null,
+        snr: null,
+        failureReason: '',
+        deviceRunId: null,
+      });
     }
     selectedFleetDevEUIs.value.clear();
     selectedFleetDevEUIs.value = new Set();
+    fetchBatchDevicesTrace();
     showToast('Pushed ' + toAdd.length + ' devices to simulation batch', 'success');
   };
 
   const pushSingleDeviceToBatch = (d) => {
     if (batchDevices.value.some(x => x.devEUI === d.devEUI)) return;
-    batchDevices.value.push({
+    const item = {
       devEUI: d.devEUI,
       name: d.name || 'Device ' + d.devEUI.slice(-4),
       sku: d.sku || selectedSoItem.value?.sku || 'LoRaWAN',
       firmwareVersion: d.firmwareVersion || selectedSoItem.value?.firmwareVersion || '1',
       soCode: d.salesOrder?.soCode || d.soCode || (manualSoCode.value || selectedSoCode.value || ''),
       itemCode: d.itemCode?.itemCode || d.itemCode || (manualItemCode.value || selectedItemCode.value || ''),
-      isOnline: isDeviceOnline(d),
-      lastSeenAt: d.lastSeenAt || d.syncDetails?.lastSeenAt,
+      isCheckingOnline: true,
+      isOnline: false,
+      lastSeenAt: d.lastSeenAt || d.syncDetails?.lastSeenAt || null,
       status: 'READY',
       totalPackets: 0,
       rssi: null,
       snr: null,
-      batteryVoltage: null,
       failureReason: '',
       deviceRunId: null,
-    });
+    };
+    batchDevices.value.push(item);
+    fetchSingleDeviceTrace(d.devEUI);
   };
 
   const removeDeviceFromBatch = (devEUI) => {
@@ -3415,7 +3516,7 @@ function useTestAutomationModule(ctx) {
         throw new Error(errMsg);
       }
 
-      // Add to active batch devices list
+      // Add to active batch devices list (Live status trace check via server API, no hardcoded fake telemetry)
       const newBatchDevice = {
         devEUI: info.devEUI,
         name: regPayload.name,
@@ -3424,13 +3525,13 @@ function useTestAutomationModule(ctx) {
         firmwareVersion: info.shortFw,
         soCode: (manualSoCode.value || selectedSoCode.value || ''),
         itemCode: (manualItemCode.value || selectedItemCode.value || ''),
-        isOnline: true,
-        lastSeenAt: new Date(),
+        isCheckingOnline: true,
+        isOnline: false,
+        lastSeenAt: null,
         status: 'READY',
         totalPackets: 0,
-        rssi: -65,
-        snr: 9.8,
-        batteryVoltage: 3.6,
+        rssi: null,
+        snr: null,
         failureReason: '',
         deviceRunId: null,
       };
@@ -3438,6 +3539,7 @@ function useTestAutomationModule(ctx) {
       if (!batchDevices.value.some(d => d.devEUI === newBatchDevice.devEUI)) {
         batchDevices.value.push(newBatchDevice);
       }
+      fetchSingleDeviceTrace(info.devEUI);
 
       // Refresh fleet
       if (fetchDevices) fetchDevices();
@@ -3584,6 +3686,9 @@ function useTestAutomationModule(ctx) {
     toggleSelectAllVisibleFleet,
     pushSelectedFleetToBatch,
     pushSingleDeviceToBatch,
+    fetchSingleDeviceTrace,
+    fetchBatchDevicesTrace,
+    loadingTrace,
     removeDeviceFromBatch,
     clearBatch,
     refreshWorkbenchData,

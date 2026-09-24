@@ -1137,4 +1137,12 @@ export class TestAutomationService implements OnModuleInit {
       createdAt: s.createdAt,
     };
   }
+
+  async getDeviceTrace(devEUI: string) {
+    return await this.repository.findDeviceTrace(devEUI);
+  }
+
+  async getBatchDeviceTrace(devEUIs: string[]) {
+    return await this.repository.findBatchDeviceTrace(devEUIs);
+  }
 }
