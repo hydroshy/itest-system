@@ -312,7 +312,7 @@
         "comment": "Device serial number (format: string, 9 registers = 18 bytes ASCII)",
         "parameter": "SERIAL_NUMBER",
         "endianness": "Big-Endian",
-        "valuetowrite": "WSLRW-LKS-260901"
+        "valuetowrite": ""
       },
       {
         "fc": 3,

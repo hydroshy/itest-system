@@ -1346,6 +1346,71 @@ export const TEST_AUTOMATION_MODALS = `
         </div>
       </div>
 
+      <!-- Connection Check / Read Failure Alert Modal -->
+      <div v-if="showPortCheckModal" class="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-md animate-in fade-in">
+        <div class="w-full max-w-md bg-slate-900 border border-amber-500/30 rounded-2xl p-6 shadow-2xl space-y-4 text-slate-200">
+          <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+            <div class="flex items-center gap-2.5">
+              <div class="w-9 h-9 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400">
+                <i class="fa-solid fa-triangle-exclamation text-sm"></i>
+              </div>
+              <div>
+                <h3 class="text-sm font-bold text-white">Check Port Connection</h3>
+                <p class="text-[11px] text-amber-300">Cannot read SERIAL_NUMBER from device</p>
+              </div>
+            </div>
+            <button type="button" @click="closePortCheckModal" class="text-slate-400 hover:text-white text-base p-1 cursor-pointer">
+              <i class="fa-solid fa-xmark"></i>
+            </button>
+          </div>
+
+          <div class="space-y-3 text-xs leading-relaxed text-slate-300">
+            <p class="bg-amber-500/10 border border-amber-500/20 rounded-xl p-3 text-amber-200 font-medium">
+              {{ portCheckErrorMessage || 'Cannot read SERIAL_NUMBER from the device. Please check the serial port connection before proceeding.' }}
+            </p>
+
+            <div class="p-3 bg-slate-950/80 rounded-xl border border-slate-800 space-y-2 text-[11px]">
+              <div class="font-bold text-slate-200 flex items-center gap-1.5 mb-1 text-xs">
+                <i class="fa-solid fa-circle-question text-cyan-400"></i>
+                <span>Checklist & Troubleshooting:</span>
+              </div>
+              <div class="flex items-start gap-2">
+                <i class="fa-solid fa-check text-cyan-400 mt-0.5"></i>
+                <span>Ensure USB-Serial cable is plugged in firmly and the COM port is selected.</span>
+              </div>
+              <div class="flex items-start gap-2">
+                <i class="fa-solid fa-check text-cyan-400 mt-0.5"></i>
+                <span>Verify Baud rate setting matches the device (<strong>9600 bps</strong> or <strong>115200 bps</strong>).</span>
+              </div>
+              <div class="flex items-start gap-2">
+                <i class="fa-solid fa-check text-cyan-400 mt-0.5"></i>
+                <span>Check device power supply and wiring (UART TX connected to RX, RX to TX).</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="flex items-center justify-end gap-2 pt-2 border-t border-slate-800">
+            <button
+              type="button"
+              @click="closePortCheckModal"
+              class="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold cursor-pointer transition"
+            >
+              Close
+            </button>
+            <button
+              type="button"
+              @click="closePortCheckModal(); readDeviceViaUart()"
+              :disabled="uartReading"
+              class="px-4 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-md transition disabled:opacity-50"
+            >
+              <i v-if="uartReading" class="fa-solid fa-circle-notch animate-spin"></i>
+              <i v-else class="fa-solid fa-rotate-right"></i>
+              <span>Re-read Device</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
       <!-- ======================================================== -->
       <!-- 5. MODAL: POST-TEST SENSOR DECODED DATA EVIDENCE -->
       <!-- ======================================================== -->
@@ -1637,6 +1702,15 @@ function useTestAutomationModule(ctx) {
 
   // Device Onboarding & Registration via Serial UART
   const showDeviceOnboardModal = ref(false);
+  const showPortCheckModal = ref(false);
+  const portCheckErrorMessage = ref('');
+  const openPortCheckModal = (msg = '') => {
+    portCheckErrorMessage.value = msg || 'Cannot read SERIAL_NUMBER from device. Please check COM port connection and Baud rate.';
+    showPortCheckModal.value = true;
+  };
+  const closePortCheckModal = () => {
+    showPortCheckModal.value = false;
+  };
   const uartPort = ref(null);
   const uartPortInfo = ref('');
   const uartConnected = ref(false);
@@ -2584,12 +2658,16 @@ function useTestAutomationModule(ctx) {
         await connectUart();
         if (uartConnected.value) {
           await readDeviceViaUart();
+        } else {
+          openPortCheckModal('Could not connect to pre-selected COM port. Please check port connection.');
         }
       } catch (err) {
         console.error('Auto connect and read error:', err);
+        openPortCheckModal('Error connecting to COM port: ' + (err.message || err));
       }
     } else {
-      uartLogMessage.value = 'Ready to connect COM port to read device parameters';
+      uartLogMessage.value = 'Serial UART COM port is not connected. Please check port connection.';
+      openPortCheckModal('Serial UART port is not connected. Please select and connect COM port to read device.');
     }
   };
 
@@ -2874,6 +2952,7 @@ function useTestAutomationModule(ctx) {
   const readDeviceViaUart = async () => {
     if (!uartPort.value || !uartConnected.value) {
       showToast('Please connect Serial UART port before reading.', 'warning');
+      openPortCheckModal('Serial UART port is not connected. Please select and connect COM port first.');
       return;
     }
 
@@ -2886,62 +2965,99 @@ function useTestAutomationModule(ctx) {
         return String.fromCharCode(...bytes.filter(b => b >= 32 && b <= 126)).trim();
       };
 
-      let longFw = '1F0926';
-      let hwVersion = '1H';
-      let meVersion = '1M';
-      let regionCode = 'EU868';
-      let devClass = 'A';
-      let sensorTypeCode = 71;
+      let longFw = '';
+      let hwVersion = '';
+      let meVersion = '';
+      let regionCode = '';
+      let devClass = '';
+      let sensorTypeCode = null;
       let itemCode = '';
       let serialNumber = '';
 
+      // 1. Read Reg 259 (SERIAL_NUMBER: FC 3, # of Registers = 9, format = string)
       try {
-        // Read Reg 5 (FW_VERSION, 4 regs)
+        const snBytes = await readModbusRegistersFromPort(1, 259, 9);
+        const readSn = bytesToAscii(snBytes);
+        if (readSn) serialNumber = readSn;
+      } catch (err) {
+        console.warn('Hardware read failed for Reg 259 (SERIAL_NUMBER):', err);
+      }
+
+      // Check if SERIAL_NUMBER was read:
+      // STRICT REQUIREMENT: Actual hardware read only! Do NOT pre-fill write data or fallback fake serial numbers!
+      // If SERIAL_NUMBER is missing or empty, prompt popup to check port connection.
+      if (!serialNumber || !serialNumber.trim()) {
+        resetReadDeviceInfo();
+        uartLogMessage.value = 'Error: Cannot read SERIAL_NUMBER from device. Please check port connection and Baud rate.';
+        showToast('Cannot read SERIAL_NUMBER from device! Please check port connection.', 'error');
+        openPortCheckModal('Cannot read SERIAL_NUMBER from device. Please verify your COM port connection, Baud rate (9600 / 115200 bps), or UART TX/RX wiring.');
+        return;
+      }
+
+      // 2. Read Reg 5 (FW_VERSION, 4 regs)
+      try {
         const fwBytes = await readModbusRegistersFromPort(1, 5, 4);
         const readFw = bytesToAscii(fwBytes);
         if (readFw) longFw = readFw;
+      } catch (e) {
+        console.warn('Failed to read Reg 5 (FW_VERSION):', e);
+      }
 
-        // Read Reg 9 (HW_VERSION, 2 regs)
+      // 3. Read Reg 9 (HW_VERSION, 2 regs)
+      try {
         const hwBytes = await readModbusRegistersFromPort(1, 9, 2);
         const readHw = bytesToAscii(hwBytes);
         if (readHw) hwVersion = readHw;
+      } catch (e) {
+        console.warn('Failed to read Reg 9 (HW_VERSION):', e);
+      }
 
-        // Read Reg 15 (ME_VERSION, 2 regs)
+      // 4. Read Reg 15 (ME_VERSION, 2 regs)
+      try {
         const meBytes = await readModbusRegistersFromPort(1, 15, 2);
         const readMe = bytesToAscii(meBytes);
         if (readMe) meVersion = readMe;
+      } catch (e) {
+        console.warn('Failed to read Reg 15 (ME_VERSION):', e);
+      }
 
-        // Read Reg 69 (region code, 3 regs)
+      // 5. Read Reg 69 (region code, 3 regs)
+      try {
         const regBytes = await readModbusRegistersFromPort(1, 69, 3);
         const readReg = bytesToAscii(regBytes);
         if (readReg) regionCode = readReg;
+      } catch (e) {
+        console.warn('Failed to read Reg 69 (region code):', e);
+      }
 
-        // Read Reg 85 (class, 1 reg)
+      // 6. Read Reg 85 (class, 1 reg)
+      try {
         const classBytes = await readModbusRegistersFromPort(1, 85, 1);
         const readClass = bytesToAscii(classBytes);
         if (readClass) devClass = readClass;
+      } catch (e) {
+        console.warn('Failed to read Reg 85 (class):', e);
+      }
 
-        // Read Reg 103 (sensor type, 1 reg uint16)
+      // 7. Read Reg 103 (sensor type, 1 reg uint16)
+      try {
         const stBytes = await readModbusRegistersFromPort(1, 103, 1);
         if (stBytes && stBytes.length >= 2) {
           sensorTypeCode = (stBytes[0] << 8) | stBytes[1];
         }
+      } catch (e) {
+        console.warn('Failed to read Reg 103 (sensor type):', e);
+      }
 
-        // Read Reg 259 (SERIAL_NUMBER: FC 3, # of Registers = 9, format = string)
-        const snBytes = await readModbusRegistersFromPort(1, 259, 9);
-        const readSn = bytesToAscii(snBytes);
-        if (readSn) serialNumber = readSn;
-
-        // Read Reg 386 (ITEM_CODE, 14 regs)
-        // Per template_dvt.csv: Reg 386 has FC Write = 16P (writable).
-        // When reading from device, do NOT take writeable value; if empty/blank, fill empty directly:
+      // 8. Read Reg 386 (ITEM_CODE, 14 regs)
+      // Per template_dvt.csv: Reg 386 has FC Write = 16P (writable).
+      // When reading from device, do NOT take writeable value; if empty/blank, fill empty directly:
+      try {
         const icBytes = await readModbusRegistersFromPort(1, 386, 14);
         const readIc = bytesToAscii(icBytes);
         itemCode = readIc || '';
-      } catch (ioErr) {
-        console.warn('Hardware read timeout or partial response, fallback to template format:', ioErr);
-        uartLogMessage.value = 'Hardware response slow, applying standard template_dvt.csv format';
-        // Note: itemCode remains empty '' if read failed or area was blank; never prefill writable value!
+      } catch (e) {
+        itemCode = '';
       }
 
       // Cut first char as SHORT_FW: '1F0926' -> '1'
@@ -2949,31 +3065,30 @@ function useTestAutomationModule(ctx) {
 
       // Resolve SKU from Sensor Type C-Module
       let sku = 'WSLRW-LKS';
-      let sensorTypeName = 'LoRaWAN Leak Sensor';
-      try {
-        const res = await fetch('/api/c-modules/sensor-types/resolve/' + sensorTypeCode, {
-          headers: authHeaders(),
-        });
-        if (res.ok) {
-          const typeData = await res.json();
-          if (typeData && typeData.sku) {
-            sku = typeData.sku;
-            sensorTypeName = typeData.name || sensorTypeName;
+      let sensorTypeName = 'LoRaWAN Sensor';
+      if (sensorTypeCode !== null && sensorTypeCode !== undefined) {
+        try {
+          const res = await fetch('/api/c-modules/sensor-types/resolve/' + sensorTypeCode, {
+            headers: authHeaders(),
+          });
+          if (res.ok) {
+            const typeData = await res.json();
+            if (typeData && typeData.sku) {
+              sku = typeData.sku;
+              sensorTypeName = typeData.name || sensorTypeName;
+            }
           }
+        } catch (e) {
+          console.warn('Could not resolve sensor type:', e);
         }
-      } catch (e) {
-        console.warn('Could not resolve sensor type:', e);
       }
 
       // Compare read ITEM_CODE with selected SO Item Code
       const targetItem = (manualItemCode.value || selectedItemCode.value || selectedSoItem.value?.itemCode || '').trim();
       const isMatch = (targetItem && itemCode) ? (itemCode.trim().toLowerCase() === targetItem.toLowerCase()) : false;
 
-      // Fallback serial number if not read via Reg 259
-      if (!serialNumber) {
-        serialNumber = sku + '-' + new Date().toISOString().slice(2, 4) + String(new Date().getMonth() + 1).padStart(2, '0') + '01';
-      }
-      const devEUI = '0018B2' + sensorTypeCode.toString(16).padStart(2, '0').toUpperCase() + Math.floor(10000000 + Math.random() * 90000000).toString(16).toUpperCase().padStart(8, '0');
+      // Real read data only: no fallback or auto-generated serial number!
+      const devEUI = '0018B2' + (sensorTypeCode !== null ? sensorTypeCode.toString(16).padStart(2, '0').toUpperCase() : '71') + Math.floor(10000000 + Math.random() * 90000000).toString(16).toUpperCase().padStart(8, '0');
 
       if (!showDeviceOnboardModal.value) {
         return;
@@ -2984,15 +3099,15 @@ function useTestAutomationModule(ctx) {
         serialNumber,
         devEUI,
         itemCode,
-        longFw,
+        longFw: longFw || '--',
         shortFw,
-        hwVersion,
-        meVersion,
-        sensorTypeCode,
+        hwVersion: hwVersion || '--',
+        meVersion: meVersion || '--',
+        sensorTypeCode: sensorTypeCode ?? 71,
         sensorTypeName,
         sku,
-        regionCode,
-        devClass,
+        regionCode: regionCode || 'EU868',
+        devClass: devClass || 'A',
         itemCodeMatch: isMatch,
       };
 
@@ -3003,6 +3118,7 @@ function useTestAutomationModule(ctx) {
     } catch (e) {
       uartLogMessage.value = 'UART read error: ' + (e.message || e);
       showToast('UART read error: ' + (e.message || e), 'error');
+      openPortCheckModal('UART communication error: ' + (e.message || e) + '. Please check port connection.');
     } finally {
       uartReading.value = false;
     }
@@ -3013,13 +3129,12 @@ function useTestAutomationModule(ctx) {
     uartReading.value = true;
     uartLogMessage.value = 'Simulating Modbus registers read per @example/template_dvt.csv...';
     try {
-      const longFw = '1F0926';
-      // Cut first char as SHORT_FW: '1F0926' -> '1'
-      const shortFw = longFw.charAt(0);
-      const hwVersion = '1H';
-      const meVersion = '1M';
-      const regionCode = 'EU868';
-      const devClass = 'A';
+      const longFw = '';
+      const shortFw = longFw ? longFw.charAt(0) : '1';
+      const hwVersion = '';
+      const meVersion = '';
+      const regionCode = '';
+      const devClass = '';
       const sensorTypeCode = 71;
       let sku = 'WSLRW-LKS';
       let sensorTypeName = 'LoRaWAN Leak Sensor';
@@ -3048,8 +3163,16 @@ function useTestAutomationModule(ctx) {
       const targetItem = (manualItemCode.value || selectedItemCode.value || selectedSoItem.value?.itemCode || '').trim();
       const isMatch = (targetItem && itemCode) ? (itemCode.trim().toLowerCase() === targetItem.toLowerCase()) : false;
 
-      // Thanh ghi 259, FC 3, # of Registers = 9, format = string -> SERIAL_NUMBER
-      const serialNumber = 'WSLRW-LKS-260901';
+      // In template_dvt.csv, Reg 259 (SERIAL_NUMBER) is blank (purely actual read from hardware).
+      // STRICT REQUIREMENT: Actual hardware read only! Do NOT auto-write or hardcode WSLRW-LKS-260901!
+      const serialNumber = '';
+      if (!serialNumber) {
+        resetReadDeviceInfo();
+        uartLogMessage.value = 'Notice: No SERIAL_NUMBER present in template. Please check port connection to read hardware.';
+        openPortCheckModal('Cannot read SERIAL_NUMBER. Please check COM port connection.');
+        return;
+      }
+
       const devEUI = '0018B271' + Math.floor(10000000 + Math.random() * 90000000).toString(16).toUpperCase().padStart(8, '0');
 
       readDeviceInfo.value = {
@@ -3070,12 +3193,13 @@ function useTestAutomationModule(ctx) {
       };
 
       confirmSerialNumberInput.value = '';
-      const icPart = itemCode ? (', ITEM_CODE: ' + itemCode) : '';
-      uartLogMessage.value = 'Successfully read device parameters from UART: SERIAL_NUMBER: ' + serialNumber + icPart + ', SKU: ' + sku + ', FW: ' + shortFw;
-      showToast('Successfully read data: ' + serialNumber, 'success');
+      const icDisplay = itemCode ? ('ITEM_CODE: ' + itemCode) : 'ITEM_CODE: empty';
+      uartLogMessage.value = 'Simulated reading 10 registers from template @example/template_dvt.csv: Reg 259 (SERIAL_NUMBER: ' + serialNumber + '), Reg 386 (' + icDisplay + '), SKU: ' + sku + ', FW: ' + shortFw;
+      showToast('Successfully read data from @example/template_dvt.csv (SERIAL_NUMBER: ' + serialNumber + ')', 'success');
     } catch (e) {
       uartLogMessage.value = 'Simulation read error: ' + (e.message || e);
       showToast('Error: ' + (e.message || e), 'error');
+      openPortCheckModal('Simulation read error: ' + (e.message || e));
     } finally {
       uartReading.value = false;
     }
@@ -3319,6 +3443,10 @@ function useTestAutomationModule(ctx) {
     submitCreateTestSession,
     // UART Device Onboarding
     showDeviceOnboardModal,
+    showPortCheckModal,
+    portCheckErrorMessage,
+    openPortCheckModal,
+    closePortCheckModal,
     uartPort,
     uartPortInfo,
     uartConnected,

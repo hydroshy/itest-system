@@ -255,8 +255,36 @@ async function runVerificationTests() {
   );
   console.log('  -> PASS: Simplified registration popup (no redundant UART step 1), Cancel/Re-read actions, and fresh state reset verified.\n');
 
+  // --------------------------------------------------------------------
+  // TEST 9: Blank Write Presets & Port Check Popup when SERIAL_NUMBER is Unreadable
+  // --------------------------------------------------------------------
+  console.log('[TEST 9] Verifying Blank Write Presets & Port Check Popup on Read Failure...');
+  const presetsJson = JSON.parse(fs.readFileSync(path.join(__dirname, '../config/modbus-presets.json'), 'utf8'));
+  const reg259 = presetsJson[0].registers.find((r: any) => r.reg === 259);
+  assert.ok(reg259, 'Reg 259 must exist in modbus-presets.json');
+  assert.strictEqual(reg259.valuetowrite, '', 'valuetowrite for Reg 259 must be blank (no auto-write dummy serial numbers)');
+
+  // Purely actual read - no fallback WSLRW-LKS-260901 or dynamic date generator
+  assert.ok(
+    !TEST_AUTOMATION_SCRIPT.includes('serialNumber = sku + \'-\' + new Date().toISOString()'),
+    'readDeviceViaUart must not generate fallback serial numbers when unreadable',
+  );
+
+  // Port check popup trigger on missing/unreadable SERIAL_NUMBER
+  assert.ok(
+    TEST_AUTOMATION_SCRIPT.includes('openPortCheckModal') &&
+    TEST_AUTOMATION_SCRIPT.includes('showPortCheckModal'),
+    'Script must define and call openPortCheckModal when SERIAL_NUMBER cannot be read',
+  );
+  assert.ok(
+    TEST_AUTOMATION_MODALS.includes('showPortCheckModal') &&
+    TEST_AUTOMATION_MODALS.includes('Check Port Connection'),
+    'Modals template must include Check Port Connection modal (showPortCheckModal)',
+  );
+  console.log('  -> PASS: Blank write presets, strictly actual hardware read, and port connection check popup verified.\n');
+
   console.log('======================================================================');
-  console.log('ALL 8 TESTS PASSED SUCCESSFULLY WITH 100% SPECIFICATION COMPLIANCE!');
+  console.log('ALL 9 TESTS PASSED SUCCESSFULLY WITH 100% SPECIFICATION COMPLIANCE!');
   console.log('======================================================================');
 }
 
