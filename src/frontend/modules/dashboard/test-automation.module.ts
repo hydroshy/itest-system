@@ -1221,25 +1221,29 @@ export const TEST_AUTOMATION_MODALS = `
               </span>
             </div>
 
-            <!-- Card: SERIAL_NUMBER | ITEM_CODE | FW_VERSION | HW_VERSION | ME_VERSION -->
+            <!-- Card: SERIAL_NUMBER | DEV_EUI | ITEM_CODE | FW_VERSION | HW_VERSION | ME_VERSION -->
             <div class="grid grid-cols-2 sm:grid-cols-12 gap-2 sm:gap-2.5 p-3.5 bg-slate-950 rounded-xl border border-slate-800 text-center font-mono">
               <div class="col-span-1 sm:col-span-3 p-2 sm:p-2.5 rounded-lg bg-slate-900 border border-slate-800/80 space-y-1 overflow-hidden">
                 <div class="text-[10px] uppercase font-bold text-slate-400 truncate">SERIAL_NUMBER</div>
                 <div class="text-[11px] sm:text-xs font-black text-amber-300 whitespace-nowrap tracking-tight" :title="readDeviceInfo.serialNumber">{{ readDeviceInfo.serialNumber }}</div>
               </div>
               <div class="col-span-1 sm:col-span-3 p-2 sm:p-2.5 rounded-lg bg-slate-900 border border-slate-800/80 space-y-1 overflow-hidden">
+                <div class="text-[10px] uppercase font-bold text-slate-400 truncate">DEV_EUI</div>
+                <div class="text-[11px] sm:text-xs font-black text-cyan-400 whitespace-nowrap tracking-tight font-mono" :title="readDeviceInfo.devEUI">{{ readDeviceInfo.devEUI }}</div>
+              </div>
+              <div class="col-span-1 sm:col-span-2 p-2 sm:p-2.5 rounded-lg bg-slate-900 border border-slate-800/80 space-y-1 overflow-hidden">
                 <div class="text-[10px] uppercase font-bold text-slate-400 truncate">ITEM_CODE</div>
                 <div class="text-[11px] sm:text-xs font-black text-cyan-300 whitespace-nowrap tracking-tight overflow-hidden text-ellipsis" :title="readDeviceInfo.itemCode || '--'">{{ readDeviceInfo.itemCode || '--' }}</div>
               </div>
-              <div class="col-span-1 sm:col-span-2 p-2 sm:p-2.5 rounded-lg bg-slate-900 border border-slate-800/80 space-y-1 overflow-hidden">
+              <div class="col-span-1 sm:col-span-1 p-2 sm:p-2.5 rounded-lg bg-slate-900 border border-slate-800/80 space-y-1 overflow-hidden">
                 <div class="text-[10px] uppercase font-bold text-slate-400 truncate">FW_VERSION</div>
                 <div class="text-[11px] sm:text-xs font-bold text-purple-300 whitespace-nowrap tracking-tight">{{ readDeviceInfo.longFw }}</div>
               </div>
-              <div class="col-span-1 sm:col-span-2 p-2 sm:p-2.5 rounded-lg bg-slate-900 border border-slate-800/80 space-y-1 overflow-hidden">
+              <div class="col-span-1 sm:col-span-1 p-2 sm:p-2.5 rounded-lg bg-slate-900 border border-slate-800/80 space-y-1 overflow-hidden">
                 <div class="text-[10px] uppercase font-bold text-slate-400 truncate">HW_VERSION</div>
                 <div class="text-[11px] sm:text-xs font-bold text-emerald-300 whitespace-nowrap tracking-tight">{{ readDeviceInfo.hwVersion }}</div>
               </div>
-              <div class="col-span-2 sm:col-span-2 p-2 sm:p-2.5 rounded-lg bg-slate-900 border border-slate-800/80 space-y-1 overflow-hidden">
+              <div class="col-span-1 sm:col-span-2 p-2 sm:p-2.5 rounded-lg bg-slate-900 border border-slate-800/80 space-y-1 overflow-hidden">
                 <div class="text-[10px] uppercase font-bold text-slate-400 truncate">ME_VERSION</div>
                 <div class="text-[11px] sm:text-xs font-bold text-sky-300 whitespace-nowrap tracking-tight">{{ readDeviceInfo.meVersion }}</div>
               </div>
@@ -1306,6 +1310,17 @@ export const TEST_AUTOMATION_MODALS = `
                   {{ selectedNetworkServerId === '__LOCAL__' ? 'LOCAL ONLY (No API Call)' : 'CHIRPSTACK ONLINE' }}
                 </span>
               </div>
+            </div>
+
+            <!-- Registration Error / Duplicate Alert -->
+            <div v-if="registrationErrorMessage" class="p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs flex items-center justify-between gap-2 animate-in fade-in">
+              <div class="flex items-center gap-2">
+                <i class="fa-solid fa-triangle-exclamation text-rose-400 text-sm shrink-0"></i>
+                <span class="font-medium">{{ registrationErrorMessage }}</span>
+              </div>
+              <button type="button" @click="registrationErrorMessage = ''" class="text-rose-400 hover:text-white p-1 cursor-pointer">
+                <i class="fa-solid fa-xmark"></i>
+              </button>
             </div>
 
             <!-- STEP 3: USER INPUT CONFIRMATION -->
@@ -1810,6 +1825,7 @@ function useTestAutomationModule(ctx) {
   });
   const confirmSerialNumberInput = ref('');
   const isRegisteringToChirpstack = ref(false);
+  const registrationErrorMessage = ref('');
 
   const isSerialNumberConfirmed = computed(() => {
     if (!readDeviceInfo.value || !readDeviceInfo.value.serialNumber) return false;
@@ -2695,6 +2711,7 @@ function useTestAutomationModule(ctx) {
       itemCodeMatch: false,
     };
     confirmSerialNumberInput.value = '';
+    registrationErrorMessage.value = '';
   };
 
   const openDeviceOnboardModal = async () => {
@@ -3034,6 +3051,10 @@ function useTestAutomationModule(ctx) {
         if (!bytes || !bytes.length) return '';
         return String.fromCharCode(...bytes.filter(b => b >= 32 && b <= 126)).trim();
       };
+      const bytesToHex = (bytes) => {
+        if (!bytes || !bytes.length) return '';
+        return Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('').toUpperCase();
+      };
 
       let longFw = '';
       let hwVersion = '';
@@ -3043,6 +3064,7 @@ function useTestAutomationModule(ctx) {
       let sensorTypeCode = null;
       let itemCode = '';
       let serialNumber = '';
+      let devEUI = '';
 
       // 1. Read Reg 259 (SERIAL_NUMBER: FC 3, # of Registers = 9, format = string)
       try {
@@ -3053,14 +3075,28 @@ function useTestAutomationModule(ctx) {
         console.warn('Hardware read failed for Reg 259 (SERIAL_NUMBER):', err);
       }
 
-      // Check if SERIAL_NUMBER was read:
-      // STRICT REQUIREMENT: Actual hardware read only! Do NOT pre-fill write data or fallback fake serial numbers!
-      // If SERIAL_NUMBER is missing or empty, prompt popup to check port connection.
-      if (!serialNumber || !serialNumber.trim()) {
+      // 2. Read Reg 27 (DEV_EUI: FC 3, # of Registers = 4, format = hex)
+      try {
+        const euiBytes = await readModbusRegistersFromPort(1, 27, 4);
+        if (euiBytes && euiBytes.length >= 8) {
+          devEUI = bytesToHex(euiBytes.slice(0, 8));
+        }
+      } catch (err) {
+        console.warn('Hardware read failed for Reg 27 (DEV_EUI):', err);
+      }
+
+      // Check if SERIAL_NUMBER or DEV_EUI was read:
+      // STRICT REQUIREMENT: Actual hardware read only! Do NOT pre-fill write data or fallback fake data!
+      // ( nếu đọc SERIAL_NUMBER hoặc DEV_EUI bị trống không có dữ liệu thì báo lỗi đọc lại UART như trước)
+      if (!serialNumber || !serialNumber.trim() || !devEUI || !devEUI.trim()) {
         resetReadDeviceInfo();
-        uartLogMessage.value = 'Error: Cannot read SERIAL_NUMBER from device. Please check port connection and Baud rate.';
-        showToast('Cannot read SERIAL_NUMBER from device! Please check port connection.', 'error');
-        openPortCheckModal('Cannot read SERIAL_NUMBER from device. Please verify your COM port connection, Baud rate (9600 / 115200 bps), or UART TX/RX wiring.');
+        const missingFields = [];
+        if (!serialNumber || !serialNumber.trim()) missingFields.push('SERIAL_NUMBER (Reg 259)');
+        if (!devEUI || !devEUI.trim()) missingFields.push('DEV_EUI (Reg 27)');
+        const missingMsg = missingFields.join(' and ');
+        uartLogMessage.value = 'Error: Cannot read ' + missingMsg + ' from device. Please check port connection and Baud rate.';
+        showToast('Cannot read ' + missingMsg + ' from device! Please check port connection.', 'error');
+        openPortCheckModal('Cannot read ' + missingMsg + ' from device. Please verify your COM port connection, Baud rate (' + (uartBaudRate.value || 9600) + ' bps), or UART TX/RX wiring.');
         return;
       }
 
@@ -3157,9 +3193,6 @@ function useTestAutomationModule(ctx) {
       const targetItem = (manualItemCode.value || selectedItemCode.value || selectedSoItem.value?.itemCode || '').trim();
       const isMatch = (targetItem && itemCode) ? (itemCode.trim().toLowerCase() === targetItem.toLowerCase()) : false;
 
-      // Real read data only: no fallback or auto-generated serial number!
-      const devEUI = '0018B2' + (sensorTypeCode !== null ? sensorTypeCode.toString(16).padStart(2, '0').toUpperCase() : '71') + Math.floor(10000000 + Math.random() * 90000000).toString(16).toUpperCase().padStart(8, '0');
-
       if (!showDeviceOnboardModal.value) {
         return;
       }
@@ -3183,8 +3216,8 @@ function useTestAutomationModule(ctx) {
 
       confirmSerialNumberInput.value = '';
       const icPart = itemCode ? (', ITEM_CODE: ' + itemCode) : '';
-      uartLogMessage.value = 'Successfully read device parameters from UART: SERIAL_NUMBER: ' + serialNumber + icPart + ', SKU: ' + sku + ', FW: ' + shortFw;
-      showToast('Successfully read data from UART port: ' + serialNumber, 'success');
+      uartLogMessage.value = 'Successfully read device parameters from UART: SERIAL_NUMBER: ' + serialNumber + ', DEV_EUI: ' + devEUI + icPart + ', SKU: ' + sku + ', FW: ' + shortFw;
+      showToast('Successfully read data from UART port: ' + serialNumber + ' (' + devEUI + ')', 'success');
     } catch (e) {
       uartLogMessage.value = 'UART read error: ' + (e.message || e);
       showToast('UART read error: ' + (e.message || e), 'error');
@@ -3334,6 +3367,7 @@ function useTestAutomationModule(ctx) {
         isActive: true,
       };
 
+      registrationErrorMessage.value = '';
       const res = await fetch('/lorawan/devices', {
         method: 'POST',
         headers: {
@@ -3348,8 +3382,25 @@ function useTestAutomationModule(ctx) {
         resData = await res.json();
       } catch (e) {}
 
-      if (!res.ok && resData.message && !resData.message.includes('already exists')) {
-        throw new Error(resData.message || 'ChirpStack device registration error');
+      if (!res.ok) {
+        const errMsg = resData.message || (typeof resData === 'string' ? resData : 'ChirpStack device registration error');
+        const isDuplicate = res.status === 409 ||
+          (typeof errMsg === 'string' && (
+            errMsg.includes('already exists') ||
+            errMsg.includes('duplicate key') ||
+            errMsg.includes('device_pkey') ||
+            errMsg.includes('unique constraint')
+          ));
+
+        if (isDuplicate) {
+          const duplicateMsg = 'Thiết bị với DevEUI ' + info.devEUI + ' đã tồn tại trên Network Server (' + (targetNs?.name || 'ChirpStack') + ').';
+          registrationErrorMessage.value = duplicateMsg;
+          showToast(duplicateMsg, 'warning');
+          return;
+        }
+
+        registrationErrorMessage.value = errMsg;
+        throw new Error(errMsg);
       }
 
       // Add to active batch devices list
@@ -3554,6 +3605,7 @@ function useTestAutomationModule(ctx) {
     confirmSerialNumberInput,
     isSerialNumberConfirmed,
     isRegisteringToChirpstack,
+    registrationErrorMessage,
     openDeviceOnboardModal,
     closeDeviceOnboardModal,
     resetReadDeviceInfo,

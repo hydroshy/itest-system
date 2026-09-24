@@ -302,7 +302,13 @@ export class DeviceProvisioningService {
           res1Text.includes('already exists') ||
           res1Text.includes('duplicate key') ||
           res1Text.includes('device_pkey') ||
-          res1Text.includes('unique constraint')
+          res1Text.includes('unique constraint') ||
+          ((res1 as any)?.error && (
+            (res1 as any).error.includes('already exists') ||
+            (res1 as any).error.includes('duplicate key') ||
+            (res1 as any).error.includes('device_pkey') ||
+            (res1 as any).error.includes('unique constraint')
+          ))
         ) {
           // STRICT RULE ON CREATE: Reject duplicate device!
           step1ErrorMessage = `ChirpStack: Device with DevEUI ${devEui} already exists on ChirpStack server.`;

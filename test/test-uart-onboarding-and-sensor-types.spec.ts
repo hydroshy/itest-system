@@ -319,8 +319,55 @@ async function runVerificationTests() {
   );
   console.log('  -> PASS: 1-line SERIAL_NUMBER card fitting and ChirpStack Network Server auto-routing verified.\n');
 
+  // --------------------------------------------------------------------
+  // TEST 11: Modbus Reg 27 DEV_EUI Reading, Card Placement & Duplicate Handling
+  // --------------------------------------------------------------------
+  console.log('[TEST 11] Verifying Modbus Reg 27 DEV_EUI Reading, Card Placement & Duplicate Handling...');
+  // 1. Script reads Reg 27 (FC 3, 4 registers, hex format)
+  assert.ok(
+    TEST_AUTOMATION_SCRIPT.includes('readModbusRegistersFromPort(1, 27, 4)'),
+    'Script must read Reg 27 with length 4 using FC 3',
+  );
+  assert.ok(
+    TEST_AUTOMATION_SCRIPT.includes('bytesToHex'),
+    'Script must define bytesToHex to parse DEV_EUI in hex format',
+  );
+
+  // 2. Validation requires both SERIAL_NUMBER and DEV_EUI
+  assert.ok(
+    TEST_AUTOMATION_SCRIPT.includes('!serialNumber || !serialNumber.trim() || !devEUI || !devEUI.trim()'),
+    'Script must require both SERIAL_NUMBER and DEV_EUI or prompt port check error',
+  );
+
+  // 3. Modal displays DEV_EUI right after SERIAL_NUMBER
+  assert.ok(
+    TEST_AUTOMATION_MODALS.includes('DEV_EUI') &&
+    TEST_AUTOMATION_MODALS.includes('readDeviceInfo.devEUI'),
+    'Modal must display DEV_EUI in hardware verification card',
+  );
+
+  // 4. Duplicate device error handling and alert
+  assert.ok(
+    TEST_AUTOMATION_MODALS.includes('registrationErrorMessage'),
+    'Modal must include registrationErrorMessage alert banner for duplicate devices',
+  );
+  assert.ok(
+    TEST_AUTOMATION_SCRIPT.includes('isDuplicate') &&
+    TEST_AUTOMATION_SCRIPT.includes('registrationErrorMessage.value = duplicateMsg'),
+    'Script must catch duplicate device key error from network server and display warning',
+  );
+
+  // 5. LorawanResilienceService non-retryable duplicate error handling
+  const resilienceSrc = fs.readFileSync(path.join(__dirname, '../src/modules/lorawan/services/lorawan-resilience.service.ts'), 'utf8');
+  assert.ok(
+    resilienceSrc.includes('isDuplicateKeyError') &&
+    resilienceSrc.includes('device_pkey'),
+    'LorawanResilienceService must treat device_pkey / duplicate key violations as non-retryable',
+  );
+  console.log('  -> PASS: Reg 27 DEV_EUI reading, placement after SERIAL_NUMBER, and duplicate device handling verified.\n');
+
   console.log('======================================================================');
-  console.log('ALL 10 TESTS PASSED SUCCESSFULLY WITH 100% SPECIFICATION COMPLIANCE!');
+  console.log('ALL 11 TESTS PASSED SUCCESSFULLY WITH 100% SPECIFICATION COMPLIANCE!');
   console.log('======================================================================');
 }
 

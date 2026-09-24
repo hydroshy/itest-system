@@ -186,6 +186,7 @@ export class LorawanResilienceService {
     let lastStatus = 0;
     let lastError = '';
     let lastHeaders: Record<string, string> = {};
+    let lastData: any = undefined;
 
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       const controller = new AbortController();
@@ -215,6 +216,7 @@ export class LorawanResilienceService {
         } else {
           parsedData = await res.text().catch(() => '');
         }
+        lastData = parsedData;
 
         if (res.ok) {
           this.recordSuccess(cbKey);
@@ -230,12 +232,19 @@ export class LorawanResilienceService {
         // Handle HTTP error responses
         lastError = typeof parsedData === 'string' ? parsedData : (parsedData?.error || parsedData?.message || `HTTP ${res.status}`);
 
-        // Client errors (400, 401, 403, 404, 409) are typically not retryable
+        // Client errors (400, 401, 403, 404, 409) or duplicate key / constraint errors are non-retryable
         const isClientError = res.status >= 400 && res.status < 500 && res.status !== 408 && res.status !== 429;
-        if (isClientError) {
+        const errLower = (String(lastError) + ' ' + JSON.stringify(parsedData || '')).toLowerCase();
+        const isDuplicateKeyError =
+          errLower.includes('duplicate key') ||
+          errLower.includes('device_pkey') ||
+          errLower.includes('unique constraint') ||
+          errLower.includes('already exists');
+
+        if (isClientError || isDuplicateKeyError) {
           return {
             ok: false,
-            status: res.status,
+            status: isDuplicateKeyError ? 409 : res.status,
             data: parsedData,
             error: lastError,
             headers: lastHeaders,
@@ -268,6 +277,7 @@ export class LorawanResilienceService {
     return {
       ok: false,
       status: lastStatus || 500,
+      data: lastData,
       error: lastError || 'Request failed after maximum retries',
       headers: lastHeaders,
       attempts: maxRetries,
