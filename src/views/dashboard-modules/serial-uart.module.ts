@@ -2540,7 +2540,19 @@ function useSerialModule(ctx) {
                   let parameter = '';
                   let valuetowrite = '';
 
-                  if (headerLine.includes('check')) {
+                  if (headerLine.includes('modbus register')) {
+                    // Template DVT CSV format (No., Modbus Register (Decimal), ..., FC Read, FC Write, # of Registers, Description, Range, End-user Default, Format...)
+                    slave = 1;
+                    reg = Number(parts[1]) || 0;
+                    fc = Number(parts[3]) || 3;
+                    numreg = Number(parts[5]) || 1;
+                    parameter = parts[6] || ('Reg ' + reg);
+                    // Do NOT fill write value if read/default is empty
+                    valuetowrite = parts[8] || '';
+                    format = normalizeFormat(parts[9] || 'string');
+                    endianness = 'Big-Endian';
+                    checked = true;
+                  } else if (headerLine.includes('check')) {
                     checked = parts[0].toUpperCase() === 'TRUE' || parts[0] === '1';
                     slave = Number(parts[1]) || 1;
                     fc = Number(parts[2]) || 4;

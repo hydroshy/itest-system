@@ -2778,7 +2778,7 @@ function useTestAutomationModule(ctx) {
       let regionCode = 'EU868';
       let devClass = 'A';
       let sensorTypeCode = 71;
-      let itemCode = 'WSLRW-LKS-02-M';
+      let itemCode = '';
       let serialNumber = '';
 
       try {
@@ -2819,12 +2819,15 @@ function useTestAutomationModule(ctx) {
         if (readSn) serialNumber = readSn;
 
         // Read Reg 386 (ITEM_CODE, 14 regs)
+        // Per template_dvt.csv: Reg 386 has FC Write = 16P (writable).
+        // When reading from device, do NOT take writeable value; if empty/blank, fill empty directly:
         const icBytes = await readModbusRegistersFromPort(1, 386, 14);
         const readIc = bytesToAscii(icBytes);
-        if (readIc) itemCode = readIc;
+        itemCode = readIc || '';
       } catch (ioErr) {
-        console.warn('Hardware read timeout or partial response, fallback to template default:', ioErr);
+        console.warn('Hardware read timeout or partial response, fallback to template format:', ioErr);
         uartLogMessage.value = 'Hardware response slow, applying standard template_dvt.csv format';
+        // Note: itemCode remains empty '' if read failed or area was blank; never prefill writable value!
       }
 
       // Cut first char as SHORT_FW: '1F0926' -> '1'
@@ -2850,7 +2853,7 @@ function useTestAutomationModule(ctx) {
 
       // Compare read ITEM_CODE with selected SO Item Code
       const targetItem = (manualItemCode.value || selectedItemCode.value || selectedSoItem.value?.itemCode || '').trim();
-      const isMatch = targetItem ? (itemCode.trim().toLowerCase() === targetItem.toLowerCase()) : false;
+      const isMatch = (targetItem && itemCode) ? (itemCode.trim().toLowerCase() === targetItem.toLowerCase()) : false;
 
       // Fallback serial number if not read via Reg 259
       if (!serialNumber) {
@@ -2876,7 +2879,8 @@ function useTestAutomationModule(ctx) {
       };
 
       confirmSerialNumberInput.value = '';
-      uartLogMessage.value = 'Successfully read device parameters from UART: Reg 259 (SERIAL_NUMBER: ' + serialNumber + '), Reg 386 (ITEM_CODE: ' + itemCode + '), SKU: ' + sku + ', FW: ' + shortFw;
+      const icDisplay = itemCode ? ('ITEM_CODE: ' + itemCode) : 'ITEM_CODE: (Empty)';
+      uartLogMessage.value = 'Successfully read device parameters from UART: Reg 259 (SERIAL_NUMBER: ' + serialNumber + '), Reg 386 (' + icDisplay + '), SKU: ' + sku + ', FW: ' + shortFw;
       showToast('Successfully read data from UART port (SERIAL_NUMBER: ' + serialNumber + ')', 'success');
     } catch (e) {
       uartLogMessage.value = 'UART read error: ' + (e.message || e);
@@ -2917,11 +2921,13 @@ function useTestAutomationModule(ctx) {
         console.warn('Could not resolve sensor type:', e);
       }
 
-      const itemCode = 'WSLRW-LKS-02-M';
+      // In template_dvt.csv, Reg 386 (ITEM_CODE) is writable (FC 16P).
+      // When read out from template, do NOT take write value; if empty region, fill empty directly:
+      const itemCode = '';
 
       // Check match with currently selected SO Item Code
       const targetItem = (manualItemCode.value || selectedItemCode.value || selectedSoItem.value?.itemCode || '').trim();
-      const isMatch = targetItem ? (itemCode.trim().toLowerCase() === targetItem.toLowerCase()) : false;
+      const isMatch = (targetItem && itemCode) ? (itemCode.trim().toLowerCase() === targetItem.toLowerCase()) : false;
 
       // Thanh ghi 259, FC 3, # of Registers = 9, format = string -> SERIAL_NUMBER
       const serialNumber = 'WSLRW-LKS-260901';
@@ -2945,7 +2951,8 @@ function useTestAutomationModule(ctx) {
       };
 
       confirmSerialNumberInput.value = '';
-      uartLogMessage.value = 'Simulated reading 10 registers from template @example/template_dvt.csv: Reg 259 (SERIAL_NUMBER: ' + serialNumber + '), Reg 386 (ITEM_CODE: ' + itemCode + '), SKU: ' + sku + ', FW: ' + shortFw;
+      const icDisplay = itemCode ? ('ITEM_CODE: ' + itemCode) : 'ITEM_CODE: empty';
+      uartLogMessage.value = 'Simulated reading 10 registers from template @example/template_dvt.csv: Reg 259 (SERIAL_NUMBER: ' + serialNumber + '), Reg 386 (' + icDisplay + '), SKU: ' + sku + ', FW: ' + shortFw;
       showToast('Successfully read data from @example/template_dvt.csv (SERIAL_NUMBER: ' + serialNumber + ')', 'success');
     } catch (e) {
       uartLogMessage.value = 'Simulation read error: ' + (e.message || e);
