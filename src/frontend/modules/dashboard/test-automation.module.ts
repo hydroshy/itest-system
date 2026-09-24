@@ -3323,11 +3323,19 @@ function useTestAutomationModule(ctx) {
       const effectiveSoId = effectiveSo?.id && effectiveSo.id !== 'manual-so' ? effectiveSo.id : undefined;
 
       const effectiveItem = availableSoItems.value.find(i => (i.itemCode || '').trim().toLowerCase() === (manualItemCode.value || selectedItemCode.value || '').trim().toLowerCase());
-      const effectiveItemId = effectiveItem?.id && effectiveItem.id !== 'manual-so-item' ? effectiveItem.id : undefined;
+      const effectiveItemId = effectiveItem?.itemCodeId || (effectiveItem?.id && effectiveItem.id !== 'manual-so-item' ? effectiveItem.id : undefined);
 
-      const devName = info.serialNumber.startsWith(info.sku)
-        ? info.serialNumber
-        : (info.sku + '-' + info.serialNumber);
+      const skuVal = (info.sku || 'WSLRW-ATH').trim();
+      const fwVer = (info.shortFw || (info.longFw ? info.longFw.charAt(0) : '') || '1').toString().trim();
+      let cleanSerial = (info.serialNumber || '').trim();
+      if (cleanSerial.startsWith(skuVal + '_' + fwVer + '_')) {
+        cleanSerial = cleanSerial.slice((skuVal + '_' + fwVer + '_').length);
+      } else if (cleanSerial.startsWith(skuVal + '-')) {
+        cleanSerial = cleanSerial.slice((skuVal + '-').length);
+      } else if (cleanSerial.startsWith(skuVal + '_')) {
+        cleanSerial = cleanSerial.slice((skuVal + '_').length);
+      }
+      const devName = skuVal + '_' + fwVer + '_' + cleanSerial;
 
       const isLocal = selectedNetworkServerId.value === '__LOCAL__';
       let targetNs = null;
@@ -3349,14 +3357,18 @@ function useTestAutomationModule(ctx) {
         }
       }
 
+      const isUuid = (val) => !!val && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(val));
+      const resolvedItemId = isUuid(effectiveItemId) ? effectiveItemId : (isUuid(targetSoItem?.itemCodeId) ? targetSoItem.itemCodeId : (isUuid(targetSoItem?.id) ? targetSoItem.id : undefined));
+      const resolvedSoId = isUuid(effectiveSoId) ? effectiveSoId : (isUuid(targetSo?.id) ? targetSo.id : undefined);
+
       const regPayload = {
         name: devName,
         devEUI: info.devEUI,
         sku: info.sku,
         firmwareVersion: info.shortFw,
         decoderId: linkedTemplate.value?.id || undefined,
-        itemCodeId: effectiveItemId || (targetSoItem?.id !== 'manual-so-item' ? targetSoItem?.id : undefined),
-        salesOrderId: effectiveSoId || (targetSo?.id !== 'manual-so' ? targetSo?.id : undefined),
+        itemCodeId: resolvedItemId || undefined,
+        salesOrderId: resolvedSoId || undefined,
         activationType: 'OTAA',
         appEUI: '0102030405060708',
         appKey: '0102030405060708090A0B0C0D0E0F10',

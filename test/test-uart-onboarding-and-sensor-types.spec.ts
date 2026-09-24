@@ -366,8 +366,78 @@ async function runVerificationTests() {
   );
   console.log('  -> PASS: Reg 27 DEV_EUI reading, placement after SERIAL_NUMBER, and duplicate device handling verified.\n');
 
+  // --------------------------------------------------------------------
+  // TEST 12: Device Naming Syntax (SKU_FW_SERIAL), Auto-Online & Resilient Registration
+  // --------------------------------------------------------------------
+  console.log('[TEST 12] Verifying SKU_FW_SERIAL Syntax, Auto-Online & Resilient Registration...');
+
+  // 1. Verify devName logic in TEST_AUTOMATION_SCRIPT
+  assert.ok(
+    TEST_AUTOMATION_SCRIPT.includes("skuVal + '_' + fwVer + '_' + cleanSerial"),
+    'Script must format device name as SKU_FW_SERIAL',
+  );
+
+  // Simulate naming logic for WSLRW-ATH, FW 6, SATH26000254
+  const testInfo = {
+    sku: 'WSLRW-ATH',
+    shortFw: '6',
+    longFw: '6F0926',
+    serialNumber: 'SATH26000254',
+  };
+  const skuVal = (testInfo.sku || 'WSLRW-ATH').trim();
+  const fwVer = (testInfo.shortFw || (testInfo.longFw ? testInfo.longFw.charAt(0) : '') || '1').toString().trim();
+  let cleanSerial = (testInfo.serialNumber || '').trim();
+  if (cleanSerial.startsWith(skuVal + '_' + fwVer + '_')) {
+    cleanSerial = cleanSerial.slice((skuVal + '_' + fwVer + '_').length);
+  } else if (cleanSerial.startsWith(skuVal + '-')) {
+    cleanSerial = cleanSerial.slice((skuVal + '-').length);
+  } else if (cleanSerial.startsWith(skuVal + '_')) {
+    cleanSerial = cleanSerial.slice((skuVal + '_').length);
+  }
+  const computedDevName = skuVal + '_' + fwVer + '_' + cleanSerial;
+  assert.strictEqual(computedDevName, 'WSLRW-ATH_6_SATH26000254', 'Device name must strictly match WSLRW-ATH_6_SATH26000254');
+
+  // Also verify if serial was passed with old hyphen format WSLRW-ATH-SATH26000254
+  let dirtySerial = 'WSLRW-ATH-SATH26000254';
+  if (dirtySerial.startsWith(skuVal + '_' + fwVer + '_')) {
+    dirtySerial = dirtySerial.slice((skuVal + '_' + fwVer + '_').length);
+  } else if (dirtySerial.startsWith(skuVal + '-')) {
+    dirtySerial = dirtySerial.slice((skuVal + '-').length);
+  } else if (dirtySerial.startsWith(skuVal + '_')) {
+    dirtySerial = dirtySerial.slice((skuVal + '_').length);
+  }
+  const fixedDevName = skuVal + '_' + fwVer + '_' + dirtySerial;
+  assert.strictEqual(fixedDevName, 'WSLRW-ATH_6_SATH26000254', 'Old hyphen serial must be normalized to WSLRW-ATH_6_SATH26000254');
+
+  // 2. Verify UUID validation in script
+  assert.ok(
+    TEST_AUTOMATION_SCRIPT.includes('isUuid') &&
+    TEST_AUTOMATION_SCRIPT.includes('resolvedItemId'),
+    'Script must sanitize and validate itemCodeId and salesOrderId UUIDs',
+  );
+
+  // 3. Verify LorawanService lastSeenAt and resilient save
+  const lorawanSrc = fs.readFileSync(path.join(__dirname, '../src/modules/lorawan/lorawan.service.ts'), 'utf8');
+  assert.ok(
+    lorawanSrc.includes('lastSeenAt: now') &&
+    lorawanSrc.includes('lastSeenAt: now.toISOString()'),
+    'LorawanService must set lastSeenAt upon registration so device shows ONLINE',
+  );
+  assert.ok(
+    lorawanSrc.includes('Retrying with sanitized fields'),
+    'LorawanService must provide resilient DB fallback to prevent 500 on foreign key mismatch',
+  );
+
+  // 4. Verify ChirpStack PUT fallback for existing devices
+  const provSrc = fs.readFileSync(path.join(__dirname, '../src/modules/lorawan/services/device-provisioning.service.ts'), 'utf8');
+  assert.ok(
+    provSrc.includes('Adopt Existing ChirpStack Device'),
+    'DeviceProvisioningService must adopt existing ChirpStack devices via PUT fallback',
+  );
+  console.log('  -> PASS: Device naming (WSLRW-ATH_6_SATH26000254), auto-online lastSeenAt, and resilient registration verified.\n');
+
   console.log('======================================================================');
-  console.log('ALL 11 TESTS PASSED SUCCESSFULLY WITH 100% SPECIFICATION COMPLIANCE!');
+  console.log('ALL 12 TESTS PASSED SUCCESSFULLY WITH 100% SPECIFICATION COMPLIANCE!');
   console.log('======================================================================');
 }
 

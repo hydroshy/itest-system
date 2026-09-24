@@ -12,6 +12,7 @@ import { DecoderEntity } from '../c-modules/decoder-admin/entities/decoder.entit
 import { WebhookLogEntity } from '../c-modules/webhook-admin/entities/webhook-log.entity';
 import { ItemCodeEntity } from '../c-modules/item-codes/entities/item-code.entity';
 import { SalesOrderEntity } from '../c-modules/sales-orders/entities/sales-order.entity';
+import { SalesOrderItemEntity } from '../c-modules/sales-orders/entities/sales-order-item.entity';
 import { RegisterDeviceDto, RegisterGatewayDto } from './dto/lorawan.dto';
 
 function isUserSuperAdmin(user?: any): boolean {
@@ -106,7 +107,15 @@ export class LorawanService implements OnModuleInit {
     message: string;
   }> {
     const devEUI = dto.devEUI.trim().toUpperCase();
-    const name = dto.name.trim();
+    let name = dto.name.trim();
+    let cleanSkuVal = cleanSku(dto.sku);
+    let cleanFw = cleanFirmwareVersion(dto.firmwareVersion);
+
+    if (cleanSkuVal && cleanFw && name.startsWith(cleanSkuVal + '-') && !name.includes('_')) {
+      const serialPart = name.slice(cleanSkuVal.length + 1);
+      name = `${cleanSkuVal}_${cleanFw}_${serialPart}`;
+    }
+
     const appEUI = (dto.appEUI || '0102030405060708').trim().toUpperCase();
     const appKey = (dto.appKey || '0102030405060708090A0B0C0D0E0F10').trim().toUpperCase();
     const activationMode = dto.activationType || 'OTAA';
@@ -153,10 +162,12 @@ export class LorawanService implements OnModuleInit {
       }
     }
 
+    const now = new Date();
     let provisioningResult: ProvisioningResult | undefined;
     let syncStatus = isLocal ? 'LOCAL' : 'SYNCED';
     let syncDetails: Record<string, any> = {
-      registeredAt: new Date().toISOString(),
+      registeredAt: now.toISOString(),
+      lastSeenAt: now.toISOString(),
       networkServerName: networkServer?.name || 'Local Fleet',
       networkServerType: networkServer?.type || 'LOCAL',
     };
@@ -200,21 +211,54 @@ export class LorawanService implements OnModuleInit {
     let decoderId = dto.decoderId ? dto.decoderId.trim() : undefined;
     let itemCodeId = dto.itemCodeId ? dto.itemCodeId.trim() : undefined;
     let salesOrderId = dto.salesOrderId ? dto.salesOrderId.trim() : undefined;
-    let cleanSkuVal = cleanSku(dto.sku);
-    let cleanFw = cleanFirmwareVersion(dto.firmwareVersion);
 
-    // Auto-resolve SKU & Firmware from itemCode if provided and not explicitly set
-    if (itemCodeId && (!cleanSkuVal || !cleanFw)) {
+    const isUuid = (val?: string) => !!val && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(val).trim());
+
+    // Validate and resolve itemCodeId
+    let resolvedItemCodeId: string | undefined = undefined;
+    if (itemCodeId && isUuid(itemCodeId)) {
       try {
         const ic = await this.itemCodeRepo.findOne({ where: { id: itemCodeId } });
         if (ic) {
+          resolvedItemCodeId = ic.id;
           if (!cleanSkuVal) cleanSkuVal = ic.sku;
           if (!cleanFw) cleanFw = ic.firmwareVersion;
+        } else {
+          // Check if itemCodeId was actually passed as a sales_order_items ID
+          const soItemRepo = this.dbService.getRepositoryForTable('sales_order_items', SalesOrderItemEntity);
+          const soItem = await soItemRepo.findOne({ where: { id: itemCodeId } });
+          if (soItem) {
+            if (soItem.itemCodeId && isUuid(soItem.itemCodeId)) {
+              const matchedIc = await this.itemCodeRepo.findOne({ where: { id: soItem.itemCodeId } });
+              if (matchedIc) resolvedItemCodeId = matchedIc.id;
+            }
+            if (!resolvedItemCodeId && soItem.itemCode) {
+              const matchedIc = await this.itemCodeRepo.findOne({ where: { itemCode: soItem.itemCode } });
+              if (matchedIc) resolvedItemCodeId = matchedIc.id;
+            }
+            if (!cleanSkuVal && soItem.sku) cleanSkuVal = soItem.sku;
+            if (!cleanFw && soItem.firmwareVersion) cleanFw = soItem.firmwareVersion;
+          }
         }
       } catch (err: any) {
         this.logger.warn(`Could not resolve itemCode [${itemCodeId}]: ${err.message}`);
       }
     }
+    itemCodeId = resolvedItemCodeId;
+
+    // Validate and resolve salesOrderId
+    let resolvedSalesOrderId: string | undefined = undefined;
+    if (salesOrderId && isUuid(salesOrderId)) {
+      try {
+        const so = await this.salesOrderRepo.findOne({ where: { id: salesOrderId } });
+        if (so) {
+          resolvedSalesOrderId = so.id;
+        }
+      } catch (err: any) {
+        this.logger.warn(`Could not resolve salesOrder [${salesOrderId}]: ${err.message}`);
+      }
+    }
+    salesOrderId = resolvedSalesOrderId;
 
     // Auto-assign decoder `${sku}_${firmwareVersion}` when SKU and firmwareVersion are provided
     const autoDecoder = resolveDecoderId(cleanSkuVal, cleanFw);
@@ -254,6 +298,7 @@ export class LorawanService implements OnModuleInit {
         syncStatus,
         syncDetails,
         isActive,
+        lastSeenAt: now,
       });
     } else {
       if (!isUserSuperAdmin(user) && device.ownerId && user?.id && device.ownerId !== user.id) {
@@ -287,11 +332,22 @@ export class LorawanService implements OnModuleInit {
         device.payloadFormatterScript = payloadFormatterScript;
       }
       device.syncStatus = syncStatus;
-      device.syncDetails = syncDetails;
+      device.syncDetails = { ...(device.syncDetails || {}), ...syncDetails, lastSeenAt: now.toISOString() };
       device.isActive = isActive;
+      device.lastSeenAt = now;
     }
 
-    const saved = await this.deviceRepo.save(device);
+    let saved: DeviceEntity;
+    try {
+      saved = await this.deviceRepo.save(device);
+    } catch (saveErr: any) {
+      this.logger.warn(`Failed to save device with relations: ${saveErr.message}. Retrying with sanitized fields...`);
+      device.itemCodeId = null as any;
+      device.salesOrderId = null as any;
+      device.itemCode = null as any;
+      device.salesOrder = null as any;
+      saved = await this.deviceRepo.save(device);
+    }
     this.logger.log(`✅ Saved device [${saved.devEUI}] '${saved.name}' in database. Decoder=${saved.decoderId || 'none'}, SyncStatus=${syncStatus}`);
 
     return {

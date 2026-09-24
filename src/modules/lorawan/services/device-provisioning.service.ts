@@ -310,8 +310,43 @@ export class DeviceProvisioningService {
             (res1 as any).error.includes('unique constraint')
           ))
         ) {
-          // STRICT RULE ON CREATE: Reject duplicate device!
-          step1ErrorMessage = `ChirpStack: Device with DevEUI ${devEui} already exists on ChirpStack server.`;
+          // If already exists on ChirpStack, update the device name and profile via PUT so the device has the correct name
+          this.logger.log(`[ChirpStack] Device ${devEui} already exists on ChirpStack. Updating via PUT ${baseUrl}/api/devices/${devEui}...`);
+          let putEndpoint = `${baseUrl}/api/devices/${devEui}`;
+          let resPut = await this.resilienceService.safeFetch(putEndpoint, {
+            method: 'PUT',
+            headers,
+            body: JSON.stringify(step1Payload),
+          });
+          if (resPut.status === 404) {
+            const altPut = `${baseUrl}/api/v4/devices/${devEui}`;
+            const altRes = await this.resilienceService.safeFetch(altPut, {
+              method: 'PUT',
+              headers,
+              body: JSON.stringify(step1Payload),
+            });
+            if (altRes && altRes.status !== 404) {
+              resPut = altRes;
+              putEndpoint = altPut;
+            }
+          }
+
+          if (resPut.ok || resPut.status === 200 || resPut.status === 204) {
+            step1Success = true;
+            steps.push({
+              step: 1,
+              stepName: 'Adopt Existing ChirpStack Device',
+              endpoint: putEndpoint,
+              method: 'PUT',
+              status: 'SUCCESS',
+              httpStatus: resPut.status,
+              message: `Device ${devEui} already existed on ChirpStack; updated to '${dto.name.trim()}'`,
+              payload: step1Payload,
+              response: resPut.data || {},
+            });
+          } else {
+            step1ErrorMessage = `ChirpStack: Device with DevEUI ${devEui} already exists on ChirpStack server.`;
+          }
         } else if (res1.status === 404) {
           step1ErrorMessage = `ChirpStack: Endpoint ${endpoint} not found on server (HTTP 404).`;
         } else if (res1.status === 401 || res1.status === 403) {
