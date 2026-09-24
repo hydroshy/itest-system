@@ -1085,9 +1085,9 @@ export const TEST_AUTOMATION_MODALS = `
                 <span>Connect Serial UART Port (9600 8-N-1)</span>
               </h4>
               <div class="flex items-center gap-2">
-                <span :class="uartConnected ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30' : 'bg-slate-800 text-slate-400 border-slate-700'" class="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold border flex items-center gap-1.5">
-                  <span :class="uartConnected ? 'bg-emerald-400 animate-pulse' : 'bg-slate-500'" class="w-1.5 h-1.5 rounded-full"></span>
-                  {{ uartConnected ? 'SERIAL CONNECTED' : 'DISCONNECTED' }}
+                <span :class="uartConnected ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30' : (isAutoReconnectingUart ? 'bg-amber-500/15 text-amber-400 border-amber-500/30' : 'bg-slate-800 text-slate-400 border-slate-700')" class="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold border flex items-center gap-1.5">
+                  <span :class="uartConnected ? 'bg-emerald-400 animate-pulse' : (isAutoReconnectingUart ? 'bg-amber-400 animate-ping' : 'bg-slate-500')" class="w-1.5 h-1.5 rounded-full"></span>
+                  {{ uartConnected ? 'SERIAL CONNECTED' : (isAutoReconnectingUart ? 'RECONNECTING...' : 'DISCONNECTED') }}
                 </span>
               </div>
             </div>
@@ -1097,7 +1097,7 @@ export const TEST_AUTOMATION_MODALS = `
                 <button
                   type="button"
                   @click="selectUartPort"
-                  :disabled="uartConnected"
+                  :disabled="uartConnected || isAutoReconnectingUart"
                   class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-semibold flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
                 >
                   <i class="fa-solid fa-plug text-cyan-400"></i>
@@ -1108,12 +1108,12 @@ export const TEST_AUTOMATION_MODALS = `
                   v-if="!uartConnected"
                   type="button"
                   @click="connectUart"
-                  :disabled="!uartPort || uartConnecting"
+                  :disabled="!uartPort || uartConnecting || isAutoReconnectingUart"
                   class="px-3.5 py-1.5 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-md disabled:opacity-50"
                 >
-                  <i v-if="uartConnecting" class="fa-solid fa-circle-notch animate-spin"></i>
+                  <i v-if="uartConnecting || isAutoReconnectingUart" class="fa-solid fa-circle-notch animate-spin"></i>
                   <i v-else class="fa-solid fa-link"></i>
-                  <span>Connect Port</span>
+                  <span>{{ isAutoReconnectingUart ? 'Reconnecting...' : 'Connect Port' }}</span>
                 </button>
 
                 <button
@@ -1578,6 +1578,11 @@ function useTestAutomationModule(ctx) {
   const uartConnecting = ref(false);
   const uartReading = ref(false);
   const uartLogMessage = ref('');
+  const isAutoReconnectingUart = ref(false);
+  let activeUartReader = null;
+  let activeUartWriter = null;
+  let lastConnectedUartInfo = null;
+  let autoReconnectUartTimer = null;
   const readDeviceInfo = ref({
     hasData: false,
     serialNumber: '',
@@ -2486,7 +2491,7 @@ function useTestAutomationModule(ctx) {
   };
 
   const selectUartPort = async () => {
-    if (!navigator.serial) {
+    if (!('serial' in navigator)) {
       showToast('Browser does not support Web Serial API (Please use Google Chrome or Microsoft Edge).', 'error');
       return;
     }
@@ -2494,6 +2499,7 @@ function useTestAutomationModule(ctx) {
       const port = await navigator.serial.requestPort();
       uartPort.value = port;
       const info = port.getInfo ? port.getInfo() : {};
+      lastConnectedUartInfo = info;
       let desc = 'Serial Device';
       if (info.usbVendorId) {
         desc = 'VID: 0x' + info.usbVendorId.toString(16).toUpperCase() + ' PID: 0x' + (info.usbProductId ? info.usbProductId.toString(16).toUpperCase() : '');
@@ -2509,13 +2515,46 @@ function useTestAutomationModule(ctx) {
     }
   };
 
-  const connectUart = async () => {
+  const safeCleanupUartPort = async () => {
+    if (activeUartReader) {
+      try {
+        await activeUartReader.cancel();
+      } catch (e) {}
+      try {
+        activeUartReader.releaseLock();
+      } catch (e) {}
+      activeUartReader = null;
+    }
+    if (activeUartWriter) {
+      try {
+        activeUartWriter.releaseLock();
+      } catch (e) {}
+      activeUartWriter = null;
+    }
+    if (uartPort.value) {
+      try {
+        await uartPort.value.close();
+      } catch (e) {}
+    }
+    uartConnected.value = false;
+    uartConnecting.value = false;
+    uartReading.value = false;
+  };
+
+  const connectUart = async (portToOpen = null) => {
+    if (portToOpen) {
+      uartPort.value = portToOpen;
+    }
     if (!uartPort.value) {
       await selectUartPort();
       if (!uartPort.value) return;
     }
     uartConnecting.value = true;
     try {
+      const info = uartPort.value.getInfo ? uartPort.value.getInfo() : {};
+      if (info.usbVendorId) {
+        lastConnectedUartInfo = info;
+      }
       await uartPort.value.open({
         baudRate: 9600,
         dataBits: 8,
@@ -2524,6 +2563,7 @@ function useTestAutomationModule(ctx) {
         bufferSize: 255,
       });
       uartConnected.value = true;
+      isAutoReconnectingUart.value = false;
       uartLogMessage.value = 'Connected to COM port successfully @ 9600 bps, 8-N-1';
       showToast('Connected to COM port successfully', 'success');
     } catch (e) {
@@ -2536,16 +2576,99 @@ function useTestAutomationModule(ctx) {
     }
   };
 
-  const disconnectUart = async () => {
-    if (uartPort.value && uartConnected.value) {
-      try {
-        await uartPort.value.close();
-      } catch (e) {}
+  const disconnectUart = async (isUserInitiated = true) => {
+    if (autoReconnectUartTimer) {
+      clearTimeout(autoReconnectUartTimer);
+      autoReconnectUartTimer = null;
     }
-    uartConnected.value = false;
-    uartPortInfo.value = '';
-    uartLogMessage.value = 'UART port disconnected';
-    showToast('UART disconnected', 'info');
+    await safeCleanupUartPort();
+    if (isUserInitiated) {
+      isAutoReconnectingUart.value = false;
+      uartPortInfo.value = '';
+      uartPort.value = null;
+      lastConnectedUartInfo = null;
+      uartLogMessage.value = 'UART port disconnected';
+      showToast('UART disconnected', 'info');
+    }
+  };
+
+  // Hardware disconnect event listener (unplug or chip reset due to power conflict)
+  const handleUartHardwareDisconnect = async (event) => {
+    console.warn('Hardware serial disconnect detected:', event.target);
+    const isTarget = uartPort.value && (uartPort.value === event.target || !event.target);
+    if (isTarget || uartConnected.value) {
+      const wasConnected = uartConnected.value;
+      await safeCleanupUartPort();
+      if (wasConnected) {
+        isAutoReconnectingUart.value = true;
+        uartLogMessage.value = 'Hardware disconnected (USB reset or power glitch detected). Waiting for device reconnection...';
+        showToast('USB Serial disconnected (power conflict / hardware reset)', 'warning');
+      }
+    }
+  };
+
+  // Hardware connect event listener (chip reboot & USB re-enumeration after reset)
+  const handleUartHardwareConnect = async (event) => {
+    console.log('Hardware serial connect detected:', event.target);
+    if (isAutoReconnectingUart.value || (lastConnectedUartInfo && !uartConnected.value)) {
+      const newPort = event.target || (navigator.serial && navigator.serial.getPorts ? (await navigator.serial.getPorts())[0] : null);
+      if (!newPort) return;
+      const newInfo = newPort.getInfo ? newPort.getInfo() : {};
+      const isMatching = !lastConnectedUartInfo || !lastConnectedUartInfo.usbVendorId ||
+        (newInfo.usbVendorId === lastConnectedUartInfo.usbVendorId &&
+         newInfo.usbProductId === lastConnectedUartInfo.usbProductId);
+
+      if (isMatching) {
+        uartLogMessage.value = 'USB device detected after reset. Reconnecting in 600ms...';
+        showToast('USB device re-detected. Auto-reconnecting...', 'info');
+
+        if (autoReconnectUartTimer) clearTimeout(autoReconnectUartTimer);
+        autoReconnectUartTimer = setTimeout(async () => {
+          try {
+            uartPort.value = newPort;
+            let desc = 'Serial Device';
+            if (newInfo.usbVendorId) {
+              desc = 'VID: 0x' + newInfo.usbVendorId.toString(16).toUpperCase() + ' PID: 0x' + (newInfo.usbProductId ? newInfo.usbProductId.toString(16).toUpperCase() : '');
+            }
+            uartPortInfo.value = desc;
+            await uartPort.value.open({
+              baudRate: 9600,
+              dataBits: 8,
+              stopBits: 1,
+              parity: 'none',
+              bufferSize: 255,
+            });
+            uartConnected.value = true;
+            isAutoReconnectingUart.value = false;
+            uartLogMessage.value = 'Auto-reconnected successfully to ' + desc + ' @ 9600 bps, 8-N-1';
+            showToast('USB Serial reconnected automatically', 'success');
+          } catch (connErr) {
+            console.warn('Auto-reconnect attempt 1 failed, retrying in 1000ms...', connErr);
+            setTimeout(async () => {
+              try {
+                if (uartConnected.value) return;
+                await uartPort.value.open({
+                  baudRate: 9600,
+                  dataBits: 8,
+                  stopBits: 1,
+                  parity: 'none',
+                  bufferSize: 255,
+                });
+                uartConnected.value = true;
+                isAutoReconnectingUart.value = false;
+                uartLogMessage.value = 'Auto-reconnected successfully after retry';
+                showToast('USB Serial reconnected successfully', 'success');
+              } catch (retryErr) {
+                console.error('Auto-reconnect failed:', retryErr);
+                isAutoReconnectingUart.value = false;
+                uartLogMessage.value = 'Auto-reconnect failed: ' + (retryErr.message || retryErr) + '. Please click Connect Port.';
+                showToast('Auto-reconnect failed. Please click Connect Port.', 'error');
+              }
+            }, 1000);
+          }
+        }, 600);
+      }
+    }
   };
 
   const calcModbusCRC16Local = (bytes) => {
@@ -2580,28 +2703,54 @@ function useTestAutomationModule(ctx) {
       throw new Error('UART port is not available');
     }
     const req = buildModbusReadReq(slave, 3, reg, numreg);
-    const writer = uartPort.value.writable.getWriter();
-    await writer.write(req);
-    writer.releaseLock();
+    activeUartWriter = uartPort.value.writable.getWriter();
+    try {
+      await activeUartWriter.write(req);
+    } finally {
+      try {
+        activeUartWriter.releaseLock();
+      } catch (e) {}
+      activeUartWriter = null;
+    }
 
-    const reader = uartPort.value.readable.getReader();
+    activeUartReader = uartPort.value.readable.getReader();
     const expectedBytes = 3 + numreg * 2 + 2;
     const rxBuffer = [];
     const startTime = Date.now();
 
     try {
       while (rxBuffer.length < expectedBytes && (Date.now() - startTime) < timeoutMs) {
-        const { value, done } = await Promise.race([
-          reader.read(),
-          new Promise((_, reject) => setTimeout(() => reject(new Error('TIMEOUT')), timeoutMs)),
-        ]);
+        const remaining = Math.max(10, timeoutMs - (Date.now() - startTime));
+        let timeoutId;
+        const timeoutPromise = new Promise((_, reject) => {
+          timeoutId = setTimeout(() => reject(new Error('TIMEOUT')), remaining);
+        });
+        let res;
+        try {
+          res = await Promise.race([activeUartReader.read(), timeoutPromise]);
+        } finally {
+          clearTimeout(timeoutId);
+        }
+        const { value, done } = res;
         if (done) break;
         if (value) {
           for (let i = 0; i < value.length; i++) rxBuffer.push(value[i]);
         }
       }
+    } catch (err) {
+      if (activeUartReader) {
+        try {
+          await activeUartReader.cancel();
+        } catch (e) {}
+      }
+      throw err;
     } finally {
-      reader.releaseLock();
+      if (activeUartReader) {
+        try {
+          activeUartReader.releaseLock();
+        } catch (e) {}
+        activeUartReader = null;
+      }
     }
 
     if (rxBuffer.length < 5) throw new Error('No response received from device');
@@ -2914,12 +3063,30 @@ function useTestAutomationModule(ctx) {
     fetchSalesOrders();
     fetchTestSessions();
     if (fetchDevices) fetchDevices();
+
+    if (typeof navigator !== 'undefined' && navigator.serial) {
+      try {
+        navigator.serial.addEventListener('disconnect', handleUartHardwareDisconnect);
+        navigator.serial.addEventListener('connect', handleUartHardwareConnect);
+      } catch (e) {}
+    }
   });
 
   onUnmounted(() => {
     if (typeof document !== 'undefined') {
       document.removeEventListener('click', handleDocumentClick);
     }
+    if (typeof navigator !== 'undefined' && navigator.serial) {
+      try {
+        navigator.serial.removeEventListener('disconnect', handleUartHardwareDisconnect);
+        navigator.serial.removeEventListener('connect', handleUartHardwareConnect);
+      } catch (e) {}
+    }
+    if (autoReconnectUartTimer) {
+      clearTimeout(autoReconnectUartTimer);
+      autoReconnectUartTimer = null;
+    }
+    safeCleanupUartPort();
   });
 
   return {
@@ -3032,6 +3199,7 @@ function useTestAutomationModule(ctx) {
     uartConnecting,
     uartReading,
     uartLogMessage,
+    isAutoReconnectingUart,
     readDeviceInfo,
     confirmSerialNumberInput,
     isSerialNumberConfirmed,

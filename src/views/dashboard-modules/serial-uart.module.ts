@@ -33,10 +33,10 @@ export const SERIAL_UART_TEMPLATE = `          <div v-else-if="activeFeature.id 
                   >
                     <span
                       class="w-2 h-2 rounded-full"
-                      :class="serialConnected ? 'bg-emerald-400 animate-ping' : (serialPort ? 'bg-amber-400' : 'bg-slate-500')"
+                      :class="serialConnected ? 'bg-emerald-400 animate-ping' : (isAutoReconnecting ? 'bg-amber-400 animate-ping' : (serialPort ? 'bg-amber-400' : 'bg-slate-500'))"
                     ></span>
-                    <i :class="serialConnected ? 'fa-solid fa-link' : (serialPort ? 'fa-solid fa-microchip' : 'fa-solid fa-plug-circle-xmark')"></i>
-                    <span>{{ serialPortInfo || 'No Port Selected' }} {{ serialConnected ? '(Connected)' : (serialPort ? '(Ready)' : '') }}</span>
+                    <i :class="serialConnected ? 'fa-solid fa-link' : (isAutoReconnecting ? 'fa-solid fa-arrows-rotate animate-spin text-amber-400' : (serialPort ? 'fa-solid fa-microchip' : 'fa-solid fa-plug-circle-xmark'))"></i>
+                    <span>{{ serialPortInfo || 'No Port Selected' }} {{ serialConnected ? '(Connected)' : (isAutoReconnecting ? '(Reconnecting...)' : (serialPort ? '(Ready)' : '')) }}</span>
                   </div>
                 </div>
 
@@ -77,11 +77,11 @@ export const SERIAL_UART_TEMPLATE = `          <div v-else-if="activeFeature.id 
                     v-if="serialPort && !serialConnected"
                     type="button"
                     @click="connectSerial"
-                    :disabled="serialConnecting"
+                    :disabled="serialConnecting || isAutoReconnecting"
                     class="px-3.5 py-1.5 rounded-lg bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-semibold text-xs shadow-lg shadow-emerald-900/20 flex items-center gap-1.5 cursor-pointer transition disabled:opacity-50"
                   >
-                    <i class="fa-solid fa-link" :class="{ 'animate-spin': serialConnecting }"></i>
-                    <span>Connect</span>
+                    <i class="fa-solid fa-link" :class="{ 'animate-spin': serialConnecting || isAutoReconnecting }"></i>
+                    <span>{{ isAutoReconnecting ? 'Reconnecting...' : 'Connect' }}</span>
                   </button>
 
                   <!-- Disconnect button -->
@@ -100,7 +100,7 @@ export const SERIAL_UART_TEMPLATE = `          <div v-else-if="activeFeature.id 
                     v-if="serialPort"
                     type="button"
                     @click="selectSerialPort"
-                    :disabled="serialConnected"
+                    :disabled="serialConnected || isAutoReconnecting"
                     class="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition disabled:opacity-40"
                     title="Choose a different serial port"
                   >
@@ -757,6 +757,7 @@ function useSerialModule(ctx) {
         const serialPort = ref(null);
         const serialConnected = ref(false);
         const serialConnecting = ref(false);
+        const isAutoReconnecting = ref(false);
         const serialPortInfo = ref('');
         const serialConfig = ref({
           baudRate: 9600,
@@ -800,6 +801,8 @@ function useSerialModule(ctx) {
         let keepReadingSerial = false;
         let incomingBuffer = [];
         let pendingModbusTx = null;
+        let lastConnectedPortInfo = null;
+        let autoReconnectTimer = null;
 
         const modbusPresets = ref([
           {
@@ -1722,6 +1725,7 @@ function useSerialModule(ctx) {
             const port = await navigator.serial.requestPort();
             serialPort.value = port;
             const info = port.getInfo ? port.getInfo() : {};
+            lastConnectedPortInfo = info;
             let desc = 'Serial Device';
             if (info.usbVendorId) {
               desc = 'VID: 0x' + info.usbVendorId.toString(16).toUpperCase() + ' PID: 0x' + (info.usbProductId ? info.usbProductId.toString(16).toUpperCase() : '');
@@ -1738,13 +1742,20 @@ function useSerialModule(ctx) {
         };
 
         // Web Serial API: Connect
-        const connectSerial = async () => {
+        const connectSerial = async (portToOpen = null) => {
+          if (portToOpen) {
+            serialPort.value = portToOpen;
+          }
           if (!serialPort.value) {
             await selectSerialPort();
             if (!serialPort.value) return;
           }
           serialConnecting.value = true;
           try {
+            const info = serialPort.value.getInfo ? serialPort.value.getInfo() : {};
+            if (info.usbVendorId) {
+              lastConnectedPortInfo = info;
+            }
             await serialPort.value.open({
               baudRate: Number(serialConfig.value.baudRate) || 9600,
               dataBits: Number(serialConfig.value.dataBits) || 8,
@@ -1755,6 +1766,7 @@ function useSerialModule(ctx) {
             });
 
             serialConnected.value = true;
+            isAutoReconnecting.value = false;
             addSerialLog('SYS', null, 'Connected @ ' + serialConfig.value.baudRate + ' bps, 8-N-1');
             showToast('Connected to COM / UART @ ' + serialConfig.value.baudRate + ' bps', 'success');
 
@@ -1780,18 +1792,25 @@ function useSerialModule(ctx) {
         };
 
         // Web Serial API: Disconnect
-        const disconnectSerial = async () => {
+        const disconnectSerial = async (isManual = true) => {
+          if (autoReconnectTimer) {
+            clearTimeout(autoReconnectTimer);
+            autoReconnectTimer = null;
+          }
           stopContinuousPolling();
           keepReadingSerial = false;
           if (serialReader) {
             try {
               await serialReader.cancel();
             } catch(e) {}
+            try {
+              serialReader.releaseLock();
+            } catch(e) {}
             serialReader = null;
           }
           if (pendingModbusTx) {
             clearTimeout(pendingModbusTx.timer);
-            pendingModbusTx.reject(new Error('Port closed'));
+            pendingModbusTx.reject(new Error('Port closed or disconnected'));
             pendingModbusTx = null;
           }
           if (serialPort.value) {
@@ -1800,8 +1819,82 @@ function useSerialModule(ctx) {
             } catch(e) {}
           }
           serialConnected.value = false;
-          addSerialLog('SYS', null, 'Port disconnected');
-          showToast('Serial port disconnected', 'info');
+          if (isManual) {
+            isAutoReconnecting.value = false;
+            serialPortInfo.value = '';
+            serialPort.value = null;
+            lastConnectedPortInfo = null;
+            addSerialLog('SYS', null, 'Port disconnected by user');
+            showToast('Serial port disconnected', 'info');
+          }
+        };
+
+        // Hardware disconnect event listener (e.g. chip reset or power glitch)
+        const handleSerialDisconnect = async (event) => {
+          console.warn('Hardware serial disconnect detected:', event.target);
+          const isTarget = serialPort.value && (serialPort.value === event.target || !event.target);
+          if (isTarget || serialConnected.value) {
+            const wasConnected = serialConnected.value;
+            addSerialLog('WARN', null, 'Hardware disconnected (USB reset or power glitch detected). Cleaning up locks...');
+            await disconnectSerial(false);
+            if (wasConnected) {
+              isAutoReconnecting.value = true;
+              showToast('Serial port disconnected (hardware reset or power conflict)', 'warning');
+              addSerialLog('SYS', null, 'Port closed and locks released. Waiting for USB re-enumeration to reconnect automatically...');
+            }
+          }
+        };
+
+        // Hardware connect event listener (chip reboot & USB re-enumeration)
+        const handleSerialConnect = async (event) => {
+          console.log('Hardware serial connect detected:', event.target);
+          if (isAutoReconnecting.value || (!serialConnected.value && lastConnectedPortInfo)) {
+            const newPort = event.target || (navigator.serial && navigator.serial.getPorts ? (await navigator.serial.getPorts())[0] : null);
+            if (!newPort) return;
+
+            const newInfo = newPort.getInfo ? newPort.getInfo() : {};
+            const isMatching = !lastConnectedPortInfo || !lastConnectedPortInfo.usbVendorId ||
+              (newInfo.usbVendorId === lastConnectedPortInfo.usbVendorId &&
+               newInfo.usbProductId === lastConnectedPortInfo.usbProductId);
+
+            if (isMatching) {
+              addSerialLog('SYS', null, 'USB device detected after reset. Auto-reconnecting in 600ms...');
+              showToast('USB device re-detected. Auto-reconnecting...', 'info');
+
+              if (autoReconnectTimer) clearTimeout(autoReconnectTimer);
+              autoReconnectTimer = setTimeout(async () => {
+                try {
+                  serialPort.value = newPort;
+                  let desc = 'Serial Device';
+                  if (newInfo.usbVendorId) {
+                    desc = 'VID: 0x' + newInfo.usbVendorId.toString(16).toUpperCase() + ' PID: 0x' + (newInfo.usbProductId ? newInfo.usbProductId.toString(16).toUpperCase() : '');
+                  }
+                  serialPortInfo.value = desc;
+
+                  await connectSerial(newPort);
+                  isAutoReconnecting.value = false;
+                  addSerialLog('SYS', null, 'Auto-reconnected successfully to ' + desc);
+                  showToast('Serial device auto-reconnected successfully', 'success');
+                } catch (err) {
+                  console.warn('Auto-reconnect attempt 1 failed, retrying in 1000ms...', err);
+                  setTimeout(async () => {
+                    try {
+                      if (serialConnected.value) return;
+                      await connectSerial(newPort);
+                      isAutoReconnecting.value = false;
+                      addSerialLog('SYS', null, 'Auto-reconnected successfully after retry');
+                      showToast('Serial device auto-reconnected successfully', 'success');
+                    } catch (retryErr) {
+                      console.error('Auto-reconnect retry failed:', retryErr);
+                      isAutoReconnecting.value = false;
+                      addSerialLog('ERR', null, 'Auto-reconnect failed: ' + (retryErr.message || retryErr) + '. Please click Connect.');
+                      showToast('Auto-reconnect failed. Click Connect to retry.', 'error');
+                    }
+                  }, 1000);
+                }
+              }, 600);
+            }
+          }
         };
 
         // DTR / RTS Signals
@@ -1854,15 +1947,21 @@ function useSerialModule(ctx) {
                 }
               }
             } catch(e) {
+              console.error('Serial read loop error:', e);
               if (keepReadingSerial) {
-                console.error('Serial read loop error:', e);
                 addSerialLog('ERR', null, 'Read error: ' + (e.message || e));
               }
+              // Stop read loop on stream error / hardware disconnect to prevent UI freeze
+              keepReadingSerial = false;
+              break;
             } finally {
               if (serialReader) {
                 try {
+                  await serialReader.cancel();
+                } catch(err) {}
+                try {
                   serialReader.releaseLock();
-                } catch(e) {}
+                } catch(err) {}
                 serialReader = null;
               }
             }
@@ -1932,7 +2031,9 @@ function useSerialModule(ctx) {
             serialStats.value.txBytes += uint8Array.length;
             addSerialLog('TX', uint8Array);
           } finally {
-            writer.releaseLock();
+            try {
+              writer.releaseLock();
+            } catch(e) {}
           }
         };
 
@@ -2636,6 +2737,12 @@ function useSerialModule(ctx) {
         onMounted(() => {
           window.addEventListener('keydown', handleKeydown);
           window.addEventListener('resize', handleResize);
+          if (typeof navigator !== 'undefined' && navigator.serial) {
+            try {
+              navigator.serial.addEventListener('disconnect', handleSerialDisconnect);
+              navigator.serial.addEventListener('connect', handleSerialConnect);
+            } catch(e) {}
+          }
           if (typeof BroadcastChannel !== 'undefined') {
             try {
               presetsBroadcastChannel = new BroadcastChannel('dvt_modbus_presets_sync');
@@ -2660,6 +2767,16 @@ function useSerialModule(ctx) {
         onUnmounted(() => {
           window.removeEventListener('keydown', handleKeydown);
           window.removeEventListener('resize', handleResize);
+          if (typeof navigator !== 'undefined' && navigator.serial) {
+            try {
+              navigator.serial.removeEventListener('disconnect', handleSerialDisconnect);
+              navigator.serial.removeEventListener('connect', handleSerialConnect);
+            } catch(e) {}
+          }
+          if (autoReconnectTimer) {
+            clearTimeout(autoReconnectTimer);
+            autoReconnectTimer = null;
+          }
           if (presetsBroadcastChannel) {
             try { presetsBroadcastChannel.close(); } catch(e) {}
             presetsBroadcastChannel = null;
@@ -2685,6 +2802,7 @@ function useSerialModule(ctx) {
           serialPort,
           serialConnected,
           serialConnecting,
+          isAutoReconnecting,
           serialPortInfo,
           serialConfig,
           serialSignals,
