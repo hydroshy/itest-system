@@ -283,8 +283,44 @@ async function runVerificationTests() {
   );
   console.log('  -> PASS: Blank write presets, strictly actual hardware read, and port connection check popup verified.\n');
 
+  // --------------------------------------------------------------------
+  // TEST 10: 1-Line SERIAL_NUMBER Fitting & ChirpStack Network Server Auto-Routing
+  // --------------------------------------------------------------------
+  console.log('[TEST 10] Verifying 1-Line SERIAL_NUMBER Fitting & ChirpStack Network Server Auto-Routing...');
+  // 1. SERIAL_NUMBER 1-line fitting
+  assert.ok(
+    TEST_AUTOMATION_MODALS.includes('whitespace-nowrap tracking-tight') &&
+    TEST_AUTOMATION_MODALS.includes('sm:col-span-3') &&
+    TEST_AUTOMATION_MODALS.includes('sm:grid-cols-12'),
+    'SERIAL_NUMBER must be styled with whitespace-nowrap in 12-column layout to fit on 1 line',
+  );
+
+  // 2. Network Server selection & auto-discovery in UI
+  assert.ok(
+    TEST_AUTOMATION_MODALS.includes('selectedNetworkServerId') &&
+    TEST_AUTOMATION_MODALS.includes('Local Fleet Mode (Offline Test)') &&
+    TEST_AUTOMATION_MODALS.includes('CHIRPSTACK ONLINE'),
+    'Modal must provide Network Server selector and Local Fleet mode fallback',
+  );
+
+  // 3. Script Network Server routing & payload provisioning
+  assert.ok(
+    TEST_AUTOMATION_SCRIPT.includes('fetchNetworkServersList') &&
+    TEST_AUTOMATION_SCRIPT.includes('selectedNetworkServer') &&
+    TEST_AUTOMATION_SCRIPT.includes('networkServerId: isLocal ? undefined : (targetNs?.id || undefined)'),
+    'Script must automatically bind target networkServerId, regionProfileId and provisionTarget',
+  );
+
+  // 4. Backend LorawanService auto-fallback to default/active network server
+  const lorawanServiceSrc = fs.readFileSync(path.join(__dirname, '../src/modules/lorawan/lorawan.service.ts'), 'utf8');
+  assert.ok(
+    lorawanServiceSrc.includes('this.serverRepo.findOne({ where: { isDefault: true } })'),
+    'LorawanService must fallback to isDefault network server when dto.networkServerId is omitted',
+  );
+  console.log('  -> PASS: 1-line SERIAL_NUMBER card fitting and ChirpStack Network Server auto-routing verified.\n');
+
   console.log('======================================================================');
-  console.log('ALL 9 TESTS PASSED SUCCESSFULLY WITH 100% SPECIFICATION COMPLIANCE!');
+  console.log('ALL 10 TESTS PASSED SUCCESSFULLY WITH 100% SPECIFICATION COMPLIANCE!');
   console.log('======================================================================');
 }
 

@@ -1222,26 +1222,26 @@ export const TEST_AUTOMATION_MODALS = `
             </div>
 
             <!-- Card: SERIAL_NUMBER | ITEM_CODE | FW_VERSION | HW_VERSION | ME_VERSION -->
-            <div class="grid grid-cols-2 sm:grid-cols-5 gap-3 p-4 bg-slate-950 rounded-xl border border-slate-800 text-center font-mono">
-              <div class="p-2.5 rounded-lg bg-slate-900 border border-slate-800/80 space-y-1">
-                <div class="text-[10px] uppercase font-bold text-slate-400">SERIAL_NUMBER</div>
-                <div class="text-xs font-extrabold text-amber-300 break-all">{{ readDeviceInfo.serialNumber }}</div>
+            <div class="grid grid-cols-2 sm:grid-cols-12 gap-2 sm:gap-2.5 p-3.5 bg-slate-950 rounded-xl border border-slate-800 text-center font-mono">
+              <div class="col-span-1 sm:col-span-3 p-2 sm:p-2.5 rounded-lg bg-slate-900 border border-slate-800/80 space-y-1 overflow-hidden">
+                <div class="text-[10px] uppercase font-bold text-slate-400 truncate">SERIAL_NUMBER</div>
+                <div class="text-[11px] sm:text-xs font-black text-amber-300 whitespace-nowrap tracking-tight" :title="readDeviceInfo.serialNumber">{{ readDeviceInfo.serialNumber }}</div>
               </div>
-              <div class="p-2.5 rounded-lg bg-slate-900 border border-slate-800/80 space-y-1">
-                <div class="text-[10px] uppercase font-bold text-slate-400">ITEM_CODE</div>
-                <div class="text-xs font-extrabold text-cyan-300 break-all">{{ readDeviceInfo.itemCode || '--' }}</div>
+              <div class="col-span-1 sm:col-span-3 p-2 sm:p-2.5 rounded-lg bg-slate-900 border border-slate-800/80 space-y-1 overflow-hidden">
+                <div class="text-[10px] uppercase font-bold text-slate-400 truncate">ITEM_CODE</div>
+                <div class="text-[11px] sm:text-xs font-black text-cyan-300 whitespace-nowrap tracking-tight overflow-hidden text-ellipsis" :title="readDeviceInfo.itemCode || '--'">{{ readDeviceInfo.itemCode || '--' }}</div>
               </div>
-              <div class="p-2.5 rounded-lg bg-slate-900 border border-slate-800/80 space-y-1">
-                <div class="text-[10px] uppercase font-bold text-slate-400">FW_VERSION</div>
-                <div class="text-xs font-extrabold text-purple-300">{{ readDeviceInfo.longFw }}</div>
+              <div class="col-span-1 sm:col-span-2 p-2 sm:p-2.5 rounded-lg bg-slate-900 border border-slate-800/80 space-y-1 overflow-hidden">
+                <div class="text-[10px] uppercase font-bold text-slate-400 truncate">FW_VERSION</div>
+                <div class="text-[11px] sm:text-xs font-bold text-purple-300 whitespace-nowrap tracking-tight">{{ readDeviceInfo.longFw }}</div>
               </div>
-              <div class="p-2.5 rounded-lg bg-slate-900 border border-slate-800/80 space-y-1">
-                <div class="text-[10px] uppercase font-bold text-slate-400">HW_VERSION</div>
-                <div class="text-xs font-extrabold text-emerald-300">{{ readDeviceInfo.hwVersion }}</div>
+              <div class="col-span-1 sm:col-span-2 p-2 sm:p-2.5 rounded-lg bg-slate-900 border border-slate-800/80 space-y-1 overflow-hidden">
+                <div class="text-[10px] uppercase font-bold text-slate-400 truncate">HW_VERSION</div>
+                <div class="text-[11px] sm:text-xs font-bold text-emerald-300 whitespace-nowrap tracking-tight">{{ readDeviceInfo.hwVersion }}</div>
               </div>
-              <div class="p-2.5 rounded-lg bg-slate-900 border border-slate-800/80 space-y-1">
-                <div class="text-[10px] uppercase font-bold text-slate-400">ME_VERSION</div>
-                <div class="text-xs font-extrabold text-sky-300">{{ readDeviceInfo.meVersion }}</div>
+              <div class="col-span-2 sm:col-span-2 p-2 sm:p-2.5 rounded-lg bg-slate-900 border border-slate-800/80 space-y-1 overflow-hidden">
+                <div class="text-[10px] uppercase font-bold text-slate-400 truncate">ME_VERSION</div>
+                <div class="text-[11px] sm:text-xs font-bold text-sky-300 whitespace-nowrap tracking-tight">{{ readDeviceInfo.meVersion }}</div>
               </div>
             </div>
 
@@ -1266,6 +1266,45 @@ export const TEST_AUTOMATION_MODALS = `
               <div>
                 <span class="text-slate-400 block text-[10px]">REGISTER BY:</span>
                 <span class="font-mono font-bold text-emerald-300">{{ currentUser?.username || 'admin' }}</span>
+              </div>
+            </div>
+
+            <!-- Target Network Server Configuration / Selector -->
+            <div class="p-3 bg-slate-950/90 rounded-xl border border-slate-800 text-xs flex flex-wrap items-center justify-between gap-3">
+              <div class="flex items-center gap-2.5 flex-wrap">
+                <div class="flex items-center gap-1.5 text-slate-300 font-bold">
+                  <i class="fa-solid fa-tower-broadcast text-cyan-400"></i>
+                  <span>Network Server:</span>
+                </div>
+                <select
+                  v-if="networkServersList && networkServersList.length > 0"
+                  v-model="selectedNetworkServerId"
+                  class="px-2.5 py-1 bg-slate-900 border border-slate-700 rounded-lg text-white font-mono text-xs focus:ring-1 focus:ring-cyan-500 focus:outline-none"
+                >
+                  <option v-for="ns in networkServersList" :key="ns.id" :value="ns.id">
+                    {{ ns.name }} ({{ ns.type }}){{ ns.isDefault ? ' [Default]' : '' }}
+                  </option>
+                  <option value="__LOCAL__">Local Fleet Mode (Offline Test)</option>
+                </select>
+                <div v-else class="flex items-center gap-2">
+                  <span class="px-2 py-0.5 rounded bg-cyan-500/10 text-cyan-300 border border-cyan-500/30 text-[11px] font-mono">
+                    Auto-detect Configured Server
+                  </span>
+                  <select
+                    v-model="selectedNetworkServerId"
+                    class="px-2.5 py-1 bg-slate-900 border border-slate-700 rounded-lg text-white font-mono text-xs focus:ring-1 focus:ring-cyan-500 focus:outline-none"
+                  >
+                    <option value="">Auto (ChirpStack Default)</option>
+                    <option value="__LOCAL__">Local Fleet Mode (Offline Test)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="text-[11px] font-mono text-slate-400 flex items-center gap-1.5">
+                <span>Mode:</span>
+                <span :class="selectedNetworkServerId === '__LOCAL__' ? 'text-amber-300 font-bold' : 'text-emerald-400 font-bold'">
+                  {{ selectedNetworkServerId === '__LOCAL__' ? 'LOCAL ONLY (No API Call)' : 'CHIRPSTACK ONLINE' }}
+                </span>
               </div>
             </div>
 
@@ -1297,7 +1336,7 @@ export const TEST_AUTOMATION_MODALS = `
               <div v-if="confirmSerialNumberInput" class="text-xs flex items-center gap-1.5">
                 <span v-if="isSerialNumberConfirmed" class="text-emerald-400 font-bold flex items-center gap-1.5">
                   <i class="fa-solid fa-circle-check"></i>
-                  <span>SERIAL_NUMBER verified! Ready to register to ChirpStack.</span>
+                  <span>SERIAL_NUMBER verified! Ready to register to {{ selectedNetworkServerId === '__LOCAL__' ? 'Local Fleet' : (selectedNetworkServer?.name || 'ChirpStack') }}.</span>
                 </span>
                 <span v-else class="text-rose-400 font-bold flex items-center gap-1.5">
                   <i class="fa-solid fa-circle-xmark"></i>
@@ -1646,6 +1685,36 @@ export const TEST_AUTOMATION_MODALS = `
 export const TEST_AUTOMATION_SCRIPT = `
 function useTestAutomationModule(ctx) {
   const { showToast, authHeaders, activeFeature, copyText, devicesList, currentUser, fetchDevices, initRealtimeConnection } = ctx;
+  const networkServersList = ctx.networkServersList || ref([]);
+  const selectedNetworkServerId = ref('');
+
+  const fetchNetworkServersList = async () => {
+    if (ctx.fetchNetworkServers) {
+      try {
+        await ctx.fetchNetworkServers();
+      } catch (e) {}
+    }
+    if (!networkServersList.value || networkServersList.value.length === 0) {
+      try {
+        const res = await fetch('/api/network-servers', { headers: authHeaders(), credentials: 'include' });
+        if (res.ok) {
+          networkServersList.value = await res.json();
+        }
+      } catch (e) {}
+    }
+    if (!selectedNetworkServerId.value && networkServersList.value && networkServersList.value.length > 0) {
+      const defaultNs = networkServersList.value.find(ns => ns.isDefault) || networkServersList.value[0];
+      if (defaultNs) selectedNetworkServerId.value = defaultNs.id;
+    }
+  };
+
+  const selectedNetworkServer = computed(() => {
+    if (!networkServersList.value || networkServersList.value.length === 0) return null;
+    if (selectedNetworkServerId.value === '__LOCAL__') return null;
+    return networkServersList.value.find(ns => ns.id === selectedNetworkServerId.value)
+      || networkServersList.value.find(ns => ns.isDefault)
+      || networkServersList.value[0];
+  });
 
   // Sales Orders & Items
   const salesOrdersList = ref([]);
@@ -2643,6 +2712,7 @@ function useTestAutomationModule(ctx) {
     selectedItemCode.value = effectiveItem;
     resetReadDeviceInfo();
     showDeviceOnboardModal.value = true;
+    fetchNetworkServersList();
 
     // Direct read when COM port is pre-connected
     if (uartConnected.value) {
@@ -3226,6 +3296,26 @@ function useTestAutomationModule(ctx) {
         ? info.serialNumber
         : (info.sku + '-' + info.serialNumber);
 
+      const isLocal = selectedNetworkServerId.value === '__LOCAL__';
+      let targetNs = null;
+      let targetRegionId = undefined;
+
+      if (!isLocal) {
+        if (selectedNetworkServerId.value) {
+          targetNs = (networkServersList.value || []).find(ns => ns.id === selectedNetworkServerId.value);
+        }
+        if (!targetNs) {
+          targetNs = (networkServersList.value || []).find(ns => ns.isDefault) || (networkServersList.value || [])[0];
+        }
+
+        if (targetNs && Array.isArray(targetNs.regionProfiles) && targetNs.regionProfiles.length > 0) {
+          const matchedRegion = targetNs.regionProfiles.find(rp => 
+            (rp.region || rp.name || '').toUpperCase().includes((info.regionCode || '').toUpperCase())
+          );
+          targetRegionId = matchedRegion ? matchedRegion.id : targetNs.regionProfiles[0].id;
+        }
+      }
+
       const regPayload = {
         name: devName,
         devEUI: info.devEUI,
@@ -3237,7 +3327,10 @@ function useTestAutomationModule(ctx) {
         activationType: 'OTAA',
         appEUI: '0102030405060708',
         appKey: '0102030405060708090A0B0C0D0E0F10',
-        provisionTarget: 'SERVER',
+        provisionTarget: isLocal ? 'LOCAL' : 'SERVER',
+        networkServerId: isLocal ? undefined : (targetNs?.id || undefined),
+        regionProfileId: isLocal ? undefined : targetRegionId,
+        region: info.regionCode || undefined,
         isActive: true,
       };
 
@@ -3286,7 +3379,8 @@ function useTestAutomationModule(ctx) {
       // Refresh fleet
       if (fetchDevices) fetchDevices();
 
-      showToast('Device ' + info.serialNumber + ' (' + info.devEUI + ') successfully registered to ChirpStack and added to test batch!', 'success');
+      const targetLabel = isLocal ? 'Local Fleet' : (targetNs?.name || 'ChirpStack');
+      showToast('Device ' + info.serialNumber + ' (' + info.devEUI + ') successfully registered to ' + targetLabel + ' and added to test batch!', 'success');
       showDeviceOnboardModal.value = false;
     } catch (err) {
       showToast('ChirpStack registration error: ' + err.message, 'error');
@@ -3313,6 +3407,7 @@ function useTestAutomationModule(ctx) {
     fetchSalesOrders();
     fetchTestSessions();
     if (fetchDevices) fetchDevices();
+    fetchNetworkServersList();
 
     if (typeof navigator !== 'undefined' && navigator.serial) {
       try {
@@ -3467,6 +3562,10 @@ function useTestAutomationModule(ctx) {
     disconnectUart,
     readDeviceViaUart,
     simulateReadDeviceUart,
+    networkServersList,
+    selectedNetworkServerId,
+    selectedNetworkServer,
+    fetchNetworkServersList,
     submitRegisterToChirpstack,
   };
 }

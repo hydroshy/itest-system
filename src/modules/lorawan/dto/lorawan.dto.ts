@@ -57,6 +57,10 @@ export class RegisterDeviceDto {
   @IsOptional()
   provisionTarget?: 'SERVER' | 'LOCAL';
 
+  @IsString()
+  @IsOptional()
+  region?: string;
+
   @IsOptional()
   isActive?: boolean;
 }

@@ -123,8 +123,33 @@ export class LorawanService implements OnModuleInit {
 
     if (dto.networkServerId) {
       networkServer = await this.serverRepo.findOne({ where: { id: dto.networkServerId } });
-      if (networkServer && dto.regionProfileId && Array.isArray(networkServer.regionProfiles)) {
+    } else if (!isLocal) {
+      // Auto-fallback: Find default or first active network server
+      networkServer = await this.serverRepo.findOne({ where: { isDefault: true } }).catch(() => null);
+      if (!networkServer) {
+        networkServer = await this.serverRepo.findOne({ where: { status: 'ONLINE' } }).catch(() => null);
+      }
+      if (!networkServer) {
+        networkServer = await this.serverRepo.findOne({ where: {} }).catch(() => null);
+      }
+      if (networkServer) {
+        dto.networkServerId = networkServer.id;
+      }
+    }
+
+    if (networkServer) {
+      if (dto.regionProfileId && Array.isArray(networkServer.regionProfiles)) {
         regionProfile = networkServer.regionProfiles.find((rp) => rp.id === dto.regionProfileId);
+      } else if (Array.isArray(networkServer.regionProfiles) && networkServer.regionProfiles.length > 0) {
+        if (dto.region) {
+          regionProfile = networkServer.regionProfiles.find((rp) =>
+            (rp.region || rp.name || '').toUpperCase().includes(dto.region!.toUpperCase()),
+          );
+        }
+        if (!regionProfile) {
+          regionProfile = networkServer.regionProfiles[0];
+        }
+        dto.regionProfileId = regionProfile.id;
       }
     }
 

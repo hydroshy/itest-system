@@ -2020,8 +2020,10 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
           activeFeature,
           copyText,
           devicesList,
+          networkServersList,
           currentUser,
           fetchDevices: () => fetchDevices(),
+          fetchNetworkServers: () => fetchNetworkServers(),
           initRealtimeConnection,
         });
 
