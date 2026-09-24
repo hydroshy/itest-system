@@ -1082,7 +1082,7 @@ export const TEST_AUTOMATION_MODALS = `
             <div class="flex items-center justify-between">
               <h4 class="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-2">
                 <span class="w-5 h-5 rounded-full bg-slate-800 text-cyan-400 inline-flex items-center justify-center text-[10px]">1</span>
-                <span>Connect Serial UART Port (9600 8-N-1)</span>
+                <span>Connect Serial UART Port</span>
               </h4>
               <div class="flex items-center gap-2">
                 <span :class="uartConnected ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30' : (isAutoReconnectingUart ? 'bg-amber-500/15 text-amber-400 border-amber-500/30' : 'bg-slate-800 text-slate-400 border-slate-700')" class="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold border flex items-center gap-1.5">
@@ -1140,17 +1140,6 @@ export const TEST_AUTOMATION_MODALS = `
                   <i v-else class="fa-solid fa-bolt text-amber-400"></i>
                   <span>Read Device</span>
                 </button>
-
-                <button
-                  type="button"
-                  @click="simulateReadDeviceUart"
-                  :disabled="uartReading"
-                  class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-amber-300 border border-amber-500/30 text-xs font-semibold flex items-center gap-1.5 cursor-pointer"
-                  title="Simulate reading standard parameters from @example/template_dvt.csv"
-                >
-                  <i class="fa-solid fa-flask"></i>
-                  <span>Simulate Read</span>
-                </button>
               </div>
             </div>
 
@@ -1174,20 +1163,19 @@ export const TEST_AUTOMATION_MODALS = `
               </span>
             </div>
 
-            <!-- Card: SERIAL_NUMBER | ITEM_CODE | FW_VERSION(LONG) | HW_VERSION | ME_VERSION -->
+            <!-- Card: SERIAL_NUMBER | ITEM_CODE | FW_VERSION | HW_VERSION | ME_VERSION -->
             <div class="grid grid-cols-2 sm:grid-cols-5 gap-3 p-4 bg-slate-950 rounded-xl border border-slate-800 text-center font-mono">
               <div class="p-2.5 rounded-lg bg-slate-900 border border-slate-800/80 space-y-1">
-                <div class="text-[10px] uppercase font-bold text-slate-400">SERIAL_NUMBER (Reg 259)</div>
+                <div class="text-[10px] uppercase font-bold text-slate-400">SERIAL_NUMBER</div>
                 <div class="text-xs font-extrabold text-amber-300 break-all">{{ readDeviceInfo.serialNumber }}</div>
               </div>
               <div class="p-2.5 rounded-lg bg-slate-900 border border-slate-800/80 space-y-1">
-                <div class="text-[10px] uppercase font-bold text-slate-400">ITEM_CODE (Reg 386)</div>
-                <div class="text-xs font-extrabold text-cyan-300 break-all">{{ readDeviceInfo.itemCode }}</div>
+                <div class="text-[10px] uppercase font-bold text-slate-400">ITEM_CODE</div>
+                <div class="text-xs font-extrabold text-cyan-300 break-all">{{ readDeviceInfo.itemCode || '--' }}</div>
               </div>
               <div class="p-2.5 rounded-lg bg-slate-900 border border-slate-800/80 space-y-1">
-                <div class="text-[10px] uppercase font-bold text-slate-400">FW_VERSION(LONG)</div>
+                <div class="text-[10px] uppercase font-bold text-slate-400">FW_VERSION</div>
                 <div class="text-xs font-extrabold text-purple-300">{{ readDeviceInfo.longFw }}</div>
-                <div class="text-[9px] text-slate-500">SHORT: {{ readDeviceInfo.shortFw }}</div>
               </div>
               <div class="p-2.5 rounded-lg bg-slate-900 border border-slate-800/80 space-y-1">
                 <div class="text-[10px] uppercase font-bold text-slate-400">HW_VERSION</div>
@@ -1200,21 +1188,25 @@ export const TEST_AUTOMATION_MODALS = `
             </div>
 
             <!-- Supplementary Details: SENSOR_TYPE -> SKU mapping, Region, Class, Operator -->
-            <div class="p-3 bg-slate-950/70 rounded-xl border border-slate-800 text-xs grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div class="p-3 bg-slate-950/70 rounded-xl border border-slate-800 text-xs grid grid-cols-2 sm:grid-cols-5 gap-3">
               <div>
                 <span class="text-slate-400 block text-[10px]">Sensor Type Code:</span>
-                <span class="font-mono font-bold text-amber-300">{{ readDeviceInfo.sensorTypeCode }} ({{ readDeviceInfo.sensorTypeName || 'Mapped' }})</span>
+                <span class="font-mono font-bold text-amber-300">{{ readDeviceInfo.sensorTypeCode }}</span>
               </div>
               <div>
                 <span class="text-slate-400 block text-[10px]">LoRaWAN SKU:</span>
                 <span class="font-mono font-bold text-cyan-300">{{ readDeviceInfo.sku }}</span>
               </div>
               <div>
-                <span class="text-slate-400 block text-[10px]">Region & Class:</span>
-                <span class="font-mono font-bold text-white">{{ readDeviceInfo.regionCode }} / Class {{ readDeviceInfo.devClass }}</span>
+                <span class="text-slate-400 block text-[10px]">Region:</span>
+                <span class="font-mono font-bold text-white">{{ readDeviceInfo.regionCode }}</span>
               </div>
               <div>
-                <span class="text-slate-400 block text-[10px]">Created By:</span>
+                <span class="text-slate-400 block text-[10px]">Class:</span>
+                <span class="font-mono font-bold text-white">{{ readDeviceInfo.devClass }}</span>
+              </div>
+              <div>
+                <span class="text-slate-400 block text-[10px]">REGISTER BY:</span>
                 <span class="font-mono font-bold text-emerald-300">{{ currentUser?.username || 'admin' }}</span>
               </div>
             </div>
@@ -2564,7 +2556,7 @@ function useTestAutomationModule(ctx) {
       });
       uartConnected.value = true;
       isAutoReconnectingUart.value = false;
-      uartLogMessage.value = 'Connected to COM port successfully @ 9600 bps, 8-N-1';
+      uartLogMessage.value = 'Connected to COM port successfully';
       showToast('Connected to COM port successfully', 'success');
     } catch (e) {
       console.error('Serial connect error:', e);
@@ -2640,7 +2632,7 @@ function useTestAutomationModule(ctx) {
             });
             uartConnected.value = true;
             isAutoReconnectingUart.value = false;
-            uartLogMessage.value = 'Auto-reconnected successfully to ' + desc + ' @ 9600 bps, 8-N-1';
+            uartLogMessage.value = 'Auto-reconnected successfully to ' + desc;
             showToast('USB Serial reconnected automatically', 'success');
           } catch (connErr) {
             console.warn('Auto-reconnect attempt 1 failed, retrying in 1000ms...', connErr);
@@ -2879,9 +2871,9 @@ function useTestAutomationModule(ctx) {
       };
 
       confirmSerialNumberInput.value = '';
-      const icDisplay = itemCode ? ('ITEM_CODE: ' + itemCode) : 'ITEM_CODE: (Empty)';
-      uartLogMessage.value = 'Successfully read device parameters from UART: Reg 259 (SERIAL_NUMBER: ' + serialNumber + '), Reg 386 (' + icDisplay + '), SKU: ' + sku + ', FW: ' + shortFw;
-      showToast('Successfully read data from UART port (SERIAL_NUMBER: ' + serialNumber + ')', 'success');
+      const icPart = itemCode ? (', ITEM_CODE: ' + itemCode) : '';
+      uartLogMessage.value = 'Successfully read device parameters from UART: SERIAL_NUMBER: ' + serialNumber + icPart + ', SKU: ' + sku + ', FW: ' + shortFw;
+      showToast('Successfully read data from UART port: ' + serialNumber, 'success');
     } catch (e) {
       uartLogMessage.value = 'UART read error: ' + (e.message || e);
       showToast('UART read error: ' + (e.message || e), 'error');
@@ -2951,9 +2943,9 @@ function useTestAutomationModule(ctx) {
       };
 
       confirmSerialNumberInput.value = '';
-      const icDisplay = itemCode ? ('ITEM_CODE: ' + itemCode) : 'ITEM_CODE: empty';
-      uartLogMessage.value = 'Simulated reading 10 registers from template @example/template_dvt.csv: Reg 259 (SERIAL_NUMBER: ' + serialNumber + '), Reg 386 (' + icDisplay + '), SKU: ' + sku + ', FW: ' + shortFw;
-      showToast('Successfully read data from @example/template_dvt.csv (SERIAL_NUMBER: ' + serialNumber + ')', 'success');
+      const icPart = itemCode ? (', ITEM_CODE: ' + itemCode) : '';
+      uartLogMessage.value = 'Successfully read device parameters from UART: SERIAL_NUMBER: ' + serialNumber + icPart + ', SKU: ' + sku + ', FW: ' + shortFw;
+      showToast('Successfully read data: ' + serialNumber, 'success');
     } catch (e) {
       uartLogMessage.value = 'Simulation read error: ' + (e.message || e);
       showToast('Error: ' + (e.message || e), 'error');

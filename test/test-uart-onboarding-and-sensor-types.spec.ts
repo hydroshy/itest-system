@@ -135,10 +135,14 @@ async function runVerificationTests() {
     'Modals must define showDeviceOnboardModal',
   );
 
-  // Verification popup fields: SERIAL_NUMBER | ITEM_CODE | FW_VERSION(LONG) | HW_VERSION | ME_VERSION
+  // Verification popup fields: SERIAL_NUMBER | ITEM_CODE | FW_VERSION | HW_VERSION | ME_VERSION
   assert.ok(TEST_AUTOMATION_MODALS.includes('SERIAL_NUMBER'), 'Modal must display SERIAL_NUMBER');
   assert.ok(TEST_AUTOMATION_MODALS.includes('ITEM_CODE'), 'Modal must display ITEM_CODE');
-  assert.ok(TEST_AUTOMATION_MODALS.includes('FW_VERSION(LONG)'), 'Modal must display FW_VERSION(LONG)');
+  assert.ok(TEST_AUTOMATION_MODALS.includes('FW_VERSION'), 'Modal must display FW_VERSION');
+  assert.ok(!TEST_AUTOMATION_MODALS.includes('FW_VERSION(LONG)'), 'Modal must not display (LONG)');
+  assert.ok(!TEST_AUTOMATION_MODALS.includes('SHORT:'), 'Modal must not display SHORT:');
+  assert.ok(!TEST_AUTOMATION_MODALS.includes('Simulate Read'), 'Modal must not display Simulate Read');
+  assert.ok(TEST_AUTOMATION_MODALS.includes('REGISTER BY:'), 'Modal must display REGISTER BY:');
   assert.ok(TEST_AUTOMATION_MODALS.includes('HW_VERSION'), 'Modal must display HW_VERSION');
   assert.ok(TEST_AUTOMATION_MODALS.includes('ME_VERSION'), 'Modal must display ME_VERSION');
 
