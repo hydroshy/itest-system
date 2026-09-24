@@ -67,6 +67,106 @@ export const TEST_AUTOMATION_TEMPLATE = `          <div v-else-if="activeFeature
               </div>
             </div>
 
+            <!-- SERIAL UART HARDWARE PORT & BAUD RATE PRE-CONFIGURATION (ABOVE SO) -->
+            <div class="bg-gradient-to-r from-slate-900 via-slate-900/95 to-slate-950 p-4 sm:p-5 rounded-2xl border border-slate-800 shadow-xl space-y-3">
+              <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-slate-800/80">
+                <div class="flex items-center gap-2.5">
+                  <div class="w-8 h-8 rounded-xl bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center text-cyan-400">
+                    <i class="fa-solid fa-microchip text-sm"></i>
+                  </div>
+                  <div>
+                    <h3 class="text-xs font-bold uppercase tracking-wider text-white flex items-center gap-2">
+                      <span>Serial UART COM Port & Baud Rate</span>
+                      <span class="text-[10px] text-slate-400 font-normal font-mono">(Hardware Pre-connect)</span>
+                    </h3>
+                    <p class="text-[11px] text-slate-400">Pre-select Serial COM port and baud rate here before registering devices to enable direct reading.</p>
+                  </div>
+                </div>
+
+                <div class="flex items-center gap-2">
+                  <span
+                    :class="uartConnected ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30' : (isAutoReconnectingUart ? 'bg-amber-500/15 text-amber-400 border-amber-500/30' : 'bg-slate-800 text-slate-400 border-slate-700')"
+                    class="px-3 py-1 rounded-full text-[10px] font-mono font-bold border flex items-center gap-1.5"
+                  >
+                    <span :class="uartConnected ? 'bg-emerald-400 animate-pulse' : (isAutoReconnectingUart ? 'bg-amber-400 animate-ping' : 'bg-slate-500')" class="w-1.5 h-1.5 rounded-full"></span>
+                    {{ uartConnected ? ('CONNECTED (' + (uartBaudRate || 9600) + ' bps)') : (isAutoReconnectingUart ? 'RECONNECTING...' : 'DISCONNECTED') }}
+                  </span>
+                </div>
+              </div>
+
+              <!-- Controls Grid -->
+              <div class="grid grid-cols-1 sm:grid-cols-12 gap-3 items-end">
+                <!-- Port Selection -->
+                <div class="sm:col-span-6 space-y-1.5">
+                  <label class="block text-[11px] font-bold uppercase tracking-wider text-slate-300">
+                    COM Port <span class="text-rose-400">*</span>
+                  </label>
+                  <button
+                    type="button"
+                    @click="selectUartPort()"
+                    :disabled="uartConnected || isAutoReconnectingUart"
+                    class="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 hover:bg-slate-800/80 text-slate-200 border border-slate-700 text-xs font-semibold flex items-center justify-between cursor-pointer disabled:opacity-50 transition"
+                    title="Select USB Serial COM Port"
+                  >
+                    <span class="flex items-center gap-2 truncate">
+                      <i class="fa-solid fa-plug" :class="uartPort ? 'text-cyan-400' : 'text-slate-400'"></i>
+                      <span class="truncate font-mono">{{ uartPortInfo || 'Select COM Port...' }}</span>
+                    </span>
+                    <i class="fa-solid fa-chevron-right text-[10px] text-slate-500"></i>
+                  </button>
+                </div>
+
+                <!-- Baud Rate Selector (9600 / 115200) -->
+                <div class="sm:col-span-3 space-y-1.5">
+                  <label class="block text-[11px] font-bold uppercase tracking-wider text-slate-300">
+                    Baud Rate
+                  </label>
+                  <select
+                    v-model.number="uartBaudRate"
+                    :disabled="uartConnected || isAutoReconnectingUart"
+                    class="w-full px-3 py-2.5 bg-slate-950 border border-slate-700 rounded-xl text-white text-xs font-mono font-semibold focus:ring-1 focus:ring-cyan-500 focus:border-cyan-500 focus:outline-none disabled:opacity-50 transition cursor-pointer"
+                  >
+                    <option :value="9600">9600 bps</option>
+                    <option :value="115200">115200 bps</option>
+                  </select>
+                </div>
+
+                <!-- Action Connect / Disconnect -->
+                <div class="sm:col-span-3">
+                  <button
+                    v-if="!uartConnected"
+                    type="button"
+                    @click="connectUart()"
+                    :disabled="!uartPort || uartConnecting || isAutoReconnectingUart"
+                    class="w-full px-4 py-2.5 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-bold flex items-center justify-center gap-2 cursor-pointer shadow-lg shadow-cyan-950/30 transition disabled:opacity-50"
+                  >
+                    <i v-if="uartConnecting || isAutoReconnectingUart" class="fa-solid fa-circle-notch animate-spin"></i>
+                    <i v-else class="fa-solid fa-link"></i>
+                    <span>{{ isAutoReconnectingUart ? 'Reconnecting...' : (uartConnecting ? 'Connecting...' : 'Connect Port') }}</span>
+                  </button>
+
+                  <button
+                    v-else
+                    type="button"
+                    @click="disconnectUart()"
+                    class="w-full px-4 py-2.5 rounded-xl bg-rose-600/25 hover:bg-rose-600/40 text-rose-300 border border-rose-500/30 text-xs font-bold flex items-center justify-center gap-2 cursor-pointer shadow-lg transition"
+                  >
+                    <i class="fa-solid fa-link-slash"></i>
+                    <span>Disconnect</span>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Status Log / Message -->
+              <div v-if="uartLogMessage" class="px-3 py-2 rounded-xl bg-slate-950/70 border border-slate-800/80 flex items-center justify-between text-[11px] font-mono text-slate-400">
+                <div class="flex items-center gap-2 truncate">
+                  <i class="fa-solid fa-terminal text-[10px] text-cyan-400"></i>
+                  <span class="truncate">{{ uartLogMessage }}</span>
+                </div>
+                <span v-if="uartConnected" class="text-[10px] text-emerald-400 font-bold shrink-0 ml-2">Ready</span>
+              </div>
+            </div>
+
             <!-- SALES ORDER & ITEM CODE CONFIGURATION BAR (MANUAL ENTRY WITH FILLABLE DROPDOWNS) -->
             <div class="bg-gradient-to-r from-slate-900 via-slate-900/95 to-slate-950 p-4 sm:p-5 rounded-2xl border border-slate-800 shadow-xl space-y-3">
               <!-- Input Fields Grid (Only 2 fields: SO and ITEM_CODE, plus Register Device button; no 1. 2. prefix, no Duration) -->
@@ -1087,7 +1187,7 @@ export const TEST_AUTOMATION_MODALS = `
               <div class="flex items-center gap-2">
                 <span :class="uartConnected ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30' : (isAutoReconnectingUart ? 'bg-amber-500/15 text-amber-400 border-amber-500/30' : 'bg-slate-800 text-slate-400 border-slate-700')" class="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold border flex items-center gap-1.5">
                   <span :class="uartConnected ? 'bg-emerald-400 animate-pulse' : (isAutoReconnectingUart ? 'bg-amber-400 animate-ping' : 'bg-slate-500')" class="w-1.5 h-1.5 rounded-full"></span>
-                  {{ uartConnected ? 'SERIAL CONNECTED' : (isAutoReconnectingUart ? 'RECONNECTING...' : 'DISCONNECTED') }}
+                  {{ uartConnected ? ('SERIAL CONNECTED (' + (uartBaudRate || 9600) + ' bps)') : (isAutoReconnectingUart ? 'RECONNECTING...' : 'DISCONNECTED') }}
                 </span>
               </div>
             </div>
@@ -1096,7 +1196,7 @@ export const TEST_AUTOMATION_MODALS = `
               <div class="flex items-center gap-2 flex-wrap">
                 <button
                   type="button"
-                  @click="selectUartPort"
+                  @click="selectUartPort()"
                   :disabled="uartConnected || isAutoReconnectingUart"
                   class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-semibold flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
                 >
@@ -1104,22 +1204,31 @@ export const TEST_AUTOMATION_MODALS = `
                   <span>{{ uartPortInfo || 'Select COM Port' }}</span>
                 </button>
 
+                <select
+                  v-model.number="uartBaudRate"
+                  :disabled="uartConnected || isAutoReconnectingUart"
+                  class="px-2.5 py-1.5 rounded-lg bg-slate-800 border border-slate-700 text-white text-xs font-mono font-semibold disabled:opacity-50 cursor-pointer"
+                >
+                  <option :value="9600">9600 bps</option>
+                  <option :value="115200">115200 bps</option>
+                </select>
+
                 <button
                   v-if="!uartConnected"
                   type="button"
-                  @click="connectUart"
+                  @click="connectUart()"
                   :disabled="!uartPort || uartConnecting || isAutoReconnectingUart"
                   class="px-3.5 py-1.5 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-md disabled:opacity-50"
                 >
                   <i v-if="uartConnecting || isAutoReconnectingUart" class="fa-solid fa-circle-notch animate-spin"></i>
                   <i v-else class="fa-solid fa-link"></i>
-                  <span>{{ isAutoReconnectingUart ? 'Reconnecting...' : 'Connect Port' }}</span>
+                  <span>{{ isAutoReconnectingUart ? 'Reconnecting...' : (uartConnecting ? 'Connecting...' : 'Connect Port') }}</span>
                 </button>
 
                 <button
                   v-else
                   type="button"
-                  @click="disconnectUart"
+                  @click="disconnectUart()"
                   class="px-3.5 py-1.5 rounded-lg bg-rose-600/30 hover:bg-rose-600/40 text-rose-300 border border-rose-500/30 text-xs font-bold flex items-center gap-1.5 cursor-pointer"
                 >
                   <i class="fa-solid fa-link-slash"></i>
@@ -1131,7 +1240,7 @@ export const TEST_AUTOMATION_MODALS = `
               <div class="flex items-center gap-2">
                 <button
                   type="button"
-                  @click="readDeviceViaUart"
+                  @click="readDeviceViaUart()"
                   :disabled="!uartConnected || uartReading"
                   class="px-4 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-md shadow-indigo-950/40 disabled:opacity-50"
                   title="Read Modbus registers on device per template_dvt.csv"
@@ -1571,6 +1680,7 @@ function useTestAutomationModule(ctx) {
   const uartReading = ref(false);
   const uartLogMessage = ref('');
   const isAutoReconnectingUart = ref(false);
+  const uartBaudRate = ref(9600);
   let activeUartReader = null;
   let activeUartWriter = null;
   let lastConnectedUartInfo = null;
@@ -2460,7 +2570,7 @@ function useTestAutomationModule(ctx) {
   };
 
   // UART Device Onboarding & Registration Methods
-  const openDeviceOnboardModal = () => {
+  const openDeviceOnboardModal = async () => {
     const effectiveSo = (manualSoCode.value || selectedSoCode.value || '').trim();
     if (!effectiveSo) {
       showToast('Please enter or select a Sales Order (SO) before registering devices.', 'warning');
@@ -2474,8 +2584,29 @@ function useTestAutomationModule(ctx) {
     selectedSoCode.value = effectiveSo;
     selectedItemCode.value = effectiveItem;
     confirmSerialNumberInput.value = '';
-    uartLogMessage.value = 'Ready to connect COM port or click Simulate Read (@template_dvt.csv)';
     showDeviceOnboardModal.value = true;
+
+    // Direct read when COM port is pre-connected
+    if (uartConnected.value) {
+      uartLogMessage.value = 'COM port connected (' + (Number(uartBaudRate.value) || 9600) + ' bps). Reading device...';
+      try {
+        await readDeviceViaUart();
+      } catch (err) {
+        console.error('Auto read error upon opening modal:', err);
+      }
+    } else if (uartPort.value && typeof uartPort.value.open === 'function') {
+      uartLogMessage.value = 'Connecting to pre-selected COM port (' + (Number(uartBaudRate.value) || 9600) + ' bps)...';
+      try {
+        await connectUart();
+        if (uartConnected.value) {
+          await readDeviceViaUart();
+        }
+      } catch (err) {
+        console.error('Auto connect and read error:', err);
+      }
+    } else {
+      uartLogMessage.value = 'Ready to connect COM port to read device parameters';
+    }
   };
 
   const closeDeviceOnboardModal = () => {
@@ -2489,6 +2620,7 @@ function useTestAutomationModule(ctx) {
     }
     try {
       const port = await navigator.serial.requestPort();
+      if (!port || typeof port.open !== 'function') return;
       uartPort.value = port;
       const info = port.getInfo ? port.getInfo() : {};
       lastConnectedUartInfo = info;
@@ -2497,7 +2629,7 @@ function useTestAutomationModule(ctx) {
         desc = 'VID: 0x' + info.usbVendorId.toString(16).toUpperCase() + ' PID: 0x' + (info.usbProductId ? info.usbProductId.toString(16).toUpperCase() : '');
       }
       uartPortInfo.value = desc;
-      uartLogMessage.value = 'Port selected: ' + desc;
+      uartLogMessage.value = 'Port selected: ' + desc + ' (' + (Number(uartBaudRate.value) || 9600) + ' bps)';
       showToast('COM Port selected: ' + desc, 'info');
     } catch (e) {
       if (e.name !== 'NotFoundError') {
@@ -2523,7 +2655,7 @@ function useTestAutomationModule(ctx) {
       } catch (e) {}
       activeUartWriter = null;
     }
-    if (uartPort.value) {
+    if (uartPort.value && typeof uartPort.value.close === 'function') {
       try {
         await uartPort.value.close();
       } catch (e) {}
@@ -2534,12 +2666,15 @@ function useTestAutomationModule(ctx) {
   };
 
   const connectUart = async (portToOpen = null) => {
-    if (portToOpen) {
+    if (uartConnected.value && uartPort.value) {
+      return;
+    }
+    if (portToOpen && typeof portToOpen === 'object' && typeof portToOpen.open === 'function') {
       uartPort.value = portToOpen;
     }
-    if (!uartPort.value) {
+    if (!uartPort.value || typeof uartPort.value.open !== 'function') {
       await selectUartPort();
-      if (!uartPort.value) return;
+      if (!uartPort.value || typeof uartPort.value.open !== 'function') return;
     }
     uartConnecting.value = true;
     try {
@@ -2547,8 +2682,9 @@ function useTestAutomationModule(ctx) {
       if (info.usbVendorId) {
         lastConnectedUartInfo = info;
       }
+      const baud = Number(uartBaudRate.value) || 9600;
       await uartPort.value.open({
-        baudRate: 9600,
+        baudRate: baud,
         dataBits: 8,
         stopBits: 1,
         parity: 'none',
@@ -2556,7 +2692,7 @@ function useTestAutomationModule(ctx) {
       });
       uartConnected.value = true;
       isAutoReconnectingUart.value = false;
-      uartLogMessage.value = 'Connected to COM port successfully';
+      uartLogMessage.value = 'Connected to COM port successfully (' + baud + ' bps)';
       showToast('Connected to COM port successfully', 'success');
     } catch (e) {
       console.error('Serial connect error:', e);
@@ -2624,7 +2760,7 @@ function useTestAutomationModule(ctx) {
             }
             uartPortInfo.value = desc;
             await uartPort.value.open({
-              baudRate: 9600,
+              baudRate: Number(uartBaudRate.value) || 9600,
               dataBits: 8,
               stopBits: 1,
               parity: 'none',
@@ -2640,7 +2776,7 @@ function useTestAutomationModule(ctx) {
               try {
                 if (uartConnected.value) return;
                 await uartPort.value.open({
-                  baudRate: 9600,
+                  baudRate: Number(uartBaudRate.value) || 9600,
                   dataBits: 8,
                   stopBits: 1,
                   parity: 'none',
@@ -3199,6 +3335,7 @@ function useTestAutomationModule(ctx) {
     uartReading,
     uartLogMessage,
     isAutoReconnectingUart,
+    uartBaudRate,
     readDeviceInfo,
     confirmSerialNumberInput,
     isSerialNumberConfirmed,

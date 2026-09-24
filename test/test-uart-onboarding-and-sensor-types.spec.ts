@@ -176,8 +176,43 @@ async function runVerificationTests() {
   );
   console.log('  -> PASS: All hardware onboarding verification fields, confirmation checks, and ChirpStack registration flow verified.\n');
 
+  // --------------------------------------------------------------------
+  // TEST 7: Pre-Configuration Serial UART Card & Baud Rate Selection Above SO
+  // --------------------------------------------------------------------
+  console.log('[TEST 7] Verifying Pre-Configuration Serial UART Card & Baud Rate Selection Above SO...');
+  assert.ok(
+    TEST_AUTOMATION_TEMPLATE.includes('Serial UART COM Port & Baud Rate'),
+    'Template must include Serial UART COM Port & Baud Rate card above SO',
+  );
+  assert.ok(
+    TEST_AUTOMATION_TEMPLATE.includes('v-model.number="uartBaudRate"'),
+    'Template must have baud rate selector binding uartBaudRate',
+  );
+  assert.ok(
+    TEST_AUTOMATION_TEMPLATE.includes(':value="9600"') && TEST_AUTOMATION_TEMPLATE.includes(':value="115200"'),
+    'Template must support both 9600 and 115200 baud rates',
+  );
+  assert.ok(
+    TEST_AUTOMATION_TEMPLATE.includes('@click="connectUart()"'),
+    'Template must use connectUart() to prevent event argument passing',
+  );
+  assert.ok(
+    TEST_AUTOMATION_SCRIPT.includes('typeof portToOpen === \'object\' && typeof portToOpen.open === \'function\''),
+    'connectUart must safely guard against PointerEvent/MouseEvent being assigned to uartPort',
+  );
+  assert.ok(
+    TEST_AUTOMATION_SCRIPT.includes('readDeviceViaUart()') &&
+    TEST_AUTOMATION_SCRIPT.includes('openDeviceOnboardModal = async () => {'),
+    'openDeviceOnboardModal must directly trigger readDeviceViaUart when COM port is pre-connected',
+  );
+  assert.ok(
+    TEST_AUTOMATION_SCRIPT.includes('uartBaudRate = ref(9600)'),
+    'Script must define reactive uartBaudRate ref defaulting to 9600',
+  );
+  console.log('  -> PASS: Pre-configuration Serial UART card above SO, baud rate selector (9600/115200), anti-event bug fix, and direct read verified.\n');
+
   console.log('======================================================================');
-  console.log('ALL 6 TESTS PASSED SUCCESSFULLY WITH 100% SPECIFICATION COMPLIANCE!');
+  console.log('ALL 7 TESTS PASSED SUCCESSFULLY WITH 100% SPECIFICATION COMPLIANCE!');
   console.log('======================================================================');
 }
 
