@@ -211,8 +211,52 @@ async function runVerificationTests() {
   );
   console.log('  -> PASS: Pre-configuration Serial UART card above SO, baud rate selector (9600/115200), anti-event bug fix, and direct read verified.\n');
 
+  // --------------------------------------------------------------------
+  // TEST 8: Simplified Registration Popup & Clean State Re-read Cycle
+  // --------------------------------------------------------------------
+  console.log('[TEST 8] Verifying Simplified Registration Popup & Clean State Re-read Cycle...');
+  assert.ok(
+    !TEST_AUTOMATION_MODALS.includes('Connect Serial UART Port'),
+    'Modal must not include Connect Serial UART Port',
+  );
+  assert.ok(
+    !TEST_AUTOMATION_MODALS.includes('SERIAL CONNECTED'),
+    'Modal must not include SERIAL CONNECTED',
+  );
+  assert.ok(
+    !TEST_AUTOMATION_MODALS.includes('Select COM Port'),
+    'Modal must not include Select COM Port',
+  );
+
+  // Simplified information display & SERIAL_NUMBER
+  assert.ok(TEST_AUTOMATION_MODALS.includes('SERIAL_NUMBER'), 'Modal must prominently display SERIAL_NUMBER');
+  assert.ok(TEST_AUTOMATION_MODALS.includes('Hardware Information'), 'Modal must display Hardware Information');
+  assert.ok(TEST_AUTOMATION_MODALS.includes('Cancel'), 'Modal must have a Cancel button');
+  assert.ok(TEST_AUTOMATION_MODALS.includes('Re-read'), 'Modal must have a Re-read button');
+
+  // Clean re-read state reset
+  assert.ok(
+    TEST_AUTOMATION_SCRIPT.includes('const resetReadDeviceInfo = () => {'),
+    'Script must define resetReadDeviceInfo to clear state',
+  );
+  assert.ok(
+    TEST_AUTOMATION_SCRIPT.includes('closeDeviceOnboardModal = () => {\n    showDeviceOnboardModal.value = false;\n    resetReadDeviceInfo();\n  };'),
+    'closeDeviceOnboardModal must reset readDeviceInfo upon cancel/close',
+  );
+  assert.ok(
+    TEST_AUTOMATION_SCRIPT.includes('openDeviceOnboardModal = async () => {') &&
+    TEST_AUTOMATION_SCRIPT.includes('resetReadDeviceInfo();\n    showDeviceOnboardModal.value = true;'),
+    'openDeviceOnboardModal must reset readDeviceInfo before reading',
+  );
+  assert.ok(
+    TEST_AUTOMATION_SCRIPT.includes('const readDeviceViaUart = async () => {') &&
+    TEST_AUTOMATION_SCRIPT.includes('resetReadDeviceInfo();\n    uartReading.value = true;'),
+    'readDeviceViaUart must reset readDeviceInfo before reading fresh registers',
+  );
+  console.log('  -> PASS: Simplified registration popup (no redundant UART step 1), Cancel/Re-read actions, and fresh state reset verified.\n');
+
   console.log('======================================================================');
-  console.log('ALL 7 TESTS PASSED SUCCESSFULLY WITH 100% SPECIFICATION COMPLIANCE!');
+  console.log('ALL 8 TESTS PASSED SUCCESSFULLY WITH 100% SPECIFICATION COMPLIANCE!');
   console.log('======================================================================');
 }
 

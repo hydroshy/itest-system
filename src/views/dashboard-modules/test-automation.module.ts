@@ -1177,93 +1177,42 @@ export const TEST_AUTOMATION_MODALS = `
             </span>
           </div>
 
-          <!-- STEP 1: UART CONNECTION & CONTROLS -->
-          <div class="p-4 bg-slate-950/60 rounded-xl border border-slate-800 space-y-3">
-            <div class="flex items-center justify-between">
-              <h4 class="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-2">
-                <span class="w-5 h-5 rounded-full bg-slate-800 text-cyan-400 inline-flex items-center justify-center text-[10px]">1</span>
-                <span>Connect Serial UART Port</span>
-              </h4>
-              <div class="flex items-center gap-2">
-                <span :class="uartConnected ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30' : (isAutoReconnectingUart ? 'bg-amber-500/15 text-amber-400 border-amber-500/30' : 'bg-slate-800 text-slate-400 border-slate-700')" class="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold border flex items-center gap-1.5">
-                  <span :class="uartConnected ? 'bg-emerald-400 animate-pulse' : (isAutoReconnectingUart ? 'bg-amber-400 animate-ping' : 'bg-slate-500')" class="w-1.5 h-1.5 rounded-full"></span>
-                  {{ uartConnected ? ('SERIAL CONNECTED (' + (uartBaudRate || 9600) + ' bps)') : (isAutoReconnectingUart ? 'RECONNECTING...' : 'DISCONNECTED') }}
-                </span>
-              </div>
+          <!-- Loading State While Reading Device via UART -->
+          <div v-if="uartReading" class="py-12 flex flex-col items-center justify-center space-y-3 text-center">
+            <div class="w-12 h-12 rounded-2xl bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center text-cyan-400 text-xl">
+              <i class="fa-solid fa-circle-notch animate-spin"></i>
             </div>
-
-            <div class="flex flex-wrap items-center justify-between gap-3 pt-1">
-              <div class="flex items-center gap-2 flex-wrap">
-                <button
-                  type="button"
-                  @click="selectUartPort()"
-                  :disabled="uartConnected || isAutoReconnectingUart"
-                  class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-semibold flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
-                >
-                  <i class="fa-solid fa-plug text-cyan-400"></i>
-                  <span>{{ uartPortInfo || 'Select COM Port' }}</span>
-                </button>
-
-                <select
-                  v-model.number="uartBaudRate"
-                  :disabled="uartConnected || isAutoReconnectingUart"
-                  class="px-2.5 py-1.5 rounded-lg bg-slate-800 border border-slate-700 text-white text-xs font-mono font-semibold disabled:opacity-50 cursor-pointer"
-                >
-                  <option :value="9600">9600 bps</option>
-                  <option :value="115200">115200 bps</option>
-                </select>
-
-                <button
-                  v-if="!uartConnected"
-                  type="button"
-                  @click="connectUart()"
-                  :disabled="!uartPort || uartConnecting || isAutoReconnectingUart"
-                  class="px-3.5 py-1.5 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-md disabled:opacity-50"
-                >
-                  <i v-if="uartConnecting || isAutoReconnectingUart" class="fa-solid fa-circle-notch animate-spin"></i>
-                  <i v-else class="fa-solid fa-link"></i>
-                  <span>{{ isAutoReconnectingUart ? 'Reconnecting...' : (uartConnecting ? 'Connecting...' : 'Connect Port') }}</span>
-                </button>
-
-                <button
-                  v-else
-                  type="button"
-                  @click="disconnectUart()"
-                  class="px-3.5 py-1.5 rounded-lg bg-rose-600/30 hover:bg-rose-600/40 text-rose-300 border border-rose-500/30 text-xs font-bold flex items-center gap-1.5 cursor-pointer"
-                >
-                  <i class="fa-solid fa-link-slash"></i>
-                  <span>Disconnect</span>
-                </button>
-              </div>
-
-              <!-- Read Actions -->
-              <div class="flex items-center gap-2">
-                <button
-                  type="button"
-                  @click="readDeviceViaUart()"
-                  :disabled="!uartConnected || uartReading"
-                  class="px-4 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-md shadow-indigo-950/40 disabled:opacity-50"
-                  title="Read Modbus registers on device per template_dvt.csv"
-                >
-                  <i v-if="uartReading" class="fa-solid fa-circle-notch animate-spin text-amber-400"></i>
-                  <i v-else class="fa-solid fa-bolt text-amber-400"></i>
-                  <span>Read Device</span>
-                </button>
-              </div>
-            </div>
-
-            <!-- Reading Log or Status Message -->
-            <div v-if="uartLogMessage" class="text-[11px] font-mono text-slate-400 bg-slate-900/90 px-3 py-1.5 rounded-lg border border-slate-800">
-              <i class="fa-solid fa-terminal text-[10px] text-cyan-400 mr-1.5"></i>
-              <span>{{ uartLogMessage }}</span>
+            <div>
+              <div class="text-sm font-bold text-white">Reading Device via Serial UART...</div>
+              <div class="text-xs text-slate-400 mt-1 font-mono">Querying Modbus registers per template_dvt.csv</div>
             </div>
           </div>
 
-          <!-- STEP 2: HARDWARE VERIFICATION POPUP / CARD -->
-          <div v-if="readDeviceInfo.hasData" class="space-y-4 animate-in fade-in">
+          <!-- No Data / Read Error State -->
+          <div v-else-if="!readDeviceInfo.hasData" class="py-8 px-4 bg-slate-950/60 rounded-xl border border-slate-800 text-center space-y-3">
+            <div class="w-10 h-10 mx-auto rounded-xl bg-amber-500/10 border border-amber-500/25 flex items-center justify-center text-amber-400 text-base">
+              <i class="fa-solid fa-triangle-exclamation"></i>
+            </div>
+            <div>
+              <div class="text-xs font-bold text-slate-200">No device data read yet</div>
+              <div class="text-[11px] text-slate-400 mt-0.5">{{ uartLogMessage || 'Please ensure the device is connected to the Serial UART port.' }}</div>
+            </div>
+            <button
+              type="button"
+              @click="readDeviceViaUart()"
+              :disabled="uartReading"
+              class="px-4 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-bold inline-flex items-center gap-1.5 cursor-pointer shadow-md disabled:opacity-50 transition"
+            >
+              <i class="fa-solid fa-rotate-right text-xs"></i>
+              <span>Read Device</span>
+            </button>
+          </div>
+
+          <!-- HARDWARE INFORMATION & VERIFICATION -->
+          <div v-else class="space-y-4 animate-in fade-in">
             <div class="flex items-center justify-between border-b border-slate-800 pb-2">
               <h4 class="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-2">
-                <span class="w-5 h-5 rounded-full bg-slate-800 text-amber-400 inline-flex items-center justify-center text-[10px]">2</span>
+                <i class="fa-solid fa-circle-info text-cyan-400"></i>
                 <span>Hardware Information & Order Verification</span>
               </h4>
               <span :class="readDeviceInfo.itemCodeMatch ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30' : 'bg-amber-500/10 text-amber-400 border-amber-500/30'" class="px-2.5 py-0.5 rounded-full text-[11px] font-bold border flex items-center gap-1.5">
@@ -1363,21 +1312,36 @@ export const TEST_AUTOMATION_MODALS = `
             <button
               type="button"
               @click="closeDeviceOnboardModal"
-              class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold cursor-pointer transition"
+              class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold cursor-pointer transition flex items-center gap-1.5"
             >
-              Close
+              <i class="fa-solid fa-xmark"></i>
+              <span>Cancel</span>
             </button>
 
-            <button
-              type="button"
-              @click="submitRegisterToChirpstack"
-              :disabled="!isSerialNumberConfirmed || isRegisteringToChirpstack"
-              class="px-5 py-2 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white text-xs font-bold flex items-center gap-2 cursor-pointer shadow-lg shadow-cyan-950/50 transition disabled:opacity-40 disabled:cursor-not-allowed"
-            >
-              <i v-if="isRegisteringToChirpstack" class="fa-solid fa-circle-notch animate-spin"></i>
-              <i v-else class="fa-solid fa-cloud-arrow-up"></i>
-              <span>Confirm & Register</span>
-            </button>
+            <div class="flex items-center gap-2">
+              <button
+                type="button"
+                @click="readDeviceViaUart()"
+                :disabled="uartReading"
+                class="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-semibold flex items-center gap-1.5 cursor-pointer disabled:opacity-50 transition"
+                title="Re-read hardware parameters from UART port"
+              >
+                <i v-if="uartReading" class="fa-solid fa-circle-notch animate-spin text-cyan-400"></i>
+                <i v-else class="fa-solid fa-rotate-right text-cyan-400"></i>
+                <span>Re-read</span>
+              </button>
+
+              <button
+                type="button"
+                @click="submitRegisterToChirpstack"
+                :disabled="!isSerialNumberConfirmed || isRegisteringToChirpstack"
+                class="px-5 py-2 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white text-xs font-bold flex items-center gap-2 cursor-pointer shadow-lg shadow-cyan-950/50 transition disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                <i v-if="isRegisteringToChirpstack" class="fa-solid fa-circle-notch animate-spin"></i>
+                <i v-else class="fa-solid fa-cloud-arrow-up"></i>
+                <span>Confirm & Register</span>
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -2570,6 +2534,26 @@ function useTestAutomationModule(ctx) {
   };
 
   // UART Device Onboarding & Registration Methods
+  const resetReadDeviceInfo = () => {
+    readDeviceInfo.value = {
+      hasData: false,
+      serialNumber: '',
+      devEUI: '',
+      itemCode: '',
+      longFw: '',
+      shortFw: '',
+      hwVersion: '',
+      meVersion: '',
+      sensorTypeCode: 71,
+      sensorTypeName: 'WSLRW-LKS',
+      sku: 'WSLRW-LKS',
+      regionCode: 'EU868',
+      devClass: 'A',
+      itemCodeMatch: false,
+    };
+    confirmSerialNumberInput.value = '';
+  };
+
   const openDeviceOnboardModal = async () => {
     const effectiveSo = (manualSoCode.value || selectedSoCode.value || '').trim();
     if (!effectiveSo) {
@@ -2583,7 +2567,7 @@ function useTestAutomationModule(ctx) {
     }
     selectedSoCode.value = effectiveSo;
     selectedItemCode.value = effectiveItem;
-    confirmSerialNumberInput.value = '';
+    resetReadDeviceInfo();
     showDeviceOnboardModal.value = true;
 
     // Direct read when COM port is pre-connected
@@ -2611,6 +2595,7 @@ function useTestAutomationModule(ctx) {
 
   const closeDeviceOnboardModal = () => {
     showDeviceOnboardModal.value = false;
+    resetReadDeviceInfo();
   };
 
   const selectUartPort = async () => {
@@ -2892,6 +2877,7 @@ function useTestAutomationModule(ctx) {
       return;
     }
 
+    resetReadDeviceInfo();
     uartReading.value = true;
     uartLogMessage.value = 'Sending Modbus FC03 query to read hardware parameters per template_dvt.csv...';
     try {
@@ -2989,6 +2975,10 @@ function useTestAutomationModule(ctx) {
       }
       const devEUI = '0018B2' + sensorTypeCode.toString(16).padStart(2, '0').toUpperCase() + Math.floor(10000000 + Math.random() * 90000000).toString(16).toUpperCase().padStart(8, '0');
 
+      if (!showDeviceOnboardModal.value) {
+        return;
+      }
+
       readDeviceInfo.value = {
         hasData: true,
         serialNumber,
@@ -3019,6 +3009,7 @@ function useTestAutomationModule(ctx) {
   };
 
   const simulateReadDeviceUart = async () => {
+    resetReadDeviceInfo();
     uartReading.value = true;
     uartLogMessage.value = 'Simulating Modbus registers read per @example/template_dvt.csv...';
     try {
@@ -3342,6 +3333,7 @@ function useTestAutomationModule(ctx) {
     isRegisteringToChirpstack,
     openDeviceOnboardModal,
     closeDeviceOnboardModal,
+    resetReadDeviceInfo,
     selectUartPort,
     connectUart,
     disconnectUart,
