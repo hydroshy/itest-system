@@ -251,7 +251,7 @@ export class TraceabilityService implements OnModuleInit {
     const startTime = query.startTime || (query as any).from_date;
     const endTime = query.endTime || (query as any).to_date;
     const search = query.search;
-    const limit = query.limit || (query as any).limit ? Math.min(Number(query.limit || (query as any).limit), 200) : 50;
+    const limit = query.limit || (query as any).limit ? Math.min(Number(query.limit || (query as any).limit), 1000) : 100;
     const offset = query.offset || (query as any).offset ? Number(query.offset || (query as any).offset) : 0;
 
     if (soNumber) {
@@ -346,6 +346,105 @@ export class TraceabilityService implements OnModuleInit {
         passRate,
         avgDurationSeconds,
       },
+    };
+  }
+
+  /**
+   * SO-level aggregated catalog for Tested Devices Catalog
+   */
+  async getSoCatalog(query: {
+    soNumber?: string;
+    serialNumber?: string;
+    sku?: string;
+    itemCode?: string;
+    search?: string;
+    limit?: number;
+  }): Promise<{
+    data: Array<{
+      soNumber: string;
+      itemCode: string;
+      sku: string;
+      totalDevices: number;
+      passCount: number;
+      failCount: number;
+      passRate: number;
+      latestFinishTime: string | number;
+      hwVer?: string;
+      fwVer?: string;
+    }>;
+    total: number;
+  }> {
+    const qb = this.testResultRepo.createQueryBuilder('tr');
+    qb.select('tr.soNumber', 'soNumber')
+      .addSelect('MAX(tr.itemCode)', 'itemCode')
+      .addSelect('MAX(tr.sku)', 'sku')
+      .addSelect('MAX(tr.hwVer)', 'hwVer')
+      .addSelect('MAX(tr.fwVer)', 'fwVer')
+      .addSelect('COUNT(*)::int', 'totalDevices')
+      .addSelect(`COUNT(CASE WHEN UPPER(tr.result) IN ('PASS', 'PASSED', 'OK', '1', 'TRUE') THEN 1 END)::int`, 'passCount')
+      .addSelect(`COUNT(CASE WHEN UPPER(tr.result) NOT IN ('PASS', 'PASSED', 'OK', '1', 'TRUE') THEN 1 END)::int`, 'failCount')
+      .addSelect('MAX(tr.timeFinish)', 'latestFinishTime');
+
+    qb.where('tr.soNumber IS NOT NULL AND tr.soNumber != :empty', { empty: '' });
+
+    const soNumber = query.soNumber;
+    const serialNumber = query.serialNumber;
+    const sku = query.sku;
+    const itemCode = query.itemCode;
+    const search = query.search;
+    const limit = query.limit ? Math.min(Number(query.limit), 200) : 50;
+
+    if (soNumber) {
+      qb.andWhere('UPPER(tr.soNumber) LIKE :so', { so: `%${soNumber.trim().toUpperCase()}%` });
+    }
+    if (serialNumber) {
+      qb.andWhere('(UPPER(tr.serialNumber) LIKE :sn OR tr.serialNumber = :exactSn)', {
+        sn: `%${serialNumber.trim().toUpperCase()}%`,
+        exactSn: serialNumber.trim(),
+      });
+    }
+    if (sku) {
+      qb.andWhere('UPPER(tr.sku) LIKE :sku', { sku: `%${sku.trim().toUpperCase()}%` });
+    }
+    if (itemCode) {
+      qb.andWhere('UPPER(tr.itemCode) LIKE :ic', { ic: `%${itemCode.trim().toUpperCase()}%` });
+    }
+    if (search) {
+      const term = `%${search.trim().toUpperCase()}%`;
+      qb.andWhere(
+        '(UPPER(tr.soNumber) LIKE :term OR UPPER(tr.serialNumber) LIKE :term OR UPPER(tr.itemCode) LIKE :term OR UPPER(tr.sku) LIKE :term)',
+        { term },
+      );
+    }
+
+    qb.groupBy('tr.soNumber')
+      .orderBy('MAX(tr.timeFinish)', 'DESC', 'NULLS LAST')
+      .limit(limit);
+
+    const rows = await qb.getRawMany();
+
+    const data = rows.map((r: any) => {
+      const total = Number(r.totalDevices) || 0;
+      const pass = Number(r.passCount) || 0;
+      const fail = Number(r.failCount) || 0;
+      const passRate = total > 0 ? Math.round((pass / total) * 100) : 100;
+      return {
+        soNumber: r.soNumber,
+        itemCode: r.itemCode || '—',
+        sku: r.sku || '—',
+        hwVer: r.hwVer || '—',
+        fwVer: r.fwVer || '—',
+        totalDevices: total,
+        passCount: pass,
+        failCount: fail,
+        passRate,
+        latestFinishTime: r.latestFinishTime || null,
+      };
+    });
+
+    return {
+      data,
+      total: data.length,
     };
   }
 

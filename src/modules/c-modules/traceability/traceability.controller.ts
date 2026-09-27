@@ -42,6 +42,19 @@ export class TraceabilityController {
     return await this.traceabilityService.findTestResults(query);
   }
 
+  @Get(['so-catalog', 'so-list'])
+  @RequirePermissions('traceability:read')
+  @ApiOperation({ summary: 'Flow 0: Query aggregated SO-level catalog for Tested Devices Catalog' })
+  @ApiQuery({ name: 'soNumber', required: false })
+  @ApiQuery({ name: 'serialNumber', required: false })
+  @ApiQuery({ name: 'sku', required: false })
+  @ApiQuery({ name: 'itemCode', required: false })
+  @ApiQuery({ name: 'search', required: false })
+  @ApiQuery({ name: 'limit', required: false })
+  async getSoCatalog(@Query() query: any) {
+    return await this.traceabilityService.getSoCatalog(query);
+  }
+
   @Get(['results/:id', 'test-results/:id'])
   @RequirePermissions('traceability:read')
   @ApiOperation({ summary: 'Get single test result record by ID or Serial Number' })

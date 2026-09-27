@@ -172,6 +172,112 @@ export const TRACEABILITY_TEMPLATE = `          <div v-else-if="activeFeature.id
             <!-- 3. TAB CONTENT 1: TEST RESULTS CATALOG (test_result)     -->
             <!-- ======================================================== -->
             <div v-show="activeTraceTab === 'test_results'" class="space-y-5 animate-in fade-in">
+              <!-- Multi-Criteria Dropdown Filter Panel (SO / SN / Item Code / SKU) - PLACED AT TOP -->
+              <div class="glass-card rounded-2xl p-4 border border-slate-800/80 space-y-3">
+                <div class="flex items-center justify-between flex-wrap gap-2">
+                  <span class="text-xs font-bold uppercase tracking-wider text-slate-300 flex items-center gap-2">
+                    <i class="fa-solid fa-filter text-purple-400"></i> Multi-Criteria Filter (SO / SN / Item Code / SKU)
+                  </span>
+                  <div class="flex items-center gap-2">
+                    <button
+                      type="button"
+                      @click="resetTraceFilters"
+                      class="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold cursor-pointer transition flex items-center gap-1.5"
+                    >
+                      <i class="fa-solid fa-arrow-rotate-left text-[10px]"></i>
+                      <span>Clear</span>
+                    </button>
+                    <button
+                      type="button"
+                      @click="applyTraceFilter"
+                      :disabled="traceLoading"
+                      class="px-4 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold shadow-md shadow-purple-500/20 cursor-pointer transition flex items-center gap-1.5"
+                    >
+                      <i :class="traceLoading ? 'fa-solid fa-circle-notch animate-spin' : 'fa-solid fa-magnifying-glass'"></i>
+                      <span>Filter Results</span>
+                    </button>
+                  </div>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-3 pt-1">
+                  <!-- 1. Dropdown Chọn Mục Filter (SO / SN / Item Code / SKU) -->
+                  <div class="lg:col-span-3">
+                    <label class="block text-[10px] font-bold uppercase text-slate-400 mb-1">Filter Field</label>
+                    <select
+                      v-model="traceFilterTarget"
+                      @change="onFilterTargetChange"
+                      class="w-full px-3 py-2 bg-slate-950/90 border border-purple-500/40 rounded-xl text-xs text-white font-mono focus:ring-1 focus:ring-purple-500 focus:outline-none cursor-pointer"
+                    >
+                      <option value="soNumber">Sales Order (SO Number)</option>
+                      <option value="serialNumber">Serial Number (SN)</option>
+                      <option value="itemCode">Item Code</option>
+                      <option value="sku">Product SKU</option>
+                    </select>
+                  </div>
+
+                  <!-- 2. Ô fill tương ứng với mục đã chọn -->
+                  <div class="lg:col-span-4">
+                    <label class="block text-[10px] font-bold uppercase text-slate-400 mb-1">
+                      <span>Search Value: </span>
+                      <span class="text-purple-300 font-mono">{{ getFilterTargetLabel() }}</span>
+                    </label>
+                    <div class="relative">
+                      <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-xs"></i>
+                      <input
+                        type="text"
+                        v-model="traceFilterValue"
+                        @keyup.enter="applyTraceFilter"
+                        :placeholder="getFilterPlaceholder()"
+                        class="w-full pl-8 pr-3 py-2 bg-slate-950/80 border border-slate-700/80 rounded-xl text-xs text-white placeholder-slate-500 font-mono focus:ring-1 focus:ring-purple-500 focus:outline-none"
+                      />
+                    </div>
+                  </div>
+
+                  <!-- 3. QA Result Verdict -->
+                  <div class="lg:col-span-2">
+                    <label class="block text-[10px] font-bold uppercase text-slate-400 mb-1">QA Result</label>
+                    <select
+                      v-model="traceFilters.result"
+                      @change="applyTraceFilter"
+                      class="w-full px-2.5 py-2 bg-slate-950/80 border border-slate-700/80 rounded-xl text-xs text-white font-mono focus:ring-1 focus:ring-purple-500 focus:outline-none cursor-pointer"
+                    >
+                      <option value="ALL">Result: ALL</option>
+                      <option value="PASS">PASS Only</option>
+                      <option value="FAIL">FAIL Only</option>
+                    </select>
+                  </div>
+
+                  <!-- 4. Quick Search & Limit -->
+                  <div class="lg:col-span-3">
+                    <label class="block text-[10px] font-bold uppercase text-slate-400 mb-1">Search & Rows</label>
+                    <div class="flex items-center gap-1.5">
+                      <div class="relative flex-1">
+                        <i class="fa-solid fa-magnifying-glass absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500 text-[10px]"></i>
+                        <input
+                          type="text"
+                          v-model="traceFilters.search"
+                          @keyup.enter="applyTraceFilter"
+                          placeholder="Search..."
+                          class="w-full pl-7 pr-2 py-2 bg-slate-950/80 border border-slate-700/80 rounded-xl text-xs text-white placeholder-slate-500 font-mono focus:ring-1 focus:ring-purple-500 focus:outline-none"
+                        />
+                      </div>
+                      <select
+                        v-model="traceFilters.limit"
+                        @change="applyTraceFilter"
+                        class="w-16 px-1.5 py-2 bg-slate-950/80 border border-slate-700/80 rounded-xl text-xs text-white font-mono focus:ring-1 focus:ring-purple-500 focus:outline-none cursor-pointer"
+                        title="Records limit"
+                      >
+                        <option :value="25">25</option>
+                        <option :value="50">50</option>
+                        <option :value="100">100</option>
+                        <option :value="250">250</option>
+                        <option :value="500">500</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
               <!-- KPI Summary Counters -->
               <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 gap-3 font-mono">
                 <div class="bg-slate-900/80 border border-slate-800 p-3.5 rounded-xl">
@@ -207,156 +313,49 @@ export const TRACEABILITY_TEMPLATE = `          <div v-else-if="activeFeature.id
                 </div>
               </div>
 
-              <!-- Multi-Criteria Filter Panel (Filter theo SO / SN / Item Code / SKU, ...) -->
-              <div class="glass-card rounded-2xl p-4 border border-slate-800/80 space-y-3">
-                <div class="flex items-center justify-between">
-                  <span class="text-xs font-bold uppercase tracking-wider text-slate-300 flex items-center gap-2">
-                    <i class="fa-solid fa-filter text-purple-400"></i> Multi-Criteria Filters (SO / SN / Item Code / SKU)
-                  </span>
-                  <div class="flex items-center gap-2">
-                    <button
-                      type="button"
-                      @click="resetTraceFilters"
-                      class="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold cursor-pointer transition"
-                    >
-                      Clear
-                    </button>
-                    <button
-                      type="button"
-                      @click="fetchTestResults"
-                      :disabled="traceLoading"
-                      class="px-4 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold shadow-md shadow-purple-500/20 cursor-pointer transition flex items-center gap-1.5"
-                    >
-                      <i :class="traceLoading ? 'fa-solid fa-circle-notch animate-spin' : 'fa-solid fa-magnifying-glass'"></i>
-                      <span>Filter Results</span>
-                    </button>
-                  </div>
-                </div>
-
-                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-2.5 pt-1">
-                  <!-- 1. SO Number -->
-                  <div>
-                    <label class="block text-[10px] font-bold uppercase text-slate-400 mb-1">SO Number</label>
-                    <input
-                      type="text"
-                      v-model="traceFilters.soNumber"
-                      @keyup.enter="fetchTestResults"
-                      placeholder="e.g. SO2603001"
-                      class="w-full px-3 py-2 bg-slate-950/80 border border-slate-700/80 rounded-xl text-xs text-white placeholder-slate-500 font-mono focus:ring-1 focus:ring-purple-500 focus:outline-none"
-                    />
-                  </div>
-
-                  <!-- 2. Serial Number (SN) -->
-                  <div>
-                    <label class="block text-[10px] font-bold uppercase text-slate-400 mb-1">Serial Number (SN)</label>
-                    <input
-                      type="text"
-                      v-model="traceFilters.serialNumber"
-                      @keyup.enter="fetchTestResults"
-                      placeholder="e.g. SATH26000254"
-                      class="w-full px-3 py-2 bg-slate-950/80 border border-slate-700/80 rounded-xl text-xs text-white placeholder-slate-500 font-mono focus:ring-1 focus:ring-purple-500 focus:outline-none"
-                    />
-                  </div>
-
-                  <!-- 3. Item Code -->
-                  <div>
-                    <label class="block text-[10px] font-bold uppercase text-slate-400 mb-1">Item Code</label>
-                    <input
-                      type="text"
-                      v-model="traceFilters.itemCode"
-                      @keyup.enter="fetchTestResults"
-                      placeholder="e.g. WSLRW-ATH-01"
-                      class="w-full px-3 py-2 bg-slate-950/80 border border-slate-700/80 rounded-xl text-xs text-white placeholder-slate-500 font-mono focus:ring-1 focus:ring-purple-500 focus:outline-none"
-                    />
-                  </div>
-
-                  <!-- 4. SKU -->
-                  <div>
-                    <label class="block text-[10px] font-bold uppercase text-slate-400 mb-1">SKU</label>
-                    <input
-                      type="text"
-                      v-model="traceFilters.sku"
-                      @keyup.enter="fetchTestResults"
-                      placeholder="e.g. WSLRW-ATH"
-                      class="w-full px-3 py-2 bg-slate-950/80 border border-slate-700/80 rounded-xl text-xs text-white placeholder-slate-500 font-mono focus:ring-1 focus:ring-purple-500 focus:outline-none"
-                    />
-                  </div>
-
-                  <!-- 5. QA Result Verdict -->
-                  <div>
-                    <label class="block text-[10px] font-bold uppercase text-slate-400 mb-1">QA Result</label>
-                    <select
-                      v-model="traceFilters.result"
-                      @change="fetchTestResults"
-                      class="w-full px-2.5 py-2 bg-slate-950/80 border border-slate-700/80 rounded-xl text-xs text-white font-mono focus:ring-1 focus:ring-purple-500 focus:outline-none"
-                    >
-                      <option value="ALL">Result: ALL</option>
-                      <option value="PASS">PASS Only</option>
-                      <option value="FAIL">FAIL Only</option>
-                    </select>
-                  </div>
-
-                  <!-- 6. General Search & Limit -->
-                  <div>
-                    <label class="block text-[10px] font-bold uppercase text-slate-400 mb-1">Search & Rows</label>
-                    <div class="flex items-center gap-1.5">
-                      <div class="relative flex-1">
-                        <i class="fa-solid fa-magnifying-glass absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500 text-[10px]"></i>
-                        <input
-                          type="text"
-                          v-model="traceFilters.search"
-                          @keyup.enter="fetchTestResults"
-                          placeholder="Search..."
-                          class="w-full pl-7 pr-2 py-2 bg-slate-950/80 border border-slate-700/80 rounded-xl text-xs text-white placeholder-slate-500 font-mono focus:ring-1 focus:ring-purple-500 focus:outline-none"
-                        />
-                      </div>
-                      <select
-                        v-model="traceFilters.limit"
-                        @change="fetchTestResults"
-                        class="w-16 px-1.5 py-2 bg-slate-950/80 border border-slate-700/80 rounded-xl text-xs text-white font-mono focus:ring-1 focus:ring-purple-500 focus:outline-none"
-                        title="Records limit"
-                      >
-                        <option :value="25">25</option>
-                        <option :value="50">50</option>
-                        <option :value="100">100</option>
-                        <option :value="250">250</option>
-                      </select>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <!-- Records Table (Danh Sách Thiết Bị Đã Test) -->
+              <!-- 1. Master Tabulator Table: Tested Devices Catalog (Click row to inspect test parameters below) -->
               <div class="glass-card rounded-2xl border border-slate-800 overflow-hidden shadow-xl">
-                <div class="p-3 bg-slate-950/90 border-b border-slate-800 flex items-center justify-between text-xs font-mono">
+                <div class="p-3 bg-slate-950/90 border-b border-slate-800 flex flex-wrap items-center justify-between gap-2 text-xs font-mono">
                   <div class="flex items-center gap-2">
                     <span class="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-1.5">
                       <i class="fa-solid fa-table-list text-purple-400"></i>
                       <span>Tested Devices Catalog (Click row to inspect test parameters below)</span>
                     </span>
+                    <span v-if="selectedSoNumber" class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-500/20 text-purple-300 border border-purple-500/40">
+                      Selected SO: {{ selectedSoNumber }}
+                    </span>
                   </div>
-                  <span class="text-slate-400 text-[11px]">
-                    Showing {{ traceResults.length }} of {{ traceTotal || traceResults.length }} records
-                  </span>
+                  <div class="flex items-center gap-3">
+                    <span class="text-slate-400 text-[11px]">
+                      Showing {{ soCatalogList.length }} SO Batches
+                    </span>
+                    <button
+                      type="button"
+                      @click="initCatalogTabulator"
+                      class="text-slate-400 hover:text-white text-xs cursor-pointer transition p-1"
+                      title="Redraw Catalog Table"
+                    >
+                      <i class="fa-solid fa-arrows-rotate"></i>
+                    </button>
+                  </div>
                 </div>
 
                 <!-- Loading State -->
-                <div v-if="traceLoading" class="py-16 text-center space-y-3">
-                  <div class="w-12 h-12 rounded-2xl bg-purple-500/10 border border-purple-500/30 flex items-center justify-center text-purple-400 text-xl mx-auto">
+                <div v-if="traceLoading" class="py-14 text-center space-y-3">
+                  <div class="w-10 h-10 rounded-2xl bg-purple-500/10 border border-purple-500/30 flex items-center justify-center text-purple-400 text-lg mx-auto">
                     <i class="fa-solid fa-circle-notch animate-spin"></i>
                   </div>
-                  <div class="text-xs font-bold text-white">Querying PostgreSQL test_result...</div>
-                  <div class="text-[11px] text-slate-400 font-mono">Filtering records across factory test database</div>
+                  <div class="text-xs font-bold text-white">Loading Sales Order Catalog from PostgreSQL...</div>
                 </div>
 
                 <!-- Empty State -->
-                <div v-else-if="traceResults.length === 0" class="py-16 text-center space-y-3 px-4">
-                  <div class="w-12 h-12 rounded-2xl bg-slate-800/80 border border-slate-700 flex items-center justify-center text-slate-500 text-xl mx-auto">
+                <div v-else-if="soCatalogList.length === 0" class="py-12 text-center space-y-3 px-4">
+                  <div class="w-10 h-10 rounded-2xl bg-slate-800/80 border border-slate-700 flex items-center justify-center text-slate-500 text-lg mx-auto">
                     <i class="fa-solid fa-inbox"></i>
                   </div>
-                  <div class="text-sm font-bold text-white">No test result records matched</div>
+                  <div class="text-sm font-bold text-white">No Sales Orders matched filter criteria</div>
                   <p class="text-xs text-slate-400 max-w-md mx-auto">
-                    No records found for current filter criteria. You can clear filters, check the SO number or seed representative baseline data.
+                    No SO records found for current filter criteria. You can clear filters, check the SO number or seed representative baseline data.
                   </p>
                   <div class="pt-2 flex items-center justify-center gap-2">
                     <button
@@ -374,106 +373,84 @@ export const TRACEABILITY_TEMPLATE = `          <div v-else-if="activeFeature.id
                   </div>
                 </div>
 
-                <!-- Table Content with Click-to-Select Row -->
-                <div v-else class="overflow-x-auto">
-                  <table class="w-full text-left text-xs font-mono">
-                    <thead class="bg-slate-950/80 border-b border-slate-800 text-[10px] uppercase font-bold text-slate-400 tracking-wider">
-                      <tr>
-                        <th class="py-3 px-3 w-12 text-center">#</th>
-                        <th class="py-3 px-3">SO Number</th>
-                        <th class="py-3 px-3">Serial Number</th>
-                        <th class="py-3 px-3">Item Code</th>
-                        <th class="py-3 px-3">SKU</th>
-                        <th class="py-3 px-3">Device Key</th>
-                        <th class="py-3 px-3">HW / FW</th>
-                        <th class="py-3 px-3 text-center">QA Result</th>
-                        <th class="py-3 px-3">Duration</th>
-                        <th class="py-3 px-3">Finish Time</th>
-                        <th class="py-3 px-3 text-right">Action</th>
-                      </tr>
-                    </thead>
-                    <tbody class="divide-y divide-slate-800/60 text-slate-300">
-                      <tr
-                        v-for="(row, idx) in traceResults"
-                        :key="row.testResultId || row.test_result_id || row.serialNumber || idx"
-                        @click="selectDeviceForInspection(row)"
-                        :class="selectedDeviceDetails && (selectedDeviceDetails.serial_number === (row.serialNumber || row.serial_number) || selectedDeviceDetails.test_id === (row.testId || row.test_id || row.testResultId || row.test_result_id))
-                          ? 'bg-purple-950/40 border-l-4 border-purple-500 font-semibold'
-                          : 'hover:bg-slate-850/60 cursor-pointer transition'"
-                        class="transition"
-                      >
-                        <td class="py-2.5 px-3 text-center text-slate-500">{{ idx + 1 }}</td>
-                        <td class="py-2.5 px-3 font-bold text-cyan-300">{{ row.soNumber || row.so_number || '—' }}</td>
-                        <td class="py-2.5 px-3">
-                          <div class="flex items-center gap-1.5">
-                            <span class="font-extrabold text-amber-300">{{ row.serialNumber || row.serial_number || '—' }}</span>
-                            <button
-                              type="button"
-                              @click.stop="copyText(row.serialNumber || row.serial_number)"
-                              class="text-slate-500 hover:text-white transition p-0.5"
-                              title="Copy Serial Number"
-                            >
-                              <i class="fa-regular fa-copy text-[10px]"></i>
-                            </button>
-                          </div>
-                        </td>
-                        <td class="py-2.5 px-3 text-slate-300 truncate max-w-[140px]">{{ row.itemCode || row.item_code || '—' }}</td>
-                        <td class="py-2.5 px-3">
-                          <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-800 text-slate-300 border border-slate-700">
-                            {{ row.sku || '—' }}
-                          </span>
-                        </td>
-                        <td class="py-2.5 px-3 text-purple-300 font-mono text-[11px]">{{ row.deviceKey || row.device_key || '—' }}</td>
-                        <td class="py-2.5 px-3 text-slate-400 text-[11px]">
-                          {{ row.hwVer || row.hw_ver || '—' }} / {{ row.fwVer || row.fw_ver || '—' }}
-                        </td>
-                        <td class="py-2.5 px-3 text-center">
-                          <span
-                            :class="isTestPassed(row.result)
-                              ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30'
-                              : 'bg-rose-500/15 text-rose-400 border-rose-500/30'"
-                            class="px-2 py-0.5 rounded-full text-[10px] font-extrabold border inline-flex items-center gap-1"
-                          >
-                            <i :class="isTestPassed(row.result) ? 'fa-solid fa-check' : 'fa-solid fa-xmark'"></i>
-                            <span>{{ isTestPassed(row.result) ? 'PASS' : 'FAIL' }}</span>
-                          </span>
-                        </td>
-                        <td class="py-2.5 px-3 text-slate-400">{{ row.durationTime || row.duration_time || '—' }}</td>
-                        <td class="py-2.5 px-3 text-slate-400 text-[11px]">{{ formatTraceDate(row.timeFinish || row.time_finish || row.createdAt) }}</td>
-                        <td class="py-2.5 px-3 text-right">
-                          <div class="flex items-center justify-end gap-1.5">
-                            <button
-                              type="button"
-                              @click.stop="selectDeviceForInspection(row)"
-                              :class="selectedDeviceDetails && (selectedDeviceDetails.serial_number === (row.serialNumber || row.serial_number) || selectedDeviceDetails.test_id === (row.testId || row.test_id))
-                                ? 'bg-purple-600 text-white shadow-sm'
-                                : 'bg-purple-500/10 hover:bg-purple-500/20 text-purple-300 border border-purple-500/25'"
-                              class="px-2.5 py-1 rounded-lg text-[11px] font-bold cursor-pointer transition flex items-center gap-1"
-                              title="Inspect device test parameters"
-                            >
-                              <i class="fa-solid fa-microchip text-[10px]"></i>
-                              <span>{{ selectedDeviceDetails && (selectedDeviceDetails.serial_number === (row.serialNumber || row.serial_number) || selectedDeviceDetails.test_id === (row.testId || row.test_id)) ? 'Selected' : 'Inspect' }}</span>
-                            </button>
-                            <button
-                              type="button"
-                              @click.stop="viewTraceDetail(row)"
-                              class="px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px] font-semibold cursor-pointer transition"
-                              title="View full test record details"
-                            >
-                              <i class="fa-solid fa-eye"></i>
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    </tbody>
-                  </table>
+                <!-- Tabulator Container for Tested Devices Catalog -->
+                <div v-show="!traceLoading && soCatalogList.length > 0" class="p-2 bg-slate-950/60">
+                  <div id="trace-catalog-tabulator" class="rounded-xl overflow-hidden border border-slate-800/80"></div>
                 </div>
 
                 <!-- Footer Summary Bar -->
                 <div class="p-3 bg-slate-950/80 border-t border-slate-800 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-400 font-mono">
-                  <span>Showing {{ traceResults.length }} of {{ traceTotal || traceResults.length }} test records</span>
+                  <span>Showing {{ soCatalogList.length }} SO Batches ({{ traceTotal || traceResults.length }} total tested records)</span>
                   <div class="flex items-center gap-2">
-                    <span class="text-slate-500">Database: PostgreSQL dvt | Table: test_result</span>
+                    <span class="text-slate-500">Database: PostgreSQL dvt | Table: test_result (Tabulator Grid)</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- 2. Detail Tabulator Table: Tested Devices in Selected SO -->
+              <div class="glass-card rounded-2xl border border-slate-800 overflow-hidden shadow-xl">
+                <div class="p-3 bg-slate-950/90 border-b border-slate-800 flex flex-wrap items-center justify-between gap-2 text-xs font-mono">
+                  <div class="flex items-center gap-2">
+                    <span class="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-1.5">
+                      <i class="fa-solid fa-microchip text-cyan-400"></i>
+                      <span>Tested Devices in Selected SO:</span>
+                      <span class="font-extrabold text-cyan-300">{{ selectedSoNumber || 'All SOs' }}</span>
+                    </span>
+                    <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-cyan-500/15 text-cyan-300 border border-cyan-500/30">
+                      {{ soDevicesList.length }} Devices
+                    </span>
+                    <span v-if="selectedDeviceDetails" class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/15 text-amber-300 border border-amber-500/30">
+                      Inspecting SN: {{ selectedDeviceDetails.serial_number || selectedDeviceDetails.generalInfo?.serialNumber }}
+                    </span>
+                  </div>
+                  <div class="flex items-center gap-2">
+                    <button
+                      type="button"
+                      @click="exportSelectedSoCsv"
+                      class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px] font-semibold transition cursor-pointer flex items-center gap-1 border border-slate-700"
+                      title="Export devices in this SO to CSV"
+                    >
+                      <i class="fa-solid fa-file-csv text-emerald-400"></i>
+                      <span>Export SO Devices</span>
+                    </button>
+                    <button
+                      type="button"
+                      @click="initDevicesTabulator"
+                      class="text-slate-400 hover:text-white text-xs cursor-pointer transition p-1"
+                      title="Redraw Devices Table"
+                    >
+                      <i class="fa-solid fa-arrows-rotate"></i>
+                    </button>
+                  </div>
+                </div>
+
+                <!-- Loading State for SO Devices -->
+                <div v-if="loadingSoDevices" class="py-14 text-center space-y-3">
+                  <div class="w-10 h-10 rounded-2xl bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center text-cyan-400 text-lg mx-auto">
+                    <i class="fa-solid fa-circle-notch animate-spin"></i>
+                  </div>
+                  <div class="text-xs font-bold text-white">Querying devices for SO {{ selectedSoNumber }}...</div>
+                </div>
+
+                <!-- Empty State for SO Devices -->
+                <div v-else-if="soDevicesList.length === 0" class="py-12 text-center space-y-2 px-4">
+                  <div class="w-10 h-10 rounded-2xl bg-slate-800/80 border border-slate-700 flex items-center justify-center text-slate-500 text-lg mx-auto">
+                    <i class="fa-solid fa-box-open"></i>
+                  </div>
+                  <div class="text-sm font-bold text-white">No devices found for SO {{ selectedSoNumber || 'selected' }}</div>
+                  <p class="text-xs text-slate-400">Please select another SO from the catalog above.</p>
+                </div>
+
+                <!-- Tabulator Container for SO Devices Detail Table -->
+                <div v-show="!loadingSoDevices && soDevicesList.length > 0" class="p-2 bg-slate-950/60">
+                  <div id="trace-devices-tabulator" class="rounded-xl overflow-hidden border border-slate-800/80"></div>
+                </div>
+
+                <!-- Footer Summary Bar -->
+                <div class="p-3 bg-slate-950/80 border-t border-slate-800 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-400 font-mono">
+                  <span>Showing {{ soDevicesList.length }} devices in SO: {{ selectedSoNumber || 'All' }}</span>
+                  <div class="flex items-center gap-2">
+                    <span class="text-slate-500">Columns include SERIAL_NUMBER, DEV_EUI, HW/FW, QA Result & formatted Finish Time</span>
                   </div>
                 </div>
               </div>
@@ -1549,6 +1526,18 @@ function useTraceabilityModule(ctx) {
     limit: 50,
   });
 
+  const traceFilterTarget = ref('soNumber'); // 'soNumber' | 'serialNumber' | 'itemCode' | 'sku'
+  const traceFilterValue = ref('');
+  const soCatalogList = ref([]);
+  const selectedSoNumber = ref('');
+  const soDevicesList = ref([]);
+  const loadingSoDevices = ref(false);
+
+  let catalogTabulatorInstance = null;
+  let devicesTabulatorInstance = null;
+  let initCatalogTimer = null;
+  let initDevicesTimer = null;
+
   const selectedTraceItem = ref(null);
   const showTraceDetailModal = ref(false);
 
@@ -1776,6 +1765,351 @@ function useTraceabilityModule(ctx) {
     }
   };
 
+  const getFilterPlaceholder = () => {
+    switch (traceFilterTarget.value) {
+      case 'soNumber':
+        return 'Enter SO (e.g. 123, 1527, SO/2026/01527...)';
+      case 'serialNumber':
+        return 'Enter Serial Number (e.g. LRV126000212, SATH...)';
+      case 'itemCode':
+        return 'Enter Item Code (e.g. WSLRW-V1A-025, WSLRW-ATH-01...)';
+      case 'sku':
+        return 'Enter Product SKU (e.g. WSLRW-V1A, WSLRW-ATH...)';
+      default:
+        return 'Search...';
+    }
+  };
+
+  const getFilterTargetLabel = () => {
+    switch (traceFilterTarget.value) {
+      case 'soNumber': return 'SO Number';
+      case 'serialNumber': return 'Serial (SN)';
+      case 'itemCode': return 'Item Code';
+      case 'sku': return 'SKU';
+      default: return 'Filter';
+    }
+  };
+
+  const onFilterTargetChange = () => {
+    traceFilters.value.soNumber = '';
+    traceFilters.value.serialNumber = '';
+    traceFilters.value.itemCode = '';
+    traceFilters.value.sku = '';
+    if (traceFilterValue.value.trim()) {
+      applyTraceFilter();
+    }
+  };
+
+  const applyTraceFilter = () => {
+    const val = traceFilterValue.value.trim();
+    traceFilters.value.soNumber = '';
+    traceFilters.value.serialNumber = '';
+    traceFilters.value.itemCode = '';
+    traceFilters.value.sku = '';
+    if (val) {
+      traceFilters.value[traceFilterTarget.value] = val;
+    }
+    fetchTestResults();
+  };
+
+  const selectSoRow = async (soData) => {
+    if (!soData || !soData.soNumber) return;
+    selectedSoNumber.value = soData.soNumber;
+    if (catalogTabulatorInstance) {
+      catalogTabulatorInstance.redraw(true);
+    }
+    await fetchDevicesForSelectedSo(soData.soNumber);
+  };
+
+  const fetchDevicesForSelectedSo = async (soNumber) => {
+    if (!soNumber) {
+      soDevicesList.value = [];
+      return;
+    }
+    loadingSoDevices.value = true;
+    try {
+      const res = await fetch('/api/traceability/test-results?soNumber=' + encodeURIComponent(soNumber) + '&limit=1000', {
+        headers: authHeaders(),
+        credentials: 'include',
+      });
+      if (res.ok) {
+        const json = await res.json();
+        const items = json.data || json.items || [];
+        soDevicesList.value = items;
+        if (devicesTabulatorInstance) {
+          devicesTabulatorInstance.setData(items);
+        } else {
+          Vue.nextTick(() => initDevicesTabulator());
+        }
+
+        // Auto-select first device if none or previous not in list
+        if (items.length > 0) {
+          const curSn = selectedDeviceDetails.value?.serial_number || selectedDeviceDetails.value?.generalInfo?.serialNumber;
+          const match = items.find(d => (d.serialNumber || d.serial_number) === curSn);
+          if (match) {
+            selectDeviceForInspection(match);
+          } else {
+            selectDeviceForInspection(items[0]);
+          }
+        }
+      }
+    } catch (err) {
+      console.error('Error fetching devices for SO:', err);
+    } finally {
+      loadingSoDevices.value = false;
+    }
+  };
+
+  const exportSelectedSoCsv = () => {
+    const so = selectedSoNumber.value;
+    if (!so) {
+      showToast('Please select a Sales Order first', 'warning');
+      return;
+    }
+    window.open('/api/traceability/export-csv?soNumber=' + encodeURIComponent(so), '_blank');
+  };
+
+  const initCatalogTabulator = (retryCount = 0) => {
+    const container = document.getElementById('trace-catalog-tabulator');
+    if (!container || typeof Tabulator === 'undefined') {
+      if (retryCount < 10) {
+        clearTimeout(initCatalogTimer);
+        initCatalogTimer = setTimeout(() => initCatalogTabulator(retryCount + 1), 100);
+      }
+      return;
+    }
+
+    if (catalogTabulatorInstance) {
+      try { catalogTabulatorInstance.destroy(); } catch (e) {}
+      catalogTabulatorInstance = null;
+    }
+
+    container.innerHTML = '';
+
+    catalogTabulatorInstance = new Tabulator(container, {
+      data: soCatalogList.value,
+      layout: 'fitColumns',
+      height: '300px',
+      pagination: 'local',
+      paginationSize: 10,
+      paginationSizeSelector: [10, 25, 50],
+      placeholder: 'No Sales Orders matched',
+      columns: [
+        {
+          title: 'SO Number',
+          field: 'soNumber',
+          headerFilter: 'input',
+          formatter: (cell) => {
+            const val = cell.getValue() || '—';
+            return '<span class="font-bold font-mono text-cyan-300 flex items-center gap-1.5"><i class="fa-solid fa-folder-closed text-purple-400 text-[11px]"></i>' + val + '</span>';
+          },
+        },
+        {
+          title: 'Item Code',
+          field: 'itemCode',
+          headerFilter: 'input',
+          formatter: (cell) => '<span class="text-slate-300 font-mono text-[11px] truncate">' + (cell.getValue() || '—') + '</span>',
+        },
+        {
+          title: 'SKU',
+          field: 'sku',
+          headerFilter: 'input',
+          formatter: (cell) => '<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-800 text-slate-300 border border-slate-700 font-mono">' + (cell.getValue() || '—') + '</span>',
+        },
+        {
+          title: 'Total',
+          field: 'totalDevices',
+          sorter: 'number',
+          width: 80,
+          formatter: (cell) => '<span class="font-mono font-bold text-white text-xs">' + (cell.getValue() || 0) + '</span>',
+        },
+        {
+          title: 'QA (Pass / Fail)',
+          headerSort: false,
+          width: 140,
+          formatter: (cell) => {
+            const d = cell.getData();
+            return '<div class="flex items-center gap-1 text-[11px] font-mono"><span class="text-emerald-400 font-bold">' + (d.passCount || 0) + ' PASS</span><span class="text-slate-600">/</span><span class="text-rose-400 font-bold">' + (d.failCount || 0) + ' FAIL</span></div>';
+          },
+        },
+        {
+          title: 'Pass Rate',
+          field: 'passRate',
+          sorter: 'number',
+          width: 130,
+          formatter: (cell) => {
+            const pct = cell.getValue() || 0;
+            return '<div class="w-full pr-2"><div class="flex justify-between text-[10px] font-mono mb-0.5"><span class="text-cyan-300 font-bold">' + pct + '%</span></div><div class="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden"><div class="bg-cyan-500 h-full rounded-full" style="width:' + pct + '%"></div></div></div>';
+          },
+        },
+        {
+          title: 'Latest Finish Time',
+          field: 'latestFinishTime',
+          sorter: 'number',
+          formatter: (cell) => '<span class="text-slate-400 font-mono text-[11px]">' + formatTraceDate(cell.getValue()) + '</span>',
+        },
+        {
+          title: 'Action',
+          width: 110,
+          headerSort: false,
+          formatter: (cell) => {
+            const d = cell.getData();
+            const isSel = d.soNumber === selectedSoNumber.value;
+            return '<button type="button" class="px-2.5 py-1 rounded-lg text-[11px] font-bold transition flex items-center gap-1 cursor-pointer ' + (isSel ? 'bg-purple-600 text-white shadow-sm' : 'bg-purple-500/15 hover:bg-purple-500/30 text-purple-300 border border-purple-500/30') + '"><i class="fa-solid fa-list-check text-[10px]"></i><span>' + (isSel ? 'Selected' : 'Select SO') + '</span></button>';
+          },
+          cellClick: (e, cell) => {
+            selectSoRow(cell.getData());
+          },
+        },
+      ],
+      rowClick: (e, row) => {
+        selectSoRow(row.getData());
+      },
+    });
+  };
+
+  const initDevicesTabulator = (retryCount = 0) => {
+    const container = document.getElementById('trace-devices-tabulator');
+    if (!container || typeof Tabulator === 'undefined') {
+      if (retryCount < 10) {
+        clearTimeout(initDevicesTimer);
+        initDevicesTimer = setTimeout(() => initDevicesTabulator(retryCount + 1), 100);
+      }
+      return;
+    }
+
+    if (devicesTabulatorInstance) {
+      try { devicesTabulatorInstance.destroy(); } catch (e) {}
+      devicesTabulatorInstance = null;
+    }
+
+    container.innerHTML = '';
+
+    devicesTabulatorInstance = new Tabulator(container, {
+      data: soDevicesList.value,
+      layout: 'fitColumns',
+      height: '380px',
+      pagination: 'local',
+      paginationSize: 15,
+      paginationSizeSelector: [15, 25, 50, 100],
+      placeholder: 'No tested devices found for this SO',
+      columns: [
+        {
+          title: '#',
+          width: 45,
+          headerSort: false,
+          formatter: (cell) => '<span class="text-slate-500 font-mono text-center block text-[11px]">' + (cell.getRow().getPosition()) + '</span>',
+        },
+        {
+          title: 'SERIAL_NUMBER',
+          field: 'serialNumber',
+          headerFilter: 'input',
+          formatter: (cell) => {
+            const d = cell.getData();
+            const sn = cell.getValue() || d.serial_number || '—';
+            return '<div class="flex items-center gap-1.5"><span class="font-extrabold text-amber-300 font-mono tracking-tight">' + sn + '</span><button type="button" data-copy-sn="' + sn + '" class="text-slate-500 hover:text-white p-0.5 cursor-pointer" title="Copy Serial"><i class="fa-regular fa-copy text-[10px]"></i></button></div>';
+          },
+        },
+        {
+          title: 'DEV_EUI',
+          field: 'deviceKey',
+          headerFilter: 'input',
+          formatter: (cell) => {
+            const d = cell.getData();
+            const eui = cell.getValue() || d.device_key || d.devEUI || d.dev_eui || '—';
+            return '<div class="flex items-center gap-1.5"><span class="font-mono text-purple-300 font-semibold text-[11px]">' + eui + '</span><button type="button" data-copy-eui="' + eui + '" class="text-slate-500 hover:text-white p-0.5 cursor-pointer" title="Copy DevEUI"><i class="fa-regular fa-copy text-[10px]"></i></button></div>';
+          },
+        },
+        {
+          title: 'SO Number',
+          field: 'soNumber',
+          headerFilter: 'input',
+          formatter: (cell) => {
+            const d = cell.getData();
+            return '<span class="font-bold text-cyan-300 font-mono">' + (cell.getValue() || d.so_number || '—') + '</span>';
+          },
+        },
+        {
+          title: 'Item Code',
+          field: 'itemCode',
+          headerFilter: 'input',
+          formatter: (cell) => {
+            const d = cell.getData();
+            return '<span class="text-slate-300 font-mono text-[11px] truncate">' + (cell.getValue() || d.item_code || '—') + '</span>';
+          },
+        },
+        {
+          title: 'SKU',
+          field: 'sku',
+          headerFilter: 'input',
+          formatter: (cell) => '<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-800 text-slate-300 border border-slate-700 font-mono">' + (cell.getValue() || '—') + '</span>',
+        },
+        {
+          title: 'HW / FW',
+          formatter: (cell) => {
+            const d = cell.getData();
+            return '<span class="text-slate-400 text-[11px] font-mono">' + (d.hwVer || d.hw_ver || '—') + ' / ' + (d.fwVer || d.fw_ver || '—') + '</span>';
+          },
+        },
+        {
+          title: 'QA Result',
+          field: 'result',
+          headerFilter: 'select',
+          headerFilterParams: { values: { "": "ALL", "PASS": "PASS", "FAIL": "FAIL" } },
+          formatter: (cell) => {
+            const r = cell.getValue();
+            const ok = isTestPassed(r);
+            return '<span class="px-2 py-0.5 rounded-full text-[10px] font-extrabold border inline-flex items-center gap-1 ' + (ok ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30' : 'bg-rose-500/15 text-rose-400 border-rose-500/30') + '"><i class="' + (ok ? 'fa-solid fa-check' : 'fa-solid fa-xmark') + '"></i><span>' + (ok ? 'PASS' : 'FAIL') + '</span></span>';
+          },
+        },
+        {
+          title: 'Duration',
+          field: 'durationTime',
+          formatter: (cell) => {
+            const d = cell.getData();
+            return '<span class="text-slate-400 font-mono text-[11px]">' + (cell.getValue() || d.duration_time || '—') + '</span>';
+          },
+        },
+        {
+          title: 'Finish Time',
+          field: 'timeFinish',
+          sorter: 'number',
+          formatter: (cell) => {
+            const d = cell.getData();
+            const val = cell.getValue() || d.time_finish || d.createdAt;
+            return '<span class="text-slate-400 font-mono text-[11px]">' + formatTraceDate(val) + '</span>';
+          },
+        },
+        {
+          title: 'Action',
+          headerSort: false,
+          width: 100,
+          formatter: (cell) => {
+            const d = cell.getData();
+            const sn = d.serialNumber || d.serial_number;
+            const isSel = selectedDeviceDetails.value && (selectedDeviceDetails.value.serial_number === sn || selectedDeviceDetails.value.test_id === (d.testId || d.test_id));
+            return '<button type="button" class="px-2.5 py-1 rounded-lg text-[11px] font-bold transition flex items-center gap-1 cursor-pointer ' + (isSel ? 'bg-purple-600 text-white shadow-sm' : 'bg-purple-500/15 hover:bg-purple-500/30 text-purple-300 border border-purple-500/25') + '"><i class="fa-solid fa-microchip text-[10px]"></i><span>' + (isSel ? 'Selected' : 'Inspect') + '</span></button>';
+          },
+          cellClick: (e, cell) => {
+            selectDeviceForInspection(cell.getData());
+          },
+        },
+      ],
+      rowClick: (e, row) => {
+        const target = e.target;
+        if (target && target.closest('[data-copy-sn]')) {
+          copyText(target.closest('[data-copy-sn]').getAttribute('data-copy-sn'));
+          return;
+        }
+        if (target && target.closest('[data-copy-eui]')) {
+          copyText(target.closest('[data-copy-eui]').getAttribute('data-copy-eui'));
+          return;
+        }
+        selectDeviceForInspection(row.getData());
+      },
+    });
+  };
+
   const fetchTestResults = async () => {
     traceLoading.value = true;
     try {
@@ -1800,6 +2134,21 @@ function useTraceabilityModule(ctx) {
       }
       params.append('limit', String(traceFilters.value.limit || 50));
 
+      // 1. Fetch aggregated SO Catalog from PostgreSQL
+      try {
+        const catRes = await fetch('/api/traceability/so-catalog?' + params.toString(), {
+          headers: authHeaders(),
+          credentials: 'include',
+        });
+        if (catRes.ok) {
+          const catJson = await catRes.json();
+          soCatalogList.value = catJson.data || [];
+        }
+      } catch (err) {
+        console.warn('so-catalog endpoint unavailable, falling back to client aggregation:', err);
+      }
+
+      // 2. Fetch test results
       const res = await fetch('/api/traceability/test-results?' + params.toString(), {
         headers: authHeaders(),
         credentials: 'include',
@@ -1809,6 +2158,35 @@ function useTraceabilityModule(ctx) {
         const items = json.data || json.items || [];
         traceResults.value = items;
         traceTotal.value = json.total || items.length;
+
+        // Client-side aggregation fallback if soCatalogList is empty
+        if (soCatalogList.value.length === 0 && items.length > 0) {
+          const map = new Map();
+          for (const d of items) {
+            const so = d.soNumber || d.so_number || 'UNKNOWN_SO';
+            if (!map.has(so)) {
+              map.set(so, {
+                soNumber: so,
+                itemCode: d.itemCode || d.item_code || '—',
+                sku: d.sku || '—',
+                hwVer: d.hwVer || d.hw_ver || '—',
+                fwVer: d.fwVer || d.fw_ver || '—',
+                totalDevices: 0,
+                passCount: 0,
+                failCount: 0,
+                passRate: 0,
+                latestFinishTime: d.timeFinish || d.time_finish || d.createdAt,
+              });
+            }
+            const entry = map.get(so);
+            entry.totalDevices++;
+            if (isTestPassed(d.result)) entry.passCount++;
+            else entry.failCount++;
+            entry.passRate = Math.round((entry.passCount / entry.totalDevices) * 100);
+          }
+          soCatalogList.value = Array.from(map.values());
+        }
+
         if (json.metrics) {
           traceMetrics.value = {
             totalTests: json.metrics.totalTests || items.length,
@@ -1833,15 +2211,20 @@ function useTraceabilityModule(ctx) {
           };
         }
 
-        // Auto-select first device if none selected or previous selection no longer in list
-        if (items.length > 0) {
-          const match = selectedDeviceDetails.value && items.find(r =>
-            (r.serialNumber || r.serial_number) === (selectedDeviceDetails.value.serial_number || selectedDeviceDetails.value.generalInfo?.serialNumber)
-          );
-          if (!match) {
-            selectDeviceForInspection(items[0]);
-          }
+        // Auto-select first SO in catalog or maintain selection
+        if (soCatalogList.value.length > 0) {
+          const found = soCatalogList.value.find(s => s.soNumber === selectedSoNumber.value);
+          const targetSo = found ? found.soNumber : soCatalogList.value[0].soNumber;
+          await selectSoRow({ soNumber: targetSo });
+        } else {
+          selectedSoNumber.value = '';
+          soDevicesList.value = [];
         }
+
+        Vue.nextTick(() => {
+          initCatalogTabulator();
+          initDevicesTabulator();
+        });
       } else {
         const err = await res.json().catch(() => ({}));
         showToast(err.message || 'Failed to query test_result from PostgreSQL', 'error');
@@ -1855,6 +2238,8 @@ function useTraceabilityModule(ctx) {
   };
 
   const resetTraceFilters = () => {
+    traceFilterTarget.value = 'soNumber';
+    traceFilterValue.value = '';
     traceFilters.value = {
       search: '',
       soNumber: '',
@@ -2035,9 +2420,24 @@ function useTraceabilityModule(ctx) {
   const formatTraceDate = (val) => {
     if (!val) return '—';
     try {
-      const d = new Date(val);
+      let d;
+      if (typeof val === 'number') {
+        d = new Date(val < 1e11 ? val * 1000 : val);
+      } else if (typeof val === 'string' && /^\d+$/.test(val.trim())) {
+        const num = Number(val.trim());
+        d = new Date(num < 1e11 ? num * 1000 : num);
+      } else {
+        d = new Date(val);
+      }
       if (isNaN(d.getTime())) return String(val);
-      return d.toLocaleDateString() + ' ' + d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      const pad = (n) => String(n).padStart(2, '0');
+      const y = d.getFullYear();
+      const m = pad(d.getMonth() + 1);
+      const day = pad(d.getDate());
+      const hh = pad(d.getHours());
+      const mm = pad(d.getMinutes());
+      const ss = pad(d.getSeconds());
+      return y + '-' + m + '-' + day + ' ' + hh + ':' + mm + ':' + ss;
     } catch (e) {
       return String(val);
     }
@@ -2062,6 +2462,15 @@ function useTraceabilityModule(ctx) {
     }
   }, { immediate: true });
 
+  watch(() => activeTraceTab.value, (newTab) => {
+    if (newTab === 'test_results') {
+      Vue.nextTick(() => {
+        initCatalogTabulator();
+        initDevicesTabulator();
+      });
+    }
+  });
+
   return {
     activeTraceTab,
     traceLoading,
@@ -2069,6 +2478,21 @@ function useTraceabilityModule(ctx) {
     traceTotal,
     traceMetrics,
     traceFilters,
+    traceFilterTarget,
+    traceFilterValue,
+    getFilterPlaceholder,
+    getFilterTargetLabel,
+    onFilterTargetChange,
+    applyTraceFilter,
+    soCatalogList,
+    selectedSoNumber,
+    soDevicesList,
+    loadingSoDevices,
+    selectSoRow,
+    fetchDevicesForSelectedSo,
+    exportSelectedSoCsv,
+    initCatalogTabulator,
+    initDevicesTabulator,
     selectedTraceItem,
     showTraceDetailModal,
     selectedDeviceDetails,

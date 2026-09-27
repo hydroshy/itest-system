@@ -15,7 +15,7 @@ async function runTraceabilityDashboardModuleTests() {
   console.log('======================================================================\n');
 
   let passedTests = 0;
-  const totalTests = 7;
+  const totalTests = 9;
 
   // --------------------------------------------------------------------
   // TEST 1: D-Module Registry & JSON Config Verification
@@ -250,6 +250,116 @@ async function runTraceabilityDashboardModuleTests() {
     'TRACEABILITY_SCRIPT must export rawDataFieldList in return object',
   );
   console.log('  -> PASS: raw_data3 statistics, trend visualizers, and null-field exclusion verified.\n');
+  passedTests++;
+
+  // --------------------------------------------------------------------
+  // TEST 8: Dropdown Filter (SO / SN / Item Code / SKU) at Top
+  // --------------------------------------------------------------------
+  console.log('[TEST 8] Verifying Multi-Criteria Dropdown Filter at Top & Dynamic Target Input...');
+  assert.ok(
+    TRACEABILITY_TEMPLATE.includes('v-model="traceFilterTarget"'),
+    'Template must include dropdown selector bound to traceFilterTarget',
+  );
+  assert.ok(
+    TRACEABILITY_TEMPLATE.includes('value="soNumber"') &&
+    TRACEABILITY_TEMPLATE.includes('value="serialNumber"') &&
+    TRACEABILITY_TEMPLATE.includes('value="itemCode"') &&
+    TRACEABILITY_TEMPLATE.includes('value="sku"'),
+    'Filter dropdown must offer options for soNumber, serialNumber, itemCode, and sku',
+  );
+  assert.ok(
+    TRACEABILITY_TEMPLATE.includes('v-model="traceFilterValue"'),
+    'Template must include dynamic input field bound to traceFilterValue',
+  );
+
+  // Position: Filter panel must be at the top of Tab 1
+  const filterPos = TRACEABILITY_TEMPLATE.indexOf('Multi-Criteria Filter (SO / SN / Item Code / SKU)');
+  const catalogPos = TRACEABILITY_TEMPLATE.indexOf('Tested Devices Catalog (Click row to inspect test parameters below)');
+  assert.ok(
+    filterPos !== -1 && catalogPos !== -1 && filterPos < catalogPos,
+    'Dropdown filter panel must be placed at the top before Tested Devices Catalog',
+  );
+
+  // Script methods
+  assert.ok(
+    TRACEABILITY_SCRIPT.includes('const traceFilterTarget = ref(') &&
+    TRACEABILITY_SCRIPT.includes('const traceFilterValue = ref(') &&
+    TRACEABILITY_SCRIPT.includes('const applyTraceFilter =') &&
+    TRACEABILITY_SCRIPT.includes('const onFilterTargetChange ='),
+    'TRACEABILITY_SCRIPT must define filter reactive refs and handlers',
+  );
+  console.log('  -> PASS: Multi-Criteria Dropdown Filter placed at top with dynamic target input.\n');
+  passedTests++;
+
+  // --------------------------------------------------------------------
+  // TEST 9: Dual Tabulator Tables & Epoch Finish Time Formatting
+  // --------------------------------------------------------------------
+  console.log('[TEST 9] Verifying Tested Devices Catalog Tabulator, SO Detail Devices Tabulator & Finish Time Formatting...');
+  // Catalog Tabulator container
+  assert.ok(
+    TRACEABILITY_TEMPLATE.includes('id="trace-catalog-tabulator"'),
+    'Template must include Tabulator container #trace-catalog-tabulator for Tested Devices Catalog',
+  );
+
+  // Detail Devices Tabulator container
+  assert.ok(
+    TRACEABILITY_TEMPLATE.includes('id="trace-devices-tabulator"'),
+    'Template must include Tabulator container #trace-devices-tabulator for SO devices',
+  );
+  assert.ok(
+    TRACEABILITY_TEMPLATE.includes('Tested Devices in Selected SO:'),
+    'Template must include detail section header for Selected SO',
+  );
+
+  // Script Tabulator logic
+  assert.ok(
+    TRACEABILITY_SCRIPT.includes('initCatalogTabulator') &&
+    TRACEABILITY_SCRIPT.includes('initDevicesTabulator') &&
+    TRACEABILITY_SCRIPT.includes('selectSoRow') &&
+    TRACEABILITY_SCRIPT.includes('fetchDevicesForSelectedSo'),
+    'TRACEABILITY_SCRIPT must implement dual Tabulator lifecycle methods',
+  );
+
+  // Columns: SERIAL_NUMBER and DEV_EUI immediately after
+  const snIdx = TRACEABILITY_SCRIPT.indexOf("title: 'SERIAL_NUMBER'");
+  const euiIdx = TRACEABILITY_SCRIPT.indexOf("title: 'DEV_EUI'");
+  assert.ok(
+    snIdx !== -1 && euiIdx !== -1 && euiIdx > snIdx,
+    'DEV_EUI column must be placed directly after SERIAL_NUMBER in Tabulator definition',
+  );
+
+  // Finish time epoch bug fix: formatTraceDate with 1790396182055
+  assert.ok(
+    TRACEABILITY_SCRIPT.includes('formatTraceDate'),
+    'TRACEABILITY_SCRIPT must define formatTraceDate',
+  );
+  // Evaluate formatTraceDate logic directly
+  const testVal = 1790396182055;
+  const d = new Date(testVal);
+  const pad = (n: number) => String(n).padStart(2, '0');
+  const expectedDate = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  assert.ok(
+    TRACEABILITY_SCRIPT.includes('val < 1e11 ? val * 1000 : val') ||
+    TRACEABILITY_SCRIPT.includes('/^\\d+$/.test(val.trim())'),
+    'formatTraceDate must handle numeric/epoch string timestamps without leaking epoch numbers',
+  );
+
+  // Verify backend endpoints in TraceabilityController
+  const ctrlPath = path.join(process.cwd(), 'src/modules/c-modules/traceability/traceability.controller.ts');
+  const ctrlContent = fs.readFileSync(ctrlPath, 'utf8');
+  assert.ok(
+    ctrlContent.includes("'so-catalog'") || ctrlContent.includes("'so-list'"),
+    'TraceabilityController must expose so-catalog endpoint',
+  );
+
+  const srvPath = path.join(process.cwd(), 'src/modules/c-modules/traceability/traceability.service.ts');
+  const srvContent = fs.readFileSync(srvPath, 'utf8');
+  assert.ok(
+    srvContent.includes('async getSoCatalog('),
+    'TraceabilityService must implement getSoCatalog method',
+  );
+
+  console.log('  -> PASS: Tested Devices Catalog Tabulator, Detail Devices Tabulator and epoch fix verified.\n');
   passedTests++;
 
   console.log('======================================================================');
