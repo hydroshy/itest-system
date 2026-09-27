@@ -205,7 +205,7 @@ export const TRACEABILITY_TEMPLATE = `
                     <tr>
                       <th class="py-3 px-3 w-10 text-center">#</th>
                       <th class="py-3 px-3 font-mono">Test ID</th>
-                      <th class="py-3 px-3">Test Time</th>
+                      <th class="py-3 px-3 font-mono">Finish Time</th>
                       <th class="py-3 px-3 font-mono">SO Number</th>
                       <th class="py-3 px-3 font-mono">Item Code</th>
                       <th class="py-3 px-3 font-mono">SKU</th>
@@ -251,7 +251,7 @@ export const TRACEABILITY_TEMPLATE = `
                         </span>
                       </td>
                       <td class="py-3 px-3 text-slate-300 whitespace-nowrap text-[11px] font-mono">
-                        {{ formatDateTime(item.test_time) }}
+                        {{ formatDateTime(item.finish_time || item.time_finish || item.timeFinish || item.test_time) }}
                       </td>
                       <td class="py-3 px-3 font-mono text-amber-300 font-semibold">
                         {{ item.so_number || '—' }}
@@ -381,8 +381,8 @@ export const TRACEABILITY_TEMPLATE = `
                     <div class="text-slate-300 mt-0.5">{{ deviceDetails.test_result?.duration_time || '00:30:00' }} ({{ deviceDetails.test_result?.test_station || 'STATION-01' }})</div>
                   </div>
                   <div>
-                    <div class="text-[10px] uppercase font-bold text-slate-500">Time Finish</div>
-                    <div class="text-slate-400 mt-0.5 text-[11px]">{{ formatDateTime(deviceDetails.test_result?.time_finish) }}</div>
+                    <div class="text-[10px] uppercase font-bold text-slate-500">Finish Time</div>
+                    <div class="text-slate-300 mt-0.5 text-[11px] font-mono">{{ formatDateTime(deviceDetails.finish_time || deviceDetails.time_finish || deviceDetails.test_result?.time_finish || deviceDetails.test_result?.finish_time) }}</div>
                   </div>
                 </div>
 
@@ -431,43 +431,262 @@ export const TRACEABILITY_TEMPLATE = `
                   </div>
                 </div>
 
-                <!-- B1. raw_data3 Telemetry Statistics (Min / Avg / Max) -->
-                <div v-if="rawDataFieldList && rawDataFieldList.length > 0" class="p-3.5 rounded-xl bg-slate-950/70 border border-slate-800 space-y-2">
-                  <div class="flex items-center justify-between pb-1.5 border-b border-slate-800/80">
+                <!-- B1. Raw Data 3 Telemetry Statistics (Separated Field Groups: General Info & Sensor Params 1-4) -->
+                <!-- Cột là Field Data, Hàng là MIN, AVG, MAX -->
+                <div class="space-y-4">
+                  <div class="flex items-center justify-between pb-1 border-b border-slate-800">
                     <span class="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
-                      <i class="fa-solid fa-chart-simple text-emerald-400"></i>
-                      <span>Raw Data 3 Field Telemetry Statistics (Min / Avg / Max)</span>
+                      <i class="fa-solid fa-table-cells text-emerald-400"></i>
+                      <span>Raw Data 3 Field Telemetry Statistics (Transposed: Rows = MIN, AVG, MAX)</span>
                     </span>
                     <span class="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-300 border border-emerald-500/20">
-                      {{ rawDataFieldList.length }} Active Fields
+                      5 Parameter Groups
                     </span>
                   </div>
 
-                  <div class="overflow-x-auto">
-                    <table class="w-full text-left text-xs font-mono">
-                      <thead class="bg-slate-900/90 text-slate-400 text-[10px] uppercase font-bold border-b border-slate-800">
-                        <tr>
-                          <th class="py-2 px-2.5">Field</th>
-                          <th class="py-2 px-2.5">Data Channel</th>
-                          <th class="py-2 px-2.5 text-right">Min</th>
-                          <th class="py-2 px-2.5 text-right text-emerald-400 font-bold">Average</th>
-                          <th class="py-2 px-2.5 text-right">Max</th>
-                          <th class="py-2 px-2.5 text-right text-cyan-300 font-bold">Latest</th>
-                          <th class="py-2 px-2.5 text-right text-slate-400">Samples</th>
-                        </tr>
-                      </thead>
-                      <tbody class="divide-y divide-slate-800/60 text-[11px]">
-                        <tr v-for="item in rawDataFieldList" :key="item.key" class="hover:bg-slate-900/50 transition">
-                          <td class="py-1.5 px-2.5 font-bold uppercase" :class="item.colors.text">{{ item.key }}</td>
-                          <td class="py-1.5 px-2.5 text-slate-200 font-medium">{{ item.label }}</td>
-                          <td class="py-1.5 px-2.5 text-right text-cyan-300">{{ formatStatNum(item.min) }}</td>
-                          <td class="py-1.5 px-2.5 text-right text-emerald-400 font-extrabold">{{ formatStatNum(item.avg) }}</td>
-                          <td class="py-1.5 px-2.5 text-right text-amber-300">{{ formatStatNum(item.max) }}</td>
-                          <td class="py-1.5 px-2.5 text-right text-white font-bold">{{ formatStatNum(item.latest) }}</td>
-                          <td class="py-1.5 px-2.5 text-right text-slate-400 font-mono">{{ item.count }} pkts</td>
-                        </tr>
-                      </tbody>
-                    </table>
+                  <!-- 1. General Information (COM1, COM2, P1..P3) -->
+                  <div class="glass-card rounded-xl overflow-hidden border border-slate-800">
+                    <div class="px-4 py-2.5 bg-slate-950/90 border-b border-slate-800 flex items-center justify-between">
+                      <span class="text-xs font-bold uppercase tracking-wider text-slate-300 flex items-center gap-2">
+                        <i class="fa-solid fa-bolt text-amber-400"></i> General Information (COM1, COM2, P1..P3)
+                      </span>
+                      <span class="text-[10px] font-mono text-slate-500">Power & Protocol Headers</span>
+                    </div>
+                    <div class="overflow-x-auto">
+                      <table class="w-full text-left text-xs font-mono">
+                        <thead class="bg-slate-950/60 text-slate-400 text-[10px] uppercase border-b border-slate-800">
+                          <tr>
+                            <th class="py-2.5 px-3 text-slate-400 font-bold uppercase tracking-wider w-28">THỐNG KÊ</th>
+                            <th v-for="col in (deviceDetails.general_info || [])" :key="col.field" class="py-2.5 px-3 text-right">
+                              <div class="font-extrabold text-slate-200">{{ col.field.toUpperCase() }}</div>
+                              <div class="text-[9px] font-sans font-normal text-slate-400 truncate max-w-[130px]" :title="col.label">{{ col.label }}</div>
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-800/60 text-[11px]">
+                          <tr class="hover:bg-slate-800/20">
+                            <td class="py-2 px-3 font-bold text-cyan-400 whitespace-nowrap">
+                              <span class="px-2 py-0.5 rounded bg-cyan-500/10 border border-cyan-500/20 text-[10px] font-black">MIN</span>
+                            </td>
+                            <td v-for="col in (deviceDetails.general_info || [])" :key="'min-' + col.field" class="py-2 px-3 text-right text-cyan-300 font-semibold">
+                              {{ formatStatNum(col.min) }}
+                            </td>
+                          </tr>
+                          <tr class="hover:bg-slate-800/20">
+                            <td class="py-2 px-3 font-bold text-emerald-400 whitespace-nowrap">
+                              <span class="px-2 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/20 text-[10px] font-black">AVG</span>
+                            </td>
+                            <td v-for="col in (deviceDetails.general_info || [])" :key="'avg-' + col.field" class="py-2 px-3 text-right text-emerald-400 font-extrabold">
+                              {{ formatStatNum(col.avg) }}
+                            </td>
+                          </tr>
+                          <tr class="hover:bg-slate-800/20">
+                            <td class="py-2 px-3 font-bold text-amber-400 whitespace-nowrap">
+                              <span class="px-2 py-0.5 rounded bg-amber-500/10 border border-amber-500/20 text-[10px] font-black">MAX</span>
+                            </td>
+                            <td v-for="col in (deviceDetails.general_info || [])" :key="'max-' + col.field" class="py-2 px-3 text-right text-amber-300 font-semibold">
+                              {{ formatStatNum(col.max) }}
+                            </td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+
+                  <!-- 2. Sensor Parameters 1 (P4 .. P11) -->
+                  <div class="glass-card rounded-xl overflow-hidden border border-slate-800">
+                    <div class="px-4 py-2.5 bg-slate-950/90 border-b border-slate-800 flex items-center justify-between">
+                      <span class="text-xs font-bold uppercase tracking-wider text-slate-300 flex items-center gap-2">
+                        <i class="fa-solid fa-gauge text-cyan-400"></i> Sensor Parameters 1 (P4 .. P11)
+                      </span>
+                      <span class="text-[10px] font-mono text-cyan-400">Primary Sensors</span>
+                    </div>
+                    <div class="overflow-x-auto">
+                      <table class="w-full text-left text-xs font-mono">
+                        <thead class="bg-slate-950/60 text-slate-400 text-[10px] uppercase border-b border-slate-800">
+                          <tr>
+                            <th class="py-2.5 px-3 text-slate-400 font-bold uppercase tracking-wider w-28">THỐNG KÊ</th>
+                            <th v-for="col in (deviceDetails.params_1 || [])" :key="col.field" class="py-2.5 px-3 text-right">
+                              <div class="font-extrabold text-slate-200">{{ col.field.toUpperCase() }}</div>
+                              <div class="text-[9px] font-sans font-normal text-slate-400 truncate max-w-[130px]" :title="col.label">{{ col.label }}</div>
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-800/60 text-[11px]">
+                          <tr class="hover:bg-slate-800/20">
+                            <td class="py-2 px-3 font-bold text-cyan-400 whitespace-nowrap">
+                              <span class="px-2 py-0.5 rounded bg-cyan-500/10 border border-cyan-500/20 text-[10px] font-black">MIN</span>
+                            </td>
+                            <td v-for="col in (deviceDetails.params_1 || [])" :key="'min-' + col.field" class="py-2 px-3 text-right text-cyan-300 font-semibold">
+                              {{ formatStatNum(col.min) }}
+                            </td>
+                          </tr>
+                          <tr class="hover:bg-slate-800/20">
+                            <td class="py-2 px-3 font-bold text-emerald-400 whitespace-nowrap">
+                              <span class="px-2 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/20 text-[10px] font-black">AVG</span>
+                            </td>
+                            <td v-for="col in (deviceDetails.params_1 || [])" :key="'avg-' + col.field" class="py-2 px-3 text-right text-emerald-400 font-extrabold">
+                              {{ formatStatNum(col.avg) }}
+                            </td>
+                          </tr>
+                          <tr class="hover:bg-slate-800/20">
+                            <td class="py-2 px-3 font-bold text-amber-400 whitespace-nowrap">
+                              <span class="px-2 py-0.5 rounded bg-amber-500/10 border border-amber-500/20 text-[10px] font-black">MAX</span>
+                            </td>
+                            <td v-for="col in (deviceDetails.params_1 || [])" :key="'max-' + col.field" class="py-2 px-3 text-right text-amber-300 font-semibold">
+                              {{ formatStatNum(col.max) }}
+                            </td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+
+                  <!-- 3. Sensor Parameters 2 (P12 .. P19) -->
+                  <div class="glass-card rounded-xl overflow-hidden border border-slate-800">
+                    <div class="px-4 py-2.5 bg-slate-950/90 border-b border-slate-800 flex items-center justify-between">
+                      <span class="text-xs font-bold uppercase tracking-wider text-slate-300 flex items-center gap-2">
+                        <i class="fa-solid fa-wave-square text-sky-400"></i> Sensor Parameters 2 (P12 .. P19)
+                      </span>
+                      <span class="text-[10px] font-mono text-sky-400">Secondary Telemetry</span>
+                    </div>
+                    <div class="overflow-x-auto">
+                      <table class="w-full text-left text-xs font-mono">
+                        <thead class="bg-slate-950/60 text-slate-400 text-[10px] uppercase border-b border-slate-800">
+                          <tr>
+                            <th class="py-2.5 px-3 text-slate-400 font-bold uppercase tracking-wider w-28">THỐNG KÊ</th>
+                            <th v-for="col in (deviceDetails.params_2 || [])" :key="col.field" class="py-2.5 px-3 text-right">
+                              <div class="font-extrabold text-slate-200">{{ col.field.toUpperCase() }}</div>
+                              <div class="text-[9px] font-sans font-normal text-slate-400 truncate max-w-[130px]" :title="col.label">{{ col.label }}</div>
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-800/60 text-[11px]">
+                          <tr class="hover:bg-slate-800/20">
+                            <td class="py-2 px-3 font-bold text-cyan-400 whitespace-nowrap">
+                              <span class="px-2 py-0.5 rounded bg-cyan-500/10 border border-cyan-500/20 text-[10px] font-black">MIN</span>
+                            </td>
+                            <td v-for="col in (deviceDetails.params_2 || [])" :key="'min-' + col.field" class="py-2 px-3 text-right text-cyan-300 font-semibold">
+                              {{ formatStatNum(col.min) }}
+                            </td>
+                          </tr>
+                          <tr class="hover:bg-slate-800/20">
+                            <td class="py-2 px-3 font-bold text-emerald-400 whitespace-nowrap">
+                              <span class="px-2 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/20 text-[10px] font-black">AVG</span>
+                            </td>
+                            <td v-for="col in (deviceDetails.params_2 || [])" :key="'avg-' + col.field" class="py-2 px-3 text-right text-emerald-400 font-extrabold">
+                              {{ formatStatNum(col.avg) }}
+                            </td>
+                          </tr>
+                          <tr class="hover:bg-slate-800/20">
+                            <td class="py-2 px-3 font-bold text-amber-400 whitespace-nowrap">
+                              <span class="px-2 py-0.5 rounded bg-amber-500/10 border border-amber-500/20 text-[10px] font-black">MAX</span>
+                            </td>
+                            <td v-for="col in (deviceDetails.params_2 || [])" :key="'max-' + col.field" class="py-2 px-3 text-right text-amber-300 font-semibold">
+                              {{ formatStatNum(col.max) }}
+                            </td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+
+                  <!-- 4. Sensor Parameters 3 (P20 .. P27) -->
+                  <div class="glass-card rounded-xl overflow-hidden border border-slate-800">
+                    <div class="px-4 py-2.5 bg-slate-950/90 border-b border-slate-800 flex items-center justify-between">
+                      <span class="text-xs font-bold uppercase tracking-wider text-slate-300 flex items-center gap-2">
+                        <i class="fa-solid fa-cubes text-purple-400"></i> Sensor Parameters 3 (P20 .. P27)
+                      </span>
+                      <span class="text-[10px] font-mono text-purple-400">Auxiliary Channels</span>
+                    </div>
+                    <div class="overflow-x-auto">
+                      <table class="w-full text-left text-xs font-mono">
+                        <thead class="bg-slate-950/60 text-slate-400 text-[10px] uppercase border-b border-slate-800">
+                          <tr>
+                            <th class="py-2.5 px-3 text-slate-400 font-bold uppercase tracking-wider w-28">THỐNG KÊ</th>
+                            <th v-for="col in (deviceDetails.params_3 || [])" :key="col.field" class="py-2.5 px-3 text-right">
+                              <div class="font-extrabold text-slate-200">{{ col.field.toUpperCase() }}</div>
+                              <div class="text-[9px] font-sans font-normal text-slate-400 truncate max-w-[130px]" :title="col.label">{{ col.label }}</div>
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-800/60 text-[11px]">
+                          <tr class="hover:bg-slate-800/20">
+                            <td class="py-2 px-3 font-bold text-cyan-400 whitespace-nowrap">
+                              <span class="px-2 py-0.5 rounded bg-cyan-500/10 border border-cyan-500/20 text-[10px] font-black">MIN</span>
+                            </td>
+                            <td v-for="col in (deviceDetails.params_3 || [])" :key="'min-' + col.field" class="py-2 px-3 text-right text-cyan-300 font-semibold">
+                              {{ formatStatNum(col.min) }}
+                            </td>
+                          </tr>
+                          <tr class="hover:bg-slate-800/20">
+                            <td class="py-2 px-3 font-bold text-emerald-400 whitespace-nowrap">
+                              <span class="px-2 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/20 text-[10px] font-black">AVG</span>
+                            </td>
+                            <td v-for="col in (deviceDetails.params_3 || [])" :key="'avg-' + col.field" class="py-2 px-3 text-right text-emerald-400 font-extrabold">
+                              {{ formatStatNum(col.avg) }}
+                            </td>
+                          </tr>
+                          <tr class="hover:bg-slate-800/20">
+                            <td class="py-2 px-3 font-bold text-amber-400 whitespace-nowrap">
+                              <span class="px-2 py-0.5 rounded bg-amber-500/10 border border-amber-500/20 text-[10px] font-black">MAX</span>
+                            </td>
+                            <td v-for="col in (deviceDetails.params_3 || [])" :key="'max-' + col.field" class="py-2 px-3 text-right text-amber-300 font-semibold">
+                              {{ formatStatNum(col.max) }}
+                            </td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+
+                  <!-- 5. Sensor Parameters 4 (P28 .. P35) -->
+                  <div class="glass-card rounded-xl overflow-hidden border border-slate-800">
+                    <div class="px-4 py-2.5 bg-slate-950/90 border-b border-slate-800 flex items-center justify-between">
+                      <span class="text-xs font-bold uppercase tracking-wider text-slate-300 flex items-center gap-2">
+                        <i class="fa-solid fa-cubes text-purple-400"></i> Sensor Parameters 4 (P28 .. P35)
+                      </span>
+                      <span class="text-[10px] font-mono text-purple-400">Auxiliary Channels</span>
+                    </div>
+                    <div class="overflow-x-auto">
+                      <table class="w-full text-left text-xs font-mono">
+                        <thead class="bg-slate-950/60 text-slate-400 text-[10px] uppercase border-b border-slate-800">
+                          <tr>
+                            <th class="py-2.5 px-3 text-slate-400 font-bold uppercase tracking-wider w-28">THỐNG KÊ</th>
+                            <th v-for="col in (deviceDetails.params_4 || [])" :key="col.field" class="py-2.5 px-3 text-right">
+                              <div class="font-extrabold text-slate-200">{{ col.field.toUpperCase() }}</div>
+                              <div class="text-[9px] font-sans font-normal text-slate-400 truncate max-w-[130px]" :title="col.label">{{ col.label }}</div>
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-800/60 text-[11px]">
+                          <tr class="hover:bg-slate-800/20">
+                            <td class="py-2 px-3 font-bold text-cyan-400 whitespace-nowrap">
+                              <span class="px-2 py-0.5 rounded bg-cyan-500/10 border border-cyan-500/20 text-[10px] font-black">MIN</span>
+                            </td>
+                            <td v-for="col in (deviceDetails.params_4 || [])" :key="'min-' + col.field" class="py-2 px-3 text-right text-cyan-300 font-semibold">
+                              {{ formatStatNum(col.min) }}
+                            </td>
+                          </tr>
+                          <tr class="hover:bg-slate-800/20">
+                            <td class="py-2 px-3 font-bold text-emerald-400 whitespace-nowrap">
+                              <span class="px-2 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/20 text-[10px] font-black">AVG</span>
+                            </td>
+                            <td v-for="col in (deviceDetails.params_4 || [])" :key="'avg-' + col.field" class="py-2 px-3 text-right text-emerald-400 font-extrabold">
+                              {{ formatStatNum(col.avg) }}
+                            </td>
+                          </tr>
+                          <tr class="hover:bg-slate-800/20">
+                            <td class="py-2 px-3 font-bold text-amber-400 whitespace-nowrap">
+                              <span class="px-2 py-0.5 rounded bg-amber-500/10 border border-amber-500/20 text-[10px] font-black">MAX</span>
+                            </td>
+                            <td v-for="col in (deviceDetails.params_4 || [])" :key="'max-' + col.field" class="py-2 px-3 text-right text-amber-300 font-semibold">
+                              {{ formatStatNum(col.max) }}
+                            </td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
                   </div>
                 </div>
 
@@ -591,121 +810,216 @@ export const TRACEABILITY_TEMPLATE = `
                   </div>
                 </div>
 
-                <!-- Parameters Tables Grid -->
-                <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                  <!-- General Info -->
-                  <div class="p-3.5 rounded-xl bg-slate-950/70 border border-slate-800 space-y-2">
-                    <div class="flex items-center justify-between pb-1 border-b border-slate-800/80">
-                      <span class="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
-                        <i class="fa-solid fa-bolt text-amber-400"></i> General Information (COM1, COM2, P1..P3)
+                <!-- Enhanced Telemetry Trend Visualizer (Oscilloscope-style Grid & Y-Axis Scale) -->
+                <div class="glass-card rounded-xl border border-slate-800 p-4 space-y-4">
+                  <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div>
+                      <span class="text-xs font-extrabold uppercase tracking-wider text-slate-300 flex items-center gap-2">
+                        <i class="fa-solid fa-chart-line text-emerald-400"></i>
+                        <span>Telemetry Trend Visualizer (raw_data3 Grid Chart)</span>
                       </span>
+                      <p class="text-[11px] text-slate-400 mt-0.5">
+                        Oscilloscope-style grid view with cushioned Y-axis bounds (±15% margin), interval tick labels, and packet timestamps.
+                      </p>
                     </div>
-                    <div class="overflow-x-auto">
-                      <table class="w-full text-left text-xs font-mono">
-                        <thead class="bg-slate-900 text-slate-400 text-[10px] uppercase font-bold border-b border-slate-800">
-                          <tr>
-                            <th class="py-2 px-2.5">Field</th>
-                            <th class="py-2 px-2.5 text-right">Min</th>
-                            <th class="py-2 px-2.5 text-right">Max</th>
-                            <th class="py-2 px-2.5 text-right text-emerald-400 font-bold">Average</th>
-                          </tr>
-                        </thead>
-                        <tbody class="divide-y divide-slate-800/60 text-[11px]">
-                          <tr v-for="row in deviceDetails.general_info" :key="row.field" class="hover:bg-slate-900/40">
-                            <td class="py-1.5 px-2.5 font-semibold text-slate-200">{{ row.label }}</td>
-                            <td class="py-1.5 px-2.5 text-right text-slate-300">{{ formatStatNum(row.min) }}</td>
-                            <td class="py-1.5 px-2.5 text-right text-slate-300">{{ formatStatNum(row.max) }}</td>
-                            <td class="py-1.5 px-2.5 text-right text-emerald-400 font-bold">{{ formatStatNum(row.avg) }}</td>
-                          </tr>
-                        </tbody>
-                      </table>
+                    <div class="flex items-center gap-3">
+                      <span class="text-[10px] uppercase font-bold text-slate-400">Channel Field:</span>
+                      <select
+                        v-model="selectedTrendField"
+                        class="px-3 py-1.5 bg-slate-950/90 border border-slate-700 rounded-lg text-xs text-white focus:outline-none focus:border-emerald-500 font-mono cursor-pointer"
+                      >
+                        <option v-for="f in availableTrendFields" :key="f.key" :value="f.key">
+                          {{ f.key.toUpperCase() }} — {{ f.label }}
+                        </option>
+                      </select>
                     </div>
                   </div>
 
-                  <!-- Parameters 1 -->
-                  <div class="p-3.5 rounded-xl bg-slate-950/70 border border-slate-800 space-y-2">
-                    <div class="flex items-center justify-between pb-1 border-b border-slate-800/80">
-                      <span class="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
-                        <i class="fa-solid fa-gauge text-cyan-400"></i> Parameters 1 (P4 .. P11 Primary Sensors)
-                      </span>
+                  <!-- KPI Metric Strip for Selected Field -->
+                  <div v-if="selectedTrendChartData" class="grid grid-cols-2 sm:grid-cols-5 gap-2 font-mono text-xs">
+                    <div class="p-2 rounded-lg bg-slate-950/70 border border-slate-800 flex items-center justify-between">
+                      <span class="text-slate-500 text-[10px] uppercase font-sans">Min Value</span>
+                      <strong class="text-cyan-300 font-bold">{{ formatStatNum(selectedTrendChartData.rawMin) }}</strong>
                     </div>
-                    <div class="overflow-x-auto">
-                      <table class="w-full text-left text-xs font-mono">
-                        <thead class="bg-slate-900 text-slate-400 text-[10px] uppercase font-bold border-b border-slate-800">
-                          <tr>
-                            <th class="py-2 px-2.5">Field</th>
-                            <th class="py-2 px-2.5 text-right">Min</th>
-                            <th class="py-2 px-2.5 text-right">Max</th>
-                            <th class="py-2 px-2.5 text-right text-cyan-300 font-bold">Average</th>
-                          </tr>
-                        </thead>
-                        <tbody class="divide-y divide-slate-800/60 text-[11px]">
-                          <tr v-for="row in deviceDetails.params_1" :key="row.field" class="hover:bg-slate-900/40">
-                            <td class="py-1.5 px-2.5 font-semibold text-slate-200">{{ row.label }}</td>
-                            <td class="py-1.5 px-2.5 text-right text-slate-300">{{ formatStatNum(row.min) }}</td>
-                            <td class="py-1.5 px-2.5 text-right text-slate-300">{{ formatStatNum(row.max) }}</td>
-                            <td class="py-1.5 px-2.5 text-right text-cyan-300 font-bold">{{ formatStatNum(row.avg) }}</td>
-                          </tr>
-                        </tbody>
-                      </table>
+                    <div class="p-2 rounded-lg bg-slate-950/70 border border-slate-800 flex items-center justify-between">
+                      <span class="text-slate-500 text-[10px] uppercase font-sans">Avg Value</span>
+                      <strong class="text-emerald-400 font-bold">{{ formatStatNum(selectedTrendChartData.rawAvg) }}</strong>
+                    </div>
+                    <div class="p-2 rounded-lg bg-slate-950/70 border border-slate-800 flex items-center justify-between">
+                      <span class="text-slate-500 text-[10px] uppercase font-sans">Max Value</span>
+                      <strong class="text-amber-300 font-bold">{{ formatStatNum(selectedTrendChartData.rawMax) }}</strong>
+                    </div>
+                    <div class="p-2 rounded-lg bg-slate-950/70 border border-slate-800 flex items-center justify-between">
+                      <span class="text-slate-500 text-[10px] uppercase font-sans">Latest</span>
+                      <strong class="text-white font-bold">{{ formatStatNum(selectedTrendChartData.latestVal) }}</strong>
+                    </div>
+                    <div class="p-2 rounded-lg bg-slate-950/70 border border-slate-800 flex items-center justify-between col-span-2 sm:col-span-1">
+                      <span class="text-slate-500 text-[10px] uppercase font-sans">Packets</span>
+                      <strong class="text-sky-300 font-bold">{{ selectedTrendChartData.count }} pkts</strong>
                     </div>
                   </div>
 
-                  <!-- Parameters 2 -->
-                  <div class="p-3.5 rounded-xl bg-slate-950/70 border border-slate-800 space-y-2">
-                    <div class="flex items-center justify-between pb-1 border-b border-slate-800/80">
-                      <span class="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
-                        <i class="fa-solid fa-wave-square text-sky-400"></i> Parameters 2 (P12 .. P19 Secondary Telemetry)
-                      </span>
-                    </div>
-                    <div class="overflow-x-auto">
-                      <table class="w-full text-left text-xs font-mono">
-                        <thead class="bg-slate-900 text-slate-400 text-[10px] uppercase font-bold border-b border-slate-800">
-                          <tr>
-                            <th class="py-2 px-2.5">Field</th>
-                            <th class="py-2 px-2.5 text-right">Min</th>
-                            <th class="py-2 px-2.5 text-right">Max</th>
-                            <th class="py-2 px-2.5 text-right text-sky-300 font-bold">Average</th>
-                          </tr>
-                        </thead>
-                        <tbody class="divide-y divide-slate-800/60 text-[11px]">
-                          <tr v-for="row in deviceDetails.params_2" :key="row.field" class="hover:bg-slate-900/40">
-                            <td class="py-1.5 px-2.5 font-semibold text-slate-200">{{ row.label }}</td>
-                            <td class="py-1.5 px-2.5 text-right text-slate-300">{{ formatStatNum(row.min) }}</td>
-                            <td class="py-1.5 px-2.5 text-right text-slate-300">{{ formatStatNum(row.max) }}</td>
-                            <td class="py-1.5 px-2.5 text-right text-sky-300 font-bold">{{ formatStatNum(row.avg) }}</td>
-                          </tr>
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
+                  <!-- SVG Trend Chart with Grid System and Y-Axis interval ticks -->
+                  <div class="w-full bg-slate-950/90 rounded-xl border border-slate-800 p-3 relative overflow-hidden">
+                    <div v-if="selectedTrendChartData && selectedTrendChartData.count > 0" class="w-full">
+                      <svg class="w-full h-64 overflow-visible" viewBox="0 0 820 240" preserveAspectRatio="none">
+                        <defs>
+                          <linearGradient id="trendAreaGradCP" x1="0%" y1="0%" x2="0%" y2="100%">
+                            <stop offset="0%" stop-color="#10b981" stop-opacity="0.30" />
+                            <stop offset="100%" stop-color="#10b981" stop-opacity="0.02" />
+                          </linearGradient>
+                        </defs>
 
-                  <!-- Parameters 3 & 4 -->
-                  <div class="p-3.5 rounded-xl bg-slate-950/70 border border-slate-800 space-y-2">
-                    <div class="flex items-center justify-between pb-1 border-b border-slate-800/80">
-                      <span class="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
-                        <i class="fa-solid fa-cubes text-purple-400"></i> Parameters 3 & 4 (P20 .. P35 Auxiliary Slots)
-                      </span>
+                        <!-- Grid Area Background -->
+                        <rect x="70" y="20" width="730" height="185" fill="#0b1120" rx="4" stroke="#1e293b" stroke-width="1" />
+
+                        <!-- Horizontal Dashed Grid Lines & Y-Axis Value Labels -->
+                        <g v-for="tick in selectedTrendChartData.yTicks" :key="'ytick-' + tick.ratio">
+                          <!-- Horizontal Grid Line -->
+                          <line
+                            x1="70"
+                            :y1="tick.y"
+                            x2="800"
+                            :y2="tick.y"
+                            stroke="#1e293b"
+                            stroke-width="1"
+                            stroke-dasharray="4,4"
+                          />
+                          <!-- Tick Mark on Y-Axis -->
+                          <line
+                            x1="65"
+                            :y1="tick.y"
+                            x2="70"
+                            :y2="tick.y"
+                            stroke="#475569"
+                            stroke-width="1.5"
+                          />
+                          <!-- Y-Axis Value Label -->
+                          <text
+                            x="60"
+                            :y="tick.y + 3.5"
+                            text-anchor="end"
+                            fill="#94a3b8"
+                            font-size="10"
+                            font-family="monospace"
+                            font-weight="600"
+                          >
+                            {{ tick.valFormatted }}
+                          </text>
+                        </g>
+
+                        <!-- Vertical Dashed Grid Lines & X-Axis Timestamp Labels -->
+                        <g v-for="(xtick, xIdx) in selectedTrendChartData.xTicks" :key="'xtick-' + xIdx">
+                          <!-- Vertical Grid Line -->
+                          <line
+                            :x1="xtick.x"
+                            y1="20"
+                            :x2="xtick.x"
+                            y2="205"
+                            stroke="#1e293b"
+                            stroke-width="1"
+                            stroke-dasharray="3,3"
+                          />
+                          <!-- Bottom Tick Mark -->
+                          <line
+                            :x1="xtick.x"
+                            y1="205"
+                            :x2="xtick.x"
+                            y2="210"
+                            stroke="#475569"
+                            stroke-width="1"
+                          />
+                          <!-- X-Axis Time Label -->
+                          <text
+                            :x="xtick.x"
+                            y="223"
+                            text-anchor="middle"
+                            fill="#64748b"
+                            font-size="9"
+                            font-family="monospace"
+                          >
+                            {{ xtick.label }}
+                          </text>
+                        </g>
+
+                        <!-- Average Reference Dashed Line -->
+                        <line
+                          x1="70"
+                          :y1="selectedTrendChartData.avgY"
+                          x2="800"
+                          :y2="selectedTrendChartData.avgY"
+                          stroke="#f59e0b"
+                          stroke-width="1.5"
+                          stroke-dasharray="6,3"
+                          stroke-opacity="0.8"
+                        />
+                        <text
+                          x="795"
+                          :y="selectedTrendChartData.avgY - 4"
+                          text-anchor="end"
+                          fill="#f59e0b"
+                          font-size="9"
+                          font-family="monospace"
+                          font-weight="bold"
+                        >
+                          AVG: {{ formatStatNum(selectedTrendChartData.rawAvg) }}
+                        </text>
+
+                        <!-- Shaded Polygon Area Under Curve -->
+                        <polygon
+                          :points="selectedTrendChartData.areaPolygonStr"
+                          fill="url(#trendAreaGradCP)"
+                        />
+
+                        <!-- Vector Curve Polyline -->
+                        <polyline
+                          fill="none"
+                          stroke="#10b981"
+                          stroke-width="2.5"
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                          :points="selectedTrendChartData.polylineStr"
+                        />
+
+                        <!-- Data Points (Circles with hover tooltips) -->
+                        <circle
+                          v-for="p in selectedTrendChartData.renderedPoints"
+                          :key="'pt-' + p.index"
+                          :cx="p.x"
+                          :cy="p.y"
+                          r="3.5"
+                          fill="#10b981"
+                          stroke="#0f172a"
+                          stroke-width="1.5"
+                          class="cursor-pointer hover:scale-150 transition-transform origin-center"
+                        >
+                          <title>Packet #{{ p.index }} | Time: {{ p.timeStr }} | Value: {{ p.valFormatted }}</title>
+                        </circle>
+                      </svg>
+
+                      <!-- Chart Legend & Boundary Note -->
+                      <div class="flex flex-wrap items-center justify-between text-[10px] font-mono text-slate-400 pt-2 px-1 border-t border-slate-800/80 mt-1">
+                        <div class="flex items-center gap-4">
+                          <span class="flex items-center gap-1.5">
+                            <span class="w-3 h-0.5 bg-emerald-500 rounded"></span>
+                            <strong class="text-white">{{ selectedTrendField.toUpperCase() }} Trend</strong>
+                          </span>
+                          <span class="flex items-center gap-1.5">
+                            <span class="w-3 h-0.5 bg-amber-500 border-dashed"></span>
+                            <span class="text-amber-400">Mean Level</span>
+                          </span>
+                          <span class="text-slate-500">
+                            (Y-Axis padded ±15% at bounds)
+                          </span>
+                        </div>
+                        <div class="text-slate-400">
+                          Span: <span class="text-cyan-300 font-bold">{{ formatStatNum(selectedTrendChartData.rawMin) }}</span> → <span class="text-amber-300 font-bold">{{ formatStatNum(selectedTrendChartData.rawMax) }}</span>
+                        </div>
+                      </div>
                     </div>
-                    <div class="overflow-x-auto">
-                      <table class="w-full text-left text-xs font-mono">
-                        <thead class="bg-slate-900 text-slate-400 text-[10px] uppercase font-bold border-b border-slate-800">
-                          <tr>
-                            <th class="py-2 px-2.5">Field</th>
-                            <th class="py-2 px-2.5 text-right">Min</th>
-                            <th class="py-2 px-2.5 text-right">Max</th>
-                            <th class="py-2 px-2.5 text-right text-purple-300 font-bold">Average</th>
-                          </tr>
-                        </thead>
-                        <tbody class="divide-y divide-slate-800/60 text-[11px]">
-                          <tr v-for="row in ((deviceDetails.params_3 || []).concat(deviceDetails.params_4 || []))" :key="row.field" class="hover:bg-slate-900/40">
-                            <td class="py-1.5 px-2.5 font-semibold text-slate-200">{{ row.label }}</td>
-                            <td class="py-1.5 px-2.5 text-right text-slate-300">{{ formatStatNum(row.min) }}</td>
-                            <td class="py-1.5 px-2.5 text-right text-slate-300">{{ formatStatNum(row.max) }}</td>
-                            <td class="py-1.5 px-2.5 text-right text-purple-300 font-bold">{{ formatStatNum(row.avg) }}</td>
-                          </tr>
-                        </tbody>
-                      </table>
+                    <div v-else class="py-16 text-center text-slate-500 text-xs">
+                      <i class="fa-solid fa-chart-line text-2xl text-slate-600 mb-2 block"></i>
+                      No telemetry data points available for {{ selectedTrendField.toUpperCase() }}.
                     </div>
                   </div>
                 </div>
@@ -849,7 +1163,7 @@ export const TRACEABILITY_TEMPLATE = `
 
             <!-- Device Summary Banner (If Loaded) -->
             <div v-else-if="deviceDetails" class="space-y-6">
-              <div class="glass-card rounded-xl p-5 border border-slate-800 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 bg-slate-900/60">
+              <div class="glass-card rounded-xl p-5 border border-slate-800 grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-4 bg-slate-900/60">
                 <div>
                   <div class="text-[10px] uppercase font-bold text-slate-500">Test ID</div>
                   <div class="text-xs font-mono font-bold text-sky-300 mt-0.5 truncate" :title="deviceDetails.test_id">{{ deviceDetails.test_id }}</div>
@@ -869,6 +1183,10 @@ export const TRACEABILITY_TEMPLATE = `
                 <div>
                   <div class="text-[10px] uppercase font-bold text-slate-500">Firmware</div>
                   <div class="text-xs font-mono text-slate-300 mt-0.5">v{{ deviceDetails.firmware_version || '1.0' }}</div>
+                </div>
+                <div>
+                  <div class="text-[10px] uppercase font-bold text-slate-500">Finish Time</div>
+                  <div class="text-xs font-mono text-slate-300 mt-0.5">{{ formatDateTime(deviceDetails.finish_time || deviceDetails.time_finish || deviceDetails.test_result?.time_finish || deviceDetails.test_result?.finish_time) }}</div>
                 </div>
                 <div>
                   <div class="text-[10px] uppercase font-bold text-slate-500">QA Status</div>
@@ -927,43 +1245,73 @@ export const TRACEABILITY_TEMPLATE = `
                 </div>
               </div>
 
-              <!-- Statistical Tables Grid (General Info & Sensor Params 1-4) -->
-              <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
-                <!-- General Info (COM1, COM2, P1, P2, P3) -->
+              <!-- Statistical Tables (Separated Field Groups: General Info & Sensor Params 1-4) -->
+              <!-- Cột là Field Data, Hàng là MIN, AVG, MAX -->
+              <div class="space-y-4">
+                <div class="flex items-center justify-between pb-1 border-b border-slate-800">
+                  <span class="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
+                    <i class="fa-solid fa-table-cells text-emerald-400"></i>
+                    <span>Sensor Telemetry Statistics (Transposed: Rows = MIN, AVG, MAX)</span>
+                  </span>
+                  <span class="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-300 border border-emerald-500/20">
+                    5 Parameter Groups
+                  </span>
+                </div>
+
+                <!-- 1. General Info (COM1, COM2, P1, P2, P3) -->
                 <div class="glass-card rounded-xl overflow-hidden border border-slate-800">
-                  <div class="px-4 py-3 bg-slate-950/90 border-b border-slate-800 flex items-center justify-between">
+                  <div class="px-4 py-2.5 bg-slate-950/90 border-b border-slate-800 flex items-center justify-between">
                     <span class="text-xs font-bold uppercase tracking-wider text-slate-300 flex items-center gap-2">
                       <i class="fa-solid fa-bolt text-amber-400"></i> General Information (COM1, COM2, P1..P3)
                     </span>
-                    <span class="text-[10px] font-mono text-slate-500">Power & Headers</span>
+                    <span class="text-[10px] font-mono text-slate-500">Power & Protocol Headers</span>
                   </div>
                   <div class="overflow-x-auto">
                     <table class="w-full text-left text-xs font-mono">
                       <thead class="bg-slate-950/60 text-slate-400 text-[10px] uppercase border-b border-slate-800">
                         <tr>
-                          <th class="py-2.5 px-3">Field</th>
-                          <th class="py-2.5 px-3 text-right">Min</th>
-                          <th class="py-2.5 px-3 text-right">Max</th>
-                          <th class="py-2.5 px-3 text-right text-emerald-400 font-bold">Average</th>
+                          <th class="py-2.5 px-3 text-slate-400 font-bold uppercase tracking-wider w-28">THỐNG KÊ</th>
+                          <th v-for="col in (deviceDetails.general_info || [])" :key="col.field" class="py-2.5 px-3 text-right">
+                            <div class="font-extrabold text-slate-200">{{ col.field.toUpperCase() }}</div>
+                            <div class="text-[9px] font-sans font-normal text-slate-400 truncate max-w-[130px]" :title="col.label">{{ col.label }}</div>
+                          </th>
                         </tr>
                       </thead>
                       <tbody class="divide-y divide-slate-800/60 text-[11px]">
-                        <tr v-for="row in deviceDetails.general_info" :key="row.field" class="hover:bg-slate-800/20">
-                          <td class="py-2 px-3 text-white font-semibold">{{ row.label }}</td>
-                          <td class="py-2 px-3 text-right text-slate-300">{{ formatStatNum(row.min) }}</td>
-                          <td class="py-2 px-3 text-right text-slate-300">{{ formatStatNum(row.max) }}</td>
-                          <td class="py-2 px-3 text-right text-emerald-400 font-bold">{{ formatStatNum(row.avg) }}</td>
+                        <tr class="hover:bg-slate-800/20">
+                          <td class="py-2 px-3 font-bold text-cyan-400 whitespace-nowrap">
+                            <span class="px-2 py-0.5 rounded bg-cyan-500/10 border border-cyan-500/20 text-[10px] font-black">MIN</span>
+                          </td>
+                          <td v-for="col in (deviceDetails.general_info || [])" :key="'min-' + col.field" class="py-2 px-3 text-right text-cyan-300 font-semibold">
+                            {{ formatStatNum(col.min) }}
+                          </td>
+                        </tr>
+                        <tr class="hover:bg-slate-800/20">
+                          <td class="py-2 px-3 font-bold text-emerald-400 whitespace-nowrap">
+                            <span class="px-2 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/20 text-[10px] font-black">AVG</span>
+                          </td>
+                          <td v-for="col in (deviceDetails.general_info || [])" :key="'avg-' + col.field" class="py-2 px-3 text-right text-emerald-400 font-extrabold">
+                            {{ formatStatNum(col.avg) }}
+                          </td>
+                        </tr>
+                        <tr class="hover:bg-slate-800/20">
+                          <td class="py-2 px-3 font-bold text-amber-400 whitespace-nowrap">
+                            <span class="px-2 py-0.5 rounded bg-amber-500/10 border border-amber-500/20 text-[10px] font-black">MAX</span>
+                          </td>
+                          <td v-for="col in (deviceDetails.general_info || [])" :key="'max-' + col.field" class="py-2 px-3 text-right text-amber-300 font-semibold">
+                            {{ formatStatNum(col.max) }}
+                          </td>
                         </tr>
                       </tbody>
                     </table>
                   </div>
                 </div>
 
-                <!-- Parameters 1 (P4..P11) -->
+                <!-- 2. Sensor Parameters 1 (P4 .. P11) -->
                 <div class="glass-card rounded-xl overflow-hidden border border-slate-800">
-                  <div class="px-4 py-3 bg-slate-950/90 border-b border-slate-800 flex items-center justify-between">
+                  <div class="px-4 py-2.5 bg-slate-950/90 border-b border-slate-800 flex items-center justify-between">
                     <span class="text-xs font-bold uppercase tracking-wider text-slate-300 flex items-center gap-2">
-                      <i class="fa-solid fa-gauge text-cyan-400"></i> Parameters 1 (P4 .. P11)
+                      <i class="fa-solid fa-gauge text-cyan-400"></i> Sensor Parameters 1 (P4 .. P11)
                     </span>
                     <span class="text-[10px] font-mono text-cyan-400">Primary Sensors</span>
                   </div>
@@ -971,29 +1319,48 @@ export const TRACEABILITY_TEMPLATE = `
                     <table class="w-full text-left text-xs font-mono">
                       <thead class="bg-slate-950/60 text-slate-400 text-[10px] uppercase border-b border-slate-800">
                         <tr>
-                          <th class="py-2.5 px-3">Field</th>
-                          <th class="py-2.5 px-3 text-right">Min</th>
-                          <th class="py-2.5 px-3 text-right">Max</th>
-                          <th class="py-2.5 px-3 text-right text-cyan-300 font-bold">Average</th>
+                          <th class="py-2.5 px-3 text-slate-400 font-bold uppercase tracking-wider w-28">THỐNG KÊ</th>
+                          <th v-for="col in (deviceDetails.params_1 || [])" :key="col.field" class="py-2.5 px-3 text-right">
+                            <div class="font-extrabold text-slate-200">{{ col.field.toUpperCase() }}</div>
+                            <div class="text-[9px] font-sans font-normal text-slate-400 truncate max-w-[130px]" :title="col.label">{{ col.label }}</div>
+                          </th>
                         </tr>
                       </thead>
                       <tbody class="divide-y divide-slate-800/60 text-[11px]">
-                        <tr v-for="row in deviceDetails.params_1" :key="row.field" class="hover:bg-slate-800/20">
-                          <td class="py-2 px-3 text-white font-semibold">{{ row.label }}</td>
-                          <td class="py-2 px-3 text-right text-slate-300">{{ formatStatNum(row.min) }}</td>
-                          <td class="py-2 px-3 text-right text-slate-300">{{ formatStatNum(row.max) }}</td>
-                          <td class="py-2 px-3 text-right text-cyan-300 font-bold">{{ formatStatNum(row.avg) }}</td>
+                        <tr class="hover:bg-slate-800/20">
+                          <td class="py-2 px-3 font-bold text-cyan-400 whitespace-nowrap">
+                            <span class="px-2 py-0.5 rounded bg-cyan-500/10 border border-cyan-500/20 text-[10px] font-black">MIN</span>
+                          </td>
+                          <td v-for="col in (deviceDetails.params_1 || [])" :key="'min-' + col.field" class="py-2 px-3 text-right text-cyan-300 font-semibold">
+                            {{ formatStatNum(col.min) }}
+                          </td>
+                        </tr>
+                        <tr class="hover:bg-slate-800/20">
+                          <td class="py-2 px-3 font-bold text-emerald-400 whitespace-nowrap">
+                            <span class="px-2 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/20 text-[10px] font-black">AVG</span>
+                          </td>
+                          <td v-for="col in (deviceDetails.params_1 || [])" :key="'avg-' + col.field" class="py-2 px-3 text-right text-emerald-400 font-extrabold">
+                            {{ formatStatNum(col.avg) }}
+                          </td>
+                        </tr>
+                        <tr class="hover:bg-slate-800/20">
+                          <td class="py-2 px-3 font-bold text-amber-400 whitespace-nowrap">
+                            <span class="px-2 py-0.5 rounded bg-amber-500/10 border border-amber-500/20 text-[10px] font-black">MAX</span>
+                          </td>
+                          <td v-for="col in (deviceDetails.params_1 || [])" :key="'max-' + col.field" class="py-2 px-3 text-right text-amber-300 font-semibold">
+                            {{ formatStatNum(col.max) }}
+                          </td>
                         </tr>
                       </tbody>
                     </table>
                   </div>
                 </div>
 
-                <!-- Parameters 2 (P12..P19) -->
+                <!-- 3. Sensor Parameters 2 (P12 .. P19) -->
                 <div class="glass-card rounded-xl overflow-hidden border border-slate-800">
-                  <div class="px-4 py-3 bg-slate-950/90 border-b border-slate-800 flex items-center justify-between">
+                  <div class="px-4 py-2.5 bg-slate-950/90 border-b border-slate-800 flex items-center justify-between">
                     <span class="text-xs font-bold uppercase tracking-wider text-slate-300 flex items-center gap-2">
-                      <i class="fa-solid fa-wave-square text-sky-400"></i> Parameters 2 (P12 .. P19)
+                      <i class="fa-solid fa-wave-square text-sky-400"></i> Sensor Parameters 2 (P12 .. P19)
                     </span>
                     <span class="text-[10px] font-mono text-sky-400">Secondary Telemetry</span>
                   </div>
@@ -1001,51 +1368,135 @@ export const TRACEABILITY_TEMPLATE = `
                     <table class="w-full text-left text-xs font-mono">
                       <thead class="bg-slate-950/60 text-slate-400 text-[10px] uppercase border-b border-slate-800">
                         <tr>
-                          <th class="py-2.5 px-3">Field</th>
-                          <th class="py-2.5 px-3 text-right">Min</th>
-                          <th class="py-2.5 px-3 text-right">Max</th>
-                          <th class="py-2.5 px-3 text-right text-sky-300 font-bold">Average</th>
+                          <th class="py-2.5 px-3 text-slate-400 font-bold uppercase tracking-wider w-28">THỐNG KÊ</th>
+                          <th v-for="col in (deviceDetails.params_2 || [])" :key="col.field" class="py-2.5 px-3 text-right">
+                            <div class="font-extrabold text-slate-200">{{ col.field.toUpperCase() }}</div>
+                            <div class="text-[9px] font-sans font-normal text-slate-400 truncate max-w-[130px]" :title="col.label">{{ col.label }}</div>
+                          </th>
                         </tr>
                       </thead>
                       <tbody class="divide-y divide-slate-800/60 text-[11px]">
-                        <tr v-for="row in deviceDetails.params_2" :key="row.field" class="hover:bg-slate-800/20">
-                          <td class="py-2 px-3 text-white font-semibold">{{ row.label }}</td>
-                          <td class="py-2 px-3 text-right text-slate-300">{{ formatStatNum(row.min) }}</td>
-                          <td class="py-2 px-3 text-right text-slate-300">{{ formatStatNum(row.max) }}</td>
-                          <td class="py-2 px-3 text-right text-sky-300 font-bold">{{ formatStatNum(row.avg) }}</td>
+                        <tr class="hover:bg-slate-800/20">
+                          <td class="py-2 px-3 font-bold text-cyan-400 whitespace-nowrap">
+                            <span class="px-2 py-0.5 rounded bg-cyan-500/10 border border-cyan-500/20 text-[10px] font-black">MIN</span>
+                          </td>
+                          <td v-for="col in (deviceDetails.params_2 || [])" :key="'min-' + col.field" class="py-2 px-3 text-right text-cyan-300 font-semibold">
+                            {{ formatStatNum(col.min) }}
+                          </td>
+                        </tr>
+                        <tr class="hover:bg-slate-800/20">
+                          <td class="py-2 px-3 font-bold text-emerald-400 whitespace-nowrap">
+                            <span class="px-2 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/20 text-[10px] font-black">AVG</span>
+                          </td>
+                          <td v-for="col in (deviceDetails.params_2 || [])" :key="'avg-' + col.field" class="py-2 px-3 text-right text-emerald-400 font-extrabold">
+                            {{ formatStatNum(col.avg) }}
+                          </td>
+                        </tr>
+                        <tr class="hover:bg-slate-800/20">
+                          <td class="py-2 px-3 font-bold text-amber-400 whitespace-nowrap">
+                            <span class="px-2 py-0.5 rounded bg-amber-500/10 border border-amber-500/20 text-[10px] font-black">MAX</span>
+                          </td>
+                          <td v-for="col in (deviceDetails.params_2 || [])" :key="'max-' + col.field" class="py-2 px-3 text-right text-amber-300 font-semibold">
+                            {{ formatStatNum(col.max) }}
+                          </td>
                         </tr>
                       </tbody>
                     </table>
                   </div>
                 </div>
 
-                <!-- Parameters 3 & 4 (P20..P35) -->
+                <!-- 4. Sensor Parameters 3 (P20 .. P27) -->
                 <div class="glass-card rounded-xl overflow-hidden border border-slate-800">
-                  <div class="px-4 py-3 bg-slate-950/90 border-b border-slate-800 flex items-center justify-between">
+                  <div class="px-4 py-2.5 bg-slate-950/90 border-b border-slate-800 flex items-center justify-between">
                     <span class="text-xs font-bold uppercase tracking-wider text-slate-300 flex items-center gap-2">
-                      <i class="fa-solid fa-cubes text-purple-400"></i> Parameters 3 & 4 (P20 .. P35)
+                      <i class="fa-solid fa-cubes text-purple-400"></i> Sensor Parameters 3 (P20 .. P27)
                     </span>
-                    <span class="text-[10px] font-mono text-purple-400">Auxiliary Slots</span>
+                    <span class="text-[10px] font-mono text-purple-400">Auxiliary Channels</span>
                   </div>
                   <div class="overflow-x-auto">
                     <table class="w-full text-left text-xs font-mono">
                       <thead class="bg-slate-950/60 text-slate-400 text-[10px] uppercase border-b border-slate-800">
                         <tr>
-                          <th class="py-2.5 px-3">Field</th>
-                          <th class="py-2.5 px-3 text-right">Min</th>
-                          <th class="py-2.5 px-3 text-right">Max</th>
-                          <th class="py-2.5 px-3 text-right text-purple-300 font-bold">Average</th>
+                          <th class="py-2.5 px-3 text-slate-400 font-bold uppercase tracking-wider w-28">THỐNG KÊ</th>
+                          <th v-for="col in (deviceDetails.params_3 || [])" :key="col.field" class="py-2.5 px-3 text-right">
+                            <div class="font-extrabold text-slate-200">{{ col.field.toUpperCase() }}</div>
+                            <div class="text-[9px] font-sans font-normal text-slate-400 truncate max-w-[130px]" :title="col.label">{{ col.label }}</div>
+                          </th>
                         </tr>
                       </thead>
                       <tbody class="divide-y divide-slate-800/60 text-[11px]">
-                        <tr v-for="row in [...deviceDetails.params_3, ...deviceDetails.params_4].filter(r => r.count > 0)" :key="row.field" class="hover:bg-slate-800/20">
-                          <td class="py-2 px-3 text-white font-semibold">{{ row.label }}</td>
-                          <td class="py-2 px-3 text-right text-slate-300">{{ formatStatNum(row.min) }}</td>
-                          <td class="py-2 px-3 text-right text-slate-300">{{ formatStatNum(row.max) }}</td>
-                          <td class="py-2 px-3 text-right text-purple-300 font-bold">{{ formatStatNum(row.avg) }}</td>
+                        <tr class="hover:bg-slate-800/20">
+                          <td class="py-2 px-3 font-bold text-cyan-400 whitespace-nowrap">
+                            <span class="px-2 py-0.5 rounded bg-cyan-500/10 border border-cyan-500/20 text-[10px] font-black">MIN</span>
+                          </td>
+                          <td v-for="col in (deviceDetails.params_3 || [])" :key="'min-' + col.field" class="py-2 px-3 text-right text-cyan-300 font-semibold">
+                            {{ formatStatNum(col.min) }}
+                          </td>
                         </tr>
-                        <tr v-if="[...deviceDetails.params_3, ...deviceDetails.params_4].filter(r => r.count > 0).length === 0">
-                          <td colspan="4" class="py-4 text-center text-slate-500 font-sans">No auxiliary telemetry frames recorded.</td>
+                        <tr class="hover:bg-slate-800/20">
+                          <td class="py-2 px-3 font-bold text-emerald-400 whitespace-nowrap">
+                            <span class="px-2 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/20 text-[10px] font-black">AVG</span>
+                          </td>
+                          <td v-for="col in (deviceDetails.params_3 || [])" :key="'avg-' + col.field" class="py-2 px-3 text-right text-emerald-400 font-extrabold">
+                            {{ formatStatNum(col.avg) }}
+                          </td>
+                        </tr>
+                        <tr class="hover:bg-slate-800/20">
+                          <td class="py-2 px-3 font-bold text-amber-400 whitespace-nowrap">
+                            <span class="px-2 py-0.5 rounded bg-amber-500/10 border border-amber-500/20 text-[10px] font-black">MAX</span>
+                          </td>
+                          <td v-for="col in (deviceDetails.params_3 || [])" :key="'max-' + col.field" class="py-2 px-3 text-right text-amber-300 font-semibold">
+                            {{ formatStatNum(col.max) }}
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                <!-- 5. Sensor Parameters 4 (P28 .. P35) -->
+                <div class="glass-card rounded-xl overflow-hidden border border-slate-800">
+                  <div class="px-4 py-2.5 bg-slate-950/90 border-b border-slate-800 flex items-center justify-between">
+                    <span class="text-xs font-bold uppercase tracking-wider text-slate-300 flex items-center gap-2">
+                      <i class="fa-solid fa-cubes text-purple-400"></i> Sensor Parameters 4 (P28 .. P35)
+                    </span>
+                    <span class="text-[10px] font-mono text-purple-400">Auxiliary Channels</span>
+                  </div>
+                  <div class="overflow-x-auto">
+                    <table class="w-full text-left text-xs font-mono">
+                      <thead class="bg-slate-950/60 text-slate-400 text-[10px] uppercase border-b border-slate-800">
+                        <tr>
+                          <th class="py-2.5 px-3 text-slate-400 font-bold uppercase tracking-wider w-28">THỐNG KÊ</th>
+                          <th v-for="col in (deviceDetails.params_4 || [])" :key="col.field" class="py-2.5 px-3 text-right">
+                            <div class="font-extrabold text-slate-200">{{ col.field.toUpperCase() }}</div>
+                            <div class="text-[9px] font-sans font-normal text-slate-400 truncate max-w-[130px]" :title="col.label">{{ col.label }}</div>
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody class="divide-y divide-slate-800/60 text-[11px]">
+                        <tr class="hover:bg-slate-800/20">
+                          <td class="py-2 px-3 font-bold text-cyan-400 whitespace-nowrap">
+                            <span class="px-2 py-0.5 rounded bg-cyan-500/10 border border-cyan-500/20 text-[10px] font-black">MIN</span>
+                          </td>
+                          <td v-for="col in (deviceDetails.params_4 || [])" :key="'min-' + col.field" class="py-2 px-3 text-right text-cyan-300 font-semibold">
+                            {{ formatStatNum(col.min) }}
+                          </td>
+                        </tr>
+                        <tr class="hover:bg-slate-800/20">
+                          <td class="py-2 px-3 font-bold text-emerald-400 whitespace-nowrap">
+                            <span class="px-2 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/20 text-[10px] font-black">AVG</span>
+                          </td>
+                          <td v-for="col in (deviceDetails.params_4 || [])" :key="'avg-' + col.field" class="py-2 px-3 text-right text-emerald-400 font-extrabold">
+                            {{ formatStatNum(col.avg) }}
+                          </td>
+                        </tr>
+                        <tr class="hover:bg-slate-800/20">
+                          <td class="py-2 px-3 font-bold text-amber-400 whitespace-nowrap">
+                            <span class="px-2 py-0.5 rounded bg-amber-500/10 border border-amber-500/20 text-[10px] font-black">MAX</span>
+                          </td>
+                          <td v-for="col in (deviceDetails.params_4 || [])" :key="'max-' + col.field" class="py-2 px-3 text-right text-amber-300 font-semibold">
+                            {{ formatStatNum(col.max) }}
+                          </td>
                         </tr>
                       </tbody>
                     </table>
@@ -1053,45 +1504,216 @@ export const TRACEABILITY_TEMPLATE = `
                 </div>
               </div>
 
-              <!-- Interactive Telemetry Trend Charts & Telemetry Stream -->
+              <!-- Interactive Telemetry Trend Charts & Telemetry Stream (Grid System & Padded Y-Axis) -->
               <div class="glass-card rounded-xl border border-slate-800 p-4 space-y-4">
-                <div class="flex items-center justify-between">
-                  <span class="text-xs font-extrabold uppercase tracking-wider text-slate-300 flex items-center gap-2">
-                    <i class="fa-solid fa-chart-line text-emerald-400"></i> Telemetry Trend Visualizer (Raw Data 3)
-                  </span>
-                  <div class="flex items-center gap-2">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div>
+                    <span class="text-xs font-extrabold uppercase tracking-wider text-slate-300 flex items-center gap-2">
+                      <i class="fa-solid fa-chart-line text-emerald-400"></i>
+                      <span>Telemetry Trend Visualizer (raw_data3 Grid Chart)</span>
+                    </span>
+                    <p class="text-[11px] text-slate-400 mt-0.5">
+                      Oscilloscope-style grid view with cushioned Y-axis bounds (±15% margin), interval tick labels, and packet timestamps.
+                    </p>
+                  </div>
+                  <div class="flex items-center gap-3">
+                    <span class="text-[10px] uppercase font-bold text-slate-400">Channel Field:</span>
                     <select
                       v-model="selectedTrendField"
-                      class="px-2.5 py-1 bg-slate-950/80 border border-slate-700 rounded text-xs text-white focus:outline-none focus:border-emerald-500 font-mono"
+                      class="px-3 py-1.5 bg-slate-950/90 border border-slate-700 rounded-lg text-xs text-white focus:outline-none focus:border-emerald-500 font-mono cursor-pointer"
                     >
-                      <option value="com1">COM1 (Supply Voltage)</option>
-                      <option value="com2">COM2 (Operating Current)</option>
-                      <option value="p4">P4 (Temperature / Value 1)</option>
-                      <option value="p5">P5 (Humidity / Value 2)</option>
-                      <option value="p6">P6 (Diagnostic / Value 3)</option>
-                      <option value="p7">P7 (Value 4)</option>
+                      <option v-for="f in availableTrendFields" :key="f.key" :value="f.key">
+                        {{ f.key.toUpperCase() }} — {{ f.label }}
+                      </option>
                     </select>
                   </div>
                 </div>
 
-                <!-- SVG Trend Chart Visualization -->
-                <div class="w-full h-48 bg-slate-950/80 rounded-xl border border-slate-800 p-2 relative overflow-hidden flex flex-col justify-end">
-                  <svg v-if="trendChartPoints.length > 1" class="w-full h-full" viewBox="0 0 500 100" preserveAspectRatio="none">
-                    <polyline
-                      fill="none"
-                      stroke="#10b981"
-                      stroke-width="2"
-                      :points="trendChartPoints"
-                    />
-                  </svg>
-                  <div v-else class="h-full flex items-center justify-center text-slate-500 text-xs">
-                    Insufficient data points for trend chart.
+                <!-- KPI Metric Strip for Selected Field -->
+                <div v-if="selectedTrendChartData" class="grid grid-cols-2 sm:grid-cols-5 gap-2 font-mono text-xs">
+                  <div class="p-2 rounded-lg bg-slate-950/70 border border-slate-800 flex items-center justify-between">
+                    <span class="text-slate-500 text-[10px] uppercase font-sans">Min Value</span>
+                    <strong class="text-cyan-300 font-bold">{{ formatStatNum(selectedTrendChartData.rawMin) }}</strong>
                   </div>
-                  <!-- Axis Labels -->
-                  <div class="flex items-center justify-between text-[10px] font-mono text-slate-500 px-2 pt-1 border-t border-slate-900">
-                    <span>Frame 1 (Start)</span>
-                    <span class="text-emerald-400 font-bold">Field: {{ selectedTrendField.toUpperCase() }}</span>
-                    <span>Frame {{ deviceDetails.telemetry?.length || 0 }} (End)</span>
+                  <div class="p-2 rounded-lg bg-slate-950/70 border border-slate-800 flex items-center justify-between">
+                    <span class="text-slate-500 text-[10px] uppercase font-sans">Avg Value</span>
+                    <strong class="text-emerald-400 font-bold">{{ formatStatNum(selectedTrendChartData.rawAvg) }}</strong>
+                  </div>
+                  <div class="p-2 rounded-lg bg-slate-950/70 border border-slate-800 flex items-center justify-between">
+                    <span class="text-slate-500 text-[10px] uppercase font-sans">Max Value</span>
+                    <strong class="text-amber-300 font-bold">{{ formatStatNum(selectedTrendChartData.rawMax) }}</strong>
+                  </div>
+                  <div class="p-2 rounded-lg bg-slate-950/70 border border-slate-800 flex items-center justify-between">
+                    <span class="text-slate-500 text-[10px] uppercase font-sans">Latest</span>
+                    <strong class="text-white font-bold">{{ formatStatNum(selectedTrendChartData.latestVal) }}</strong>
+                  </div>
+                  <div class="p-2 rounded-lg bg-slate-950/70 border border-slate-800 flex items-center justify-between col-span-2 sm:col-span-1">
+                    <span class="text-slate-500 text-[10px] uppercase font-sans">Packets</span>
+                    <strong class="text-sky-300 font-bold">{{ selectedTrendChartData.count }} pkts</strong>
+                  </div>
+                </div>
+
+                <!-- SVG Trend Chart with Grid System and Y-Axis interval ticks -->
+                <div class="w-full bg-slate-950/90 rounded-xl border border-slate-800 p-3 relative overflow-hidden">
+                  <div v-if="selectedTrendChartData && selectedTrendChartData.count > 0" class="w-full">
+                    <svg class="w-full h-64 overflow-visible" viewBox="0 0 820 240" preserveAspectRatio="none">
+                      <defs>
+                        <linearGradient id="trendAreaGradDetails" x1="0%" y1="0%" x2="0%" y2="100%">
+                          <stop offset="0%" stop-color="#10b981" stop-opacity="0.30" />
+                          <stop offset="100%" stop-color="#10b981" stop-opacity="0.02" />
+                        </linearGradient>
+                      </defs>
+
+                      <!-- Grid Area Background -->
+                      <rect x="70" y="20" width="730" height="185" fill="#0b1120" rx="4" stroke="#1e293b" stroke-width="1" />
+
+                      <!-- Horizontal Dashed Grid Lines & Y-Axis Value Labels -->
+                      <g v-for="tick in selectedTrendChartData.yTicks" :key="'ytick-dt-' + tick.ratio">
+                        <!-- Horizontal Grid Line -->
+                        <line
+                          x1="70"
+                          :y1="tick.y"
+                          x2="800"
+                          :y2="tick.y"
+                          stroke="#1e293b"
+                          stroke-width="1"
+                          stroke-dasharray="4,4"
+                        />
+                        <!-- Tick Mark on Y-Axis -->
+                        <line
+                          x1="65"
+                          :y1="tick.y"
+                          x2="70"
+                          :y2="tick.y"
+                          stroke="#475569"
+                          stroke-width="1.5"
+                        />
+                        <!-- Y-Axis Value Label -->
+                        <text
+                          x="60"
+                          :y="tick.y + 3.5"
+                          text-anchor="end"
+                          fill="#94a3b8"
+                          font-size="10"
+                          font-family="monospace"
+                          font-weight="600"
+                        >
+                          {{ tick.valFormatted }}
+                        </text>
+                      </g>
+
+                      <!-- Vertical Dashed Grid Lines & X-Axis Timestamp Labels -->
+                      <g v-for="(xtick, xIdx) in selectedTrendChartData.xTicks" :key="'xtick-dt-' + xIdx">
+                        <!-- Vertical Grid Line -->
+                        <line
+                          :x1="xtick.x"
+                          y1="20"
+                          :x2="xtick.x"
+                          y2="205"
+                          stroke="#1e293b"
+                          stroke-width="1"
+                          stroke-dasharray="3,3"
+                        />
+                        <!-- Bottom Tick Mark -->
+                        <line
+                          :x1="xtick.x"
+                          y1="205"
+                          :x2="xtick.x"
+                          y2="210"
+                          stroke="#475569"
+                          stroke-width="1"
+                        />
+                        <!-- X-Axis Time Label -->
+                        <text
+                          :x="xtick.x"
+                          y="223"
+                          text-anchor="middle"
+                          fill="#64748b"
+                          font-size="9"
+                          font-family="monospace"
+                        >
+                          {{ xtick.label }}
+                        </text>
+                      </g>
+
+                      <!-- Average Reference Dashed Line -->
+                      <line
+                        x1="70"
+                        :y1="selectedTrendChartData.avgY"
+                        x2="800"
+                        :y2="selectedTrendChartData.avgY"
+                        stroke="#f59e0b"
+                        stroke-width="1.5"
+                        stroke-dasharray="6,3"
+                        stroke-opacity="0.8"
+                      />
+                      <text
+                        x="795"
+                        :y="selectedTrendChartData.avgY - 4"
+                        text-anchor="end"
+                        fill="#f59e0b"
+                        font-size="9"
+                        font-family="monospace"
+                        font-weight="bold"
+                      >
+                        AVG: {{ formatStatNum(selectedTrendChartData.rawAvg) }}
+                      </text>
+
+                      <!-- Shaded Polygon Area Under Curve -->
+                      <polygon
+                        :points="selectedTrendChartData.areaPolygonStr"
+                        fill="url(#trendAreaGradDetails)"
+                      />
+
+                      <!-- Vector Curve Polyline -->
+                      <polyline
+                        fill="none"
+                        stroke="#10b981"
+                        stroke-width="2.5"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        :points="selectedTrendChartData.polylineStr"
+                      />
+
+                      <!-- Data Points (Circles with hover tooltips) -->
+                      <circle
+                        v-for="p in selectedTrendChartData.renderedPoints"
+                        :key="'pt-dt-' + p.index"
+                        :cx="p.x"
+                        :cy="p.y"
+                        r="3.5"
+                        fill="#10b981"
+                        stroke="#0f172a"
+                        stroke-width="1.5"
+                        class="cursor-pointer hover:scale-150 transition-transform origin-center"
+                      >
+                        <title>Packet #{{ p.index }} | Time: {{ p.timeStr }} | Value: {{ p.valFormatted }}</title>
+                      </circle>
+                    </svg>
+
+                    <!-- Chart Legend & Boundary Note -->
+                    <div class="flex flex-wrap items-center justify-between text-[10px] font-mono text-slate-400 pt-2 px-1 border-t border-slate-800/80 mt-1">
+                      <div class="flex items-center gap-4">
+                        <span class="flex items-center gap-1.5">
+                          <span class="w-3 h-0.5 bg-emerald-500 rounded"></span>
+                          <strong class="text-white">{{ selectedTrendField.toUpperCase() }} Trend</strong>
+                        </span>
+                        <span class="flex items-center gap-1.5">
+                          <span class="w-3 h-0.5 bg-amber-500 border-dashed"></span>
+                          <span class="text-amber-400">Mean Level</span>
+                        </span>
+                        <span class="text-slate-500">
+                          (Y-Axis padded ±15% at bounds)
+                        </span>
+                      </div>
+                      <div class="text-slate-400">
+                        Span: <span class="text-cyan-300 font-bold">{{ formatStatNum(selectedTrendChartData.rawMin) }}</span> → <span class="text-amber-300 font-bold">{{ formatStatNum(selectedTrendChartData.rawMax) }}</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div v-else class="py-16 text-center text-slate-500 text-xs">
+                    <i class="fa-solid fa-chart-line text-2xl text-slate-600 mb-2 block"></i>
+                    No telemetry data points available for {{ selectedTrendField.toUpperCase() }}.
                   </div>
                 </div>
               </div>
@@ -1415,11 +2037,24 @@ export const TRACEABILITY_SCRIPT = `
 
       // Date formatter
       const formatDateTime = (val) => {
-        if (!val) return '—';
+        if (!val || val === '—') return '—';
+        if (typeof val === 'string' && /^\d{4}-\d{2}-\d{2}/.test(val.trim())) {
+          return val.trim().replace('T', ' ').substring(0, 19);
+        }
         try {
+          let num = typeof val === 'number' ? val : (typeof val === 'string' && /^\d+$/.test(val.trim()) ? Number(val.trim()) : null);
+          if (num !== null) {
+            if (num < 10000000000) num *= 1000;
+            const d = new Date(num);
+            if (!isNaN(d.getTime())) {
+              return d.toISOString().replace('T', ' ').substring(0, 19);
+            }
+          }
           const d = new Date(val);
-          if (isNaN(d.getTime())) return String(val);
-          return d.toISOString().replace('T', ' ').substring(0, 19);
+          if (!isNaN(d.getTime())) {
+            return d.toISOString().replace('T', ' ').substring(0, 19);
+          }
+          return String(val);
         } catch(e) {
           return String(val);
         }
@@ -1539,7 +2174,7 @@ export const TRACEABILITY_SCRIPT = `
           const latestVal = numValues[numValues.length - 1];
           const count = numValues.length;
 
-          // SVG Trend Graph Coordinates
+          // SVG Trend Graph Coordinates with 15% cushioning at boundaries
           const svgW = 320;
           const svgH = 88;
           const padX = 14;
@@ -1547,15 +2182,20 @@ export const TRACEABILITY_SCRIPT = `
           const padBottom = 16;
           const plotW = svgW - 2 * padX;
           const plotH = svgH - padTop - padBottom;
-          const range = maxVal === minVal ? 1 : (maxVal - minVal);
+          
+          let delta = maxVal - minVal;
+          if (delta === 0) delta = Math.abs(maxVal) === 0 ? 1 : Math.abs(maxVal) * 0.2;
+          const pad = delta * 0.15;
+          const yMin = minVal - pad;
+          const yMax = maxVal + pad;
+          const yRange = yMax - yMin;
 
           const renderedPoints = validPoints.map((p, idx) => {
             const x = validPoints.length === 1
               ? (svgW / 2)
               : (padX + (idx / (validPoints.length - 1)) * plotW);
-            const y = maxVal === minVal
-              ? (padTop + plotH / 2)
-              : (padTop + plotH - ((p.val - minVal) / range) * plotH);
+            const norm = (p.val - yMin) / yRange;
+            const y = padTop + plotH - norm * plotH;
             return {
               x: Number(x.toFixed(1)),
               y: Number(y.toFixed(1)),
@@ -1571,9 +2211,8 @@ export const TRACEABILITY_SCRIPT = `
           const baseFloorY = (svgH - padBottom).toFixed(1);
           const areaPolygonStr = firstX + ',' + baseFloorY + ' ' + polylineStr + ' ' + lastX + ',' + baseFloorY;
 
-          const avgY = maxVal === minVal
-            ? Number((padTop + plotH / 2).toFixed(1))
-            : Number((padTop + plotH - ((avgVal - minVal) / range) * plotH).toFixed(1));
+          const avgNorm = (avgVal - yMin) / yRange;
+          const avgY = Number((padTop + plotH - avgNorm * plotH).toFixed(1));
 
           const customLabel = details.calculations?.[key]?.label || details.calculations?.[key]?.name;
           const displayLabel = customLabel || labelsMap[key] || key.toUpperCase();
@@ -1600,7 +2239,165 @@ export const TRACEABILITY_SCRIPT = `
         return result;
       });
 
-      // SVG Trend Chart points calculation
+      // Dynamic list of trend fields available from active telemetry
+      const availableTrendFields = computed(() => {
+        const details = deviceDetails.value;
+        if (!details) return [];
+        if (rawDataFieldList.value && rawDataFieldList.value.length > 0) {
+          return rawDataFieldList.value.map(f => ({ key: f.key, label: f.label }));
+        }
+        return [
+          { key: 'com1', label: 'COM1 (Supply Voltage)' },
+          { key: 'com2', label: 'COM2 (Operating Current)' },
+          { key: 'p1', label: 'P1 (Event Code)' },
+          { key: 'p2', label: 'P2 (Battery Voltage)' },
+          { key: 'p4', label: 'P4 (Sensor Channel 1)' },
+          { key: 'p5', label: 'P5 (Sensor Channel 2)' },
+        ];
+      });
+
+      // Enhanced Oscilloscope Trend Chart with Grid System, Interval Ticks, and 15% Bound Cushion
+      const selectedTrendChartData = computed(() => {
+        const details = deviceDetails.value;
+        if (!details) return null;
+        const frames = details.telemetry || details.raw_telemetry || [];
+        if (!Array.isArray(frames) || frames.length === 0) return null;
+
+        const field = selectedTrendField.value || 'p4';
+        const validPoints = [];
+
+        for (let i = 0; i < frames.length; i++) {
+          const f = frames[i];
+          const val = f[field];
+          if (val !== null && val !== undefined && val !== '') {
+            const num = Number(val);
+            if (!isNaN(num)) {
+              let tStr = '';
+              if (f.epochtime) {
+                const d = new Date(Number(f.epochtime) * 1000);
+                tStr = !isNaN(d.getTime()) ? d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : String(f.epochtime);
+              } else if (f.timestamp) {
+                const d = new Date(f.timestamp);
+                tStr = !isNaN(d.getTime()) ? d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : String(f.timestamp);
+              } else if (f.created_at) {
+                const d = new Date(f.created_at);
+                tStr = !isNaN(d.getTime()) ? d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : String(f.created_at);
+              } else {
+                tStr = 'Pkt #' + (i + 1);
+              }
+              validPoints.push({
+                index: i + 1,
+                val: num,
+                timeStr: tStr,
+              });
+            }
+          }
+        }
+
+        if (validPoints.length === 0) return null;
+
+        const vals = validPoints.map(p => p.val);
+        const rawMin = Math.min(...vals);
+        const rawMax = Math.max(...vals);
+        const sum = vals.reduce((a, b) => a + b, 0);
+        const rawAvg = Number((sum / vals.length).toFixed(2));
+        const latestVal = vals[vals.length - 1];
+
+        let delta = rawMax - rawMin;
+        if (delta === 0) {
+          delta = Math.abs(rawMax) === 0 ? 1 : Math.abs(rawMax) * 0.2;
+        }
+
+        // Boundary padding: 15% cushioning at top and bottom ("dư ra ở 2 biên giá trị 1 chút")
+        const padding = delta * 0.15;
+        const yMin = rawMin - padding;
+        const yMax = rawMax + padding;
+        const yRange = yMax - yMin;
+
+        // SVG dimensions
+        const svgW = 820;
+        const svgH = 240;
+        const padLeft = 70;
+        const padRight = 20;
+        const padTop = 20;
+        const padBottom = 35;
+        const plotW = svgW - padLeft - padRight;
+        const plotH = svgH - padTop - padBottom;
+
+        // 5 Horizontal Grid lines & Y-axis labels
+        const yTicks = [0, 0.25, 0.5, 0.75, 1.0].map(ratio => {
+          const y = Number((padTop + plotH - ratio * plotH).toFixed(1));
+          const val = yMin + ratio * yRange;
+          return {
+            ratio,
+            y,
+            valFormatted: Number.isInteger(val) ? String(val) : val.toFixed(2),
+          };
+        });
+
+        // Points coordinate mapping
+        const numPoints = validPoints.length;
+        const renderedPoints = validPoints.map((p, idx) => {
+          const x = numPoints === 1 ? (padLeft + plotW / 2) : (padLeft + (idx / (numPoints - 1)) * plotW);
+          const norm = (p.val - yMin) / yRange;
+          const y = padTop + plotH - norm * plotH;
+          return {
+            x: Number(x.toFixed(1)),
+            y: Number(y.toFixed(1)),
+            val: p.val,
+            valFormatted: formatStatNum(p.val),
+            index: p.index,
+            timeStr: p.timeStr,
+          };
+        });
+
+        const polylineStr = renderedPoints.map(p => p.x + ',' + p.y).join(' ');
+        const baseFloorY = (padTop + plotH).toFixed(1);
+        const firstX = renderedPoints[0].x;
+        const lastX = renderedPoints[renderedPoints.length - 1].x;
+        const areaPolygonStr = firstX + ',' + baseFloorY + ' ' + polylineStr + ' ' + lastX + ',' + baseFloorY;
+
+        // Vertical Grid lines (5 timeline divisions)
+        const xTicks = [0, 1, 2, 3, 4].map(step => {
+          const ratio = step / 4;
+          const x = Number((padLeft + ratio * plotW).toFixed(1));
+          const ptIdx = Math.min(Math.round(ratio * (numPoints - 1)), numPoints - 1);
+          const label = renderedPoints[ptIdx]?.timeStr || ('Pkt #' + (ptIdx + 1));
+          return {
+            x,
+            label,
+          };
+        });
+
+        // Average line Y coordinate
+        const avgNorm = (rawAvg - yMin) / yRange;
+        const avgY = Number((padTop + plotH - avgNorm * plotH).toFixed(1));
+
+        return {
+          field,
+          rawMin,
+          rawMax,
+          rawAvg,
+          latestVal,
+          count: numPoints,
+          yMin,
+          yMax,
+          yTicks,
+          xTicks,
+          renderedPoints,
+          polylineStr,
+          areaPolygonStr,
+          avgY,
+          svgW,
+          svgH,
+          padLeft,
+          plotW,
+          plotH,
+          baseFloorY,
+        };
+      });
+
+      // SVG Trend Chart points calculation (backward compatibility)
       const trendChartPoints = computed(() => {
         if (!deviceDetails.value || !deviceDetails.value.telemetry || deviceDetails.value.telemetry.length < 2) {
           return '';
@@ -1635,6 +2432,8 @@ export const TRACEABILITY_SCRIPT = `
         deviceDetails,
         rawDataFieldList,
         selectedTrendField,
+        availableTrendFields,
+        selectedTrendChartData,
         showDecodedConfigModal,
         activeDecodedItem,
         activeDecodedRegisters,

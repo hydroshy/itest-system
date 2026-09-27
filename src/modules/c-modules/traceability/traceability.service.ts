@@ -335,9 +335,54 @@ export class TraceabilityService implements OnModuleInit {
     }
     const avgDurationSeconds = items.length > 0 ? Math.round(totalDurationSec / items.length) : 0;
 
+    const normalizedItems = items.map((r: any) => {
+      let finishMs: number | null = null;
+      let finishFormatted = '—';
+
+      if (r.timeFinish !== null && r.timeFinish !== undefined && r.timeFinish !== '') {
+        const n = Number(r.timeFinish);
+        if (!isNaN(n)) {
+          finishMs = n < 10000000000 ? n * 1000 : n;
+          try {
+            const d = new Date(finishMs);
+            if (!isNaN(d.getTime())) {
+              finishFormatted = d.toISOString().replace('T', ' ').substring(0, 19);
+            }
+          } catch (e) {}
+        }
+      }
+
+      return {
+        ...r,
+        id: r.testResultId || r.testId,
+        test_id: r.testId,
+        test_result_id: r.testResultId,
+        so_number: r.soNumber,
+        serial_number: r.serialNumber,
+        device_key: r.deviceKey,
+        item_code: r.itemCode,
+        sku: r.sku,
+        hw_ver: r.hwVer,
+        fw_ver: r.fwVer,
+        firmware_version: r.fwVer,
+        result: r.result,
+        start_time: r.startTime,
+        duration_time: r.durationTime,
+        time_finish: finishFormatted !== '—' ? finishFormatted : (finishMs || r.timeFinish),
+        timeFinish: finishFormatted !== '—' ? finishFormatted : (finishMs || r.timeFinish),
+        finish_time: finishFormatted,
+        finishTimeFormatted: finishFormatted,
+        test_time: finishFormatted,
+        configuration_string: r.configurationString,
+        parameters_name_string: r.parametersNameString,
+        parameters_type: r.parametersType,
+        parameters_length_string: r.parametersLengthString,
+      };
+    });
+
     return {
-      data: items,
-      items,
+      data: normalizedItems,
+      items: normalizedItems,
       total,
       metrics: {
         totalTests: total,
@@ -751,6 +796,21 @@ export class TraceabilityService implements OnModuleInit {
       ...Array.from({ length: 35 }, (_, i) => allCalculations[`p${i + 1}`]),
     ].filter(s => s && (s.count || 0) > 0 && s.avg !== null);
 
+    let finishMs: number | null = null;
+    let finishFormatted = '—';
+    if (tr?.timeFinish) {
+      const n = Number(tr.timeFinish);
+      if (!isNaN(n)) {
+        finishMs = n < 10000000000 ? n * 1000 : n;
+        try {
+          const d = new Date(finishMs);
+          if (!isNaN(d.getTime())) {
+            finishFormatted = d.toISOString().replace('T', ' ').substring(0, 19);
+          }
+        } catch (e) {}
+      }
+    }
+
     return {
       // Snake_case properties for Vue frontend template:
       test_id: testId,
@@ -760,6 +820,8 @@ export class TraceabilityService implements OnModuleInit {
       item_code: parsedInfo.itemCode,
       firmware_version: parsedInfo.fwVer,
       hardware_version: parsedInfo.hwVer,
+      finish_time: finishFormatted,
+      finishTimeFormatted: finishFormatted,
       test_result: tr ? {
         result: tr.result || 'PASS',
         start_time: tr.startTime || '',
@@ -767,7 +829,10 @@ export class TraceabilityService implements OnModuleInit {
         test_station: tr.testStation || 'STATION-01',
         test_person: tr.testPerson || 'Daviteq QA',
         test_note: tr.testNote || '',
-        time_finish: tr.timeFinish,
+        time_finish: finishFormatted !== '—' ? finishFormatted : (finishMs || tr.timeFinish),
+        timeFinish: finishFormatted !== '—' ? finishFormatted : (finishMs || tr.timeFinish),
+        finish_time: finishFormatted,
+        finishTimeFormatted: finishFormatted,
         so_number: tr.soNumber,
         item_code: tr.itemCode,
         sku: tr.sku,
@@ -778,6 +843,9 @@ export class TraceabilityService implements OnModuleInit {
         test_station: 'STATION-01',
         test_person: 'Daviteq QA',
         test_note: '',
+        time_finish: finishFormatted,
+        finish_time: finishFormatted,
+        finishTimeFormatted: finishFormatted,
       },
       telemetry_count: telemetryRows.length,
       event_stats: eventStats,
