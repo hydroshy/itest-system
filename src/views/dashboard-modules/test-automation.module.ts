@@ -27,6 +27,16 @@ export const TEST_AUTOMATION_TEMPLATE = `          <div v-else-if="activeFeature
               <div class="flex flex-wrap items-center gap-2">
                 <button
                   type="button"
+                  @click="openProductTraceabilityModal()"
+                  class="px-3 py-1.5 rounded-xl bg-purple-600/30 hover:bg-purple-600/40 text-purple-300 border border-purple-500/40 text-xs font-bold flex items-center gap-1.5 cursor-pointer transition shadow-sm"
+                  title="Search & Trace Product QA History from PostgreSQL test_result & raw_data3"
+                >
+                  <i class="fa-solid fa-timeline text-purple-400"></i>
+                  <span>Traceability</span>
+                </button>
+
+                <button
+                  type="button"
                   @click="openEvidenceModal()"
                   class="px-3 py-1.5 rounded-xl bg-cyan-600/30 hover:bg-cyan-600/40 text-cyan-300 border border-cyan-500/40 text-xs font-bold flex items-center gap-1.5 cursor-pointer transition"
                   title="View Saved Sensor Decoded Test Evidence in PostgreSQL"
@@ -737,6 +747,16 @@ export const TEST_AUTOMATION_TEMPLATE = `          <div v-else-if="activeFeature
                             title="Audit Log"
                           >
                             <i class="fa-solid fa-receipt"></i>
+                          </button>
+
+                          <!-- Product Traceability (test_result & raw_data3) -->
+                          <button
+                            type="button"
+                            @click="openProductTraceabilityModal(dev)"
+                            class="px-2 py-1 rounded bg-purple-500/10 hover:bg-purple-500/20 text-purple-300 text-[11px] cursor-pointer transition"
+                            title="Trace QA History (PostgreSQL test_result & raw_data3)"
+                          >
+                            <i class="fa-solid fa-timeline"></i>
                           </button>
 
                           <!-- Simulate injection (Dev Testing) -->
@@ -1709,6 +1729,441 @@ export const TEST_AUTOMATION_MODALS = `
           <!-- Footer -->
           <div class="flex justify-end pt-2 border-t border-slate-800">
             <button type="button" @click="selectedEvidenceDetail = null" class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold cursor-pointer">
+              Close
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ======================================================== -->
+      <!-- PRODUCT TRACEABILITY MODAL (PostgreSQL test_result & raw_data3) -->
+      <!-- ======================================================== -->
+      <div v-if="showTraceabilityModal" class="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/85 backdrop-blur-md animate-in fade-in">
+        <div class="w-full max-w-6xl max-h-[92vh] bg-slate-900 border border-slate-700 rounded-2xl p-5 sm:p-6 space-y-4 shadow-2xl text-slate-200 flex flex-col test-automation-modal-card animate-in zoom-in-95">
+          <!-- Header -->
+          <div class="flex items-center justify-between border-b border-slate-800 pb-3 shrink-0">
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 rounded-xl bg-purple-500/10 border border-purple-500/30 flex items-center justify-center text-purple-400 text-lg shadow-inner">
+                <i class="fa-solid fa-timeline"></i>
+              </div>
+              <div>
+                <h3 class="text-base font-extrabold text-white tracking-wide flex items-center gap-2">
+                  <span>Product Traceability</span>
+                  <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-500/15 text-purple-300 border border-purple-500/30 font-mono">POSTGRESQL test_result & raw_data3</span>
+                </h3>
+                <p class="text-xs text-slate-400">
+                  Historical factory QA test records and raw telemetry frames stored in PostgreSQL.
+                </p>
+              </div>
+            </div>
+            <button type="button" @click="closeTraceabilityModal" class="text-slate-400 hover:text-white text-lg p-1 cursor-pointer">
+              <i class="fa-solid fa-xmark"></i>
+            </button>
+          </div>
+
+          <!-- PROMINENT NOTICE: UART DECOUPLING CLARIFICATION -->
+          <div class="p-3 rounded-xl bg-purple-950/30 border border-purple-800/60 flex items-start gap-3 shrink-0">
+            <div class="w-6 h-6 rounded-lg bg-purple-500/20 border border-purple-500/40 flex items-center justify-center text-purple-300 shrink-0 mt-0.5">
+              <i class="fa-solid fa-circle-info text-xs"></i>
+            </div>
+            <div class="text-xs space-y-0.5">
+              <div class="font-bold text-purple-200 tracking-wide uppercase">
+                Nguồn Dữ Liệu Traceability Sản Phẩm (PostgreSQL dvt)
+              </div>
+              <p class="text-slate-300 text-[11px] leading-relaxed">
+                Toàn bộ dữ liệu Traceability sản phẩm được truy vấn từ 2 bảng cơ sở dữ liệu PostgreSQL: <strong class="font-mono text-purple-300">test_result</strong> (lịch sử kiểm định QA) và <strong class="font-mono text-purple-300">raw_data3</strong> (telemetry uplink lưu trữ).
+                <br />
+                <span class="text-amber-300 font-medium">Lưu ý quan trọng: Cổng Serial UART trên bàn thao tác chỉ dùng cho onboarding/đọc thanh ghi Modbus cục bộ và hoàn toàn không liên quan đến Traceability.</span>
+              </p>
+            </div>
+          </div>
+
+          <!-- Ribbon: View mode selector & filter inputs -->
+          <div class="flex flex-wrap items-center justify-between gap-3 bg-slate-950/70 p-3 rounded-xl border border-slate-800 shrink-0">
+            <div class="flex flex-wrap items-center gap-2 flex-1 min-w-[280px]">
+              <!-- View Switcher -->
+              <div class="inline-flex rounded-lg border border-slate-700 bg-slate-900 p-0.5">
+                <button
+                  type="button"
+                  @click="traceModalViewMode = 'catalog'"
+                  :class="traceModalViewMode === 'catalog' ? 'bg-purple-600/30 text-purple-300 font-bold shadow-sm' : 'text-slate-400 hover:text-white'"
+                  class="px-3 py-1 text-xs rounded-md transition flex items-center gap-1.5 cursor-pointer"
+                >
+                  <i class="fa-solid fa-table-list text-[10px]"></i>
+                  <span>Test Results</span>
+                </button>
+                <button
+                  type="button"
+                  @click="traceModalViewMode = 'details'"
+                  :disabled="!traceModalSelectedDetail"
+                  :class="traceModalViewMode === 'details' ? 'bg-purple-600/30 text-purple-300 font-bold shadow-sm' : 'text-slate-400 hover:text-white disabled:opacity-40'"
+                  class="px-3 py-1 text-xs rounded-md transition flex items-center gap-1.5 cursor-pointer"
+                >
+                  <i class="fa-solid fa-microchip text-[10px]"></i>
+                  <span>Telemetry & Details</span>
+                </button>
+              </div>
+
+              <!-- Search input -->
+              <div class="relative flex-1 min-w-[200px]">
+                <i class="fa-solid fa-magnifying-glass absolute left-3 top-2.5 text-xs text-slate-500"></i>
+                <input
+                  type="text"
+                  v-model="traceModalSearchQuery"
+                  @keyup.enter="fetchTraceabilityModalData"
+                  placeholder="Search Serial (SN), DevEUI, SO, SKU, Item..."
+                  class="w-full pl-8 pr-3 py-1.5 bg-slate-900 border border-slate-700 rounded-xl text-white text-xs font-mono placeholder-slate-500 focus:ring-1 focus:ring-purple-500 focus:outline-none"
+                />
+              </div>
+
+              <!-- Verdict Filter -->
+              <select
+                v-model="traceModalVerdictFilter"
+                @change="fetchTraceabilityModalData"
+                class="px-2.5 py-1.5 bg-slate-900 border border-slate-700 rounded-xl text-white text-xs font-mono focus:outline-none cursor-pointer"
+              >
+                <option value="ALL">All Verdicts</option>
+                <option value="PASS">PASS Only</option>
+                <option value="FAIL">FAIL Only</option>
+              </select>
+            </div>
+
+            <div class="flex items-center gap-2">
+              <button
+                type="button"
+                @click="exportTraceabilityCsv"
+                class="px-3 py-1.5 rounded-xl bg-emerald-600/30 hover:bg-emerald-600/40 text-emerald-300 border border-emerald-500/40 text-xs font-bold flex items-center gap-1.5 cursor-pointer transition shadow-sm"
+                title="Export Traceability Results to CSV"
+              >
+                <i class="fa-solid fa-file-csv"></i>
+                <span>Export CSV</span>
+              </button>
+              <button
+                type="button"
+                @click="fetchTraceabilityModalData"
+                :disabled="traceModalLoading"
+                class="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white text-xs cursor-pointer transition"
+                title="Refresh Results"
+              >
+                <i class="fa-solid fa-arrows-rotate" :class="{ 'animate-spin': traceModalLoading }"></i>
+              </button>
+            </div>
+          </div>
+
+          <!-- BODY: MODE 1 - RESULTS CATALOG (TABLE) -->
+          <div v-if="traceModalViewMode === 'catalog'" class="flex-1 overflow-y-auto space-y-4 pr-1">
+            <!-- Metrics Summary Cards -->
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 font-mono">
+              <div class="bg-slate-950/60 p-3 rounded-xl border border-slate-800">
+                <span class="text-[10px] text-slate-400 block uppercase font-sans">Total Records (test_result)</span>
+                <span class="text-base font-bold text-white">{{ traceModalMetrics.total }}</span>
+              </div>
+              <div class="bg-slate-950/60 p-3 rounded-xl border border-slate-800">
+                <span class="text-[10px] text-slate-400 block uppercase font-sans">Passed Records</span>
+                <span class="text-base font-bold text-emerald-400">{{ traceModalMetrics.pass }}</span>
+              </div>
+              <div class="bg-slate-950/60 p-3 rounded-xl border border-slate-800">
+                <span class="text-[10px] text-slate-400 block uppercase font-sans">Failed Records</span>
+                <span class="text-base font-bold text-rose-400">{{ traceModalMetrics.fail }}</span>
+              </div>
+              <div class="bg-slate-950/60 p-3 rounded-xl border border-slate-800">
+                <span class="text-[10px] text-slate-400 block uppercase font-sans">Pass Rate</span>
+                <span class="text-base font-bold text-cyan-400">{{ traceModalMetrics.passRate }}%</span>
+              </div>
+            </div>
+
+            <!-- Table of Test Results -->
+            <div class="overflow-x-auto rounded-xl border border-slate-800 bg-slate-950/80">
+              <table class="w-full text-left text-xs font-mono">
+                <thead class="bg-slate-950 text-slate-400 text-[10px] uppercase font-bold tracking-wider border-b border-slate-800">
+                  <tr>
+                    <th class="py-2.5 px-3">SO Number</th>
+                    <th class="py-2.5 px-3">Serial (SN)</th>
+                    <th class="py-2.5 px-3">Item / SKU</th>
+                    <th class="py-2.5 px-3">DevEUI / Key</th>
+                    <th class="py-2.5 px-3 text-center">FW / HW</th>
+                    <th class="py-2.5 px-3 text-center">Duration</th>
+                    <th class="py-2.5 px-3 text-center">Verdict</th>
+                    <th class="py-2.5 px-3">Station / Tester</th>
+                    <th class="py-2.5 px-3">Time Finish</th>
+                    <th class="py-2.5 px-3 text-right">Action</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-800/60">
+                  <tr v-if="traceModalLoading">
+                    <td colspan="10" class="py-8 text-center text-slate-400">
+                      <i class="fa-solid fa-circle-notch animate-spin text-lg text-purple-400 mr-2"></i>
+                      <span>Querying test_result & raw_data3 from PostgreSQL...</span>
+                    </td>
+                  </tr>
+                  <tr v-else-if="!traceModalResults || traceModalResults.length === 0">
+                    <td colspan="10" class="py-8 text-center text-slate-500">
+                      <i class="fa-solid fa-box-open text-2xl mb-1 block"></i>
+                      <span>No QA test records matching search criteria found in PostgreSQL.</span>
+                    </td>
+                  </tr>
+                  <tr
+                    v-else
+                    v-for="item in traceModalResults"
+                    :key="item.testResultId || item.test_result_id || item.serialNumber || item.serial_number"
+                    class="hover:bg-slate-800/40 transition"
+                  >
+                    <td class="py-2.5 px-3 font-semibold text-purple-300">
+                      {{ item.soNumber || item.so_number || '—' }}
+                    </td>
+                    <td class="py-2.5 px-3 font-bold text-white">
+                      {{ item.serialNumber || item.serial_number || '—' }}
+                    </td>
+                    <td class="py-2.5 px-3 text-slate-300 text-[11px]">
+                      {{ item.itemCode || item.item_code || item.sku || '—' }}
+                      <span v-if="item.sku && (item.itemCode || item.item_code) !== item.sku" class="text-slate-500 text-[9px] block">({{ item.sku }})</span>
+                    </td>
+                    <td class="py-2.5 px-3 text-slate-400 text-[11px]">
+                      {{ item.deviceKey || item.device_key || '—' }}
+                    </td>
+                    <td class="py-2.5 px-3 text-center text-[10px] text-slate-400">
+                      FW: {{ item.fwVer || item.fw_ver || '—' }} | HW: {{ item.hwVer || item.hw_ver || '—' }}
+                    </td>
+                    <td class="py-2.5 px-3 text-center text-slate-300 text-[11px]">
+                      {{ item.durationTime || item.duration_time || '—' }}
+                    </td>
+                    <td class="py-2.5 px-3 text-center">
+                      <span
+                        class="px-2 py-0.5 rounded-full text-[10px] font-bold border uppercase"
+                        :class="isTestVerdictPass(item.result) ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/25' : 'bg-rose-500/10 text-rose-400 border-rose-500/25'"
+                      >
+                        {{ item.result || 'PASS' }}
+                      </span>
+                    </td>
+                    <td class="py-2.5 px-3 text-slate-400 text-[10px]">
+                      <div>{{ item.testStation || item.test_station || 'STATION-01' }}</div>
+                      <div class="text-[9px] text-slate-500">{{ item.testPerson || item.test_person || 'QA' }}</div>
+                    </td>
+                    <td class="py-2.5 px-3 text-slate-400 text-[10px] whitespace-nowrap">
+                      {{ formatTraceTimestamp(item.timeFinish || item.time_finish || item.startTime || item.start_time) }}
+                    </td>
+                    <td class="py-2.5 px-3 text-right">
+                      <button
+                        type="button"
+                        @click="viewTraceabilityDeviceDetail(item)"
+                        class="px-2.5 py-1 rounded-lg bg-purple-500/15 hover:bg-purple-500/30 text-purple-300 border border-purple-500/30 text-[11px] font-bold cursor-pointer transition"
+                        title="Inspect telemetry frames from raw_data3"
+                      >
+                        <i class="fa-solid fa-eye mr-1"></i> Telemetry
+                      </button>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- BODY: MODE 2 - DEVICE TELEMETRY & STATS (from test_result & raw_data3) -->
+          <div v-else-if="traceModalViewMode === 'details'" class="flex-1 overflow-y-auto space-y-4 pr-1">
+            <div v-if="traceModalLoadingDetail" class="py-12 text-center text-slate-400 font-mono">
+              <i class="fa-solid fa-circle-notch animate-spin text-2xl text-purple-400 mb-2 block"></i>
+              <span>Loading telemetry frames and sensor statistics from raw_data3...</span>
+            </div>
+            <div v-else-if="traceModalSelectedDetail" class="space-y-4">
+              <!-- General Info Card -->
+              <div class="p-4 rounded-xl bg-slate-950/70 border border-slate-800 space-y-3">
+                <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 pb-2">
+                  <div class="flex items-center gap-2">
+                    <span class="text-xs font-bold text-white uppercase tracking-wider">Device Test Summary</span>
+                    <span
+                      class="px-2.5 py-0.5 rounded-full text-[10px] font-bold border uppercase font-mono"
+                      :class="isTestVerdictPass(traceModalSelectedDetail.test_result?.result || traceModalSelectedDetail.generalInfo?.result) ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/25' : 'bg-rose-500/10 text-rose-400 border-rose-500/25'"
+                    >
+                      {{ traceModalSelectedDetail.test_result?.result || traceModalSelectedDetail.generalInfo?.result || 'PASS' }}
+                    </span>
+                  </div>
+                  <div class="flex items-center gap-2">
+                    <button
+                      type="button"
+                      @click="exportSingleDeviceTraceCsv"
+                      class="px-2.5 py-1 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/30 text-[11px] font-bold cursor-pointer transition"
+                    >
+                      <i class="fa-solid fa-download mr-1"></i> Export Device CSV
+                    </button>
+                    <button
+                      type="button"
+                      @click="traceModalViewMode = 'catalog'"
+                      class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px] font-bold cursor-pointer transition"
+                    >
+                      <i class="fa-solid fa-arrow-left mr-1"></i> Back to List
+                    </button>
+                  </div>
+                </div>
+
+                <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-3 font-mono text-xs">
+                  <div>
+                    <span class="text-[10px] text-slate-500 block uppercase font-sans">Serial Number (SN)</span>
+                    <span class="font-bold text-white">{{ traceModalSelectedDetail.serial_number || traceModalSelectedDetail.generalInfo?.serialNumber || '—' }}</span>
+                  </div>
+                  <div>
+                    <span class="text-[10px] text-slate-500 block uppercase font-sans">Sales Order (SO)</span>
+                    <span class="font-bold text-purple-300">{{ traceModalSelectedDetail.so_number || traceModalSelectedDetail.test_result?.so_number || '—' }}</span>
+                  </div>
+                  <div>
+                    <span class="text-[10px] text-slate-500 block uppercase font-sans">SKU / Model</span>
+                    <span class="text-slate-200">{{ traceModalSelectedDetail.sku || traceModalSelectedDetail.generalInfo?.sku || '—' }}</span>
+                  </div>
+                  <div>
+                    <span class="text-[10px] text-slate-500 block uppercase font-sans">Device Key / DevEUI</span>
+                    <span class="text-slate-300">{{ traceModalSelectedDetail.generalInfo?.deviceKey || traceModalSelectedDetail.device_key || '—' }}</span>
+                  </div>
+                  <div>
+                    <span class="text-[10px] text-slate-500 block uppercase font-sans">FW / HW Version</span>
+                    <span class="text-slate-300">FW: {{ traceModalSelectedDetail.firmware_version || traceModalSelectedDetail.generalInfo?.fwVer || '—' }} | HW: {{ traceModalSelectedDetail.hardware_version || traceModalSelectedDetail.generalInfo?.hwVer || '—' }}</span>
+                  </div>
+                  <div>
+                    <span class="text-[10px] text-slate-500 block uppercase font-sans">Duration</span>
+                    <span class="text-slate-300">{{ traceModalSelectedDetail.test_result?.duration_time || traceModalSelectedDetail.generalInfo?.durationTime || '—' }}</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Event Distribution classification (Flow 1) -->
+              <div v-if="traceModalSelectedDetail.event_stats || traceModalSelectedDetail.eventStats" class="p-3.5 rounded-xl bg-slate-950/70 border border-slate-800 space-y-2">
+                <span class="text-xs font-bold text-slate-300 uppercase tracking-wider block">
+                  Event Code Distribution (Node-RED Flow 1 Protocol)
+                </span>
+                <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-2 text-center font-mono text-xs">
+                  <div class="p-2 rounded-lg bg-slate-900 border border-slate-800">
+                    <span class="text-[10px] text-slate-500 block font-sans">Normal (0)</span>
+                    <span class="font-bold text-emerald-400">{{ (traceModalSelectedDetail.event_stats || traceModalSelectedDetail.eventStats).event_s || 0 }}</span>
+                  </div>
+                  <div class="p-2 rounded-lg bg-slate-900 border border-slate-800">
+                    <span class="text-[10px] text-slate-500 block font-sans">Power Up (1)</span>
+                    <span class="font-bold text-cyan-400">{{ (traceModalSelectedDetail.event_stats || traceModalSelectedDetail.eventStats).event_p || 0 }}</span>
+                  </div>
+                  <div class="p-2 rounded-lg bg-slate-900 border border-slate-800">
+                    <span class="text-[10px] text-slate-500 block font-sans">Alarm (4)</span>
+                    <span class="font-bold text-rose-400">{{ (traceModalSelectedDetail.event_stats || traceModalSelectedDetail.eventStats).event_a || 0 }}</span>
+                  </div>
+                  <div class="p-2 rounded-lg bg-slate-900 border border-slate-800">
+                    <span class="text-[10px] text-slate-500 block font-sans">Fault (2)</span>
+                    <span class="font-bold text-amber-400">{{ (traceModalSelectedDetail.event_stats || traceModalSelectedDetail.eventStats).event_f || 0 }}</span>
+                  </div>
+                  <div class="p-2 rounded-lg bg-slate-900 border border-slate-800">
+                    <span class="text-[10px] text-slate-500 block font-sans">Config (3)</span>
+                    <span class="font-bold text-blue-400">{{ (traceModalSelectedDetail.event_stats || traceModalSelectedDetail.eventStats).event_c || 0 }}</span>
+                  </div>
+                  <div class="p-2 rounded-lg bg-slate-900 border border-slate-800">
+                    <span class="text-[10px] text-slate-500 block font-sans">LNS Join (15)</span>
+                    <span class="font-bold text-purple-400">{{ (traceModalSelectedDetail.event_stats || traceModalSelectedDetail.eventStats).event_lns || 0 }}</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Parameter Statistical Summary (Min / Max / Avg / Latest) -->
+              <div v-if="(traceModalSelectedDetail.sensor_parameters1 && traceModalSelectedDetail.sensor_parameters1.length > 0) || (traceModalSelectedDetail.sensorParameters1 && traceModalSelectedDetail.sensorParameters1.length > 0)" class="p-3.5 rounded-xl bg-slate-950/70 border border-slate-800 space-y-2">
+                <span class="text-xs font-bold text-slate-300 uppercase tracking-wider block">
+                  Sensor Telemetry Parameter Statistics (Min / Max / Average / Latest)
+                </span>
+                <div class="overflow-x-auto rounded-lg border border-slate-800">
+                  <table class="w-full text-left text-xs font-mono">
+                    <thead class="bg-slate-900 text-slate-400 text-[10px] uppercase font-bold tracking-wider border-b border-slate-800">
+                      <tr>
+                        <th class="py-2 px-3">Parameter Name</th>
+                        <th class="py-2 px-3 text-center">Min</th>
+                        <th class="py-2 px-3 text-center">Max</th>
+                        <th class="py-2 px-3 text-center">Average</th>
+                        <th class="py-2 px-3 text-center">Latest Value</th>
+                      </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-800/60">
+                      <tr
+                        v-for="p in (traceModalSelectedDetail.sensor_parameters1 || traceModalSelectedDetail.sensorParameters1 || [])"
+                        :key="p.paramKey"
+                        class="hover:bg-slate-900/40"
+                      >
+                        <td class="py-2 px-3 font-semibold text-slate-200">{{ p.name }}</td>
+                        <td class="py-2 px-3 text-center text-cyan-300">{{ p.min !== null ? p.min : '—' }}</td>
+                        <td class="py-2 px-3 text-center text-amber-300">{{ p.max !== null ? p.max : '—' }}</td>
+                        <td class="py-2 px-3 text-center text-emerald-300">{{ p.avg !== null ? p.avg : '—' }}</td>
+                        <td class="py-2 px-3 text-center font-bold text-white">{{ p.latest !== null ? p.latest : '—' }}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <!-- Raw Telemetry Uplink Frames (from PostgreSQL raw_data3) -->
+              <div class="p-3.5 rounded-xl bg-slate-950/70 border border-slate-800 space-y-2">
+                <div class="flex items-center justify-between">
+                  <span class="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
+                    <i class="fa-solid fa-database text-purple-400"></i>
+                    <span>Raw Telemetry Frames (PostgreSQL raw_data3)</span>
+                  </span>
+                  <span class="text-[10px] font-mono text-slate-500">
+                    {{ (traceModalSelectedDetail.raw_telemetry || []).length }} frames loaded
+                  </span>
+                </div>
+
+                <div class="overflow-x-auto rounded-lg border border-slate-800 max-h-64">
+                  <table class="w-full text-left text-xs font-mono">
+                    <thead class="bg-slate-900 text-slate-400 text-[10px] uppercase font-bold tracking-wider border-b border-slate-800 sticky top-0">
+                      <tr>
+                        <th class="py-2 px-3">Timestamp</th>
+                        <th class="py-2 px-3 text-center">Spreading</th>
+                        <th class="py-2 px-3 text-center">RSSI (com1)</th>
+                        <th class="py-2 px-3 text-center">SNR (com2)</th>
+                        <th class="py-2 px-3 text-center">P1 (Event)</th>
+                        <th class="py-2 px-3 text-center">P2 (Batt)</th>
+                        <th class="py-2 px-3 text-center">P3 / P4</th>
+                        <th class="py-2 px-3">Uplink Payload (Hex)</th>
+                      </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-800/60">
+                      <tr v-if="!traceModalSelectedDetail.raw_telemetry || traceModalSelectedDetail.raw_telemetry.length === 0">
+                        <td colspan="8" class="py-4 text-center text-slate-500">
+                          No raw telemetry records in raw_data3 for this device.
+                        </td>
+                      </tr>
+                      <tr
+                        v-else
+                        v-for="(frame, fIdx) in traceModalSelectedDetail.raw_telemetry"
+                        :key="fIdx"
+                        class="hover:bg-slate-900/40"
+                      >
+                        <td class="py-2 px-3 text-slate-400 text-[10px] whitespace-nowrap">{{ frame.timestamp || '—' }}</td>
+                        <td class="py-2 px-3 text-center text-cyan-400 text-[10px]">{{ frame.spreading_factor || 'SF7' }}</td>
+                        <td class="py-2 px-3 text-center text-slate-300">{{ frame.com1 ? frame.com1 + ' dBm' : '—' }}</td>
+                        <td class="py-2 px-3 text-center text-emerald-300">{{ frame.com2 ? frame.com2 + ' dB' : '—' }}</td>
+                        <td class="py-2 px-3 text-center text-purple-300 font-bold">{{ frame.p1 !== undefined ? frame.p1 : '—' }}</td>
+                        <td class="py-2 px-3 text-center text-amber-300">{{ frame.p2 !== undefined ? frame.p2 : '—' }}</td>
+                        <td class="py-2 px-3 text-center text-slate-400 text-[10px]">{{ frame.p3 || '—' }} / {{ frame.p4 || '—' }}</td>
+                        <td class="py-2 px-3 text-purple-200 break-all text-[11px] flex items-center justify-between gap-1">
+                          <span>{{ frame.uplink_payload || '—' }}</span>
+                          <button
+                            v-if="frame.uplink_payload"
+                            type="button"
+                            @click="copyText(frame.uplink_payload)"
+                            class="text-slate-500 hover:text-white p-0.5 cursor-pointer"
+                            title="Copy Hex Payload"
+                          >
+                            <i class="fa-regular fa-copy text-[10px]"></i>
+                          </button>
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Footer -->
+          <div class="flex items-center justify-between pt-2 border-t border-slate-800 shrink-0">
+            <span class="text-[10px] text-slate-500 font-mono">
+              Database: PostgreSQL dvt | Tables: test_result (7,386+ rows), raw_data3 (1,713,781+ rows)
+            </span>
+            <button
+              type="button"
+              @click="closeTraceabilityModal"
+              class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold cursor-pointer transition"
+            >
               Close
             </button>
           </div>
@@ -3554,6 +4009,153 @@ function useTestAutomationModule(ctx) {
     }
   };
 
+  // ========================================================
+  // PRODUCT TRACEABILITY INSPECTION (PostgreSQL test_result & raw_data3)
+  // UART connection is for bench hardware reading and NOT related to traceability
+  // ========================================================
+  const showTraceabilityModal = ref(false);
+  const traceModalViewMode = ref('catalog'); // 'catalog' | 'details'
+  const traceModalSearchQuery = ref('');
+  const traceModalVerdictFilter = ref('ALL');
+  const traceModalLimit = ref(50);
+  const traceModalLoading = ref(false);
+  const traceModalResults = ref([]);
+  const traceModalMetrics = ref({ total: 0, pass: 0, fail: 0, passRate: 0 });
+  const traceModalSelectedDetail = ref(null);
+  const traceModalLoadingDetail = ref(false);
+
+  const openProductTraceabilityModal = async (devOrKey) => {
+    showTraceabilityModal.value = true;
+    if (devOrKey) {
+      const searchKey = typeof devOrKey === 'string'
+        ? devOrKey
+        : (devOrKey.serialNumber || devOrKey.devEUI || devOrKey.name || '');
+      traceModalSearchQuery.value = searchKey;
+    }
+    await fetchTraceabilityModalData();
+    if (devOrKey && traceModalResults.value.length === 1) {
+      await viewTraceabilityDeviceDetail(traceModalResults.value[0]);
+    }
+  };
+
+  const closeTraceabilityModal = () => {
+    showTraceabilityModal.value = false;
+    traceModalSelectedDetail.value = null;
+    traceModalViewMode.value = 'catalog';
+  };
+
+  const fetchTraceabilityModalData = async () => {
+    traceModalLoading.value = true;
+    try {
+      const params = new URLSearchParams();
+      if (traceModalSearchQuery.value && traceModalSearchQuery.value.trim()) {
+        params.append('search', traceModalSearchQuery.value.trim());
+      }
+      if (traceModalVerdictFilter.value && traceModalVerdictFilter.value !== 'ALL') {
+        params.append('result', traceModalVerdictFilter.value);
+      }
+      params.append('limit', String(traceModalLimit.value || 50));
+
+      const res = await fetch('/api/traceability/test-results?' + params.toString(), {
+        headers: authHeaders(),
+        credentials: 'include',
+      });
+      if (res.ok) {
+        const data = await res.json();
+        const items = data.data || data.items || [];
+        traceModalResults.value = items;
+        if (data.metrics) {
+          traceModalMetrics.value = {
+            total: data.metrics.totalTests || items.length,
+            pass: data.metrics.passCount || 0,
+            fail: data.metrics.failCount || 0,
+            passRate: data.metrics.passRate || 0,
+          };
+        } else {
+          let pass = 0;
+          let fail = 0;
+          items.forEach(r => {
+            if (isTestVerdictPass(r.result)) pass++;
+            else fail++;
+          });
+          const total = items.length;
+          const passRate = total > 0 ? Math.round((pass / total) * 100) : 0;
+          traceModalMetrics.value = { total, pass, fail, passRate };
+        }
+      } else {
+        const err = await res.json().catch(() => ({}));
+        showToast(err.message || 'Failed to query test_result from PostgreSQL', 'error');
+      }
+    } catch (e) {
+      console.error('Failed to load traceability results:', e);
+      showToast('Error querying traceability records', 'error');
+    } finally {
+      traceModalLoading.value = false;
+    }
+  };
+
+  const viewTraceabilityDeviceDetail = async (itemOrId) => {
+    const key = typeof itemOrId === 'string'
+      ? itemOrId
+      : (itemOrId.testId || itemOrId.test_id || itemOrId.serialNumber || itemOrId.serial_number || itemOrId.deviceKey || itemOrId.device_key || '');
+    if (!key) {
+      showToast('Device identifier missing', 'error');
+      return;
+    }
+    traceModalViewMode.value = 'details';
+    traceModalLoadingDetail.value = true;
+    try {
+      const res = await fetch('/api/traceability/device-details?testId=' + encodeURIComponent(key) + '&serialNumber=' + encodeURIComponent(key), {
+        headers: authHeaders(),
+        credentials: 'include',
+      });
+      if (res.ok) {
+        traceModalSelectedDetail.value = await res.json();
+      } else {
+        const err = await res.json().catch(() => ({}));
+        showToast(err.message || 'Failed to load telemetry from raw_data3', 'error');
+      }
+    } catch (e) {
+      console.error('Failed to load device telemetry details:', e);
+      showToast('Network error loading telemetry details', 'error');
+    } finally {
+      traceModalLoadingDetail.value = false;
+    }
+  };
+
+  const exportTraceabilityCsv = () => {
+    const params = new URLSearchParams();
+    if (traceModalSearchQuery.value && traceModalSearchQuery.value.trim()) {
+      params.append('search', traceModalSearchQuery.value.trim());
+    }
+    if (traceModalVerdictFilter.value && traceModalVerdictFilter.value !== 'ALL') {
+      params.append('result', traceModalVerdictFilter.value);
+    }
+    window.open('/api/traceability/export-csv?' + params.toString(), '_blank');
+  };
+
+  const exportSingleDeviceTraceCsv = () => {
+    const key = traceModalSelectedDetail.value?.test_id || traceModalSelectedDetail.value?.generalInfo?.testId || traceModalSelectedDetail.value?.serial_number || '';
+    if (!key) return;
+    window.open('/api/traceability/export-csv?test_id=' + encodeURIComponent(key), '_blank');
+  };
+
+  const isTestVerdictPass = (res) => {
+    const s = String(res || '').toUpperCase();
+    return s === 'PASS' || s === 'PASSED' || s === 'OK' || s === '1' || s === 'TRUE';
+  };
+
+  const formatTraceTimestamp = (val) => {
+    if (!val) return '—';
+    try {
+      const d = new Date(typeof val === 'string' && !isNaN(Number(val)) ? Number(val) : val);
+      if (isNaN(d.getTime())) return String(val);
+      return d.toISOString().replace('T', ' ').substring(0, 19);
+    } catch(e) {
+      return String(val);
+    }
+  };
+
   const handleDocumentClick = (e) => {
     if (soDropdownContainer.value && !soDropdownContainer.value.contains(e.target)) {
       soDropdownOpen.value = false;
@@ -3736,6 +4338,25 @@ function useTestAutomationModule(ctx) {
     selectedNetworkServer,
     fetchNetworkServersList,
     submitRegisterToChirpstack,
+    // Product Traceability (PostgreSQL test_result & raw_data3)
+    showTraceabilityModal,
+    traceModalViewMode,
+    traceModalSearchQuery,
+    traceModalVerdictFilter,
+    traceModalLimit,
+    traceModalLoading,
+    traceModalResults,
+    traceModalMetrics,
+    traceModalSelectedDetail,
+    traceModalLoadingDetail,
+    openProductTraceabilityModal,
+    closeTraceabilityModal,
+    fetchTraceabilityModalData,
+    viewTraceabilityDeviceDetail,
+    exportTraceabilityCsv,
+    exportSingleDeviceTraceCsv,
+    isTestVerdictPass,
+    formatTraceTimestamp,
   };
 }
 `;

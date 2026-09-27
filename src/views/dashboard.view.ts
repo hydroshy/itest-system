@@ -4,6 +4,7 @@ import { HMI_SCADA_TEMPLATE, HMI_SCADA_MODALS, HMI_SCADA_SCRIPT } from './dashbo
 import { DOWNLINK_TEMPLATE, DOWNLINK_MODALS, DOWNLINK_SCRIPT } from './dashboard-modules/downlink.module';
 import { SERIAL_UART_TEMPLATE, SERIAL_UART_MODALS, SERIAL_UART_SCRIPT } from './dashboard-modules/serial-uart.module';
 import { TEST_AUTOMATION_TEMPLATE, TEST_AUTOMATION_MODALS, TEST_AUTOMATION_SCRIPT } from './dashboard-modules/test-automation.module';
+import { TRACEABILITY_TEMPLATE, TRACEABILITY_MODALS, TRACEABILITY_SCRIPT } from './dashboard-modules/traceability.module';
 
 export const DASHBOARD_HTML = `<!DOCTYPE html>
 <html lang="en">
@@ -1116,6 +1117,8 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
  
           ${TEST_AUTOMATION_TEMPLATE}
 
+          ${TRACEABILITY_TEMPLATE}
+
           <!-- General Module Template for independent module source extension -->
           <div v-else class="text-center py-10 space-y-4">
             <div class="w-16 h-16 rounded-2xl bg-sky-500/10 border border-sky-500/25 flex items-center justify-center text-sky-400 text-2xl mx-auto shadow-inner">
@@ -1148,6 +1151,8 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
       ${SERIAL_UART_MODALS}
  
       ${TEST_AUTOMATION_MODALS}
+
+      ${TRACEABILITY_MODALS}
 
     </div>
 
@@ -1197,6 +1202,8 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
     ${SERIAL_UART_SCRIPT}
  
     ${TEST_AUTOMATION_SCRIPT}
+
+    ${TRACEABILITY_SCRIPT}
 
     const { createApp, ref, computed, onMounted, onUnmounted, nextTick, watch } = Vue;
 
@@ -2026,6 +2033,13 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
           fetchNetworkServers: () => fetchNetworkServers(),
           initRealtimeConnection,
         });
+        const traceabilityModule = useTraceabilityModule({
+          showToast,
+          authHeaders,
+          activeFeature,
+          copyText,
+          currentUser,
+        });
 
         // Destructure module variables for seamless template & method access
         const {
@@ -2362,6 +2376,8 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
             testAutomationModule.fetchTestSessions();
             fetchDevices();
             initRealtimeConnection();
+          } else if (feature.id === 'traceability' || feature.id === 'product-traceability') {
+            if (traceabilityModule.fetchTestResults) traceabilityModule.fetchTestResults();
           }
         };
 
@@ -2454,6 +2470,8 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
                     testAutomationModule.fetchTestSessions();
                     fetchDevices();
                     initRealtimeConnection();
+                  } else if (found.id === 'traceability' || found.id === 'product-traceability') {
+                    if (traceabilityModule.fetchTestResults) traceabilityModule.fetchTestResults();
                   }
                 }
               }
@@ -2876,6 +2894,7 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
           ...downlinkModule,
           ...serialModule,
           ...testAutomationModule,
+          ...traceabilityModule,
         };
       }
     });

@@ -33,4 +33,5 @@ export {
   DOWNLINK_SCRIPT as DASHBOARD_DOWNLINK_SCRIPT,
 } from './modules/dashboard/downlink.module';
 export * from './modules/dashboard/serial-uart.module';
+export * from './modules/dashboard/traceability.module';
 

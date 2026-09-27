@@ -77,6 +77,19 @@
       "requiredPermission": "lorawan:device:read",
       "status": "active",
       "isActive": true
+    },
+    {
+      "id": "traceability",
+      "code": "D_MOD_TRACEABILITY",
+      "title": "PRODUCT TRACEABILITY",
+      "description": "Trace QA test results from PostgreSQL test_result, analyze raw_data3 telemetry frames, and verify serialization history.",
+      "icon": "fa-solid fa-fingerprint",
+      "color": "from-purple-600 to-indigo-600",
+      "badge": "Traceability",
+      "category": "Reports",
+      "requiredPermission": "lorawan:device:read",
+      "status": "active",
+      "isActive": true
     }
   ],
   "roleLayouts": {
@@ -88,7 +101,8 @@
         "hmi-scada-viewer",
         "lorawan-downlink",
         "serial-uart-monitor",
-        "test-automation"
+        "test-automation",
+        "traceability"
       ],
       "disabledModuleIds": [],
       "updatedAt": "2026-09-22T12:00:00.000Z"
@@ -101,7 +115,8 @@
         "hmi-scada-viewer",
         "lorawan-downlink",
         "serial-uart-monitor",
-        "test-automation"
+        "test-automation",
+        "traceability"
       ],
       "disabledModuleIds": [],
       "updatedAt": "2026-09-22T12:00:00.000Z"

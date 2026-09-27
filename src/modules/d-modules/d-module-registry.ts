@@ -106,6 +106,19 @@ export const DEFAULT_D_MODULES: DModule[] = [
     status: 'active',
     isActive: true,
   },
+  {
+    id: 'traceability',
+    code: 'D_MOD_TRACEABILITY',
+    title: 'PRODUCT TRACEABILITY',
+    description: 'Trace end-to-end device QA test verification, query test_result records, inspect raw_data3 telemetry frames, and verify serialization history.',
+    icon: 'fa-solid fa-fingerprint',
+    color: 'from-purple-600 to-indigo-600',
+    badge: 'Traceability',
+    category: 'Reports',
+    requiredPermission: 'lorawan:device:read',
+    status: 'active',
+    isActive: true,
+  },
 ];
 
 

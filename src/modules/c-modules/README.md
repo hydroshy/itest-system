@@ -27,6 +27,7 @@ Thư mục này chứa toàn bộ các **Module quản trị, hạ tầng và gi
 | **IV. Sản xuất & QA** | **`item-codes/`** | `C_MOD_ITEM_CODES` | **Item Code Catalog** | Danh mục mã sản phẩm thương mại Daviteq, ánh xạ SKU, FW, Test Template mặc định. |
 | | **`sales-orders/`** | `C_MOD_SALES_ORDERS` | **Sales Orders & Items** | Quản lý đơn hàng sản xuất, đồng bộ Odoo ERP, import CSV, gắn Item Codes và Test Template. |
 | | **`test-builder/`** | `C_MOD_TEST_BUILDER` | **Test Automation Builder** | Thiết kế kịch bản test LoRaWAN kéo thả (Flow Canvas), Assertion Rules theo SKU/FW. |
+| | **`traceability/`** | `T_MOD_TRACEABILITY` | **Traceability Module (T-Module)** | Quản lý hồ sơ kết quả kiểm thử (Flow 0) và phân tích telemetry chuyên sâu (Flow 1) theo Node-RED. |
 
 ---
 

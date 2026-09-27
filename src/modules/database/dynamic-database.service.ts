@@ -25,6 +25,8 @@ import { TestSessionEntity } from '../d-modules/test-automation/entities/test-se
 import { TestDeviceRunEntity } from '../d-modules/test-automation/entities/test-device-run.entity';
 import { TestPacketLogEntity } from '../d-modules/test-automation/entities/test-packet-log.entity';
 import { TestEvidenceEntity } from '../d-modules/test-automation/entities/test-evidence.entity';
+import { TestResultEntity } from '../c-modules/traceability/entities/test-result.entity';
+import { RawData3Entity } from '../c-modules/traceability/entities/raw-data3.entity';
 
 export const ALL_DATABASE_ENTITIES = [
   User,
@@ -50,6 +52,8 @@ export const ALL_DATABASE_ENTITIES = [
   TestDeviceRunEntity,
   TestPacketLogEntity,
   TestEvidenceEntity,
+  TestResultEntity,
+  RawData3Entity,
 ];
 
 export interface DbConnectionConfig {

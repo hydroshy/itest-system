@@ -94,6 +94,9 @@ export class RolesService implements OnModuleInit, OnApplicationBootstrap {
         { name: 'test_session:manage', module: 'test_automation', action: 'manage', description: 'Full Management of Product Test Sessions & Reports' },
         { name: 'lorawan:test_session:read', module: 'test_automation', action: 'read', description: 'View LoRaWAN Product Test Sessions' },
         { name: 'lorawan:test_session:execute', module: 'test_automation', action: 'execute', description: 'Execute LoRaWAN Product Test Sessions' },
+
+        { name: 'traceability:read', module: 'traceability', action: 'read', description: 'View Test Results & QA Device Test Details' },
+        { name: 'traceability:manage', module: 'traceability', action: 'manage', description: 'Manage QA Traceability Records & Seed Testing Telemetry' },
       ];
 
       // 1. Insert or update default permissions atomically

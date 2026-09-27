@@ -173,4 +173,14 @@ export const C_MODULES_REGISTRY: CModule[] = [
     routeHash: '#sensor-types',
     requiredPermission: 'lorawan:device:read',
   },
+  {
+    id: 'c-traceability',
+    code: 'T_MOD_TRACEABILITY',
+    title: 'Traceability Module (T-Module)',
+    description: 'Device test result records, QA telemetry traceability, Node-RED engineering flow inspection, Modbus register decoding, and statistical distributions.',
+    icon: 'fa-solid fa-clipboard-check',
+    category: 'Governance',
+    routeHash: '#traceability',
+    requiredPermission: 'traceability:read',
+  },
 ];

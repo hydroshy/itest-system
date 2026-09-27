@@ -31,6 +31,11 @@ import {
   SENSOR_TYPES_MODALS,
   SENSOR_TYPES_SCRIPT,
 } from './control-panel-modules/sensor-types.module';
+import {
+  TRACEABILITY_TEMPLATE,
+  TRACEABILITY_MODALS,
+  TRACEABILITY_SCRIPT,
+} from './control-panel-modules/traceability.module';
 
 export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
 <html lang="en">
@@ -1121,6 +1126,17 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
                 <span class="truncate">Item Code Catalog</span>
               </span>
             </button>
+
+            <button
+              @click="switchTab('traceability')"
+              :class="{ active: activeTab === 'traceability' }"
+              class="nav-item"
+            >
+              <span class="flex items-center" class="gap-2.5">
+                <i class="fa-solid fa-clipboard-check w-4 text-center text-xs text-emerald-400"></i>
+                <span class="truncate">Traceability (T-Module)</span>
+              </span>
+            </button>
           </div>
 
           <!-- GROUP 3: ACCESS & SECURITY -->
@@ -1396,6 +1412,13 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
           </div>
         </c-module-boundary>
 
+        <!-- TAB 17: TRACEABILITY (T-MODULE) -->
+        <c-module-boundary module-id="traceability" title="Traceability (T-Module)" icon="fa-solid fa-clipboard-check" :active="activeTab === 'traceability'">
+          <div v-if="activeTab === 'traceability'" class="space-y-6">
+            ${TRACEABILITY_TEMPLATE}
+          </div>
+        </c-module-boundary>
+
       </main>
     </div>
 
@@ -1413,6 +1436,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
     ${ITEM_CODES_MODALS}
     ${SALES_ORDERS_MODALS}
     ${SENSOR_TYPES_MODALS}
+    ${TRACEABILITY_MODALS}
 
     <!-- TOAST NOTIFICATION -->
     <div v-if="toast.show" class="fixed top-4 right-4 z-50 flex items-center gap-2 px-4 py-3 rounded-xl shadow-2xl text-xs font-semibold" :class="toast.type === 'error' ? 'bg-red-950 border border-red-500 text-red-200' : (toast.type === 'success' ? 'bg-emerald-950 border border-emerald-500 text-emerald-200' : 'bg-sky-950 border border-sky-500 text-sky-200')">
@@ -1476,6 +1500,11 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
       ${SENSOR_TYPES_SCRIPT}
     } catch (e) {
       console.error('[Module Script Load Error: sensor-types]', e);
+    }
+    try {
+      ${TRACEABILITY_SCRIPT}
+    } catch (e) {
+      console.error('[Module Script Load Error: traceability]', e);
     }
 
     // --- TIER 1: SANDBOX LOADER & DEFENSIVE FALLBACK FACTORIES (ADR-0002) ---
@@ -1809,12 +1838,42 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
       };
     }
 
+    function createTraceabilityFallback() {
+      const ref = (typeof Vue !== 'undefined' && Vue.ref) ? Vue.ref : function(v) { return { value: v }; };
+      return {
+        traceViewMode: ref('catalog'),
+        testResultsList: ref([]),
+        loadingTestResults: ref(false),
+        isSeedingTraceData: ref(false),
+        traceFilters: ref({}),
+        activeTestIdInput: ref(''),
+        loadingDeviceDetails: ref(false),
+        deviceDetails: ref(null),
+        selectedTrendField: ref('com1'),
+        showDecodedConfigModal: ref(false),
+        activeDecodedItem: ref(null),
+        activeDecodedRegisters: ref([]),
+        testResultsSummary: ref({ total: 0, pass: 0, fail: 0, passRate: 0 }),
+        trendChartPoints: ref(''),
+        fetchTestResults: function() {},
+        resetTraceFilters: function() {},
+        seedSampleTraceData: function() {},
+        inspectDeviceTest: function() {},
+        loadDeviceDetails: function() {},
+        openDecodedConfigModal: function() {},
+        isTestPassed: function() { return false; },
+        formatDateTime: function() { return ''; },
+        formatStatNum: function() { return ''; },
+      };
+    }
+
     window.safeExecuteModuleSetup = safeExecuteModuleSetup;
     window.createModbusPresetsFallback = createModbusPresetsFallback;
     window.createTestBuilderFallback = createTestBuilderFallback;
     window.createItemCodesFallback = createItemCodesFallback;
     window.createSalesOrdersFallback = createSalesOrdersFallback;
     window.createSensorTypesFallback = createSensorTypesFallback;
+    window.createTraceabilityFallback = createTraceabilityFallback;
 
     const { createApp, ref, computed, onMounted, watch } = Vue;
 
@@ -1839,6 +1898,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
         'item-codes': { id: 'c-item-codes', tabId: 'item-codes', title: 'Master Item Codes', icon: 'fa-solid fa-barcode', status: 'READY', error: null, retryCount: 0, lastActive: 0, bypassed: false },
         'sales-orders': { id: 'c-sales-orders', tabId: 'sales-orders', title: 'Sales Orders', icon: 'fa-solid fa-file-invoice-dollar', status: 'READY', error: null, retryCount: 0, lastActive: 0, bypassed: false },
         'sensor-types': { id: 'c-sensor-types', tabId: 'sensor-types', title: 'LoRaWAN Sensor Types', icon: 'fa-solid fa-microchip', status: 'READY', error: null, retryCount: 0, lastActive: 0, bypassed: false },
+        'traceability': { id: 'c-traceability', tabId: 'traceability', title: 'Traceability (T-Module)', icon: 'fa-solid fa-clipboard-check', status: 'READY', error: null, retryCount: 0, lastActive: 0, bypassed: false },
       });
 
       const normalizeKey = (tabOrId) => {
@@ -2795,6 +2855,8 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
             case 'test-builder': return 'LoRaWAN Test Automation';
             case 'item-codes': return 'Item Code Catalog';
             case 'sales-orders': return 'Sales Orders & Item Codes';
+            case 'sensor-types': return 'LoRaWAN Sensor Types';
+            case 'traceability': return 'Traceability (T-Module)';
             default: return activeTab.value;
           }
         });
@@ -6537,6 +6599,20 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
           createSensorTypesFallback
         );
 
+        const traceabilityModule = safeExecuteModuleSetup(
+          'c-traceability',
+          typeof useTraceabilityModule === 'function' ? (ctx => useTraceabilityModule(ctx)) : null,
+          {
+            showToast,
+            authHeaders,
+            currentUser,
+            activeTab,
+            switchTab,
+            moduleStatesRegistry: moduleStatesStore,
+          },
+          createTraceabilityFallback
+        );
+
         watch(activeTab, (newTab) => {
           try {
             window.history.replaceState(null, null, '#' + newTab);
@@ -6624,6 +6700,11 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
               sensorTypesModule.fetchSensorTypes();
             }
           }
+          if (newTab === 'traceability') {
+            if (traceabilityModule && typeof traceabilityModule.fetchTestResults === 'function') {
+              traceabilityModule.fetchTestResults();
+            }
+          }
         });
 
         const initControlPanel = async () => {
@@ -6699,6 +6780,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
           ...itemCodesModule,
           ...salesOrdersModule,
           ...sensorTypesModule,
+          ...traceabilityModule,
           activeTab,
           sidebarOpen,
           sidebarCollapsed,
