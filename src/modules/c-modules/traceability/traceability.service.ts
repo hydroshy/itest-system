@@ -473,6 +473,23 @@ export class TraceabilityService implements OnModuleInit {
       const pass = Number(r.passCount) || 0;
       const fail = Number(r.failCount) || 0;
       const passRate = total > 0 ? Math.round((pass / total) * 100) : 100;
+
+      let latestFormatted = '—';
+      if (r.latestFinishTime !== null && r.latestFinishTime !== undefined && r.latestFinishTime !== '') {
+        const n = Number(r.latestFinishTime);
+        if (!isNaN(n)) {
+          const finishMs = n < 10000000000 ? n * 1000 : n;
+          try {
+            const d = new Date(finishMs);
+            if (!isNaN(d.getTime())) {
+              latestFormatted = d.toISOString().replace('T', ' ').substring(0, 19);
+            }
+          } catch (e) {}
+        } else if (typeof r.latestFinishTime === 'string') {
+          latestFormatted = r.latestFinishTime;
+        }
+      }
+
       return {
         soNumber: r.soNumber,
         itemCode: r.itemCode || '—',
@@ -483,7 +500,8 @@ export class TraceabilityService implements OnModuleInit {
         passCount: pass,
         failCount: fail,
         passRate,
-        latestFinishTime: r.latestFinishTime || null,
+        latestFinishTime: latestFormatted !== '—' ? latestFormatted : (r.latestFinishTime || '—'),
+        latestFinishTimeFormatted: latestFormatted,
       };
     });
 

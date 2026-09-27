@@ -15,7 +15,7 @@ async function runTraceabilityDashboardModuleTests() {
   console.log('======================================================================\n');
 
   let passedTests = 0;
-  const totalTests = 9;
+  const totalTests = 10;
 
   // --------------------------------------------------------------------
   // TEST 1: D-Module Registry & JSON Config Verification
@@ -110,12 +110,9 @@ async function runTraceabilityDashboardModuleTests() {
   console.log('[TEST 4] Verifying search, filtering, and data inspection capabilities...');
   // Multi-criteria search
   assert.ok(
-    TRACEABILITY_TEMPLATE.includes('traceFilters.search'),
-    'Must include search input bound to traceFilters.search (SO, SN, Item Code)',
-  );
-  assert.ok(
-    TRACEABILITY_TEMPLATE.includes('traceFilters.result'),
-    'Must include QA result selector (ALL, PASS, FAIL)',
+    TRACEABILITY_TEMPLATE.includes('traceFilterTarget') &&
+    TRACEABILITY_TEMPLATE.includes('traceFilterValue'),
+    'Must include streamlined search input bound to traceFilterTarget and traceFilterValue',
   );
   assert.ok(
     TRACEABILITY_TEMPLATE.includes('exportTraceabilityCsv'),
@@ -198,11 +195,11 @@ async function runTraceabilityDashboardModuleTests() {
   console.log('[TEST 7] Verifying raw_data3 Field Statistics & Dedicated Trend Visualizers...');
   // 1. Statistics table placement below Event Code Distribution
   assert.ok(
-    TRACEABILITY_TEMPLATE.includes('Raw Data 3 Field Telemetry Statistics (Min / Avg / Max)'),
+    TRACEABILITY_TEMPLATE.includes('Raw Data 3 Field Telemetry Statistics'),
     'TRACEABILITY_TEMPLATE must include raw_data3 field statistics section',
   );
   const eventDistPos = TRACEABILITY_TEMPLATE.indexOf('Event Code Distribution (Header P1 Protocol)');
-  const statsPos = TRACEABILITY_TEMPLATE.indexOf('Raw Data 3 Field Telemetry Statistics (Min / Avg / Max)');
+  const statsPos = TRACEABILITY_TEMPLATE.indexOf('Raw Data 3 Field Telemetry Statistics');
   const trendPos = TRACEABILITY_TEMPLATE.indexOf('Field Data Trends (raw_data3 Timeline Series)');
   assert.ok(
     eventDistPos !== -1 && statsPos !== -1 && trendPos !== -1,
@@ -360,6 +357,57 @@ async function runTraceabilityDashboardModuleTests() {
   );
 
   console.log('  -> PASS: Tested Devices Catalog Tabulator, Detail Devices Tabulator and epoch fix verified.\n');
+  passedTests++;
+
+  // --------------------------------------------------------------------
+  // TEST 10: UX Optimization, Transposed Matrix & Trend Graph Grid
+  // --------------------------------------------------------------------
+  console.log('[TEST 10] Verifying UX Simplification, Summary Transposed Matrix & Oscilloscope Chart Grid...');
+  // 1. Simplified Filter: QA Result and Search & Rows removed
+  assert.ok(
+    !TRACEABILITY_TEMPLATE.includes('v-model="traceFilters.result"'),
+    'QA Result dropdown must be removed from Multi-Criteria Filter for clean simplicity',
+  );
+  assert.ok(
+    !TRACEABILITY_TEMPLATE.includes('v-model="traceFilters.search"'),
+    'Extra search input must be removed from Multi-Criteria Filter',
+  );
+
+  // 2. Tabulator pagination removed
+  assert.ok(
+    TRACEABILITY_SCRIPT.includes('pagination: false'),
+    'Tabulator tables must disable pagination buttons to use clean virtual scroll',
+  );
+
+  // 3. Transposed Summary Matrix: Fields as columns, MAX, AVG, MIN as rows
+  assert.ok(
+    TRACEABILITY_TEMPLATE.includes('MAX / AVG / MIN Matrix'),
+    'Telemetry summary must be structured as MAX / AVG / MIN Matrix',
+  );
+  assert.ok(
+    TRACEABILITY_TEMPLATE.includes('v-for="item in rawDataFieldList"') &&
+    TRACEABILITY_TEMPLATE.includes(':key="\'max-\' + item.key"') &&
+    TRACEABILITY_TEMPLATE.includes(':key="\'avg-\' + item.key"') &&
+    TRACEABILITY_TEMPLATE.includes(':key="\'min-\' + item.key"'),
+    'Summary table must transpose fields to columns and MAX, AVG, MIN to rows',
+  );
+
+  // 4. Oscilloscope Chart Grid
+  assert.ok(
+    TRACEABILITY_TEMPLATE.includes('chart-grid-container') &&
+    TRACEABILITY_TEMPLATE.includes('trace-grid-'),
+    'Trend graphs must include SVG oscilloscope/engineering grid and grid container',
+  );
+
+  // 5. Light mode Tabulator styling
+  const dashViewText = fs.readFileSync(path.join(process.cwd(), 'src/views/dashboard.view.ts'), 'utf8');
+  assert.ok(
+    dashViewText.includes('.theme-light .tabulator .tabulator-tableholder') &&
+    dashViewText.includes('.theme-light .tabulator .tabulator-header input'),
+    'dashboard.view.ts must provide complete light mode styling for Tabulator elements',
+  );
+
+  console.log('  -> PASS: All UX simplifications, transposed summary matrix, and oscilloscope grid verified.\n');
   passedTests++;
 
   console.log('======================================================================');

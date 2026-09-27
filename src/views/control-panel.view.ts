@@ -573,40 +573,110 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
     .theme-light .tabulator {
       background-color: #ffffff !important;
       border: 1px solid #e2e8f0 !important;
-      color: #0f172a !important;
+      color: #1e293b !important;
+      box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.04) !important;
+    }
+    .theme-light .tabulator .tabulator-tableholder {
+      background-color: #ffffff !important;
     }
     .theme-light .tabulator .tabulator-header {
       background-color: #f8fafc !important;
       border-bottom: 2px solid #e2e8f0 !important;
-      color: #475569 !important;
+      color: #334155 !important;
     }
     .theme-light .tabulator .tabulator-header .tabulator-col {
       background-color: #f8fafc !important;
       border-right: 1px solid #f1f5f9 !important;
+    }
+    .theme-light .tabulator .tabulator-header .tabulator-col-title {
+      color: #0f172a !important;
+      font-weight: 700 !important;
+    }
+    .theme-light .tabulator .tabulator-header input,
+    .theme-light .tabulator .tabulator-header select {
+      background-color: #ffffff !important;
+      border: 1px solid #cbd5e1 !important;
+      color: #0f172a !important;
+      border-radius: 6px !important;
+      padding: 3px 6px !important;
+      font-size: 11px !important;
+    }
+    .theme-light .tabulator .tabulator-header input:focus,
+    .theme-light .tabulator .tabulator-header select:focus {
+      border-color: #9333ea !important;
+      outline: none !important;
+      box-shadow: 0 0 0 2px rgba(147, 51, 234, 0.15) !important;
     }
     .theme-light .tabulator .tabulator-row {
       background-color: #ffffff !important;
       border-bottom: 1px solid #f1f5f9 !important;
       color: #1e293b !important;
     }
-    .theme-light .tabulator .tabulator-row:hover {
+    .theme-light .tabulator .tabulator-row:nth-child(even) {
       background-color: #f8fafc !important;
     }
+    .theme-light .tabulator .tabulator-row:hover {
+      background-color: #f1f5f9 !important;
+    }
     .theme-light .tabulator .tabulator-row.tabulator-selected {
-      background-color: #f0f9ff !important;
-      color: #0369a1 !important;
-      box-shadow: inset 0 0 0 1px rgba(2, 132, 199, 0.3) !important;
+      background-color: #f5f3ff !important;
+      color: #6b21a8 !important;
+      box-shadow: inset 0 0 0 1px rgba(147, 51, 234, 0.4) !important;
     }
     .theme-light .tabulator .tabulator-row.tabulator-selected .tabulator-cell {
-      background-color: rgba(2, 132, 199, 0.06) !important;
-      color: #0369a1 !important;
+      background-color: rgba(147, 51, 234, 0.06) !important;
+      color: #581c87 !important;
     }
     .theme-light .tabulator .tabulator-row.tabulator-selected .tabulator-cell:first-child {
-      background-color: #0284c7 !important;
+      background-color: #9333ea !important;
       color: #ffffff !important;
     }
     .theme-light .tabulator .tabulator-cell {
       border-right: 1px solid #f1f5f9 !important;
+      color: #1e293b !important;
+    }
+    .theme-light .tabulator .tabulator-placeholder {
+      background-color: #ffffff !important;
+    }
+    .theme-light .tabulator .tabulator-placeholder span {
+      color: #64748b !important;
+    }
+    .theme-light .tabulator .tabulator-footer {
+      background-color: #f8fafc !important;
+      border-top: 1px solid #e2e8f0 !important;
+      color: #475569 !important;
+    }
+    .theme-light .tabulator .text-slate-200,
+    .theme-light .tabulator .text-slate-300,
+    .theme-light .tabulator .text-slate-400,
+    .theme-light .tabulator .text-slate-500 {
+      color: #334155 !important;
+    }
+    .theme-light .tabulator .text-cyan-300,
+    .theme-light .tabulator .text-cyan-400 {
+      color: #0284c7 !important;
+      font-weight: 700 !important;
+    }
+    .theme-light .tabulator .text-purple-300,
+    .theme-light .tabulator .text-purple-400 {
+      color: #7e22ce !important;
+    }
+    .theme-light .tabulator .text-white {
+      color: #0f172a !important;
+    }
+    .theme-light .tabulator .bg-slate-800 {
+      background-color: #f1f5f9 !important;
+      border-color: #cbd5e1 !important;
+      color: #334155 !important;
+    }
+    .theme-light .tabulator .bg-slate-900 {
+      background-color: #e2e8f0 !important;
+    }
+    .theme-light .tabulator .text-emerald-400 {
+      color: #059669 !important;
+    }
+    .theme-light .tabulator .text-rose-400 {
+      color: #e11d48 !important;
     }
 
     .theme-light .custom-scroll::-webkit-scrollbar-track {

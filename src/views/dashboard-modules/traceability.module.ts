@@ -199,9 +199,9 @@ export const TRACEABILITY_TEMPLATE = `          <div v-else-if="activeFeature.id
                   </div>
                 </div>
 
-                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-3 pt-1">
+                <div class="grid grid-cols-1 md:grid-cols-12 gap-3 pt-1">
                   <!-- 1. Dropdown Chọn Mục Filter (SO / SN / Item Code / SKU) -->
-                  <div class="lg:col-span-3">
+                  <div class="md:col-span-4">
                     <label class="block text-[10px] font-bold uppercase text-slate-400 mb-1">Filter Field</label>
                     <select
                       v-model="traceFilterTarget"
@@ -215,8 +215,8 @@ export const TRACEABILITY_TEMPLATE = `          <div v-else-if="activeFeature.id
                     </select>
                   </div>
 
-                  <!-- 2. Ô fill tương ứng với mục đã chọn -->
-                  <div class="lg:col-span-4">
+                  <!-- 2. Ô Search Value tương ứng với mục đã chọn -->
+                  <div class="md:col-span-8">
                     <label class="block text-[10px] font-bold uppercase text-slate-400 mb-1">
                       <span>Search Value: </span>
                       <span class="text-purple-300 font-mono">{{ getFilterTargetLabel() }}</span>
@@ -230,49 +230,6 @@ export const TRACEABILITY_TEMPLATE = `          <div v-else-if="activeFeature.id
                         :placeholder="getFilterPlaceholder()"
                         class="w-full pl-8 pr-3 py-2 bg-slate-950/80 border border-slate-700/80 rounded-xl text-xs text-white placeholder-slate-500 font-mono focus:ring-1 focus:ring-purple-500 focus:outline-none"
                       />
-                    </div>
-                  </div>
-
-                  <!-- 3. QA Result Verdict -->
-                  <div class="lg:col-span-2">
-                    <label class="block text-[10px] font-bold uppercase text-slate-400 mb-1">QA Result</label>
-                    <select
-                      v-model="traceFilters.result"
-                      @change="applyTraceFilter"
-                      class="w-full px-2.5 py-2 bg-slate-950/80 border border-slate-700/80 rounded-xl text-xs text-white font-mono focus:ring-1 focus:ring-purple-500 focus:outline-none cursor-pointer"
-                    >
-                      <option value="ALL">Result: ALL</option>
-                      <option value="PASS">PASS Only</option>
-                      <option value="FAIL">FAIL Only</option>
-                    </select>
-                  </div>
-
-                  <!-- 4. Quick Search & Limit -->
-                  <div class="lg:col-span-3">
-                    <label class="block text-[10px] font-bold uppercase text-slate-400 mb-1">Search & Rows</label>
-                    <div class="flex items-center gap-1.5">
-                      <div class="relative flex-1">
-                        <i class="fa-solid fa-magnifying-glass absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500 text-[10px]"></i>
-                        <input
-                          type="text"
-                          v-model="traceFilters.search"
-                          @keyup.enter="applyTraceFilter"
-                          placeholder="Search..."
-                          class="w-full pl-7 pr-2 py-2 bg-slate-950/80 border border-slate-700/80 rounded-xl text-xs text-white placeholder-slate-500 font-mono focus:ring-1 focus:ring-purple-500 focus:outline-none"
-                        />
-                      </div>
-                      <select
-                        v-model="traceFilters.limit"
-                        @change="applyTraceFilter"
-                        class="w-16 px-1.5 py-2 bg-slate-950/80 border border-slate-700/80 rounded-xl text-xs text-white font-mono focus:ring-1 focus:ring-purple-500 focus:outline-none cursor-pointer"
-                        title="Records limit"
-                      >
-                        <option :value="25">25</option>
-                        <option :value="50">50</option>
-                        <option :value="100">100</option>
-                        <option :value="250">250</option>
-                        <option :value="500">500</option>
-                      </select>
                     </div>
                   </div>
                 </div>
@@ -622,40 +579,110 @@ export const TRACEABILITY_TEMPLATE = `          <div v-else-if="activeFeature.id
                     </div>
                   </div>
 
-                  <!-- B1. raw_data3 Telemetry Statistics (Min / Avg / Max) -->
+                  <!-- B1. raw_data3 Telemetry Statistics Matrix (Fields as Columns, MAX / AVG / MIN as Rows) -->
                   <div v-if="rawDataFieldList && rawDataFieldList.length > 0" class="p-3.5 rounded-xl bg-slate-950/70 border border-slate-800 space-y-2">
                     <div class="flex items-center justify-between pb-1.5 border-b border-slate-800/80">
                       <span class="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
-                        <i class="fa-solid fa-chart-simple text-emerald-400"></i>
-                        <span>Raw Data 3 Field Telemetry Statistics (Min / Avg / Max)</span>
+                        <i class="fa-solid fa-table text-emerald-400"></i>
+                        <span>Raw Data 3 Field Telemetry Statistics (MAX / AVG / MIN Matrix)</span>
                       </span>
                       <span class="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-300 border border-emerald-500/20">
-                        {{ rawDataFieldList.length }} Active Fields
+                        {{ rawDataFieldList.length }} Sensor Columns
                       </span>
                     </div>
 
                     <div class="overflow-x-auto">
-                      <table class="w-full text-left text-xs font-mono">
+                      <table class="w-full text-left text-xs font-mono border-collapse">
+                        <!-- Table Header: First cell is "Metric", followed by each Field as a column -->
                         <thead class="bg-slate-900/90 text-slate-400 text-[10px] uppercase font-bold border-b border-slate-800">
                           <tr>
-                            <th class="py-2 px-2.5">Field</th>
-                            <th class="py-2 px-2.5">Data Channel</th>
-                            <th class="py-2 px-2.5 text-right">Min</th>
-                            <th class="py-2 px-2.5 text-right text-emerald-400 font-bold">Average</th>
-                            <th class="py-2 px-2.5 text-right">Max</th>
-                            <th class="py-2 px-2.5 text-right text-cyan-300 font-bold">Latest</th>
-                            <th class="py-2 px-2.5 text-right text-slate-400">Samples</th>
+                            <th class="py-2.5 px-3 min-w-[120px] bg-slate-900/95 sticky left-0 z-10 border-r border-slate-800 text-slate-300">
+                              <span class="flex items-center gap-1.5"><i class="fa-solid fa-chart-column text-purple-400"></i> Field</span>
+                            </th>
+                            <th
+                              v-for="item in rawDataFieldList"
+                              :key="'col-' + item.key"
+                              class="py-2.5 px-3 min-w-[130px] border-r border-slate-800/60 last:border-r-0 text-center"
+                            >
+                              <div class="font-extrabold uppercase tracking-wider text-[11px]" :class="item.colors.text">{{ item.key }}</div>
+                              <div class="text-[9px] text-slate-400 font-normal truncate max-w-[140px] mx-auto mt-0.5" :title="item.label">{{ item.label }}</div>
+                            </th>
                           </tr>
                         </thead>
                         <tbody class="divide-y divide-slate-800/60 text-[11px]">
-                          <tr v-for="item in rawDataFieldList" :key="item.key" class="hover:bg-slate-900/50 transition">
-                            <td class="py-1.5 px-2.5 font-bold uppercase" :class="item.colors.text">{{ item.key }}</td>
-                            <td class="py-1.5 px-2.5 text-slate-200 font-medium">{{ item.label }}</td>
-                            <td class="py-1.5 px-2.5 text-right text-cyan-300">{{ formatStatNum(item.min) }}</td>
-                            <td class="py-1.5 px-2.5 text-right text-emerald-400 font-extrabold">{{ formatStatNum(item.avg) }}</td>
-                            <td class="py-1.5 px-2.5 text-right text-amber-300">{{ formatStatNum(item.max) }}</td>
-                            <td class="py-1.5 px-2.5 text-right text-white font-bold">{{ formatStatNum(item.latest) }}</td>
-                            <td class="py-1.5 px-2.5 text-right text-slate-400 font-mono">{{ item.count }} pkts</td>
+                          <!-- Row 1: MAX -->
+                          <tr class="hover:bg-slate-900/40 transition">
+                            <td class="py-2 px-3 font-bold sticky left-0 z-10 bg-slate-950/95 border-r border-slate-800 flex items-center gap-1.5">
+                              <span class="px-2 py-0.5 rounded font-extrabold text-[10px] bg-amber-500/15 text-amber-300 border border-amber-500/30">MAX</span>
+                              <span class="text-slate-400 text-[10px] font-normal">Peak</span>
+                            </td>
+                            <td
+                              v-for="item in rawDataFieldList"
+                              :key="'max-' + item.key"
+                              class="py-2 px-3 text-center text-amber-300 font-bold font-mono border-r border-slate-800/40 last:border-r-0"
+                            >
+                              {{ formatStatNum(item.max) }}
+                            </td>
+                          </tr>
+
+                          <!-- Row 2: AVG -->
+                          <tr class="hover:bg-slate-900/40 transition">
+                            <td class="py-2 px-3 font-bold sticky left-0 z-10 bg-slate-950/95 border-r border-slate-800 flex items-center gap-1.5">
+                              <span class="px-2 py-0.5 rounded font-extrabold text-[10px] bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">AVG</span>
+                              <span class="text-slate-400 text-[10px] font-normal">Mean</span>
+                            </td>
+                            <td
+                              v-for="item in rawDataFieldList"
+                              :key="'avg-' + item.key"
+                              class="py-2 px-3 text-center text-emerald-400 font-extrabold font-mono border-r border-slate-800/40 last:border-r-0"
+                            >
+                              {{ formatStatNum(item.avg) }}
+                            </td>
+                          </tr>
+
+                          <!-- Row 3: MIN -->
+                          <tr class="hover:bg-slate-900/40 transition">
+                            <td class="py-2 px-3 font-bold sticky left-0 z-10 bg-slate-950/95 border-r border-slate-800 flex items-center gap-1.5">
+                              <span class="px-2 py-0.5 rounded font-extrabold text-[10px] bg-cyan-500/15 text-cyan-300 border border-cyan-500/30">MIN</span>
+                              <span class="text-slate-400 text-[10px] font-normal">Floor</span>
+                            </td>
+                            <td
+                              v-for="item in rawDataFieldList"
+                              :key="'min-' + item.key"
+                              class="py-2 px-3 text-center text-cyan-300 font-bold font-mono border-r border-slate-800/40 last:border-r-0"
+                            >
+                              {{ formatStatNum(item.min) }}
+                            </td>
+                          </tr>
+
+                          <!-- Row 4: LATEST -->
+                          <tr class="hover:bg-slate-900/40 transition">
+                            <td class="py-1.5 px-3 font-bold sticky left-0 z-10 bg-slate-950/95 border-r border-slate-800 flex items-center gap-1.5">
+                              <span class="px-2 py-0.5 rounded font-bold text-[10px] bg-slate-800 text-slate-300 border border-slate-700">LATEST</span>
+                              <span class="text-slate-500 text-[10px] font-normal">Recent</span>
+                            </td>
+                            <td
+                              v-for="item in rawDataFieldList"
+                              :key="'latest-' + item.key"
+                              class="py-1.5 px-3 text-center text-white font-bold font-mono border-r border-slate-800/40 last:border-r-0"
+                            >
+                              {{ formatStatNum(item.latest) }}
+                            </td>
+                          </tr>
+
+                          <!-- Row 5: SAMPLES -->
+                          <tr class="hover:bg-slate-900/40 transition">
+                            <td class="py-1.5 px-3 font-bold sticky left-0 z-10 bg-slate-950/95 border-r border-slate-800 flex items-center gap-1.5">
+                              <span class="px-2 py-0.5 rounded font-medium text-[10px] bg-slate-900 text-slate-400 border border-slate-800">SAMPLES</span>
+                              <span class="text-slate-500 text-[10px] font-normal">Frames</span>
+                            </td>
+                            <td
+                              v-for="item in rawDataFieldList"
+                              :key="'count-' + item.key"
+                              class="py-1.5 px-3 text-center text-slate-400 font-mono text-[10px] border-r border-slate-800/40 last:border-r-0"
+                            >
+                              {{ item.count }} pkts
+                            </td>
                           </tr>
                         </tbody>
                       </table>
@@ -714,8 +741,8 @@ export const TRACEABILITY_TEMPLATE = `          <div v-else-if="activeFeature.id
                           </div>
                         </div>
 
-                        <!-- Trend Graph (SVG) -->
-                        <div class="w-full bg-slate-900/80 rounded-lg p-1.5 border border-slate-800 relative">
+                        <!-- Trend Graph (SVG) with Oscilloscope/Engineering Grid -->
+                        <div class="w-full bg-slate-900/80 rounded-lg p-1.5 border border-slate-800 relative chart-grid-container">
                           <!-- Y-axis guide labels on chart -->
                           <div class="absolute right-2 top-1 text-[8px] font-mono text-slate-500 pointer-events-none">Max: {{ formatStatNum(field.max) }}</div>
                           <div class="absolute right-2 bottom-6 text-[8px] font-mono text-slate-500 pointer-events-none">Min: {{ formatStatNum(field.min) }}</div>
@@ -726,7 +753,27 @@ export const TRACEABILITY_TEMPLATE = `          <div v-else-if="activeFeature.id
                                 <stop offset="0%" :stop-color="field.colors.stroke" stop-opacity="0.25" />
                                 <stop offset="100%" :stop-color="field.colors.stroke" stop-opacity="0.01" />
                               </linearGradient>
+                              <!-- Grid Pattern Definition -->
+                              <pattern :id="'trace-grid-' + field.key" width="73" height="17.5" patternUnits="userSpaceOnUse">
+                                <path d="M 73 0 L 0 0 0 17.5" fill="none" stroke="rgba(148, 163, 184, 0.12)" stroke-width="0.8" stroke-dasharray="2,2" />
+                              </pattern>
                             </defs>
+
+                            <!-- Background Grid Pattern -->
+                            <rect x="14" y="8" width="292" height="70" :fill="'url(#trace-grid-' + field.key + ')'" />
+
+                            <!-- Outer Grid Frame -->
+                            <rect x="14" y="8" width="292" height="70" fill="none" stroke="rgba(148, 163, 184, 0.22)" stroke-width="1" rx="2" />
+
+                            <!-- Horizontal Grid Reference Lines (25%, 50%, 75%) -->
+                            <line x1="14" y1="25.5" x2="306" y2="25.5" stroke="rgba(148, 163, 184, 0.15)" stroke-width="0.8" stroke-dasharray="3,3" />
+                            <line x1="14" y1="43" x2="306" y2="43" stroke="rgba(148, 163, 184, 0.18)" stroke-width="0.8" stroke-dasharray="3,3" />
+                            <line x1="14" y1="60.5" x2="306" y2="60.5" stroke="rgba(148, 163, 184, 0.15)" stroke-width="0.8" stroke-dasharray="3,3" />
+
+                            <!-- Vertical Grid Timeline Ticks -->
+                            <line x1="87" y1="8" x2="87" y2="78" stroke="rgba(148, 163, 184, 0.15)" stroke-width="0.8" stroke-dasharray="3,3" />
+                            <line x1="160" y1="8" x2="160" y2="78" stroke="rgba(148, 163, 184, 0.18)" stroke-width="0.8" stroke-dasharray="3,3" />
+                            <line x1="233" y1="8" x2="233" y2="78" stroke="rgba(148, 163, 184, 0.15)" stroke-width="0.8" stroke-dasharray="3,3" />
 
                             <!-- Average Reference Dashed Line -->
                             <line
@@ -734,9 +781,9 @@ export const TRACEABILITY_TEMPLATE = `          <div v-else-if="activeFeature.id
                               :y1="field.avgY"
                               x2="306"
                               :y2="field.avgY"
-                              stroke="rgba(255,255,255,0.18)"
-                              stroke-width="1"
-                              stroke-dasharray="3,3"
+                              stroke="rgba(52, 211, 153, 0.45)"
+                              stroke-width="1.2"
+                              stroke-dasharray="4,3"
                             />
 
                             <!-- Shaded Area Below Trend Line -->
@@ -1889,10 +1936,8 @@ function useTraceabilityModule(ctx) {
     catalogTabulatorInstance = new Tabulator(container, {
       data: soCatalogList.value,
       layout: 'fitColumns',
-      height: '300px',
-      pagination: 'local',
-      paginationSize: 10,
-      paginationSizeSelector: [10, 25, 50],
+      height: '320px',
+      pagination: false,
       placeholder: 'No Sales Orders matched',
       columns: [
         {
@@ -1945,8 +1990,8 @@ function useTraceabilityModule(ctx) {
         {
           title: 'Latest Finish Time',
           field: 'latestFinishTime',
-          sorter: 'number',
-          formatter: (cell) => '<span class="text-slate-400 font-mono text-[11px]">' + formatTraceDate(cell.getValue()) + '</span>',
+          sorter: 'string',
+          formatter: (cell) => '<span class="text-slate-400 font-mono text-[11px] font-medium">' + formatTraceDate(cell.getValue()) + '</span>',
         },
         {
           title: 'Action',
@@ -1989,9 +2034,7 @@ function useTraceabilityModule(ctx) {
       data: soDevicesList.value,
       layout: 'fitColumns',
       height: '380px',
-      pagination: 'local',
-      paginationSize: 15,
-      paginationSizeSelector: [15, 25, 50, 100],
+      pagination: false,
       placeholder: 'No tested devices found for this SO',
       columns: [
         {
@@ -2142,7 +2185,11 @@ function useTraceabilityModule(ctx) {
         });
         if (catRes.ok) {
           const catJson = await catRes.json();
-          soCatalogList.value = catJson.data || [];
+          const list = catJson.data || [];
+          soCatalogList.value = list.map(item => ({
+            ...item,
+            latestFinishTime: formatTraceDate(item.latestFinishTime || item.latestFinishTimeFormatted),
+          }));
         }
       } catch (err) {
         console.warn('so-catalog endpoint unavailable, falling back to client aggregation:', err);
@@ -2175,7 +2222,7 @@ function useTraceabilityModule(ctx) {
                 passCount: 0,
                 failCount: 0,
                 passRate: 0,
-                latestFinishTime: d.timeFinish || d.time_finish || d.createdAt,
+                latestFinishTime: formatTraceDate(d.timeFinish || d.time_finish || d.createdAt),
               });
             }
             const entry = map.get(so);
