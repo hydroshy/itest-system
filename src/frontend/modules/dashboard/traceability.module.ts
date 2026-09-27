@@ -690,22 +690,298 @@ export const TRACEABILITY_TEMPLATE = `          <div v-else-if="activeFeature.id
                   </div>
 
                   <!-- B2. Trend Graphs for Each Field Data in raw_data3 -->
-                  <div v-if="rawDataFieldList && rawDataFieldList.length > 0" class="space-y-2">
-                    <div class="flex items-center justify-between px-1">
-                      <span class="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
-                        <i class="fa-solid fa-chart-line text-sky-400"></i>
-                        <span>Field Data Trends (raw_data3 Timeline Series)</span>
-                      </span>
-                      <span class="text-[10px] font-mono text-slate-500">
-                        {{ rawDataFieldList.length }} Graphs • X: Timestamp / Packets • Y: Data Value
-                      </span>
+                  <div v-if="rawDataFieldList && rawDataFieldList.length > 0" class="space-y-3">
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 px-1">
+                      <div class="flex items-center gap-2">
+                        <span class="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
+                          <i class="fa-solid fa-chart-line text-sky-400"></i>
+                          <span>Field Data Trends (raw_data3 Timeline Series)</span>
+                        </span>
+                        <span class="text-[10px] font-mono px-2 py-0.5 rounded bg-sky-500/10 text-sky-300 border border-sky-500/20">
+                          {{ rawDataFieldList.length }} Graphs • X: Timestamp / Packets • Y: Data Value
+                        </span>
+                      </div>
+
+                      <!-- Toolbar: Channel Selector & View Mode Switcher -->
+                      <div class="flex items-center gap-2.5 flex-wrap">
+                        <!-- Channel Focus Dropdown -->
+                        <div class="flex items-center gap-1.5 text-xs">
+                          <span class="text-[10px] uppercase font-bold text-slate-400 font-mono">Focus Channel:</span>
+                          <select
+                            v-model="selectedTrendField"
+                            class="px-2.5 py-1 bg-slate-900 border border-slate-700 rounded-lg text-xs text-white font-mono focus:border-sky-500 focus:outline-none cursor-pointer"
+                          >
+                            <option v-for="f in availableTrendFields" :key="'focus-' + f.key" :value="f.key">
+                              {{ f.key.toUpperCase() }} — {{ f.label }}
+                            </option>
+                          </select>
+                        </div>
+
+                        <!-- View Mode Switcher -->
+                        <div class="inline-flex rounded-lg bg-slate-900 p-0.5 border border-slate-800 text-[10px] font-mono font-bold">
+                          <button
+                            type="button"
+                            @click="trendGraphViewMode = 'all'"
+                            :class="trendGraphViewMode === 'all' ? 'bg-sky-600 text-white shadow-sm' : 'text-slate-400 hover:text-white'"
+                            class="px-2.5 py-1 rounded transition flex items-center gap-1 cursor-pointer"
+                            title="Combined: Focused Visualizer + All Cards"
+                          >
+                            <i class="fa-solid fa-table-cells-large text-[9px]"></i>
+                            <span>All-in-One</span>
+                          </button>
+                          <button
+                            type="button"
+                            @click="trendGraphViewMode = 'detail'"
+                            :class="trendGraphViewMode === 'detail' ? 'bg-sky-600 text-white shadow-sm' : 'text-slate-400 hover:text-white'"
+                            class="px-2.5 py-1 rounded transition flex items-center gap-1 cursor-pointer"
+                            title="Detailed Oscilloscope Visualizer only"
+                          >
+                            <i class="fa-solid fa-chart-line text-[9px]"></i>
+                            <span>Focus Chart</span>
+                          </button>
+                          <button
+                            type="button"
+                            @click="trendGraphViewMode = 'grid'"
+                            :class="trendGraphViewMode === 'grid' ? 'bg-sky-600 text-white shadow-sm' : 'text-slate-400 hover:text-white'"
+                            class="px-2.5 py-1 rounded transition flex items-center gap-1 cursor-pointer"
+                            title="Cards Grid only"
+                          >
+                            <i class="fa-solid fa-grip text-[9px]"></i>
+                            <span>Cards Grid</span>
+                          </button>
+                        </div>
+                      </div>
                     </div>
 
-                    <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3.5">
+                    <!-- High-Resolution Focused Oscilloscope Visualizer (Visible in 'all' and 'detail' modes) -->
+                    <div
+                      v-if="(trendGraphViewMode === 'all' || trendGraphViewMode === 'detail') && selectedTrendChartData"
+                      class="glass-card rounded-xl border border-slate-800 p-4 space-y-3 bg-slate-950/90 shadow-xl"
+                    >
+                      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-slate-800">
+                        <div class="flex items-center gap-2">
+                          <span
+                            class="px-2 py-0.5 rounded text-[10px] font-mono font-black border"
+                            :class="selectedTrendChartData.colors?.badge || 'bg-sky-500/10 text-sky-300 border-sky-500/20'"
+                          >
+                            {{ selectedTrendField.toUpperCase() }}
+                          </span>
+                          <span class="text-xs font-bold text-white">
+                            {{ selectedTrendChartData.label }}
+                          </span>
+                          <span class="text-[10px] text-slate-500 font-mono">
+                            • Oscilloscope Timeline View (±15% bounds padding)
+                          </span>
+                        </div>
+
+                        <!-- Quick Channel Switcher Chips for Top Channels -->
+                        <div class="flex items-center gap-1 overflow-x-auto text-[10px] font-mono">
+                          <button
+                            v-for="f in availableTrendFields.slice(0, 8)"
+                            :key="'chip-' + f.key"
+                            type="button"
+                            @click="selectedTrendField = f.key"
+                            :class="selectedTrendField === f.key ? 'bg-sky-500/20 text-sky-300 border-sky-500/40 font-bold' : 'bg-slate-900 text-slate-400 border-slate-800 hover:border-slate-700'"
+                            class="px-2 py-0.5 rounded border transition cursor-pointer shrink-0"
+                          >
+                            {{ f.key.toUpperCase() }}
+                          </button>
+                        </div>
+                      </div>
+
+                      <!-- KPI Metric Strip for Selected Field -->
+                      <div class="grid grid-cols-2 sm:grid-cols-5 gap-2 font-mono text-xs">
+                        <div class="p-2 rounded-lg bg-slate-900/80 border border-slate-800/80 flex items-center justify-between">
+                          <span class="text-slate-500 text-[10px] uppercase font-sans">Min Value</span>
+                          <strong class="text-cyan-300 font-bold">{{ formatStatNum(selectedTrendChartData.rawMin) }}</strong>
+                        </div>
+                        <div class="p-2 rounded-lg bg-slate-900/80 border border-slate-800/80 flex items-center justify-between">
+                          <span class="text-slate-500 text-[10px] uppercase font-sans">Avg Value</span>
+                          <strong class="text-emerald-400 font-bold">{{ formatStatNum(selectedTrendChartData.rawAvg) }}</strong>
+                        </div>
+                        <div class="p-2 rounded-lg bg-slate-900/80 border border-slate-800/80 flex items-center justify-between">
+                          <span class="text-slate-500 text-[10px] uppercase font-sans">Max Value</span>
+                          <strong class="text-amber-300 font-bold">{{ formatStatNum(selectedTrendChartData.rawMax) }}</strong>
+                        </div>
+                        <div class="p-2 rounded-lg bg-slate-900/80 border border-slate-800/80 flex items-center justify-between">
+                          <span class="text-slate-500 text-[10px] uppercase font-sans">Latest</span>
+                          <strong class="text-white font-bold">{{ formatStatNum(selectedTrendChartData.latestVal) }}</strong>
+                        </div>
+                        <div class="p-2 rounded-lg bg-slate-900/80 border border-slate-800/80 flex items-center justify-between col-span-2 sm:col-span-1">
+                          <span class="text-slate-500 text-[10px] uppercase font-sans">Packets</span>
+                          <strong class="text-sky-300 font-bold">{{ selectedTrendChartData.count }} pkts</strong>
+                        </div>
+                      </div>
+
+                      <!-- SVG Trend Chart with Full Oscilloscope Grid and Y-Axis interval ticks -->
+                      <div class="w-full bg-slate-950 rounded-xl border border-slate-800 p-2 sm:p-3 relative overflow-hidden">
+                        <svg class="w-full h-64 overflow-visible" viewBox="0 0 820 240" preserveAspectRatio="none">
+                          <defs>
+                            <linearGradient id="trendDetailAreaGradDash" x1="0%" y1="0%" x2="0%" y2="100%">
+                              <stop offset="0%" :stop-color="selectedTrendChartData.colors?.stroke || '#0ea5e9'" stop-opacity="0.30" />
+                              <stop offset="100%" :stop-color="selectedTrendChartData.colors?.stroke || '#0ea5e9'" stop-opacity="0.01" />
+                            </linearGradient>
+                            <pattern id="detail-oscilloscope-grid-dash" width="73" height="37" patternUnits="userSpaceOnUse">
+                              <path d="M 73 0 L 0 0 0 37" fill="none" stroke="rgba(148, 163, 184, 0.08)" stroke-width="0.8" stroke-dasharray="2,2" />
+                            </pattern>
+                          </defs>
+
+                          <!-- Outer Screen Background & Engineering Grid -->
+                          <rect x="70" y="20" width="730" height="185" fill="#080e1a" rx="4" stroke="#1e293b" stroke-width="1" />
+                          <rect x="70" y="20" width="730" height="185" fill="url(#detail-oscilloscope-grid-dash)" rx="4" />
+
+                          <!-- Horizontal Dashed Grid Lines & Y-Axis Value Labels -->
+                          <g v-for="tick in selectedTrendChartData.yTicks" :key="'ytick-' + tick.ratio">
+                            <line
+                              x1="70"
+                              :y1="tick.y"
+                              x2="800"
+                              :y2="tick.y"
+                              stroke="rgba(148, 163, 184, 0.18)"
+                              stroke-width="1"
+                              stroke-dasharray="4,4"
+                            />
+                            <line
+                              x1="64"
+                              :y1="tick.y"
+                              x2="70"
+                              :y2="tick.y"
+                              stroke="#64748b"
+                              stroke-width="1.5"
+                            />
+                            <text
+                              x="60"
+                              :y="tick.y + 3.5"
+                              text-anchor="end"
+                              fill="#94a3b8"
+                              font-size="10"
+                              font-family="monospace"
+                              font-weight="600"
+                            >
+                              {{ tick.valFormatted }}
+                            </text>
+                          </g>
+
+                          <!-- Vertical Dashed Grid Lines & X-Axis Timestamp Labels -->
+                          <g v-for="(xtick, xIdx) in selectedTrendChartData.xTicks" :key="'xtick-' + xIdx">
+                            <line
+                              :x1="xtick.x"
+                              y1="20"
+                              :x2="xtick.x"
+                              y2="205"
+                              stroke="rgba(148, 163, 184, 0.18)"
+                              stroke-width="1"
+                              stroke-dasharray="3,3"
+                            />
+                            <line
+                              :x1="xtick.x"
+                              y1="205"
+                              :x2="xtick.x"
+                              y2="210"
+                              stroke="#64748b"
+                              stroke-width="1.5"
+                            />
+                            <text
+                              :x="xtick.x"
+                              y="223"
+                              text-anchor="middle"
+                              fill="#94a3b8"
+                              font-size="9"
+                              font-family="monospace"
+                            >
+                              {{ xtick.label }}
+                            </text>
+                          </g>
+
+                          <!-- Average Reference Dashed Line -->
+                          <line
+                            x1="70"
+                            :y1="selectedTrendChartData.avgY"
+                            x2="800"
+                            :y2="selectedTrendChartData.avgY"
+                            stroke="#f59e0b"
+                            stroke-width="1.5"
+                            stroke-dasharray="6,3"
+                            stroke-opacity="0.8"
+                          />
+                          <text
+                            x="795"
+                            :y="selectedTrendChartData.avgY - 4"
+                            text-anchor="end"
+                            fill="#f59e0b"
+                            font-size="9"
+                            font-family="monospace"
+                            font-weight="bold"
+                          >
+                            AVG: {{ formatStatNum(selectedTrendChartData.rawAvg) }}
+                          </text>
+
+                          <!-- Shaded Polygon Area Under Curve -->
+                          <polygon
+                            :points="selectedTrendChartData.areaPolygonStr"
+                            fill="url(#trendDetailAreaGradDash)"
+                          />
+
+                          <!-- Vector Curve Polyline -->
+                          <polyline
+                            fill="none"
+                            :stroke="selectedTrendChartData.colors?.stroke || '#0ea5e9'"
+                            stroke-width="2.5"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            :points="selectedTrendChartData.polylineStr"
+                          />
+
+                          <!-- Data Points (Circles with hover tooltips) -->
+                          <circle
+                            v-for="p in selectedTrendChartData.renderedPoints"
+                            :key="'detail-pt-' + p.index"
+                            :cx="p.x"
+                            :cy="p.y"
+                            r="3.5"
+                            :fill="selectedTrendChartData.colors?.stroke || '#0ea5e9'"
+                            stroke="#0f172a"
+                            stroke-width="1.5"
+                            class="cursor-pointer hover:r-6 transition-all"
+                          >
+                            <title>Packet #{{ p.index }} | Time: {{ p.timeStr }} | Value: {{ p.valFormatted }}</title>
+                          </circle>
+                        </svg>
+
+                        <!-- Chart Legend & Boundary Note -->
+                        <div class="flex flex-wrap items-center justify-between text-[10px] font-mono text-slate-400 pt-2 px-1 border-t border-slate-800/80 mt-1">
+                          <div class="flex items-center gap-4">
+                            <span class="flex items-center gap-1.5">
+                              <span class="w-3 h-0.5 rounded" :style="{ backgroundColor: selectedTrendChartData.colors?.stroke || '#0ea5e9' }"></span>
+                              <strong class="text-white">{{ selectedTrendField.toUpperCase() }} Series</strong>
+                            </span>
+                            <span class="flex items-center gap-1.5">
+                              <span class="w-3 h-0.5 bg-amber-500 border-dashed"></span>
+                              <span class="text-amber-400">Mean Level</span>
+                            </span>
+                            <span class="text-slate-500">
+                              (Y-Axis padded ±15% at bounds)
+                            </span>
+                          </div>
+                          <div class="text-slate-400">
+                            Span: <span class="text-cyan-300 font-bold">{{ formatStatNum(selectedTrendChartData.rawMin) }}</span> → <span class="text-amber-300 font-bold">{{ formatStatNum(selectedTrendChartData.rawMax) }}</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <!-- All Channel Cards Grid (Visible in 'all' and 'grid' modes) -->
+                    <div
+                      v-if="trendGraphViewMode === 'all' || trendGraphViewMode === 'grid'"
+                      class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3.5"
+                    >
                       <div
                         v-for="field in rawDataFieldList"
                         :key="field.key"
-                        class="p-3.5 rounded-xl bg-slate-950/80 border border-slate-800 space-y-2.5 hover:border-slate-700 transition flex flex-col justify-between"
+                        @click="selectedTrendField = field.key"
+                        :class="selectedTrendField === field.key ? 'ring-2 ring-sky-500 border-sky-400 bg-slate-900/90' : 'border-slate-800 bg-slate-950/80 hover:border-slate-700'"
+                        class="p-3.5 rounded-xl border space-y-2.5 transition flex flex-col justify-between cursor-pointer"
+                        :title="'Click to spotlight ' + field.key.toUpperCase() + ' in detailed view'"
                       >
                         <!-- Header of Field Trend Card -->
                         <div class="flex items-start justify-between gap-2 border-b border-slate-800/80 pb-2">
@@ -1176,6 +1452,93 @@ export const TRACEABILITY_TEMPLATE = `          <div v-else-if="activeFeature.id
                 </div>
               </div>
 
+              <!-- Tab 2: Field Data Trends (raw_data3 Timeline Series) Visualizer -->
+              <div v-if="selectedDeviceTelemetry && rawDataFieldList && rawDataFieldList.length > 0 && selectedTrendChartData" class="glass-card rounded-2xl p-4 border border-sky-500/20 space-y-3">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-slate-800">
+                  <div class="flex items-center gap-2">
+                    <i class="fa-solid fa-chart-line text-sky-400"></i>
+                    <span class="text-xs font-bold text-white uppercase tracking-wider">Field Data Trends (raw_data3 Timeline Series)</span>
+                    <span class="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-sky-500/10 text-sky-300 border border-sky-500/20">
+                      {{ selectedTrendField.toUpperCase() }}
+                    </span>
+                  </div>
+                  <div class="flex items-center gap-2">
+                    <span class="text-[10px] font-mono text-slate-400 uppercase font-bold">Focus Channel:</span>
+                    <select
+                      v-model="selectedTrendField"
+                      class="px-2.5 py-1 bg-slate-900 border border-slate-700 rounded-lg text-xs text-white font-mono focus:border-sky-500 focus:outline-none cursor-pointer"
+                    >
+                      <option v-for="f in availableTrendFields" :key="'t2-' + f.key" :value="f.key">
+                        {{ f.key.toUpperCase() }} — {{ f.label }}
+                      </option>
+                    </select>
+                  </div>
+                </div>
+
+                <!-- Quick Stats Bar -->
+                <div class="grid grid-cols-2 sm:grid-cols-5 gap-2 font-mono text-xs">
+                  <div class="p-2 rounded-lg bg-slate-950/70 border border-slate-800 flex items-center justify-between">
+                    <span class="text-slate-500 text-[10px] uppercase font-sans">Min Value</span>
+                    <strong class="text-cyan-300 font-bold">{{ formatStatNum(selectedTrendChartData.rawMin) }}</strong>
+                  </div>
+                  <div class="p-2 rounded-lg bg-slate-950/70 border border-slate-800 flex items-center justify-between">
+                    <span class="text-slate-500 text-[10px] uppercase font-sans">Avg Value</span>
+                    <strong class="text-emerald-400 font-bold">{{ formatStatNum(selectedTrendChartData.rawAvg) }}</strong>
+                  </div>
+                  <div class="p-2 rounded-lg bg-slate-950/70 border border-slate-800 flex items-center justify-between">
+                    <span class="text-slate-500 text-[10px] uppercase font-sans">Max Value</span>
+                    <strong class="text-amber-300 font-bold">{{ formatStatNum(selectedTrendChartData.rawMax) }}</strong>
+                  </div>
+                  <div class="p-2 rounded-lg bg-slate-950/70 border border-slate-800 flex items-center justify-between">
+                    <span class="text-slate-500 text-[10px] uppercase font-sans">Latest</span>
+                    <strong class="text-white font-bold">{{ formatStatNum(selectedTrendChartData.latestVal) }}</strong>
+                  </div>
+                  <div class="p-2 rounded-lg bg-slate-950/70 border border-slate-800 flex items-center justify-between col-span-2 sm:col-span-1">
+                    <span class="text-slate-500 text-[10px] uppercase font-sans">Packets</span>
+                    <strong class="text-sky-300 font-bold">{{ selectedTrendChartData.count }} pkts</strong>
+                  </div>
+                </div>
+
+                <!-- SVG Chart -->
+                <div class="w-full bg-slate-950 rounded-xl border border-slate-800 p-2 sm:p-3 relative overflow-hidden">
+                  <svg class="w-full h-56 overflow-visible" viewBox="0 0 820 240" preserveAspectRatio="none">
+                    <defs>
+                      <linearGradient id="trendDetailAreaGradT2" x1="0%" y1="0%" x2="0%" y2="100%">
+                        <stop offset="0%" :stop-color="selectedTrendChartData.colors?.stroke || '#0ea5e9'" stop-opacity="0.30" />
+                        <stop offset="100%" :stop-color="selectedTrendChartData.colors?.stroke || '#0ea5e9'" stop-opacity="0.01" />
+                      </linearGradient>
+                      <pattern id="detail-oscilloscope-grid-t2" width="73" height="37" patternUnits="userSpaceOnUse">
+                        <path d="M 73 0 L 0 0 0 37" fill="none" stroke="rgba(148, 163, 184, 0.08)" stroke-width="0.8" stroke-dasharray="2,2" />
+                      </pattern>
+                    </defs>
+
+                    <rect x="70" y="20" width="730" height="185" fill="#080e1a" rx="4" stroke="#1e293b" stroke-width="1" />
+                    <rect x="70" y="20" width="730" height="185" fill="url(#detail-oscilloscope-grid-t2)" rx="4" />
+
+                    <g v-for="tick in selectedTrendChartData.yTicks" :key="'t2ytick-' + tick.ratio">
+                      <line x1="70" :y1="tick.y" x2="800" :y2="tick.y" stroke="rgba(148, 163, 184, 0.18)" stroke-width="1" stroke-dasharray="4,4" />
+                      <line x1="64" :y1="tick.y" x2="70" :y2="tick.y" stroke="#64748b" stroke-width="1.5" />
+                      <text x="60" :y="tick.y + 3.5" text-anchor="end" fill="#94a3b8" font-size="10" font-family="monospace" font-weight="600">{{ tick.valFormatted }}</text>
+                    </g>
+
+                    <g v-for="(xtick, xIdx) in selectedTrendChartData.xTicks" :key="'t2xtick-' + xIdx">
+                      <line :x1="xtick.x" y1="20" :x2="xtick.x" y2="205" stroke="rgba(148, 163, 184, 0.18)" stroke-width="1" stroke-dasharray="3,3" />
+                      <line :x1="xtick.x" y1="205" :x2="xtick.x" y2="210" stroke="#64748b" stroke-width="1.5" />
+                      <text :x="xtick.x" y="223" text-anchor="middle" fill="#94a3b8" font-size="9" font-family="monospace">{{ xtick.label }}</text>
+                    </g>
+
+                    <line x1="70" :y1="selectedTrendChartData.avgY" x2="800" :y2="selectedTrendChartData.avgY" stroke="#f59e0b" stroke-width="1.5" stroke-dasharray="6,3" stroke-opacity="0.8" />
+                    <text x="795" :y="selectedTrendChartData.avgY - 4" text-anchor="end" fill="#f59e0b" font-size="9" font-family="monospace" font-weight="bold">AVG: {{ formatStatNum(selectedTrendChartData.rawAvg) }}</text>
+
+                    <polygon :points="selectedTrendChartData.areaPolygonStr" fill="url(#trendDetailAreaGradT2)" />
+                    <polyline fill="none" :stroke="selectedTrendChartData.colors?.stroke || '#0ea5e9'" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" :points="selectedTrendChartData.polylineStr" />
+                    <circle v-for="p in selectedTrendChartData.renderedPoints" :key="'t2-pt-' + p.index" :cx="p.x" :cy="p.y" r="3.5" :fill="selectedTrendChartData.colors?.stroke || '#0ea5e9'" stroke="#0f172a" stroke-width="1.5" class="cursor-pointer hover:r-6 transition-all">
+                      <title>Packet #{{ p.index }} | Time: {{ p.timeStr }} | Value: {{ p.valFormatted }}</title>
+                    </circle>
+                  </svg>
+                </div>
+              </div>
+
               <!-- Raw Telemetry Uplink Frames Table -->
               <div class="glass-card rounded-2xl border border-slate-800 overflow-hidden shadow-xl">
                 <div class="p-3.5 bg-slate-950/90 border-b border-slate-800 flex items-center justify-between">
@@ -1613,11 +1976,15 @@ function useTraceabilityModule(ctx) {
     return isNaN(n) ? String(val) : (n % 1 === 0 ? String(n) : n.toFixed(2));
   };
 
+  // Trend Graph view & channel selection state
+  const trendGraphViewMode = ref('all'); // 'all' | 'detail' | 'grid'
+  const selectedTrendField = ref('p4');
+
   // Field Data List & Trend Graphs for raw_data3 (com1, com2, p1..p35)
   const rawDataFieldList = computed(() => {
-    const details = selectedDeviceDetails.value;
+    const details = selectedDeviceDetails.value || selectedDeviceTelemetry.value;
     if (!details) return [];
-    const frames = details.raw_telemetry || details.telemetry || [];
+    const frames = details.raw_telemetry || details.telemetry || telemetryRawFrames.value || [];
     if (!Array.isArray(frames) || frames.length === 0) return [];
 
     const fieldKeys = [
@@ -1685,8 +2052,9 @@ function useTraceabilityModule(ctx) {
           const num = Number(val);
           if (!isNaN(num)) {
             let tStr = '';
-            if (frame.epochtime) {
-              const d = new Date(Number(frame.epochtime) * 1000);
+            const ep = frame.epochtime ? Number(frame.epochtime) : null;
+            if (ep && !isNaN(ep)) {
+              const d = new Date(ep < 1e11 ? ep * 1000 : ep);
               tStr = !isNaN(d.getTime()) ? d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : String(frame.epochtime);
             } else if (frame.timestamp) {
               const d = new Date(frame.timestamp);
@@ -1719,7 +2087,7 @@ function useTraceabilityModule(ctx) {
       const latestVal = numValues[numValues.length - 1];
       const count = numValues.length;
 
-      // SVG Trend Graph Coordinates
+      // SVG Trend Graph Coordinates with 15% cushioning
       const svgW = 320;
       const svgH = 88;
       const padX = 14;
@@ -1727,15 +2095,20 @@ function useTraceabilityModule(ctx) {
       const padBottom = 16;
       const plotW = svgW - 2 * padX;
       const plotH = svgH - padTop - padBottom;
-      const range = maxVal === minVal ? 1 : (maxVal - minVal);
+      
+      let delta = maxVal - minVal;
+      if (delta === 0) delta = Math.abs(maxVal) === 0 ? 1 : Math.abs(maxVal) * 0.2;
+      const cushion = delta * 0.15;
+      const yMinBound = minVal - cushion;
+      const yMaxBound = maxVal + cushion;
+      const yRange = yMaxBound - yMinBound;
 
       const renderedPoints = validPoints.map((p, idx) => {
         const x = validPoints.length === 1
           ? (svgW / 2)
           : (padX + (idx / (validPoints.length - 1)) * plotW);
-        const y = maxVal === minVal
-          ? (padTop + plotH / 2)
-          : (padTop + plotH - ((p.val - minVal) / range) * plotH);
+        const norm = (p.val - yMinBound) / yRange;
+        const y = padTop + plotH - norm * plotH;
         return {
           x: Number(x.toFixed(1)),
           y: Number(y.toFixed(1)),
@@ -1751,9 +2124,8 @@ function useTraceabilityModule(ctx) {
       const baseFloorY = (svgH - padBottom).toFixed(1);
       const areaPolygonStr = firstX + ',' + baseFloorY + ' ' + polylineStr + ' ' + lastX + ',' + baseFloorY;
 
-      const avgY = maxVal === minVal
-        ? Number((padTop + plotH / 2).toFixed(1))
-        : Number((padTop + plotH - ((avgVal - minVal) / range) * plotH).toFixed(1));
+      const avgNorm = (avgVal - yMinBound) / yRange;
+      const avgY = Number((padTop + plotH - avgNorm * plotH).toFixed(1));
 
       const customLabel = details.calculations?.[key]?.label || details.calculations?.[key]?.name;
       const displayLabel = customLabel || labelsMap[key] || key.toUpperCase();
@@ -1778,6 +2150,169 @@ function useTraceabilityModule(ctx) {
     }
 
     return result;
+  });
+
+  // Dynamic list of trend fields available from active telemetry
+  const availableTrendFields = computed(() => {
+    if (rawDataFieldList.value && rawDataFieldList.value.length > 0) {
+      return rawDataFieldList.value.map(f => ({ key: f.key, label: f.label }));
+    }
+    const details = selectedDeviceDetails.value || selectedDeviceTelemetry.value;
+    if (!details) return [];
+    return [
+      { key: 'com1', label: 'COM1 (Supply Voltage / RSSI)' },
+      { key: 'com2', label: 'COM2 (Operating Current / SNR)' },
+      { key: 'p1', label: 'P1 (Event Code)' },
+      { key: 'p2', label: 'P2 (Battery Voltage)' },
+      { key: 'p4', label: 'P4 (Sensor Channel 1)' },
+      { key: 'p5', label: 'P5 (Sensor Channel 2)' },
+    ];
+  });
+
+  // High-Resolution Focused Oscilloscope Trend Chart Data
+  const selectedTrendChartData = computed(() => {
+    const details = selectedDeviceDetails.value || selectedDeviceTelemetry.value;
+    if (!details) return null;
+    const frames = details.raw_telemetry || details.telemetry || telemetryRawFrames.value || [];
+    if (!Array.isArray(frames) || frames.length === 0) return null;
+
+    let field = selectedTrendField.value;
+    if (rawDataFieldList.value && rawDataFieldList.value.length > 0) {
+      if (!rawDataFieldList.value.some(f => f.key === field)) {
+        field = rawDataFieldList.value[0].key;
+      }
+    } else {
+      if (!field) field = 'com1';
+    }
+
+    const validPoints = [];
+    for (let i = 0; i < frames.length; i++) {
+      const f = frames[i];
+      const val = f[field];
+      if (val !== null && val !== undefined && val !== '') {
+        const num = Number(val);
+        if (!isNaN(num)) {
+          let tStr = '';
+          const ep = f.epochtime ? Number(f.epochtime) : null;
+          if (ep && !isNaN(ep)) {
+            const d = new Date(ep < 1e11 ? ep * 1000 : ep);
+            tStr = !isNaN(d.getTime()) ? d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : String(f.epochtime);
+          } else if (f.timestamp) {
+            const d = new Date(f.timestamp);
+            tStr = !isNaN(d.getTime()) ? d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : String(f.timestamp);
+          } else if (f.created_at) {
+            const d = new Date(f.created_at);
+            tStr = !isNaN(d.getTime()) ? d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : String(f.created_at);
+          } else {
+            tStr = 'Pkt #' + (i + 1);
+          }
+          validPoints.push({
+            index: i + 1,
+            val: num,
+            timeStr: tStr,
+          });
+        }
+      }
+    }
+
+    if (validPoints.length === 0) return null;
+
+    const vals = validPoints.map(p => p.val);
+    const rawMin = Math.min(...vals);
+    const rawMax = Math.max(...vals);
+    const sum = vals.reduce((a, b) => a + b, 0);
+    const rawAvg = Number((sum / vals.length).toFixed(2));
+    const latestVal = vals[vals.length - 1];
+
+    let delta = rawMax - rawMin;
+    if (delta === 0) {
+      delta = Math.abs(rawMax) === 0 ? 1 : Math.abs(rawMax) * 0.2;
+    }
+
+    // Boundary padding: 15% cushioning at top and bottom
+    const padding = delta * 0.15;
+    const yMin = rawMin - padding;
+    const yMax = rawMax + padding;
+    const yRange = yMax - yMin;
+
+    // SVG dimensions for full width view
+    const svgW = 820;
+    const svgH = 240;
+    const padLeft = 70;
+    const padRight = 20;
+    const padTop = 20;
+    const padBottom = 35;
+    const plotW = svgW - padLeft - padRight;
+    const plotH = svgH - padTop - padBottom;
+
+    // 5 Horizontal Grid lines & Y-axis labels
+    const yTicks = [0, 0.25, 0.5, 0.75, 1.0].map(ratio => {
+      const y = Number((padTop + plotH - ratio * plotH).toFixed(1));
+      const val = yMin + ratio * yRange;
+      return {
+        ratio,
+        y,
+        valFormatted: Number.isInteger(val) ? String(val) : val.toFixed(2),
+      };
+    });
+
+    // Points coordinate mapping
+    const numPoints = validPoints.length;
+    const renderedPoints = validPoints.map((p, idx) => {
+      const x = numPoints === 1 ? (padLeft + plotW / 2) : (padLeft + (idx / (numPoints - 1)) * plotW);
+      const norm = (p.val - yMin) / yRange;
+      const y = padTop + plotH - norm * plotH;
+      return {
+        x: Number(x.toFixed(1)),
+        y: Number(y.toFixed(1)),
+        val: p.val,
+        valFormatted: formatStatNum(p.val),
+        index: p.index,
+        timeStr: p.timeStr,
+      };
+    });
+
+    const polylineStr = renderedPoints.map(p => p.x + ',' + p.y).join(' ');
+    const baseFloorY = (padTop + plotH).toFixed(1);
+    const firstX = renderedPoints[0].x;
+    const lastX = renderedPoints[renderedPoints.length - 1].x;
+    const areaPolygonStr = firstX + ',' + baseFloorY + ' ' + polylineStr + ' ' + lastX + ',' + baseFloorY;
+
+    const avgNorm = (rawAvg - yMin) / yRange;
+    const avgY = Number((padTop + plotH - avgNorm * plotH).toFixed(1));
+
+    // Vertical Grid lines (5 timeline divisions)
+    const xTicks = [0, 1, 2, 3, 4].map(step => {
+      const ratio = step / 4;
+      const x = Number((padLeft + ratio * plotW).toFixed(1));
+      const ptIdx = Math.min(Math.round(ratio * (numPoints - 1)), numPoints - 1);
+      const label = renderedPoints[ptIdx]?.timeStr || ('Pkt #' + (ptIdx + 1));
+      return {
+        x,
+        label,
+      };
+    });
+
+    const matchedField = rawDataFieldList.value ? rawDataFieldList.value.find(f => f.key === field) : null;
+    const label = matchedField ? matchedField.label : field.toUpperCase();
+    const colors = matchedField ? matchedField.colors : { stroke: '#38bdf8', text: 'text-sky-400', badge: 'bg-sky-500/10 text-sky-300 border-sky-500/20' };
+
+    return {
+      field,
+      label,
+      rawMin,
+      rawMax,
+      rawAvg,
+      latestVal,
+      count: numPoints,
+      yTicks,
+      xTicks,
+      polylineStr,
+      areaPolygonStr,
+      renderedPoints,
+      avgY,
+      colors,
+    };
   });
 
   const selectDeviceForInspection = async (itemOrId) => {
@@ -2547,6 +3082,10 @@ function useTraceabilityModule(ctx) {
     selectDeviceForInspection,
     formatStatNum,
     rawDataFieldList,
+    trendGraphViewMode,
+    selectedTrendField,
+    availableTrendFields,
+    selectedTrendChartData,
     telemetrySearchKey,
     loadingDeviceTelemetry,
     selectedDeviceTelemetry,

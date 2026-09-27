@@ -2140,8 +2140,9 @@ export const TRACEABILITY_SCRIPT = `
               const num = Number(val);
               if (!isNaN(num)) {
                 let tStr = '';
-                if (frame.epochtime) {
-                  const d = new Date(Number(frame.epochtime) * 1000);
+                const ep = frame.epochtime ? Number(frame.epochtime) : null;
+                if (ep && !isNaN(ep)) {
+                  const d = new Date(ep < 1e11 ? ep * 1000 : ep);
                   tStr = !isNaN(d.getTime()) ? d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : String(frame.epochtime);
                 } else if (frame.timestamp) {
                   const d = new Date(frame.timestamp);
@@ -2273,8 +2274,9 @@ export const TRACEABILITY_SCRIPT = `
             const num = Number(val);
             if (!isNaN(num)) {
               let tStr = '';
-              if (f.epochtime) {
-                const d = new Date(Number(f.epochtime) * 1000);
+              const ep = f.epochtime ? Number(f.epochtime) : null;
+              if (ep && !isNaN(ep)) {
+                const d = new Date(ep < 1e11 ? ep * 1000 : ep);
                 tStr = !isNaN(d.getTime()) ? d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : String(f.epochtime);
               } else if (f.timestamp) {
                 const d = new Date(f.timestamp);
