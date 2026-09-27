@@ -37,6 +37,7 @@ export interface ParameterMinMaxAvg {
   max: number | null;
   avg: number | null;
   latest: number | null;
+  count?: number;
   unit?: string;
 }
 

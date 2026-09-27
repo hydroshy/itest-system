@@ -645,6 +645,166 @@ export const TRACEABILITY_TEMPLATE = `          <div v-else-if="activeFeature.id
                     </div>
                   </div>
 
+                  <!-- B1. raw_data3 Telemetry Statistics (Min / Avg / Max) -->
+                  <div v-if="rawDataFieldList && rawDataFieldList.length > 0" class="p-3.5 rounded-xl bg-slate-950/70 border border-slate-800 space-y-2">
+                    <div class="flex items-center justify-between pb-1.5 border-b border-slate-800/80">
+                      <span class="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
+                        <i class="fa-solid fa-chart-simple text-emerald-400"></i>
+                        <span>Raw Data 3 Field Telemetry Statistics (Min / Avg / Max)</span>
+                      </span>
+                      <span class="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-300 border border-emerald-500/20">
+                        {{ rawDataFieldList.length }} Active Fields
+                      </span>
+                    </div>
+
+                    <div class="overflow-x-auto">
+                      <table class="w-full text-left text-xs font-mono">
+                        <thead class="bg-slate-900/90 text-slate-400 text-[10px] uppercase font-bold border-b border-slate-800">
+                          <tr>
+                            <th class="py-2 px-2.5">Field</th>
+                            <th class="py-2 px-2.5">Data Channel</th>
+                            <th class="py-2 px-2.5 text-right">Min</th>
+                            <th class="py-2 px-2.5 text-right text-emerald-400 font-bold">Average</th>
+                            <th class="py-2 px-2.5 text-right">Max</th>
+                            <th class="py-2 px-2.5 text-right text-cyan-300 font-bold">Latest</th>
+                            <th class="py-2 px-2.5 text-right text-slate-400">Samples</th>
+                          </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-800/60 text-[11px]">
+                          <tr v-for="item in rawDataFieldList" :key="item.key" class="hover:bg-slate-900/50 transition">
+                            <td class="py-1.5 px-2.5 font-bold uppercase" :class="item.colors.text">{{ item.key }}</td>
+                            <td class="py-1.5 px-2.5 text-slate-200 font-medium">{{ item.label }}</td>
+                            <td class="py-1.5 px-2.5 text-right text-cyan-300">{{ formatStatNum(item.min) }}</td>
+                            <td class="py-1.5 px-2.5 text-right text-emerald-400 font-extrabold">{{ formatStatNum(item.avg) }}</td>
+                            <td class="py-1.5 px-2.5 text-right text-amber-300">{{ formatStatNum(item.max) }}</td>
+                            <td class="py-1.5 px-2.5 text-right text-white font-bold">{{ formatStatNum(item.latest) }}</td>
+                            <td class="py-1.5 px-2.5 text-right text-slate-400 font-mono">{{ item.count }} pkts</td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+
+                  <!-- B2. Trend Graphs for Each Field Data in raw_data3 -->
+                  <div v-if="rawDataFieldList && rawDataFieldList.length > 0" class="space-y-2">
+                    <div class="flex items-center justify-between px-1">
+                      <span class="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
+                        <i class="fa-solid fa-chart-line text-sky-400"></i>
+                        <span>Field Data Trends (raw_data3 Timeline Series)</span>
+                      </span>
+                      <span class="text-[10px] font-mono text-slate-500">
+                        {{ rawDataFieldList.length }} Graphs • X: Timestamp / Packets • Y: Data Value
+                      </span>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3.5">
+                      <div
+                        v-for="field in rawDataFieldList"
+                        :key="field.key"
+                        class="p-3.5 rounded-xl bg-slate-950/80 border border-slate-800 space-y-2.5 hover:border-slate-700 transition flex flex-col justify-between"
+                      >
+                        <!-- Header of Field Trend Card -->
+                        <div class="flex items-start justify-between gap-2 border-b border-slate-800/80 pb-2">
+                          <div class="min-w-0">
+                            <div class="flex items-center gap-1.5">
+                              <span class="px-2 py-0.5 rounded text-[10px] font-mono font-black border" :class="field.colors.badge">
+                                {{ field.key.toUpperCase() }}
+                              </span>
+                              <span class="text-xs font-bold text-slate-200 truncate" :title="field.label">
+                                {{ field.label }}
+                              </span>
+                            </div>
+                          </div>
+                          <div class="text-right shrink-0">
+                            <span class="text-xs font-black font-mono text-white block">{{ formatStatNum(field.latest) }}</span>
+                            <span class="text-[9px] text-slate-500 font-mono">{{ field.count }} pkts</span>
+                          </div>
+                        </div>
+
+                        <!-- Mini Stats Metrics Row -->
+                        <div class="grid grid-cols-3 gap-1.5 text-center font-mono text-[10px] py-1 bg-slate-900/60 rounded-lg border border-slate-800/60">
+                          <div>
+                            <span class="text-slate-500 block text-[9px] uppercase">Min</span>
+                            <span class="text-cyan-300 font-bold">{{ formatStatNum(field.min) }}</span>
+                          </div>
+                          <div>
+                            <span class="text-slate-500 block text-[9px] uppercase">Avg</span>
+                            <span class="text-emerald-400 font-extrabold">{{ formatStatNum(field.avg) }}</span>
+                          </div>
+                          <div>
+                            <span class="text-slate-500 block text-[9px] uppercase">Max</span>
+                            <span class="text-amber-300 font-bold">{{ formatStatNum(field.max) }}</span>
+                          </div>
+                        </div>
+
+                        <!-- Trend Graph (SVG) -->
+                        <div class="w-full bg-slate-900/80 rounded-lg p-1.5 border border-slate-800 relative">
+                          <!-- Y-axis guide labels on chart -->
+                          <div class="absolute right-2 top-1 text-[8px] font-mono text-slate-500 pointer-events-none">Max: {{ formatStatNum(field.max) }}</div>
+                          <div class="absolute right-2 bottom-6 text-[8px] font-mono text-slate-500 pointer-events-none">Min: {{ formatStatNum(field.min) }}</div>
+
+                          <svg class="w-full h-24 overflow-visible" viewBox="0 0 320 88" preserveAspectRatio="none">
+                            <defs>
+                              <linearGradient :id="'grad-trace-' + field.key" x1="0%" y1="0%" x2="0%" y2="100%">
+                                <stop offset="0%" :stop-color="field.colors.stroke" stop-opacity="0.25" />
+                                <stop offset="100%" :stop-color="field.colors.stroke" stop-opacity="0.01" />
+                              </linearGradient>
+                            </defs>
+
+                            <!-- Average Reference Dashed Line -->
+                            <line
+                              x1="14"
+                              :y1="field.avgY"
+                              x2="306"
+                              :y2="field.avgY"
+                              stroke="rgba(255,255,255,0.18)"
+                              stroke-width="1"
+                              stroke-dasharray="3,3"
+                            />
+
+                            <!-- Shaded Area Below Trend Line -->
+                            <polygon
+                              :points="field.areaPolygonStr"
+                              :fill="'url(#grad-trace-' + field.key + ')'"
+                            />
+
+                            <!-- Trend Polyline -->
+                            <polyline
+                              fill="none"
+                              :stroke="field.colors.stroke"
+                              stroke-width="2"
+                              stroke-linecap="round"
+                              stroke-linejoin="round"
+                              :points="field.polylineStr"
+                            />
+
+                            <!-- Interactive Data Points with Tooltip -->
+                            <circle
+                              v-for="p in field.renderedPoints"
+                              :key="p.index"
+                              :cx="p.x"
+                              :cy="p.y"
+                              r="3"
+                              :fill="field.colors.stroke"
+                              stroke="#0f172a"
+                              stroke-width="1.5"
+                              class="cursor-pointer hover:r-5 transition-all"
+                            >
+                              <title>Packet #{{ p.index }} | Time: {{ p.timeStr }} | Value: {{ p.val }}</title>
+                            </circle>
+                          </svg>
+
+                          <!-- X-axis Timeline Labels (Start -> Finish) -->
+                          <div class="flex items-center justify-between text-[9px] font-mono text-slate-500 pt-1 border-t border-slate-800/80 px-1">
+                            <span class="truncate max-w-[120px]" :title="field.startTime"><i class="fa-regular fa-clock text-[8px] mr-0.5"></i>{{ field.startTime }}</span>
+                            <span class="text-slate-400 font-bold">{{ field.count }} pkts</span>
+                            <span class="truncate max-w-[120px] text-right" :title="field.endTime">{{ field.endTime }}</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
                   <!-- C. Queried Sensor Parameters & Statistics Tables Grid (General Info & Parameters 1-4) -->
                   <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
                     <!-- General Information (COM1, COM2, P1..P3) -->
@@ -1368,6 +1528,9 @@ export const TRACEABILITY_MODALS = `
 export const TRACEABILITY_SCRIPT = `
 function useTraceabilityModule(ctx) {
   const { showToast, authHeaders, activeFeature, copyText, currentUser } = ctx;
+  const ref = (typeof Vue !== 'undefined' && Vue.ref) ? Vue.ref : (window.Vue?.ref || (function(v) { return { value: v }; }));
+  const computed = (typeof Vue !== 'undefined' && Vue.computed) ? Vue.computed : (window.Vue?.computed || (function(fn) { return { get value() { return fn(); } }; }));
+  const watch = (typeof Vue !== 'undefined' && Vue.watch) ? Vue.watch : (window.Vue?.watch || (function() {}));
 
   const activeTraceTab = ref('test_results'); // 'test_results' | 'telemetry' | 'lifecycle'
   const traceLoading = ref(false);
@@ -1413,6 +1576,173 @@ function useTraceabilityModule(ctx) {
     const n = Number(val);
     return isNaN(n) ? String(val) : (n % 1 === 0 ? String(n) : n.toFixed(2));
   };
+
+  // Field Data List & Trend Graphs for raw_data3 (com1, com2, p1..p35)
+  const rawDataFieldList = computed(() => {
+    const details = selectedDeviceDetails.value;
+    if (!details) return [];
+    const frames = details.raw_telemetry || details.telemetry || [];
+    if (!Array.isArray(frames) || frames.length === 0) return [];
+
+    const fieldKeys = [
+      'com1', 'com2',
+      ...Array.from({ length: 35 }, (_, i) => 'p' + (i + 1)),
+    ];
+
+    const labelsMap = {
+      com1: 'COM1 (Supply Voltage / RSSI)',
+      com2: 'COM2 (Operating Current / SNR)',
+      p1: 'P1 (Event Code)',
+      p2: 'P2 (Battery Voltage)',
+      p3: 'P3 (Operating Mode / Status)',
+      p4: 'P4 (Sensor Channel 1)',
+      p5: 'P5 (Sensor Channel 2)',
+      p6: 'P6 (Sensor Channel 3)',
+      p7: 'P7 (Sensor Channel 4)',
+      p8: 'P8 (Sensor Channel 5)',
+      p9: 'P9 (Sensor Channel 6)',
+      p10: 'P10 (Sensor Channel 7)',
+      p11: 'P11 (Sensor Channel 8)',
+      p12: 'P12 (Sensor Channel 9)',
+      p13: 'P13 (Sensor Channel 10)',
+      p14: 'P14 (Sensor Channel 11)',
+      p15: 'P15 (Sensor Channel 12)',
+      p16: 'P16 (Sensor Channel 13)',
+      p17: 'P17 (Sensor Channel 14)',
+      p18: 'P18 (Sensor Channel 15)',
+      p19: 'P19 (Sensor Channel 16)',
+      p20: 'P20 (Auxiliary Channel 17)',
+      p21: 'P21 (Auxiliary Channel 18)',
+      p22: 'P22 (Auxiliary Channel 19)',
+      p23: 'P23 (Auxiliary Channel 20)',
+      p24: 'P24 (Auxiliary Channel 21)',
+      p25: 'P25 (Auxiliary Channel 22)',
+      p26: 'P26 (Auxiliary Channel 23)',
+      p27: 'P27 (Auxiliary Channel 24)',
+      p28: 'P28 (Auxiliary Channel 25)',
+      p29: 'P29 (Auxiliary Channel 26)',
+      p30: 'P30 (Auxiliary Channel 27)',
+      p31: 'P31 (Auxiliary Channel 28)',
+      p32: 'P32 (Auxiliary Channel 29)',
+      p33: 'P33 (Auxiliary Channel 30)',
+      p34: 'P34 (Auxiliary Channel 31)',
+      p35: 'P35 (Auxiliary Channel 32)',
+    };
+
+    const colorAccents = {
+      com1: { stroke: '#f59e0b', text: 'text-amber-400', badge: 'bg-amber-500/10 text-amber-300 border-amber-500/20' },
+      com2: { stroke: '#06b6d4', text: 'text-cyan-400', badge: 'bg-cyan-500/10 text-cyan-300 border-cyan-500/20' },
+      p1: { stroke: '#6366f1', text: 'text-indigo-400', badge: 'bg-indigo-500/10 text-indigo-300 border-indigo-500/20' },
+      p2: { stroke: '#10b981', text: 'text-emerald-400', badge: 'bg-emerald-500/10 text-emerald-300 border-emerald-500/20' },
+      p3: { stroke: '#14b8a6', text: 'text-teal-400', badge: 'bg-teal-500/10 text-teal-300 border-teal-500/20' },
+    };
+    const defaultColor = { stroke: '#38bdf8', text: 'text-sky-400', badge: 'bg-sky-500/10 text-sky-300 border-sky-500/20' };
+
+    const result = [];
+
+    for (const key of fieldKeys) {
+      const validPoints = [];
+      for (let i = 0; i < frames.length; i++) {
+        const frame = frames[i];
+        const val = frame[key];
+        if (val !== null && val !== undefined && val !== '') {
+          const num = Number(val);
+          if (!isNaN(num)) {
+            let tStr = '';
+            if (frame.epochtime) {
+              const d = new Date(Number(frame.epochtime) * 1000);
+              tStr = !isNaN(d.getTime()) ? d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : String(frame.epochtime);
+            } else if (frame.timestamp) {
+              const d = new Date(frame.timestamp);
+              tStr = !isNaN(d.getTime()) ? d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : String(frame.timestamp);
+            } else if (frame.created_at) {
+              const d = new Date(frame.created_at);
+              tStr = !isNaN(d.getTime()) ? d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : String(frame.created_at);
+            } else {
+              tStr = 'Pkt #' + (i + 1);
+            }
+            validPoints.push({
+              index: i + 1,
+              val: num,
+              timeStr: tStr,
+            });
+          }
+        }
+      }
+
+      // CRUCIAL RULE: If field is null or has no data, skip it!
+      if (validPoints.length === 0) {
+        continue;
+      }
+
+      const numValues = validPoints.map(p => p.val);
+      const minVal = Math.min(...numValues);
+      const maxVal = Math.max(...numValues);
+      const sum = numValues.reduce((acc, v) => acc + v, 0);
+      const avgVal = Number((sum / numValues.length).toFixed(2));
+      const latestVal = numValues[numValues.length - 1];
+      const count = numValues.length;
+
+      // SVG Trend Graph Coordinates
+      const svgW = 320;
+      const svgH = 88;
+      const padX = 14;
+      const padTop = 10;
+      const padBottom = 16;
+      const plotW = svgW - 2 * padX;
+      const plotH = svgH - padTop - padBottom;
+      const range = maxVal === minVal ? 1 : (maxVal - minVal);
+
+      const renderedPoints = validPoints.map((p, idx) => {
+        const x = validPoints.length === 1
+          ? (svgW / 2)
+          : (padX + (idx / (validPoints.length - 1)) * plotW);
+        const y = maxVal === minVal
+          ? (padTop + plotH / 2)
+          : (padTop + plotH - ((p.val - minVal) / range) * plotH);
+        return {
+          x: Number(x.toFixed(1)),
+          y: Number(y.toFixed(1)),
+          val: p.val,
+          timeStr: p.timeStr,
+          index: p.index,
+        };
+      });
+
+      const polylineStr = renderedPoints.map(p => p.x + ',' + p.y).join(' ');
+      const firstX = renderedPoints[0].x;
+      const lastX = renderedPoints[renderedPoints.length - 1].x;
+      const baseFloorY = (svgH - padBottom).toFixed(1);
+      const areaPolygonStr = firstX + ',' + baseFloorY + ' ' + polylineStr + ' ' + lastX + ',' + baseFloorY;
+
+      const avgY = maxVal === minVal
+        ? Number((padTop + plotH / 2).toFixed(1))
+        : Number((padTop + plotH - ((avgVal - minVal) / range) * plotH).toFixed(1));
+
+      const customLabel = details.calculations?.[key]?.label || details.calculations?.[key]?.name;
+      const displayLabel = customLabel || labelsMap[key] || key.toUpperCase();
+      const colors = colorAccents[key] || defaultColor;
+
+      result.push({
+        key,
+        label: displayLabel,
+        min: minVal,
+        avg: avgVal,
+        max: maxVal,
+        latest: latestVal,
+        count,
+        startTime: validPoints[0].timeStr,
+        endTime: validPoints[validPoints.length - 1].timeStr,
+        polylineStr,
+        areaPolygonStr,
+        renderedPoints,
+        avgY,
+        colors,
+      });
+    }
+
+    return result;
+  });
 
   const selectDeviceForInspection = async (itemOrId) => {
     if (!itemOrId) return;
@@ -1745,6 +2075,7 @@ function useTraceabilityModule(ctx) {
     loadingDeviceDetails,
     selectDeviceForInspection,
     formatStatNum,
+    rawDataFieldList,
     telemetrySearchKey,
     loadingDeviceTelemetry,
     selectedDeviceTelemetry,

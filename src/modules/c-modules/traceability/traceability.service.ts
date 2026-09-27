@@ -540,6 +540,9 @@ export class TraceabilityService implements OnModuleInit {
     const com1Stats = this.computeStats(com1Values, 'com1', 'COM1 (RSSI / Supply)');
     const com2Stats = this.computeStats(com2Values, 'com2', 'COM2 (SNR / Diagnostic)');
 
+    allCalculations['com1'] = com1Stats;
+    allCalculations['com2'] = com2Stats;
+
     for (let p = 1; p <= 35; p++) {
       const pKey = `p${p}`;
       const customName = paramNameMap[p] || `P${p}`;
@@ -625,19 +628,29 @@ export class TraceabilityService implements OnModuleInit {
       latest: allCalculations[`p${p}`]?.latest,
     }));
 
-    const rawTelemetry = telemetryRows.map(r => ({
-      sn: r.sn,
-      device_key: r.deviceKey,
-      test_id: r.testId,
-      timestamp: r.timestamp,
-      epochtime: r.epochtime,
-      com1: r.com1,
-      com2: r.com2,
-      uplink_payload: r.uplinkPayload,
-      spreading_factor: r.spreadingFactor ? `SF${r.spreadingFactor}` : 'SF7',
-      p1: r.p1, p2: r.p2, p3: r.p3, p4: r.p4, p5: r.p5,
-      p6: r.p6, p7: r.p7, p8: r.p8, p9: r.p9, p10: r.p10,
-    }));
+    const rawTelemetry = telemetryRows.map(r => {
+      const obj: any = {
+        sn: r.sn,
+        device_key: r.deviceKey,
+        test_id: r.testId,
+        timestamp: r.timestamp,
+        epochtime: r.epochtime,
+        com1: r.com1,
+        com2: r.com2,
+        uplink_payload: r.uplinkPayload,
+        spreading_factor: r.spreadingFactor ? `SF${r.spreadingFactor}` : 'SF7',
+      };
+      for (let p = 1; p <= 35; p++) {
+        obj[`p${p}`] = (r as any)[`p${p}`];
+      }
+      return obj;
+    });
+
+    const rawDataSummary = [
+      com1Stats,
+      com2Stats,
+      ...Array.from({ length: 35 }, (_, i) => allCalculations[`p${i + 1}`]),
+    ].filter(s => s && (s.count || 0) > 0 && s.avg !== null);
 
     return {
       // Snake_case properties for Vue frontend template:
@@ -677,6 +690,8 @@ export class TraceabilityService implements OnModuleInit {
       raw_telemetry: rawTelemetry,
       telemetry: rawTelemetry,
       calculations: allCalculations,
+      raw_data_summary: rawDataSummary,
+      rawDataSummary,
       decoded_config: decodedConfig,
       trend_series: {
         timestamps,
@@ -916,6 +931,7 @@ export class TraceabilityService implements OnModuleInit {
         max: null,
         avg: null,
         latest: null,
+        count: 0,
       };
     }
     const min = Math.min(...valid);
@@ -930,6 +946,7 @@ export class TraceabilityService implements OnModuleInit {
       max: Number(max.toFixed(3)),
       avg,
       latest: Number(latest.toFixed(3)),
+      count: valid.length,
     };
   }
 

@@ -15,7 +15,7 @@ async function runTraceabilityDashboardModuleTests() {
   console.log('======================================================================\n');
 
   let passedTests = 0;
-  const totalTests = 6;
+  const totalTests = 7;
 
   // --------------------------------------------------------------------
   // TEST 1: D-Module Registry & JSON Config Verification
@@ -190,6 +190,66 @@ async function runTraceabilityDashboardModuleTests() {
     'TRACEABILITY_SCRIPT must define useTraceabilityModule',
   );
   console.log('  -> PASS: Clean English UI and composable script verified.\n');
+  passedTests++;
+
+  // --------------------------------------------------------------------
+  // TEST 7: raw_data3 Field Statistics (min/avg/max) & Trend Graphs
+  // --------------------------------------------------------------------
+  console.log('[TEST 7] Verifying raw_data3 Field Statistics & Dedicated Trend Visualizers...');
+  // 1. Statistics table placement below Event Code Distribution
+  assert.ok(
+    TRACEABILITY_TEMPLATE.includes('Raw Data 3 Field Telemetry Statistics (Min / Avg / Max)'),
+    'TRACEABILITY_TEMPLATE must include raw_data3 field statistics section',
+  );
+  const eventDistPos = TRACEABILITY_TEMPLATE.indexOf('Event Code Distribution (Header P1 Protocol)');
+  const statsPos = TRACEABILITY_TEMPLATE.indexOf('Raw Data 3 Field Telemetry Statistics (Min / Avg / Max)');
+  const trendPos = TRACEABILITY_TEMPLATE.indexOf('Field Data Trends (raw_data3 Timeline Series)');
+  assert.ok(
+    eventDistPos !== -1 && statsPos !== -1 && trendPos !== -1,
+    'All three sections must exist in template',
+  );
+  assert.ok(
+    eventDistPos < statsPos,
+    'Statistics section must be positioned below Event Code Distribution',
+  );
+  assert.ok(
+    statsPos < trendPos,
+    'Trend graphs section must be positioned below Statistics section',
+  );
+
+  // 2. Trend graphs UI features (1 card per field, X: timestamp, Y: data value)
+  assert.ok(
+    TRACEABILITY_TEMPLATE.includes('v-for="field in rawDataFieldList"'),
+    'Must iterate each active field in rawDataFieldList for trend graphs',
+  );
+  assert.ok(
+    TRACEABILITY_TEMPLATE.includes(':points="field.polylineStr"') &&
+    TRACEABILITY_TEMPLATE.includes(':points="field.areaPolygonStr"') &&
+    TRACEABILITY_TEMPLATE.includes('v-for="p in field.renderedPoints"'),
+    'Must render SVG polyline, gradient area, and interactive packet data points',
+  );
+  assert.ok(
+    TRACEABILITY_TEMPLATE.includes('field.startTime') &&
+    TRACEABILITY_TEMPLATE.includes('field.endTime') &&
+    TRACEABILITY_TEMPLATE.includes('pkts'),
+    'Trend graph must display X-axis timestamps (start -> end) and packet counts',
+  );
+
+  // 3. Script: rawDataFieldList computed logic & null filtering
+  assert.ok(
+    TRACEABILITY_SCRIPT.includes('const rawDataFieldList = computed('),
+    'TRACEABILITY_SCRIPT must define rawDataFieldList computed property',
+  );
+  assert.ok(
+    TRACEABILITY_SCRIPT.includes('if (validPoints.length === 0)') &&
+    TRACEABILITY_SCRIPT.includes('continue;'),
+    'Must strictly exclude fields with null or no data from trend display',
+  );
+  assert.ok(
+    TRACEABILITY_SCRIPT.includes('rawDataFieldList,') || TRACEABILITY_SCRIPT.includes('rawDataFieldList'),
+    'TRACEABILITY_SCRIPT must export rawDataFieldList in return object',
+  );
+  console.log('  -> PASS: raw_data3 statistics, trend visualizers, and null-field exclusion verified.\n');
   passedTests++;
 
   console.log('======================================================================');

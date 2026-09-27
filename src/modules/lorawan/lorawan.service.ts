@@ -130,9 +130,10 @@ export class LorawanService implements OnModuleInit {
     let networkServer: NetworkServerEntity | null = null;
     let regionProfile: any = null;
 
-    if (dto.networkServerId) {
-      networkServer = await this.serverRepo.findOne({ where: { id: dto.networkServerId } });
-    } else if (!isLocal) {
+    if (dto.networkServerId && dto.networkServerId !== '' && dto.networkServerId !== '__LOCAL__') {
+      networkServer = await this.serverRepo.findOne({ where: { id: dto.networkServerId } }).catch(() => null);
+    }
+    if (!networkServer && !isLocal) {
       // Auto-fallback: Find default or first active network server
       networkServer = await this.serverRepo.findOne({ where: { isDefault: true } }).catch(() => null);
       if (!networkServer) {

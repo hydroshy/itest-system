@@ -3898,11 +3898,17 @@ function useTestAutomationModule(ctx) {
       let targetRegionId = undefined;
 
       if (!isLocal) {
-        if (selectedNetworkServerId.value) {
+        if (!networkServersList.value || networkServersList.value.length === 0) {
+          await fetchNetworkServersList();
+        }
+        if (selectedNetworkServerId.value && selectedNetworkServerId.value !== '__LOCAL__') {
           targetNs = (networkServersList.value || []).find(ns => ns.id === selectedNetworkServerId.value);
         }
         if (!targetNs) {
           targetNs = (networkServersList.value || []).find(ns => ns.isDefault) || (networkServersList.value || [])[0];
+          if (targetNs) {
+            selectedNetworkServerId.value = targetNs.id;
+          }
         }
 
         if (targetNs && Array.isArray(targetNs.regionProfiles) && targetNs.regionProfiles.length > 0) {
