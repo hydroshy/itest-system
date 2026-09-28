@@ -3325,7 +3325,22 @@ function useTraceabilityModule(ctx) {
         telemetryRawFrames.value = data.raw_telemetry || data.telemetry || [];
         telemetryCalcStats.value = data.calculations || {};
         if (devicesTabulatorInstance) {
-          try { devicesTabulatorInstance.reformat(); } catch (e) {}
+          try {
+            devicesTabulatorInstance.getRows().forEach(r => {
+              const d = r.getData();
+              const sn = d ? (d.serialNumber || d.serial_number) : null;
+              const isMatch = sn && (sn === (data.serial_number || data.generalInfo?.serialNumber));
+              const el = r.getElement();
+              if (isMatch) {
+                r.select();
+                if (el && el.classList) el.classList.add('tabulator-selected', 'device-row-selected');
+              } else {
+                r.deselect();
+                if (el && el.classList) el.classList.remove('tabulator-selected', 'device-row-selected');
+              }
+            });
+            devicesTabulatorInstance.reformat();
+          } catch (e) {}
         }
       } else {
         const err = await res.json().catch(() => ({}));
@@ -3471,15 +3486,17 @@ function useTraceabilityModule(ctx) {
           Vue.nextTick(() => initDevicesTabulator());
         }
 
-        // Auto-select first device if none or previous not in list
-        if (items.length > 0) {
+        // Maintain device selection only if previously selected and exists in new list
+        if (items.length > 0 && selectedDeviceDetails.value) {
           const curSn = selectedDeviceDetails.value?.serial_number || selectedDeviceDetails.value?.generalInfo?.serialNumber;
           const match = items.find(d => (d.serialNumber || d.serial_number) === curSn);
           if (match) {
             selectDeviceForInspection(match);
           } else {
-            selectDeviceForInspection(items[0]);
+            deselectDevice();
           }
+        } else {
+          deselectDevice();
         }
       }
     } catch (err) {
@@ -3631,7 +3648,9 @@ function useTraceabilityModule(ctx) {
       rowClick: (e, row) => {
         const d = row.getData();
         if (!d || !d.soNumber) return;
-        if (selectedSoNumber.value !== d.soNumber) {
+        if (selectedSoNumber.value === d.soNumber) {
+          deselectSoRow();
+        } else {
           selectSoRow(d);
         }
       },
@@ -3668,16 +3687,7 @@ function useTraceabilityModule(ctx) {
       if (rows && rows.length > 0) {
         const stillSelected = rows.find(r => r.getData()?.soNumber === selectedSoNumber.value);
         if (!stillSelected) {
-          if (selectedSoNumber.value) {
-            const firstRow = rows[0];
-            try {
-              catalogTabulatorInstance.deselectRow();
-              firstRow.select();
-              const el = firstRow.getElement();
-              if (el && el.classList) el.classList.add('tabulator-selected', 'so-row-selected');
-            } catch (e) {}
-            selectSoRow(firstRow.getData());
-          }
+          deselectSoRow();
         } else {
           try {
             stillSelected.select();
@@ -3826,7 +3836,15 @@ function useTraceabilityModule(ctx) {
             return '<button type="button" class="px-2.5 py-1 rounded-lg text-[11px] font-bold transition flex items-center gap-1 cursor-pointer ' + (isSel ? 'bg-sky-600 text-white shadow-sm' : 'bg-sky-500/15 hover:bg-sky-500/30 text-sky-300 border border-sky-500/25') + '"><i class="fa-solid fa-microchip text-[10px]"></i><span>' + (isSel ? 'Selected' : 'Inspect') + '</span></button>';
           },
           cellClick: (e, cell) => {
-            selectDeviceForInspection(cell.getData());
+            const d = cell.getData();
+            if (!d) return;
+            const sn = d.serialNumber || d.serial_number;
+            const curSn = selectedDeviceDetails.value ? (selectedDeviceDetails.value.serial_number || selectedDeviceDetails.value.generalInfo?.serialNumber) : null;
+            if (curSn && sn && curSn === sn) {
+              deselectDevice();
+            } else {
+              selectDeviceForInspection(d);
+            }
           },
         },
       ],
@@ -3844,7 +3862,9 @@ function useTraceabilityModule(ctx) {
         if (!d) return;
         const sn = d.serialNumber || d.serial_number;
         const curSn = selectedDeviceDetails.value ? (selectedDeviceDetails.value.serial_number || selectedDeviceDetails.value.generalInfo?.serialNumber) : null;
-        if (curSn !== sn) {
+        if (curSn && sn && curSn === sn) {
+          deselectDevice();
+        } else {
           selectDeviceForInspection(d);
         }
       },
@@ -3967,14 +3987,16 @@ function useTraceabilityModule(ctx) {
           };
         }
 
-        // Auto-select first SO in catalog or maintain selection
-        if (soCatalogList.value.length > 0) {
+        // Maintain selection if already chosen, but DO NOT force auto-selection of the first row on load/refresh
+        if (soCatalogList.value.length > 0 && selectedSoNumber.value) {
           const found = soCatalogList.value.find(s => s.soNumber === selectedSoNumber.value);
-          const targetSo = found ? found.soNumber : soCatalogList.value[0].soNumber;
-          await selectSoRow({ soNumber: targetSo });
+          if (found) {
+            await selectSoRow({ soNumber: found.soNumber });
+          } else {
+            deselectSoRow();
+          }
         } else {
-          selectedSoNumber.value = '';
-          soDevicesList.value = [];
+          deselectSoRow();
         }
 
         Vue.nextTick(() => {
