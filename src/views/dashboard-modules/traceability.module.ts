@@ -333,6 +333,44 @@ export const TRACEABILITY_TEMPLATE = `          <div v-else-if="activeFeature.id
                 <!-- Tabulator Container for Tested Devices Catalog -->
                 <div v-show="!traceLoading && soCatalogList.length > 0" class="p-2 bg-slate-950/60">
                   <div id="trace-catalog-tabulator" class="rounded-xl overflow-hidden border border-slate-800/80"></div>
+                  <style>
+                    /* Single Row Selection and Highlight for Tested Devices Catalog */
+                    #trace-catalog-tabulator .tabulator-row {
+                      cursor: pointer !important;
+                      transition: background-color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+                    }
+                    #trace-catalog-tabulator .tabulator-row:hover:not(.so-row-selected):not(.tabulator-selected) {
+                      background-color: #1e293b !important;
+                    }
+                    #trace-catalog-tabulator .tabulator-row.tabulator-selected,
+                    #trace-catalog-tabulator .tabulator-row.so-row-selected {
+                      background-color: #020617 !important;
+                      border-left: 4px solid #a855f7 !important;
+                      box-shadow: inset 0 0 0 1px rgba(168, 85, 247, 0.5), 0 4px 14px rgba(0, 0, 0, 0.6) !important;
+                    }
+                    #trace-catalog-tabulator .tabulator-row.tabulator-selected .tabulator-cell,
+                    #trace-catalog-tabulator .tabulator-row.so-row-selected .tabulator-cell {
+                      background-color: rgba(168, 85, 247, 0.16) !important;
+                      color: #ffffff !important;
+                    }
+                    #trace-catalog-tabulator .tabulator-row.tabulator-selected .tabulator-cell:first-child,
+                    #trace-catalog-tabulator .tabulator-row.so-row-selected .tabulator-cell:first-child {
+                      background-color: rgba(168, 85, 247, 0.28) !important;
+                      color: #ffffff !important;
+                      font-weight: 800 !important;
+                    }
+                    /* Style dropdown chevron on header filter inputs */
+                    #trace-catalog-tabulator .tabulator-col[tabulator-field="soNumber"] input,
+                    #trace-catalog-tabulator .tabulator-col[tabulator-field="itemCode"] input,
+                    #trace-catalog-tabulator .tabulator-col[tabulator-field="sku"] input {
+                      background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%23a855f7' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M6 8l4 4 4-4'/%3e%3c/svg%3e") !important;
+                      background-position: right 0.45rem center !important;
+                      background-repeat: no-repeat !important;
+                      background-size: 1.1em 1.1em !important;
+                      padding-right: 1.75rem !important;
+                      cursor: pointer !important;
+                    }
+                  </style>
                 </div>
 
                 <!-- Footer Summary Bar -->
@@ -3308,7 +3346,17 @@ function useTraceabilityModule(ctx) {
     if (!soData || !soData.soNumber) return;
     selectedSoNumber.value = soData.soNumber;
     if (catalogTabulatorInstance) {
-      catalogTabulatorInstance.redraw(true);
+      catalogTabulatorInstance.getRows().forEach(r => {
+        const isMatch = r.getData()?.soNumber === soData.soNumber;
+        const el = r.getElement();
+        if (isMatch) {
+          r.select();
+          el.classList.add('tabulator-selected', 'so-row-selected');
+        } else {
+          r.deselect();
+          el.classList.remove('tabulator-selected', 'so-row-selected');
+        }
+      });
     }
     await fetchDevicesForSelectedSo(soData.soNumber);
   };
@@ -3384,11 +3432,33 @@ function useTraceabilityModule(ctx) {
       height: '320px',
       pagination: false,
       placeholder: 'No Sales Orders matched',
+      selectableRows: 1, // Only allow exactly 1 row to be selected at a time
+      rowFormatter: (row) => {
+        const d = row.getData();
+        const isSel = d && d.soNumber && d.soNumber === selectedSoNumber.value;
+        const el = row.getElement();
+        if (isSel) {
+          el.classList.add('tabulator-selected', 'so-row-selected');
+        } else {
+          el.classList.remove('tabulator-selected', 'so-row-selected');
+        }
+      },
       columns: [
         {
           title: 'SO Number',
           field: 'soNumber',
-          headerFilter: 'input',
+          headerFilter: 'list',
+          headerFilterParams: {
+            valuesLookup: 'all',
+            clearable: true,
+            autocomplete: true,
+            sort: 'asc',
+          },
+          headerFilterFunc: (headerValue, rowValue) => {
+            if (!headerValue) return true;
+            return String(rowValue || '').toLowerCase().includes(String(headerValue).toLowerCase().trim());
+          },
+          headerFilterPlaceholder: 'All SOs...',
           formatter: (cell) => {
             const val = cell.getValue() || '—';
             return '<span class="font-bold font-mono text-cyan-300 flex items-center gap-1.5"><i class="fa-solid fa-folder-closed text-purple-400 text-[11px]"></i>' + val + '</span>';
@@ -3397,64 +3467,123 @@ function useTraceabilityModule(ctx) {
         {
           title: 'Item Code',
           field: 'itemCode',
-          headerFilter: 'input',
+          headerFilter: 'list',
+          headerFilterParams: {
+            valuesLookup: 'all',
+            clearable: true,
+            autocomplete: true,
+            sort: 'asc',
+          },
+          headerFilterFunc: (headerValue, rowValue) => {
+            if (!headerValue) return true;
+            return String(rowValue || '').toLowerCase().includes(String(headerValue).toLowerCase().trim());
+          },
+          headerFilterPlaceholder: 'All Items...',
           formatter: (cell) => '<span class="text-slate-300 font-mono text-[11px] truncate">' + (cell.getValue() || '—') + '</span>',
         },
         {
           title: 'SKU',
           field: 'sku',
-          headerFilter: 'input',
+          headerFilter: 'list',
+          headerFilterParams: {
+            valuesLookup: 'all',
+            clearable: true,
+            autocomplete: true,
+            sort: 'asc',
+          },
+          headerFilterFunc: (headerValue, rowValue) => {
+            if (!headerValue) return true;
+            return String(rowValue || '').toLowerCase().includes(String(headerValue).toLowerCase().trim());
+          },
+          headerFilterPlaceholder: 'All SKUs...',
           formatter: (cell) => '<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-800 text-slate-300 border border-slate-700 font-mono">' + (cell.getValue() || '—') + '</span>',
         },
         {
           title: 'Total',
           field: 'totalDevices',
           sorter: 'number',
-          width: 80,
+          width: 75,
+          hozAlign: 'center',
           formatter: (cell) => '<span class="font-mono font-bold text-white text-xs">' + (cell.getValue() || 0) + '</span>',
         },
         {
-          title: 'QA (Pass / Fail)',
-          headerSort: false,
-          width: 140,
+          title: 'PASS',
+          field: 'passCount',
+          sorter: 'number',
+          width: 85,
+          hozAlign: 'center',
           formatter: (cell) => {
-            const d = cell.getData();
-            return '<div class="flex items-center gap-1 text-[11px] font-mono"><span class="text-emerald-400 font-bold">' + (d.passCount || 0) + ' PASS</span><span class="text-slate-600">/</span><span class="text-rose-400 font-bold">' + (d.failCount || 0) + ' FAIL</span></div>';
+            const val = cell.getValue() || 0;
+            return '<span class="px-2 py-0.5 rounded font-mono font-bold text-xs bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 inline-flex items-center gap-1"><i class="fa-solid fa-check text-[10px]"></i>' + val + '</span>';
+          },
+        },
+        {
+          title: 'FAIL',
+          field: 'failCount',
+          sorter: 'number',
+          width: 85,
+          hozAlign: 'center',
+          formatter: (cell) => {
+            const val = cell.getValue() || 0;
+            return '<span class="px-2 py-0.5 rounded font-mono font-bold text-xs ' + (val > 0 ? 'bg-rose-500/15 text-rose-400 border border-rose-500/30 font-extrabold' : 'bg-slate-800/80 text-slate-400 border border-slate-700/50') + ' inline-flex items-center gap-1"><i class="fa-solid fa-xmark text-[10px]"></i>' + val + '</span>';
           },
         },
         {
           title: 'Pass Rate',
           field: 'passRate',
           sorter: 'number',
-          width: 130,
+          width: 140,
           formatter: (cell) => {
             const pct = cell.getValue() || 0;
             return '<div class="w-full pr-2"><div class="flex justify-between text-[10px] font-mono mb-0.5"><span class="text-cyan-300 font-bold">' + pct + '%</span></div><div class="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden"><div class="bg-cyan-500 h-full rounded-full" style="width:' + pct + '%"></div></div></div>';
           },
         },
-        {
-          title: 'Latest Finish Time',
-          field: 'latestFinishTime',
-          sorter: 'string',
-          formatter: (cell) => '<span class="text-slate-400 font-mono text-[11px] font-medium">' + formatTraceDate(cell.getValue()) + '</span>',
-        },
-        {
-          title: 'Action',
-          width: 110,
-          headerSort: false,
-          formatter: (cell) => {
-            const d = cell.getData();
-            const isSel = d.soNumber === selectedSoNumber.value;
-            return '<button type="button" class="px-2.5 py-1 rounded-lg text-[11px] font-bold transition flex items-center gap-1 cursor-pointer ' + (isSel ? 'bg-purple-600 text-white shadow-sm' : 'bg-purple-500/15 hover:bg-purple-500/30 text-purple-300 border border-purple-500/30') + '"><i class="fa-solid fa-list-check text-[10px]"></i><span>' + (isSel ? 'Selected' : 'Select SO') + '</span></button>';
-          },
-          cellClick: (e, cell) => {
-            selectSoRow(cell.getData());
-          },
-        },
       ],
       rowClick: (e, row) => {
-        selectSoRow(row.getData());
+        const d = row.getData();
+        if (!d) return;
+        if (catalogTabulatorInstance) {
+          catalogTabulatorInstance.getRows().forEach(r => {
+            r.deselect();
+            r.getElement().classList.remove('tabulator-selected', 'so-row-selected');
+          });
+        }
+        row.select();
+        row.getElement().classList.add('tabulator-selected', 'so-row-selected');
+        selectSoRow(d);
       },
+    });
+
+    catalogTabulatorInstance.on('tableBuilt', () => {
+      if (selectedSoNumber.value) {
+        catalogTabulatorInstance.getRows().forEach(r => {
+          const isMatch = r.getData()?.soNumber === selectedSoNumber.value;
+          const el = r.getElement();
+          if (isMatch) {
+            r.select();
+            el.classList.add('tabulator-selected', 'so-row-selected');
+          } else {
+            r.deselect();
+            el.classList.remove('tabulator-selected', 'so-row-selected');
+          }
+        });
+      }
+    });
+
+    catalogTabulatorInstance.on('dataFiltered', (filters, rows) => {
+      if (rows && rows.length > 0) {
+        const stillSelected = rows.find(r => r.getData()?.soNumber === selectedSoNumber.value);
+        if (!stillSelected) {
+          const firstRow = rows[0];
+          catalogTabulatorInstance.deselectRow();
+          firstRow.select();
+          firstRow.getElement().classList.add('tabulator-selected', 'so-row-selected');
+          selectSoRow(firstRow.getData());
+        } else {
+          stillSelected.select();
+          stillSelected.getElement().classList.add('tabulator-selected', 'so-row-selected');
+        }
+      }
     });
   };
 

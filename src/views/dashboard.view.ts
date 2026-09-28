@@ -111,6 +111,41 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
       background-color: rgba(6, 182, 212, 0.2) !important;
       color: #38bdf8 !important;
     }
+    /* Single Row Selection and Highlight for Tested Devices Catalog */
+    #trace-catalog-tabulator .tabulator-row {
+      cursor: pointer !important;
+      transition: background-color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+    }
+    #trace-catalog-tabulator .tabulator-row:hover:not(.so-row-selected):not(.tabulator-selected) {
+      background-color: #1e293b !important;
+    }
+    #trace-catalog-tabulator .tabulator-row.tabulator-selected,
+    #trace-catalog-tabulator .tabulator-row.so-row-selected {
+      background-color: #020617 !important;
+      border-left: 4px solid #a855f7 !important;
+      box-shadow: inset 0 0 0 1px rgba(168, 85, 247, 0.5), 0 4px 14px rgba(0, 0, 0, 0.6) !important;
+    }
+    #trace-catalog-tabulator .tabulator-row.tabulator-selected .tabulator-cell,
+    #trace-catalog-tabulator .tabulator-row.so-row-selected .tabulator-cell {
+      background-color: rgba(168, 85, 247, 0.16) !important;
+      color: #ffffff !important;
+    }
+    #trace-catalog-tabulator .tabulator-row.tabulator-selected .tabulator-cell:first-child,
+    #trace-catalog-tabulator .tabulator-row.so-row-selected .tabulator-cell:first-child {
+      background-color: rgba(168, 85, 247, 0.28) !important;
+      color: #ffffff !important;
+      font-weight: 800 !important;
+    }
+    #trace-catalog-tabulator .tabulator-col[tabulator-field="soNumber"] input,
+    #trace-catalog-tabulator .tabulator-col[tabulator-field="itemCode"] input,
+    #trace-catalog-tabulator .tabulator-col[tabulator-field="sku"] input {
+      background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%23a855f7' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M6 8l4 4 4-4'/%3e%3c/svg%3e") !important;
+      background-position: right 0.45rem center !important;
+      background-repeat: no-repeat !important;
+      background-size: 1.1em 1.1em !important;
+      padding-right: 1.75rem !important;
+      cursor: pointer !important;
+    }
     .tabulator .tabulator-cell {
       border-right: 1px solid #1e293b60 !important;
       padding: 4px 6px !important;
