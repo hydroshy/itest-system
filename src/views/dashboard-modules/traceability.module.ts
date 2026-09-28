@@ -3405,24 +3405,30 @@ function useTraceabilityModule(ctx) {
   };
 
   const selectSoRow = async (soData) => {
-    if (!soData || !soData.soNumber) return;
-    selectedSoNumber.value = soData.soNumber;
+    if (!soData) return;
+    const soNum = typeof soData === 'string' ? soData : (soData.soNumber || soData.so_number);
+    if (!soNum) return;
+    selectedSoNumber.value = soNum;
     if (catalogTabulatorInstance) {
       try {
         catalogTabulatorInstance.getRows().forEach(r => {
-          const isMatch = r.getData()?.soNumber === soData.soNumber;
+          const d = r.getData();
+          const rSo = d ? (d.soNumber || d.so_number) : null;
+          const isMatch = rSo === soNum;
           const el = r.getElement();
           if (isMatch) {
-            r.select();
+            try { r.select(); } catch (err) {}
             if (el && el.classList) el.classList.add('tabulator-selected', 'so-row-selected');
           } else {
-            r.deselect();
+            try { r.deselect(); } catch (err) {}
             if (el && el.classList) el.classList.remove('tabulator-selected', 'so-row-selected');
           }
         });
+        catalogTabulatorInstance.reformat();
+        try { if (typeof catalogTabulatorInstance.redraw === 'function') catalogTabulatorInstance.redraw(true); } catch (e) {}
       } catch (e) {}
     }
-    await fetchDevicesForSelectedSo(soData.soNumber);
+    await fetchDevicesForSelectedSo(soNum);
   };
 
   const deselectSoRow = () => {
@@ -3436,6 +3442,8 @@ function useTraceabilityModule(ctx) {
             el.classList.remove('tabulator-selected', 'so-row-selected');
           }
         });
+        catalogTabulatorInstance.reformat();
+        try { if (typeof catalogTabulatorInstance.redraw === 'function') catalogTabulatorInstance.redraw(true); } catch (e) {}
       } catch (e) {}
     }
     soDevicesList.value = [];
@@ -3461,6 +3469,7 @@ function useTraceabilityModule(ctx) {
           }
         });
         devicesTabulatorInstance.reformat();
+        try { if (typeof devicesTabulatorInstance.redraw === 'function') devicesTabulatorInstance.redraw(true); } catch (e) {}
       } catch (e) {}
     }
   };
@@ -3478,13 +3487,11 @@ function useTraceabilityModule(ctx) {
       });
       if (res.ok) {
         const json = await res.json();
-        const items = json.data || json.items || [];
-        soDevicesList.value = items;
-        if (devicesTabulatorInstance) {
-          devicesTabulatorInstance.setData(items);
-        } else {
-          Vue.nextTick(() => initDevicesTabulator());
+        let items = json.data || json.items || [];
+        if (items.length === 0 && traceResults.value.length > 0) {
+          items = traceResults.value.filter(r => (r.soNumber || r.so_number) === soNumber);
         }
+        soDevicesList.value = items;
 
         // Maintain device selection only if previously selected and exists in new list
         if (items.length > 0 && selectedDeviceDetails.value) {
@@ -3498,12 +3505,23 @@ function useTraceabilityModule(ctx) {
         } else {
           deselectDevice();
         }
+      } else {
+        if (traceResults.value.length > 0) {
+          soDevicesList.value = traceResults.value.filter(r => (r.soNumber || r.so_number) === soNumber);
+        }
       }
     } catch (err) {
       console.error('Error fetching devices for SO:', err);
+      if (traceResults.value.length > 0) {
+        soDevicesList.value = traceResults.value.filter(r => (r.soNumber || r.so_number) === soNumber);
+      }
     } finally {
       loadingSoDevices.value = false;
     }
+
+    Vue.nextTick(() => {
+      initDevicesTabulator();
+    });
   };
 
   const exportSelectedSoCsv = () => {
@@ -3526,8 +3544,14 @@ function useTraceabilityModule(ctx) {
     }
 
     if (catalogTabulatorInstance) {
-      try { catalogTabulatorInstance.destroy(); } catch (e) {}
-      catalogTabulatorInstance = null;
+      try {
+        catalogTabulatorInstance.setData(soCatalogList.value || []);
+        try { if (typeof catalogTabulatorInstance.redraw === 'function') catalogTabulatorInstance.redraw(true); } catch (e) {}
+        return;
+      } catch (e) {
+        try { catalogTabulatorInstance.destroy(); } catch (err) {}
+        catalogTabulatorInstance = null;
+      }
     }
 
     container.innerHTML = '';
@@ -3541,12 +3565,15 @@ function useTraceabilityModule(ctx) {
       selectableRows: 1, // Only allow exactly 1 row to be selected at a time
       rowFormatter: (row) => {
         const d = row.getData();
-        const isSel = d && d.soNumber && d.soNumber === selectedSoNumber.value;
+        const so = d ? (d.soNumber || d.so_number) : null;
+        const isSel = so && so === selectedSoNumber.value;
         const el = row.getElement();
-        if (isSel) {
-          el.classList.add('tabulator-selected', 'so-row-selected');
-        } else {
-          el.classList.remove('tabulator-selected', 'so-row-selected');
+        if (el && el.classList) {
+          if (isSel) {
+            el.classList.add('tabulator-selected', 'so-row-selected');
+          } else {
+            el.classList.remove('tabulator-selected', 'so-row-selected');
+          }
         }
       },
       columns: [
@@ -3644,38 +3671,78 @@ function useTraceabilityModule(ctx) {
             return '<div class="w-full pr-2"><div class="flex justify-between text-[10px] font-mono mb-0.5"><span class="text-cyan-300 font-bold">' + pct + '%</span></div><div class="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden"><div class="bg-cyan-500 h-full rounded-full" style="width:' + pct + '%"></div></div></div>';
           },
         },
+        {
+          title: 'Action',
+          field: '_action',
+          headerSort: false,
+          width: 95,
+          hozAlign: 'center',
+          formatter: (cell) => {
+            const d = cell.getData();
+            const so = d ? (d.soNumber || d.so_number) : null;
+            const isSel = so && selectedSoNumber.value === so;
+            return '<button type="button" class="so-select-btn px-2.5 py-1 rounded-lg text-[11px] font-bold transition flex items-center justify-center gap-1 cursor-pointer ' +
+              (isSel ? 'bg-sky-600 text-white shadow-sm' : 'bg-sky-500/15 hover:bg-sky-500/30 text-sky-300 border border-sky-500/25') +
+              '"><i class="fa-solid ' + (isSel ? 'fa-check' : 'fa-folder-open') + ' text-[10px]"></i><span>' +
+              (isSel ? 'Active' : 'Select') + '</span></button>';
+          },
+          cellClick: (e, cell) => {
+            const row = cell.getRow();
+            if (row) {
+              handleSoRowClick(e, row);
+            }
+          },
+        },
       ],
-      rowClick: (e, row) => {
-        const d = row.getData();
-        if (!d || !d.soNumber) return;
-        if (selectedSoNumber.value === d.soNumber) {
-          deselectSoRow();
-        } else {
-          selectSoRow(d);
-        }
-      },
-      rowDblClick: (e, row) => {
-        const d = row.getData();
-        if (!d || !d.soNumber) return;
-        if (selectedSoNumber.value === d.soNumber) {
-          deselectSoRow();
-        } else {
-          selectSoRow(d);
-        }
-      },
+    });
+
+    let _lastSoHandledTime = 0;
+    let _lastSoHandledVal = null;
+    const handleSoRowClick = (e, row) => {
+      if (!row) return;
+      const d = row.getData();
+      if (!d) return;
+      const so = d.soNumber || d.so_number;
+      if (!so) return;
+
+      const now = Date.now();
+      if (_lastSoHandledVal === so && now - _lastSoHandledTime < 250) {
+        return;
+      }
+      _lastSoHandledTime = now;
+      _lastSoHandledVal = so;
+
+      if (selectedSoNumber.value === so) {
+        deselectSoRow();
+      } else {
+        selectSoRow(d);
+      }
+    };
+
+    catalogTabulatorInstance.on('rowClick', (e, row) => {
+      handleSoRowClick(e, row);
+    });
+
+    catalogTabulatorInstance.on('cellClick', (e, cell) => {
+      const row = cell.getRow();
+      if (row) {
+        handleSoRowClick(e, row);
+      }
     });
 
     catalogTabulatorInstance.on('tableBuilt', () => {
       if (selectedSoNumber.value) {
         try {
           catalogTabulatorInstance.getRows().forEach(r => {
-            const isMatch = r.getData()?.soNumber === selectedSoNumber.value;
+            const d = r.getData();
+            const rSo = d ? (d.soNumber || d.so_number) : null;
+            const isMatch = rSo === selectedSoNumber.value;
             const el = r.getElement();
             if (isMatch) {
-              r.select();
+              try { r.select(); } catch (err) {}
               if (el && el.classList) el.classList.add('tabulator-selected', 'so-row-selected');
             } else {
-              r.deselect();
+              try { r.deselect(); } catch (err) {}
               if (el && el.classList) el.classList.remove('tabulator-selected', 'so-row-selected');
             }
           });
@@ -3685,7 +3752,11 @@ function useTraceabilityModule(ctx) {
 
     catalogTabulatorInstance.on('dataFiltered', (filters, rows) => {
       if (rows && rows.length > 0) {
-        const stillSelected = rows.find(r => r.getData()?.soNumber === selectedSoNumber.value);
+        const stillSelected = rows.find(r => {
+          const d = r.getData();
+          const rSo = d ? (d.soNumber || d.so_number) : null;
+          return rSo === selectedSoNumber.value;
+        });
         if (!stillSelected) {
           deselectSoRow();
         } else {
@@ -3697,6 +3768,16 @@ function useTraceabilityModule(ctx) {
         }
       }
     });
+
+    container.onclick = (e) => {
+      const rowEl = e.target.closest('.tabulator-row');
+      if (rowEl && catalogTabulatorInstance) {
+        const row = catalogTabulatorInstance.getRow(rowEl);
+        if (row) {
+          handleSoRowClick(e, row);
+        }
+      }
+    };
   };
 
   const initDevicesTabulator = (retryCount = 0) => {
@@ -3710,8 +3791,14 @@ function useTraceabilityModule(ctx) {
     }
 
     if (devicesTabulatorInstance) {
-      try { devicesTabulatorInstance.destroy(); } catch (e) {}
-      devicesTabulatorInstance = null;
+      try {
+        devicesTabulatorInstance.setData(soDevicesList.value || []);
+        try { if (typeof devicesTabulatorInstance.redraw === 'function') devicesTabulatorInstance.redraw(true); } catch (e) {}
+        return;
+      } catch (e) {
+        try { devicesTabulatorInstance.destroy(); } catch (err) {}
+        devicesTabulatorInstance = null;
+      }
     }
 
     container.innerHTML = '';
@@ -3836,50 +3923,68 @@ function useTraceabilityModule(ctx) {
             return '<button type="button" class="px-2.5 py-1 rounded-lg text-[11px] font-bold transition flex items-center gap-1 cursor-pointer ' + (isSel ? 'bg-sky-600 text-white shadow-sm' : 'bg-sky-500/15 hover:bg-sky-500/30 text-sky-300 border border-sky-500/25') + '"><i class="fa-solid fa-microchip text-[10px]"></i><span>' + (isSel ? 'Selected' : 'Inspect') + '</span></button>';
           },
           cellClick: (e, cell) => {
-            const d = cell.getData();
-            if (!d) return;
-            const sn = d.serialNumber || d.serial_number;
-            const curSn = selectedDeviceDetails.value ? (selectedDeviceDetails.value.serial_number || selectedDeviceDetails.value.generalInfo?.serialNumber) : null;
-            if (curSn && sn && curSn === sn) {
-              deselectDevice();
-            } else {
-              selectDeviceForInspection(d);
+            const row = cell.getRow();
+            if (row) {
+              handleDeviceRowClick(e, row);
             }
           },
         },
       ],
-      rowClick: (e, row) => {
-        const target = e.target;
-        if (target && target.closest('[data-copy-sn]')) {
-          copyText(target.closest('[data-copy-sn]').getAttribute('data-copy-sn'));
-          return;
-        }
-        if (target && target.closest('[data-copy-eui]')) {
-          copyText(target.closest('[data-copy-eui]').getAttribute('data-copy-eui'));
-          return;
-        }
-        const d = row.getData();
-        if (!d) return;
-        const sn = d.serialNumber || d.serial_number;
-        const curSn = selectedDeviceDetails.value ? (selectedDeviceDetails.value.serial_number || selectedDeviceDetails.value.generalInfo?.serialNumber) : null;
-        if (curSn && sn && curSn === sn) {
-          deselectDevice();
-        } else {
-          selectDeviceForInspection(d);
-        }
-      },
-      rowDblClick: (e, row) => {
-        const d = row.getData();
-        if (!d) return;
-        const sn = d.serialNumber || d.serial_number;
-        const curSn = selectedDeviceDetails.value ? (selectedDeviceDetails.value.serial_number || selectedDeviceDetails.value.generalInfo?.serialNumber) : null;
-        if (curSn === sn) {
-          deselectDevice();
-        } else {
-          selectDeviceForInspection(d);
-        }
-      },
     });
+
+    let _lastDeviceHandledTime = 0;
+    let _lastDeviceHandledVal = null;
+    const handleDeviceRowClick = (e, row) => {
+      if (!row) return;
+      const target = e ? e.target : null;
+      if (target && target.closest('[data-copy-sn]')) {
+        copyText(target.closest('[data-copy-sn]').getAttribute('data-copy-sn'));
+        return;
+      }
+      if (target && target.closest('[data-copy-eui]')) {
+        copyText(target.closest('[data-copy-eui]').getAttribute('data-copy-eui'));
+        return;
+      }
+      const d = row.getData();
+      if (!d) return;
+      const sn = d.serialNumber || d.serial_number;
+      if (!sn) return;
+
+      const now = Date.now();
+      if (_lastDeviceHandledVal === sn && now - _lastDeviceHandledTime < 250) {
+        return;
+      }
+      _lastDeviceHandledTime = now;
+      _lastDeviceHandledVal = sn;
+
+      const curSn = selectedDeviceDetails.value ? (selectedDeviceDetails.value.serial_number || selectedDeviceDetails.value.generalInfo?.serialNumber) : null;
+      if (curSn && curSn === sn) {
+        deselectDevice();
+      } else {
+        selectDeviceForInspection(d);
+      }
+    };
+
+    devicesTabulatorInstance.on('rowClick', (e, row) => {
+      handleDeviceRowClick(e, row);
+    });
+
+    devicesTabulatorInstance.on('cellClick', (e, cell) => {
+      const row = cell.getRow();
+      if (row) {
+        handleDeviceRowClick(e, row);
+      }
+    });
+
+    container.onclick = (e) => {
+      const rowEl = e.target.closest('.tabulator-row');
+      if (rowEl && devicesTabulatorInstance) {
+        const row = devicesTabulatorInstance.getRow(rowEl);
+        if (row) {
+          handleDeviceRowClick(e, row);
+        }
+      }
+    };
   };
 
   const fetchTestResults = async () => {
@@ -3989,20 +4094,15 @@ function useTraceabilityModule(ctx) {
 
         // Maintain selection if already chosen, but DO NOT force auto-selection of the first row on load/refresh
         if (soCatalogList.value.length > 0 && selectedSoNumber.value) {
-          const found = soCatalogList.value.find(s => s.soNumber === selectedSoNumber.value);
+          const found = soCatalogList.value.find(s => (s.soNumber || s.so_number) === selectedSoNumber.value);
           if (found) {
-            await selectSoRow({ soNumber: found.soNumber });
+            await selectSoRow({ soNumber: found.soNumber || found.so_number });
           } else {
             deselectSoRow();
           }
         } else {
           deselectSoRow();
         }
-
-        Vue.nextTick(() => {
-          initCatalogTabulator();
-          initDevicesTabulator();
-        });
       } else {
         const err = await res.json().catch(() => ({}));
         showToast(err.message || 'Failed to query test_result from PostgreSQL', 'error');
@@ -4012,6 +4112,12 @@ function useTraceabilityModule(ctx) {
       showToast('Network error querying test results', 'error');
     } finally {
       traceLoading.value = false;
+      Vue.nextTick(() => {
+        initCatalogTabulator();
+        if (selectedSoNumber.value && soDevicesList.value.length > 0) {
+          initDevicesTabulator();
+        }
+      });
     }
   };
 
