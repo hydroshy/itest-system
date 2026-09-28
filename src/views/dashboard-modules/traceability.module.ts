@@ -691,70 +691,218 @@ export const TRACEABILITY_TEMPLATE = `          <div v-else-if="activeFeature.id
 
                   <!-- B2. Trend Graphs for Each Field Data in raw_data3 -->
                   <div v-if="rawDataFieldList && rawDataFieldList.length > 0" class="space-y-3">
-                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 px-1">
-                      <div class="flex items-center gap-2">
-                        <span class="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
-                          <i class="fa-solid fa-chart-line text-sky-400"></i>
-                          <span>Field Data Trends (raw_data3 Timeline Series)</span>
-                        </span>
-                        <span class="text-[10px] font-mono px-2 py-0.5 rounded bg-sky-500/10 text-sky-300 border border-sky-500/20">
-                          {{ rawDataFieldList.length }} Graphs • X: Timestamp / Packets • Y: Data Value
-                        </span>
-                      </div>
-
-                      <!-- Toolbar: Channel Selector & View Mode Switcher -->
-                      <div class="flex items-center gap-2.5 flex-wrap">
-                        <!-- Channel Focus Dropdown -->
-                        <div class="flex items-center gap-1.5 text-xs">
-                          <span class="text-[10px] uppercase font-bold text-slate-400 font-mono">Focus Channel:</span>
-                          <select
-                            v-model="selectedTrendField"
-                            class="px-2.5 py-1 bg-slate-900 border border-slate-700 rounded-lg text-xs text-white font-mono focus:border-sky-500 focus:outline-none cursor-pointer"
-                          >
-                            <option v-for="f in availableTrendFields" :key="'focus-' + f.key" :value="f.key">
-                              {{ f.key.toUpperCase() }} — {{ f.label }}
-                            </option>
-                          </select>
+                    <div class="flex flex-col gap-2.5 px-1 pb-1">
+                      <!-- Top Row: Title, Focus Channel, and View Mode Switcher -->
+                      <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+                        <div class="flex items-center gap-2 flex-wrap">
+                          <span class="text-xs font-bold text-slate-200 uppercase tracking-wider flex items-center gap-1.5">
+                            <i class="fa-solid fa-chart-line text-sky-400"></i>
+                            <span>Field Data Trends (raw_data3 Timeline Series)</span>
+                          </span>
+                          <span class="text-[10px] font-mono px-2 py-0.5 rounded bg-sky-500/10 text-sky-300 border border-sky-500/20">
+                            {{ filteredRawDataFieldList.length }} / {{ rawDataFieldList.length }} Channels • Interactive Oscilloscope Cards
+                          </span>
                         </div>
 
-                        <!-- View Mode Switcher -->
-                        <div class="inline-flex rounded-lg bg-slate-900 p-0.5 border border-slate-800 text-[10px] font-mono font-bold">
-                          <button
-                            type="button"
-                            @click="trendGraphViewMode = 'all'"
-                            :class="trendGraphViewMode === 'all' ? 'bg-sky-600 text-white shadow-sm' : 'text-slate-400 hover:text-white'"
-                            class="px-2.5 py-1 rounded transition flex items-center gap-1 cursor-pointer"
-                            title="Combined: Focused Visualizer + All Cards"
-                          >
-                            <i class="fa-solid fa-table-cells-large text-[9px]"></i>
-                            <span>All-in-One</span>
-                          </button>
-                          <button
-                            type="button"
-                            @click="trendGraphViewMode = 'detail'"
-                            :class="trendGraphViewMode === 'detail' ? 'bg-sky-600 text-white shadow-sm' : 'text-slate-400 hover:text-white'"
-                            class="px-2.5 py-1 rounded transition flex items-center gap-1 cursor-pointer"
-                            title="Detailed Oscilloscope Visualizer only"
-                          >
-                            <i class="fa-solid fa-chart-line text-[9px]"></i>
-                            <span>Focus Chart</span>
-                          </button>
-                          <button
-                            type="button"
-                            @click="trendGraphViewMode = 'grid'"
-                            :class="trendGraphViewMode === 'grid' ? 'bg-sky-600 text-white shadow-sm' : 'text-slate-400 hover:text-white'"
-                            class="px-2.5 py-1 rounded transition flex items-center gap-1 cursor-pointer"
-                            title="Cards Grid only"
-                          >
-                            <i class="fa-solid fa-grip text-[9px]"></i>
-                            <span>Cards Grid</span>
-                          </button>
+                        <!-- Toolbar: Channel Focus Dropdown & View Mode Switcher -->
+                        <div class="flex items-center gap-2.5 flex-wrap">
+                          <!-- Channel Focus Dropdown -->
+                          <div class="flex items-center gap-1.5 text-xs">
+                            <span class="text-[10px] uppercase font-bold text-slate-400 font-mono">Focus Channel:</span>
+                            <select
+                              v-model="selectedTrendField"
+                              class="px-2.5 py-1 bg-slate-900 border border-slate-700 rounded-lg text-xs text-white font-mono focus:border-sky-500 focus:outline-none cursor-pointer"
+                            >
+                              <option v-for="f in availableTrendFields" :key="'focus-' + f.key" :value="f.key">
+                                {{ f.key.toUpperCase() }} — {{ f.label }}
+                              </option>
+                            </select>
+                          </div>
+
+                          <!-- View Mode Switcher -->
+                          <div class="inline-flex rounded-lg bg-slate-900 p-0.5 border border-slate-800 text-[10px] font-mono font-bold">
+                            <button
+                              type="button"
+                              @click="trendGraphViewMode = 'all'"
+                              :class="trendGraphViewMode === 'all' ? 'bg-sky-600 text-white shadow-sm' : 'text-slate-400 hover:text-white'"
+                              class="px-2.5 py-1 rounded transition flex items-center gap-1 cursor-pointer"
+                              title="Combined: Focused Visualizer + All Cards"
+                            >
+                              <i class="fa-solid fa-table-cells-large text-[9px]"></i>
+                              <span>All-in-One</span>
+                            </button>
+                            <button
+                              type="button"
+                              @click="trendGraphViewMode = 'detail'"
+                              :class="trendGraphViewMode === 'detail' ? 'bg-sky-600 text-white shadow-sm' : 'text-slate-400 hover:text-white'"
+                              class="px-2.5 py-1 rounded transition flex items-center gap-1 cursor-pointer"
+                              title="Detailed Oscilloscope Visualizer only"
+                            >
+                              <i class="fa-solid fa-chart-line text-[9px]"></i>
+                              <span>Focus Chart</span>
+                            </button>
+                            <button
+                              type="button"
+                              @click="trendGraphViewMode = 'grid'"
+                              :class="trendGraphViewMode === 'grid' ? 'bg-sky-600 text-white shadow-sm' : 'text-slate-400 hover:text-white'"
+                              class="px-2.5 py-1 rounded transition flex items-center gap-1 cursor-pointer"
+                              title="Cards Grid only"
+                            >
+                              <i class="fa-solid fa-grip text-[9px]"></i>
+                              <span>Cards Grid</span>
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+
+                      <!-- Bottom Row: Channel Search, Category Filter, Global Zoom, and Global Toggles -->
+                      <div class="flex flex-col md:flex-row md:items-center justify-between gap-2.5 p-2 rounded-xl bg-slate-950/70 border border-slate-800/80 text-xs">
+                        <!-- Channel Search & Category Filter Pills -->
+                        <div class="flex items-center gap-2 flex-wrap">
+                          <div class="relative">
+                            <i class="fa-solid fa-magnifying-glass absolute left-2.5 top-2 text-[10px] text-slate-500"></i>
+                            <input
+                              v-model="trendChannelSearch"
+                              type="text"
+                              placeholder="Filter field (e.g. p4, com1, batt)..."
+                              class="pl-7 pr-2.5 py-1 bg-slate-900 border border-slate-700/80 rounded-lg text-xs text-white font-mono focus:border-sky-500 focus:outline-none w-44 placeholder:text-slate-500 placeholder:text-[11px]"
+                            />
+                            <button
+                              v-if="trendChannelSearch"
+                              type="button"
+                              @click="trendChannelSearch = ''"
+                              class="absolute right-2 top-1.5 text-slate-500 hover:text-white text-[10px]"
+                            >
+                              <i class="fa-solid fa-xmark"></i>
+                            </button>
+                          </div>
+
+                          <!-- Category Filter Pills -->
+                          <div class="inline-flex rounded-lg bg-slate-900 p-0.5 border border-slate-800 text-[10px] font-mono">
+                            <button
+                              type="button"
+                              @click="trendCategoryFilter = 'all'"
+                              :class="trendCategoryFilter === 'all' ? 'bg-sky-600/30 text-sky-300 font-bold border border-sky-500/40' : 'text-slate-400 hover:text-white border border-transparent'"
+                              class="px-2 py-0.5 rounded transition cursor-pointer"
+                            >
+                              All
+                            </button>
+                            <button
+                              type="button"
+                              @click="trendCategoryFilter = 'sensors'"
+                              :class="trendCategoryFilter === 'sensors' ? 'bg-sky-600/30 text-sky-300 font-bold border border-sky-500/40' : 'text-slate-400 hover:text-white border border-transparent'"
+                              class="px-2 py-0.5 rounded transition cursor-pointer"
+                              title="Sensors P1 to P35 only"
+                            >
+                              Sensors (P)
+                            </button>
+                            <button
+                              type="button"
+                              @click="trendCategoryFilter = 'com'"
+                              :class="trendCategoryFilter === 'com' ? 'bg-sky-600/30 text-sky-300 font-bold border border-sky-500/40' : 'text-slate-400 hover:text-white border border-transparent'"
+                              class="px-2 py-0.5 rounded transition cursor-pointer"
+                              title="COM1 & COM2 only"
+                            >
+                              COM
+                            </button>
+                            <button
+                              type="button"
+                              @click="trendCategoryFilter = 'active'"
+                              :class="trendCategoryFilter === 'active' ? 'bg-sky-600/30 text-sky-300 font-bold border border-sky-500/40' : 'text-slate-400 hover:text-white border border-transparent'"
+                              class="px-2 py-0.5 rounded transition cursor-pointer"
+                              title="Channels with dynamic variation only"
+                            >
+                              Active Only
+                            </button>
+                          </div>
+                        </div>
+
+                        <!-- Global Zoom & Display Toggles for All Cards -->
+                        <div class="flex items-center gap-2 flex-wrap text-[10px] font-mono">
+                          <!-- Global Zoom Buttons -->
+                          <div class="flex items-center gap-1">
+                            <span class="text-slate-500 font-sans font-bold uppercase text-[9px]">Global Zoom:</span>
+                            <div class="inline-flex rounded-lg bg-slate-900 p-0.5 border border-slate-800">
+                              <button
+                                type="button"
+                                @click="setGlobalCardZoom('all')"
+                                :class="globalCardZoom === 'all' ? 'bg-sky-600 text-white font-bold' : 'text-slate-400 hover:text-white'"
+                                class="px-2 py-0.5 rounded transition cursor-pointer"
+                                title="Show full packet series on all cards"
+                              >
+                                All Pkts
+                              </button>
+                              <button
+                                type="button"
+                                @click="setGlobalCardZoom(25)"
+                                :class="globalCardZoom === 25 ? 'bg-sky-600 text-white font-bold' : 'text-slate-400 hover:text-white'"
+                                class="px-2 py-0.5 rounded transition cursor-pointer"
+                                title="Zoom to last 25 packets on all cards"
+                              >
+                                Last 25
+                              </button>
+                              <button
+                                type="button"
+                                @click="setGlobalCardZoom(10)"
+                                :class="globalCardZoom === 10 ? 'bg-sky-600 text-white font-bold' : 'text-slate-400 hover:text-white'"
+                                class="px-2 py-0.5 rounded transition cursor-pointer"
+                                title="Zoom to last 10 packets on all cards"
+                              >
+                                Last 10
+                              </button>
+                            </div>
+                          </div>
+
+                          <!-- Global Display Toggles -->
+                          <div class="flex items-center gap-1 border-l border-slate-800 pl-2">
+                            <button
+                              type="button"
+                              @click="toggleGlobalCardArea"
+                              :class="globalCardArea ? 'bg-sky-500/20 text-sky-300 border-sky-500/40' : 'bg-slate-900 text-slate-500 border-slate-800'"
+                              class="px-2 py-0.5 rounded border transition cursor-pointer flex items-center gap-1"
+                              title="Toggle Area Gradient on all cards"
+                            >
+                              <i class="fa-solid fa-chart-area text-[9px]"></i>
+                              <span>Area</span>
+                            </button>
+                            <button
+                              type="button"
+                              @click="toggleGlobalCardAvg"
+                              :class="globalCardAvg ? 'bg-amber-500/20 text-amber-300 border-amber-500/40' : 'bg-slate-900 text-slate-500 border-slate-800'"
+                              class="px-2 py-0.5 rounded border transition cursor-pointer flex items-center gap-1"
+                              title="Toggle Mean Reference Line on all cards"
+                            >
+                              <i class="fa-solid fa-arrows-split-up-and-left text-[9px]"></i>
+                              <span>Avg</span>
+                            </button>
+                            <button
+                              type="button"
+                              @click="toggleGlobalCardDots"
+                              :class="globalCardDots ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40' : 'bg-slate-900 text-slate-500 border-slate-800'"
+                              class="px-2 py-0.5 rounded border transition cursor-pointer flex items-center gap-1"
+                              title="Toggle Data Points on all cards"
+                            >
+                              <i class="fa-solid fa-circle-dot text-[9px]"></i>
+                              <span>Dots</span>
+                            </button>
+                            <button
+                              type="button"
+                              @click="toggleGlobalCardGrid"
+                              :class="globalCardGrid ? 'bg-indigo-500/20 text-indigo-300 border-indigo-500/40' : 'bg-slate-900 text-slate-500 border-slate-800'"
+                              class="px-2 py-0.5 rounded border transition cursor-pointer flex items-center gap-1"
+                              title="Toggle Oscilloscope Grid on all cards"
+                            >
+                              <i class="fa-solid fa-border-all text-[9px]"></i>
+                              <span>Grid</span>
+                            </button>
+                          </div>
                         </div>
                       </div>
                     </div>
 
                     <!-- High-Resolution Focused Oscilloscope Visualizer (Visible in 'all' and 'detail' modes) -->
                     <div
+                      id="focused-oscilloscope-visualizer"
                       v-if="(trendGraphViewMode === 'all' || trendGraphViewMode === 'detail') && selectedTrendChartData"
                       class="glass-card rounded-xl border border-slate-800 p-4 space-y-3 bg-slate-950/90 shadow-xl"
                     >
@@ -789,8 +937,159 @@ export const TRACEABILITY_TEMPLATE = `          <div v-else-if="activeFeature.id
                         </div>
                       </div>
 
-                      <!-- KPI Metric Strip for Selected Field -->
-                      <div class="grid grid-cols-2 sm:grid-cols-5 gap-2 font-mono text-xs">
+                      <!-- Focused Chart Interactive Toolbar: Zoom, Display Toggles, and Inspection Actions -->
+                      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-2 rounded-lg bg-slate-900/80 border border-slate-800/80 text-[10px] font-mono">
+                        <!-- Left: Zoom Window Controls -->
+                        <div class="flex items-center gap-1.5 flex-wrap">
+                          <span class="text-slate-500 font-sans font-bold uppercase text-[9px]">Timeline Window:</span>
+                          <div class="inline-flex rounded-lg bg-slate-950 p-0.5 border border-slate-800">
+                            <button
+                              type="button"
+                              @click="setFocusedChartZoom('all')"
+                              :class="focusedChartZoom === 'all' ? 'bg-sky-600 text-white font-bold' : 'text-slate-400 hover:text-white'"
+                              class="px-2 py-0.5 rounded transition cursor-pointer"
+                              title="Show all recorded packets"
+                            >
+                              All ({{ selectedTrendChartData.totalPackets || selectedTrendChartData.count }})
+                            </button>
+                            <button
+                              v-if="(selectedTrendChartData.totalPackets || selectedTrendChartData.count) > 50"
+                              type="button"
+                              @click="setFocusedChartZoom(50)"
+                              :class="focusedChartZoom === 50 ? 'bg-sky-600 text-white font-bold' : 'text-slate-400 hover:text-white'"
+                              class="px-2 py-0.5 rounded transition cursor-pointer"
+                              title="Zoom into last 50 packets"
+                            >
+                              50 pkts
+                            </button>
+                            <button
+                              v-if="(selectedTrendChartData.totalPackets || selectedTrendChartData.count) > 25"
+                              type="button"
+                              @click="setFocusedChartZoom(25)"
+                              :class="focusedChartZoom === 25 ? 'bg-sky-600 text-white font-bold' : 'text-slate-400 hover:text-white'"
+                              class="px-2 py-0.5 rounded transition cursor-pointer"
+                              title="Zoom into last 25 packets"
+                            >
+                              25 pkts
+                            </button>
+                            <button
+                              v-if="(selectedTrendChartData.totalPackets || selectedTrendChartData.count) > 10"
+                              type="button"
+                              @click="setFocusedChartZoom(10)"
+                              :class="focusedChartZoom === 10 ? 'bg-sky-600 text-white font-bold' : 'text-slate-400 hover:text-white'"
+                              class="px-2 py-0.5 rounded transition cursor-pointer"
+                              title="Zoom into last 10 packets"
+                            >
+                              10 pkts
+                            </button>
+                          </div>
+                          <!-- Step Zoom buttons -->
+                          <div class="inline-flex rounded-lg bg-slate-950 p-0.5 border border-slate-800">
+                            <button
+                              type="button"
+                              @click="focusedZoomStep(1)"
+                              class="px-1.5 py-0.5 text-slate-400 hover:text-white transition cursor-pointer"
+                              title="Zoom In"
+                            >
+                              <i class="fa-solid fa-plus text-[9px]"></i>
+                            </button>
+                            <button
+                              type="button"
+                              @click="focusedZoomStep(-1)"
+                              class="px-1.5 py-0.5 text-slate-400 hover:text-white transition cursor-pointer"
+                              title="Zoom Out"
+                            >
+                              <i class="fa-solid fa-minus text-[9px]"></i>
+                            </button>
+                            <button
+                              type="button"
+                              @click="setFocusedChartZoom('all')"
+                              class="px-1.5 py-0.5 text-slate-400 hover:text-white transition cursor-pointer"
+                              title="Reset Zoom"
+                            >
+                              <i class="fa-solid fa-rotate-left text-[9px]"></i>
+                            </button>
+                          </div>
+                        </div>
+
+                        <!-- Right: Feature Toggles & Actions -->
+                        <div class="flex items-center gap-1.5 flex-wrap">
+                          <button
+                            type="button"
+                            @click="focusedShowArea = !focusedShowArea"
+                            :class="focusedShowArea ? 'bg-sky-500/20 text-sky-300 border-sky-500/40' : 'bg-slate-950 text-slate-500 border-slate-800'"
+                            class="px-2 py-0.5 rounded border transition cursor-pointer flex items-center gap-1"
+                            title="Toggle Area Gradient"
+                          >
+                            <i class="fa-solid fa-chart-area text-[9px]"></i>
+                            <span>Area</span>
+                          </button>
+                          <button
+                            type="button"
+                            @click="focusedShowAvg = !focusedShowAvg"
+                            :class="focusedShowAvg ? 'bg-amber-500/20 text-amber-300 border-amber-500/40' : 'bg-slate-950 text-slate-500 border-slate-800'"
+                            class="px-2 py-0.5 rounded border transition cursor-pointer flex items-center gap-1"
+                            title="Toggle Mean Reference Line"
+                          >
+                            <i class="fa-solid fa-arrows-split-up-and-left text-[9px]"></i>
+                            <span>Avg</span>
+                          </button>
+                          <button
+                            type="button"
+                            @click="focusedShowDots = !focusedShowDots"
+                            :class="focusedShowDots ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40' : 'bg-slate-950 text-slate-500 border-slate-800'"
+                            class="px-2 py-0.5 rounded border transition cursor-pointer flex items-center gap-1"
+                            title="Toggle Data Points"
+                          >
+                            <i class="fa-solid fa-circle-dot text-[9px]"></i>
+                            <span>Dots</span>
+                          </button>
+                          <button
+                            type="button"
+                            @click="focusedShowGrid = !focusedShowGrid"
+                            :class="focusedShowGrid ? 'bg-indigo-500/20 text-indigo-300 border-indigo-500/40' : 'bg-slate-950 text-slate-500 border-slate-800'"
+                            class="px-2 py-0.5 rounded border transition cursor-pointer flex items-center gap-1"
+                            title="Toggle Oscilloscope Grid"
+                          >
+                            <i class="fa-solid fa-border-all text-[9px]"></i>
+                            <span>Grid</span>
+                          </button>
+                          <button
+                            type="button"
+                            @click="openFieldInspectModal(selectedTrendChartData.fieldObj || selectedTrendChartData)"
+                            class="px-2.5 py-0.5 rounded border border-purple-500/40 bg-purple-500/10 text-purple-300 hover:bg-purple-500/20 font-bold transition cursor-pointer flex items-center gap-1"
+                            title="Open Fullscreen Waveform Inspector & Data Table"
+                          >
+                            <i class="fa-solid fa-expand text-[9px]"></i>
+                            <span>Inspect</span>
+                          </button>
+                          <button
+                            type="button"
+                            @click="exportFieldCsv(selectedTrendChartData.fieldObj || selectedTrendChartData)"
+                            class="px-2.5 py-0.5 rounded border border-slate-700 bg-slate-950 text-slate-300 hover:text-white hover:bg-slate-800 transition cursor-pointer flex items-center gap-1"
+                            title="Download CSV dataset for this channel"
+                          >
+                            <i class="fa-solid fa-download text-[9px]"></i>
+                            <span>CSV</span>
+                          </button>
+                        </div>
+                      </div>
+
+                      <!-- Interactive Live HUD Readout / KPI Metric Strip -->
+                      <div v-if="focusedHoverPoint" class="p-2.5 rounded-lg bg-sky-950 border border-sky-500/40 flex flex-wrap items-center justify-between gap-2 font-mono text-xs animate-in fade-in">
+                        <div class="flex items-center gap-2 text-sky-300">
+                          <i class="fa-solid fa-crosshairs text-sky-400 text-sm animate-pulse"></i>
+                          <span class="font-bold">PACKET #{{ focusedHoverPoint.index }}</span>
+                          <span class="text-slate-400">| TIME: <strong class="text-white">{{ focusedHoverPoint.timeStr }}</strong></span>
+                        </div>
+                        <div class="flex items-center gap-3">
+                          <span class="text-slate-300">VALUE: <strong class="text-white text-sm font-black">{{ focusedHoverPoint.valFormatted }}</strong></span>
+                          <span :class="focusedHoverPoint.isAboveAvg ? 'text-emerald-400' : 'text-amber-400'" class="font-bold">
+                            {{ focusedHoverPoint.deltaFormatted }} ({{ focusedHoverPoint.pctFormatted }}) vs Mean
+                          </span>
+                        </div>
+                      </div>
+                      <div v-else class="grid grid-cols-2 sm:grid-cols-5 gap-2 font-mono text-xs">
                         <div class="p-2 rounded-lg bg-slate-900/80 border border-slate-800/80 flex items-center justify-between">
                           <span class="text-slate-500 text-[10px] uppercase font-sans">Min Value</span>
                           <strong class="text-cyan-300 font-bold">{{ formatStatNum(selectedTrendChartData.rawMin) }}</strong>
@@ -809,12 +1108,19 @@ export const TRACEABILITY_TEMPLATE = `          <div v-else-if="activeFeature.id
                         </div>
                         <div class="p-2 rounded-lg bg-slate-900/80 border border-slate-800/80 flex items-center justify-between col-span-2 sm:col-span-1">
                           <span class="text-slate-500 text-[10px] uppercase font-sans">Packets</span>
-                          <strong class="text-sky-300 font-bold">{{ selectedTrendChartData.count }} pkts</strong>
+                          <strong class="text-sky-300 font-bold">
+                            <span v-if="selectedTrendChartData.isZoomed" class="text-amber-400">Zoomed: </span>
+                            {{ selectedTrendChartData.count }} pkts
+                          </strong>
                         </div>
                       </div>
 
                       <!-- SVG Trend Chart with Full Oscilloscope Grid and Y-Axis interval ticks -->
-                      <div class="w-full bg-slate-950 rounded-xl border border-slate-800 p-2 sm:p-3 relative overflow-hidden">
+                      <div
+                        class="w-full bg-slate-950 rounded-xl border border-slate-800 p-2 sm:p-3 relative overflow-hidden cursor-crosshair select-none"
+                        @mousemove="onFocusedChartMouseMove($event)"
+                        @mouseleave="onFocusedChartMouseLeave()"
+                      >
                         <svg class="w-full h-64 overflow-visible" viewBox="0 0 820 240" preserveAspectRatio="none">
                           <defs>
                             <linearGradient id="trendDetailAreaGradDash" x1="0%" y1="0%" x2="0%" y2="100%">
@@ -828,11 +1134,12 @@ export const TRACEABILITY_TEMPLATE = `          <div v-else-if="activeFeature.id
 
                           <!-- Outer Screen Background & Engineering Grid -->
                           <rect x="70" y="20" width="730" height="185" fill="#080e1a" rx="4" stroke="#1e293b" stroke-width="1" />
-                          <rect x="70" y="20" width="730" height="185" fill="url(#detail-oscilloscope-grid-dash)" rx="4" />
+                          <rect v-if="focusedShowGrid" x="70" y="20" width="730" height="185" fill="url(#detail-oscilloscope-grid-dash)" rx="4" />
 
                           <!-- Horizontal Dashed Grid Lines & Y-Axis Value Labels -->
                           <g v-for="tick in selectedTrendChartData.yTicks" :key="'ytick-' + tick.ratio">
                             <line
+                              v-if="focusedShowGrid"
                               x1="70"
                               :y1="tick.y"
                               x2="800"
@@ -865,6 +1172,7 @@ export const TRACEABILITY_TEMPLATE = `          <div v-else-if="activeFeature.id
                           <!-- Vertical Dashed Grid Lines & X-Axis Timestamp Labels -->
                           <g v-for="(xtick, xIdx) in selectedTrendChartData.xTicks" :key="'xtick-' + xIdx">
                             <line
+                              v-if="focusedShowGrid"
                               :x1="xtick.x"
                               y1="20"
                               :x2="xtick.x"
@@ -894,30 +1202,33 @@ export const TRACEABILITY_TEMPLATE = `          <div v-else-if="activeFeature.id
                           </g>
 
                           <!-- Average Reference Dashed Line -->
-                          <line
-                            x1="70"
-                            :y1="selectedTrendChartData.avgY"
-                            x2="800"
-                            :y2="selectedTrendChartData.avgY"
-                            stroke="#f59e0b"
-                            stroke-width="1.5"
-                            stroke-dasharray="6,3"
-                            stroke-opacity="0.8"
-                          />
-                          <text
-                            x="795"
-                            :y="selectedTrendChartData.avgY - 4"
-                            text-anchor="end"
-                            fill="#f59e0b"
-                            font-size="9"
-                            font-family="monospace"
-                            font-weight="bold"
-                          >
-                            AVG: {{ formatStatNum(selectedTrendChartData.rawAvg) }}
-                          </text>
+                          <g v-if="focusedShowAvg">
+                            <line
+                              x1="70"
+                              :y1="selectedTrendChartData.avgY"
+                              x2="800"
+                              :y2="selectedTrendChartData.avgY"
+                              stroke="#f59e0b"
+                              stroke-width="1.5"
+                              stroke-dasharray="6,3"
+                              stroke-opacity="0.85"
+                            />
+                            <text
+                              x="795"
+                              :y="selectedTrendChartData.avgY - 4"
+                              text-anchor="end"
+                              fill="#f59e0b"
+                              font-size="9"
+                              font-family="monospace"
+                              font-weight="bold"
+                            >
+                              AVG: {{ formatStatNum(selectedTrendChartData.rawAvg) }}
+                            </text>
+                          </g>
 
                           <!-- Shaded Polygon Area Under Curve -->
                           <polygon
+                            v-if="focusedShowArea"
                             :points="selectedTrendChartData.areaPolygonStr"
                             fill="url(#trendDetailAreaGradDash)"
                           />
@@ -932,25 +1243,64 @@ export const TRACEABILITY_TEMPLATE = `          <div v-else-if="activeFeature.id
                             :points="selectedTrendChartData.polylineStr"
                           />
 
-                          <!-- Data Points (Circles with hover tooltips) -->
-                          <circle
-                            v-for="p in selectedTrendChartData.renderedPoints"
-                            :key="'detail-pt-' + p.index"
-                            :cx="p.x"
-                            :cy="p.y"
-                            r="3.5"
-                            :fill="selectedTrendChartData.colors?.stroke || '#0ea5e9'"
-                            stroke="#0f172a"
-                            stroke-width="1.5"
-                            class="cursor-pointer hover:r-6 transition-all"
-                          >
-                            <title>Packet #{{ p.index }} | Time: {{ p.timeStr }} | Value: {{ p.valFormatted }}</title>
-                          </circle>
+                          <!-- Data Points -->
+                          <g v-if="focusedShowDots">
+                            <circle
+                              v-for="p in selectedTrendChartData.renderedPoints"
+                              :key="'detail-pt-' + p.index"
+                              :cx="p.x"
+                              :cy="p.y"
+                              :r="focusedHoverPoint?.index === p.index ? 5.5 : 3"
+                              :fill="selectedTrendChartData.colors?.stroke || '#0ea5e9'"
+                              stroke="#0f172a"
+                              stroke-width="1.5"
+                              class="transition-all"
+                            />
+                          </g>
+
+                          <!-- Interactive Hover Crosshair Lines & Snapped Point -->
+                          <g v-if="focusedHoverPoint">
+                            <line
+                              :x1="focusedHoverPoint.x"
+                              y1="20"
+                              :x2="focusedHoverPoint.x"
+                              y2="205"
+                              stroke="#38bdf8"
+                              stroke-width="1.5"
+                              stroke-dasharray="3,3"
+                            />
+                            <line
+                              x1="70"
+                              :y1="focusedHoverPoint.y"
+                              x2="800"
+                              :y2="focusedHoverPoint.y"
+                              stroke="rgba(56, 189, 248, 0.45)"
+                              stroke-width="1.2"
+                              stroke-dasharray="3,3"
+                            />
+                            <circle
+                              :cx="focusedHoverPoint.x"
+                              :cy="focusedHoverPoint.y"
+                              r="8"
+                              fill="none"
+                              stroke="#38bdf8"
+                              stroke-width="2"
+                              class="animate-ping"
+                            />
+                            <circle
+                              :cx="focusedHoverPoint.x"
+                              :cy="focusedHoverPoint.y"
+                              r="5"
+                              fill="#38bdf8"
+                              stroke="#ffffff"
+                              stroke-width="2"
+                            />
+                          </g>
                         </svg>
 
                         <!-- Chart Legend & Boundary Note -->
                         <div class="flex flex-wrap items-center justify-between text-[10px] font-mono text-slate-400 pt-2 px-1 border-t border-slate-800/80 mt-1">
-                          <div class="flex items-center gap-4">
+                          <div class="flex items-center gap-4 flex-wrap">
                             <span class="flex items-center gap-1.5">
                               <span class="w-3 h-0.5 rounded" :style="{ backgroundColor: selectedTrendChartData.colors?.stroke || '#0ea5e9' }"></span>
                               <strong class="text-white">{{ selectedTrendField.toUpperCase() }} Series</strong>
@@ -960,7 +1310,7 @@ export const TRACEABILITY_TEMPLATE = `          <div v-else-if="activeFeature.id
                               <span class="text-amber-400">Mean Level</span>
                             </span>
                             <span class="text-slate-500">
-                              (Y-Axis padded ±15% at bounds)
+                              (Hover waveform for live packet readout • ±15% bounds padding)
                             </span>
                           </div>
                           <div class="text-slate-400">
@@ -975,18 +1325,33 @@ export const TRACEABILITY_TEMPLATE = `          <div v-else-if="activeFeature.id
                       v-if="trendGraphViewMode === 'all' || trendGraphViewMode === 'grid'"
                       class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3.5"
                     >
+                      <!-- Empty state if search filters out all cards -->
                       <div
-                        v-for="field in rawDataFieldList"
-                        :key="field.key"
-                        @click="selectedTrendField = field.key"
-                        :class="selectedTrendField === field.key ? 'ring-2 ring-sky-500 border-sky-400 bg-slate-900/90' : 'border-slate-800 bg-slate-950/80 hover:border-slate-700'"
-                        class="p-3.5 rounded-xl border space-y-2.5 transition flex flex-col justify-between cursor-pointer"
-                        :title="'Click to spotlight ' + field.key.toUpperCase() + ' in detailed view'"
+                        v-if="filteredRawDataFieldList.length === 0"
+                        class="col-span-full py-12 text-center bg-slate-950/70 border border-slate-800 rounded-xl space-y-2"
                       >
-                        <!-- Header of Field Trend Card -->
+                        <i class="fa-solid fa-filter-circle-xmark text-slate-600 text-2xl"></i>
+                        <div class="text-xs text-slate-400 font-mono">No channels match filter criteria</div>
+                        <button
+                          type="button"
+                          @click="trendChannelSearch = ''; trendCategoryFilter = 'all'"
+                          class="px-3 py-1 rounded bg-sky-600/30 text-sky-300 border border-sky-500/40 text-xs font-mono font-bold hover:bg-sky-600/50 cursor-pointer"
+                        >
+                          Reset Filters
+                        </button>
+                      </div>
+
+                      <!-- Field Trend Card for each sensor/parameter -->
+                      <div
+                        v-for="field in filteredRawDataFieldList"
+                        :key="field.key"
+                        class="p-3.5 rounded-xl border space-y-2.5 transition flex flex-col justify-between"
+                        :class="selectedTrendField === field.key ? 'ring-2 ring-sky-500 border-sky-400 bg-slate-900/90 shadow-lg' : 'border-slate-800 bg-slate-950/80 hover:border-slate-700'"
+                      >
+                        <!-- Header of Field Trend Card with Interactive Action Buttons -->
                         <div class="flex items-start justify-between gap-2 border-b border-slate-800/80 pb-2">
                           <div class="min-w-0">
-                            <div class="flex items-center gap-1.5">
+                            <div class="flex items-center gap-1.5 flex-wrap">
                               <span class="px-2 py-0.5 rounded text-[10px] font-mono font-black border" :class="field.colors.badge">
                                 {{ field.key.toUpperCase() }}
                               </span>
@@ -995,30 +1360,166 @@ export const TRACEABILITY_TEMPLATE = `          <div v-else-if="activeFeature.id
                               </span>
                             </div>
                           </div>
-                          <div class="text-right shrink-0">
-                            <span class="text-xs font-black font-mono text-white block">{{ formatStatNum(field.latest) }}</span>
-                            <span class="text-[9px] text-slate-500 font-mono">{{ field.count }} pkts</span>
+
+                          <!-- Interactive Buttons on Card Header -->
+                          <div class="flex items-center gap-1 shrink-0">
+                            <!-- Focus in Top Chart Button -->
+                            <button
+                              type="button"
+                              @click.stop="focusChannel(field.key)"
+                              class="px-2 py-0.5 rounded text-[10px] font-mono font-bold transition flex items-center gap-1 cursor-pointer"
+                              :class="selectedTrendField === field.key ? 'bg-sky-500 text-white shadow-sm' : 'bg-slate-900 text-sky-400 hover:bg-sky-500/20 border border-sky-500/30'"
+                              title="Focus this channel in the main Oscilloscope"
+                            >
+                              <i class="fa-solid fa-crosshairs text-[9px]"></i>
+                              <span class="hidden sm:inline">Focus</span>
+                            </button>
+                            <!-- Inspect Fullscreen Modal Button -->
+                            <button
+                              type="button"
+                              @click.stop="openFieldInspectModal(field)"
+                              class="p-1 rounded text-[10px] font-mono bg-slate-900 text-purple-300 hover:text-white hover:bg-purple-900/50 border border-purple-500/30 transition cursor-pointer"
+                              title="Inspect Waveform & Data Table in Fullscreen Modal"
+                            >
+                              <i class="fa-solid fa-expand text-[10px]"></i>
+                            </button>
+                            <!-- Export CSV Button -->
+                            <button
+                              type="button"
+                              @click.stop="exportFieldCsv(field)"
+                              class="p-1 rounded text-[10px] font-mono bg-slate-900 text-slate-300 hover:text-white hover:bg-slate-800 border border-slate-700 transition cursor-pointer"
+                              title="Export CSV for this channel"
+                            >
+                              <i class="fa-solid fa-download text-[10px]"></i>
+                            </button>
                           </div>
                         </div>
 
-                        <!-- Mini Stats Metrics Row -->
-                        <div class="grid grid-cols-3 gap-1.5 text-center font-mono text-[10px] py-1 bg-slate-900/60 rounded-lg border border-slate-800/60">
+                        <!-- Interactive Toolbar on Card: Zoom Window & Feature Toggles -->
+                        <div class="flex items-center justify-between gap-1 text-[9px] font-mono py-1 px-1.5 bg-slate-900/80 rounded-lg border border-slate-800/80 flex-wrap">
+                          <!-- Zoom Window Selector Buttons -->
+                          <div class="flex items-center gap-1">
+                            <span class="text-slate-500 text-[8px] uppercase tracking-wider font-sans font-bold">Zoom:</span>
+                            <div class="inline-flex rounded bg-slate-950 p-0.5 border border-slate-800">
+                              <button
+                                type="button"
+                                @click.stop="setCardZoom(field.key, 'all')"
+                                class="px-1.5 py-0.5 rounded text-[8px] font-bold transition cursor-pointer"
+                                :class="field.activeZoom === 'all' ? 'bg-sky-600 text-white' : 'text-slate-400 hover:text-white'"
+                                title="Show all recorded packets"
+                              >
+                                All ({{ field.totalCount }})
+                              </button>
+                              <button
+                                v-if="field.totalCount > 25"
+                                type="button"
+                                @click.stop="setCardZoom(field.key, 25)"
+                                class="px-1.5 py-0.5 rounded text-[8px] font-bold transition cursor-pointer"
+                                :class="field.activeZoom === 25 ? 'bg-sky-600 text-white' : 'text-slate-400 hover:text-white'"
+                                title="Zoom into last 25 packets"
+                              >
+                                25
+                              </button>
+                              <button
+                                v-if="field.totalCount > 10"
+                                type="button"
+                                @click.stop="setCardZoom(field.key, 10)"
+                                class="px-1.5 py-0.5 rounded text-[8px] font-bold transition cursor-pointer"
+                                :class="field.activeZoom === 10 ? 'bg-sky-600 text-white' : 'text-slate-400 hover:text-white'"
+                                title="Zoom into last 10 packets"
+                              >
+                                10
+                              </button>
+                            </div>
+                          </div>
+
+                          <!-- Display Feature Toggle Buttons -->
+                          <div class="flex items-center gap-1">
+                            <button
+                              type="button"
+                              @click.stop="toggleCardSetting(field.key, 'showArea')"
+                              class="px-1.5 py-0.5 rounded border text-[8px] font-bold transition cursor-pointer flex items-center gap-0.5"
+                              :class="field.showArea ? 'bg-sky-500/20 text-sky-300 border-sky-500/40' : 'bg-slate-950 text-slate-500 border-slate-800 hover:text-slate-300'"
+                              title="Toggle Area Gradient"
+                            >
+                              <i class="fa-solid fa-chart-area"></i>
+                              <span>Area</span>
+                            </button>
+                            <button
+                              type="button"
+                              @click.stop="toggleCardSetting(field.key, 'showAvg')"
+                              class="px-1.5 py-0.5 rounded border text-[8px] font-bold transition cursor-pointer flex items-center gap-0.5"
+                              :class="field.showAvg ? 'bg-amber-500/20 text-amber-300 border-amber-500/40' : 'bg-slate-950 text-slate-500 border-slate-800 hover:text-slate-300'"
+                              title="Toggle Average Guide Line"
+                            >
+                              <i class="fa-solid fa-arrows-split-up-and-left"></i>
+                              <span>Avg</span>
+                            </button>
+                            <button
+                              type="button"
+                              @click.stop="toggleCardSetting(field.key, 'showDots')"
+                              class="px-1.5 py-0.5 rounded border text-[8px] font-bold transition cursor-pointer flex items-center gap-0.5"
+                              :class="field.showDots ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40' : 'bg-slate-950 text-slate-500 border-slate-800 hover:text-slate-300'"
+                              title="Toggle Data Points"
+                            >
+                              <i class="fa-solid fa-circle-dot"></i>
+                              <span>Dots</span>
+                            </button>
+                            <button
+                              type="button"
+                              @click.stop="toggleCardSetting(field.key, 'showGrid')"
+                              class="px-1.5 py-0.5 rounded border text-[8px] font-bold transition cursor-pointer flex items-center gap-0.5"
+                              :class="field.showGrid ? 'bg-indigo-500/20 text-indigo-300 border-indigo-500/40' : 'bg-slate-950 text-slate-500 border-slate-800 hover:text-slate-300'"
+                              title="Toggle Oscilloscope Grid"
+                            >
+                              <i class="fa-solid fa-border-all"></i>
+                              <span>Grid</span>
+                            </button>
+                          </div>
+                        </div>
+
+                        <!-- Interactive HUD Strip / Mini Stats Row -->
+                        <!-- If user is hovering over the card's SVG, show real-time dynamic readout -->
+                        <div v-if="cardHoverMap[field.key]" class="flex items-center justify-between px-2.5 py-1 rounded-lg bg-sky-950 border border-sky-500/40 text-[10px] font-mono animate-in fade-in">
+                          <div class="flex items-center gap-1.5 text-sky-300 truncate">
+                            <i class="fa-solid fa-crosshairs text-sky-400 text-[9px] animate-pulse"></i>
+                            <span class="font-bold">#{{ cardHoverMap[field.key].index }}</span>
+                            <span class="text-slate-400 font-sans text-[9px]">({{ cardHoverMap[field.key].timeStr }})</span>
+                          </div>
+                          <div class="flex items-center gap-2 shrink-0">
+                            <strong class="text-white text-xs font-black">{{ formatStatNum(cardHoverMap[field.key].val) }}</strong>
+                            <span :class="cardHoverMap[field.key].isAboveAvg ? 'text-emerald-400' : 'text-amber-400'" class="text-[9px] font-bold">
+                              {{ cardHoverMap[field.key].deltaFormatted }} vs Avg
+                            </span>
+                          </div>
+                        </div>
+
+                        <!-- Standard Min / Avg / Max / Latest row when not hovering -->
+                        <div v-else class="grid grid-cols-4 gap-1 text-center font-mono text-[10px] py-1 bg-slate-900/60 rounded-lg border border-slate-800/60">
                           <div>
-                            <span class="text-slate-500 block text-[9px] uppercase">Min</span>
+                            <span class="text-slate-500 block text-[8px] uppercase">Min</span>
                             <span class="text-cyan-300 font-bold">{{ formatStatNum(field.min) }}</span>
                           </div>
                           <div>
-                            <span class="text-slate-500 block text-[9px] uppercase">Avg</span>
+                            <span class="text-slate-500 block text-[8px] uppercase">Avg</span>
                             <span class="text-emerald-400 font-extrabold">{{ formatStatNum(field.avg) }}</span>
                           </div>
                           <div>
-                            <span class="text-slate-500 block text-[9px] uppercase">Max</span>
+                            <span class="text-slate-500 block text-[8px] uppercase">Max</span>
                             <span class="text-amber-300 font-bold">{{ formatStatNum(field.max) }}</span>
+                          </div>
+                          <div>
+                            <span class="text-slate-500 block text-[8px] uppercase">Latest</span>
+                            <span class="text-white font-black">{{ formatStatNum(field.latest) }}</span>
                           </div>
                         </div>
 
-                        <!-- Trend Graph (SVG) with Oscilloscope/Engineering Grid -->
-                        <div class="w-full bg-slate-900/80 rounded-lg p-1.5 border border-slate-800 relative chart-grid-container">
+                        <!-- Trend Graph (SVG) with Oscilloscope/Engineering Grid and Mouse Tracking -->
+                        <div
+                          class="w-full bg-slate-900/80 rounded-lg p-1.5 border border-slate-800 relative chart-grid-container cursor-crosshair select-none"
+                          @mousemove="onCardChartMouseMove($event, field)"
+                          @mouseleave="onCardChartMouseLeave(field.key)"
+                        >
                           <!-- Y-axis guide labels on chart -->
                           <div class="absolute right-2 top-1 text-[8px] font-mono text-slate-500 pointer-events-none">Max: {{ formatStatNum(field.max) }}</div>
                           <div class="absolute right-2 bottom-6 text-[8px] font-mono text-slate-500 pointer-events-none">Min: {{ formatStatNum(field.min) }}</div>
@@ -1026,7 +1527,7 @@ export const TRACEABILITY_TEMPLATE = `          <div v-else-if="activeFeature.id
                           <svg class="w-full h-24 overflow-visible" viewBox="0 0 320 88" preserveAspectRatio="none">
                             <defs>
                               <linearGradient :id="'grad-trace-' + field.key" x1="0%" y1="0%" x2="0%" y2="100%">
-                                <stop offset="0%" :stop-color="field.colors.stroke" stop-opacity="0.25" />
+                                <stop offset="0%" :stop-color="field.colors.stroke" stop-opacity="0.28" />
                                 <stop offset="100%" :stop-color="field.colors.stroke" stop-opacity="0.01" />
                               </linearGradient>
                               <!-- Grid Pattern Definition -->
@@ -1036,34 +1537,40 @@ export const TRACEABILITY_TEMPLATE = `          <div v-else-if="activeFeature.id
                             </defs>
 
                             <!-- Background Grid Pattern -->
-                            <rect x="14" y="8" width="292" height="70" :fill="'url(#trace-grid-' + field.key + ')'" />
+                            <rect v-if="field.showGrid" x="14" y="8" width="292" height="70" :fill="'url(#trace-grid-' + field.key + ')'" />
 
                             <!-- Outer Grid Frame -->
                             <rect x="14" y="8" width="292" height="70" fill="none" stroke="rgba(148, 163, 184, 0.22)" stroke-width="1" rx="2" />
 
                             <!-- Horizontal Grid Reference Lines (25%, 50%, 75%) -->
-                            <line x1="14" y1="25.5" x2="306" y2="25.5" stroke="rgba(148, 163, 184, 0.15)" stroke-width="0.8" stroke-dasharray="3,3" />
-                            <line x1="14" y1="43" x2="306" y2="43" stroke="rgba(148, 163, 184, 0.18)" stroke-width="0.8" stroke-dasharray="3,3" />
-                            <line x1="14" y1="60.5" x2="306" y2="60.5" stroke="rgba(148, 163, 184, 0.15)" stroke-width="0.8" stroke-dasharray="3,3" />
+                            <g v-if="field.showGrid">
+                              <line x1="14" y1="25.5" x2="306" y2="25.5" stroke="rgba(148, 163, 184, 0.15)" stroke-width="0.8" stroke-dasharray="3,3" />
+                              <line x1="14" y1="43" x2="306" y2="43" stroke="rgba(148, 163, 184, 0.18)" stroke-width="0.8" stroke-dasharray="3,3" />
+                              <line x1="14" y1="60.5" x2="306" y2="60.5" stroke="rgba(148, 163, 184, 0.15)" stroke-width="0.8" stroke-dasharray="3,3" />
+                            </g>
 
                             <!-- Vertical Grid Timeline Ticks -->
-                            <line x1="87" y1="8" x2="87" y2="78" stroke="rgba(148, 163, 184, 0.15)" stroke-width="0.8" stroke-dasharray="3,3" />
-                            <line x1="160" y1="8" x2="160" y2="78" stroke="rgba(148, 163, 184, 0.18)" stroke-width="0.8" stroke-dasharray="3,3" />
-                            <line x1="233" y1="8" x2="233" y2="78" stroke="rgba(148, 163, 184, 0.15)" stroke-width="0.8" stroke-dasharray="3,3" />
+                            <g v-if="field.showGrid">
+                              <line x1="87" y1="8" x2="87" y2="78" stroke="rgba(148, 163, 184, 0.15)" stroke-width="0.8" stroke-dasharray="3,3" />
+                              <line x1="160" y1="8" x2="160" y2="78" stroke="rgba(148, 163, 184, 0.18)" stroke-width="0.8" stroke-dasharray="3,3" />
+                              <line x1="233" y1="8" x2="233" y2="78" stroke="rgba(148, 163, 184, 0.15)" stroke-width="0.8" stroke-dasharray="3,3" />
+                            </g>
 
                             <!-- Average Reference Dashed Line -->
                             <line
+                              v-if="field.showAvg"
                               x1="14"
                               :y1="field.avgY"
                               x2="306"
                               :y2="field.avgY"
-                              stroke="rgba(52, 211, 153, 0.45)"
+                              stroke="rgba(245, 158, 11, 0.75)"
                               stroke-width="1.2"
                               stroke-dasharray="4,3"
                             />
 
                             <!-- Shaded Area Below Trend Line -->
                             <polygon
+                              v-if="field.showArea"
                               :points="field.areaPolygonStr"
                               :fill="'url(#grad-trace-' + field.key + ')'"
                             />
@@ -1078,26 +1585,58 @@ export const TRACEABILITY_TEMPLATE = `          <div v-else-if="activeFeature.id
                               :points="field.polylineStr"
                             />
 
-                            <!-- Interactive Data Points with Tooltip -->
-                            <circle
-                              v-for="p in field.renderedPoints"
-                              :key="p.index"
-                              :cx="p.x"
-                              :cy="p.y"
-                              r="3"
-                              :fill="field.colors.stroke"
-                              stroke="#0f172a"
-                              stroke-width="1.5"
-                              class="cursor-pointer hover:r-5 transition-all"
-                            >
-                              <title>Packet #{{ p.index }} | Time: {{ p.timeStr }} | Value: {{ p.val }}</title>
-                            </circle>
+                            <!-- Interactive Data Points -->
+                            <g v-if="field.showDots">
+                              <circle
+                                v-for="p in field.renderedPoints"
+                                :key="p.index"
+                                :cx="p.x"
+                                :cy="p.y"
+                                :r="cardHoverMap[field.key]?.index === p.index ? 4.5 : 2.5"
+                                :fill="field.colors.stroke"
+                                stroke="#0f172a"
+                                stroke-width="1.5"
+                                class="transition-all"
+                              />
+                            </g>
+
+                            <!-- Interactive Hover Crosshair Lines & Snapped Dot -->
+                            <g v-if="cardHoverMap[field.key]">
+                              <line
+                                :x1="cardHoverMap[field.key].x"
+                                y1="8"
+                                :x2="cardHoverMap[field.key].x"
+                                y2="78"
+                                stroke="#38bdf8"
+                                stroke-width="1.2"
+                                stroke-dasharray="3,2"
+                              />
+                              <line
+                                x1="14"
+                                :y1="cardHoverMap[field.key].y"
+                                x2="306"
+                                :y2="cardHoverMap[field.key].y"
+                                stroke="rgba(56, 189, 248, 0.45)"
+                                stroke-width="1"
+                                stroke-dasharray="2,2"
+                              />
+                              <circle
+                                :cx="cardHoverMap[field.key].x"
+                                :cy="cardHoverMap[field.key].y"
+                                r="5.5"
+                                fill="#38bdf8"
+                                stroke="#ffffff"
+                                stroke-width="2"
+                              />
+                            </g>
                           </svg>
 
                           <!-- X-axis Timeline Labels (Start -> Finish) -->
                           <div class="flex items-center justify-between text-[9px] font-mono text-slate-500 pt-1 border-t border-slate-800/80 px-1">
                             <span class="truncate max-w-[120px]" :title="field.startTime"><i class="fa-regular fa-clock text-[8px] mr-0.5"></i>{{ field.startTime }}</span>
-                            <span class="text-slate-400 font-bold">{{ field.count }} pkts</span>
+                            <span class="text-slate-400 font-bold">
+                              <span v-if="field.isZoomed" class="text-sky-400">Zoomed: </span>{{ field.count }} pkts
+                            </span>
                             <span class="truncate max-w-[120px] text-right" :title="field.endTime">{{ field.endTime }}</span>
                           </div>
                         </div>
@@ -1475,8 +2014,99 @@ export const TRACEABILITY_TEMPLATE = `          <div v-else-if="activeFeature.id
                   </div>
                 </div>
 
-                <!-- Quick Stats Bar -->
-                <div class="grid grid-cols-2 sm:grid-cols-5 gap-2 font-mono text-xs">
+                <!-- Tab 2 Interactive Toolbar -->
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-2 rounded-lg bg-slate-900/80 border border-slate-800/80 text-[10px] font-mono">
+                  <!-- Zoom Window Controls -->
+                  <div class="flex items-center gap-1.5 flex-wrap">
+                    <span class="text-slate-500 font-sans font-bold uppercase text-[9px]">Timeline Window:</span>
+                    <div class="inline-flex rounded-lg bg-slate-950 p-0.5 border border-slate-800">
+                      <button
+                        type="button"
+                        @click="setFocusedChartZoom('all')"
+                        :class="focusedChartZoom === 'all' ? 'bg-sky-600 text-white font-bold' : 'text-slate-400 hover:text-white'"
+                        class="px-2 py-0.5 rounded transition cursor-pointer"
+                      >
+                        All ({{ selectedTrendChartData.totalPackets || selectedTrendChartData.count }})
+                      </button>
+                      <button
+                        v-if="(selectedTrendChartData.totalPackets || selectedTrendChartData.count) > 25"
+                        type="button"
+                        @click="setFocusedChartZoom(25)"
+                        :class="focusedChartZoom === 25 ? 'bg-sky-600 text-white font-bold' : 'text-slate-400 hover:text-white'"
+                        class="px-2 py-0.5 rounded transition cursor-pointer"
+                      >
+                        25 pkts
+                      </button>
+                      <button
+                        v-if="(selectedTrendChartData.totalPackets || selectedTrendChartData.count) > 10"
+                        type="button"
+                        @click="setFocusedChartZoom(10)"
+                        :class="focusedChartZoom === 10 ? 'bg-sky-600 text-white font-bold' : 'text-slate-400 hover:text-white'"
+                        class="px-2 py-0.5 rounded transition cursor-pointer"
+                      >
+                        10 pkts
+                      </button>
+                    </div>
+                  </div>
+
+                  <!-- Toggles & Actions -->
+                  <div class="flex items-center gap-1.5 flex-wrap">
+                    <button
+                      type="button"
+                      @click="focusedShowArea = !focusedShowArea"
+                      :class="focusedShowArea ? 'bg-sky-500/20 text-sky-300 border-sky-500/40' : 'bg-slate-950 text-slate-500 border-slate-800'"
+                      class="px-2 py-0.5 rounded border transition cursor-pointer flex items-center gap-1"
+                    >
+                      <i class="fa-solid fa-chart-area text-[9px]"></i> Area
+                    </button>
+                    <button
+                      type="button"
+                      @click="focusedShowAvg = !focusedShowAvg"
+                      :class="focusedShowAvg ? 'bg-amber-500/20 text-amber-300 border-amber-500/40' : 'bg-slate-950 text-slate-500 border-slate-800'"
+                      class="px-2 py-0.5 rounded border transition cursor-pointer flex items-center gap-1"
+                    >
+                      <i class="fa-solid fa-arrows-split-up-and-left text-[9px]"></i> Avg
+                    </button>
+                    <button
+                      type="button"
+                      @click="focusedShowDots = !focusedShowDots"
+                      :class="focusedShowDots ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40' : 'bg-slate-950 text-slate-500 border-slate-800'"
+                      class="px-2 py-0.5 rounded border transition cursor-pointer flex items-center gap-1"
+                    >
+                      <i class="fa-solid fa-circle-dot text-[9px]"></i> Dots
+                    </button>
+                    <button
+                      type="button"
+                      @click="openFieldInspectModal(selectedTrendChartData.fieldObj || selectedTrendChartData)"
+                      class="px-2.5 py-0.5 rounded border border-purple-500/40 bg-purple-500/10 text-purple-300 hover:bg-purple-500/20 font-bold transition cursor-pointer flex items-center gap-1"
+                    >
+                      <i class="fa-solid fa-expand text-[9px]"></i> Inspect
+                    </button>
+                    <button
+                      type="button"
+                      @click="exportFieldCsv(selectedTrendChartData.fieldObj || selectedTrendChartData)"
+                      class="px-2.5 py-0.5 rounded border border-slate-700 bg-slate-950 text-slate-300 hover:text-white hover:bg-slate-800 transition cursor-pointer flex items-center gap-1"
+                    >
+                      <i class="fa-solid fa-download text-[9px]"></i> CSV
+                    </button>
+                  </div>
+                </div>
+
+                <!-- Live HUD Readout / Quick Stats Bar -->
+                <div v-if="focusedHoverPoint" class="p-2.5 rounded-lg bg-sky-950 border border-sky-500/40 flex flex-wrap items-center justify-between gap-2 font-mono text-xs animate-in fade-in">
+                  <div class="flex items-center gap-2 text-sky-300">
+                    <i class="fa-solid fa-crosshairs text-sky-400 text-sm animate-pulse"></i>
+                    <span class="font-bold">PACKET #{{ focusedHoverPoint.index }}</span>
+                    <span class="text-slate-400">| TIME: <strong class="text-white">{{ focusedHoverPoint.timeStr }}</strong></span>
+                  </div>
+                  <div class="flex items-center gap-3">
+                    <span class="text-slate-300">VALUE: <strong class="text-white text-sm font-black">{{ focusedHoverPoint.valFormatted }}</strong></span>
+                    <span :class="focusedHoverPoint.isAboveAvg ? 'text-emerald-400' : 'text-amber-400'" class="font-bold">
+                      {{ focusedHoverPoint.deltaFormatted }} vs Mean
+                    </span>
+                  </div>
+                </div>
+                <div v-else class="grid grid-cols-2 sm:grid-cols-5 gap-2 font-mono text-xs">
                   <div class="p-2 rounded-lg bg-slate-950/70 border border-slate-800 flex items-center justify-between">
                     <span class="text-slate-500 text-[10px] uppercase font-sans">Min Value</span>
                     <strong class="text-cyan-300 font-bold">{{ formatStatNum(selectedTrendChartData.rawMin) }}</strong>
@@ -1495,12 +2125,18 @@ export const TRACEABILITY_TEMPLATE = `          <div v-else-if="activeFeature.id
                   </div>
                   <div class="p-2 rounded-lg bg-slate-950/70 border border-slate-800 flex items-center justify-between col-span-2 sm:col-span-1">
                     <span class="text-slate-500 text-[10px] uppercase font-sans">Packets</span>
-                    <strong class="text-sky-300 font-bold">{{ selectedTrendChartData.count }} pkts</strong>
+                    <strong class="text-sky-300 font-bold">
+                      <span v-if="selectedTrendChartData.isZoomed" class="text-amber-400">Zoomed: </span>{{ selectedTrendChartData.count }} pkts
+                    </strong>
                   </div>
                 </div>
 
                 <!-- SVG Chart -->
-                <div class="w-full bg-slate-950 rounded-xl border border-slate-800 p-2 sm:p-3 relative overflow-hidden">
+                <div
+                  class="w-full bg-slate-950 rounded-xl border border-slate-800 p-2 sm:p-3 relative overflow-hidden cursor-crosshair select-none"
+                  @mousemove="onFocusedChartMouseMove($event)"
+                  @mouseleave="onFocusedChartMouseLeave()"
+                >
                   <svg class="w-full h-56 overflow-visible" viewBox="0 0 820 240" preserveAspectRatio="none">
                     <defs>
                       <linearGradient id="trendDetailAreaGradT2" x1="0%" y1="0%" x2="0%" y2="100%">
@@ -1513,28 +2149,39 @@ export const TRACEABILITY_TEMPLATE = `          <div v-else-if="activeFeature.id
                     </defs>
 
                     <rect x="70" y="20" width="730" height="185" fill="#080e1a" rx="4" stroke="#1e293b" stroke-width="1" />
-                    <rect x="70" y="20" width="730" height="185" fill="url(#detail-oscilloscope-grid-t2)" rx="4" />
+                    <rect v-if="focusedShowGrid" x="70" y="20" width="730" height="185" fill="url(#detail-oscilloscope-grid-t2)" rx="4" />
 
                     <g v-for="tick in selectedTrendChartData.yTicks" :key="'t2ytick-' + tick.ratio">
-                      <line x1="70" :y1="tick.y" x2="800" :y2="tick.y" stroke="rgba(148, 163, 184, 0.18)" stroke-width="1" stroke-dasharray="4,4" />
+                      <line v-if="focusedShowGrid" x1="70" :y1="tick.y" x2="800" :y2="tick.y" stroke="rgba(148, 163, 184, 0.18)" stroke-width="1" stroke-dasharray="4,4" />
                       <line x1="64" :y1="tick.y" x2="70" :y2="tick.y" stroke="#64748b" stroke-width="1.5" />
                       <text x="60" :y="tick.y + 3.5" text-anchor="end" fill="#94a3b8" font-size="10" font-family="monospace" font-weight="600">{{ tick.valFormatted }}</text>
                     </g>
 
                     <g v-for="(xtick, xIdx) in selectedTrendChartData.xTicks" :key="'t2xtick-' + xIdx">
-                      <line :x1="xtick.x" y1="20" :x2="xtick.x" y2="205" stroke="rgba(148, 163, 184, 0.18)" stroke-width="1" stroke-dasharray="3,3" />
+                      <line v-if="focusedShowGrid" :x1="xtick.x" y1="20" :x2="xtick.x" y2="205" stroke="rgba(148, 163, 184, 0.18)" stroke-width="1" stroke-dasharray="3,3" />
                       <line :x1="xtick.x" y1="205" :x2="xtick.x" y2="210" stroke="#64748b" stroke-width="1.5" />
                       <text :x="xtick.x" y="223" text-anchor="middle" fill="#94a3b8" font-size="9" font-family="monospace">{{ xtick.label }}</text>
                     </g>
 
-                    <line x1="70" :y1="selectedTrendChartData.avgY" x2="800" :y2="selectedTrendChartData.avgY" stroke="#f59e0b" stroke-width="1.5" stroke-dasharray="6,3" stroke-opacity="0.8" />
-                    <text x="795" :y="selectedTrendChartData.avgY - 4" text-anchor="end" fill="#f59e0b" font-size="9" font-family="monospace" font-weight="bold">AVG: {{ formatStatNum(selectedTrendChartData.rawAvg) }}</text>
+                    <g v-if="focusedShowAvg">
+                      <line x1="70" :y1="selectedTrendChartData.avgY" x2="800" :y2="selectedTrendChartData.avgY" stroke="#f59e0b" stroke-width="1.5" stroke-dasharray="6,3" stroke-opacity="0.8" />
+                      <text x="795" :y="selectedTrendChartData.avgY - 4" text-anchor="end" fill="#f59e0b" font-size="9" font-family="monospace" font-weight="bold">AVG: {{ formatStatNum(selectedTrendChartData.rawAvg) }}</text>
+                    </g>
 
-                    <polygon :points="selectedTrendChartData.areaPolygonStr" fill="url(#trendDetailAreaGradT2)" />
+                    <polygon v-if="focusedShowArea" :points="selectedTrendChartData.areaPolygonStr" fill="url(#trendDetailAreaGradT2)" />
                     <polyline fill="none" :stroke="selectedTrendChartData.colors?.stroke || '#0ea5e9'" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" :points="selectedTrendChartData.polylineStr" />
-                    <circle v-for="p in selectedTrendChartData.renderedPoints" :key="'t2-pt-' + p.index" :cx="p.x" :cy="p.y" r="3.5" :fill="selectedTrendChartData.colors?.stroke || '#0ea5e9'" stroke="#0f172a" stroke-width="1.5" class="cursor-pointer hover:r-6 transition-all">
-                      <title>Packet #{{ p.index }} | Time: {{ p.timeStr }} | Value: {{ p.valFormatted }}</title>
-                    </circle>
+                    
+                    <g v-if="focusedShowDots">
+                      <circle v-for="p in selectedTrendChartData.renderedPoints" :key="'t2-pt-' + p.index" :cx="p.x" :cy="p.y" :r="focusedHoverPoint?.index === p.index ? 5.5 : 3" :fill="selectedTrendChartData.colors?.stroke || '#0ea5e9'" stroke="#0f172a" stroke-width="1.5" class="transition-all" />
+                    </g>
+
+                    <!-- Interactive Hover Crosshair Guidelines & Snapped Dot -->
+                    <g v-if="focusedHoverPoint">
+                      <line :x1="focusedHoverPoint.x" y1="20" :x2="focusedHoverPoint.x" y2="205" stroke="#38bdf8" stroke-width="1.5" stroke-dasharray="3,3" />
+                      <line x1="70" :y1="focusedHoverPoint.y" x2="800" :y2="focusedHoverPoint.y" stroke="rgba(56, 189, 248, 0.45)" stroke-width="1.2" stroke-dasharray="3,3" />
+                      <circle :cx="focusedHoverPoint.x" :cy="focusedHoverPoint.y" r="8" fill="none" stroke="#38bdf8" stroke-width="2" class="animate-ping" />
+                      <circle :cx="focusedHoverPoint.x" :cy="focusedHoverPoint.y" r="5" fill="#38bdf8" stroke="#ffffff" stroke-width="2" />
+                    </g>
                   </svg>
                 </div>
               </div>
@@ -1910,6 +2557,325 @@ export const TRACEABILITY_MODALS = `
           </div>
         </div>
       </div>
+
+      <!-- ======================================================== -->
+      <!-- MODAL: FIELD WAVEFORM INSPECTOR & TELEMETRY DEEP-DIVE     -->
+      <!-- ======================================================== -->
+      <div v-if="showFieldInspectModal && inspectingField && inspectChartData" class="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-slate-950/90 backdrop-blur-md animate-in fade-in overflow-y-auto">
+        <div class="w-full max-w-5xl bg-slate-900 border border-slate-700/80 rounded-2xl p-5 space-y-4 shadow-2xl text-slate-200 my-auto">
+          <!-- Modal Header -->
+          <div class="flex items-start justify-between border-b border-slate-800 pb-3">
+            <div class="flex items-center gap-3">
+              <span class="px-2.5 py-1 rounded-lg text-xs font-mono font-black border" :class="inspectChartData.colors?.badge || 'bg-sky-500/10 text-sky-300 border-sky-500/30'">
+                {{ inspectChartData.key.toUpperCase() }}
+              </span>
+              <div>
+                <h3 class="text-base font-bold text-white flex items-center gap-2">
+                  <span>{{ inspectChartData.label }}</span>
+                  <span class="text-xs font-mono font-normal text-slate-400">— Waveform & Telemetry Log</span>
+                </h3>
+                <p class="text-xs text-slate-400 font-mono">
+                  Device: <strong class="text-sky-300">{{ selectedDeviceDetails?.serialNumber || selectedDeviceTelemetry?.serialNumber || selectedTraceItem?.serialNumber || 'SN-UNKNOWN' }}</strong>
+                  <span class="mx-1.5 text-slate-600">•</span>
+                  DevEUI: <span class="text-slate-300">{{ selectedDeviceDetails?.devEUI || selectedDeviceTelemetry?.devEUI || '—' }}</span>
+                  <span class="mx-1.5 text-slate-600">•</span>
+                  Total Packets: <strong class="text-emerald-400">{{ inspectChartData.totalCount }} pkts</strong>
+                </p>
+              </div>
+            </div>
+            <button type="button" @click="closeFieldInspectModal" class="text-slate-400 hover:text-white text-lg p-1.5 rounded-lg hover:bg-slate-800 transition cursor-pointer">
+              <i class="fa-solid fa-xmark"></i>
+            </button>
+          </div>
+
+          <!-- Modal Interactive Toolbar: Zoom Window, Toggles, and Data Export Actions -->
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 p-2.5 rounded-xl bg-slate-950/80 border border-slate-800 text-xs font-mono">
+            <!-- Left: Zoom Window Pills -->
+            <div class="flex items-center gap-1.5 flex-wrap">
+              <span class="text-slate-500 font-sans font-bold uppercase text-[9px]">Timeline Window:</span>
+              <div class="inline-flex rounded-lg bg-slate-900 p-0.5 border border-slate-800">
+                <button
+                  type="button"
+                  @click="inspectModalZoom = 'all'"
+                  :class="inspectModalZoom === 'all' ? 'bg-sky-600 text-white font-bold' : 'text-slate-400 hover:text-white'"
+                  class="px-2.5 py-0.5 rounded transition cursor-pointer"
+                  title="Show all recorded packets"
+                >
+                  All ({{ inspectChartData.totalCount }})
+                </button>
+                <button
+                  v-if="inspectChartData.totalCount > 50"
+                  type="button"
+                  @click="inspectModalZoom = 50"
+                  :class="inspectModalZoom === 50 ? 'bg-sky-600 text-white font-bold' : 'text-slate-400 hover:text-white'"
+                  class="px-2.5 py-0.5 rounded transition cursor-pointer"
+                  title="Zoom to last 50 packets"
+                >
+                  Last 50
+                </button>
+                <button
+                  v-if="inspectChartData.totalCount > 25"
+                  type="button"
+                  @click="inspectModalZoom = 25"
+                  :class="inspectModalZoom === 25 ? 'bg-sky-600 text-white font-bold' : 'text-slate-400 hover:text-white'"
+                  class="px-2.5 py-0.5 rounded transition cursor-pointer"
+                  title="Zoom to last 25 packets"
+                >
+                  Last 25
+                </button>
+                <button
+                  v-if="inspectChartData.totalCount > 10"
+                  type="button"
+                  @click="inspectModalZoom = 10"
+                  :class="inspectModalZoom === 10 ? 'bg-sky-600 text-white font-bold' : 'text-slate-400 hover:text-white'"
+                  class="px-2.5 py-0.5 rounded transition cursor-pointer"
+                  title="Zoom to last 10 packets"
+                >
+                  Last 10
+                </button>
+              </div>
+            </div>
+
+            <!-- Right: Display Feature Toggles & Actions -->
+            <div class="flex items-center gap-1.5 flex-wrap">
+              <button
+                type="button"
+                @click="inspectShowArea = !inspectShowArea"
+                :class="inspectShowArea ? 'bg-sky-500/20 text-sky-300 border-sky-500/40' : 'bg-slate-900 text-slate-500 border-slate-800'"
+                class="px-2 py-0.5 rounded border transition cursor-pointer flex items-center gap-1"
+              >
+                <i class="fa-solid fa-chart-area text-[10px]"></i> Area
+              </button>
+              <button
+                type="button"
+                @click="inspectShowAvg = !inspectShowAvg"
+                :class="inspectShowAvg ? 'bg-amber-500/20 text-amber-300 border-amber-500/40' : 'bg-slate-900 text-slate-500 border-slate-800'"
+                class="px-2 py-0.5 rounded border transition cursor-pointer flex items-center gap-1"
+              >
+                <i class="fa-solid fa-arrows-split-up-and-left text-[10px]"></i> Avg
+              </button>
+              <button
+                type="button"
+                @click="inspectShowDots = !inspectShowDots"
+                :class="inspectShowDots ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40' : 'bg-slate-900 text-slate-500 border-slate-800'"
+                class="px-2 py-0.5 rounded border transition cursor-pointer flex items-center gap-1"
+              >
+                <i class="fa-solid fa-circle-dot text-[10px]"></i> Dots
+              </button>
+              <button
+                type="button"
+                @click="inspectShowGrid = !inspectShowGrid"
+                :class="inspectShowGrid ? 'bg-indigo-500/20 text-indigo-300 border-indigo-500/40' : 'bg-slate-900 text-slate-500 border-slate-800'"
+                class="px-2 py-0.5 rounded border transition cursor-pointer flex items-center gap-1"
+              >
+                <i class="fa-solid fa-border-all text-[10px]"></i> Grid
+              </button>
+
+              <button
+                type="button"
+                @click="exportInspectModalCsv"
+                class="px-2.5 py-0.5 rounded border border-sky-500/40 bg-sky-500/10 text-sky-300 hover:bg-sky-500/20 font-bold transition cursor-pointer flex items-center gap-1"
+                title="Download CSV dataset"
+              >
+                <i class="fa-solid fa-download text-[10px]"></i> CSV
+              </button>
+              <button
+                type="button"
+                @click="copyInspectModalData"
+                class="px-2.5 py-0.5 rounded border border-slate-700 bg-slate-900 text-slate-300 hover:text-white hover:bg-slate-800 transition cursor-pointer flex items-center gap-1"
+                title="Copy table to clipboard"
+              >
+                <i class="fa-regular fa-copy text-[10px]"></i> Copy
+              </button>
+            </div>
+          </div>
+
+          <!-- Interactive Live HUD Readout / Metric Strip -->
+          <div v-if="inspectHoverPoint" class="p-2.5 rounded-xl bg-sky-950 border border-sky-500/40 flex flex-wrap items-center justify-between gap-2 font-mono text-xs animate-in fade-in">
+            <div class="flex items-center gap-2 text-sky-300">
+              <i class="fa-solid fa-crosshairs text-sky-400 text-sm animate-pulse"></i>
+              <span class="font-bold">PACKET #{{ inspectHoverPoint.index }}</span>
+              <span class="text-slate-400">| TIME: <strong class="text-white">{{ inspectHoverPoint.timeStr }}</strong></span>
+            </div>
+            <div class="flex items-center gap-3">
+              <span class="text-slate-300">MEASURED: <strong class="text-white text-sm font-black">{{ inspectHoverPoint.valFormatted }}</strong></span>
+              <span :class="inspectHoverPoint.isAboveAvg ? 'text-emerald-400' : 'text-amber-400'" class="font-bold">
+                {{ inspectHoverPoint.deltaFormatted }} vs Avg ({{ inspectHoverPoint.status }})
+              </span>
+            </div>
+          </div>
+          <div v-else class="grid grid-cols-2 sm:grid-cols-6 gap-2 font-mono text-xs">
+            <div class="p-2 rounded-xl bg-slate-950 border border-slate-800 flex flex-col justify-between">
+              <span class="text-slate-500 text-[9px] uppercase font-sans">Min Value</span>
+              <strong class="text-cyan-300 text-sm font-black mt-0.5">{{ formatStatNum(inspectChartData.rawMin) }}</strong>
+            </div>
+            <div class="p-2 rounded-xl bg-slate-950 border border-slate-800 flex flex-col justify-between">
+              <span class="text-slate-500 text-[9px] uppercase font-sans">Average (Mean)</span>
+              <strong class="text-emerald-400 text-sm font-black mt-0.5">{{ formatStatNum(inspectChartData.rawAvg) }}</strong>
+            </div>
+            <div class="p-2 rounded-xl bg-slate-950 border border-slate-800 flex flex-col justify-between">
+              <span class="text-slate-500 text-[9px] uppercase font-sans">Max Value</span>
+              <strong class="text-amber-300 text-sm font-black mt-0.5">{{ formatStatNum(inspectChartData.rawMax) }}</strong>
+            </div>
+            <div class="p-2 rounded-xl bg-slate-950 border border-slate-800 flex flex-col justify-between">
+              <span class="text-slate-500 text-[9px] uppercase font-sans">Peak Span (Δ)</span>
+              <strong class="text-purple-300 text-sm font-black mt-0.5">{{ formatStatNum(inspectChartData.span) }}</strong>
+            </div>
+            <div class="p-2 rounded-xl bg-slate-950 border border-slate-800 flex flex-col justify-between">
+              <span class="text-slate-500 text-[9px] uppercase font-sans">Std Dev (σ)</span>
+              <strong class="text-indigo-300 text-sm font-black mt-0.5">{{ formatStatNum(inspectChartData.stdDev) }}</strong>
+            </div>
+            <div class="p-2 rounded-xl bg-slate-950 border border-slate-800 flex flex-col justify-between">
+              <span class="text-slate-500 text-[9px] uppercase font-sans">Latest</span>
+              <strong class="text-white text-sm font-black mt-0.5">{{ formatStatNum(inspectChartData.latestVal) }}</strong>
+            </div>
+          </div>
+
+          <!-- Large High-Resolution Waveform Display -->
+          <div
+            class="w-full bg-slate-950 rounded-xl border border-slate-800 p-2 sm:p-3 relative overflow-hidden cursor-crosshair select-none"
+            @mousemove="onInspectChartMouseMove($event)"
+            @mouseleave="onInspectChartMouseLeave()"
+          >
+            <svg class="w-full h-64 overflow-visible" viewBox="0 0 900 260" preserveAspectRatio="none">
+              <defs>
+                <linearGradient id="modalWaveAreaGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+                  <stop offset="0%" :stop-color="inspectChartData.colors?.stroke || '#0ea5e9'" stop-opacity="0.32" />
+                  <stop offset="100%" :stop-color="inspectChartData.colors?.stroke || '#0ea5e9'" stop-opacity="0.01" />
+                </linearGradient>
+                <pattern id="modal-osc-grid" width="75" height="41" patternUnits="userSpaceOnUse">
+                  <path d="M 75 0 L 0 0 0 41" fill="none" stroke="rgba(148, 163, 184, 0.08)" stroke-width="0.8" stroke-dasharray="2,2" />
+                </pattern>
+              </defs>
+
+              <rect x="70" y="20" width="805" height="205" fill="#080e1a" rx="4" stroke="#1e293b" stroke-width="1" />
+              <rect v-if="inspectShowGrid" x="70" y="20" width="805" height="205" fill="url(#modal-osc-grid)" rx="4" />
+
+              <!-- Y-Axis Ticks & Labels -->
+              <g v-for="tick in inspectChartData.yTicks" :key="'m-ytick-' + tick.ratio">
+                <line v-if="inspectShowGrid" x1="70" :y1="tick.y" x2="875" :y2="tick.y" stroke="rgba(148, 163, 184, 0.18)" stroke-width="1" stroke-dasharray="4,4" />
+                <line x1="64" :y1="tick.y" x2="70" :y2="tick.y" stroke="#64748b" stroke-width="1.5" />
+                <text x="60" :y="tick.y + 3.5" text-anchor="end" fill="#94a3b8" font-size="10" font-family="monospace" font-weight="600">{{ tick.valFormatted }}</text>
+              </g>
+
+              <!-- X-Axis Ticks & Labels -->
+              <g v-for="(xtick, xIdx) in inspectChartData.xTicks" :key="'m-xtick-' + xIdx">
+                <line v-if="inspectShowGrid" :x1="xtick.x" y1="20" :x2="xtick.x" y2="225" stroke="rgba(148, 163, 184, 0.18)" stroke-width="1" stroke-dasharray="3,3" />
+                <line :x1="xtick.x" y1="225" :x2="xtick.x" y2="230" stroke="#64748b" stroke-width="1.5" />
+                <text :x="xtick.x" y="243" text-anchor="middle" fill="#94a3b8" font-size="9" font-family="monospace">{{ xtick.label }}</text>
+              </g>
+
+              <!-- Average Reference Line -->
+              <g v-if="inspectShowAvg">
+                <line x1="70" :y1="inspectChartData.avgY" x2="875" :y2="inspectChartData.avgY" stroke="#f59e0b" stroke-width="1.5" stroke-dasharray="6,3" stroke-opacity="0.85" />
+                <text x="870" :y="inspectChartData.avgY - 4" text-anchor="end" fill="#f59e0b" font-size="9" font-family="monospace" font-weight="bold">AVG: {{ formatStatNum(inspectChartData.rawAvg) }}</text>
+              </g>
+
+              <!-- Area Fill -->
+              <polygon v-if="inspectShowArea" :points="inspectChartData.areaPolygonStr" fill="url(#modalWaveAreaGrad)" />
+
+              <!-- Polyline -->
+              <polyline fill="none" :stroke="inspectChartData.colors?.stroke || '#0ea5e9'" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" :points="inspectChartData.polylineStr" />
+
+              <!-- Data Points -->
+              <g v-if="inspectShowDots">
+                <circle
+                  v-for="p in inspectChartData.renderedPoints"
+                  :key="'m-pt-' + p.index"
+                  :cx="p.x"
+                  :cy="p.y"
+                  :r="inspectHoverPoint?.index === p.index ? 6 : 3"
+                  :fill="inspectChartData.colors?.stroke || '#0ea5e9'"
+                  stroke="#0f172a"
+                  stroke-width="1.5"
+                  class="transition-all"
+                />
+              </g>
+
+              <!-- Crosshair Lines & Hover Point -->
+              <g v-if="inspectHoverPoint">
+                <line :x1="inspectHoverPoint.x" y1="20" :x2="inspectHoverPoint.x" y2="225" stroke="#38bdf8" stroke-width="1.5" stroke-dasharray="3,3" />
+                <line x1="70" :y1="inspectHoverPoint.y" x2="875" :y2="inspectHoverPoint.y" stroke="rgba(56, 189, 248, 0.45)" stroke-width="1.2" stroke-dasharray="3,3" />
+                <circle :cx="inspectHoverPoint.x" :cy="inspectHoverPoint.y" r="8" fill="none" stroke="#38bdf8" stroke-width="2" class="animate-ping" />
+                <circle :cx="inspectHoverPoint.x" :cy="inspectHoverPoint.y" r="5.5" fill="#38bdf8" stroke="#ffffff" stroke-width="2" />
+              </g>
+            </svg>
+          </div>
+
+          <!-- Telemetry Packets Log Table -->
+          <div class="space-y-2">
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-2">
+                <i class="fa-solid fa-table-list text-sky-400 text-xs"></i>
+                <span class="text-xs font-bold text-white uppercase tracking-wider">Telemetry Packets Log ({{ inspectChartData.tablePoints.length }} / {{ inspectChartData.count }})</span>
+              </div>
+              <!-- Table Search Filter -->
+              <div class="relative">
+                <i class="fa-solid fa-magnifying-glass absolute left-2.5 top-2 text-[10px] text-slate-500"></i>
+                <input
+                  v-model="inspectModalSearch"
+                  type="text"
+                  placeholder="Filter packet #, time, value..."
+                  class="pl-7 pr-2.5 py-1 bg-slate-950 border border-slate-800 rounded-lg text-xs text-white font-mono focus:border-sky-500 focus:outline-none w-52 placeholder:text-slate-500"
+                />
+              </div>
+            </div>
+
+            <div class="overflow-x-auto max-h-56 rounded-xl border border-slate-800 bg-slate-950">
+              <table class="w-full text-left text-xs font-mono">
+                <thead class="bg-slate-900 text-slate-400 text-[10px] uppercase font-bold sticky top-0 border-b border-slate-800 z-10">
+                  <tr>
+                    <th class="py-2 px-3 w-16 text-center">Pkt #</th>
+                    <th class="py-2 px-3">Timestamp</th>
+                    <th class="py-2 px-3 text-right">Measured Value</th>
+                    <th class="py-2 px-3 text-right">Deviation vs Mean</th>
+                    <th class="py-2 px-3 text-center">Status</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-800/60 text-[11px]">
+                  <tr
+                    v-for="row in inspectChartData.tablePoints"
+                    :key="'tb-' + row.index"
+                    class="hover:bg-slate-900/50 transition cursor-pointer"
+                    :class="inspectHoverPoint?.index === row.index ? 'bg-sky-950/60' : ''"
+                    @mouseenter="inspectHoverPoint = row"
+                    @mouseleave="inspectHoverPoint = null"
+                  >
+                    <td class="py-1.5 px-3 text-center font-bold text-slate-400">#{{ row.index }}</td>
+                    <td class="py-1.5 px-3 text-slate-300">{{ row.timeStr }}</td>
+                    <td class="py-1.5 px-3 text-right font-black text-white">{{ row.valFormatted }}</td>
+                    <td class="py-1.5 px-3 text-right font-bold" :class="row.diffFromAvg >= 0 ? 'text-emerald-400' : 'text-amber-400'">
+                      {{ row.diffFromAvg >= 0 ? '+' : '' }}{{ row.diffFromAvg }}
+                    </td>
+                    <td class="py-1.5 px-3 text-center">
+                      <span
+                        class="px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider"
+                        :class="row.status === 'Peak Max' ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' : (row.status === 'Peak Min' ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30' : (row.status === 'Above Mean' ? 'bg-emerald-500/10 text-emerald-300' : 'bg-slate-800 text-slate-400'))"
+                      >
+                        {{ row.status }}
+                      </span>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Modal Footer -->
+          <div class="flex items-center justify-between pt-3 border-t border-slate-800">
+            <span class="text-[11px] font-mono text-slate-500">
+              Showing {{ inspectChartData.tablePoints.length }} points • Hover waveform or rows for synchronized crosshair
+            </span>
+            <button
+              type="button"
+              @click="closeFieldInspectModal"
+              class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-white text-xs font-semibold cursor-pointer transition"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      </div>
 `;
 
 export const TRACEABILITY_SCRIPT = `
@@ -1980,6 +2946,243 @@ function useTraceabilityModule(ctx) {
   const trendGraphViewMode = ref('all'); // 'all' | 'detail' | 'grid'
   const selectedTrendField = ref('p4');
 
+  // Interactive Card-Level Controls & Zoom Maps
+  const cardZoomMap = ref({}); // { [key]: 'all' | 25 | 10 }
+  const cardSettingMap = ref({}); // { [key]: { showArea: bool, showAvg: bool, showDots: bool, showGrid: bool } }
+  const cardHoverMap = ref({}); // { [key]: hoverPoint | null }
+
+  // Global Settings for cards
+  const globalCardZoom = ref('all');
+  const globalCardArea = ref(true);
+  const globalCardAvg = ref(true);
+  const globalCardDots = ref(true);
+  const globalCardGrid = ref(true);
+
+  // Channel search and category filtering
+  const trendChannelSearch = ref('');
+  const trendCategoryFilter = ref('all'); // 'all' | 'sensors' | 'com' | 'active'
+
+  // Focused Chart interactive controls
+  const focusedChartZoom = ref('all'); // 'all' | 50 | 25 | 10
+  const focusedShowArea = ref(true);
+  const focusedShowAvg = ref(true);
+  const focusedShowDots = ref(true);
+  const focusedShowGrid = ref(true);
+  const focusedShowPeaks = ref(true);
+  const focusedHoverPoint = ref(null);
+
+  // Field Waveform Inspection Modal
+  const showFieldInspectModal = ref(false);
+  const inspectingField = ref(null);
+  const inspectModalZoom = ref('all');
+  const inspectModalSearch = ref('');
+  const inspectModalPage = ref(1);
+  const inspectShowArea = ref(true);
+  const inspectShowAvg = ref(true);
+  const inspectShowGrid = ref(true);
+  const inspectShowDots = ref(true);
+  const inspectHoverPoint = ref(null);
+
+  // Helper Methods for Card-level Interactions
+  const setCardZoom = (fieldKey, range) => {
+    cardZoomMap.value = { ...cardZoomMap.value, [fieldKey]: range };
+  };
+
+  const getCardSetting = (fieldKey, settingKey, defaultVal = true) => {
+    const s = cardSettingMap.value[fieldKey];
+    if (s && s[settingKey] !== undefined) return s[settingKey];
+    if (settingKey === 'showArea') return globalCardArea.value;
+    if (settingKey === 'showAvg') return globalCardAvg.value;
+    if (settingKey === 'showDots') return globalCardDots.value;
+    if (settingKey === 'showGrid') return globalCardGrid.value;
+    return defaultVal;
+  };
+
+  const toggleCardSetting = (fieldKey, settingKey) => {
+    const current = getCardSetting(fieldKey, settingKey);
+    const existing = cardSettingMap.value[fieldKey] || {};
+    cardSettingMap.value = {
+      ...cardSettingMap.value,
+      [fieldKey]: { ...existing, [settingKey]: !current },
+    };
+  };
+
+  const setGlobalCardZoom = (range) => {
+    globalCardZoom.value = range;
+    cardZoomMap.value = {};
+    if (typeof showToast === 'function') {
+      showToast(range === 'all' ? 'Zoom reset: Showing all packets on all cards' : 'Zoomed all cards to last ' + range + ' packets', 'info');
+    }
+  };
+
+  const toggleGlobalCardArea = () => {
+    globalCardArea.value = !globalCardArea.value;
+    cardSettingMap.value = {};
+  };
+
+  const toggleGlobalCardAvg = () => {
+    globalCardAvg.value = !globalCardAvg.value;
+    cardSettingMap.value = {};
+  };
+
+  const toggleGlobalCardDots = () => {
+    globalCardDots.value = !globalCardDots.value;
+    cardSettingMap.value = {};
+  };
+
+  const toggleGlobalCardGrid = () => {
+    globalCardGrid.value = !globalCardGrid.value;
+    cardSettingMap.value = {};
+  };
+
+  const onCardChartMouseMove = (event, field) => {
+    if (!field || !field.renderedPoints || field.renderedPoints.length === 0) return;
+    const svgEl = event.currentTarget.querySelector ? (event.currentTarget.querySelector('svg') || event.currentTarget) : event.currentTarget;
+    const rect = svgEl.getBoundingClientRect();
+    if (!rect.width) return;
+    const mouseX = ((event.clientX - rect.left) / rect.width) * 320;
+
+    let closest = field.renderedPoints[0];
+    let minDiff = Math.abs(closest.x - mouseX);
+    for (let i = 1; i < field.renderedPoints.length; i++) {
+      const pt = field.renderedPoints[i];
+      const diff = Math.abs(pt.x - mouseX);
+      if (diff < minDiff) {
+        minDiff = diff;
+        closest = pt;
+      }
+    }
+    const delta = Number((closest.val - field.avg).toFixed(2));
+    const isAbove = delta >= 0;
+    cardHoverMap.value = {
+      ...cardHoverMap.value,
+      [field.key]: {
+        ...closest,
+        deltaFromAvg: delta,
+        isAboveAvg: isAbove,
+        deltaFormatted: (isAbove ? '+' : '') + delta,
+      },
+    };
+  };
+
+  const onCardChartMouseLeave = (fieldKey) => {
+    if (cardHoverMap.value[fieldKey]) {
+      const updated = { ...cardHoverMap.value };
+      delete updated[fieldKey];
+      cardHoverMap.value = updated;
+    }
+  };
+
+  const focusChannel = (fieldKey) => {
+    selectedTrendField.value = fieldKey;
+    if (trendGraphViewMode.value === 'grid') {
+      trendGraphViewMode.value = 'all';
+    }
+    if (typeof showToast === 'function') {
+      showToast('Spotlight focused on ' + fieldKey.toUpperCase(), 'info');
+    }
+    try {
+      const el = document.getElementById('focused-oscilloscope-visualizer');
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    } catch(e) {}
+  };
+
+  const openFieldInspectModal = (field) => {
+    inspectingField.value = field;
+    inspectModalZoom.value = 'all';
+    inspectModalSearch.value = '';
+    inspectModalPage.value = 1;
+    inspectHoverPoint.value = null;
+    showFieldInspectModal.value = true;
+  };
+
+  const closeFieldInspectModal = () => {
+    showFieldInspectModal.value = false;
+    inspectingField.value = null;
+    inspectHoverPoint.value = null;
+  };
+
+  const exportFieldCsv = (field) => {
+    const pts = field.allPoints || field.renderedPoints || [];
+    if (pts.length === 0) {
+      if (typeof showToast === 'function') showToast('No data available to export', 'error');
+      return;
+    }
+    const dev = selectedDeviceDetails.value || selectedDeviceTelemetry.value || {};
+    const devId = dev.serialNumber || dev.devEUI || dev.deveui || 'DEVICE';
+    const filename = devId + '_' + field.key + '_' + Date.now() + '.csv';
+    let csv = 'Packet_Index,Timestamp,Epochtime,Field,Field_Label,Value,Min,Avg,Max\\n';
+    for (const p of pts) {
+      csv += p.index + ',"' + (p.timeStr || '') + '",' + (p.epochtime || '') + ',' + field.key + ',"' + field.label + '",' + p.val + ',' + field.min + ',' + field.avg + ',' + field.max + '\\n';
+    }
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(link.href);
+    if (typeof showToast === 'function') showToast('Exported ' + pts.length + ' rows for ' + field.key.toUpperCase() + ' to CSV', 'success');
+  };
+
+  const copyFieldStats = (field) => {
+    if (!field) return;
+    const text = 'Channel: ' + field.key.toUpperCase() + ' (' + field.label + ')\\nMin: ' + field.min + ' | Avg: ' + field.avg + ' | Max: ' + field.max + ' | Latest: ' + field.latest + ' | Packets: ' + field.count;
+    if (typeof navigator !== 'undefined' && navigator.clipboard) {
+      navigator.clipboard.writeText(text);
+      if (typeof showToast === 'function') showToast('Copied ' + field.key.toUpperCase() + ' stats to clipboard', 'success');
+    }
+  };
+
+  const onFocusedChartMouseMove = (event) => {
+    const chart = selectedTrendChartData.value;
+    if (!chart || !chart.renderedPoints || chart.renderedPoints.length === 0) return;
+    const svgEl = event.currentTarget.querySelector ? (event.currentTarget.querySelector('svg') || event.currentTarget) : event.currentTarget;
+    const rect = svgEl.getBoundingClientRect();
+    if (!rect.width) return;
+    const mouseX = ((event.clientX - rect.left) / rect.width) * 820;
+
+    let closest = chart.renderedPoints[0];
+    let minDiff = Math.abs(closest.x - mouseX);
+    for (let i = 1; i < chart.renderedPoints.length; i++) {
+      const pt = chart.renderedPoints[i];
+      const diff = Math.abs(pt.x - mouseX);
+      if (diff < minDiff) {
+        minDiff = diff;
+        closest = pt;
+      }
+    }
+    const delta = Number((closest.val - chart.rawAvg).toFixed(2));
+    const isAbove = delta >= 0;
+    const pct = chart.rawAvg !== 0 ? Number(((delta / Math.abs(chart.rawAvg)) * 100).toFixed(1)) : 0;
+    focusedHoverPoint.value = {
+      ...closest,
+      deltaFromAvg: delta,
+      isAboveAvg: isAbove,
+      deltaFormatted: (isAbove ? '+' : '') + delta,
+      pctFormatted: (isAbove ? '+' : '') + pct + '%',
+    };
+  };
+
+  const onFocusedChartMouseLeave = () => {
+    focusedHoverPoint.value = null;
+  };
+
+  const setFocusedChartZoom = (range) => {
+    focusedChartZoom.value = range;
+    focusedHoverPoint.value = null;
+  };
+
+  const focusedZoomStep = (delta) => {
+    const steps = ['all', 50, 25, 10];
+    const currIdx = steps.indexOf(focusedChartZoom.value);
+    let nextIdx = (currIdx === -1 ? 0 : currIdx) + delta;
+    if (nextIdx < 0) nextIdx = 0;
+    if (nextIdx >= steps.length) nextIdx = steps.length - 1;
+    focusedChartZoom.value = steps[nextIdx];
+  };
+
   // Field Data List & Trend Graphs for raw_data3 (com1, com2, p1..p35)
   const rawDataFieldList = computed(() => {
     const details = selectedDeviceDetails.value || selectedDeviceTelemetry.value;
@@ -2044,7 +3247,7 @@ function useTraceabilityModule(ctx) {
     const result = [];
 
     for (const key of fieldKeys) {
-      const validPoints = [];
+      const allValidPoints = [];
       for (let i = 0; i < frames.length; i++) {
         const frame = frames[i];
         const val = frame[key];
@@ -2065,18 +3268,26 @@ function useTraceabilityModule(ctx) {
             } else {
               tStr = 'Pkt #' + (i + 1);
             }
-            validPoints.push({
+            allValidPoints.push({
               index: i + 1,
               val: num,
               timeStr: tStr,
+              epochtime: ep,
             });
           }
         }
       }
 
       // CRUCIAL RULE: If field is null or has no data, skip it!
-      if (validPoints.length === 0) {
+      if (allValidPoints.length === 0) {
         continue;
+      }
+
+      // Apply zoom if set
+      const effectiveZoom = cardZoomMap.value[key] || globalCardZoom.value || 'all';
+      let validPoints = allValidPoints;
+      if (effectiveZoom !== 'all' && Number(effectiveZoom) > 0 && Number(effectiveZoom) < allValidPoints.length) {
+        validPoints = allValidPoints.slice(-Number(effectiveZoom));
       }
 
       const numValues = validPoints.map(p => p.val);
@@ -2085,7 +3296,7 @@ function useTraceabilityModule(ctx) {
       const sum = numValues.reduce((acc, v) => acc + v, 0);
       const avgVal = Number((sum / numValues.length).toFixed(2));
       const latestVal = numValues[numValues.length - 1];
-      const count = numValues.length;
+      const count = validPoints.length;
 
       // SVG Trend Graph Coordinates with 15% cushioning
       const svgW = 320;
@@ -2114,6 +3325,7 @@ function useTraceabilityModule(ctx) {
           y: Number(y.toFixed(1)),
           val: p.val,
           timeStr: p.timeStr,
+          epochtime: p.epochtime,
           index: p.index,
         };
       });
@@ -2131,6 +3343,11 @@ function useTraceabilityModule(ctx) {
       const displayLabel = customLabel || labelsMap[key] || key.toUpperCase();
       const colors = colorAccents[key] || defaultColor;
 
+      const showArea = cardSettingMap.value[key]?.showArea !== undefined ? cardSettingMap.value[key].showArea : globalCardArea.value;
+      const showAvg = cardSettingMap.value[key]?.showAvg !== undefined ? cardSettingMap.value[key].showAvg : globalCardAvg.value;
+      const showDots = cardSettingMap.value[key]?.showDots !== undefined ? cardSettingMap.value[key].showDots : globalCardDots.value;
+      const showGrid = cardSettingMap.value[key]?.showGrid !== undefined ? cardSettingMap.value[key].showGrid : globalCardGrid.value;
+
       result.push({
         key,
         label: displayLabel,
@@ -2139,6 +3356,9 @@ function useTraceabilityModule(ctx) {
         max: maxVal,
         latest: latestVal,
         count,
+        totalCount: allValidPoints.length,
+        activeZoom: effectiveZoom,
+        isZoomed: validPoints.length < allValidPoints.length,
         startTime: validPoints[0].timeStr,
         endTime: validPoints[validPoints.length - 1].timeStr,
         polylineStr,
@@ -2146,10 +3366,37 @@ function useTraceabilityModule(ctx) {
         renderedPoints,
         avgY,
         colors,
+        showArea,
+        showAvg,
+        showDots,
+        showGrid,
+        allPoints: allValidPoints,
       });
     }
 
     return result;
+  });
+
+  // Filtered Field Data List based on search and category filter
+  const filteredRawDataFieldList = computed(() => {
+    const list = rawDataFieldList.value || [];
+    if (list.length === 0) return [];
+
+    return list.filter(item => {
+      // Category filter
+      if (trendCategoryFilter.value === 'sensors' && !item.key.startsWith('p')) return false;
+      if (trendCategoryFilter.value === 'com' && !item.key.startsWith('com')) return false;
+      if (trendCategoryFilter.value === 'active' && item.min === item.max && item.totalCount <= 1) return false;
+
+      // Search filter
+      if (trendChannelSearch.value && trendChannelSearch.value.trim() !== '') {
+        const q = trendChannelSearch.value.trim().toLowerCase();
+        const matchKey = item.key.toLowerCase().includes(q);
+        const matchLabel = item.label.toLowerCase().includes(q);
+        return matchKey || matchLabel;
+      }
+      return true;
+    });
   });
 
   // Dynamic list of trend fields available from active telemetry
@@ -2185,7 +3432,7 @@ function useTraceabilityModule(ctx) {
       if (!field) field = 'com1';
     }
 
-    const validPoints = [];
+    const allValidPoints = [];
     for (let i = 0; i < frames.length; i++) {
       const f = frames[i];
       const val = f[field];
@@ -2206,16 +3453,23 @@ function useTraceabilityModule(ctx) {
           } else {
             tStr = 'Pkt #' + (i + 1);
           }
-          validPoints.push({
+          allValidPoints.push({
             index: i + 1,
             val: num,
             timeStr: tStr,
+            epochtime: ep,
           });
         }
       }
     }
 
-    if (validPoints.length === 0) return null;
+    if (allValidPoints.length === 0) return null;
+
+    // Apply focusedChartZoom
+    let validPoints = allValidPoints;
+    if (focusedChartZoom.value !== 'all' && Number(focusedChartZoom.value) > 0 && Number(focusedChartZoom.value) < allValidPoints.length) {
+      validPoints = allValidPoints.slice(-Number(focusedChartZoom.value));
+    }
 
     const vals = validPoints.map(p => p.val);
     const rawMin = Math.min(...vals);
@@ -2269,6 +3523,7 @@ function useTraceabilityModule(ctx) {
         valFormatted: formatStatNum(p.val),
         index: p.index,
         timeStr: p.timeStr,
+        epochtime: p.epochtime,
       };
     });
 
@@ -2299,12 +3554,15 @@ function useTraceabilityModule(ctx) {
 
     return {
       field,
+      fieldObj: matchedField || { key: field, label, colors, allPoints: allValidPoints },
       label,
       rawMin,
       rawMax,
       rawAvg,
       latestVal,
       count: numPoints,
+      totalPackets: allValidPoints.length,
+      isZoomed: numPoints < allValidPoints.length,
       yTicks,
       xTicks,
       polylineStr,
@@ -2314,6 +3572,186 @@ function useTraceabilityModule(ctx) {
       colors,
     };
   });
+
+  // Comprehensive Waveform Inspector Data for Modal
+  const inspectChartData = computed(() => {
+    const f = inspectingField.value;
+    if (!f) return null;
+    const allPts = f.allPoints || [];
+    if (allPts.length === 0) return null;
+
+    let pts = allPts;
+    if (inspectModalZoom.value !== 'all' && Number(inspectModalZoom.value) > 0 && Number(inspectModalZoom.value) < allPts.length) {
+      pts = allPts.slice(-Number(inspectModalZoom.value));
+    }
+    if (pts.length === 0) pts = allPts;
+
+    const vals = pts.map(p => p.val);
+    const rawMin = Math.min(...vals);
+    const rawMax = Math.max(...vals);
+    const sum = vals.reduce((a, b) => a + b, 0);
+    const rawAvg = Number((sum / vals.length).toFixed(2));
+    const latestVal = vals[vals.length - 1];
+    const span = Number((rawMax - rawMin).toFixed(2));
+
+    // Median
+    const sorted = [...vals].sort((a, b) => a - b);
+    const mid = Math.floor(sorted.length / 2);
+    const median = sorted.length % 2 !== 0 ? sorted[mid] : Number(((sorted[mid - 1] + sorted[mid]) / 2).toFixed(2));
+
+    // Standard deviation
+    const variance = vals.reduce((acc, v) => acc + Math.pow(v - rawAvg, 2), 0) / vals.length;
+    const stdDev = Number(Math.sqrt(variance).toFixed(2));
+
+    let delta = rawMax - rawMin;
+    if (delta === 0) delta = Math.abs(rawMax) === 0 ? 1 : Math.abs(rawMax) * 0.2;
+    const pad = delta * 0.15;
+    const yMin = rawMin - pad;
+    const yMax = rawMax + pad;
+    const yRange = yMax - yMin;
+
+    const svgW = 900;
+    const svgH = 260;
+    const padLeft = 70;
+    const padRight = 25;
+    const padTop = 20;
+    const padBottom = 35;
+    const plotW = svgW - padLeft - padRight;
+    const plotH = svgH - padTop - padBottom;
+
+    const yTicks = [0, 0.25, 0.5, 0.75, 1.0].map(ratio => {
+      const y = Number((padTop + plotH - ratio * plotH).toFixed(1));
+      const val = yMin + ratio * yRange;
+      return { ratio, y, valFormatted: Number.isInteger(val) ? String(val) : val.toFixed(2) };
+    });
+
+    const numPoints = pts.length;
+    const renderedPoints = pts.map((p, idx) => {
+      const x = numPoints === 1 ? (padLeft + plotW / 2) : (padLeft + (idx / (numPoints - 1)) * plotW);
+      const norm = (p.val - yMin) / yRange;
+      const y = padTop + plotH - norm * plotH;
+      const diffFromAvg = Number((p.val - rawAvg).toFixed(2));
+      return {
+        x: Number(x.toFixed(1)),
+        y: Number(y.toFixed(1)),
+        val: p.val,
+        valFormatted: formatStatNum(p.val),
+        index: p.index,
+        timeStr: p.timeStr,
+        epochtime: p.epochtime,
+        diffFromAvg,
+        status: p.val === rawMax ? 'Peak Max' : (p.val === rawMin ? 'Peak Min' : (diffFromAvg >= 0 ? 'Above Mean' : 'Below Mean')),
+      };
+    });
+
+    const polylineStr = renderedPoints.map(p => p.x + ',' + p.y).join(' ');
+    const baseFloorY = (padTop + plotH).toFixed(1);
+    const firstX = renderedPoints[0].x;
+    const lastX = renderedPoints[renderedPoints.length - 1].x;
+    const areaPolygonStr = firstX + ',' + baseFloorY + ' ' + polylineStr + ' ' + lastX + ',' + baseFloorY;
+
+    const avgNorm = (rawAvg - yMin) / yRange;
+    const avgY = Number((padTop + plotH - avgNorm * plotH).toFixed(1));
+
+    const xTicks = [0, 1, 2, 3, 4].map(step => {
+      const ratio = step / 4;
+      const x = Number((padLeft + ratio * plotW).toFixed(1));
+      const ptIdx = Math.min(Math.round(ratio * (numPoints - 1)), numPoints - 1);
+      const label = renderedPoints[ptIdx]?.timeStr || ('Pkt #' + (ptIdx + 1));
+      return { x, label };
+    });
+
+    // Table search filter
+    let tablePoints = renderedPoints;
+    if (inspectModalSearch.value && inspectModalSearch.value.trim() !== '') {
+      const q = inspectModalSearch.value.trim().toLowerCase();
+      tablePoints = renderedPoints.filter(p => 
+        String(p.index).includes(q) ||
+        p.timeStr.toLowerCase().includes(q) ||
+        String(p.val).includes(q) ||
+        p.status.toLowerCase().includes(q)
+      );
+    }
+
+    return {
+      field: f,
+      key: f.key,
+      label: f.label,
+      colors: f.colors,
+      rawMin,
+      rawMax,
+      rawAvg,
+      median,
+      stdDev,
+      span,
+      latestVal,
+      count: pts.length,
+      totalCount: allPts.length,
+      isZoomed: pts.length < allPts.length,
+      yTicks,
+      xTicks,
+      avgY,
+      polylineStr,
+      areaPolygonStr,
+      renderedPoints,
+      tablePoints,
+    };
+  });
+
+  const onInspectChartMouseMove = (event) => {
+    const chart = inspectChartData.value;
+    if (!chart || !chart.renderedPoints || chart.renderedPoints.length === 0) return;
+    const svgEl = event.currentTarget.querySelector ? (event.currentTarget.querySelector('svg') || event.currentTarget) : event.currentTarget;
+    const rect = svgEl.getBoundingClientRect();
+    if (!rect.width) return;
+    const mouseX = ((event.clientX - rect.left) / rect.width) * 900;
+
+    let closest = chart.renderedPoints[0];
+    let minDiff = Math.abs(closest.x - mouseX);
+    for (let i = 1; i < chart.renderedPoints.length; i++) {
+      const pt = chart.renderedPoints[i];
+      const diff = Math.abs(pt.x - mouseX);
+      if (diff < minDiff) {
+        minDiff = diff;
+        closest = pt;
+      }
+    }
+    const delta = Number((closest.val - chart.rawAvg).toFixed(2));
+    const isAbove = delta >= 0;
+    inspectHoverPoint.value = {
+      ...closest,
+      deltaFromAvg: delta,
+      isAboveAvg: isAbove,
+      deltaFormatted: (isAbove ? '+' : '') + delta,
+    };
+  };
+
+  const onInspectChartMouseLeave = () => {
+    inspectHoverPoint.value = null;
+  };
+
+  const exportInspectModalCsv = () => {
+    const data = inspectChartData.value;
+    if (!data) return;
+    exportFieldCsv(data.field);
+  };
+
+  const copyInspectModalData = () => {
+    const data = inspectChartData.value;
+    if (!data) return;
+    const lines = [
+      'Channel: ' + data.key.toUpperCase() + ' - ' + data.label,
+      'Min: ' + data.rawMin + ' | Max: ' + data.rawMax + ' | Avg: ' + data.rawAvg + ' | Span: ' + data.span + ' | StdDev: ' + data.stdDev + ' | Latest: ' + data.latestVal,
+      'Packets: ' + data.count + ' / ' + data.totalCount,
+      '\\nPacket Log:',
+      'Index\\tTimestamp\\tValue\\tDiff_Avg\\tStatus',
+      ...data.tablePoints.map(p => p.index + '\\t' + p.timeStr + '\\t' + p.val + '\\t' + p.diffFromAvg + '\\t' + p.status),
+    ];
+    if (typeof navigator !== 'undefined' && navigator.clipboard) {
+      navigator.clipboard.writeText(lines.join('\\n'));
+      if (typeof showToast === 'function') showToast('Copied inspection data table to clipboard', 'success');
+    }
+  };
 
   const selectDeviceForInspection = async (itemOrId) => {
     if (!itemOrId) return;
@@ -3082,10 +4520,62 @@ function useTraceabilityModule(ctx) {
     selectDeviceForInspection,
     formatStatNum,
     rawDataFieldList,
+    filteredRawDataFieldList,
     trendGraphViewMode,
     selectedTrendField,
     availableTrendFields,
     selectedTrendChartData,
+    cardZoomMap,
+    cardSettingMap,
+    cardHoverMap,
+    globalCardZoom,
+    globalCardArea,
+    globalCardAvg,
+    globalCardDots,
+    globalCardGrid,
+    trendChannelSearch,
+    trendCategoryFilter,
+    focusedChartZoom,
+    focusedShowArea,
+    focusedShowAvg,
+    focusedShowDots,
+    focusedShowGrid,
+    focusedShowPeaks,
+    focusedHoverPoint,
+    showFieldInspectModal,
+    inspectingField,
+    inspectModalZoom,
+    inspectModalSearch,
+    inspectModalPage,
+    inspectShowArea,
+    inspectShowAvg,
+    inspectShowGrid,
+    inspectShowDots,
+    inspectHoverPoint,
+    inspectChartData,
+    setCardZoom,
+    getCardSetting,
+    toggleCardSetting,
+    setGlobalCardZoom,
+    toggleGlobalCardArea,
+    toggleGlobalCardAvg,
+    toggleGlobalCardDots,
+    toggleGlobalCardGrid,
+    onCardChartMouseMove,
+    onCardChartMouseLeave,
+    focusChannel,
+    openFieldInspectModal,
+    closeFieldInspectModal,
+    exportFieldCsv,
+    copyFieldStats,
+    onFocusedChartMouseMove,
+    onFocusedChartMouseLeave,
+    setFocusedChartZoom,
+    focusedZoomStep,
+    onInspectChartMouseMove,
+    onInspectChartMouseLeave,
+    exportInspectModalCsv,
+    copyInspectModalData,
     telemetrySearchKey,
     loadingDeviceTelemetry,
     selectedDeviceTelemetry,
