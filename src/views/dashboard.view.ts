@@ -111,30 +111,67 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
       background-color: rgba(6, 182, 212, 0.2) !important;
       color: #38bdf8 !important;
     }
-    /* Single Row Selection and Highlight for Tested Devices Catalog */
-    #trace-catalog-tabulator .tabulator-row {
+    /* Single Row Selection & Subtle Highlight (Soft Blue / Light Gray Accent) */
+    #trace-catalog-tabulator .tabulator-row,
+    #trace-devices-tabulator .tabulator-row {
       cursor: pointer !important;
       transition: background-color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
     }
-    #trace-catalog-tabulator .tabulator-row:hover:not(.so-row-selected):not(.tabulator-selected) {
-      background-color: #1e293b !important;
+    #trace-catalog-tabulator .tabulator-row:hover:not(.so-row-selected):not(.tabulator-selected),
+    #trace-devices-tabulator .tabulator-row:hover:not(.device-row-selected):not(.tabulator-selected) {
+      background-color: rgba(51, 65, 85, 0.45) !important;
     }
+    /* Soft Blue / Light Gray in Dark Mode */
     #trace-catalog-tabulator .tabulator-row.tabulator-selected,
-    #trace-catalog-tabulator .tabulator-row.so-row-selected {
-      background-color: #020617 !important;
-      border-left: 4px solid #a855f7 !important;
-      box-shadow: inset 0 0 0 1px rgba(168, 85, 247, 0.5), 0 4px 14px rgba(0, 0, 0, 0.6) !important;
+    #trace-catalog-tabulator .tabulator-row.so-row-selected,
+    #trace-devices-tabulator .tabulator-row.tabulator-selected,
+    #trace-devices-tabulator .tabulator-row.device-row-selected {
+      background-color: rgba(14, 165, 233, 0.12) !important;
+      border-left: 3px solid #38bdf8 !important;
+      box-shadow: inset 0 0 0 1px rgba(56, 189, 248, 0.25) !important;
     }
     #trace-catalog-tabulator .tabulator-row.tabulator-selected .tabulator-cell,
-    #trace-catalog-tabulator .tabulator-row.so-row-selected .tabulator-cell {
-      background-color: rgba(168, 85, 247, 0.16) !important;
-      color: #ffffff !important;
+    #trace-catalog-tabulator .tabulator-row.so-row-selected .tabulator-cell,
+    #trace-devices-tabulator .tabulator-row.tabulator-selected .tabulator-cell,
+    #trace-devices-tabulator .tabulator-row.device-row-selected .tabulator-cell {
+      background-color: transparent !important;
+      color: #f1f5f9 !important;
     }
     #trace-catalog-tabulator .tabulator-row.tabulator-selected .tabulator-cell:first-child,
-    #trace-catalog-tabulator .tabulator-row.so-row-selected .tabulator-cell:first-child {
-      background-color: rgba(168, 85, 247, 0.28) !important;
-      color: #ffffff !important;
-      font-weight: 800 !important;
+    #trace-catalog-tabulator .tabulator-row.so-row-selected .tabulator-cell:first-child,
+    #trace-devices-tabulator .tabulator-row.tabulator-selected .tabulator-cell:first-child,
+    #trace-devices-tabulator .tabulator-row.device-row-selected .tabulator-cell:first-child {
+      background-color: rgba(56, 189, 248, 0.16) !important;
+      color: #38bdf8 !important;
+      font-weight: 700 !important;
+    }
+    /* Light Mode */
+    .theme-light #trace-catalog-tabulator .tabulator-row:hover:not(.so-row-selected):not(.tabulator-selected),
+    .theme-light #trace-devices-tabulator .tabulator-row:hover:not(.device-row-selected):not(.tabulator-selected) {
+      background-color: #f1f5f9 !important;
+    }
+    .theme-light #trace-catalog-tabulator .tabulator-row.tabulator-selected,
+    .theme-light #trace-catalog-tabulator .tabulator-row.so-row-selected,
+    .theme-light #trace-devices-tabulator .tabulator-row.tabulator-selected,
+    .theme-light #trace-devices-tabulator .tabulator-row.device-row-selected {
+      background-color: #f0f9ff !important;
+      border-left: 3px solid #0284c7 !important;
+      box-shadow: inset 0 0 0 1px rgba(2, 132, 199, 0.22) !important;
+    }
+    .theme-light #trace-catalog-tabulator .tabulator-row.tabulator-selected .tabulator-cell,
+    .theme-light #trace-catalog-tabulator .tabulator-row.so-row-selected .tabulator-cell,
+    .theme-light #trace-devices-tabulator .tabulator-row.tabulator-selected .tabulator-cell,
+    .theme-light #trace-devices-tabulator .tabulator-row.device-row-selected .tabulator-cell {
+      background-color: transparent !important;
+      color: #0f172a !important;
+    }
+    .theme-light #trace-catalog-tabulator .tabulator-row.tabulator-selected .tabulator-cell:first-child,
+    .theme-light #trace-catalog-tabulator .tabulator-row.so-row-selected .tabulator-cell:first-child,
+    .theme-light #trace-devices-tabulator .tabulator-row.tabulator-selected .tabulator-cell:first-child,
+    .theme-light #trace-devices-tabulator .tabulator-row.device-row-selected .tabulator-cell:first-child {
+      background-color: rgba(14, 165, 233, 0.12) !important;
+      color: #0369a1 !important;
+      font-weight: 700 !important;
     }
     #trace-catalog-tabulator .tabulator-col[tabulator-field="soNumber"] input,
     #trace-catalog-tabulator .tabulator-col[tabulator-field="itemCode"] input,

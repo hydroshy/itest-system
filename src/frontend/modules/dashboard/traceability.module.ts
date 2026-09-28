@@ -278,8 +278,10 @@ export const TRACEABILITY_TEMPLATE = `          <div v-else-if="activeFeature.id
                       <i class="fa-solid fa-table-list text-purple-400"></i>
                       <span>Tested Devices Catalog (Click row to inspect test parameters below)</span>
                     </span>
-                    <span v-if="selectedSoNumber" class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-500/20 text-purple-300 border border-purple-500/40">
-                      Selected SO: {{ selectedSoNumber }}
+                    <span v-if="selectedSoNumber" class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-sky-500/20 text-sky-300 border border-sky-500/40">
+                      <i class="fa-solid fa-folder-open text-sky-400 text-[10px]"></i>
+                      <span>SO: {{ selectedSoNumber }}</span>
+                      <button type="button" @click.stop="deselectSoRow" class="text-slate-400 hover:text-white ml-0.5 cursor-pointer text-xs" title="Deselect SO (or double-click row)">&times;</button>
                     </span>
                   </div>
                   <div class="flex items-center gap-3">
@@ -334,36 +336,73 @@ export const TRACEABILITY_TEMPLATE = `          <div v-else-if="activeFeature.id
                 <div v-show="!traceLoading && soCatalogList.length > 0" class="p-2 bg-slate-950/60">
                   <div id="trace-catalog-tabulator" class="rounded-xl overflow-hidden border border-slate-800/80"></div>
                   <style>
-                    /* Single Row Selection and Highlight for Tested Devices Catalog */
-                    #trace-catalog-tabulator .tabulator-row {
+                    /* Single Row Selection & Subtle Highlight (Soft Blue / Light Gray Accent) */
+                    #trace-catalog-tabulator .tabulator-row,
+                    #trace-devices-tabulator .tabulator-row {
                       cursor: pointer !important;
                       transition: background-color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
                     }
-                    #trace-catalog-tabulator .tabulator-row:hover:not(.so-row-selected):not(.tabulator-selected) {
-                      background-color: #1e293b !important;
+                    #trace-catalog-tabulator .tabulator-row:hover:not(.so-row-selected):not(.tabulator-selected),
+                    #trace-devices-tabulator .tabulator-row:hover:not(.device-row-selected):not(.tabulator-selected) {
+                      background-color: rgba(51, 65, 85, 0.45) !important;
                     }
+                    /* Soft Blue / Light Gray in Dark Mode */
                     #trace-catalog-tabulator .tabulator-row.tabulator-selected,
-                    #trace-catalog-tabulator .tabulator-row.so-row-selected {
-                      background-color: #020617 !important;
-                      border-left: 4px solid #a855f7 !important;
-                      box-shadow: inset 0 0 0 1px rgba(168, 85, 247, 0.5), 0 4px 14px rgba(0, 0, 0, 0.6) !important;
+                    #trace-catalog-tabulator .tabulator-row.so-row-selected,
+                    #trace-devices-tabulator .tabulator-row.tabulator-selected,
+                    #trace-devices-tabulator .tabulator-row.device-row-selected {
+                      background-color: rgba(14, 165, 233, 0.12) !important;
+                      border-left: 3px solid #38bdf8 !important;
+                      box-shadow: inset 0 0 0 1px rgba(56, 189, 248, 0.25) !important;
                     }
                     #trace-catalog-tabulator .tabulator-row.tabulator-selected .tabulator-cell,
-                    #trace-catalog-tabulator .tabulator-row.so-row-selected .tabulator-cell {
-                      background-color: rgba(168, 85, 247, 0.16) !important;
-                      color: #ffffff !important;
+                    #trace-catalog-tabulator .tabulator-row.so-row-selected .tabulator-cell,
+                    #trace-devices-tabulator .tabulator-row.tabulator-selected .tabulator-cell,
+                    #trace-devices-tabulator .tabulator-row.device-row-selected .tabulator-cell {
+                      background-color: transparent !important;
+                      color: #f1f5f9 !important;
                     }
                     #trace-catalog-tabulator .tabulator-row.tabulator-selected .tabulator-cell:first-child,
-                    #trace-catalog-tabulator .tabulator-row.so-row-selected .tabulator-cell:first-child {
-                      background-color: rgba(168, 85, 247, 0.28) !important;
-                      color: #ffffff !important;
-                      font-weight: 800 !important;
+                    #trace-catalog-tabulator .tabulator-row.so-row-selected .tabulator-cell:first-child,
+                    #trace-devices-tabulator .tabulator-row.tabulator-selected .tabulator-cell:first-child,
+                    #trace-devices-tabulator .tabulator-row.device-row-selected .tabulator-cell:first-child {
+                      background-color: rgba(56, 189, 248, 0.16) !important;
+                      color: #38bdf8 !important;
+                      font-weight: 700 !important;
+                    }
+                    /* Light Mode */
+                    .theme-light #trace-catalog-tabulator .tabulator-row:hover:not(.so-row-selected):not(.tabulator-selected),
+                    .theme-light #trace-devices-tabulator .tabulator-row:hover:not(.device-row-selected):not(.tabulator-selected) {
+                      background-color: #f1f5f9 !important;
+                    }
+                    .theme-light #trace-catalog-tabulator .tabulator-row.tabulator-selected,
+                    .theme-light #trace-catalog-tabulator .tabulator-row.so-row-selected,
+                    .theme-light #trace-devices-tabulator .tabulator-row.tabulator-selected,
+                    .theme-light #trace-devices-tabulator .tabulator-row.device-row-selected {
+                      background-color: #f0f9ff !important;
+                      border-left: 3px solid #0284c7 !important;
+                      box-shadow: inset 0 0 0 1px rgba(2, 132, 199, 0.22) !important;
+                    }
+                    .theme-light #trace-catalog-tabulator .tabulator-row.tabulator-selected .tabulator-cell,
+                    .theme-light #trace-catalog-tabulator .tabulator-row.so-row-selected .tabulator-cell,
+                    .theme-light #trace-devices-tabulator .tabulator-row.tabulator-selected .tabulator-cell,
+                    .theme-light #trace-devices-tabulator .tabulator-row.device-row-selected .tabulator-cell {
+                      background-color: transparent !important;
+                      color: #0f172a !important;
+                    }
+                    .theme-light #trace-catalog-tabulator .tabulator-row.tabulator-selected .tabulator-cell:first-child,
+                    .theme-light #trace-catalog-tabulator .tabulator-row.so-row-selected .tabulator-cell:first-child,
+                    .theme-light #trace-devices-tabulator .tabulator-row.tabulator-selected .tabulator-cell:first-child,
+                    .theme-light #trace-devices-tabulator .tabulator-row.device-row-selected .tabulator-cell:first-child {
+                      background-color: rgba(14, 165, 233, 0.12) !important;
+                      color: #0369a1 !important;
+                      font-weight: 700 !important;
                     }
                     /* Style dropdown chevron on header filter inputs */
                     #trace-catalog-tabulator .tabulator-col[tabulator-field="soNumber"] input,
                     #trace-catalog-tabulator .tabulator-col[tabulator-field="itemCode"] input,
                     #trace-catalog-tabulator .tabulator-col[tabulator-field="sku"] input {
-                      background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%23a855f7' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M6 8l4 4 4-4'/%3e%3c/svg%3e") !important;
+                      background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%2338bdf8' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M6 8l4 4 4-4'/%3e%3c/svg%3e") !important;
                       background-position: right 0.45rem center !important;
                       background-repeat: no-repeat !important;
                       background-size: 1.1em 1.1em !important;
@@ -394,8 +433,10 @@ export const TRACEABILITY_TEMPLATE = `          <div v-else-if="activeFeature.id
                     <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-cyan-500/15 text-cyan-300 border border-cyan-500/30">
                       {{ soDevicesList.length }} Devices
                     </span>
-                    <span v-if="selectedDeviceDetails" class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/15 text-amber-300 border border-amber-500/30">
-                      Inspecting SN: {{ selectedDeviceDetails.serial_number || selectedDeviceDetails.generalInfo?.serialNumber }}
+                    <span v-if="selectedDeviceDetails" class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/15 text-amber-300 border border-amber-500/30">
+                      <i class="fa-solid fa-microchip text-amber-400 text-[10px]"></i>
+                      <span>SN: {{ selectedDeviceDetails.serial_number || selectedDeviceDetails.generalInfo?.serialNumber }}</span>
+                      <button type="button" @click.stop="deselectDevice" class="text-slate-400 hover:text-white ml-0.5 cursor-pointer text-xs" title="Deselect Device (or double-click row)">&times;</button>
                     </span>
                   </div>
                   <div class="flex items-center gap-2">
@@ -3283,6 +3324,9 @@ function useTraceabilityModule(ctx) {
         selectedDeviceTelemetry.value = data;
         telemetryRawFrames.value = data.raw_telemetry || data.telemetry || [];
         telemetryCalcStats.value = data.calculations || {};
+        if (devicesTabulatorInstance) {
+          try { devicesTabulatorInstance.reformat(); } catch (e) {}
+        }
       } else {
         const err = await res.json().catch(() => ({}));
         showToast(err.message || 'No telemetry records in raw_data3 for this device', 'warning');
@@ -3292,6 +3336,9 @@ function useTraceabilityModule(ctx) {
       showToast('Failed to load device details from raw_data3', 'error');
     } finally {
       loadingDeviceDetails.value = false;
+      if (devicesTabulatorInstance) {
+        try { devicesTabulatorInstance.reformat(); } catch (e) {}
+      }
     }
   };
 
@@ -3346,19 +3393,61 @@ function useTraceabilityModule(ctx) {
     if (!soData || !soData.soNumber) return;
     selectedSoNumber.value = soData.soNumber;
     if (catalogTabulatorInstance) {
-      catalogTabulatorInstance.getRows().forEach(r => {
-        const isMatch = r.getData()?.soNumber === soData.soNumber;
-        const el = r.getElement();
-        if (isMatch) {
-          r.select();
-          el.classList.add('tabulator-selected', 'so-row-selected');
-        } else {
-          r.deselect();
-          el.classList.remove('tabulator-selected', 'so-row-selected');
-        }
-      });
+      try {
+        catalogTabulatorInstance.getRows().forEach(r => {
+          const isMatch = r.getData()?.soNumber === soData.soNumber;
+          const el = r.getElement();
+          if (isMatch) {
+            r.select();
+            if (el && el.classList) el.classList.add('tabulator-selected', 'so-row-selected');
+          } else {
+            r.deselect();
+            if (el && el.classList) el.classList.remove('tabulator-selected', 'so-row-selected');
+          }
+        });
+      } catch (e) {}
     }
     await fetchDevicesForSelectedSo(soData.soNumber);
+  };
+
+  const deselectSoRow = () => {
+    selectedSoNumber.value = '';
+    if (catalogTabulatorInstance) {
+      try {
+        catalogTabulatorInstance.deselectRow();
+        catalogTabulatorInstance.getRows().forEach(r => {
+          const el = r.getElement();
+          if (el && el.classList) {
+            el.classList.remove('tabulator-selected', 'so-row-selected');
+          }
+        });
+      } catch (e) {}
+    }
+    soDevicesList.value = [];
+    if (devicesTabulatorInstance) {
+      try { devicesTabulatorInstance.setData([]); } catch (e) {}
+    }
+    deselectDevice();
+  };
+
+  const deselectDevice = () => {
+    selectedDeviceDetails.value = null;
+    selectedDeviceTelemetry.value = null;
+    telemetryRawFrames.value = [];
+    telemetryCalcStats.value = {};
+    selectedTraceItem.value = null;
+    if (devicesTabulatorInstance) {
+      try {
+        devicesTabulatorInstance.deselectRow();
+        devicesTabulatorInstance.getRows().forEach(r => {
+          const el = r.getElement();
+          if (el && el.classList) {
+            el.classList.remove('tabulator-selected', 'device-row-selected');
+          }
+        });
+        devicesTabulatorInstance.reformat();
+      } catch (e) {}
+    }
   };
 
   const fetchDevicesForSelectedSo = async (soNumber) => {
@@ -3541,32 +3630,37 @@ function useTraceabilityModule(ctx) {
       ],
       rowClick: (e, row) => {
         const d = row.getData();
-        if (!d) return;
-        if (catalogTabulatorInstance) {
-          catalogTabulatorInstance.getRows().forEach(r => {
-            r.deselect();
-            r.getElement().classList.remove('tabulator-selected', 'so-row-selected');
-          });
+        if (!d || !d.soNumber) return;
+        if (selectedSoNumber.value !== d.soNumber) {
+          selectSoRow(d);
         }
-        row.select();
-        row.getElement().classList.add('tabulator-selected', 'so-row-selected');
-        selectSoRow(d);
+      },
+      rowDblClick: (e, row) => {
+        const d = row.getData();
+        if (!d || !d.soNumber) return;
+        if (selectedSoNumber.value === d.soNumber) {
+          deselectSoRow();
+        } else {
+          selectSoRow(d);
+        }
       },
     });
 
     catalogTabulatorInstance.on('tableBuilt', () => {
       if (selectedSoNumber.value) {
-        catalogTabulatorInstance.getRows().forEach(r => {
-          const isMatch = r.getData()?.soNumber === selectedSoNumber.value;
-          const el = r.getElement();
-          if (isMatch) {
-            r.select();
-            el.classList.add('tabulator-selected', 'so-row-selected');
-          } else {
-            r.deselect();
-            el.classList.remove('tabulator-selected', 'so-row-selected');
-          }
-        });
+        try {
+          catalogTabulatorInstance.getRows().forEach(r => {
+            const isMatch = r.getData()?.soNumber === selectedSoNumber.value;
+            const el = r.getElement();
+            if (isMatch) {
+              r.select();
+              if (el && el.classList) el.classList.add('tabulator-selected', 'so-row-selected');
+            } else {
+              r.deselect();
+              if (el && el.classList) el.classList.remove('tabulator-selected', 'so-row-selected');
+            }
+          });
+        } catch (e) {}
       }
     });
 
@@ -3574,14 +3668,22 @@ function useTraceabilityModule(ctx) {
       if (rows && rows.length > 0) {
         const stillSelected = rows.find(r => r.getData()?.soNumber === selectedSoNumber.value);
         if (!stillSelected) {
-          const firstRow = rows[0];
-          catalogTabulatorInstance.deselectRow();
-          firstRow.select();
-          firstRow.getElement().classList.add('tabulator-selected', 'so-row-selected');
-          selectSoRow(firstRow.getData());
+          if (selectedSoNumber.value) {
+            const firstRow = rows[0];
+            try {
+              catalogTabulatorInstance.deselectRow();
+              firstRow.select();
+              const el = firstRow.getElement();
+              if (el && el.classList) el.classList.add('tabulator-selected', 'so-row-selected');
+            } catch (e) {}
+            selectSoRow(firstRow.getData());
+          }
         } else {
-          stillSelected.select();
-          stillSelected.getElement().classList.add('tabulator-selected', 'so-row-selected');
+          try {
+            stillSelected.select();
+            const el = stillSelected.getElement();
+            if (el && el.classList) el.classList.add('tabulator-selected', 'so-row-selected');
+          } catch (e) {}
         }
       }
     });
@@ -3610,6 +3712,21 @@ function useTraceabilityModule(ctx) {
       height: '380px',
       pagination: false,
       placeholder: 'No tested devices found for this SO',
+      selectableRows: 1,
+      rowFormatter: (row) => {
+        const d = row.getData();
+        const sn = d ? (d.serialNumber || d.serial_number) : null;
+        const curSn = selectedDeviceDetails.value ? (selectedDeviceDetails.value.serial_number || selectedDeviceDetails.value.generalInfo?.serialNumber) : null;
+        const isSel = sn && curSn && sn === curSn;
+        const el = row.getElement();
+        if (el && el.classList) {
+          if (isSel) {
+            el.classList.add('tabulator-selected', 'device-row-selected');
+          } else {
+            el.classList.remove('tabulator-selected', 'device-row-selected');
+          }
+        }
+      },
       columns: [
         {
           title: '#',
@@ -3704,8 +3821,9 @@ function useTraceabilityModule(ctx) {
           formatter: (cell) => {
             const d = cell.getData();
             const sn = d.serialNumber || d.serial_number;
-            const isSel = selectedDeviceDetails.value && (selectedDeviceDetails.value.serial_number === sn || selectedDeviceDetails.value.test_id === (d.testId || d.test_id));
-            return '<button type="button" class="px-2.5 py-1 rounded-lg text-[11px] font-bold transition flex items-center gap-1 cursor-pointer ' + (isSel ? 'bg-purple-600 text-white shadow-sm' : 'bg-purple-500/15 hover:bg-purple-500/30 text-purple-300 border border-purple-500/25') + '"><i class="fa-solid fa-microchip text-[10px]"></i><span>' + (isSel ? 'Selected' : 'Inspect') + '</span></button>';
+            const curSn = selectedDeviceDetails.value ? (selectedDeviceDetails.value.serial_number || selectedDeviceDetails.value.generalInfo?.serialNumber) : null;
+            const isSel = curSn && sn && curSn === sn;
+            return '<button type="button" class="px-2.5 py-1 rounded-lg text-[11px] font-bold transition flex items-center gap-1 cursor-pointer ' + (isSel ? 'bg-sky-600 text-white shadow-sm' : 'bg-sky-500/15 hover:bg-sky-500/30 text-sky-300 border border-sky-500/25') + '"><i class="fa-solid fa-microchip text-[10px]"></i><span>' + (isSel ? 'Selected' : 'Inspect') + '</span></button>';
           },
           cellClick: (e, cell) => {
             selectDeviceForInspection(cell.getData());
@@ -3722,7 +3840,24 @@ function useTraceabilityModule(ctx) {
           copyText(target.closest('[data-copy-eui]').getAttribute('data-copy-eui'));
           return;
         }
-        selectDeviceForInspection(row.getData());
+        const d = row.getData();
+        if (!d) return;
+        const sn = d.serialNumber || d.serial_number;
+        const curSn = selectedDeviceDetails.value ? (selectedDeviceDetails.value.serial_number || selectedDeviceDetails.value.generalInfo?.serialNumber) : null;
+        if (curSn !== sn) {
+          selectDeviceForInspection(d);
+        }
+      },
+      rowDblClick: (e, row) => {
+        const d = row.getData();
+        if (!d) return;
+        const sn = d.serialNumber || d.serial_number;
+        const curSn = selectedDeviceDetails.value ? (selectedDeviceDetails.value.serial_number || selectedDeviceDetails.value.generalInfo?.serialNumber) : null;
+        if (curSn === sn) {
+          deselectDevice();
+        } else {
+          selectDeviceForInspection(d);
+        }
       },
     });
   };
@@ -4110,6 +4245,8 @@ function useTraceabilityModule(ctx) {
     soDevicesList,
     loadingSoDevices,
     selectSoRow,
+    deselectSoRow,
+    deselectDevice,
     fetchDevicesForSelectedSo,
     exportSelectedSoCsv,
     initCatalogTabulator,
