@@ -3567,6 +3567,12 @@ export const TRACEABILITY_SCRIPT = `
         };
       });
 
+      const trendChartPoints = computed(() => {
+        return (selectedTrendChartData.value && selectedTrendChartData.value.polylineStr)
+          ? selectedTrendChartData.value.polylineStr
+          : '';
+      });
+
       // Comprehensive Waveform Inspector Data for Modal
       const inspectChartData = computed(() => {
         const f = inspectingField.value;
