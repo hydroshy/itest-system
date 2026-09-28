@@ -3114,9 +3114,9 @@ export const TRACEABILITY_SCRIPT = `
         const dev = deviceDetails.value || {};
         const devId = dev.serial_number || dev.serialNumber || dev.device_key || 'DEVICE';
         const filename = devId + '_' + field.key + '_' + Date.now() + '.csv';
-        let csv = 'Packet_Index,Timestamp,Epochtime,Field,Field_Label,Value,Min,Avg,Max\n';
+        let csv = 'Packet_Index,Timestamp,Epochtime,Field,Field_Label,Value,Min,Avg,Max\\n';
         for (const p of pts) {
-          csv += p.index + ',"' + (p.timeStr || '') + '",' + (p.epochtime || '') + ',' + field.key + ',"' + field.label + '",' + p.val + ',' + field.min + ',' + field.avg + ',' + field.max + '\n';
+          csv += p.index + ',"' + (p.timeStr || '') + '",' + (p.epochtime || '') + ',' + field.key + ',"' + field.label + '",' + p.val + ',' + field.min + ',' + field.avg + ',' + field.max + '\\n';
         }
         const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
         const link = document.createElement('a');
@@ -3131,7 +3131,7 @@ export const TRACEABILITY_SCRIPT = `
 
       const copyFieldStats = (field) => {
         if (!field) return;
-        const text = 'Channel: ' + field.key.toUpperCase() + ' (' + field.label + ')\nMin: ' + field.min + ' | Avg: ' + field.avg + ' | Max: ' + field.max + ' | Latest: ' + field.latest + ' | Packets: ' + field.count;
+        const text = 'Channel: ' + field.key.toUpperCase() + ' (' + field.label + ')\\nMin: ' + field.min + ' | Avg: ' + field.avg + ' | Max: ' + field.max + ' | Latest: ' + field.latest + ' | Packets: ' + field.count;
         if (typeof navigator !== 'undefined' && navigator.clipboard) {
           navigator.clipboard.writeText(text);
           if (typeof showToast === 'function') showToast('Copied ' + field.key.toUpperCase() + ' stats to clipboard', 'success');
@@ -3734,12 +3734,12 @@ export const TRACEABILITY_SCRIPT = `
           'Channel: ' + data.key.toUpperCase() + ' - ' + data.label,
           'Min: ' + data.rawMin + ' | Max: ' + data.rawMax + ' | Avg: ' + data.rawAvg + ' | Span: ' + data.span + ' | StdDev: ' + data.stdDev + ' | Latest: ' + data.latestVal,
           'Packets: ' + data.count + ' / ' + data.totalCount,
-          '\nPacket Log:',
-          'Index\tTimestamp\tValue\tDiff_Avg\tStatus',
-          ...data.tablePoints.map(p => p.index + '\t' + p.timeStr + '\t' + p.val + '\t' + p.diffFromAvg + '\t' + p.status),
+          '\\nPacket Log:',
+          'Index\\tTimestamp\\tValue\\tDiff_Avg\\tStatus',
+          ...data.tablePoints.map(p => p.index + '\\t' + p.timeStr + '\\t' + p.val + '\\t' + p.diffFromAvg + '\\t' + p.status),
         ];
         if (typeof navigator !== 'undefined' && navigator.clipboard) {
-          navigator.clipboard.writeText(lines.join('\n'));
+          navigator.clipboard.writeText(lines.join('\\n'));
           if (typeof showToast === 'function') showToast('Copied inspection data table to clipboard', 'success');
         }
       };

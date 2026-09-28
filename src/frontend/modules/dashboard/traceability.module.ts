@@ -579,179 +579,71 @@ export const TRACEABILITY_TEMPLATE = `          <div v-else-if="activeFeature.id
                     </div>
                   </div>
 
-                  <!-- B1. raw_data3 Telemetry Statistics Matrix (Fields as Columns, MAX / AVG / MIN as Rows) -->
-                  <div v-if="rawDataFieldList && rawDataFieldList.length > 0" class="p-3.5 rounded-xl bg-slate-950/70 border border-slate-800 space-y-2">
+                  <!-- B1. raw_data3 Telemetry Statistics Matrix Cards -->
+                  <div v-if="rawDataFieldList && rawDataFieldList.length > 0" class="p-3.5 rounded-xl bg-slate-950/70 border border-slate-800 space-y-2.5">
                     <div class="flex items-center justify-between pb-1.5 border-b border-slate-800/80">
                       <span class="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
-                        <i class="fa-solid fa-table text-emerald-400"></i>
-                        <span>Raw Data 3 Field Telemetry Statistics (MAX / AVG / MIN Matrix)</span>
+                        <i class="fa-solid fa-microchip text-emerald-400"></i>
+                        <span>Raw Data 3 Field Telemetry Statistics (MAX / AVG / MIN Matrix Cards)</span>
                       </span>
                       <span class="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-300 border border-emerald-500/20">
-                        {{ rawDataFieldList.length }} Sensor Columns
+                        {{ rawDataFieldList.length }} Sensor Channels
                       </span>
                     </div>
 
-                    <div class="overflow-x-auto">
-                      <table class="w-full text-left text-xs font-mono border-collapse">
-                        <!-- Table Header: First cell is "Metric", followed by each Field as a column -->
-                        <thead class="bg-slate-900/90 text-slate-400 text-[10px] uppercase font-bold border-b border-slate-800">
-                          <tr>
-                            <th class="py-2.5 px-3 min-w-[120px] bg-slate-900/95 sticky left-0 z-10 border-r border-slate-800 text-slate-300">
-                              <span class="flex items-center gap-1.5"><i class="fa-solid fa-chart-column text-purple-400"></i> Field</span>
-                            </th>
-                            <th
-                              v-for="item in rawDataFieldList"
-                              :key="'col-' + item.key"
-                              class="py-2.5 px-3 min-w-[130px] border-r border-slate-800/60 last:border-r-0 text-center"
-                            >
-                              <div class="font-extrabold uppercase tracking-wider text-[11px]" :class="item.colors.text">{{ item.key }}</div>
-                              <div class="text-[9px] text-slate-400 font-normal truncate max-w-[140px] mx-auto mt-0.5" :title="item.label">{{ item.label }}</div>
-                            </th>
-                          </tr>
-                        </thead>
-                        <tbody class="divide-y divide-slate-800/60 text-[11px]">
-                          <!-- Row 1: MAX -->
-                          <tr class="hover:bg-slate-900/40 transition">
-                            <td class="py-2 px-3 font-bold sticky left-0 z-10 bg-slate-950/95 border-r border-slate-800 flex items-center gap-1.5">
-                              <span class="px-2 py-0.5 rounded font-extrabold text-[10px] bg-amber-500/15 text-amber-300 border border-amber-500/30">MAX</span>
-                              <span class="text-slate-400 text-[10px] font-normal">Peak</span>
-                            </td>
-                            <td
-                              v-for="item in rawDataFieldList"
-                              :key="'max-' + item.key"
-                              class="py-2 px-3 text-center text-amber-300 font-bold font-mono border-r border-slate-800/40 last:border-r-0"
-                            >
-                              {{ formatStatNum(item.max) }}
-                            </td>
-                          </tr>
+                    <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2.5 font-mono">
+                      <div
+                        v-for="item in rawDataFieldList"
+                        :key="'card-' + item.key"
+                        class="p-2.5 rounded-xl bg-slate-900/80 border border-slate-800 hover:border-slate-700 transition flex flex-col justify-between"
+                      >
+                        <div>
+                          <div class="flex items-center justify-between gap-1 mb-1">
+                            <span class="px-1.5 py-0.5 rounded text-[9px] font-mono font-black border" :class="item.colors.badge">
+                              {{ item.key.toUpperCase() }}
+                            </span>
+                            <span class="text-[9px] text-slate-500 font-mono">{{ item.count }} pkts</span>
+                          </div>
+                          <div class="text-[10px] text-slate-400 truncate" :title="item.label">{{ item.label }}</div>
+                        </div>
 
-                          <!-- Row 2: AVG -->
-                          <tr class="hover:bg-slate-900/40 transition">
-                            <td class="py-2 px-3 font-bold sticky left-0 z-10 bg-slate-950/95 border-r border-slate-800 flex items-center gap-1.5">
-                              <span class="px-2 py-0.5 rounded font-extrabold text-[10px] bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">AVG</span>
-                              <span class="text-slate-400 text-[10px] font-normal">Mean</span>
-                            </td>
-                            <td
-                              v-for="item in rawDataFieldList"
-                              :key="'avg-' + item.key"
-                              class="py-2 px-3 text-center text-emerald-400 font-extrabold font-mono border-r border-slate-800/40 last:border-r-0"
-                            >
-                              {{ formatStatNum(item.avg) }}
-                            </td>
-                          </tr>
-
-                          <!-- Row 3: MIN -->
-                          <tr class="hover:bg-slate-900/40 transition">
-                            <td class="py-2 px-3 font-bold sticky left-0 z-10 bg-slate-950/95 border-r border-slate-800 flex items-center gap-1.5">
-                              <span class="px-2 py-0.5 rounded font-extrabold text-[10px] bg-cyan-500/15 text-cyan-300 border border-cyan-500/30">MIN</span>
-                              <span class="text-slate-400 text-[10px] font-normal">Floor</span>
-                            </td>
-                            <td
-                              v-for="item in rawDataFieldList"
-                              :key="'min-' + item.key"
-                              class="py-2 px-3 text-center text-cyan-300 font-bold font-mono border-r border-slate-800/40 last:border-r-0"
-                            >
-                              {{ formatStatNum(item.min) }}
-                            </td>
-                          </tr>
-
-                          <!-- Row 4: LATEST -->
-                          <tr class="hover:bg-slate-900/40 transition">
-                            <td class="py-1.5 px-3 font-bold sticky left-0 z-10 bg-slate-950/95 border-r border-slate-800 flex items-center gap-1.5">
-                              <span class="px-2 py-0.5 rounded font-bold text-[10px] bg-slate-800 text-slate-300 border border-slate-700">LATEST</span>
-                              <span class="text-slate-500 text-[10px] font-normal">Recent</span>
-                            </td>
-                            <td
-                              v-for="item in rawDataFieldList"
-                              :key="'latest-' + item.key"
-                              class="py-1.5 px-3 text-center text-white font-bold font-mono border-r border-slate-800/40 last:border-r-0"
-                            >
-                              {{ formatStatNum(item.latest) }}
-                            </td>
-                          </tr>
-
-                          <!-- Row 5: SAMPLES -->
-                          <tr class="hover:bg-slate-900/40 transition">
-                            <td class="py-1.5 px-3 font-bold sticky left-0 z-10 bg-slate-950/95 border-r border-slate-800 flex items-center gap-1.5">
-                              <span class="px-2 py-0.5 rounded font-medium text-[10px] bg-slate-900 text-slate-400 border border-slate-800">SAMPLES</span>
-                              <span class="text-slate-500 text-[10px] font-normal">Frames</span>
-                            </td>
-                            <td
-                              v-for="item in rawDataFieldList"
-                              :key="'count-' + item.key"
-                              class="py-1.5 px-3 text-center text-slate-400 font-mono text-[10px] border-r border-slate-800/40 last:border-r-0"
-                            >
-                              {{ item.count }} pkts
-                            </td>
-                          </tr>
-                        </tbody>
-                      </table>
+                        <div class="mt-2 pt-1.5 border-t border-slate-800/60">
+                          <div class="flex items-baseline justify-between mb-1.5">
+                            <span class="text-[9px] text-slate-500 uppercase font-sans">Latest</span>
+                            <span :key="'latest-' + item.key" class="text-sm font-extrabold text-white font-mono">{{ formatStatNum(item.latest) }}</span>
+                          </div>
+                          <div class="grid grid-cols-3 gap-1 text-[9px] text-center bg-slate-950/70 rounded p-1">
+                            <div>
+                              <span class="text-[8px] text-slate-500 block uppercase">Min</span>
+                              <span :key="'min-' + item.key" class="text-cyan-300 font-semibold">{{ formatStatNum(item.min) }}</span>
+                            </div>
+                            <div>
+                              <span class="text-[8px] text-slate-500 block uppercase">Avg</span>
+                              <span :key="'avg-' + item.key" class="text-emerald-400 font-bold">{{ formatStatNum(item.avg) }}</span>
+                            </div>
+                            <div>
+                              <span class="text-[8px] text-slate-500 block uppercase">Max</span>
+                              <span :key="'max-' + item.key" class="text-amber-300 font-semibold">{{ formatStatNum(item.max) }}</span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
                     </div>
                   </div>
 
                   <!-- B2. Trend Graphs for Each Field Data in raw_data3 -->
                   <div v-if="rawDataFieldList && rawDataFieldList.length > 0" class="space-y-3">
                     <div class="flex flex-col gap-2.5 px-1 pb-1">
-                      <!-- Top Row: Title, Focus Channel, and View Mode Switcher -->
-                      <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+                      <!-- Top Row: Title & Active Count Badge -->
+                      <div class="flex items-center justify-between gap-3">
                         <div class="flex items-center gap-2 flex-wrap">
                           <span class="text-xs font-bold text-slate-200 uppercase tracking-wider flex items-center gap-1.5">
                             <i class="fa-solid fa-chart-line text-sky-400"></i>
                             <span>Field Data Trends (raw_data3 Timeline Series)</span>
                           </span>
                           <span class="text-[10px] font-mono px-2 py-0.5 rounded bg-sky-500/10 text-sky-300 border border-sky-500/20">
-                            {{ filteredRawDataFieldList.length }} / {{ rawDataFieldList.length }} Channels • Interactive Oscilloscope Cards
+                            {{ filteredRawDataFieldList.length }} / {{ rawDataFieldList.length }} Channels • Interactive Trend Cards
                           </span>
-                        </div>
-
-                        <!-- Toolbar: Channel Focus Dropdown & View Mode Switcher -->
-                        <div class="flex items-center gap-2.5 flex-wrap">
-                          <!-- Channel Focus Dropdown -->
-                          <div class="flex items-center gap-1.5 text-xs">
-                            <span class="text-[10px] uppercase font-bold text-slate-400 font-mono">Focus Channel:</span>
-                            <select
-                              v-model="selectedTrendField"
-                              class="px-2.5 py-1 bg-slate-900 border border-slate-700 rounded-lg text-xs text-white font-mono focus:border-sky-500 focus:outline-none cursor-pointer"
-                            >
-                              <option v-for="f in availableTrendFields" :key="'focus-' + f.key" :value="f.key">
-                                {{ f.key.toUpperCase() }} — {{ f.label }}
-                              </option>
-                            </select>
-                          </div>
-
-                          <!-- View Mode Switcher -->
-                          <div class="inline-flex rounded-lg bg-slate-900 p-0.5 border border-slate-800 text-[10px] font-mono font-bold">
-                            <button
-                              type="button"
-                              @click="trendGraphViewMode = 'all'"
-                              :class="trendGraphViewMode === 'all' ? 'bg-sky-600 text-white shadow-sm' : 'text-slate-400 hover:text-white'"
-                              class="px-2.5 py-1 rounded transition flex items-center gap-1 cursor-pointer"
-                              title="Combined: Focused Visualizer + All Cards"
-                            >
-                              <i class="fa-solid fa-table-cells-large text-[9px]"></i>
-                              <span>All-in-One</span>
-                            </button>
-                            <button
-                              type="button"
-                              @click="trendGraphViewMode = 'detail'"
-                              :class="trendGraphViewMode === 'detail' ? 'bg-sky-600 text-white shadow-sm' : 'text-slate-400 hover:text-white'"
-                              class="px-2.5 py-1 rounded transition flex items-center gap-1 cursor-pointer"
-                              title="Detailed Oscilloscope Visualizer only"
-                            >
-                              <i class="fa-solid fa-chart-line text-[9px]"></i>
-                              <span>Focus Chart</span>
-                            </button>
-                            <button
-                              type="button"
-                              @click="trendGraphViewMode = 'grid'"
-                              :class="trendGraphViewMode === 'grid' ? 'bg-sky-600 text-white shadow-sm' : 'text-slate-400 hover:text-white'"
-                              class="px-2.5 py-1 rounded transition flex items-center gap-1 cursor-pointer"
-                              title="Cards Grid only"
-                            >
-                              <i class="fa-solid fa-grip text-[9px]"></i>
-                              <span>Cards Grid</span>
-                            </button>
-                          </div>
                         </div>
                       </div>
 
@@ -900,431 +792,9 @@ export const TRACEABILITY_TEMPLATE = `          <div v-else-if="activeFeature.id
                       </div>
                     </div>
 
-                    <!-- High-Resolution Focused Oscilloscope Visualizer (Visible in 'all' and 'detail' modes) -->
-                    <div
-                      id="focused-oscilloscope-visualizer"
-                      v-if="(trendGraphViewMode === 'all' || trendGraphViewMode === 'detail') && selectedTrendChartData"
-                      class="glass-card rounded-xl border border-slate-800 p-4 space-y-3 bg-slate-950/90 shadow-xl"
-                    >
-                      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-slate-800">
-                        <div class="flex items-center gap-2">
-                          <span
-                            class="px-2 py-0.5 rounded text-[10px] font-mono font-black border"
-                            :class="selectedTrendChartData.colors?.badge || 'bg-sky-500/10 text-sky-300 border-sky-500/20'"
-                          >
-                            {{ selectedTrendField.toUpperCase() }}
-                          </span>
-                          <span class="text-xs font-bold text-white">
-                            {{ selectedTrendChartData.label }}
-                          </span>
-                          <span class="text-[10px] text-slate-500 font-mono">
-                            • Oscilloscope Timeline View (±15% bounds padding)
-                          </span>
-                        </div>
-
-                        <!-- Quick Channel Switcher Chips for Top Channels -->
-                        <div class="flex items-center gap-1 overflow-x-auto text-[10px] font-mono">
-                          <button
-                            v-for="f in availableTrendFields.slice(0, 8)"
-                            :key="'chip-' + f.key"
-                            type="button"
-                            @click="selectedTrendField = f.key"
-                            :class="selectedTrendField === f.key ? 'bg-sky-500/20 text-sky-300 border-sky-500/40 font-bold' : 'bg-slate-900 text-slate-400 border-slate-800 hover:border-slate-700'"
-                            class="px-2 py-0.5 rounded border transition cursor-pointer shrink-0"
-                          >
-                            {{ f.key.toUpperCase() }}
-                          </button>
-                        </div>
-                      </div>
-
-                      <!-- Focused Chart Interactive Toolbar: Zoom, Display Toggles, and Inspection Actions -->
-                      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-2 rounded-lg bg-slate-900/80 border border-slate-800/80 text-[10px] font-mono">
-                        <!-- Left: Zoom Window Controls -->
-                        <div class="flex items-center gap-1.5 flex-wrap">
-                          <span class="text-slate-500 font-sans font-bold uppercase text-[9px]">Timeline Window:</span>
-                          <div class="inline-flex rounded-lg bg-slate-950 p-0.5 border border-slate-800">
-                            <button
-                              type="button"
-                              @click="setFocusedChartZoom('all')"
-                              :class="focusedChartZoom === 'all' ? 'bg-sky-600 text-white font-bold' : 'text-slate-400 hover:text-white'"
-                              class="px-2 py-0.5 rounded transition cursor-pointer"
-                              title="Show all recorded packets"
-                            >
-                              All ({{ selectedTrendChartData.totalPackets || selectedTrendChartData.count }})
-                            </button>
-                            <button
-                              v-if="(selectedTrendChartData.totalPackets || selectedTrendChartData.count) > 50"
-                              type="button"
-                              @click="setFocusedChartZoom(50)"
-                              :class="focusedChartZoom === 50 ? 'bg-sky-600 text-white font-bold' : 'text-slate-400 hover:text-white'"
-                              class="px-2 py-0.5 rounded transition cursor-pointer"
-                              title="Zoom into last 50 packets"
-                            >
-                              50 pkts
-                            </button>
-                            <button
-                              v-if="(selectedTrendChartData.totalPackets || selectedTrendChartData.count) > 25"
-                              type="button"
-                              @click="setFocusedChartZoom(25)"
-                              :class="focusedChartZoom === 25 ? 'bg-sky-600 text-white font-bold' : 'text-slate-400 hover:text-white'"
-                              class="px-2 py-0.5 rounded transition cursor-pointer"
-                              title="Zoom into last 25 packets"
-                            >
-                              25 pkts
-                            </button>
-                            <button
-                              v-if="(selectedTrendChartData.totalPackets || selectedTrendChartData.count) > 10"
-                              type="button"
-                              @click="setFocusedChartZoom(10)"
-                              :class="focusedChartZoom === 10 ? 'bg-sky-600 text-white font-bold' : 'text-slate-400 hover:text-white'"
-                              class="px-2 py-0.5 rounded transition cursor-pointer"
-                              title="Zoom into last 10 packets"
-                            >
-                              10 pkts
-                            </button>
-                          </div>
-                          <!-- Step Zoom buttons -->
-                          <div class="inline-flex rounded-lg bg-slate-950 p-0.5 border border-slate-800">
-                            <button
-                              type="button"
-                              @click="focusedZoomStep(1)"
-                              class="px-1.5 py-0.5 text-slate-400 hover:text-white transition cursor-pointer"
-                              title="Zoom In"
-                            >
-                              <i class="fa-solid fa-plus text-[9px]"></i>
-                            </button>
-                            <button
-                              type="button"
-                              @click="focusedZoomStep(-1)"
-                              class="px-1.5 py-0.5 text-slate-400 hover:text-white transition cursor-pointer"
-                              title="Zoom Out"
-                            >
-                              <i class="fa-solid fa-minus text-[9px]"></i>
-                            </button>
-                            <button
-                              type="button"
-                              @click="setFocusedChartZoom('all')"
-                              class="px-1.5 py-0.5 text-slate-400 hover:text-white transition cursor-pointer"
-                              title="Reset Zoom"
-                            >
-                              <i class="fa-solid fa-rotate-left text-[9px]"></i>
-                            </button>
-                          </div>
-                        </div>
-
-                        <!-- Right: Feature Toggles & Actions -->
-                        <div class="flex items-center gap-1.5 flex-wrap">
-                          <button
-                            type="button"
-                            @click="focusedShowArea = !focusedShowArea"
-                            :class="focusedShowArea ? 'bg-sky-500/20 text-sky-300 border-sky-500/40' : 'bg-slate-950 text-slate-500 border-slate-800'"
-                            class="px-2 py-0.5 rounded border transition cursor-pointer flex items-center gap-1"
-                            title="Toggle Area Gradient"
-                          >
-                            <i class="fa-solid fa-chart-area text-[9px]"></i>
-                            <span>Area</span>
-                          </button>
-                          <button
-                            type="button"
-                            @click="focusedShowAvg = !focusedShowAvg"
-                            :class="focusedShowAvg ? 'bg-amber-500/20 text-amber-300 border-amber-500/40' : 'bg-slate-950 text-slate-500 border-slate-800'"
-                            class="px-2 py-0.5 rounded border transition cursor-pointer flex items-center gap-1"
-                            title="Toggle Mean Reference Line"
-                          >
-                            <i class="fa-solid fa-arrows-split-up-and-left text-[9px]"></i>
-                            <span>Avg</span>
-                          </button>
-                          <button
-                            type="button"
-                            @click="focusedShowDots = !focusedShowDots"
-                            :class="focusedShowDots ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40' : 'bg-slate-950 text-slate-500 border-slate-800'"
-                            class="px-2 py-0.5 rounded border transition cursor-pointer flex items-center gap-1"
-                            title="Toggle Data Points"
-                          >
-                            <i class="fa-solid fa-circle-dot text-[9px]"></i>
-                            <span>Dots</span>
-                          </button>
-                          <button
-                            type="button"
-                            @click="focusedShowGrid = !focusedShowGrid"
-                            :class="focusedShowGrid ? 'bg-indigo-500/20 text-indigo-300 border-indigo-500/40' : 'bg-slate-950 text-slate-500 border-slate-800'"
-                            class="px-2 py-0.5 rounded border transition cursor-pointer flex items-center gap-1"
-                            title="Toggle Oscilloscope Grid"
-                          >
-                            <i class="fa-solid fa-border-all text-[9px]"></i>
-                            <span>Grid</span>
-                          </button>
-                          <button
-                            type="button"
-                            @click="openFieldInspectModal(selectedTrendChartData.fieldObj || selectedTrendChartData)"
-                            class="px-2.5 py-0.5 rounded border border-purple-500/40 bg-purple-500/10 text-purple-300 hover:bg-purple-500/20 font-bold transition cursor-pointer flex items-center gap-1"
-                            title="Open Fullscreen Waveform Inspector & Data Table"
-                          >
-                            <i class="fa-solid fa-expand text-[9px]"></i>
-                            <span>Inspect</span>
-                          </button>
-                          <button
-                            type="button"
-                            @click="exportFieldCsv(selectedTrendChartData.fieldObj || selectedTrendChartData)"
-                            class="px-2.5 py-0.5 rounded border border-slate-700 bg-slate-950 text-slate-300 hover:text-white hover:bg-slate-800 transition cursor-pointer flex items-center gap-1"
-                            title="Download CSV dataset for this channel"
-                          >
-                            <i class="fa-solid fa-download text-[9px]"></i>
-                            <span>CSV</span>
-                          </button>
-                        </div>
-                      </div>
-
-                      <!-- Interactive Live HUD Readout / KPI Metric Strip -->
-                      <div v-if="focusedHoverPoint" class="p-2.5 rounded-lg bg-sky-950 border border-sky-500/40 flex flex-wrap items-center justify-between gap-2 font-mono text-xs animate-in fade-in">
-                        <div class="flex items-center gap-2 text-sky-300">
-                          <i class="fa-solid fa-crosshairs text-sky-400 text-sm animate-pulse"></i>
-                          <span class="font-bold">PACKET #{{ focusedHoverPoint.index }}</span>
-                          <span class="text-slate-400">| TIME: <strong class="text-white">{{ focusedHoverPoint.timeStr }}</strong></span>
-                        </div>
-                        <div class="flex items-center gap-3">
-                          <span class="text-slate-300">VALUE: <strong class="text-white text-sm font-black">{{ focusedHoverPoint.valFormatted }}</strong></span>
-                          <span :class="focusedHoverPoint.isAboveAvg ? 'text-emerald-400' : 'text-amber-400'" class="font-bold">
-                            {{ focusedHoverPoint.deltaFormatted }} ({{ focusedHoverPoint.pctFormatted }}) vs Mean
-                          </span>
-                        </div>
-                      </div>
-                      <div v-else class="grid grid-cols-2 sm:grid-cols-5 gap-2 font-mono text-xs">
-                        <div class="p-2 rounded-lg bg-slate-900/80 border border-slate-800/80 flex items-center justify-between">
-                          <span class="text-slate-500 text-[10px] uppercase font-sans">Min Value</span>
-                          <strong class="text-cyan-300 font-bold">{{ formatStatNum(selectedTrendChartData.rawMin) }}</strong>
-                        </div>
-                        <div class="p-2 rounded-lg bg-slate-900/80 border border-slate-800/80 flex items-center justify-between">
-                          <span class="text-slate-500 text-[10px] uppercase font-sans">Avg Value</span>
-                          <strong class="text-emerald-400 font-bold">{{ formatStatNum(selectedTrendChartData.rawAvg) }}</strong>
-                        </div>
-                        <div class="p-2 rounded-lg bg-slate-900/80 border border-slate-800/80 flex items-center justify-between">
-                          <span class="text-slate-500 text-[10px] uppercase font-sans">Max Value</span>
-                          <strong class="text-amber-300 font-bold">{{ formatStatNum(selectedTrendChartData.rawMax) }}</strong>
-                        </div>
-                        <div class="p-2 rounded-lg bg-slate-900/80 border border-slate-800/80 flex items-center justify-between">
-                          <span class="text-slate-500 text-[10px] uppercase font-sans">Latest</span>
-                          <strong class="text-white font-bold">{{ formatStatNum(selectedTrendChartData.latestVal) }}</strong>
-                        </div>
-                        <div class="p-2 rounded-lg bg-slate-900/80 border border-slate-800/80 flex items-center justify-between col-span-2 sm:col-span-1">
-                          <span class="text-slate-500 text-[10px] uppercase font-sans">Packets</span>
-                          <strong class="text-sky-300 font-bold">
-                            <span v-if="selectedTrendChartData.isZoomed" class="text-amber-400">Zoomed: </span>
-                            {{ selectedTrendChartData.count }} pkts
-                          </strong>
-                        </div>
-                      </div>
-
-                      <!-- SVG Trend Chart with Full Oscilloscope Grid and Y-Axis interval ticks -->
-                      <div
-                        class="w-full bg-slate-950 rounded-xl border border-slate-800 p-2 sm:p-3 relative overflow-hidden cursor-crosshair select-none"
-                        @mousemove="onFocusedChartMouseMove($event)"
-                        @mouseleave="onFocusedChartMouseLeave()"
-                      >
-                        <svg class="w-full h-64 overflow-visible" viewBox="0 0 820 240" preserveAspectRatio="none">
-                          <defs>
-                            <linearGradient id="trendDetailAreaGradDash" x1="0%" y1="0%" x2="0%" y2="100%">
-                              <stop offset="0%" :stop-color="selectedTrendChartData.colors?.stroke || '#0ea5e9'" stop-opacity="0.30" />
-                              <stop offset="100%" :stop-color="selectedTrendChartData.colors?.stroke || '#0ea5e9'" stop-opacity="0.01" />
-                            </linearGradient>
-                            <pattern id="detail-oscilloscope-grid-dash" width="73" height="37" patternUnits="userSpaceOnUse">
-                              <path d="M 73 0 L 0 0 0 37" fill="none" stroke="rgba(148, 163, 184, 0.08)" stroke-width="0.8" stroke-dasharray="2,2" />
-                            </pattern>
-                          </defs>
-
-                          <!-- Outer Screen Background & Engineering Grid -->
-                          <rect x="70" y="20" width="730" height="185" fill="#080e1a" rx="4" stroke="#1e293b" stroke-width="1" />
-                          <rect v-if="focusedShowGrid" x="70" y="20" width="730" height="185" fill="url(#detail-oscilloscope-grid-dash)" rx="4" />
-
-                          <!-- Horizontal Dashed Grid Lines & Y-Axis Value Labels -->
-                          <g v-for="tick in selectedTrendChartData.yTicks" :key="'ytick-' + tick.ratio">
-                            <line
-                              v-if="focusedShowGrid"
-                              x1="70"
-                              :y1="tick.y"
-                              x2="800"
-                              :y2="tick.y"
-                              stroke="rgba(148, 163, 184, 0.18)"
-                              stroke-width="1"
-                              stroke-dasharray="4,4"
-                            />
-                            <line
-                              x1="64"
-                              :y1="tick.y"
-                              x2="70"
-                              :y2="tick.y"
-                              stroke="#64748b"
-                              stroke-width="1.5"
-                            />
-                            <text
-                              x="60"
-                              :y="tick.y + 3.5"
-                              text-anchor="end"
-                              fill="#94a3b8"
-                              font-size="10"
-                              font-family="monospace"
-                              font-weight="600"
-                            >
-                              {{ tick.valFormatted }}
-                            </text>
-                          </g>
-
-                          <!-- Vertical Dashed Grid Lines & X-Axis Timestamp Labels -->
-                          <g v-for="(xtick, xIdx) in selectedTrendChartData.xTicks" :key="'xtick-' + xIdx">
-                            <line
-                              v-if="focusedShowGrid"
-                              :x1="xtick.x"
-                              y1="20"
-                              :x2="xtick.x"
-                              y2="205"
-                              stroke="rgba(148, 163, 184, 0.18)"
-                              stroke-width="1"
-                              stroke-dasharray="3,3"
-                            />
-                            <line
-                              :x1="xtick.x"
-                              y1="205"
-                              :x2="xtick.x"
-                              y2="210"
-                              stroke="#64748b"
-                              stroke-width="1.5"
-                            />
-                            <text
-                              :x="xtick.x"
-                              y="223"
-                              text-anchor="middle"
-                              fill="#94a3b8"
-                              font-size="9"
-                              font-family="monospace"
-                            >
-                              {{ xtick.label }}
-                            </text>
-                          </g>
-
-                          <!-- Average Reference Dashed Line -->
-                          <g v-if="focusedShowAvg">
-                            <line
-                              x1="70"
-                              :y1="selectedTrendChartData.avgY"
-                              x2="800"
-                              :y2="selectedTrendChartData.avgY"
-                              stroke="#f59e0b"
-                              stroke-width="1.5"
-                              stroke-dasharray="6,3"
-                              stroke-opacity="0.85"
-                            />
-                            <text
-                              x="795"
-                              :y="selectedTrendChartData.avgY - 4"
-                              text-anchor="end"
-                              fill="#f59e0b"
-                              font-size="9"
-                              font-family="monospace"
-                              font-weight="bold"
-                            >
-                              AVG: {{ formatStatNum(selectedTrendChartData.rawAvg) }}
-                            </text>
-                          </g>
-
-                          <!-- Shaded Polygon Area Under Curve -->
-                          <polygon
-                            v-if="focusedShowArea"
-                            :points="selectedTrendChartData.areaPolygonStr"
-                            fill="url(#trendDetailAreaGradDash)"
-                          />
-
-                          <!-- Vector Curve Polyline -->
-                          <polyline
-                            fill="none"
-                            :stroke="selectedTrendChartData.colors?.stroke || '#0ea5e9'"
-                            stroke-width="2.5"
-                            stroke-linecap="round"
-                            stroke-linejoin="round"
-                            :points="selectedTrendChartData.polylineStr"
-                          />
-
-                          <!-- Data Points -->
-                          <g v-if="focusedShowDots">
-                            <circle
-                              v-for="p in selectedTrendChartData.renderedPoints"
-                              :key="'detail-pt-' + p.index"
-                              :cx="p.x"
-                              :cy="p.y"
-                              :r="focusedHoverPoint?.index === p.index ? 5.5 : 3"
-                              :fill="selectedTrendChartData.colors?.stroke || '#0ea5e9'"
-                              stroke="#0f172a"
-                              stroke-width="1.5"
-                              class="transition-all"
-                            />
-                          </g>
-
-                          <!-- Interactive Hover Crosshair Lines & Snapped Point -->
-                          <g v-if="focusedHoverPoint">
-                            <line
-                              :x1="focusedHoverPoint.x"
-                              y1="20"
-                              :x2="focusedHoverPoint.x"
-                              y2="205"
-                              stroke="#38bdf8"
-                              stroke-width="1.5"
-                              stroke-dasharray="3,3"
-                            />
-                            <line
-                              x1="70"
-                              :y1="focusedHoverPoint.y"
-                              x2="800"
-                              :y2="focusedHoverPoint.y"
-                              stroke="rgba(56, 189, 248, 0.45)"
-                              stroke-width="1.2"
-                              stroke-dasharray="3,3"
-                            />
-                            <circle
-                              :cx="focusedHoverPoint.x"
-                              :cy="focusedHoverPoint.y"
-                              r="8"
-                              fill="none"
-                              stroke="#38bdf8"
-                              stroke-width="2"
-                              class="animate-ping"
-                            />
-                            <circle
-                              :cx="focusedHoverPoint.x"
-                              :cy="focusedHoverPoint.y"
-                              r="5"
-                              fill="#38bdf8"
-                              stroke="#ffffff"
-                              stroke-width="2"
-                            />
-                          </g>
-                        </svg>
-
-                        <!-- Chart Legend & Boundary Note -->
-                        <div class="flex flex-wrap items-center justify-between text-[10px] font-mono text-slate-400 pt-2 px-1 border-t border-slate-800/80 mt-1">
-                          <div class="flex items-center gap-4 flex-wrap">
-                            <span class="flex items-center gap-1.5">
-                              <span class="w-3 h-0.5 rounded" :style="{ backgroundColor: selectedTrendChartData.colors?.stroke || '#0ea5e9' }"></span>
-                              <strong class="text-white">{{ selectedTrendField.toUpperCase() }} Series</strong>
-                            </span>
-                            <span class="flex items-center gap-1.5">
-                              <span class="w-3 h-0.5 bg-amber-500 border-dashed"></span>
-                              <span class="text-amber-400">Mean Level</span>
-                            </span>
-                            <span class="text-slate-500">
-                              (Hover waveform for live packet readout • ±15% bounds padding)
-                            </span>
-                          </div>
-                          <div class="text-slate-400">
-                            Span: <span class="text-cyan-300 font-bold">{{ formatStatNum(selectedTrendChartData.rawMin) }}</span> → <span class="text-amber-300 font-bold">{{ formatStatNum(selectedTrendChartData.rawMax) }}</span>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    <!-- All Channel Cards Grid (Visible in 'all' and 'grid' modes) -->
-                    <div
-                      v-if="trendGraphViewMode === 'all' || trendGraphViewMode === 'grid'"
-                      class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3.5"
-                    >
+                    <!-- All Channel Cards Grid -->
+                    <!-- v-for="field in rawDataFieldList" -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3.5">
                       <!-- Empty state if search filters out all cards -->
                       <div
                         v-if="filteredRawDataFieldList.length === 0"
@@ -1346,7 +816,7 @@ export const TRACEABILITY_TEMPLATE = `          <div v-else-if="activeFeature.id
                         v-for="field in filteredRawDataFieldList"
                         :key="field.key"
                         class="p-3.5 rounded-xl border space-y-2.5 transition flex flex-col justify-between"
-                        :class="selectedTrendField === field.key ? 'ring-2 ring-sky-500 border-sky-400 bg-slate-900/90 shadow-lg' : 'border-slate-800 bg-slate-950/80 hover:border-slate-700'"
+                        class="border-slate-800 bg-slate-950/80 hover:border-slate-700"
                       >
                         <!-- Header of Field Trend Card with Interactive Action Buttons -->
                         <div class="flex items-start justify-between gap-2 border-b border-slate-800/80 pb-2">
@@ -1363,17 +833,6 @@ export const TRACEABILITY_TEMPLATE = `          <div v-else-if="activeFeature.id
 
                           <!-- Interactive Buttons on Card Header -->
                           <div class="flex items-center gap-1 shrink-0">
-                            <!-- Focus in Top Chart Button -->
-                            <button
-                              type="button"
-                              @click.stop="focusChannel(field.key)"
-                              class="px-2 py-0.5 rounded text-[10px] font-mono font-bold transition flex items-center gap-1 cursor-pointer"
-                              :class="selectedTrendField === field.key ? 'bg-sky-500 text-white shadow-sm' : 'bg-slate-900 text-sky-400 hover:bg-sky-500/20 border border-sky-500/30'"
-                              title="Focus this channel in the main Oscilloscope"
-                            >
-                              <i class="fa-solid fa-crosshairs text-[9px]"></i>
-                              <span class="hidden sm:inline">Focus</span>
-                            </button>
                             <!-- Inspect Fullscreen Modal Button -->
                             <button
                               type="button"
@@ -1991,198 +1450,208 @@ export const TRACEABILITY_TEMPLATE = `          <div v-else-if="activeFeature.id
                 </div>
               </div>
 
-              <!-- Tab 2: Field Data Trends (raw_data3 Timeline Series) Visualizer -->
-              <div v-if="selectedDeviceTelemetry && rawDataFieldList && rawDataFieldList.length > 0 && selectedTrendChartData" class="glass-card rounded-2xl p-4 border border-sky-500/20 space-y-3">
-                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-slate-800">
+              <!-- Tab 2: Field Data Trends (raw_data3 Timeline Series) Cards Grid -->
+              <div v-if="selectedDeviceTelemetry && rawDataFieldList && rawDataFieldList.length > 0" class="space-y-3">
+                <div class="flex items-center justify-between pb-1 px-1">
                   <div class="flex items-center gap-2">
                     <i class="fa-solid fa-chart-line text-sky-400"></i>
                     <span class="text-xs font-bold text-white uppercase tracking-wider">Field Data Trends (raw_data3 Timeline Series)</span>
                     <span class="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-sky-500/10 text-sky-300 border border-sky-500/20">
-                      {{ selectedTrendField.toUpperCase() }}
+                      {{ rawDataFieldList.length }} Channels • Interactive Trend Cards
                     </span>
-                  </div>
-                  <div class="flex items-center gap-2">
-                    <span class="text-[10px] font-mono text-slate-400 uppercase font-bold">Focus Channel:</span>
-                    <select
-                      v-model="selectedTrendField"
-                      class="px-2.5 py-1 bg-slate-900 border border-slate-700 rounded-lg text-xs text-white font-mono focus:border-sky-500 focus:outline-none cursor-pointer"
-                    >
-                      <option v-for="f in availableTrendFields" :key="'t2-' + f.key" :value="f.key">
-                        {{ f.key.toUpperCase() }} — {{ f.label }}
-                      </option>
-                    </select>
                   </div>
                 </div>
 
-                <!-- Tab 2 Interactive Toolbar -->
-                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-2 rounded-lg bg-slate-900/80 border border-slate-800/80 text-[10px] font-mono">
-                  <!-- Zoom Window Controls -->
-                  <div class="flex items-center gap-1.5 flex-wrap">
-                    <span class="text-slate-500 font-sans font-bold uppercase text-[9px]">Timeline Window:</span>
-                    <div class="inline-flex rounded-lg bg-slate-950 p-0.5 border border-slate-800">
-                      <button
-                        type="button"
-                        @click="setFocusedChartZoom('all')"
-                        :class="focusedChartZoom === 'all' ? 'bg-sky-600 text-white font-bold' : 'text-slate-400 hover:text-white'"
-                        class="px-2 py-0.5 rounded transition cursor-pointer"
-                      >
-                        All ({{ selectedTrendChartData.totalPackets || selectedTrendChartData.count }})
-                      </button>
-                      <button
-                        v-if="(selectedTrendChartData.totalPackets || selectedTrendChartData.count) > 25"
-                        type="button"
-                        @click="setFocusedChartZoom(25)"
-                        :class="focusedChartZoom === 25 ? 'bg-sky-600 text-white font-bold' : 'text-slate-400 hover:text-white'"
-                        class="px-2 py-0.5 rounded transition cursor-pointer"
-                      >
-                        25 pkts
-                      </button>
-                      <button
-                        v-if="(selectedTrendChartData.totalPackets || selectedTrendChartData.count) > 10"
-                        type="button"
-                        @click="setFocusedChartZoom(10)"
-                        :class="focusedChartZoom === 10 ? 'bg-sky-600 text-white font-bold' : 'text-slate-400 hover:text-white'"
-                        class="px-2 py-0.5 rounded transition cursor-pointer"
-                      >
-                        10 pkts
-                      </button>
+                <!-- Cards Grid -->
+                <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3.5">
+                  <div
+                    v-for="field in rawDataFieldList"
+                    :key="'t2-card-' + field.key"
+                    class="p-3.5 rounded-xl border border-slate-800 bg-slate-950/80 hover:border-slate-700 space-y-2.5 transition flex flex-col justify-between"
+                  >
+                    <!-- Header -->
+                    <div class="flex items-start justify-between gap-2 border-b border-slate-800/80 pb-2">
+                      <div class="min-w-0">
+                        <div class="flex items-center gap-1.5 flex-wrap">
+                          <span class="px-2 py-0.5 rounded text-[10px] font-mono font-black border" :class="field.colors.badge">
+                            {{ field.key.toUpperCase() }}
+                          </span>
+                          <span class="text-xs font-bold text-slate-200 truncate" :title="field.label">
+                            {{ field.label }}
+                          </span>
+                        </div>
+                      </div>
+                      <div class="flex items-center gap-1 shrink-0">
+                        <button
+                          type="button"
+                          @click.stop="openFieldInspectModal(field)"
+                          class="p-1 rounded text-[10px] font-mono bg-slate-900 text-purple-300 hover:text-white hover:bg-purple-900/50 border border-purple-500/30 transition cursor-pointer"
+                          title="Inspect Waveform & Data Table in Fullscreen Modal"
+                        >
+                          <i class="fa-solid fa-expand text-[10px]"></i>
+                        </button>
+                        <button
+                          type="button"
+                          @click.stop="exportFieldCsv(field)"
+                          class="p-1 rounded text-[10px] font-mono bg-slate-900 text-slate-300 hover:text-white hover:bg-slate-800 border border-slate-700 transition cursor-pointer"
+                          title="Export CSV for this channel"
+                        >
+                          <i class="fa-solid fa-download text-[10px]"></i>
+                        </button>
+                      </div>
+                    </div>
+
+                    <!-- Toolbar -->
+                    <div class="flex items-center justify-between gap-1 text-[9px] font-mono py-1 px-1.5 bg-slate-900/80 rounded-lg border border-slate-800/80 flex-wrap">
+                      <div class="flex items-center gap-1">
+                        <span class="text-slate-500 text-[8px] uppercase tracking-wider font-sans font-bold">Zoom:</span>
+                        <div class="inline-flex rounded bg-slate-950 p-0.5 border border-slate-800">
+                          <button
+                            type="button"
+                            @click.stop="setCardZoom(field.key, 'all')"
+                            class="px-1.5 py-0.5 rounded text-[8px] font-bold transition cursor-pointer"
+                            :class="field.activeZoom === 'all' ? 'bg-sky-600 text-white' : 'text-slate-400 hover:text-white'"
+                          >
+                            All ({{ field.totalCount }})
+                          </button>
+                          <button
+                            v-if="field.totalCount > 25"
+                            type="button"
+                            @click.stop="setCardZoom(field.key, 25)"
+                            class="px-1.5 py-0.5 rounded text-[8px] font-bold transition cursor-pointer"
+                            :class="field.activeZoom === 25 ? 'bg-sky-600 text-white' : 'text-slate-400 hover:text-white'"
+                          >
+                            25
+                          </button>
+                          <button
+                            v-if="field.totalCount > 10"
+                            type="button"
+                            @click.stop="setCardZoom(field.key, 10)"
+                            class="px-1.5 py-0.5 rounded text-[8px] font-bold transition cursor-pointer"
+                            :class="field.activeZoom === 10 ? 'bg-sky-600 text-white' : 'text-slate-400 hover:text-white'"
+                          >
+                            10
+                          </button>
+                        </div>
+                      </div>
+
+                      <div class="flex items-center gap-1">
+                        <button
+                          type="button"
+                          @click.stop="toggleCardSetting(field.key, 'showArea')"
+                          class="px-1.5 py-0.5 rounded border text-[8px] font-bold transition cursor-pointer flex items-center gap-0.5"
+                          :class="field.showArea ? 'bg-sky-500/20 text-sky-300 border-sky-500/40' : 'bg-slate-950 text-slate-500 border-slate-800 hover:text-slate-300'"
+                        >
+                          <i class="fa-solid fa-chart-area"></i> Area
+                        </button>
+                        <button
+                          type="button"
+                          @click.stop="toggleCardSetting(field.key, 'showAvg')"
+                          class="px-1.5 py-0.5 rounded border text-[8px] font-bold transition cursor-pointer flex items-center gap-0.5"
+                          :class="field.showAvg ? 'bg-amber-500/20 text-amber-300 border-amber-500/40' : 'bg-slate-950 text-slate-500 border-slate-800 hover:text-slate-300'"
+                        >
+                          <i class="fa-solid fa-arrows-split-up-and-left"></i> Avg
+                        </button>
+                        <button
+                          type="button"
+                          @click.stop="toggleCardSetting(field.key, 'showDots')"
+                          class="px-1.5 py-0.5 rounded border text-[8px] font-bold transition cursor-pointer flex items-center gap-0.5"
+                          :class="field.showDots ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40' : 'bg-slate-950 text-slate-500 border-slate-800 hover:text-slate-300'"
+                        >
+                          <i class="fa-solid fa-circle-dot"></i> Dots
+                        </button>
+                        <button
+                          type="button"
+                          @click.stop="toggleCardSetting(field.key, 'showGrid')"
+                          class="px-1.5 py-0.5 rounded border text-[8px] font-bold transition cursor-pointer flex items-center gap-0.5"
+                          :class="field.showGrid ? 'bg-indigo-500/20 text-indigo-300 border-indigo-500/40' : 'bg-slate-950 text-slate-500 border-slate-800 hover:text-slate-300'"
+                        >
+                          <i class="fa-solid fa-border-all"></i> Grid
+                        </button>
+                      </div>
+                    </div>
+
+                    <!-- HUD or Stats row -->
+                    <div v-if="cardHoverMap[field.key]" class="flex items-center justify-between px-2.5 py-1 rounded-lg bg-sky-950 border border-sky-500/40 text-[10px] font-mono animate-in fade-in">
+                      <div class="flex items-center gap-1.5 text-sky-300 truncate">
+                        <i class="fa-solid fa-crosshairs text-sky-400 text-[9px] animate-pulse"></i>
+                        <span class="font-bold">#{{ cardHoverMap[field.key].index }}</span>
+                        <span class="text-slate-400 font-sans text-[9px]">({{ cardHoverMap[field.key].timeStr }})</span>
+                      </div>
+                      <div class="flex items-center gap-2 shrink-0">
+                        <strong class="text-white text-xs font-black">{{ formatStatNum(cardHoverMap[field.key].val) }}</strong>
+                        <span :class="cardHoverMap[field.key].isAboveAvg ? 'text-emerald-400' : 'text-amber-400'" class="text-[9px] font-bold">
+                          {{ cardHoverMap[field.key].deltaFormatted }} vs Avg
+                        </span>
+                      </div>
+                    </div>
+                    <div v-else class="grid grid-cols-4 gap-1 text-center font-mono text-[10px] py-1 bg-slate-900/60 rounded-lg border border-slate-800/60">
+                      <div>
+                        <span class="text-slate-500 block text-[8px] uppercase">Min</span>
+                        <span class="text-cyan-300 font-bold">{{ formatStatNum(field.min) }}</span>
+                      </div>
+                      <div>
+                        <span class="text-slate-500 block text-[8px] uppercase">Avg</span>
+                        <span class="text-emerald-400 font-extrabold">{{ formatStatNum(field.avg) }}</span>
+                      </div>
+                      <div>
+                        <span class="text-slate-500 block text-[8px] uppercase">Max</span>
+                        <span class="text-amber-300 font-bold">{{ formatStatNum(field.max) }}</span>
+                      </div>
+                      <div>
+                        <span class="text-slate-500 block text-[8px] uppercase">Latest</span>
+                        <span class="text-white font-black">{{ formatStatNum(field.latest) }}</span>
+                      </div>
+                    </div>
+
+                    <!-- SVG Trend Graph -->
+                    <div
+                      class="w-full bg-slate-900/80 rounded-lg p-1.5 border border-slate-800 relative chart-grid-container cursor-crosshair select-none"
+                      @mousemove="onCardChartMouseMove($event, field)"
+                      @mouseleave="onCardChartMouseLeave(field.key)"
+                    >
+                      <div class="absolute right-2 top-1 text-[8px] font-mono text-slate-500 pointer-events-none">Max: {{ formatStatNum(field.max) }}</div>
+                      <div class="absolute right-2 bottom-6 text-[8px] font-mono text-slate-500 pointer-events-none">Min: {{ formatStatNum(field.min) }}</div>
+
+                      <svg class="w-full h-24 overflow-visible" viewBox="0 0 320 88" preserveAspectRatio="none">
+                        <defs>
+                          <linearGradient :id="'grad-trace-t2-' + field.key" x1="0%" y1="0%" x2="0%" y2="100%">
+                            <stop offset="0%" :stop-color="field.colors.stroke" stop-opacity="0.28" />
+                            <stop offset="100%" :stop-color="field.colors.stroke" stop-opacity="0.01" />
+                          </linearGradient>
+                          <pattern :id="'trace-grid-t2-' + field.key" width="73" height="17.5" patternUnits="userSpaceOnUse">
+                            <path d="M 73 0 L 0 0 0 17.5" fill="none" stroke="rgba(148, 163, 184, 0.12)" stroke-width="0.8" stroke-dasharray="2,2" />
+                          </pattern>
+                        </defs>
+                        <rect v-if="field.showGrid" x="14" y="8" width="292" height="70" :fill="'url(#trace-grid-t2-' + field.key + ')'" />
+                        <rect x="14" y="8" width="292" height="70" fill="none" stroke="rgba(148, 163, 184, 0.22)" stroke-width="1" rx="2" />
+                        <g v-if="field.showGrid">
+                          <line x1="14" y1="25.5" x2="306" y2="25.5" stroke="rgba(148, 163, 184, 0.15)" stroke-width="0.8" stroke-dasharray="3,3" />
+                          <line x1="14" y1="43" x2="306" y2="43" stroke="rgba(148, 163, 184, 0.18)" stroke-width="0.8" stroke-dasharray="3,3" />
+                          <line x1="14" y1="60.5" x2="306" y2="60.5" stroke="rgba(148, 163, 184, 0.15)" stroke-width="0.8" stroke-dasharray="3,3" />
+                          <line x1="87" y1="8" x2="87" y2="78" stroke="rgba(148, 163, 184, 0.15)" stroke-width="0.8" stroke-dasharray="3,3" />
+                          <line x1="160" y1="8" x2="160" y2="78" stroke="rgba(148, 163, 184, 0.18)" stroke-width="0.8" stroke-dasharray="3,3" />
+                          <line x1="233" y1="8" x2="233" y2="78" stroke="rgba(148, 163, 184, 0.15)" stroke-width="0.8" stroke-dasharray="3,3" />
+                        </g>
+                        <line v-if="field.showAvg" x1="14" :y1="field.avgY" x2="306" :y2="field.avgY" stroke="rgba(245, 158, 11, 0.75)" stroke-width="1.2" stroke-dasharray="4,3" />
+                        <polygon v-if="field.showArea" :points="field.areaPolygonStr" :fill="'url(#grad-trace-t2-' + field.key + ')'" />
+                        <polyline fill="none" :stroke="field.colors.stroke" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" :points="field.polylineStr" />
+                        <g v-if="field.showDots">
+                          <circle v-for="p in field.renderedPoints" :key="'t2-dot-' + field.key + '-' + p.index" :cx="p.x" :cy="p.y" :r="cardHoverMap[field.key]?.index === p.index ? 4.5 : 2.2" :fill="field.colors.stroke" stroke="#0f172a" stroke-width="1" class="transition-all" />
+                        </g>
+                        <g v-if="cardHoverMap[field.key]">
+                          <line :x1="cardHoverMap[field.key].x" y1="8" :x2="cardHoverMap[field.key].x" y2="78" stroke="#38bdf8" stroke-width="1" stroke-dasharray="2,2" />
+                          <line x1="14" :y1="cardHoverMap[field.key].y" x2="306" :y2="cardHoverMap[field.key].y" stroke="rgba(56, 189, 248, 0.5)" stroke-width="0.8" stroke-dasharray="2,2" />
+                          <circle :cx="cardHoverMap[field.key].x" :cy="cardHoverMap[field.key].y" r="5" fill="none" stroke="#38bdf8" stroke-width="1.5" class="animate-ping" />
+                          <circle :cx="cardHoverMap[field.key].x" :cy="cardHoverMap[field.key].y" r="3.5" fill="#38bdf8" stroke="#ffffff" stroke-width="1.5" />
+                        </g>
+                      </svg>
+                      <div class="flex items-center justify-between text-[8px] font-mono text-slate-500 pt-1 border-t border-slate-800/80 mt-1">
+                        <span>{{ field.startTime }}</span>
+                        <span>{{ field.endTime }}</span>
+                      </div>
                     </div>
                   </div>
-
-                  <!-- Toggles & Actions -->
-                  <div class="flex items-center gap-1.5 flex-wrap">
-                    <button
-                      type="button"
-                      @click="focusedShowArea = !focusedShowArea"
-                      :class="focusedShowArea ? 'bg-sky-500/20 text-sky-300 border-sky-500/40' : 'bg-slate-950 text-slate-500 border-slate-800'"
-                      class="px-2 py-0.5 rounded border transition cursor-pointer flex items-center gap-1"
-                    >
-                      <i class="fa-solid fa-chart-area text-[9px]"></i> Area
-                    </button>
-                    <button
-                      type="button"
-                      @click="focusedShowAvg = !focusedShowAvg"
-                      :class="focusedShowAvg ? 'bg-amber-500/20 text-amber-300 border-amber-500/40' : 'bg-slate-950 text-slate-500 border-slate-800'"
-                      class="px-2 py-0.5 rounded border transition cursor-pointer flex items-center gap-1"
-                    >
-                      <i class="fa-solid fa-arrows-split-up-and-left text-[9px]"></i> Avg
-                    </button>
-                    <button
-                      type="button"
-                      @click="focusedShowDots = !focusedShowDots"
-                      :class="focusedShowDots ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40' : 'bg-slate-950 text-slate-500 border-slate-800'"
-                      class="px-2 py-0.5 rounded border transition cursor-pointer flex items-center gap-1"
-                    >
-                      <i class="fa-solid fa-circle-dot text-[9px]"></i> Dots
-                    </button>
-                    <button
-                      type="button"
-                      @click="openFieldInspectModal(selectedTrendChartData.fieldObj || selectedTrendChartData)"
-                      class="px-2.5 py-0.5 rounded border border-purple-500/40 bg-purple-500/10 text-purple-300 hover:bg-purple-500/20 font-bold transition cursor-pointer flex items-center gap-1"
-                    >
-                      <i class="fa-solid fa-expand text-[9px]"></i> Inspect
-                    </button>
-                    <button
-                      type="button"
-                      @click="exportFieldCsv(selectedTrendChartData.fieldObj || selectedTrendChartData)"
-                      class="px-2.5 py-0.5 rounded border border-slate-700 bg-slate-950 text-slate-300 hover:text-white hover:bg-slate-800 transition cursor-pointer flex items-center gap-1"
-                    >
-                      <i class="fa-solid fa-download text-[9px]"></i> CSV
-                    </button>
-                  </div>
-                </div>
-
-                <!-- Live HUD Readout / Quick Stats Bar -->
-                <div v-if="focusedHoverPoint" class="p-2.5 rounded-lg bg-sky-950 border border-sky-500/40 flex flex-wrap items-center justify-between gap-2 font-mono text-xs animate-in fade-in">
-                  <div class="flex items-center gap-2 text-sky-300">
-                    <i class="fa-solid fa-crosshairs text-sky-400 text-sm animate-pulse"></i>
-                    <span class="font-bold">PACKET #{{ focusedHoverPoint.index }}</span>
-                    <span class="text-slate-400">| TIME: <strong class="text-white">{{ focusedHoverPoint.timeStr }}</strong></span>
-                  </div>
-                  <div class="flex items-center gap-3">
-                    <span class="text-slate-300">VALUE: <strong class="text-white text-sm font-black">{{ focusedHoverPoint.valFormatted }}</strong></span>
-                    <span :class="focusedHoverPoint.isAboveAvg ? 'text-emerald-400' : 'text-amber-400'" class="font-bold">
-                      {{ focusedHoverPoint.deltaFormatted }} vs Mean
-                    </span>
-                  </div>
-                </div>
-                <div v-else class="grid grid-cols-2 sm:grid-cols-5 gap-2 font-mono text-xs">
-                  <div class="p-2 rounded-lg bg-slate-950/70 border border-slate-800 flex items-center justify-between">
-                    <span class="text-slate-500 text-[10px] uppercase font-sans">Min Value</span>
-                    <strong class="text-cyan-300 font-bold">{{ formatStatNum(selectedTrendChartData.rawMin) }}</strong>
-                  </div>
-                  <div class="p-2 rounded-lg bg-slate-950/70 border border-slate-800 flex items-center justify-between">
-                    <span class="text-slate-500 text-[10px] uppercase font-sans">Avg Value</span>
-                    <strong class="text-emerald-400 font-bold">{{ formatStatNum(selectedTrendChartData.rawAvg) }}</strong>
-                  </div>
-                  <div class="p-2 rounded-lg bg-slate-950/70 border border-slate-800 flex items-center justify-between">
-                    <span class="text-slate-500 text-[10px] uppercase font-sans">Max Value</span>
-                    <strong class="text-amber-300 font-bold">{{ formatStatNum(selectedTrendChartData.rawMax) }}</strong>
-                  </div>
-                  <div class="p-2 rounded-lg bg-slate-950/70 border border-slate-800 flex items-center justify-between">
-                    <span class="text-slate-500 text-[10px] uppercase font-sans">Latest</span>
-                    <strong class="text-white font-bold">{{ formatStatNum(selectedTrendChartData.latestVal) }}</strong>
-                  </div>
-                  <div class="p-2 rounded-lg bg-slate-950/70 border border-slate-800 flex items-center justify-between col-span-2 sm:col-span-1">
-                    <span class="text-slate-500 text-[10px] uppercase font-sans">Packets</span>
-                    <strong class="text-sky-300 font-bold">
-                      <span v-if="selectedTrendChartData.isZoomed" class="text-amber-400">Zoomed: </span>{{ selectedTrendChartData.count }} pkts
-                    </strong>
-                  </div>
-                </div>
-
-                <!-- SVG Chart -->
-                <div
-                  class="w-full bg-slate-950 rounded-xl border border-slate-800 p-2 sm:p-3 relative overflow-hidden cursor-crosshair select-none"
-                  @mousemove="onFocusedChartMouseMove($event)"
-                  @mouseleave="onFocusedChartMouseLeave()"
-                >
-                  <svg class="w-full h-56 overflow-visible" viewBox="0 0 820 240" preserveAspectRatio="none">
-                    <defs>
-                      <linearGradient id="trendDetailAreaGradT2" x1="0%" y1="0%" x2="0%" y2="100%">
-                        <stop offset="0%" :stop-color="selectedTrendChartData.colors?.stroke || '#0ea5e9'" stop-opacity="0.30" />
-                        <stop offset="100%" :stop-color="selectedTrendChartData.colors?.stroke || '#0ea5e9'" stop-opacity="0.01" />
-                      </linearGradient>
-                      <pattern id="detail-oscilloscope-grid-t2" width="73" height="37" patternUnits="userSpaceOnUse">
-                        <path d="M 73 0 L 0 0 0 37" fill="none" stroke="rgba(148, 163, 184, 0.08)" stroke-width="0.8" stroke-dasharray="2,2" />
-                      </pattern>
-                    </defs>
-
-                    <rect x="70" y="20" width="730" height="185" fill="#080e1a" rx="4" stroke="#1e293b" stroke-width="1" />
-                    <rect v-if="focusedShowGrid" x="70" y="20" width="730" height="185" fill="url(#detail-oscilloscope-grid-t2)" rx="4" />
-
-                    <g v-for="tick in selectedTrendChartData.yTicks" :key="'t2ytick-' + tick.ratio">
-                      <line v-if="focusedShowGrid" x1="70" :y1="tick.y" x2="800" :y2="tick.y" stroke="rgba(148, 163, 184, 0.18)" stroke-width="1" stroke-dasharray="4,4" />
-                      <line x1="64" :y1="tick.y" x2="70" :y2="tick.y" stroke="#64748b" stroke-width="1.5" />
-                      <text x="60" :y="tick.y + 3.5" text-anchor="end" fill="#94a3b8" font-size="10" font-family="monospace" font-weight="600">{{ tick.valFormatted }}</text>
-                    </g>
-
-                    <g v-for="(xtick, xIdx) in selectedTrendChartData.xTicks" :key="'t2xtick-' + xIdx">
-                      <line v-if="focusedShowGrid" :x1="xtick.x" y1="20" :x2="xtick.x" y2="205" stroke="rgba(148, 163, 184, 0.18)" stroke-width="1" stroke-dasharray="3,3" />
-                      <line :x1="xtick.x" y1="205" :x2="xtick.x" y2="210" stroke="#64748b" stroke-width="1.5" />
-                      <text :x="xtick.x" y="223" text-anchor="middle" fill="#94a3b8" font-size="9" font-family="monospace">{{ xtick.label }}</text>
-                    </g>
-
-                    <g v-if="focusedShowAvg">
-                      <line x1="70" :y1="selectedTrendChartData.avgY" x2="800" :y2="selectedTrendChartData.avgY" stroke="#f59e0b" stroke-width="1.5" stroke-dasharray="6,3" stroke-opacity="0.8" />
-                      <text x="795" :y="selectedTrendChartData.avgY - 4" text-anchor="end" fill="#f59e0b" font-size="9" font-family="monospace" font-weight="bold">AVG: {{ formatStatNum(selectedTrendChartData.rawAvg) }}</text>
-                    </g>
-
-                    <polygon v-if="focusedShowArea" :points="selectedTrendChartData.areaPolygonStr" fill="url(#trendDetailAreaGradT2)" />
-                    <polyline fill="none" :stroke="selectedTrendChartData.colors?.stroke || '#0ea5e9'" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" :points="selectedTrendChartData.polylineStr" />
-                    
-                    <g v-if="focusedShowDots">
-                      <circle v-for="p in selectedTrendChartData.renderedPoints" :key="'t2-pt-' + p.index" :cx="p.x" :cy="p.y" :r="focusedHoverPoint?.index === p.index ? 5.5 : 3" :fill="selectedTrendChartData.colors?.stroke || '#0ea5e9'" stroke="#0f172a" stroke-width="1.5" class="transition-all" />
-                    </g>
-
-                    <!-- Interactive Hover Crosshair Guidelines & Snapped Dot -->
-                    <g v-if="focusedHoverPoint">
-                      <line :x1="focusedHoverPoint.x" y1="20" :x2="focusedHoverPoint.x" y2="205" stroke="#38bdf8" stroke-width="1.5" stroke-dasharray="3,3" />
-                      <line x1="70" :y1="focusedHoverPoint.y" x2="800" :y2="focusedHoverPoint.y" stroke="rgba(56, 189, 248, 0.45)" stroke-width="1.2" stroke-dasharray="3,3" />
-                      <circle :cx="focusedHoverPoint.x" :cy="focusedHoverPoint.y" r="8" fill="none" stroke="#38bdf8" stroke-width="2" class="animate-ping" />
-                      <circle :cx="focusedHoverPoint.x" :cy="focusedHoverPoint.y" r="5" fill="#38bdf8" stroke="#ffffff" stroke-width="2" />
-                    </g>
-                  </svg>
                 </div>
               </div>
 
@@ -3279,13 +2748,13 @@ function useTraceabilityModule(ctx) {
       }
 
       // CRUCIAL RULE: If field is null or has no data, skip it!
-      if (allValidPoints.length === 0) {
+      let validPoints = allValidPoints;
+      if (validPoints.length === 0) {
         continue;
       }
 
       // Apply zoom if set
       const effectiveZoom = cardZoomMap.value[key] || globalCardZoom.value || 'all';
-      let validPoints = allValidPoints;
       if (effectiveZoom !== 'all' && Number(effectiveZoom) > 0 && Number(effectiveZoom) < allValidPoints.length) {
         validPoints = allValidPoints.slice(-Number(effectiveZoom));
       }
