@@ -880,43 +880,45 @@ export const TRACEABILITY_TEMPLATE = `
                     </div>
                   </div>
 
-                  <!-- Interactive Live HUD Readout / KPI Metric Strip -->
-                  <div v-if="focusedHoverPoint" class="p-2.5 rounded-lg bg-sky-950 border border-sky-500/40 flex flex-wrap items-center justify-between gap-2 font-mono text-xs animate-in fade-in">
-                    <div class="flex items-center gap-2 text-sky-300">
-                      <i class="fa-solid fa-crosshairs text-sky-400 text-xs animate-pulse"></i>
-                      <span class="font-bold">PACKET #{{ focusedHoverPoint.index }}</span>
-                      <span class="text-slate-400">| TIME: <strong class="text-white">{{ focusedHoverPoint.timeStr }}</strong></span>
+                  <!-- Interactive Live HUD Readout / KPI Metric Strip with Stable Height Container -->
+                  <div class="min-h-[46px] flex items-center">
+                    <div v-if="focusedHoverPoint" class="w-full p-2.5 rounded-lg bg-sky-950 border border-sky-500/40 flex flex-wrap items-center justify-between gap-2 font-mono text-xs animate-in fade-in">
+                      <div class="flex items-center gap-2 text-sky-300">
+                        <i class="fa-solid fa-crosshairs text-sky-400 text-xs animate-pulse"></i>
+                        <span class="font-bold">PACKET #{{ focusedHoverPoint.index }}</span>
+                        <span class="text-slate-400">| TIME: <strong class="text-white">{{ focusedHoverPoint.timeStr }}</strong></span>
+                      </div>
+                      <div class="flex items-center gap-3">
+                        <span class="text-slate-300">MEASURED VALUE: <strong class="text-white text-sm font-black">{{ focusedHoverPoint.valFormatted }}</strong></span>
+                        <span :class="focusedHoverPoint.isAboveAvg ? 'text-emerald-400' : 'text-amber-400'" class="font-bold">
+                          {{ focusedHoverPoint.deltaFormatted }} vs Avg ({{ focusedHoverPoint.pctFormatted }})
+                        </span>
+                      </div>
                     </div>
-                    <div class="flex items-center gap-3">
-                      <span class="text-slate-300">MEASURED VALUE: <strong class="text-white text-sm font-black">{{ focusedHoverPoint.valFormatted }}</strong></span>
-                      <span :class="focusedHoverPoint.isAboveAvg ? 'text-emerald-400' : 'text-amber-400'" class="font-bold">
-                        {{ focusedHoverPoint.deltaFormatted }} vs Avg ({{ focusedHoverPoint.pctFormatted }})
-                      </span>
-                    </div>
-                  </div>
-                  <div v-else-if="selectedTrendChartData" class="grid grid-cols-2 sm:grid-cols-5 gap-2 font-mono text-xs">
-                    <div class="p-2 rounded-lg bg-slate-950/70 border border-slate-800 flex items-center justify-between">
-                      <span class="text-slate-500 text-[10px] uppercase font-sans">Min Value</span>
-                      <strong class="text-cyan-300 font-bold">{{ formatStatNum(selectedTrendChartData.rawMin) }}</strong>
-                    </div>
-                    <div class="p-2 rounded-lg bg-slate-950/70 border border-slate-800 flex items-center justify-between">
-                      <span class="text-slate-500 text-[10px] uppercase font-sans">Avg Value</span>
-                      <strong class="text-emerald-400 font-bold">{{ formatStatNum(selectedTrendChartData.rawAvg) }}</strong>
-                    </div>
-                    <div class="p-2 rounded-lg bg-slate-950/70 border border-slate-800 flex items-center justify-between">
-                      <span class="text-slate-500 text-[10px] uppercase font-sans">Max Value</span>
-                      <strong class="text-amber-300 font-bold">{{ formatStatNum(selectedTrendChartData.rawMax) }}</strong>
-                    </div>
-                    <div class="p-2 rounded-lg bg-slate-950/70 border border-slate-800 flex items-center justify-between">
-                      <span class="text-slate-500 text-[10px] uppercase font-sans">Latest</span>
-                      <strong class="text-white font-bold">{{ formatStatNum(selectedTrendChartData.latestVal) }}</strong>
-                    </div>
-                    <div class="p-2 rounded-lg bg-slate-950/70 border border-slate-800 flex items-center justify-between col-span-2 sm:col-span-1">
-                      <span class="text-slate-500 text-[10px] uppercase font-sans">Packets</span>
-                      <strong class="text-sky-300 font-bold">
-                        <span v-if="selectedTrendChartData.isZoomed" class="text-amber-400">Zoomed: </span>
-                        {{ selectedTrendChartData.count }} / {{ selectedTrendChartData.totalPackets || selectedTrendChartData.count }}
-                      </strong>
+                    <div v-else-if="selectedTrendChartData" class="w-full grid grid-cols-2 sm:grid-cols-5 gap-2 font-mono text-xs">
+                      <div class="p-2 rounded-lg bg-slate-950/70 border border-slate-800 flex items-center justify-between">
+                        <span class="text-slate-500 text-[10px] uppercase font-sans">Min Value</span>
+                        <strong class="text-cyan-300 font-bold">{{ formatStatNum(selectedTrendChartData.rawMin) }}</strong>
+                      </div>
+                      <div class="p-2 rounded-lg bg-slate-950/70 border border-slate-800 flex items-center justify-between">
+                        <span class="text-slate-500 text-[10px] uppercase font-sans">Avg Value</span>
+                        <strong class="text-emerald-400 font-bold">{{ formatStatNum(selectedTrendChartData.rawAvg) }}</strong>
+                      </div>
+                      <div class="p-2 rounded-lg bg-slate-950/70 border border-slate-800 flex items-center justify-between">
+                        <span class="text-slate-500 text-[10px] uppercase font-sans">Max Value</span>
+                        <strong class="text-amber-300 font-bold">{{ formatStatNum(selectedTrendChartData.rawMax) }}</strong>
+                      </div>
+                      <div class="p-2 rounded-lg bg-slate-950/70 border border-slate-800 flex items-center justify-between">
+                        <span class="text-slate-500 text-[10px] uppercase font-sans">Latest</span>
+                        <strong class="text-white font-bold">{{ formatStatNum(selectedTrendChartData.latestVal) }}</strong>
+                      </div>
+                      <div class="p-2 rounded-lg bg-slate-950/70 border border-slate-800 flex items-center justify-between col-span-2 sm:col-span-1">
+                        <span class="text-slate-500 text-[10px] uppercase font-sans">Packets</span>
+                        <strong class="text-sky-300 font-bold">
+                          <span v-if="selectedTrendChartData.isZoomed" class="text-amber-400">Zoomed: </span>
+                          {{ selectedTrendChartData.count }} / {{ selectedTrendChartData.totalPackets || selectedTrendChartData.count }}
+                        </strong>
+                      </div>
                     </div>
                   </div>
 
@@ -1050,22 +1052,21 @@ export const TRACEABILITY_TEMPLATE = `
                         />
 
                         <!-- Data Points (Circles) -->
-                        <g v-if="focusedShowDots">
+                        <g v-if="focusedShowDots" class="pointer-events-none">
                           <circle
                             v-for="p in selectedTrendChartData.renderedPoints"
                             :key="'pt-cp-' + p.index"
                             :cx="p.x"
                             :cy="p.y"
-                            :r="focusedHoverPoint?.index === p.index ? 6 : 3"
+                            :r="focusedHoverPoint?.index === p.index ? 5 : 3"
                             :fill="selectedTrendChartData.colors?.stroke || '#0ea5e9'"
                             stroke="#0f172a"
                             stroke-width="1.5"
-                            class="transition-all"
                           />
                         </g>
 
                         <!-- Interactive Crosshair Lines & Snapped Point Indicator -->
-                        <g v-if="focusedHoverPoint">
+                        <g v-if="focusedHoverPoint" class="pointer-events-none">
                           <line
                             :x1="focusedHoverPoint.x"
                             y1="20"
@@ -1090,13 +1091,13 @@ export const TRACEABILITY_TEMPLATE = `
                             r="8"
                             fill="none"
                             stroke="#38bdf8"
-                            stroke-width="2"
-                            class="animate-ping"
+                            stroke-width="1.5"
+                            stroke-opacity="0.6"
                           />
                           <circle
                             :cx="focusedHoverPoint.x"
                             :cy="focusedHoverPoint.y"
-                            r="5.5"
+                            r="5"
                             fill="#38bdf8"
                             stroke="#ffffff"
                             stroke-width="2"
@@ -1422,39 +1423,40 @@ export const TRACEABILITY_TEMPLATE = `
                         </div>
                       </div>
 
-                      <!-- Interactive HUD Strip / Mini Stats Row -->
-                      <!-- If user is hovering over the card's SVG, show real-time dynamic readout -->
-                      <div v-if="cardHoverMap[field.key]" class="flex items-center justify-between px-2.5 py-1 rounded-lg bg-sky-950 border border-sky-500/40 text-[10px] font-mono animate-in fade-in">
-                        <div class="flex items-center gap-1.5 text-sky-300 truncate">
-                          <i class="fa-solid fa-crosshairs text-sky-400 text-[9px] animate-pulse"></i>
-                          <span class="font-bold">#{{ cardHoverMap[field.key].index }}</span>
-                          <span class="text-slate-400 font-sans text-[9px]">({{ cardHoverMap[field.key].timeStr }})</span>
+                      <!-- Interactive HUD Strip / Mini Stats Row (Stable Height Container) -->
+                      <div class="h-9 min-h-[36px] flex items-center mb-1">
+                        <div v-if="cardHoverMap[field.key]" class="w-full flex items-center justify-between px-2.5 py-1 rounded-lg bg-sky-950 border border-sky-500/40 text-[10px] font-mono animate-in fade-in">
+                          <div class="flex items-center gap-1.5 text-sky-300 truncate">
+                            <i class="fa-solid fa-crosshairs text-sky-400 text-[9px] animate-pulse"></i>
+                            <span class="font-bold">#{{ cardHoverMap[field.key].index }}</span>
+                            <span class="text-slate-400 font-sans text-[9px]">({{ cardHoverMap[field.key].timeStr }})</span>
+                          </div>
+                          <div class="flex items-center gap-2 shrink-0">
+                            <strong class="text-white text-xs font-black">{{ formatStatNum(cardHoverMap[field.key].val) }}</strong>
+                            <span :class="cardHoverMap[field.key].isAboveAvg ? 'text-emerald-400' : 'text-amber-400'" class="text-[9px] font-bold">
+                              {{ cardHoverMap[field.key].deltaFormatted }} vs Avg
+                            </span>
+                          </div>
                         </div>
-                        <div class="flex items-center gap-2 shrink-0">
-                          <strong class="text-white text-xs font-black">{{ formatStatNum(cardHoverMap[field.key].val) }}</strong>
-                          <span :class="cardHoverMap[field.key].isAboveAvg ? 'text-emerald-400' : 'text-amber-400'" class="text-[9px] font-bold">
-                            {{ cardHoverMap[field.key].deltaFormatted }} vs Avg
-                          </span>
-                        </div>
-                      </div>
 
-                      <!-- Standard Min / Avg / Max / Latest row when not hovering -->
-                      <div v-else class="grid grid-cols-4 gap-1 text-center font-mono text-[10px] py-1 bg-slate-900/60 rounded-lg border border-slate-800/60">
-                        <div>
-                          <span class="text-slate-500 block text-[8px] uppercase">Min</span>
-                          <span class="text-cyan-300 font-bold">{{ formatStatNum(field.min) }}</span>
-                        </div>
-                        <div>
-                          <span class="text-slate-500 block text-[8px] uppercase">Avg</span>
-                          <span class="text-emerald-400 font-extrabold">{{ formatStatNum(field.avg) }}</span>
-                        </div>
-                        <div>
-                          <span class="text-slate-500 block text-[8px] uppercase">Max</span>
-                          <span class="text-amber-300 font-bold">{{ formatStatNum(field.max) }}</span>
-                        </div>
-                        <div>
-                          <span class="text-slate-500 block text-[8px] uppercase">Latest</span>
-                          <span class="text-white font-black">{{ formatStatNum(field.latest) }}</span>
+                        <!-- Standard Min / Avg / Max / Latest row when not hovering -->
+                        <div v-else class="w-full grid grid-cols-4 gap-1 text-center font-mono text-[10px] py-1 bg-slate-900/60 rounded-lg border border-slate-800/60">
+                          <div>
+                            <span class="text-slate-500 block text-[8px] uppercase">Min</span>
+                            <span class="text-cyan-300 font-bold">{{ formatStatNum(field.min) }}</span>
+                          </div>
+                          <div>
+                            <span class="text-slate-500 block text-[8px] uppercase">Avg</span>
+                            <span class="text-emerald-400 font-extrabold">{{ formatStatNum(field.avg) }}</span>
+                          </div>
+                          <div>
+                            <span class="text-slate-500 block text-[8px] uppercase">Max</span>
+                            <span class="text-amber-300 font-bold">{{ formatStatNum(field.max) }}</span>
+                          </div>
+                          <div>
+                            <span class="text-slate-500 block text-[8px] uppercase">Latest</span>
+                            <span class="text-white font-black">{{ formatStatNum(field.latest) }}</span>
+                          </div>
                         </div>
                       </div>
 
@@ -1530,7 +1532,7 @@ export const TRACEABILITY_TEMPLATE = `
                           />
 
                           <!-- Interactive Data Points -->
-                          <g v-if="field.showDots">
+                          <g v-if="field.showDots" class="pointer-events-none">
                             <circle
                               v-for="p in field.renderedPoints"
                               :key="p.index"
@@ -1539,13 +1541,12 @@ export const TRACEABILITY_TEMPLATE = `
                               :r="cardHoverMap[field.key]?.index === p.index ? 4.5 : 2.5"
                               :fill="field.colors.stroke"
                               stroke="#0f172a"
-                              stroke-width="1.5"
-                              class="transition-all"
+                              stroke-width="1.2"
                             />
                           </g>
 
                           <!-- Interactive Hover Crosshair Lines & Snapped Dot -->
-                          <g v-if="cardHoverMap[field.key]">
+                          <g v-if="cardHoverMap[field.key]" class="pointer-events-none">
                             <line
                               :x1="cardHoverMap[field.key].x"
                               y1="8"
@@ -1567,10 +1568,10 @@ export const TRACEABILITY_TEMPLATE = `
                             <circle
                               :cx="cardHoverMap[field.key].x"
                               :cy="cardHoverMap[field.key].y"
-                              r="5.5"
+                              r="5"
                               fill="#38bdf8"
                               stroke="#ffffff"
-                              stroke-width="2"
+                              stroke-width="1.8"
                             />
                           </g>
                         </svg>
@@ -2240,19 +2241,21 @@ export const TRACEABILITY_TEMPLATE = `
                       />
 
                       <!-- Data Points (Circles with hover tooltips) -->
-                      <circle
-                        v-for="p in selectedTrendChartData.renderedPoints"
-                        :key="'pt-dt-' + p.index"
-                        :cx="p.x"
-                        :cy="p.y"
-                        r="3.5"
-                        fill="#10b981"
-                        stroke="#0f172a"
-                        stroke-width="1.5"
-                        class="cursor-pointer hover:scale-150 transition-transform origin-center"
-                      >
-                        <title>Packet #{{ p.index }} | Time: {{ p.timeStr }} | Value: {{ p.valFormatted }}</title>
-                      </circle>
+                      <g>
+                        <circle
+                          v-for="p in selectedTrendChartData.renderedPoints"
+                          :key="'pt-dt-' + p.index"
+                          :cx="p.x"
+                          :cy="p.y"
+                          r="3.5"
+                          fill="#10b981"
+                          stroke="#0f172a"
+                          stroke-width="1.5"
+                          class="cursor-pointer transition-colors duration-150 hover:fill-white hover:stroke-emerald-400 hover:stroke-[3px]"
+                        >
+                          <title>Packet #{{ p.index }} | Time: {{ p.timeStr }} | Value: {{ p.valFormatted }}</title>
+                        </circle>
+                      </g>
                     </svg>
 
                     <!-- Chart Legend & Boundary Note -->
@@ -2560,44 +2563,46 @@ export const TRACEABILITY_MODALS = `
           </div>
         </div>
 
-        <!-- Interactive Live HUD Readout / Metric Strip -->
-        <div v-if="inspectHoverPoint" class="p-2.5 rounded-xl bg-sky-950 border border-sky-500/40 flex flex-wrap items-center justify-between gap-2 font-mono text-xs animate-in fade-in">
-          <div class="flex items-center gap-2 text-sky-300">
-            <i class="fa-solid fa-crosshairs text-sky-400 text-sm animate-pulse"></i>
-            <span class="font-bold">PACKET #{{ inspectHoverPoint.index }}</span>
-            <span class="text-slate-400">| TIME: <strong class="text-white">{{ inspectHoverPoint.timeStr }}</strong></span>
+        <!-- Interactive Live HUD Readout / Metric Strip (Stable Height Container) -->
+        <div class="min-h-[52px] flex items-center">
+          <div v-if="inspectHoverPoint" class="w-full p-2.5 rounded-xl bg-sky-950 border border-sky-500/40 flex flex-wrap items-center justify-between gap-2 font-mono text-xs animate-in fade-in">
+            <div class="flex items-center gap-2 text-sky-300">
+              <i class="fa-solid fa-crosshairs text-sky-400 text-sm animate-pulse"></i>
+              <span class="font-bold">PACKET #{{ inspectHoverPoint.index }}</span>
+              <span class="text-slate-400">| TIME: <strong class="text-white">{{ inspectHoverPoint.timeStr }}</strong></span>
+            </div>
+            <div class="flex items-center gap-3">
+              <span class="text-slate-300">MEASURED: <strong class="text-white text-sm font-black">{{ inspectHoverPoint.valFormatted }}</strong></span>
+              <span :class="inspectHoverPoint.isAboveAvg ? 'text-emerald-400' : 'text-amber-400'" class="font-bold">
+                {{ inspectHoverPoint.deltaFormatted }} vs Avg ({{ inspectHoverPoint.status }})
+              </span>
+            </div>
           </div>
-          <div class="flex items-center gap-3">
-            <span class="text-slate-300">MEASURED: <strong class="text-white text-sm font-black">{{ inspectHoverPoint.valFormatted }}</strong></span>
-            <span :class="inspectHoverPoint.isAboveAvg ? 'text-emerald-400' : 'text-amber-400'" class="font-bold">
-              {{ inspectHoverPoint.deltaFormatted }} vs Avg ({{ inspectHoverPoint.status }})
-            </span>
-          </div>
-        </div>
-        <div v-else class="grid grid-cols-2 sm:grid-cols-6 gap-2 font-mono text-xs">
-          <div class="p-2 rounded-xl bg-slate-950 border border-slate-800 flex flex-col justify-between">
-            <span class="text-slate-500 text-[9px] uppercase font-sans">Min Value</span>
-            <strong class="text-cyan-300 text-sm font-black mt-0.5">{{ formatStatNum(inspectChartData.rawMin) }}</strong>
-          </div>
-          <div class="p-2 rounded-xl bg-slate-950 border border-slate-800 flex flex-col justify-between">
-            <span class="text-slate-500 text-[9px] uppercase font-sans">Average (Mean)</span>
-            <strong class="text-emerald-400 text-sm font-black mt-0.5">{{ formatStatNum(inspectChartData.rawAvg) }}</strong>
-          </div>
-          <div class="p-2 rounded-xl bg-slate-950 border border-slate-800 flex flex-col justify-between">
-            <span class="text-slate-500 text-[9px] uppercase font-sans">Max Value</span>
-            <strong class="text-amber-300 text-sm font-black mt-0.5">{{ formatStatNum(inspectChartData.rawMax) }}</strong>
-          </div>
-          <div class="p-2 rounded-xl bg-slate-950 border border-slate-800 flex flex-col justify-between">
-            <span class="text-slate-500 text-[9px] uppercase font-sans">Peak Span (Δ)</span>
-            <strong class="text-purple-300 text-sm font-black mt-0.5">{{ formatStatNum(inspectChartData.span) }}</strong>
-          </div>
-          <div class="p-2 rounded-xl bg-slate-950 border border-slate-800 flex flex-col justify-between">
-            <span class="text-slate-500 text-[9px] uppercase font-sans">Std Dev (σ)</span>
-            <strong class="text-indigo-300 text-sm font-black mt-0.5">{{ formatStatNum(inspectChartData.stdDev) }}</strong>
-          </div>
-          <div class="p-2 rounded-xl bg-slate-950 border border-slate-800 flex flex-col justify-between">
-            <span class="text-slate-500 text-[9px] uppercase font-sans">Latest</span>
-            <strong class="text-white text-sm font-black mt-0.5">{{ formatStatNum(inspectChartData.latestVal) }}</strong>
+          <div v-else class="w-full grid grid-cols-2 sm:grid-cols-6 gap-2 font-mono text-xs">
+            <div class="p-2 rounded-xl bg-slate-950 border border-slate-800 flex flex-col justify-between">
+              <span class="text-slate-500 text-[9px] uppercase font-sans">Min Value</span>
+              <strong class="text-cyan-300 text-sm font-black mt-0.5">{{ formatStatNum(inspectChartData.rawMin) }}</strong>
+            </div>
+            <div class="p-2 rounded-xl bg-slate-950 border border-slate-800 flex flex-col justify-between">
+              <span class="text-slate-500 text-[9px] uppercase font-sans">Average (Mean)</span>
+              <strong class="text-emerald-400 text-sm font-black mt-0.5">{{ formatStatNum(inspectChartData.rawAvg) }}</strong>
+            </div>
+            <div class="p-2 rounded-xl bg-slate-950 border border-slate-800 flex flex-col justify-between">
+              <span class="text-slate-500 text-[9px] uppercase font-sans">Max Value</span>
+              <strong class="text-amber-300 text-sm font-black mt-0.5">{{ formatStatNum(inspectChartData.rawMax) }}</strong>
+            </div>
+            <div class="p-2 rounded-xl bg-slate-950 border border-slate-800 flex flex-col justify-between">
+              <span class="text-slate-500 text-[9px] uppercase font-sans">Peak Span (Δ)</span>
+              <strong class="text-purple-300 text-sm font-black mt-0.5">{{ formatStatNum(inspectChartData.span) }}</strong>
+            </div>
+            <div class="p-2 rounded-xl bg-slate-950 border border-slate-800 flex flex-col justify-between">
+              <span class="text-slate-500 text-[9px] uppercase font-sans">Std Dev (σ)</span>
+              <strong class="text-indigo-300 text-sm font-black mt-0.5">{{ formatStatNum(inspectChartData.stdDev) }}</strong>
+            </div>
+            <div class="p-2 rounded-xl bg-slate-950 border border-slate-800 flex flex-col justify-between">
+              <span class="text-slate-500 text-[9px] uppercase font-sans">Latest</span>
+              <strong class="text-white text-sm font-black mt-0.5">{{ formatStatNum(inspectChartData.latestVal) }}</strong>
+            </div>
           </div>
         </div>
 
@@ -2648,26 +2653,25 @@ export const TRACEABILITY_MODALS = `
             <polyline fill="none" :stroke="inspectChartData.colors?.stroke || '#0ea5e9'" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" :points="inspectChartData.polylineStr" />
 
             <!-- Data Points -->
-            <g v-if="inspectShowDots">
+            <g v-if="inspectShowDots" class="pointer-events-none">
               <circle
                 v-for="p in inspectChartData.renderedPoints"
                 :key="'m-pt-' + p.index"
                 :cx="p.x"
                 :cy="p.y"
-                :r="inspectHoverPoint?.index === p.index ? 6 : 3"
+                :r="inspectHoverPoint?.index === p.index ? 5.5 : 3"
                 :fill="inspectChartData.colors?.stroke || '#0ea5e9'"
                 stroke="#0f172a"
                 stroke-width="1.5"
-                class="transition-all"
               />
             </g>
 
             <!-- Crosshair Lines & Hover Point -->
-            <g v-if="inspectHoverPoint">
+            <g v-if="inspectHoverPoint" class="pointer-events-none">
               <line :x1="inspectHoverPoint.x" y1="20" :x2="inspectHoverPoint.x" y2="225" stroke="#38bdf8" stroke-width="1.5" stroke-dasharray="3,3" />
               <line x1="70" :y1="inspectHoverPoint.y" x2="875" :y2="inspectHoverPoint.y" stroke="rgba(56, 189, 248, 0.45)" stroke-width="1.2" stroke-dasharray="3,3" />
-              <circle :cx="inspectHoverPoint.x" :cy="inspectHoverPoint.y" r="8" fill="none" stroke="#38bdf8" stroke-width="2" class="animate-ping" />
-              <circle :cx="inspectHoverPoint.x" :cy="inspectHoverPoint.y" r="5.5" fill="#38bdf8" stroke="#ffffff" stroke-width="2" />
+              <circle :cx="inspectHoverPoint.x" :cy="inspectHoverPoint.y" r="8" fill="none" stroke="#38bdf8" stroke-width="1.5" stroke-opacity="0.6" />
+              <circle :cx="inspectHoverPoint.x" :cy="inspectHoverPoint.y" r="5" fill="#38bdf8" stroke="#ffffff" stroke-width="2" />
             </g>
           </svg>
         </div>
