@@ -1,0 +1,40 @@
+import { TestSessionEntity } from './test-session.entity';
+import { TestDeviceRunEntity } from './test-device-run.entity';
+export declare class TestEvidenceEntity {
+    id: string;
+    sessionId?: string;
+    session?: TestSessionEntity;
+    deviceRunId?: string;
+    deviceRun?: TestDeviceRunEntity;
+    sessionCode?: string;
+    soCode?: string;
+    itemCode?: string;
+    devEUI: string;
+    serialNumber?: string;
+    sku: string;
+    firmwareVersion?: string;
+    hardwareVersion?: string;
+    payloadHex: string;
+    decodedFields: Record<string, any>;
+    assertionResults: Array<{
+        fieldName: string;
+        operator: string;
+        expectedValue?: any;
+        actualValue?: any;
+        pass: boolean;
+        severity?: string;
+        message?: string;
+    }>;
+    verdict: string;
+    failureReason?: string;
+    fPort: number;
+    fCnt: number;
+    rssi?: number;
+    snr?: number;
+    batteryVoltage?: number;
+    operatorUsername?: string;
+    testedAt: Date;
+    metadata: Record<string, any>;
+    createdAt: Date;
+    updatedAt: Date;
+}

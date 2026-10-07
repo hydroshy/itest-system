@@ -1,0 +1,4366 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.TEST_AUTOMATION_SCRIPT = exports.TEST_AUTOMATION_MODALS = exports.TEST_AUTOMATION_TEMPLATE = void 0;
+exports.TEST_AUTOMATION_TEMPLATE = `          <div v-else-if="activeFeature.id === 'test-automation' || activeFeature.id === 'product-test-automation'" class="test-automation-container space-y-5">
+            <!-- Top Toolbar & Module Info -->
+            <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4 bg-slate-900/80 p-4 rounded-2xl border border-slate-800 shadow-md">
+              <div class="flex items-center gap-3">
+                <button @click="returnToHome" title="Back to Dashboard" class="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white text-xs font-semibold cursor-pointer transition">
+                  <i class="fa-solid fa-arrow-left mr-1"></i> Dashboard
+                </button>
+                <div class="h-4 w-px bg-slate-800"></div>
+                <div>
+                  <div class="flex items-center gap-2 flex-wrap">
+                    <h2 class="text-sm font-bold text-white tracking-wide">Product Test Automation</h2>
+                    <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 font-mono">D-MODULE</span>
+                    <span v-if="realtimeConnected" class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                      <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                      <span>REALTIME ONLINE</span>
+                    </span>
+                  </div>
+                  <p class="text-[11px] text-slate-400">Production batch testing workbench: specify Sales Order and Item Code, push devices into simulation batch, and record uplinks.</p>
+                </div>
+              </div>
+
+              <!-- Top Quick Actions -->
+              <div class="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  @click="openProductTraceabilityModal()"
+                  class="px-3 py-1.5 rounded-xl bg-purple-600/30 hover:bg-purple-600/40 text-purple-300 border border-purple-500/40 text-xs font-bold flex items-center gap-1.5 cursor-pointer transition shadow-sm"
+                  title="Search & Trace Product QA History from PostgreSQL test_result & raw_data3"
+                >
+                  <i class="fa-solid fa-timeline text-purple-400"></i>
+                  <span>Traceability</span>
+                </button>
+
+                <button
+                  type="button"
+                  @click="openEvidenceModal()"
+                  class="px-3 py-1.5 rounded-xl bg-cyan-600/30 hover:bg-cyan-600/40 text-cyan-300 border border-cyan-500/40 text-xs font-bold flex items-center gap-1.5 cursor-pointer transition"
+                  title="View Saved Sensor Decoded Test Evidence in PostgreSQL"
+                >
+                  <i class="fa-solid fa-clipboard-check text-cyan-400"></i>
+                  <span>Test Evidence</span>
+                </button>
+
+                <button
+                  type="button"
+                  @click="openSimulatePacketModal()"
+                  class="px-3 py-1.5 rounded-xl bg-indigo-600/30 hover:bg-indigo-600/40 text-indigo-300 border border-indigo-500/40 text-xs font-bold flex items-center gap-1.5 cursor-pointer transition"
+                  title="Simulate Uplink Packet Injection"
+                >
+                  <i class="fa-solid fa-bolt text-[11px] text-amber-400"></i>
+                  <span>Simulate Packet</span>
+                </button>
+
+                <button
+                  v-if="activeTestSession"
+                  type="button"
+                  @click="exportTestSessionReport('csv')"
+                  class="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition"
+                  title="Export Factory Inspection CSV"
+                >
+                  <i class="fa-solid fa-file-csv text-emerald-400"></i>
+                  <span>Export CSV</span>
+                </button>
+
+                <button
+                  type="button"
+                  @click="refreshWorkbenchData"
+                  class="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white text-xs cursor-pointer transition"
+                  title="Refresh Data"
+                >
+                  <i class="fa-solid fa-arrows-rotate" :class="{ 'animate-spin': loadingSalesOrders || loadingTestSessions }"></i>
+                </button>
+              </div>
+            </div>
+
+            <!-- SERIAL UART HARDWARE PORT & BAUD RATE PRE-CONFIGURATION (ABOVE SO) -->
+            <div class="bg-gradient-to-r from-slate-900 via-slate-900/95 to-slate-950 p-4 sm:p-5 rounded-2xl border border-slate-800 shadow-xl space-y-3">
+              <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-slate-800/80">
+                <div class="flex items-center gap-2.5">
+                  <div class="w-8 h-8 rounded-xl bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center text-cyan-400">
+                    <i class="fa-solid fa-microchip text-sm"></i>
+                  </div>
+                  <div>
+                    <h3 class="text-xs font-bold uppercase tracking-wider text-white flex items-center gap-2">
+                      <span>Serial UART COM Port & Baud Rate</span>
+                      <span class="text-[10px] text-slate-400 font-normal font-mono">(Hardware Pre-connect)</span>
+                    </h3>
+                    <p class="text-[11px] text-slate-400">Pre-select Serial COM port and baud rate here before registering devices to enable direct reading.</p>
+                  </div>
+                </div>
+
+                <div class="flex items-center gap-2">
+                  <span
+                    :class="uartConnected ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30' : (isAutoReconnectingUart ? 'bg-amber-500/15 text-amber-400 border-amber-500/30' : 'bg-slate-800 text-slate-400 border-slate-700')"
+                    class="px-3 py-1 rounded-full text-[10px] font-mono font-bold border flex items-center gap-1.5"
+                  >
+                    <span :class="uartConnected ? 'bg-emerald-400 animate-pulse' : (isAutoReconnectingUart ? 'bg-amber-400 animate-ping' : 'bg-slate-500')" class="w-1.5 h-1.5 rounded-full"></span>
+                    {{ uartConnected ? ('CONNECTED (' + (uartBaudRate || 9600) + ' bps)') : (isAutoReconnectingUart ? 'RECONNECTING...' : 'DISCONNECTED') }}
+                  </span>
+                </div>
+              </div>
+
+              <!-- Controls Grid -->
+              <div class="grid grid-cols-1 sm:grid-cols-12 gap-3 items-end">
+                <!-- Port Selection -->
+                <div class="sm:col-span-6 space-y-1.5">
+                  <label class="block text-[11px] font-bold uppercase tracking-wider text-slate-300">
+                    COM Port <span class="text-rose-400">*</span>
+                  </label>
+                  <button
+                    type="button"
+                    @click="selectUartPort()"
+                    :disabled="uartConnected || isAutoReconnectingUart"
+                    class="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 hover:bg-slate-800/80 text-slate-200 border border-slate-700 text-xs font-semibold flex items-center justify-between cursor-pointer disabled:opacity-50 transition"
+                    title="Select USB Serial COM Port"
+                  >
+                    <span class="flex items-center gap-2 truncate">
+                      <i class="fa-solid fa-plug" :class="uartPort ? 'text-cyan-400' : 'text-slate-400'"></i>
+                      <span class="truncate font-mono">{{ uartPortInfo || 'Select COM Port...' }}</span>
+                    </span>
+                    <i class="fa-solid fa-chevron-right text-[10px] text-slate-500"></i>
+                  </button>
+                </div>
+
+                <!-- Baud Rate Selector (9600 / 115200) -->
+                <div class="sm:col-span-3 space-y-1.5">
+                  <label class="block text-[11px] font-bold uppercase tracking-wider text-slate-300">
+                    Baud Rate
+                  </label>
+                  <select
+                    v-model.number="uartBaudRate"
+                    :disabled="uartConnected || isAutoReconnectingUart"
+                    class="w-full px-3 py-2.5 bg-slate-950 border border-slate-700 rounded-xl text-white text-xs font-mono font-semibold focus:ring-1 focus:ring-cyan-500 focus:border-cyan-500 focus:outline-none disabled:opacity-50 transition cursor-pointer"
+                  >
+                    <option :value="9600">9600 bps</option>
+                    <option :value="115200">115200 bps</option>
+                  </select>
+                </div>
+
+                <!-- Action Connect / Disconnect -->
+                <div class="sm:col-span-3">
+                  <button
+                    v-if="!uartConnected"
+                    type="button"
+                    @click="connectUart()"
+                    :disabled="!uartPort || uartConnecting || isAutoReconnectingUart"
+                    class="w-full px-4 py-2.5 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-bold flex items-center justify-center gap-2 cursor-pointer shadow-lg shadow-cyan-950/30 transition disabled:opacity-50"
+                  >
+                    <i v-if="uartConnecting || isAutoReconnectingUart" class="fa-solid fa-circle-notch animate-spin"></i>
+                    <i v-else class="fa-solid fa-link"></i>
+                    <span>{{ isAutoReconnectingUart ? 'Reconnecting...' : (uartConnecting ? 'Connecting...' : 'Connect Port') }}</span>
+                  </button>
+
+                  <button
+                    v-else
+                    type="button"
+                    @click="disconnectUart()"
+                    class="w-full px-4 py-2.5 rounded-xl bg-rose-600/25 hover:bg-rose-600/40 text-rose-300 border border-rose-500/30 text-xs font-bold flex items-center justify-center gap-2 cursor-pointer shadow-lg transition"
+                  >
+                    <i class="fa-solid fa-link-slash"></i>
+                    <span>Disconnect</span>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Status Log / Message -->
+              <div v-if="uartLogMessage" class="px-3 py-2 rounded-xl bg-slate-950/70 border border-slate-800/80 flex items-center justify-between text-[11px] font-mono text-slate-400">
+                <div class="flex items-center gap-2 truncate">
+                  <i class="fa-solid fa-terminal text-[10px] text-cyan-400"></i>
+                  <span class="truncate">{{ uartLogMessage }}</span>
+                </div>
+                <span v-if="uartConnected" class="text-[10px] text-emerald-400 font-bold shrink-0 ml-2">Ready</span>
+              </div>
+            </div>
+
+            <!-- SALES ORDER & ITEM CODE CONFIGURATION BAR (MANUAL ENTRY WITH FILLABLE DROPDOWNS) -->
+            <div class="bg-gradient-to-r from-slate-900 via-slate-900/95 to-slate-950 p-4 sm:p-5 rounded-2xl border border-slate-800 shadow-xl space-y-3">
+              <!-- Input Fields Grid (Only 2 fields: SO and ITEM_CODE, plus Register Device button; no 1. 2. prefix, no Duration) -->
+              <div class="grid grid-cols-1 md:grid-cols-12 gap-4 items-end">
+                <!-- Field 1: SO (Searchable Dropdown with Top 5 Recent & Digits Matching) -->
+                <div class="md:col-span-5 space-y-1.5 relative so-dropdown-wrapper" ref="soDropdownContainer">
+                  <div class="flex items-center justify-between">
+                    <label class="block text-xs font-bold text-slate-300">
+                      SO <span class="text-rose-400">*</span>
+                    </label>
+                    <span v-if="selectedSo" class="text-[10px] text-cyan-400 font-mono flex items-center gap-1">
+                      <i class="fa-solid fa-circle-check text-[9px]"></i> Valid SO
+                    </span>
+                  </div>
+
+                  <div class="relative">
+                    <input
+                      type="text"
+                      v-model="manualSoCode"
+                      @focus="openSoDropdown"
+                      @click="openSoDropdown"
+                      @input="onSoInputTyped"
+                      placeholder="Type digits or select SO..."
+                      :disabled="isBatchTesting"
+                      autocomplete="off"
+                      class="w-full pl-3.5 pr-9 py-2.5 bg-slate-950 border border-slate-700 rounded-xl text-white text-xs font-mono font-semibold focus:ring-1 focus:ring-cyan-500 focus:border-cyan-500 focus:outline-none disabled:opacity-50 transition"
+                    />
+
+                    <!-- Chevron Dropdown Toggle Button -->
+                    <button
+                      type="button"
+                      tabindex="-1"
+                      @click.stop="toggleSoDropdown"
+                      :disabled="isBatchTesting"
+                      class="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-cyan-400 cursor-pointer disabled:opacity-40"
+                    >
+                      <i class="fa-solid fa-chevron-down text-xs transition-transform duration-200" :class="{ 'rotate-180 text-cyan-400': soDropdownOpen }"></i>
+                    </button>
+
+                    <!-- Custom Dropdown Menu (Implicit: only displays when there are matching SOs) -->
+                    <div
+                      v-if="soDropdownOpen && filteredSoList.length > 0"
+                      class="absolute left-0 right-0 mt-1.5 z-50 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl max-h-64 overflow-y-auto custom-scroll animate-in fade-in"
+                    >
+                      <!-- Options List -->
+                      <div class="py-1">
+                        <div
+                          v-for="so in filteredSoList"
+                          :key="so.id || so.soCode"
+                          @mousedown.prevent="selectSoOption(so)"
+                          class="px-3.5 py-2 hover:bg-cyan-500/15 cursor-pointer transition flex items-center justify-between group border-b border-slate-800/40 last:border-0"
+                          :class="{ 'bg-cyan-500/10 border-l-2 border-l-cyan-400': selectedSo && selectedSo.soCode === so.soCode }"
+                        >
+                          <div class="space-y-0.5">
+                            <div class="flex items-center gap-2">
+                              <span class="text-xs font-mono font-bold text-white group-hover:text-cyan-300">
+                                {{ so.soCode }}
+                              </span>
+                              <span class="text-[9px] px-1.5 py-0.2 rounded font-mono bg-slate-800 text-slate-300 border border-slate-700">
+                                {{ so.items?.length || 0 }} items
+                              </span>
+                            </div>
+                            <div class="text-[11px] text-slate-400 truncate max-w-[280px]">
+                              {{ so.customer || 'Internal Batch / Production' }}
+                            </div>
+                          </div>
+
+                          <div class="text-right">
+                            <i class="fa-solid fa-arrow-right text-[10px] text-slate-500 group-hover:text-cyan-400 group-hover:translate-x-0.5 transition-transform"></i>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <!-- Hidden datalist for spec test compatibility -->
+                    <datalist id="so-code-dropdown-options" style="display: none;">
+                      <option v-for="so in salesOrdersList" :key="so.id || so.soCode" :value="so.soCode">
+                        {{ so.soCode }}
+                      </option>
+                    </datalist>
+                  </div>
+                </div>
+
+                <!-- Field 2: ITEM_CODE (Enabled when SO has input, can be typed manually or selected from SO items) -->
+                <div class="md:col-span-4 space-y-1.5 relative item-dropdown-wrapper" ref="itemDropdownContainer">
+                  <div class="flex items-center justify-between">
+                    <label class="block text-xs font-bold text-slate-300">
+                      ITEM_CODE <span class="text-rose-400">*</span>
+                    </label>
+                    <span v-if="selectedSoItem" class="text-[10px] text-emerald-400 font-mono flex items-center gap-1">
+                      <i class="fa-solid fa-check text-[9px]"></i> {{ selectedSoItem.sku || 'Ready' }}
+                    </span>
+                  </div>
+
+                  <div class="relative">
+                    <input
+                      type="text"
+                      v-model="manualItemCode"
+                      @focus="openItemDropdown"
+                      @click="openItemDropdown"
+                      @input="onItemInputTyped"
+                      :placeholder="!(manualSoCode && manualSoCode.trim()) ? 'Please enter SO first...' : (availableSoItems.length > 0 ? 'Type or select Item Code...' : 'Type Item Code...')"
+                      :disabled="!(manualSoCode && manualSoCode.trim()) || isBatchTesting"
+                      autocomplete="off"
+                      class="w-full pl-3.5 pr-9 py-2.5 bg-slate-950 border border-slate-700 rounded-xl text-white text-xs font-mono focus:ring-1 focus:ring-cyan-500 focus:border-cyan-500 focus:outline-none disabled:opacity-40 disabled:cursor-not-allowed transition"
+                    />
+
+                    <!-- Chevron Dropdown Toggle Button (Shown when SO has items to pick) -->
+                    <button
+                      v-if="availableSoItems.length > 0"
+                      type="button"
+                      tabindex="-1"
+                      @click.stop="toggleItemDropdown"
+                      :disabled="isBatchTesting"
+                      class="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-cyan-400 cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
+                    >
+                      <i class="fa-solid fa-chevron-down text-xs transition-transform duration-200" :class="{ 'rotate-180 text-cyan-400': itemDropdownOpen }"></i>
+                    </button>
+
+                    <!-- Custom Dropdown Menu (Implicit: only displays when there are matching items) -->
+                    <div
+                      v-if="itemDropdownOpen && availableSoItems.length > 0 && filteredItemList.length > 0"
+                      class="absolute left-0 right-0 mt-1.5 z-50 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl max-h-60 overflow-y-auto custom-scroll animate-in fade-in"
+                    >
+                      <!-- Options List -->
+                      <div class="py-1">
+                        <div
+                          v-for="item in filteredItemList"
+                          :key="item.id || item.itemCode"
+                          @mousedown.prevent="selectItemOption(item)"
+                          class="px-3.5 py-2 hover:bg-cyan-500/15 cursor-pointer transition flex items-center justify-between group border-b border-slate-800/40 last:border-0"
+                          :class="{ 'bg-cyan-500/10 border-l-2 border-l-cyan-400': manualItemCode === item.itemCode }"
+                        >
+                          <div class="space-y-0.5">
+                            <div class="flex items-center gap-2">
+                              <span class="text-xs font-mono font-bold text-white group-hover:text-cyan-300">
+                                {{ item.itemCode }}
+                              </span>
+                              <span class="text-[9px] px-1.5 py-0.2 rounded font-mono bg-cyan-950 text-cyan-300 border border-cyan-700">
+                                {{ item.sku || 'SKU' }}
+                              </span>
+                            </div>
+                            <div class="text-[10px] text-slate-400 font-mono">
+                              FW: <span class="text-slate-300">{{ item.firmwareVersion || '1.0' }}</span>
+                              <span v-if="item.quantity" class="ml-2 text-slate-500">Qty: {{ item.quantity }}</span>
+                            </div>
+                          </div>
+
+                          <div class="text-right">
+                            <i class="fa-solid fa-arrow-right text-[10px] text-slate-500 group-hover:text-cyan-400 group-hover:translate-x-0.5 transition-transform"></i>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <!-- Hidden datalist for spec test compatibility -->
+                    <datalist id="item-code-dropdown-options" style="display: none;">
+                      <option v-for="item in availableSoItems" :key="item.id || item.itemCode" :value="item.itemCode">
+                        {{ item.itemCode }}
+                      </option>
+                    </datalist>
+                  </div>
+                </div>
+
+                <!-- Action Button: Device Onboarding via UART -->
+                <div class="md:col-span-3 flex items-center justify-end">
+                  <button
+                    type="button"
+                    @click="openDeviceOnboardModal"
+                    :disabled="!(manualSoCode && manualSoCode.trim()) || !(manualItemCode && manualItemCode.trim()) || isBatchTesting"
+                    class="w-full px-4 py-2.5 rounded-xl bg-cyan-600/25 hover:bg-cyan-600/40 text-cyan-300 border border-cyan-500/40 text-xs font-bold flex items-center justify-center gap-2 cursor-pointer shadow-lg shadow-cyan-950/30 transition disabled:opacity-50"
+                    title="Read Serial UART and register device to ChirpStack"
+                  >
+                    <i class="fa-solid fa-microchip text-xs text-cyan-400"></i>
+                    <span>Register Device</span>
+                  </button>
+                </div>
+
+                <!-- Compatibility elements for existing tests -->
+                <div class="hidden" style="display: none;" v-if="isManualSo">
+                  <input type="text" v-model="manualSku" @input="onManualItemInput" />
+                  <input type="text" v-model="manualFw" @input="onManualItemInput" />
+                </div>
+              </div>
+            </div>
+
+            <!-- LIVE COUNTDOWN & REMAINING TIME BANNER (When Batch Test is Running) -->
+            <div v-if="isBatchTesting" class="p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-amber-950/40 via-slate-900 to-cyan-950/40 border border-amber-500/40 shadow-2xl space-y-3 animate-in fade-in">
+              <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div class="flex items-center gap-3">
+                  <div class="w-12 h-12 rounded-2xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-400 text-xl shadow-inner animate-pulse">
+                    <i class="fa-solid fa-clock-rotate-left"></i>
+                  </div>
+                  <div>
+                    <div class="flex items-center gap-2">
+                      <span class="text-xs font-bold uppercase tracking-wider text-amber-400 font-mono">TEST BATCH IN PROGRESS</span>
+                      <span class="w-2 h-2 rounded-full bg-amber-400 animate-ping"></span>
+                    </div>
+                    <div class="flex items-center gap-3 text-xs text-slate-300 mt-0.5">
+                      <span>Started: <strong class="text-white font-mono">{{ formattedStartTime }}</strong></span>
+                      <span class="text-slate-600">•</span>
+                      <span>Scheduled End: <strong class="text-cyan-300 font-mono font-bold">{{ formattedEndTime }}</strong></span>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Digital Countdown Display -->
+                <div class="flex items-center gap-3">
+                  <div class="text-right">
+                    <div class="text-[10px] font-bold text-slate-400 uppercase tracking-widest font-mono">TIME REMAINING</div>
+                    <div class="text-2xl sm:text-3xl font-black font-mono tracking-wider text-amber-300">
+                      {{ formattedRemainingTime }}
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    @click="completeBatchTest"
+                    class="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 text-xs font-semibold cursor-pointer transition"
+                    title="Finish batch test early"
+                  >
+                    Finish Now
+                  </button>
+                </div>
+              </div>
+
+              <!-- Animated Progress Bar -->
+              <div class="space-y-1">
+                <div class="flex items-center justify-between text-[11px] font-mono text-slate-400">
+                  <span>Batch Test Window Progress:</span>
+                  <span class="text-amber-400 font-bold">{{ batchProgressPercentage }}%</span>
+                </div>
+
+                <div class="w-full h-2.5 bg-slate-950 rounded-full overflow-hidden border border-slate-800 flex">
+                  <div
+                    class="h-full bg-gradient-to-r from-amber-500 to-cyan-400 transition-all duration-1000"
+                    :style="{ width: batchProgressPercentage + '%' }"
+                  ></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- STEP 2 & 3: MAIN WORKBENCH (SPLIT VIEW) -->
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+              
+              <!-- LEFT COLUMN: AVAILABLE USER FLEET DEVICES (PICK & PUSH) -->
+              <div class="lg:col-span-4 bg-slate-900/70 p-4 rounded-2xl border border-slate-800 shadow-lg space-y-3.5">
+                <!-- Header & Total Count -->
+                <div class="flex items-center justify-between pb-2 border-b border-slate-800">
+                  <div class="flex items-center gap-2">
+                    <i class="fa-solid fa-microchip text-cyan-400 text-sm"></i>
+                    <h3 class="text-xs font-bold text-white uppercase tracking-wider">Available Fleet</h3>
+                  </div>
+                  <span class="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-slate-800 text-slate-300">
+                    {{ availableFleetDevices.length }} / {{ userFleetDevices.length }} Dev
+                  </span>
+                </div>
+
+                <!-- Filters & Search Toolbar -->
+                <div class="space-y-2">
+                  <div class="relative">
+                    <i class="fa-solid fa-magnifying-glass absolute left-3 top-2.5 text-slate-500 text-xs"></i>
+                    <input
+                      type="text"
+                      v-model="fleetSearchQuery"
+                      placeholder="Search DevEUI or Name..."
+                      class="w-full pl-8 pr-3 py-1.5 bg-slate-950 border border-slate-700 rounded-xl text-white text-xs font-mono placeholder-slate-500 focus:ring-1 focus:ring-cyan-500 focus:outline-none"
+                    />
+                  </div>
+
+                  <div class="flex items-center justify-between text-xs gap-2">
+                    <!-- SKU Match Filter Toggle -->
+                    <button
+                      type="button"
+                      @click="filterOnlyMatchingSku = !filterOnlyMatchingSku"
+                      class="px-2.5 py-1 rounded-lg text-[11px] font-semibold flex items-center gap-1.5 cursor-pointer transition border"
+                      :class="filterOnlyMatchingSku ? 'bg-cyan-500/10 text-cyan-300 border-cyan-500/30' : 'bg-slate-950 text-slate-400 border-slate-800'"
+                      title="Toggle filtering devices by selected SO SKU"
+                    >
+                      <i class="fa-solid" :class="filterOnlyMatchingSku ? 'fa-check-square text-cyan-400' : 'fa-square text-slate-600'"></i>
+                      <span>Match SKU Only</span>
+                    </button>
+
+                    <!-- Online Status Filter -->
+                    <select
+                      v-model="fleetStatusFilter"
+                      class="px-2 py-1 bg-slate-950 border border-slate-700 rounded-lg text-white text-[11px] focus:outline-none cursor-pointer"
+                    >
+                      <option value="ALL">All Status</option>
+                      <option value="ONLINE">Online Only</option>
+                      <option value="OFFLINE">Offline Only</option>
+                    </select>
+                  </div>
+                </div>
+
+                <!-- Selection Action Row -->
+                <div class="flex items-center justify-between pt-1 text-xs">
+                  <label class="flex items-center gap-2 cursor-pointer text-slate-300 select-none">
+                    <input
+                      type="checkbox"
+                      :checked="allVisibleFleetSelected"
+                      @change="toggleSelectAllVisibleFleet"
+                      class="rounded bg-slate-950 border-slate-700 text-cyan-600 focus:ring-0 cursor-pointer"
+                    />
+                    <span class="text-[11px] font-semibold">Select All</span>
+                  </label>
+
+                  <button
+                    type="button"
+                    @click="pushSelectedFleetToBatch"
+                    :disabled="selectedFleetDevEUIs.size === 0 || isBatchTesting"
+                    class="px-3 py-1.5 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-md transition disabled:opacity-40 disabled:cursor-not-allowed"
+                    title="Push selected devices into test simulation batch"
+                  >
+                    <span>Push to Batch</span>
+                    <i class="fa-solid fa-arrow-right text-[10px]"></i>
+                  </button>
+                </div>
+
+                <!-- Scrollable Available Devices List -->
+                <div class="space-y-2 max-h-[520px] overflow-y-auto pr-1">
+                  <div
+                    v-if="availableFleetDevices.length === 0"
+                    class="text-center py-10 space-y-1.5 bg-slate-950/40 rounded-xl border border-slate-800 p-4"
+                  >
+                    <i class="fa-solid fa-inbox text-2xl text-slate-600"></i>
+                    <p class="text-xs text-slate-400">No matching devices in fleet</p>
+                    <p class="text-[10px] text-slate-500">Uncheck 'Match SKU' or register devices in Device Manager.</p>
+                  </div>
+
+                  <div
+                    v-for="d in availableFleetDevices"
+                    :key="d.devEUI"
+                    class="p-2.5 rounded-xl border transition flex items-center justify-between gap-2.5 select-none"
+                    :class="selectedFleetDevEUIs.has(d.devEUI) ? 'bg-cyan-950/30 border-cyan-500/40' : 'bg-slate-950/70 border-slate-800/90 hover:border-slate-700'"
+                  >
+                    <div class="flex items-center gap-2.5 min-w-0">
+                      <input
+                        type="checkbox"
+                        :checked="selectedFleetDevEUIs.has(d.devEUI)"
+                        @change="toggleSelectFleetDevice(d.devEUI)"
+                        class="rounded bg-slate-950 border-slate-700 text-cyan-600 focus:ring-0 cursor-pointer shrink-0"
+                      />
+                      <div class="min-w-0">
+                        <div class="flex items-center gap-2">
+                          <span class="font-mono font-bold text-xs text-white truncate cursor-pointer hover:text-cyan-300" @click="copyText(d.devEUI)">
+                            {{ d.devEUI }}
+                          </span>
+                          <!-- Online/Offline Badge -->
+                          <span
+                            v-if="isDeviceOnline(d)"
+                            class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/25 shrink-0"
+                            :title="'Online: last seen ' + formatLastSeen(d.lastSeenAt || d.syncDetails?.lastSeenAt)"
+                          >
+                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                            <span>ONLINE</span>
+                          </span>
+                          <span
+                            v-else
+                            class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-slate-800 text-slate-400 border border-slate-700 shrink-0"
+                            title="Device is offline"
+                          >
+                            <span class="w-1.5 h-1.5 rounded-full bg-slate-500"></span>
+                            <span>OFFLINE</span>
+                          </span>
+                        </div>
+                        <div class="text-[10px] text-slate-400 truncate">
+                          {{ d.name || 'Unnamed' }} <span v-if="d.sku" class="text-slate-500">({{ d.sku }})</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <!-- 1-Click Push Button -->
+                    <button
+                      type="button"
+                      @click="pushSingleDeviceToBatch(d)"
+                      :disabled="isBatchTesting"
+                      class="p-1.5 rounded-lg bg-slate-800 hover:bg-cyan-600 text-slate-300 hover:text-white text-xs cursor-pointer transition shrink-0 disabled:opacity-40"
+                      title="Push to Batch List"
+                    >
+                      <i class="fa-solid fa-plus"></i>
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+
+              <!-- CENTER COLUMN: TEST BATCH / SIMULATION LIST (MAIN STAGE) -->
+              <div class="lg:col-span-8 bg-slate-900/70 p-4 sm:p-5 rounded-2xl border border-slate-800 shadow-xl space-y-4">
+                
+                <!-- Batch List Header & Metrics -->
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-800">
+                  <div>
+                    <div class="flex items-center gap-2">
+                      <h3 class="text-sm font-bold text-white tracking-wide">Test Batch Devices</h3>
+                      <span class="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-cyan-500/10 text-cyan-300 border border-cyan-500/25">
+                        {{ batchDevices.length }} Units Pushed
+                      </span>
+                      <span v-if="batchOnlineCount > 0" class="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                        {{ batchOnlineCount }} Online
+                      </span>
+                      <span v-if="batchOfflineCount > 0" class="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-slate-800 text-slate-400 border border-slate-700">
+                        {{ batchOfflineCount }} Offline
+                      </span>
+                    </div>
+                    <p class="text-[11px] text-slate-400 mt-0.5">
+                      Devices currently queued for timed uplink recording and assertion validation.
+                    </p>
+                  </div>
+
+                  <!-- Batch Actions (Trace Status & Clear) -->
+                  <div class="flex items-center gap-2">
+                    <button
+                      v-if="batchDevices.length > 0"
+                      type="button"
+                      @click="fetchBatchDevicesTrace"
+                      :disabled="loadingTrace"
+                      class="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-teal-300 text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition disabled:opacity-50"
+                      title="Trace real-time online status, RSSI and SNR from server API"
+                    >
+                      <i class="fa-solid fa-arrows-rotate text-[11px]" :class="{ 'animate-spin': loadingTrace }"></i>
+                      <span>Trace Status</span>
+                    </button>
+
+                    <button
+                      v-if="!isBatchTesting && batchDevices.length > 0"
+                      type="button"
+                      @click="clearBatch"
+                      class="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-rose-300 text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition"
+                      title="Clear all devices from batch"
+                    >
+                      <i class="fa-solid fa-trash-can text-[11px]"></i>
+                      <span>Clear All</span>
+                    </button>
+                  </div>
+                </div>
+
+                <!-- EMPTY STATE: NO DEVICES IN BATCH -->
+                <div
+                  v-if="batchDevices.length === 0"
+                  class="text-center py-16 space-y-3 bg-slate-950/40 rounded-2xl border border-dashed border-slate-800 p-8"
+                >
+                  <div class="w-16 h-16 rounded-2xl bg-cyan-500/10 border border-cyan-500/25 flex items-center justify-center text-cyan-400 text-2xl mx-auto shadow-inner">
+                    <i class="fa-solid fa-vial-circle-check"></i>
+                  </div>
+                  <div class="space-y-1">
+                    <h4 class="text-sm font-bold text-white">No Devices Pushed to Test Batch</h4>
+                    <p class="text-xs text-slate-400 max-w-md mx-auto">
+                      Select devices from your available fleet on the left and click <strong>'+ Push to Batch'</strong> to prepare for testing.
+                    </p>
+                  </div>
+                </div>
+
+                <!-- THE EASY-TO-READ BATCH LIST -->
+                <div v-else class="overflow-x-auto rounded-2xl border border-slate-800 bg-slate-950/80 shadow-inner">
+                  <table class="w-full text-left text-xs">
+                    <thead class="bg-slate-950 text-slate-400 text-[10px] uppercase font-bold tracking-wider border-b border-slate-800">
+                      <tr>
+                        <th class="py-3 px-3.5 text-center">#</th>
+                        <th class="py-3 px-3.5">Online Status</th>
+                        <th class="py-3 px-3.5">DevEUI</th>
+                        <th class="py-3 px-3.5">Name / Model</th>
+                        <th class="py-3 px-3.5 text-center">RSSI (best) | SNR (best)</th>
+                        <th class="py-3 px-3.5">Status</th>
+                        <th class="py-3 px-3.5 text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-800/80 font-mono">
+                      <tr
+                        v-for="(dev, idx) in batchDevices"
+                        :key="dev.devEUI"
+                        class="hover:bg-slate-800/40 transition"
+                        :class="{
+                          'bg-emerald-950/10': dev.status === 'PASSED',
+                          'bg-rose-950/10': dev.status === 'FAILED' || dev.status === 'TIMEOUT',
+                          'bg-amber-950/10': dev.status === 'RUNNING',
+                        }"
+                      >
+                        <!-- Index -->
+                        <td class="py-2.5 px-3.5 text-center text-slate-500 text-[11px]">{{ idx + 1 }}</td>
+
+                        <!-- 1. ONLINE STATUS (LIVE CHECK VIA SERVER API) -->
+                        <td class="py-2.5 px-3.5">
+                          <span
+                            v-if="dev.isCheckingOnline"
+                            class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold bg-amber-500/10 text-amber-400 border border-amber-500/25"
+                          >
+                            <i class="fa-solid fa-circle-notch animate-spin text-[9px]"></i>
+                            <span>CHECKING...</span>
+                          </span>
+                          <span
+                            v-else-if="dev.isOnline"
+                            class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/25 shadow-sm"
+                            :title="'Online: last seen ' + formatLastSeen(dev.lastSeenAt)"
+                          >
+                            <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                            <span>ONLINE</span>
+                          </span>
+                          <span
+                            v-else
+                            class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold bg-slate-800 text-slate-400 border border-slate-700 shadow-sm"
+                            :title="'Offline: last seen ' + formatLastSeen(dev.lastSeenAt)"
+                          >
+                            <span class="w-2 h-2 rounded-full bg-slate-500"></span>
+                            <span>OFFLINE</span>
+                          </span>
+                        </td>
+
+                        <!-- 2. DevEUI -->
+                        <td class="py-2.5 px-3.5 font-bold text-white tracking-wide">
+                          <span @click="copyText(dev.devEUI)" class="cursor-pointer hover:text-cyan-300" title="Click to copy">
+                            {{ dev.devEUI }}
+                          </span>
+                        </td>
+
+                        <!-- 3. Name & SKU -->
+                        <td class="py-2.5 px-3.5 text-slate-300 text-[11px] truncate max-w-[140px]">
+                          {{ dev.name || 'Unnamed' }}
+                          <div class="text-[9px] text-slate-500 font-normal">{{ dev.sku || selectedSoItem?.sku || 'LoRaWAN' }}</div>
+                        </td>
+
+                        <!-- 4. RSSI (best) | SNR (best) -->
+                        <td class="py-2.5 px-3.5 text-center text-[11px] font-mono">
+                          <span v-if="dev.rssi !== undefined && dev.rssi !== null" class="text-cyan-300 font-semibold">
+                            {{ dev.rssi }} dBm
+                            <span v-if="dev.snr !== undefined && dev.snr !== null" class="text-slate-400">
+                              | <span class="text-emerald-300">{{ dev.snr > 0 ? '+' + dev.snr : dev.snr }} dB</span>
+                            </span>
+                          </span>
+                          <span v-else class="text-slate-600">--</span>
+                        </td>
+
+                        <!-- 5. Test Status / Assertion Verdict -->
+                        <td class="py-2.5 px-3.5">
+                          <span
+                            class="px-2.5 py-0.5 rounded-full text-[10px] font-bold border font-mono uppercase inline-flex items-center gap-1"
+                            :class="getDeviceStatusBadgeClass(dev.status)"
+                          >
+                            <i v-if="dev.status === 'RUNNING'" class="fa-solid fa-spinner animate-spin text-[9px]"></i>
+                            <i v-else-if="dev.status === 'PASSED'" class="fa-solid fa-check text-[9px]"></i>
+                            <i v-else-if="dev.status === 'FAILED' || dev.status === 'TIMEOUT'" class="fa-solid fa-xmark text-[9px]"></i>
+                            <i v-else class="fa-solid fa-clock text-[9px]"></i>
+                            <span>{{ dev.status || 'READY' }}</span>
+                          </span>
+                          <div v-if="dev.failureReason" class="text-[9px] text-rose-400 truncate max-w-xs mt-0.5" :title="dev.failureReason">
+                            {{ dev.failureReason }}
+                          </div>
+                        </td>
+
+                        <!-- 6. Row Actions -->
+                        <td class="py-2.5 px-3.5 text-right space-x-1">
+                          <!-- Live status trace button -->
+                          <button
+                            type="button"
+                            @click="fetchSingleDeviceTrace(dev.devEUI)"
+                            :disabled="dev.isCheckingOnline"
+                            class="px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-teal-300 text-[11px] cursor-pointer transition disabled:opacity-50"
+                            title="Trace live status & RSSI/SNR from server API"
+                          >
+                            <i class="fa-solid fa-arrows-rotate text-[10px]" :class="{ 'animate-spin': dev.isCheckingOnline }"></i>
+                          </button>
+
+                          <!-- Audit log -->
+                          <button
+                            v-if="dev.deviceRunId"
+                            type="button"
+                            @click="openAuditModal(dev)"
+                            class="px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-cyan-300 text-[11px] cursor-pointer"
+                            title="Audit Log"
+                          >
+                            <i class="fa-solid fa-receipt"></i>
+                          </button>
+
+                          <!-- Product Traceability (test_result & raw_data3) -->
+                          <button
+                            type="button"
+                            @click="openProductTraceabilityModal(dev)"
+                            class="px-2 py-1 rounded bg-purple-500/10 hover:bg-purple-500/20 text-purple-300 text-[11px] cursor-pointer transition"
+                            title="Trace QA History (PostgreSQL test_result & raw_data3)"
+                          >
+                            <i class="fa-solid fa-timeline"></i>
+                          </button>
+
+                          <!-- Simulate injection (Dev Testing) -->
+                          <button
+                            type="button"
+                            @click="openSimulatePacketModal(dev.devEUI)"
+                            class="px-2 py-1 rounded bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 text-[11px] cursor-pointer"
+                            title="Simulate Packet (Dev Testing)"
+                          >
+                            <i class="fa-solid fa-bolt"></i>
+                          </button>
+
+                          <!-- Remove from batch (if not running) -->
+                          <button
+                            v-if="!isBatchTesting"
+                            type="button"
+                            @click="removeDeviceFromBatch(dev.devEUI)"
+                            class="px-2 py-1 rounded bg-slate-800 hover:bg-rose-900/50 text-slate-400 hover:text-rose-300 text-[11px] cursor-pointer"
+                            title="Remove from batch"
+                          >
+                            <i class="fa-solid fa-trash-can"></i>
+                          </button>
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+
+                <!-- Bottom Action Controls: Start Test & Cancel -->
+                <div class="flex items-center justify-between pt-4 border-t border-slate-800/80 gap-3 flex-wrap">
+                  <div class="flex items-center gap-2">
+                    <button
+                      v-if="batchDevices.length > 0 && !isBatchTesting"
+                      type="button"
+                      @click="clearBatch"
+                      class="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 text-xs font-semibold flex items-center gap-2 cursor-pointer transition"
+                      title="Cancel and clear current batch"
+                    >
+                      <i class="fa-solid fa-ban text-xs text-rose-400"></i>
+                      <span>Cancel</span>
+                    </button>
+                    <button
+                      v-if="isBatchTesting"
+                      type="button"
+                      @click="abortBatchTest"
+                      class="px-4 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold flex items-center gap-2 cursor-pointer shadow-lg shadow-rose-950/50 transition active:scale-95"
+                      title="Cancel and abort running test"
+                    >
+                      <i class="fa-solid fa-stop text-xs"></i>
+                      <span>Cancel</span>
+                    </button>
+                  </div>
+
+                  <div class="flex items-center gap-2.5">
+                    <button
+                      v-if="!isBatchTesting"
+                      type="button"
+                      @click="startBatchTest"
+                      :disabled="!selectedSoCode || batchDevices.length === 0"
+                      class="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold flex items-center justify-center gap-2 cursor-pointer shadow-lg shadow-emerald-950/50 transition active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <i class="fa-solid fa-play text-xs"></i>
+                      <span>Start Test</span>
+                    </button>
+                    <button
+                      v-else
+                      type="button"
+                      @click="completeBatchTest"
+                      class="px-5 py-2.5 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-bold flex items-center justify-center gap-2 cursor-pointer shadow-lg shadow-cyan-950/50 transition active:scale-95"
+                    >
+                      <i class="fa-solid fa-check text-xs"></i>
+                      <span>Finish Now</span>
+                    </button>
+                  </div>
+                </div>
+
+                <!-- Hidden filter anchor to preserve test 7 compatibility -->
+                <div v-show="false">
+                  <div v-for="run in filteredTestDeviceRuns" :key="run.id">{{ run.devEUI }}</div>
+                </div>
+
+              </div>
+
+            </div>
+          </div>
+`;
+exports.TEST_AUTOMATION_MODALS = `
+      <!-- ======================================================== -->
+      <!-- 1. MODAL: BATCH TEST COMPLETION POPUP -->
+      <!-- ======================================================== -->
+      <div v-if="showCompletionModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-md animate-in fade-in">
+        <div class="w-full max-w-xl bg-slate-900 border border-slate-700 rounded-2xl p-6 space-y-5 shadow-2xl text-slate-200 animate-in zoom-in-95">
+          <!-- Modal Header -->
+          <div class="flex items-center justify-between border-b border-slate-800 pb-4">
+            <div class="flex items-center gap-3">
+              <div class="w-12 h-12 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 text-xl shadow-inner">
+                <i class="fa-solid fa-circle-check"></i>
+              </div>
+              <div>
+                <h3 class="text-base font-extrabold text-white tracking-wide">Test Batch Completed!</h3>
+                <p class="text-xs text-slate-400">
+                  The test batch session has completed successfully.
+                </p>
+
+              </div>
+            </div>
+            <button type="button" @click="closeCompletionModal" class="text-slate-400 hover:text-white text-lg p-1 cursor-pointer">
+              <i class="fa-solid fa-xmark"></i>
+            </button>
+          </div>
+
+          <!-- Quick Metrics Ribbon -->
+          <div class="grid grid-cols-3 gap-3">
+            <div class="p-3 bg-slate-950 border border-slate-800 rounded-xl text-center space-y-0.5">
+              <span class="text-[10px] uppercase font-bold text-slate-400">Total Devices</span>
+              <div class="text-xl font-black font-mono text-white">{{ batchCompletionStats.total }}</div>
+            </div>
+            <div class="p-3 bg-emerald-950/20 border border-emerald-500/30 rounded-xl text-center space-y-0.5">
+              <span class="text-[10px] uppercase font-bold text-emerald-400">PASSED</span>
+              <div class="text-xl font-black font-mono text-emerald-400">{{ batchCompletionStats.passed }}</div>
+            </div>
+            <div class="p-3 bg-rose-950/20 border border-rose-500/30 rounded-xl text-center space-y-0.5">
+              <span class="text-[10px] uppercase font-bold text-rose-400">FAILED / TIMEOUT</span>
+              <div class="text-xl font-black font-mono text-rose-400">{{ batchCompletionStats.failed }}</div>
+            </div>
+          </div>
+
+          <!-- Recorded Devices Summary Table -->
+          <div class="space-y-2">
+            <div class="flex items-center justify-between text-xs font-mono text-slate-400">
+              <span>Batch Result Summary:</span>
+              <span class="text-cyan-400 font-bold">{{ batchCompletionStats.totalPackets }} total packets recorded</span>
+            </div>
+            <div class="max-h-48 overflow-y-auto rounded-xl border border-slate-800 bg-slate-950/70 p-1 text-xs">
+              <div
+                v-for="d in batchDevices"
+                :key="d.devEUI"
+                class="flex items-center justify-between p-2 rounded-lg hover:bg-slate-800/40 text-xs font-mono border-b border-slate-900 last:border-none"
+              >
+                <div class="flex items-center gap-2">
+                  <span class="w-1.5 h-1.5 rounded-full" :class="d.isOnline ? 'bg-emerald-400' : 'bg-slate-500'"></span>
+                  <span class="text-white font-bold">{{ d.devEUI }}</span>
+                </div>
+                <div class="flex items-center gap-3">
+                  <span class="text-slate-400">{{ d.totalPackets || 0 }} pkts</span>
+                  <span
+                    class="px-2 py-0.5 rounded text-[10px] font-bold uppercase"
+                    :class="d.status === 'PASSED' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-rose-500/20 text-rose-400'"
+                  >
+                    {{ d.status }}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Footer Actions -->
+          <div class="flex items-center justify-end gap-2 pt-3 border-t border-slate-800">
+            <button
+              type="button"
+              @click="exportTestSessionReport('csv')"
+              class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold flex items-center gap-1.5 cursor-pointer"
+            >
+              <i class="fa-solid fa-file-csv text-emerald-400"></i>
+              <span>Export CSV</span>
+            </button>
+            <button
+              type="button"
+              @click="closeCompletionModal"
+              class="px-5 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-bold cursor-pointer shadow-lg shadow-cyan-950/40"
+            >
+              Done & Review
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ======================================================== -->
+      <!-- 2. MODAL: PACKET AUDIT LOG & ASSERTION BREAKDOWN          -->
+      <!-- ======================================================== -->
+      <div v-if="showAuditModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in">
+        <div class="w-full max-w-3xl bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-5 shadow-2xl text-slate-200 max-h-[90vh] flex flex-col">
+          <div class="flex items-start justify-between border-b border-slate-800 pb-3.5">
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 rounded-xl bg-indigo-500/10 border border-indigo-500/25 flex items-center justify-center text-indigo-400">
+                <i class="fa-solid fa-receipt text-base"></i>
+              </div>
+              <div>
+                <h3 class="text-base font-bold text-white">Device Packet Audit Log</h3>
+                <p class="text-xs font-mono text-slate-400">
+                  DevEUI: <strong class="text-cyan-400">{{ activeDeviceRunForAudit?.devEUI }}</strong> | Status: <strong :class="activeDeviceRunForAudit?.status === 'PASSED' ? 'text-emerald-400' : 'text-rose-400'">{{ activeDeviceRunForAudit?.status }}</strong>
+                </p>
+              </div>
+            </div>
+            <button type="button" @click="showAuditModal = false" class="text-slate-400 hover:text-white text-lg p-1 cursor-pointer">
+              <i class="fa-solid fa-xmark"></i>
+            </button>
+          </div>
+
+          <div class="flex-1 overflow-y-auto space-y-4 pr-1">
+            <div v-if="loadingDeviceLogs" class="text-center py-10 space-y-2">
+              <i class="fa-solid fa-spinner animate-spin text-2xl text-cyan-400"></i>
+              <p class="text-xs text-slate-400">Fetching packet audit trail...</p>
+            </div>
+
+            <div v-else-if="deviceLogPackets.length === 0" class="text-center py-10 space-y-2 bg-slate-950/50 rounded-xl border border-slate-800">
+              <i class="fa-solid fa-inbox text-3xl text-slate-600"></i>
+              <p class="text-xs text-slate-400">No uplink packets received yet for this device.</p>
+            </div>
+
+            <div v-else class="space-y-4">
+              <div
+                v-for="(pkt, pIdx) in deviceLogPackets"
+                :key="pkt.id || pIdx"
+                class="p-4 bg-slate-950/80 border rounded-xl space-y-3"
+                :class="pkt.isPass ? 'border-emerald-500/30' : 'border-rose-500/30'"
+              >
+                <div class="flex items-center justify-between text-xs font-mono pb-2 border-b border-slate-800">
+                  <div class="flex items-center gap-2">
+                    <span class="font-bold text-white">Packet #{{ deviceLogPackets.length - pIdx }}</span>
+                    <span class="text-slate-500">•</span>
+                    <span class="text-slate-400">fPort: <strong class="text-slate-200">{{ pkt.fPort }}</strong></span>
+                    <span class="text-slate-500">•</span>
+                    <span class="text-slate-400">RSSI: <strong class="text-slate-200">{{ pkt.rssi }} dBm</strong></span>
+                  </div>
+                  <span
+                    class="px-2 py-0.5 rounded text-[10px] font-bold uppercase"
+                    :class="pkt.isPass ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40' : 'bg-rose-500/20 text-rose-400 border border-rose-500/40'"
+                  >
+                    {{ pkt.isPass ? 'ALL PASSED' : 'ASSERTION FAILED' }}
+                  </span>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+                  <div class="space-y-1">
+                    <span class="text-[10px] text-slate-400 uppercase font-bold">Raw Hex Payload</span>
+                    <div class="p-2 bg-slate-900 rounded-lg font-mono text-[11px] text-cyan-300 break-all border border-slate-800">
+                      {{ pkt.payloadHex }}
+                    </div>
+                  </div>
+                  <div class="space-y-1">
+                    <span class="text-[10px] text-slate-400 uppercase font-bold">Decoded JSON</span>
+                    <pre class="p-2 bg-slate-900 rounded-lg font-mono text-[10px] text-indigo-300 overflow-x-auto border border-slate-800 max-h-24">{{ JSON.stringify(pkt.decodedData || {}, null, 2) }}</pre>
+                  </div>
+                </div>
+
+                <div v-if="pkt.assertionResults && pkt.assertionResults.length > 0" class="space-y-1.5 pt-1">
+                  <span class="text-[10px] text-slate-400 uppercase font-bold">Assertion Rules Evaluation:</span>
+                  <div class="overflow-x-auto rounded-lg border border-slate-800">
+                    <table class="w-full text-left text-[11px]">
+                      <thead class="bg-slate-900 text-slate-400 text-[10px] uppercase font-bold">
+                        <tr>
+                          <th class="py-1.5 px-3">Field</th>
+                          <th class="py-1.5 px-3">Expected</th>
+                          <th class="py-1.5 px-3">Actual</th>
+                          <th class="py-1.5 px-3 text-center">Result</th>
+                        </tr>
+                      </thead>
+                      <tbody class="divide-y divide-slate-800 font-mono">
+                        <tr v-for="(rule, rIdx) in pkt.assertionResults" :key="rIdx" class="hover:bg-slate-900/60">
+                          <td class="py-1.5 px-3 font-bold text-white">{{ rule.fieldName }}</td>
+                          <td class="py-1.5 px-3 text-amber-300">{{ JSON.stringify(rule.expectedValue) }}</td>
+                          <td class="py-1.5 px-3 text-cyan-300">{{ JSON.stringify(rule.actualValue) }}</td>
+                          <td class="py-1.5 px-3 text-center font-bold" :class="rule.pass ? 'text-emerald-400' : 'text-rose-400'">
+                            {{ rule.pass ? 'PASS' : 'FAIL' }}
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="flex items-center justify-end pt-3 border-t border-slate-800">
+            <button
+              type="button"
+              @click="showAuditModal = false"
+              class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold cursor-pointer"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ======================================================== -->
+      <!-- 3. MODAL: SIMULATE UPLINK PACKET INJECTION                -->
+      <!-- ======================================================== -->
+      <div v-if="showSimulateModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in">
+        <div class="w-full max-w-lg bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-5 shadow-2xl text-slate-200">
+          <div class="flex items-center justify-between border-b border-slate-800 pb-3.5">
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/25 flex items-center justify-center text-amber-400">
+                <i class="fa-solid fa-bolt text-base"></i>
+              </div>
+              <div>
+                <h3 class="text-base font-bold text-white">Simulate Uplink Packet Injection</h3>
+                <p class="text-xs text-slate-400">Inject test payload for QA assertion verification.</p>
+              </div>
+            </div>
+            <button type="button" @click="showSimulateModal = false" class="text-slate-400 hover:text-white text-lg p-1 cursor-pointer">
+              <i class="fa-solid fa-xmark"></i>
+            </button>
+          </div>
+
+          <form @submit.prevent="submitSimulatePacket" class="space-y-4 text-xs">
+            <div class="space-y-1">
+              <label class="block font-bold text-slate-300">Target DevEUI <span class="text-rose-400">*</span></label>
+              <input
+                type="text"
+                v-model="simulateForm.devEUI"
+                placeholder="0011223344556601"
+                required
+                class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-xl text-white font-mono text-xs focus:ring-1 focus:ring-cyan-500 focus:outline-none"
+              />
+            </div>
+
+            <div class="space-y-1">
+              <div class="flex items-center justify-between">
+                <label class="font-bold text-slate-300">Payload Hex <span class="text-rose-400">*</span></label>
+                <div class="flex items-center gap-1.5 text-[10px]">
+                  <span class="text-slate-500">Presets:</span>
+                  <button type="button" @click="applySimulatePreset('wslrw-th-normal')" class="text-cyan-400 hover:underline">Normal</button>
+                  <button type="button" @click="applySimulatePreset('wslrw-th-overtemp')" class="text-amber-400 hover:underline">OverTemp</button>
+                  <button type="button" @click="applySimulatePreset('wslrw-th-lowbat')" class="text-rose-400 hover:underline">LowBat</button>
+                </div>
+              </div>
+              <textarea
+                v-model="simulateForm.payloadHex"
+                rows="2"
+                placeholder="e.g. 010100fe0201024003010e10"
+                required
+                class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-xl text-white font-mono text-xs focus:ring-1 focus:ring-cyan-500 focus:outline-none"
+              ></textarea>
+            </div>
+
+            <div class="grid grid-cols-3 gap-3">
+              <div class="space-y-1">
+                <label class="block font-bold text-slate-300">fPort</label>
+                <input
+                  type="number"
+                  v-model.number="simulateForm.fPort"
+                  class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-xl text-white font-mono text-xs focus:ring-1 focus:ring-cyan-500 focus:outline-none"
+                />
+              </div>
+              <div class="space-y-1">
+                <label class="block font-bold text-slate-300">RSSI (dBm)</label>
+                <input
+                  type="number"
+                  v-model.number="simulateForm.rssi"
+                  class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-xl text-white font-mono text-xs focus:ring-1 focus:ring-cyan-500 focus:outline-none"
+                />
+              </div>
+              <div class="space-y-1">
+                <label class="block font-bold text-slate-300">SNR (dB)</label>
+                <input
+                  type="number"
+                  step="0.1"
+                  v-model.number="simulateForm.snr"
+                  class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-xl text-white font-mono text-xs focus:ring-1 focus:ring-cyan-500 focus:outline-none"
+                />
+              </div>
+            </div>
+
+            <div class="flex items-center justify-end gap-2 pt-3 border-t border-slate-800">
+              <button
+                type="button"
+                @click="showSimulateModal = false"
+                class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                :disabled="isSimulatingPacket"
+                class="px-5 py-2 rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-bold flex items-center gap-1.5 cursor-pointer shadow-lg shadow-amber-950/40 disabled:opacity-50"
+              >
+                <i v-if="isSimulatingPacket" class="fa-solid fa-spinner animate-spin"></i>
+                <i v-else class="fa-solid fa-paper-plane"></i>
+                <span>Send & Evaluate</span>
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <!-- ======================================================== -->
+      <!-- 4. MODAL: CREATE PRODUCT TEST SESSION (COMPATIBILITY)     -->
+      <!-- ======================================================== -->
+      <div v-if="showCreateTestSessionModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in">
+        <div class="w-full max-w-xl bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-5 shadow-2xl text-slate-200">
+          <div class="flex items-center justify-between border-b border-slate-800 pb-3.5">
+            <h3 class="text-base font-bold text-white">Create Product Test Session</h3>
+            <button type="button" @click="showCreateTestSessionModal = false" class="text-slate-400 hover:text-white text-lg p-1 cursor-pointer">
+              <i class="fa-solid fa-xmark"></i>
+            </button>
+          </div>
+          <form @submit.prevent="submitCreateTestSession" class="space-y-4 text-xs">
+            <div>
+              <label class="block font-bold text-slate-300">Sales Order Code *</label>
+              <input type="text" v-model="createSessionForm.soCode" required class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-xl text-white font-mono" />
+            </div>
+            <div>
+              <label class="block font-bold text-slate-300">Item Code *</label>
+              <input type="text" v-model="createSessionForm.itemCode" required class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-xl text-white font-mono" />
+            </div>
+            <div>
+              <label class="block font-bold text-slate-300">DevEUIs *</label>
+              <textarea v-model="createSessionForm.devEUIsText" rows="3" required class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-xl text-white font-mono"></textarea>
+            </div>
+            <div class="flex justify-end gap-2 pt-3 border-t border-slate-800">
+              <button type="button" @click="showCreateTestSessionModal = false" class="px-4 py-2 rounded-xl bg-slate-800 text-slate-300">Cancel</button>
+              <button type="submit" class="px-5 py-2 rounded-xl bg-cyan-600 text-white font-bold">Create</button>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <!-- ======================================================== -->
+      <!-- 5. MODAL: DEVICE ONBOARDING & REGISTRATION VIA SERIAL UART-->
+      <!-- ======================================================== -->
+      <div v-if="showDeviceOnboardModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-md animate-in fade-in overflow-y-auto">
+        <div class="w-full max-w-2xl bg-slate-900 border border-slate-700 rounded-2xl p-6 space-y-5 shadow-2xl text-slate-200 my-8">
+          <!-- Modal Header -->
+          <div class="flex items-center justify-between border-b border-slate-800 pb-3.5">
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 rounded-xl bg-cyan-500/10 border border-cyan-500/25 flex items-center justify-center text-cyan-400">
+                <i class="fa-solid fa-microchip text-base"></i>
+              </div>
+              <div>
+                <h3 class="text-base font-bold text-white flex items-center gap-2">
+                  <span>Register Device via Serial UART</span>
+                  <span class="px-2 py-0.5 rounded-full text-[10px] font-mono bg-cyan-500/10 text-cyan-300 border border-cyan-500/20">ChirpStack Automated</span>
+                </h3>
+                <p class="text-xs text-slate-400 mt-0.5">Read hardware parameters per Modbus template <strong>template_dvt.csv</strong>, verify SO & register to Network Server.</p>
+              </div>
+            </div>
+            <button type="button" @click="closeDeviceOnboardModal" class="text-slate-400 hover:text-white text-lg p-1 cursor-pointer">
+              <i class="fa-solid fa-xmark"></i>
+            </button>
+          </div>
+
+          <!-- Target Context Bar -->
+          <div class="p-3 bg-slate-950/80 rounded-xl border border-slate-800 flex flex-wrap items-center justify-between gap-2 text-xs font-mono">
+            <div class="flex items-center gap-4 flex-wrap">
+              <span>SO: <strong class="text-cyan-300">{{ selectedSoCode }}</strong></span>
+              <span class="text-slate-600">|</span>
+              <span>Target Item: <strong class="text-amber-300">{{ selectedItemCode || 'None' }}</strong></span>
+              <span class="text-slate-600">|</span>
+              <span>Operator: <strong class="text-slate-300">{{ currentUser?.username || 'admin' }}</strong></span>
+            </div>
+            <span class="px-2 py-0.5 rounded text-[10px] bg-indigo-500/15 text-indigo-300 border border-indigo-500/30">
+              Template: template_dvt.csv
+            </span>
+          </div>
+
+          <!-- Loading State While Reading Device via UART -->
+          <div v-if="uartReading" class="py-12 flex flex-col items-center justify-center space-y-3 text-center">
+            <div class="w-12 h-12 rounded-2xl bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center text-cyan-400 text-xl">
+              <i class="fa-solid fa-circle-notch animate-spin"></i>
+            </div>
+            <div>
+              <div class="text-sm font-bold text-white">Reading Device via Serial UART...</div>
+              <div class="text-xs text-slate-400 mt-1 font-mono">Querying Modbus registers per template_dvt.csv</div>
+            </div>
+          </div>
+
+          <!-- No Data / Read Error State -->
+          <div v-else-if="!readDeviceInfo.hasData" class="py-8 px-4 bg-slate-950/60 rounded-xl border border-slate-800 text-center space-y-3">
+            <div class="w-10 h-10 mx-auto rounded-xl bg-amber-500/10 border border-amber-500/25 flex items-center justify-center text-amber-400 text-base">
+              <i class="fa-solid fa-triangle-exclamation"></i>
+            </div>
+            <div>
+              <div class="text-xs font-bold text-slate-200">No device data read yet</div>
+              <div class="text-[11px] text-slate-400 mt-0.5">{{ uartLogMessage || 'Please ensure the device is connected to the Serial UART port.' }}</div>
+            </div>
+            <button
+              type="button"
+              @click="readDeviceViaUart()"
+              :disabled="uartReading"
+              class="px-4 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-bold inline-flex items-center gap-1.5 cursor-pointer shadow-md disabled:opacity-50 transition"
+            >
+              <i class="fa-solid fa-rotate-right text-xs"></i>
+              <span>Read Device</span>
+            </button>
+          </div>
+
+          <!-- HARDWARE INFORMATION & VERIFICATION -->
+          <div v-else class="space-y-4 animate-in fade-in">
+            <div class="flex items-center justify-between border-b border-slate-800 pb-2">
+              <h4 class="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-2">
+                <i class="fa-solid fa-circle-info text-cyan-400"></i>
+                <span>Hardware Information & Order Verification</span>
+              </h4>
+              <span :class="readDeviceInfo.itemCodeMatch ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30' : 'bg-amber-500/10 text-amber-400 border-amber-500/30'" class="px-2.5 py-0.5 rounded-full text-[11px] font-bold border flex items-center gap-1.5">
+                <i :class="readDeviceInfo.itemCodeMatch ? 'fa-solid fa-check text-emerald-400' : 'fa-solid fa-triangle-exclamation text-amber-400'"></i>
+                <span>{{ readDeviceInfo.itemCodeMatch ? 'ITEM_CODE MATCHES SO' : 'ITEM_CODE MISMATCH' }}</span>
+              </span>
+            </div>
+
+            <!-- Card: SERIAL_NUMBER | DEV_EUI | ITEM_CODE | FW_VERSION | HW_VERSION | ME_VERSION -->
+            <div class="grid grid-cols-2 sm:grid-cols-12 gap-2 sm:gap-2.5 p-3.5 bg-slate-950 rounded-xl border border-slate-800 text-center font-mono">
+              <div class="col-span-1 sm:col-span-3 p-2 sm:p-2.5 rounded-lg bg-slate-900 border border-slate-800/80 space-y-1 overflow-hidden">
+                <div class="text-[10px] uppercase font-bold text-slate-400 truncate">SERIAL_NUMBER</div>
+                <div class="text-[11px] sm:text-xs font-black text-amber-300 whitespace-nowrap tracking-tight" :title="readDeviceInfo.serialNumber">{{ readDeviceInfo.serialNumber }}</div>
+              </div>
+              <div class="col-span-1 sm:col-span-3 p-2 sm:p-2.5 rounded-lg bg-slate-900 border border-slate-800/80 space-y-1 overflow-hidden">
+                <div class="text-[10px] uppercase font-bold text-slate-400 truncate">DEV_EUI</div>
+                <div class="text-[11px] sm:text-xs font-black text-cyan-400 whitespace-nowrap tracking-tight font-mono" :title="readDeviceInfo.devEUI">{{ readDeviceInfo.devEUI }}</div>
+              </div>
+              <div class="col-span-1 sm:col-span-2 p-2 sm:p-2.5 rounded-lg bg-slate-900 border border-slate-800/80 space-y-1 overflow-hidden">
+                <div class="text-[10px] uppercase font-bold text-slate-400 truncate">ITEM_CODE</div>
+                <div class="text-[11px] sm:text-xs font-black text-cyan-300 whitespace-nowrap tracking-tight overflow-hidden text-ellipsis" :title="readDeviceInfo.itemCode || '--'">{{ readDeviceInfo.itemCode || '--' }}</div>
+              </div>
+              <div class="col-span-1 sm:col-span-1 p-2 sm:p-2.5 rounded-lg bg-slate-900 border border-slate-800/80 space-y-1 overflow-hidden">
+                <div class="text-[10px] uppercase font-bold text-slate-400 truncate">FW_VERSION</div>
+                <div class="text-[11px] sm:text-xs font-bold text-purple-300 whitespace-nowrap tracking-tight">{{ readDeviceInfo.longFw }}</div>
+              </div>
+              <div class="col-span-1 sm:col-span-1 p-2 sm:p-2.5 rounded-lg bg-slate-900 border border-slate-800/80 space-y-1 overflow-hidden">
+                <div class="text-[10px] uppercase font-bold text-slate-400 truncate">HW_VERSION</div>
+                <div class="text-[11px] sm:text-xs font-bold text-emerald-300 whitespace-nowrap tracking-tight">{{ readDeviceInfo.hwVersion }}</div>
+              </div>
+              <div class="col-span-1 sm:col-span-2 p-2 sm:p-2.5 rounded-lg bg-slate-900 border border-slate-800/80 space-y-1 overflow-hidden">
+                <div class="text-[10px] uppercase font-bold text-slate-400 truncate">ME_VERSION</div>
+                <div class="text-[11px] sm:text-xs font-bold text-sky-300 whitespace-nowrap tracking-tight">{{ readDeviceInfo.meVersion }}</div>
+              </div>
+            </div>
+
+            <!-- Supplementary Details: SENSOR_TYPE -> SKU mapping, Region, Class, Operator -->
+            <div class="p-3 bg-slate-950/70 rounded-xl border border-slate-800 text-xs grid grid-cols-2 sm:grid-cols-5 gap-3">
+              <div>
+                <span class="text-slate-400 block text-[10px]">Sensor Type Code:</span>
+                <span class="font-mono font-bold text-amber-300">{{ readDeviceInfo.sensorTypeCode }}</span>
+              </div>
+              <div>
+                <span class="text-slate-400 block text-[10px]">LoRaWAN SKU:</span>
+                <span class="font-mono font-bold text-cyan-300">{{ readDeviceInfo.sku }}</span>
+              </div>
+              <div>
+                <span class="text-slate-400 block text-[10px]">Region:</span>
+                <span class="font-mono font-bold text-white">{{ readDeviceInfo.regionCode }}</span>
+              </div>
+              <div>
+                <span class="text-slate-400 block text-[10px]">Class:</span>
+                <span class="font-mono font-bold text-white">{{ readDeviceInfo.devClass }}</span>
+              </div>
+              <div>
+                <span class="text-slate-400 block text-[10px]">REGISTER BY:</span>
+                <span class="font-mono font-bold text-emerald-300">{{ currentUser?.username || 'admin' }}</span>
+              </div>
+            </div>
+
+            <!-- Target Network Server Configuration / Selector -->
+            <div class="p-3 bg-slate-950/90 rounded-xl border border-slate-800 text-xs flex flex-wrap items-center justify-between gap-3">
+              <div class="flex items-center gap-2.5 flex-wrap">
+                <div class="flex items-center gap-1.5 text-slate-300 font-bold">
+                  <i class="fa-solid fa-tower-broadcast text-cyan-400"></i>
+                  <span>Network Server:</span>
+                </div>
+                <select
+                  v-if="networkServersList && networkServersList.length > 0"
+                  v-model="selectedNetworkServerId"
+                  class="px-2.5 py-1 bg-slate-900 border border-slate-700 rounded-lg text-white font-mono text-xs focus:ring-1 focus:ring-cyan-500 focus:outline-none"
+                >
+                  <option v-for="ns in networkServersList" :key="ns.id" :value="ns.id">
+                    {{ ns.name }} ({{ ns.type }}){{ ns.isDefault ? ' [Default]' : '' }}
+                  </option>
+                  <option value="__LOCAL__">Local Fleet Mode (Offline Test)</option>
+                </select>
+                <div v-else class="flex items-center gap-2">
+                  <span class="px-2 py-0.5 rounded bg-cyan-500/10 text-cyan-300 border border-cyan-500/30 text-[11px] font-mono">
+                    Auto-detect Configured Server
+                  </span>
+                  <select
+                    v-model="selectedNetworkServerId"
+                    class="px-2.5 py-1 bg-slate-900 border border-slate-700 rounded-lg text-white font-mono text-xs focus:ring-1 focus:ring-cyan-500 focus:outline-none"
+                  >
+                    <option value="">Auto (ChirpStack Default)</option>
+                    <option value="__LOCAL__">Local Fleet Mode (Offline Test)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="text-[11px] font-mono text-slate-400 flex items-center gap-1.5">
+                <span>Mode:</span>
+                <span :class="selectedNetworkServerId === '__LOCAL__' ? 'text-amber-300 font-bold' : 'text-emerald-400 font-bold'">
+                  {{ selectedNetworkServerId === '__LOCAL__' ? 'LOCAL ONLY (No API Call)' : 'CHIRPSTACK ONLINE' }}
+                </span>
+              </div>
+            </div>
+
+            <!-- Registration Error / Duplicate Alert -->
+            <div v-if="registrationErrorMessage" class="p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs flex items-center justify-between gap-2 animate-in fade-in">
+              <div class="flex items-center gap-2">
+                <i class="fa-solid fa-triangle-exclamation text-rose-400 text-sm shrink-0"></i>
+                <span class="font-medium">{{ registrationErrorMessage }}</span>
+              </div>
+              <button type="button" @click="registrationErrorMessage = ''" class="text-rose-400 hover:text-white p-1 cursor-pointer">
+                <i class="fa-solid fa-xmark"></i>
+              </button>
+            </div>
+
+            <!-- STEP 3: USER INPUT CONFIRMATION -->
+            <div class="p-4 bg-gradient-to-r from-slate-950 via-slate-900 to-slate-950 rounded-xl border border-indigo-500/30 space-y-3">
+              <label class="block text-xs font-bold text-slate-200">
+                <i class="fa-solid fa-barcode text-cyan-400 mr-1.5"></i>
+                Please re-enter <span class="text-amber-300 font-mono">SERIAL_NUMBER</span> to confirm: <span class="text-rose-400">*</span>
+              </label>
+              <div class="flex items-center gap-2">
+                <input
+                  type="text"
+                  v-model="confirmSerialNumberInput"
+                  placeholder="Enter or scan barcode SERIAL_NUMBER..."
+                  class="flex-1 px-3.5 py-2.5 bg-slate-950 border border-slate-700 rounded-xl text-white font-mono text-xs focus:ring-1 focus:ring-cyan-500 focus:outline-none"
+                  @keyup.enter="isSerialNumberConfirmed ? submitRegisterToChirpstack() : null"
+                />
+                <button
+                  type="button"
+                  @click="confirmSerialNumberInput = readDeviceInfo.serialNumber"
+                  class="px-3 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white text-xs font-mono cursor-pointer transition"
+                  title="Auto copy"
+                >
+                  <i class="fa-regular fa-copy"></i>
+                </button>
+              </div>
+
+              <!-- Validation Feedback -->
+              <div v-if="confirmSerialNumberInput" class="text-xs flex items-center gap-1.5">
+                <span v-if="isSerialNumberConfirmed" class="text-emerald-400 font-bold flex items-center gap-1.5">
+                  <i class="fa-solid fa-circle-check"></i>
+                  <span>SERIAL_NUMBER verified! Ready to register to {{ selectedNetworkServerId === '__LOCAL__' ? 'Local Fleet' : (selectedNetworkServer?.name || 'ChirpStack') }}.</span>
+                </span>
+                <span v-else class="text-rose-400 font-bold flex items-center gap-1.5">
+                  <i class="fa-solid fa-circle-xmark"></i>
+                  <span>Does not match SERIAL_NUMBER read from device.</span>
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Modal Footer Actions -->
+          <div class="flex items-center justify-between pt-3 border-t border-slate-800">
+            <button
+              type="button"
+              @click="closeDeviceOnboardModal"
+              class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold cursor-pointer transition flex items-center gap-1.5"
+            >
+              <i class="fa-solid fa-xmark"></i>
+              <span>Cancel</span>
+            </button>
+
+            <div class="flex items-center gap-2">
+              <button
+                type="button"
+                @click="readDeviceViaUart()"
+                :disabled="uartReading"
+                class="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-semibold flex items-center gap-1.5 cursor-pointer disabled:opacity-50 transition"
+                title="Re-read hardware parameters from UART port"
+              >
+                <i v-if="uartReading" class="fa-solid fa-circle-notch animate-spin text-cyan-400"></i>
+                <i v-else class="fa-solid fa-rotate-right text-cyan-400"></i>
+                <span>Re-read</span>
+              </button>
+
+              <button
+                type="button"
+                @click="submitRegisterToChirpstack"
+                :disabled="!isSerialNumberConfirmed || isRegisteringToChirpstack"
+                class="px-5 py-2 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white text-xs font-bold flex items-center gap-2 cursor-pointer shadow-lg shadow-cyan-950/50 transition disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                <i v-if="isRegisteringToChirpstack" class="fa-solid fa-circle-notch animate-spin"></i>
+                <i v-else class="fa-solid fa-cloud-arrow-up"></i>
+                <span>Confirm & Register</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Connection Check / Read Failure Alert Modal -->
+      <div v-if="showPortCheckModal" class="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-md animate-in fade-in">
+        <div class="w-full max-w-md bg-slate-900 border border-amber-500/30 rounded-2xl p-6 shadow-2xl space-y-4 text-slate-200">
+          <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+            <div class="flex items-center gap-2.5">
+              <div class="w-9 h-9 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400">
+                <i class="fa-solid fa-triangle-exclamation text-sm"></i>
+              </div>
+              <div>
+                <h3 class="text-sm font-bold text-white">Check Port Connection</h3>
+                <p class="text-[11px] text-amber-300">Cannot read SERIAL_NUMBER from device</p>
+              </div>
+            </div>
+            <button type="button" @click="closePortCheckModal" class="text-slate-400 hover:text-white text-base p-1 cursor-pointer">
+              <i class="fa-solid fa-xmark"></i>
+            </button>
+          </div>
+
+          <div class="space-y-3 text-xs leading-relaxed text-slate-300">
+            <p class="bg-amber-500/10 border border-amber-500/20 rounded-xl p-3 text-amber-200 font-medium">
+              {{ portCheckErrorMessage || 'Cannot read SERIAL_NUMBER from the device. Please check the serial port connection before proceeding.' }}
+            </p>
+
+            <div class="p-3 bg-slate-950/80 rounded-xl border border-slate-800 space-y-2 text-[11px]">
+              <div class="font-bold text-slate-200 flex items-center gap-1.5 mb-1 text-xs">
+                <i class="fa-solid fa-circle-question text-cyan-400"></i>
+                <span>Checklist & Troubleshooting:</span>
+              </div>
+              <div class="flex items-start gap-2">
+                <i class="fa-solid fa-check text-cyan-400 mt-0.5"></i>
+                <span>Ensure USB-Serial cable is plugged in firmly and the COM port is selected.</span>
+              </div>
+              <div class="flex items-start gap-2">
+                <i class="fa-solid fa-check text-cyan-400 mt-0.5"></i>
+                <span>Verify Baud rate setting matches the device (<strong>9600 bps</strong> or <strong>115200 bps</strong>).</span>
+              </div>
+              <div class="flex items-start gap-2">
+                <i class="fa-solid fa-check text-cyan-400 mt-0.5"></i>
+                <span>Check device power supply and wiring (UART TX connected to RX, RX to TX).</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="flex items-center justify-end gap-2 pt-2 border-t border-slate-800">
+            <button
+              type="button"
+              @click="closePortCheckModal"
+              class="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold cursor-pointer transition"
+            >
+              Close
+            </button>
+            <button
+              type="button"
+              @click="closePortCheckModal(); readDeviceViaUart()"
+              :disabled="uartReading"
+              class="px-4 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-md transition disabled:opacity-50"
+            >
+              <i v-if="uartReading" class="fa-solid fa-circle-notch animate-spin"></i>
+              <i v-else class="fa-solid fa-rotate-right"></i>
+              <span>Re-read Device</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ======================================================== -->
+      <!-- 5. MODAL: POST-TEST SENSOR DECODED DATA EVIDENCE -->
+      <!-- ======================================================== -->
+      <div v-if="showEvidenceModal" class="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/85 backdrop-blur-md animate-in fade-in">
+        <div class="w-full max-w-5xl max-h-[90vh] bg-slate-900 border border-slate-700 rounded-2xl p-5 sm:p-6 space-y-4 shadow-2xl text-slate-200 flex flex-col test-automation-modal-card animate-in zoom-in-95">
+          <!-- Header -->
+          <div class="flex items-center justify-between border-b border-slate-800 pb-3 shrink-0">
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 rounded-xl bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center text-cyan-400 text-lg">
+                <i class="fa-solid fa-clipboard-check"></i>
+              </div>
+              <div>
+                <h3 class="text-base font-extrabold text-white tracking-wide flex items-center gap-2">
+                  <span>Post-Test Sensor Evidence</span>
+                  <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 font-mono">POSTGRESQL test_evidence</span>
+                </h3>
+                <p class="text-xs text-slate-400">
+                  Durable verification proof of decoded sensor fields, Modbus Reg 259 serial numbers, and assertions.
+                </p>
+              </div>
+            </div>
+            <button type="button" @click="showEvidenceModal = false" class="text-slate-400 hover:text-white text-lg p-1 cursor-pointer">
+              <i class="fa-solid fa-xmark"></i>
+            </button>
+          </div>
+
+          <!-- Filter & Action Ribbon -->
+          <div class="flex flex-wrap items-center justify-between gap-3 bg-slate-950/60 p-3 rounded-xl border border-slate-800 shrink-0">
+            <div class="flex flex-wrap items-center gap-2 flex-1 min-w-[280px]">
+              <div class="relative flex-1 min-w-[180px]">
+                <i class="fa-solid fa-magnifying-glass absolute left-3 top-2.5 text-xs text-slate-500"></i>
+                <input
+                  type="text"
+                  v-model="evidenceSearchQuery"
+                  @input="fetchEvidences"
+                  placeholder="Search DevEUI, Serial (Reg 259), SO Code, Item..."
+                  class="w-full pl-8 pr-3 py-1.5 bg-slate-900 border border-slate-700 rounded-xl text-white text-xs font-mono placeholder-slate-500 focus:ring-1 focus:ring-cyan-500 focus:outline-none"
+                />
+              </div>
+              <select
+                v-model="evidenceVerdictFilter"
+                @change="fetchEvidences"
+                class="px-2.5 py-1.5 bg-slate-900 border border-slate-700 rounded-xl text-white text-xs font-mono focus:outline-none cursor-pointer"
+              >
+                <option value="ALL">All Verdicts</option>
+                <option value="PASSED">PASSED Only</option>
+                <option value="FAILED">FAILED Only</option>
+              </select>
+            </div>
+
+            <div class="flex items-center gap-2">
+              <button
+                type="button"
+                @click="exportEvidenceCsvReport"
+                class="px-3 py-1.5 rounded-xl bg-emerald-600/30 hover:bg-emerald-600/40 text-emerald-300 border border-emerald-500/40 text-xs font-bold flex items-center gap-1.5 cursor-pointer transition"
+                title="Export Evidence to CSV"
+              >
+                <i class="fa-solid fa-file-csv"></i>
+                <span>Export CSV</span>
+              </button>
+              <button
+                type="button"
+                @click="fetchEvidences"
+                class="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white text-xs cursor-pointer transition"
+                title="Refresh Evidence"
+              >
+                <i class="fa-solid fa-arrows-rotate" :class="{ 'animate-spin': loadingEvidences }"></i>
+              </button>
+            </div>
+          </div>
+
+          <!-- Evidence List Table -->
+          <div class="flex-1 overflow-y-auto min-h-[220px] rounded-xl border border-slate-800 bg-slate-950/40">
+            <div v-if="loadingEvidences" class="p-8 text-center text-slate-400 text-xs flex items-center justify-center gap-2">
+              <i class="fa-solid fa-circle-notch animate-spin text-cyan-400"></i>
+              <span>Loading test evidence records...</span>
+            </div>
+            <div v-else-if="evidenceList.length === 0" class="p-8 text-center text-slate-500 text-xs space-y-2">
+              <i class="fa-regular fa-folder-open text-2xl text-slate-600"></i>
+              <p>No test evidence records found matching current filter.</p>
+            </div>
+            <table v-else class="w-full text-left text-xs border-collapse">
+              <thead class="sticky top-0 bg-slate-900 border-b border-slate-800 text-[10px] uppercase font-bold text-slate-400 font-mono">
+                <tr>
+                  <th class="py-2.5 px-3">Tested At</th>
+                  <th class="py-2.5 px-3">DevEUI</th>
+                  <th class="py-2.5 px-3">SERIAL_NUMBER (Reg 259)</th>
+                  <th class="py-2.5 px-3">SO Code</th>
+                  <th class="py-2.5 px-3">Item / SKU</th>
+                  <th class="py-2.5 px-3 text-center">Verdict</th>
+                  <th class="py-2.5 px-3">Decoded Sensor Fields</th>
+                  <th class="py-2.5 px-3 text-center">Action</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-slate-800/80">
+                <tr v-for="ev in evidenceList" :key="ev.id" class="hover:bg-slate-900/50 transition">
+                  <td class="py-2 px-3 text-slate-400 font-mono text-[11px] whitespace-nowrap">
+                    {{ formatTimestamp(ev.testedAt || ev.createdAt) }}
+                  </td>
+                  <td class="py-2 px-3 font-mono font-bold text-cyan-300">
+                    <span @click="copyText(ev.devEUI)" class="cursor-pointer hover:underline" title="Click to copy">
+                      {{ ev.devEUI }}
+                    </span>
+                  </td>
+                  <td class="py-2 px-3 font-mono font-bold text-amber-300">
+                    {{ ev.serialNumber || '--' }}
+                  </td>
+                  <td class="py-2 px-3 font-mono text-slate-300">
+                    {{ ev.soCode || '--' }}
+                  </td>
+                  <td class="py-2 px-3 text-slate-300 text-[11px]">
+                    <div>{{ ev.itemCode || '--' }}</div>
+                    <div class="text-[9px] text-slate-500 font-mono">{{ ev.sku }} (FW: {{ ev.firmwareVersion || '1.0' }})</div>
+                  </td>
+                  <td class="py-2 px-3 text-center">
+                    <span
+                      :class="ev.verdict === 'PASSED' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30' : 'bg-rose-500/10 text-rose-400 border-rose-500/30'"
+                      class="px-2 py-0.5 rounded-full text-[10px] font-bold border"
+                    >
+                      {{ ev.verdict }}
+                    </span>
+                  </td>
+                  <td class="py-2 px-3 font-mono text-[11px] text-slate-300 max-w-[260px] truncate" :title="JSON.stringify(ev.decodedFields)">
+                    <span v-for="(v, k) in ev.decodedFields" :key="k" class="inline-block mr-1.5 px-1.5 py-0.5 rounded bg-slate-800 text-[10px]">
+                      {{ k }}: <strong class="text-cyan-300">{{ v }}</strong>
+                    </span>
+                  </td>
+                  <td class="py-2 px-3 text-center whitespace-nowrap">
+                    <button
+                      type="button"
+                      @click="selectedEvidenceDetail = ev"
+                      class="px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white text-[11px] font-bold cursor-pointer transition"
+                      title="Inspect Complete Evidence & Audit Data"
+                    >
+                      <i class="fa-regular fa-eye mr-1"></i> Inspect
+                    </button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Total Count Footer -->
+          <div class="flex items-center justify-between text-xs text-slate-400 px-1 pt-2 shrink-0">
+            <span>Showing {{ evidenceList.length }} evidence records</span>
+            <span class="font-mono text-cyan-400 font-bold">Total in DB: {{ evidenceTotalCount }}</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- SUB-MODAL: SINGLE EVIDENCE DETAIL INSPECTOR -->
+      <div v-if="selectedEvidenceDetail" class="fixed inset-0 z-60 flex items-center justify-center p-4 bg-slate-950/90 backdrop-blur-md animate-in fade-in">
+        <div class="w-full max-w-2xl bg-slate-900 border border-slate-700 rounded-2xl p-6 space-y-4 shadow-2xl text-slate-200 animate-in zoom-in-95 max-h-[85vh] overflow-y-auto test-automation-modal-card">
+          <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+            <div>
+              <h3 class="text-sm font-bold text-white flex items-center gap-2">
+                <i class="fa-solid fa-microchip text-cyan-400"></i>
+                <span>Evidence Detail: {{ selectedEvidenceDetail.devEUI }}</span>
+              </h3>
+              <p class="text-[11px] text-slate-400 font-mono">
+                Serial (Reg 259): <strong class="text-amber-300">{{ selectedEvidenceDetail.serialNumber || 'N/A' }}</strong> | SO: {{ selectedEvidenceDetail.soCode }}
+              </p>
+            </div>
+            <button type="button" @click="selectedEvidenceDetail = null" class="text-slate-400 hover:text-white text-lg p-1 cursor-pointer">
+              <i class="fa-solid fa-xmark"></i>
+            </button>
+          </div>
+
+          <!-- Hardware & Verification Summary Cards -->
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center text-xs font-mono">
+            <div class="p-2.5 rounded-xl bg-slate-950 border border-slate-800">
+              <span class="text-[10px] text-slate-400 block">SERIAL_NUMBER (Reg 259)</span>
+              <strong class="text-amber-300">{{ selectedEvidenceDetail.serialNumber || '--' }}</strong>
+            </div>
+            <div class="p-2.5 rounded-xl bg-slate-950 border border-slate-800">
+              <span class="text-[10px] text-slate-400 block">VERDICT</span>
+              <span :class="selectedEvidenceDetail.verdict === 'PASSED' ? 'text-emerald-400' : 'text-rose-400'" class="font-black">
+                {{ selectedEvidenceDetail.verdict }}
+              </span>
+            </div>
+            <div class="p-2.5 rounded-xl bg-slate-950 border border-slate-800">
+              <span class="text-[10px] text-slate-400 block">BATTERY</span>
+              <strong class="text-emerald-300">{{ selectedEvidenceDetail.batteryVoltage ? selectedEvidenceDetail.batteryVoltage + 'V' : '--' }}</strong>
+            </div>
+            <div class="p-2.5 rounded-xl bg-slate-950 border border-slate-800">
+              <span class="text-[10px] text-slate-400 block">TESTED AT</span>
+              <span class="text-slate-300 text-[10px]">{{ formatTimestamp(selectedEvidenceDetail.testedAt) }}</span>
+            </div>
+          </div>
+
+          <!-- Decoded Sensor Fields (Evidence) -->
+          <div class="space-y-1.5">
+            <div class="flex items-center justify-between text-xs font-bold text-slate-300 uppercase tracking-wider">
+              <span>Decoded Sensor Fields (All Fields from Decoder)</span>
+              <button type="button" @click="copyText(JSON.stringify(selectedEvidenceDetail.decodedFields, null, 2))" class="text-[10px] text-cyan-400 hover:underline cursor-pointer">
+                <i class="fa-regular fa-copy mr-1"></i> Copy JSON
+              </button>
+            </div>
+            <div class="p-3 bg-slate-950 rounded-xl border border-slate-800">
+              <div v-if="!selectedEvidenceDetail.decodedFields || Object.keys(selectedEvidenceDetail.decodedFields).length === 0" class="text-slate-500 text-xs italic">
+                No decoded fields captured
+              </div>
+              <div v-else class="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                <div v-for="(val, key) in selectedEvidenceDetail.decodedFields" :key="key" class="p-2 rounded-lg bg-slate-900 border border-slate-800">
+                  <span class="text-[10px] text-slate-400 block uppercase font-mono">{{ key }}</span>
+                  <span class="text-xs font-bold font-mono text-cyan-300 break-all">{{ val }}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Raw Hex Payload & Assertions -->
+          <div class="space-y-1.5">
+            <span class="text-xs font-bold text-slate-300 uppercase tracking-wider block">Raw Uplink Payload (Hex)</span>
+            <div class="p-2.5 bg-slate-950 rounded-xl border border-slate-800 font-mono text-xs text-amber-300 break-all flex items-center justify-between">
+              <span>{{ selectedEvidenceDetail.payloadHex }}</span>
+              <button type="button" @click="copyText(selectedEvidenceDetail.payloadHex)" class="text-slate-400 hover:text-white ml-2 cursor-pointer">
+                <i class="fa-regular fa-copy"></i>
+              </button>
+            </div>
+          </div>
+
+          <!-- Footer -->
+          <div class="flex justify-end pt-2 border-t border-slate-800">
+            <button type="button" @click="selectedEvidenceDetail = null" class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold cursor-pointer">
+              Close
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ======================================================== -->
+      <!-- PRODUCT TRACEABILITY MODAL (PostgreSQL test_result & raw_data3) -->
+      <!-- ======================================================== -->
+      <div v-if="showTraceabilityModal" class="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/85 backdrop-blur-md animate-in fade-in">
+        <div class="w-full max-w-6xl max-h-[92vh] bg-slate-900 border border-slate-700 rounded-2xl p-5 sm:p-6 space-y-4 shadow-2xl text-slate-200 flex flex-col test-automation-modal-card animate-in zoom-in-95">
+          <!-- Header -->
+          <div class="flex items-center justify-between border-b border-slate-800 pb-3 shrink-0">
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 rounded-xl bg-purple-500/10 border border-purple-500/30 flex items-center justify-center text-purple-400 text-lg shadow-inner">
+                <i class="fa-solid fa-timeline"></i>
+              </div>
+              <div>
+                <h3 class="text-base font-extrabold text-white tracking-wide flex items-center gap-2">
+                  <span>Product Traceability</span>
+                  <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-500/15 text-purple-300 border border-purple-500/30 font-mono">POSTGRESQL test_result & raw_data3</span>
+                </h3>
+                <p class="text-xs text-slate-400">
+                  Historical factory QA test records and raw telemetry frames stored in PostgreSQL.
+                </p>
+              </div>
+            </div>
+            <button type="button" @click="closeTraceabilityModal" class="text-slate-400 hover:text-white text-lg p-1 cursor-pointer">
+              <i class="fa-solid fa-xmark"></i>
+            </button>
+          </div>
+
+          <!-- PROMINENT NOTICE: UART DECOUPLING CLARIFICATION -->
+          <div class="p-3 rounded-xl bg-purple-950/30 border border-purple-800/60 flex items-start gap-3 shrink-0">
+            <div class="w-6 h-6 rounded-lg bg-purple-500/20 border border-purple-500/40 flex items-center justify-center text-purple-300 shrink-0 mt-0.5">
+              <i class="fa-solid fa-circle-info text-xs"></i>
+            </div>
+            <div class="text-xs space-y-0.5">
+              <div class="font-bold text-purple-200 tracking-wide uppercase">
+                Nguồn Dữ Liệu Traceability Sản Phẩm (PostgreSQL dvt)
+              </div>
+              <p class="text-slate-300 text-[11px] leading-relaxed">
+                Toàn bộ dữ liệu Traceability sản phẩm được truy vấn từ 2 bảng cơ sở dữ liệu PostgreSQL: <strong class="font-mono text-purple-300">test_result</strong> (lịch sử kiểm định QA) và <strong class="font-mono text-purple-300">raw_data3</strong> (telemetry uplink lưu trữ).
+                <br />
+                <span class="text-amber-300 font-medium">Lưu ý quan trọng: Cổng Serial UART trên bàn thao tác chỉ dùng cho onboarding/đọc thanh ghi Modbus cục bộ và hoàn toàn không liên quan đến Traceability.</span>
+              </p>
+            </div>
+          </div>
+
+          <!-- Ribbon: View mode selector & filter inputs -->
+          <div class="flex flex-wrap items-center justify-between gap-3 bg-slate-950/70 p-3 rounded-xl border border-slate-800 shrink-0">
+            <div class="flex flex-wrap items-center gap-2 flex-1 min-w-[280px]">
+              <!-- View Switcher -->
+              <div class="inline-flex rounded-lg border border-slate-700 bg-slate-900 p-0.5">
+                <button
+                  type="button"
+                  @click="traceModalViewMode = 'catalog'"
+                  :class="traceModalViewMode === 'catalog' ? 'bg-purple-600/30 text-purple-300 font-bold shadow-sm' : 'text-slate-400 hover:text-white'"
+                  class="px-3 py-1 text-xs rounded-md transition flex items-center gap-1.5 cursor-pointer"
+                >
+                  <i class="fa-solid fa-table-list text-[10px]"></i>
+                  <span>Test Results</span>
+                </button>
+                <button
+                  type="button"
+                  @click="traceModalViewMode = 'details'"
+                  :disabled="!traceModalSelectedDetail"
+                  :class="traceModalViewMode === 'details' ? 'bg-purple-600/30 text-purple-300 font-bold shadow-sm' : 'text-slate-400 hover:text-white disabled:opacity-40'"
+                  class="px-3 py-1 text-xs rounded-md transition flex items-center gap-1.5 cursor-pointer"
+                >
+                  <i class="fa-solid fa-microchip text-[10px]"></i>
+                  <span>Telemetry & Details</span>
+                </button>
+              </div>
+
+              <!-- Search input -->
+              <div class="relative flex-1 min-w-[200px]">
+                <i class="fa-solid fa-magnifying-glass absolute left-3 top-2.5 text-xs text-slate-500"></i>
+                <input
+                  type="text"
+                  v-model="traceModalSearchQuery"
+                  @keyup.enter="fetchTraceabilityModalData"
+                  placeholder="Search Serial (SN), DevEUI, SO, SKU, Item..."
+                  class="w-full pl-8 pr-3 py-1.5 bg-slate-900 border border-slate-700 rounded-xl text-white text-xs font-mono placeholder-slate-500 focus:ring-1 focus:ring-purple-500 focus:outline-none"
+                />
+              </div>
+
+              <!-- Verdict Filter -->
+              <select
+                v-model="traceModalVerdictFilter"
+                @change="fetchTraceabilityModalData"
+                class="px-2.5 py-1.5 bg-slate-900 border border-slate-700 rounded-xl text-white text-xs font-mono focus:outline-none cursor-pointer"
+              >
+                <option value="ALL">All Verdicts</option>
+                <option value="PASS">PASS Only</option>
+                <option value="FAIL">FAIL Only</option>
+              </select>
+            </div>
+
+            <div class="flex items-center gap-2">
+              <button
+                type="button"
+                @click="exportTraceabilityCsv"
+                class="px-3 py-1.5 rounded-xl bg-emerald-600/30 hover:bg-emerald-600/40 text-emerald-300 border border-emerald-500/40 text-xs font-bold flex items-center gap-1.5 cursor-pointer transition shadow-sm"
+                title="Export Traceability Results to CSV"
+              >
+                <i class="fa-solid fa-file-csv"></i>
+                <span>Export CSV</span>
+              </button>
+              <button
+                type="button"
+                @click="fetchTraceabilityModalData"
+                :disabled="traceModalLoading"
+                class="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white text-xs cursor-pointer transition"
+                title="Refresh Results"
+              >
+                <i class="fa-solid fa-arrows-rotate" :class="{ 'animate-spin': traceModalLoading }"></i>
+              </button>
+            </div>
+          </div>
+
+          <!-- BODY: MODE 1 - RESULTS CATALOG (TABLE) -->
+          <div v-if="traceModalViewMode === 'catalog'" class="flex-1 overflow-y-auto space-y-4 pr-1">
+            <!-- Metrics Summary Cards -->
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 font-mono">
+              <div class="bg-slate-950/60 p-3 rounded-xl border border-slate-800">
+                <span class="text-[10px] text-slate-400 block uppercase font-sans">Total Records (test_result)</span>
+                <span class="text-base font-bold text-white">{{ traceModalMetrics.total }}</span>
+              </div>
+              <div class="bg-slate-950/60 p-3 rounded-xl border border-slate-800">
+                <span class="text-[10px] text-slate-400 block uppercase font-sans">Passed Records</span>
+                <span class="text-base font-bold text-emerald-400">{{ traceModalMetrics.pass }}</span>
+              </div>
+              <div class="bg-slate-950/60 p-3 rounded-xl border border-slate-800">
+                <span class="text-[10px] text-slate-400 block uppercase font-sans">Failed Records</span>
+                <span class="text-base font-bold text-rose-400">{{ traceModalMetrics.fail }}</span>
+              </div>
+              <div class="bg-slate-950/60 p-3 rounded-xl border border-slate-800">
+                <span class="text-[10px] text-slate-400 block uppercase font-sans">Pass Rate</span>
+                <span class="text-base font-bold text-cyan-400">{{ traceModalMetrics.passRate }}%</span>
+              </div>
+            </div>
+
+            <!-- Table of Test Results -->
+            <div class="overflow-x-auto rounded-xl border border-slate-800 bg-slate-950/80">
+              <table class="w-full text-left text-xs font-mono">
+                <thead class="bg-slate-950 text-slate-400 text-[10px] uppercase font-bold tracking-wider border-b border-slate-800">
+                  <tr>
+                    <th class="py-2.5 px-3">SO Number</th>
+                    <th class="py-2.5 px-3">Serial (SN)</th>
+                    <th class="py-2.5 px-3">Item / SKU</th>
+                    <th class="py-2.5 px-3">DevEUI / Key</th>
+                    <th class="py-2.5 px-3 text-center">FW / HW</th>
+                    <th class="py-2.5 px-3 text-center">Duration</th>
+                    <th class="py-2.5 px-3 text-center">Verdict</th>
+                    <th class="py-2.5 px-3">Station / Tester</th>
+                    <th class="py-2.5 px-3">Time Finish</th>
+                    <th class="py-2.5 px-3 text-right">Action</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-800/60">
+                  <tr v-if="traceModalLoading">
+                    <td colspan="10" class="py-8 text-center text-slate-400">
+                      <i class="fa-solid fa-circle-notch animate-spin text-lg text-purple-400 mr-2"></i>
+                      <span>Querying test_result & raw_data3 from PostgreSQL...</span>
+                    </td>
+                  </tr>
+                  <tr v-else-if="!traceModalResults || traceModalResults.length === 0">
+                    <td colspan="10" class="py-8 text-center text-slate-500">
+                      <i class="fa-solid fa-box-open text-2xl mb-1 block"></i>
+                      <span>No QA test records matching search criteria found in PostgreSQL.</span>
+                    </td>
+                  </tr>
+                  <tr
+                    v-else
+                    v-for="item in traceModalResults"
+                    :key="item.testResultId || item.test_result_id || item.serialNumber || item.serial_number"
+                    class="hover:bg-slate-800/40 transition"
+                  >
+                    <td class="py-2.5 px-3 font-semibold text-purple-300">
+                      {{ item.soNumber || item.so_number || '—' }}
+                    </td>
+                    <td class="py-2.5 px-3 font-bold text-white">
+                      {{ item.serialNumber || item.serial_number || '—' }}
+                    </td>
+                    <td class="py-2.5 px-3 text-slate-300 text-[11px]">
+                      {{ item.itemCode || item.item_code || item.sku || '—' }}
+                      <span v-if="item.sku && (item.itemCode || item.item_code) !== item.sku" class="text-slate-500 text-[9px] block">({{ item.sku }})</span>
+                    </td>
+                    <td class="py-2.5 px-3 text-slate-400 text-[11px]">
+                      {{ item.deviceKey || item.device_key || '—' }}
+                    </td>
+                    <td class="py-2.5 px-3 text-center text-[10px] text-slate-400">
+                      FW: {{ item.fwVer || item.fw_ver || '—' }} | HW: {{ item.hwVer || item.hw_ver || '—' }}
+                    </td>
+                    <td class="py-2.5 px-3 text-center text-slate-300 text-[11px]">
+                      {{ item.durationTime || item.duration_time || '—' }}
+                    </td>
+                    <td class="py-2.5 px-3 text-center">
+                      <span
+                        class="px-2 py-0.5 rounded-full text-[10px] font-bold border uppercase"
+                        :class="isTestVerdictPass(item.result) ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/25' : 'bg-rose-500/10 text-rose-400 border-rose-500/25'"
+                      >
+                        {{ item.result || 'PASS' }}
+                      </span>
+                    </td>
+                    <td class="py-2.5 px-3 text-slate-400 text-[10px]">
+                      <div>{{ item.testStation || item.test_station || 'STATION-01' }}</div>
+                      <div class="text-[9px] text-slate-500">{{ item.testPerson || item.test_person || 'QA' }}</div>
+                    </td>
+                    <td class="py-2.5 px-3 text-slate-400 text-[10px] whitespace-nowrap">
+                      {{ formatTraceTimestamp(item.timeFinish || item.time_finish || item.startTime || item.start_time) }}
+                    </td>
+                    <td class="py-2.5 px-3 text-right">
+                      <button
+                        type="button"
+                        @click="viewTraceabilityDeviceDetail(item)"
+                        class="px-2.5 py-1 rounded-lg bg-purple-500/15 hover:bg-purple-500/30 text-purple-300 border border-purple-500/30 text-[11px] font-bold cursor-pointer transition"
+                        title="Inspect telemetry frames from raw_data3"
+                      >
+                        <i class="fa-solid fa-eye mr-1"></i> Telemetry
+                      </button>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- BODY: MODE 2 - DEVICE TELEMETRY & STATS (from test_result & raw_data3) -->
+          <div v-else-if="traceModalViewMode === 'details'" class="flex-1 overflow-y-auto space-y-4 pr-1">
+            <div v-if="traceModalLoadingDetail" class="py-12 text-center text-slate-400 font-mono">
+              <i class="fa-solid fa-circle-notch animate-spin text-2xl text-purple-400 mb-2 block"></i>
+              <span>Loading telemetry frames and sensor statistics from raw_data3...</span>
+            </div>
+            <div v-else-if="traceModalSelectedDetail" class="space-y-4">
+              <!-- General Info Card -->
+              <div class="p-4 rounded-xl bg-slate-950/70 border border-slate-800 space-y-3">
+                <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 pb-2">
+                  <div class="flex items-center gap-2">
+                    <span class="text-xs font-bold text-white uppercase tracking-wider">Device Test Summary</span>
+                    <span
+                      class="px-2.5 py-0.5 rounded-full text-[10px] font-bold border uppercase font-mono"
+                      :class="isTestVerdictPass(traceModalSelectedDetail.test_result?.result || traceModalSelectedDetail.generalInfo?.result) ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/25' : 'bg-rose-500/10 text-rose-400 border-rose-500/25'"
+                    >
+                      {{ traceModalSelectedDetail.test_result?.result || traceModalSelectedDetail.generalInfo?.result || 'PASS' }}
+                    </span>
+                  </div>
+                  <div class="flex items-center gap-2">
+                    <button
+                      type="button"
+                      @click="exportSingleDeviceTraceCsv"
+                      class="px-2.5 py-1 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/30 text-[11px] font-bold cursor-pointer transition"
+                    >
+                      <i class="fa-solid fa-download mr-1"></i> Export Device CSV
+                    </button>
+                    <button
+                      type="button"
+                      @click="traceModalViewMode = 'catalog'"
+                      class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px] font-bold cursor-pointer transition"
+                    >
+                      <i class="fa-solid fa-arrow-left mr-1"></i> Back to List
+                    </button>
+                  </div>
+                </div>
+
+                <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-3 font-mono text-xs">
+                  <div>
+                    <span class="text-[10px] text-slate-500 block uppercase font-sans">Serial Number (SN)</span>
+                    <span class="font-bold text-white">{{ traceModalSelectedDetail.serial_number || traceModalSelectedDetail.generalInfo?.serialNumber || '—' }}</span>
+                  </div>
+                  <div>
+                    <span class="text-[10px] text-slate-500 block uppercase font-sans">Sales Order (SO)</span>
+                    <span class="font-bold text-purple-300">{{ traceModalSelectedDetail.so_number || traceModalSelectedDetail.test_result?.so_number || '—' }}</span>
+                  </div>
+                  <div>
+                    <span class="text-[10px] text-slate-500 block uppercase font-sans">SKU / Model</span>
+                    <span class="text-slate-200">{{ traceModalSelectedDetail.sku || traceModalSelectedDetail.generalInfo?.sku || '—' }}</span>
+                  </div>
+                  <div>
+                    <span class="text-[10px] text-slate-500 block uppercase font-sans">Device Key / DevEUI</span>
+                    <span class="text-slate-300">{{ traceModalSelectedDetail.generalInfo?.deviceKey || traceModalSelectedDetail.device_key || '—' }}</span>
+                  </div>
+                  <div>
+                    <span class="text-[10px] text-slate-500 block uppercase font-sans">FW / HW Version</span>
+                    <span class="text-slate-300">FW: {{ traceModalSelectedDetail.firmware_version || traceModalSelectedDetail.generalInfo?.fwVer || '—' }} | HW: {{ traceModalSelectedDetail.hardware_version || traceModalSelectedDetail.generalInfo?.hwVer || '—' }}</span>
+                  </div>
+                  <div>
+                    <span class="text-[10px] text-slate-500 block uppercase font-sans">Duration</span>
+                    <span class="text-slate-300">{{ traceModalSelectedDetail.test_result?.duration_time || traceModalSelectedDetail.generalInfo?.durationTime || '—' }}</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Event Distribution classification (Flow 1) -->
+              <div v-if="traceModalSelectedDetail.event_stats || traceModalSelectedDetail.eventStats" class="p-3.5 rounded-xl bg-slate-950/70 border border-slate-800 space-y-2">
+                <span class="text-xs font-bold text-slate-300 uppercase tracking-wider block">
+                  Event Code Distribution (Node-RED Flow 1 Protocol)
+                </span>
+                <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-2 text-center font-mono text-xs">
+                  <div class="p-2 rounded-lg bg-slate-900 border border-slate-800">
+                    <span class="text-[10px] text-slate-500 block font-sans">Normal (0)</span>
+                    <span class="font-bold text-emerald-400">{{ (traceModalSelectedDetail.event_stats || traceModalSelectedDetail.eventStats).event_s || 0 }}</span>
+                  </div>
+                  <div class="p-2 rounded-lg bg-slate-900 border border-slate-800">
+                    <span class="text-[10px] text-slate-500 block font-sans">Power Up (1)</span>
+                    <span class="font-bold text-cyan-400">{{ (traceModalSelectedDetail.event_stats || traceModalSelectedDetail.eventStats).event_p || 0 }}</span>
+                  </div>
+                  <div class="p-2 rounded-lg bg-slate-900 border border-slate-800">
+                    <span class="text-[10px] text-slate-500 block font-sans">Alarm (4)</span>
+                    <span class="font-bold text-rose-400">{{ (traceModalSelectedDetail.event_stats || traceModalSelectedDetail.eventStats).event_a || 0 }}</span>
+                  </div>
+                  <div class="p-2 rounded-lg bg-slate-900 border border-slate-800">
+                    <span class="text-[10px] text-slate-500 block font-sans">Fault (2)</span>
+                    <span class="font-bold text-amber-400">{{ (traceModalSelectedDetail.event_stats || traceModalSelectedDetail.eventStats).event_f || 0 }}</span>
+                  </div>
+                  <div class="p-2 rounded-lg bg-slate-900 border border-slate-800">
+                    <span class="text-[10px] text-slate-500 block font-sans">Config (3)</span>
+                    <span class="font-bold text-blue-400">{{ (traceModalSelectedDetail.event_stats || traceModalSelectedDetail.eventStats).event_c || 0 }}</span>
+                  </div>
+                  <div class="p-2 rounded-lg bg-slate-900 border border-slate-800">
+                    <span class="text-[10px] text-slate-500 block font-sans">LNS Join (15)</span>
+                    <span class="font-bold text-purple-400">{{ (traceModalSelectedDetail.event_stats || traceModalSelectedDetail.eventStats).event_lns || 0 }}</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Parameter Statistical Summary (Min / Max / Avg / Latest) -->
+              <div v-if="(traceModalSelectedDetail.sensor_parameters1 && traceModalSelectedDetail.sensor_parameters1.length > 0) || (traceModalSelectedDetail.sensorParameters1 && traceModalSelectedDetail.sensorParameters1.length > 0)" class="p-3.5 rounded-xl bg-slate-950/70 border border-slate-800 space-y-2">
+                <span class="text-xs font-bold text-slate-300 uppercase tracking-wider block">
+                  Sensor Telemetry Parameter Statistics (Min / Max / Average / Latest)
+                </span>
+                <div class="overflow-x-auto rounded-lg border border-slate-800">
+                  <table class="w-full text-left text-xs font-mono">
+                    <thead class="bg-slate-900 text-slate-400 text-[10px] uppercase font-bold tracking-wider border-b border-slate-800">
+                      <tr>
+                        <th class="py-2 px-3">Parameter Name</th>
+                        <th class="py-2 px-3 text-center">Min</th>
+                        <th class="py-2 px-3 text-center">Max</th>
+                        <th class="py-2 px-3 text-center">Average</th>
+                        <th class="py-2 px-3 text-center">Latest Value</th>
+                      </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-800/60">
+                      <tr
+                        v-for="p in (traceModalSelectedDetail.sensor_parameters1 || traceModalSelectedDetail.sensorParameters1 || [])"
+                        :key="p.paramKey"
+                        class="hover:bg-slate-900/40"
+                      >
+                        <td class="py-2 px-3 font-semibold text-slate-200">{{ p.name }}</td>
+                        <td class="py-2 px-3 text-center text-cyan-300">{{ p.min !== null ? p.min : '—' }}</td>
+                        <td class="py-2 px-3 text-center text-amber-300">{{ p.max !== null ? p.max : '—' }}</td>
+                        <td class="py-2 px-3 text-center text-emerald-300">{{ p.avg !== null ? p.avg : '—' }}</td>
+                        <td class="py-2 px-3 text-center font-bold text-white">{{ p.latest !== null ? p.latest : '—' }}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <!-- Raw Telemetry Uplink Frames (from PostgreSQL raw_data3) -->
+              <div class="p-3.5 rounded-xl bg-slate-950/70 border border-slate-800 space-y-2">
+                <div class="flex items-center justify-between">
+                  <span class="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
+                    <i class="fa-solid fa-database text-purple-400"></i>
+                    <span>Raw Telemetry Frames (PostgreSQL raw_data3)</span>
+                  </span>
+                  <span class="text-[10px] font-mono text-slate-500">
+                    {{ (traceModalSelectedDetail.raw_telemetry || []).length }} frames loaded
+                  </span>
+                </div>
+
+                <div class="overflow-x-auto rounded-lg border border-slate-800 max-h-64">
+                  <table class="w-full text-left text-xs font-mono">
+                    <thead class="bg-slate-900 text-slate-400 text-[10px] uppercase font-bold tracking-wider border-b border-slate-800 sticky top-0">
+                      <tr>
+                        <th class="py-2 px-3">Timestamp</th>
+                        <th class="py-2 px-3 text-center">Spreading</th>
+                        <th class="py-2 px-3 text-center">RSSI (com1)</th>
+                        <th class="py-2 px-3 text-center">SNR (com2)</th>
+                        <th class="py-2 px-3 text-center">P1 (Event)</th>
+                        <th class="py-2 px-3 text-center">P2 (Batt)</th>
+                        <th class="py-2 px-3 text-center">P3 / P4</th>
+                        <th class="py-2 px-3">Uplink Payload (Hex)</th>
+                      </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-800/60">
+                      <tr v-if="!traceModalSelectedDetail.raw_telemetry || traceModalSelectedDetail.raw_telemetry.length === 0">
+                        <td colspan="8" class="py-4 text-center text-slate-500">
+                          No raw telemetry records in raw_data3 for this device.
+                        </td>
+                      </tr>
+                      <tr
+                        v-else
+                        v-for="(frame, fIdx) in traceModalSelectedDetail.raw_telemetry"
+                        :key="fIdx"
+                        class="hover:bg-slate-900/40"
+                      >
+                        <td class="py-2 px-3 text-slate-400 text-[10px] whitespace-nowrap">{{ frame.timestamp || '—' }}</td>
+                        <td class="py-2 px-3 text-center text-cyan-400 text-[10px]">{{ frame.spreading_factor || 'SF7' }}</td>
+                        <td class="py-2 px-3 text-center text-slate-300">{{ frame.com1 ? frame.com1 + ' dBm' : '—' }}</td>
+                        <td class="py-2 px-3 text-center text-emerald-300">{{ frame.com2 ? frame.com2 + ' dB' : '—' }}</td>
+                        <td class="py-2 px-3 text-center text-purple-300 font-bold">{{ frame.p1 !== undefined ? frame.p1 : '—' }}</td>
+                        <td class="py-2 px-3 text-center text-amber-300">{{ frame.p2 !== undefined ? frame.p2 : '—' }}</td>
+                        <td class="py-2 px-3 text-center text-slate-400 text-[10px]">{{ frame.p3 || '—' }} / {{ frame.p4 || '—' }}</td>
+                        <td class="py-2 px-3 text-purple-200 break-all text-[11px] flex items-center justify-between gap-1">
+                          <span>{{ frame.uplink_payload || '—' }}</span>
+                          <button
+                            v-if="frame.uplink_payload"
+                            type="button"
+                            @click="copyText(frame.uplink_payload)"
+                            class="text-slate-500 hover:text-white p-0.5 cursor-pointer"
+                            title="Copy Hex Payload"
+                          >
+                            <i class="fa-regular fa-copy text-[10px]"></i>
+                          </button>
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Footer -->
+          <div class="flex items-center justify-between pt-2 border-t border-slate-800 shrink-0">
+            <span class="text-[10px] text-slate-500 font-mono">
+              Database: PostgreSQL dvt | Tables: test_result (7,386+ rows), raw_data3 (1,713,781+ rows)
+            </span>
+            <button
+              type="button"
+              @click="closeTraceabilityModal"
+              class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold cursor-pointer transition"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      </div>
+`;
+exports.TEST_AUTOMATION_SCRIPT = `
+function useTestAutomationModule(ctx) {
+  const { showToast, authHeaders, activeFeature, copyText, devicesList, currentUser, fetchDevices, initRealtimeConnection } = ctx;
+  const networkServersList = ctx.networkServersList || ref([]);
+  const selectedNetworkServerId = ref('');
+
+  const fetchNetworkServersList = async () => {
+    if (ctx.fetchNetworkServers) {
+      try {
+        await ctx.fetchNetworkServers();
+      } catch (e) {}
+    }
+    if (!networkServersList.value || networkServersList.value.length === 0) {
+      try {
+        const res = await fetch('/api/network-servers', { headers: authHeaders(), credentials: 'include' });
+        if (res.ok) {
+          networkServersList.value = await res.json();
+        }
+      } catch (e) {}
+    }
+    if (!selectedNetworkServerId.value && networkServersList.value && networkServersList.value.length > 0) {
+      const defaultNs = networkServersList.value.find(ns => ns.isDefault) || networkServersList.value[0];
+      if (defaultNs) selectedNetworkServerId.value = defaultNs.id;
+    }
+  };
+
+  const selectedNetworkServer = computed(() => {
+    if (!networkServersList.value || networkServersList.value.length === 0) return null;
+    if (selectedNetworkServerId.value === '__LOCAL__') return null;
+    return networkServersList.value.find(ns => ns.id === selectedNetworkServerId.value)
+      || networkServersList.value.find(ns => ns.isDefault)
+      || networkServersList.value[0];
+  });
+
+  // Sales Orders & Items
+  const salesOrdersList = ref([]);
+  const loadingSalesOrders = ref(false);
+  const selectedSoCode = ref('');
+  const selectedItemCode = ref('');
+  const linkedTemplate = ref(null);
+  const testDurationSeconds = ref(180);
+
+  // Manual SO Mode Support
+  const isManualSo = ref(true);
+  const manualSoCode = ref('');
+  const manualItemCode = ref('');
+  const soDropdownOpen = ref(false);
+  const itemDropdownOpen = ref(false);
+  const soDropdownContainer = ref(null);
+  const itemDropdownContainer = ref(null);
+  const manualSku = ref('');
+  const manualFw = ref('1.0');
+  const manualTargetQty = ref(10);
+
+  // Post-Test Evidence Audit (Bằng chứng sau test)
+  const showEvidenceModal = ref(false);
+  const selectedEvidenceDetail = ref(null);
+  const evidenceList = ref([]);
+  const evidenceTotalCount = ref(0);
+  const loadingEvidences = ref(false);
+  const evidenceSearchQuery = ref('');
+  const evidenceVerdictFilter = ref('ALL');
+
+  // User Fleet Devices
+  const fleetSearchQuery = ref('');
+  const filterOnlyMatchingSku = ref(true);
+  const fleetStatusFilter = ref('ALL');
+  const selectedFleetDevEUIs = ref(new Set());
+
+  // Center Stage: Test Batch Devices List (Simulation List)
+  const batchDevices = ref([]);
+  const isBatchTesting = ref(false);
+  const loadingTrace = ref(false);
+  const batchStartTime = ref(null);
+  const batchScheduledEndTime = ref(null);
+  const batchRemainingSeconds = ref(0);
+  let batchTimerInterval = null;
+
+  // Completion Modal
+  const showCompletionModal = ref(false);
+  const batchCompletionStats = ref({
+    total: 0,
+    passed: 0,
+    failed: 0,
+    totalPackets: 0,
+    duration: 180,
+  });
+
+  // Device Onboarding & Registration via Serial UART
+  const showDeviceOnboardModal = ref(false);
+  const showPortCheckModal = ref(false);
+  const portCheckErrorMessage = ref('');
+  const openPortCheckModal = (msg = '') => {
+    portCheckErrorMessage.value = msg || 'Cannot read SERIAL_NUMBER from device. Please check COM port connection and Baud rate.';
+    showPortCheckModal.value = true;
+  };
+  const closePortCheckModal = () => {
+    showPortCheckModal.value = false;
+  };
+  const uartPort = ref(null);
+  const uartPortInfo = ref('');
+  const uartConnected = ref(false);
+  const uartConnecting = ref(false);
+  const uartReading = ref(false);
+  const uartLogMessage = ref('');
+  const isAutoReconnectingUart = ref(false);
+  const uartBaudRate = ref(9600);
+  let activeUartReader = null;
+  let activeUartWriter = null;
+  let lastConnectedUartInfo = null;
+  let autoReconnectUartTimer = null;
+  const readDeviceInfo = ref({
+    hasData: false,
+    serialNumber: '',
+    devEUI: '',
+    itemCode: '',
+    longFw: '',
+    shortFw: '',
+    hwVersion: '',
+    meVersion: '',
+    sensorTypeCode: 71,
+    sensorTypeName: 'WSLRW-LKS',
+    sku: 'WSLRW-LKS',
+    regionCode: 'EU868',
+    devClass: 'A',
+    itemCodeMatch: false,
+  });
+  const confirmSerialNumberInput = ref('');
+  const isRegisteringToChirpstack = ref(false);
+  const registrationErrorMessage = ref('');
+
+  const isSerialNumberConfirmed = computed(() => {
+    if (!readDeviceInfo.value || !readDeviceInfo.value.serialNumber) return false;
+    return confirmSerialNumberInput.value.trim().toUpperCase() === readDeviceInfo.value.serialNumber.trim().toUpperCase();
+  });
+
+  // Audit & Simulation Modals
+  const showAuditModal = ref(false);
+  const showSimulateModal = ref(false);
+  const showCreateTestSessionModal = ref(false);
+  const activeDeviceRunForAudit = ref(null);
+  const deviceLogPackets = ref([]);
+  const loadingDeviceLogs = ref(false);
+  const isSimulatingPacket = ref(false);
+  const simulateForm = ref({
+    devEUI: '',
+    payloadHex: '010100fe0201024003010e10',
+    fPort: 1,
+    rssi: -72,
+    snr: 9.5,
+  });
+
+  // Compatibility state for tests
+  const testSessionsList = ref([]);
+  const selectedTestSessionId = ref('');
+  const activeTestSession = ref(null);
+  const loadingTestSessions = ref(false);
+  const createSessionForm = ref({
+    soCode: '',
+    itemCode: '',
+    templateId: '',
+    sessionCode: '',
+    devEUIsText: '',
+    notes: '',
+  });
+
+  // Helpers: Device Health & Online Check
+  const isDeviceOnline = (d) => {
+    if (!d || d.isActive === false) return false;
+    const lastSeen = d.lastSeenAt || (d.syncDetails && d.syncDetails.lastSeenAt);
+    if (!lastSeen) return false;
+    const t = new Date(lastSeen).getTime();
+    if (isNaN(t)) return false;
+    return (Date.now() - t) < 24 * 60 * 60 * 1000;
+  };
+
+  const formatLastSeen = (ts) => {
+    if (!ts) return 'Never seen';
+    const t = new Date(ts).getTime();
+    if (isNaN(t)) return 'Never seen';
+    const diffSec = Math.floor((Date.now() - t) / 1000);
+    if (diffSec < 60) return 'Just now';
+    if (diffSec < 3600) return Math.floor(diffSec / 60) + 'm ago';
+    if (diffSec < 86400) return Math.floor(diffSec / 3600) + 'h ago';
+    return Math.floor(diffSec / 86400) + 'd ago';
+  };
+
+  const getDeviceStatusBadgeClass = (status) => {
+    switch (status) {
+      case 'PASSED': return 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40';
+      case 'FAILED': return 'bg-rose-500/20 text-rose-300 border-rose-500/40';
+      case 'TIMEOUT': return 'bg-rose-500/20 text-rose-300 border-rose-500/40';
+      case 'RUNNING': return 'bg-amber-500/20 text-amber-300 border-amber-500/40 animate-pulse';
+      default: return 'bg-slate-800 text-slate-400 border-slate-700';
+    }
+  };
+
+  // Computed properties
+  const sortedSalesOrders = computed(() => {
+    if (!Array.isArray(salesOrdersList.value)) return [];
+    return [...salesOrdersList.value].sort((a, b) => {
+      const tA = new Date(a.createdAt || a.orderDate || 0).getTime();
+      const tB = new Date(b.createdAt || b.orderDate || 0).getTime();
+      return tB - tA;
+    });
+  });
+
+  // Selected Sales Order (Lookup from list, NO circular dependency on selectedSoItem!)
+  const selectedSo = computed(() => {
+    const code = (manualSoCode.value || selectedSoCode.value || '').trim().toLowerCase();
+    if (!code) return null;
+    return sortedSalesOrders.value.find(s => (s.soCode || '').trim().toLowerCase() === code) || null;
+  });
+
+  // Filtered SO list for searchable dropdown:
+  // - If empty query: returns 5 newest SOs
+  // - If typed query: matches by trailing digits (3-4 digits), contains in soCode, or contains in customer
+  const filteredSoList = computed(() => {
+    const q = (manualSoCode.value || '').trim().toLowerCase();
+    const all = sortedSalesOrders.value;
+    if (!q) {
+      return all.slice(0, 5); // 5 most recent SOs
+    }
+
+    const digitsOnly = q.replace(/\D/g, '');
+    const p1 = [];
+    const p2 = [];
+    const p3 = [];
+    const p4 = [];
+
+    for (const so of all) {
+      const code = (so.soCode || '').toLowerCase();
+      const codeDigits = code.replace(/\D/g, '');
+      const cust = (so.customer || '').toLowerCase();
+
+      if (code === q) {
+        p1.push(so);
+      } else if (code.endsWith(q) || (digitsOnly.length >= 2 && codeDigits.endsWith(digitsOnly))) {
+        p2.push(so);
+      } else if (code.includes(q)) {
+        p3.push(so);
+      } else if (cust.includes(q)) {
+        p4.push(so);
+      }
+    }
+
+    const combined = [...p1, ...p2, ...p3, ...p4];
+    return combined.slice(0, 10);
+  });
+
+  // Available items for the selected SO:
+  // "nếu SO không có thì ITEM_CODE không hiển thị gì"
+  const availableSoItems = computed(() => {
+    if (selectedSo.value && Array.isArray(selectedSo.value.items)) {
+      return selectedSo.value.items;
+    }
+    return [];
+  });
+
+  // Filtered item list for ITEM_CODE dropdown (matching itemCode or sku)
+  const filteredItemList = computed(() => {
+    if (availableSoItems.value.length === 0) return [];
+    const q = (manualItemCode.value || '').trim().toLowerCase();
+    if (!q) return availableSoItems.value;
+    return availableSoItems.value.filter(item => {
+      const code = (item.itemCode || '').toLowerCase();
+      const sku = (item.sku || '').toLowerCase();
+      return code.includes(q) || sku.includes(q);
+    });
+  });
+
+  // Selected item object inside availableSoItems
+  const selectedSoItem = computed(() => {
+    const itemCode = (manualItemCode.value || selectedItemCode.value || '').trim().toLowerCase();
+    if (!itemCode || availableSoItems.value.length === 0) return null;
+    return availableSoItems.value.find(i => (i.itemCode || '').trim().toLowerCase() === itemCode) || null;
+  });
+
+  const userFleetDevices = computed(() => {
+    if (devicesList && Array.isArray(devicesList.value)) {
+      return devicesList.value;
+    }
+    return [];
+  });
+
+  // Filter available fleet devices (excluding already added to batch)
+  const availableFleetDevices = computed(() => {
+    const existingEUIs = new Set(batchDevices.value.map(d => d.devEUI));
+    let list = userFleetDevices.value.filter(d => !existingEUIs.has(d.devEUI));
+
+    // Filter by SKU match
+    if (filterOnlyMatchingSku.value && selectedSoItem.value?.sku) {
+      const targetSku = selectedSoItem.value.sku.toLowerCase();
+      list = list.filter(d => (d.sku || '').toLowerCase().includes(targetSku));
+    }
+
+    // Filter by status
+    if (fleetStatusFilter.value === 'ONLINE') {
+      list = list.filter(d => isDeviceOnline(d));
+    } else if (fleetStatusFilter.value === 'OFFLINE') {
+      list = list.filter(d => !isDeviceOnline(d));
+    }
+
+    // Search query
+    if (fleetSearchQuery.value && fleetSearchQuery.value.trim()) {
+      const q = fleetSearchQuery.value.trim().toLowerCase();
+      list = list.filter(d => (d.devEUI || '').toLowerCase().includes(q) || (d.name || '').toLowerCase().includes(q));
+    }
+
+    return list;
+  });
+
+  const allVisibleFleetSelected = computed(() => {
+    if (availableFleetDevices.value.length === 0) return false;
+    return availableFleetDevices.value.every(d => selectedFleetDevEUIs.value.has(d.devEUI));
+  });
+
+  const batchOnlineCount = computed(() => {
+    return batchDevices.value.filter(d => d.isOnline).length;
+  });
+
+  const batchOfflineCount = computed(() => {
+    return batchDevices.value.filter(d => !d.isOnline).length;
+  });
+
+  const formattedStartTime = computed(() => {
+    if (!batchStartTime.value) return '--:--:--';
+    return new Date(batchStartTime.value).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  });
+
+  const formattedEndTime = computed(() => {
+    if (!batchScheduledEndTime.value) return '--:--:--';
+    return new Date(batchScheduledEndTime.value).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  });
+
+  const formattedRemainingTime = computed(() => {
+    const s = Math.max(0, batchRemainingSeconds.value);
+    const m = Math.floor(s / 60);
+    const sec = s % 60;
+    return String(m).padStart(2, '0') + ':' + String(sec).padStart(2, '0');
+  });
+
+  const batchProgressPercentage = computed(() => {
+    const total = testDurationSeconds.value || 180;
+    if (total <= 0) return 0;
+    const elapsed = total - batchRemainingSeconds.value;
+    return Math.min(100, Math.max(0, Math.round((elapsed / total) * 100)));
+  });
+
+  // Backward compatibility alias for test suite
+  const filteredTestDeviceRuns = computed(() => {
+    return batchDevices.value.map((d, idx) => ({
+      id: d.deviceRunId || 'run-' + idx,
+      devEUI: d.devEUI,
+      sku: d.sku || 'LoRaWAN',
+      firmwareVersion: d.firmwareVersion || '1',
+      status: d.status,
+      totalPackets: d.totalPackets,
+      rssiAvg: d.rssi,
+      snrAvg: d.snr,
+      batteryVoltage: d.batteryVoltage,
+      failureReason: d.failureReason,
+    }));
+  });
+
+  // API: Fetch Sales Orders
+  const fetchSalesOrders = async () => {
+    loadingSalesOrders.value = true;
+    try {
+      const res = await fetch('/api/sales-orders?limit=100', { headers: authHeaders() });
+      if (res.ok) {
+        const json = await res.json();
+        salesOrdersList.value = json.data || json.items || (Array.isArray(json) ? json : []);
+      }
+    } catch (e) {
+      console.error('Failed to load Sales Orders:', e);
+    } finally {
+      loadingSalesOrders.value = false;
+    }
+  };
+
+  const setSoMode = (isManual) => {
+    isManualSo.value = isManual;
+    if (isManual) {
+      selectedSoCode.value = manualSoCode.value;
+      selectedItemCode.value = manualItemCode.value;
+      onManualItemInput();
+    } else {
+      selectedSoCode.value = '';
+      selectedItemCode.value = '';
+      manualSoCode.value = '';
+      manualItemCode.value = '';
+      linkedTemplate.value = null;
+    }
+  };
+
+  const openSoDropdown = () => {
+    if (!isBatchTesting.value) {
+      soDropdownOpen.value = true;
+    }
+  };
+
+  const toggleSoDropdown = () => {
+    if (!isBatchTesting.value) {
+      soDropdownOpen.value = !soDropdownOpen.value;
+    }
+  };
+
+  const selectSoOption = (so) => {
+    manualSoCode.value = so.soCode;
+    selectedSoCode.value = so.soCode;
+    soDropdownOpen.value = false;
+
+    // Reset item selection when switching SO
+    manualItemCode.value = '';
+    selectedItemCode.value = '';
+    manualSku.value = '';
+    manualFw.value = '';
+    linkedTemplate.value = null;
+
+    if (Array.isArray(so.items) && so.items.length === 1) {
+      selectItemOption(so.items[0]);
+    } else if (Array.isArray(so.items) && so.items.length > 1) {
+      itemDropdownOpen.value = true;
+    }
+  };
+
+  const onSoInputTyped = () => {
+    soDropdownOpen.value = true;
+    selectedSoCode.value = manualSoCode.value;
+    const code = (manualSoCode.value || '').trim().toLowerCase();
+    if (!code) {
+      selectedSoCode.value = '';
+      manualItemCode.value = '';
+      selectedItemCode.value = '';
+      linkedTemplate.value = null;
+      return;
+    }
+    const matched = salesOrdersList.value.find(s => (s.soCode || '').trim().toLowerCase() === code);
+    if (matched) {
+      if (Array.isArray(matched.items) && matched.items.length > 0) {
+        const currentItem = (manualItemCode.value || '').trim().toLowerCase();
+        const valid = matched.items.some(i => (i.itemCode || '').trim().toLowerCase() === currentItem);
+        if (currentItem && !valid) {
+          manualItemCode.value = '';
+          selectedItemCode.value = '';
+        }
+      }
+    }
+  };
+
+  const onManualSoCodeInput = () => {
+    onSoInputTyped();
+  };
+
+  const onManualSoCodeChange = () => {
+    onSoInputTyped();
+  };
+
+  const openItemDropdown = () => {
+    if (!isBatchTesting.value && availableSoItems.value.length > 0) {
+      itemDropdownOpen.value = true;
+    }
+  };
+
+  const toggleItemDropdown = () => {
+    if (!isBatchTesting.value && availableSoItems.value.length > 0) {
+      itemDropdownOpen.value = !itemDropdownOpen.value;
+    }
+  };
+
+  const selectItemOption = (item) => {
+    manualItemCode.value = item.itemCode;
+    selectedItemCode.value = item.itemCode;
+    itemDropdownOpen.value = false;
+    if (item.sku) manualSku.value = item.sku;
+    if (item.firmwareVersion) manualFw.value = item.firmwareVersion;
+    if (item.template) {
+      linkedTemplate.value = item.template;
+      testDurationSeconds.value = item.template.timeoutSeconds || 180;
+    } else {
+      onManualItemInput();
+    }
+  };
+
+  const onItemInputTyped = () => {
+    if (availableSoItems.value.length > 0) {
+      itemDropdownOpen.value = true;
+    }
+    onManualItemInput();
+  };
+
+  const onManualItemInput = async () => {
+    selectedItemCode.value = manualItemCode.value;
+    const currentItemCode = (manualItemCode.value || '').trim().toLowerCase();
+    const matchedItem = availableSoItems.value.find(i => (i.itemCode || '').trim().toLowerCase() === currentItemCode);
+    if (matchedItem) {
+      if (matchedItem.sku) manualSku.value = matchedItem.sku;
+      if (matchedItem.firmwareVersion) manualFw.value = matchedItem.firmwareVersion;
+      if (matchedItem.template) {
+        linkedTemplate.value = matchedItem.template;
+        testDurationSeconds.value = matchedItem.template.timeoutSeconds || 180;
+        return;
+      }
+    }
+    const targetSku = manualSku.value || (manualItemCode.value ? manualItemCode.value.split('-')[0] : '');
+    if (targetSku) {
+      try {
+        const res = await fetch('/api/sales-orders/mapping/test-template?sku=' + encodeURIComponent(targetSku) + '&firmwareVersion=' + encodeURIComponent(manualFw.value || '1'), {
+          headers: authHeaders(),
+        });
+        if (res.ok) {
+          const tpl = await res.json();
+          if (tpl && tpl.id) {
+            linkedTemplate.value = tpl;
+            testDurationSeconds.value = tpl.timeoutSeconds || 180;
+          }
+        }
+      } catch (e) {}
+    }
+  };
+
+  const onManualItemChange = () => {
+    onManualItemInput();
+  };
+
+  const onSoSelectChange = () => {
+    if (availableSoItems.value.length > 0) {
+      selectedItemCode.value = availableSoItems.value[0].itemCode;
+    } else {
+      selectedItemCode.value = '';
+    }
+    onItemCodeChange();
+  };
+
+  const onItemCodeChange = async () => {
+    const item = selectedSoItem.value;
+    if (item && item.template) {
+      linkedTemplate.value = item.template;
+      testDurationSeconds.value = item.template.timeoutSeconds || 180;
+    } else if (item?.sku) {
+      // Auto-detect template by SKU
+      try {
+        const res = await fetch('/api/sales-orders/mapping/test-template?sku=' + encodeURIComponent(item.sku) + '&firmwareVersion=' + encodeURIComponent(item.firmwareVersion || '1'), {
+          headers: authHeaders(),
+        });
+        if (res.ok) {
+          const t = await res.json();
+          if (t && t.id) {
+            linkedTemplate.value = t;
+            testDurationSeconds.value = t.timeoutSeconds || 180;
+          } else {
+            testDurationSeconds.value = 180;
+          }
+        }
+      } catch (e) {
+        testDurationSeconds.value = 180;
+      }
+    } else {
+      testDurationSeconds.value = 180;
+    }
+  };
+
+  // Fleet Selection Actions
+  const toggleSelectFleetDevice = (devEUI) => {
+    if (selectedFleetDevEUIs.value.has(devEUI)) {
+      selectedFleetDevEUIs.value.delete(devEUI);
+    } else {
+      selectedFleetDevEUIs.value.add(devEUI);
+    }
+    selectedFleetDevEUIs.value = new Set(selectedFleetDevEUIs.value);
+  };
+
+  const toggleSelectAllVisibleFleet = () => {
+    if (allVisibleFleetSelected.value) {
+      selectedFleetDevEUIs.value.clear();
+    } else {
+      availableFleetDevices.value.forEach(d => selectedFleetDevEUIs.value.add(d.devEUI));
+    }
+    selectedFleetDevEUIs.value = new Set(selectedFleetDevEUIs.value);
+  };
+
+  const fetchSingleDeviceTrace = async (devEUI) => {
+    if (!devEUI) return;
+    const cleanEui = String(devEUI).trim().toUpperCase();
+    const match = batchDevices.value.find(d => (d.devEUI || '').toUpperCase() === cleanEui);
+    if (match) match.isCheckingOnline = true;
+    try {
+      const res = await fetch('/api/d-modules/test-run/devices/' + encodeURIComponent(cleanEui) + '/trace', {
+        headers: authHeaders(),
+      });
+      if (res.ok) {
+        const trace = await res.json();
+        if (match) {
+          match.isOnline = Boolean(trace.isOnline);
+          match.lastSeenAt = trace.lastSeenAt || null;
+          match.rssi = (trace.rssi !== null && trace.rssi !== undefined) ? trace.rssi : null;
+          match.snr = (trace.snr !== null && trace.snr !== undefined) ? trace.snr : null;
+        }
+      }
+    } catch (e) {
+      console.warn('Trace single device error:', e);
+    } finally {
+      if (match) match.isCheckingOnline = false;
+    }
+  };
+
+  const fetchBatchDevicesTrace = async () => {
+    if (!batchDevices.value || batchDevices.value.length === 0) return;
+    loadingTrace.value = true;
+    batchDevices.value.forEach(d => { d.isCheckingOnline = true; });
+    const euiList = batchDevices.value.map(d => d.devEUI).filter(Boolean);
+    try {
+      const res = await fetch('/api/d-modules/test-run/devices/trace-batch', {
+        method: 'POST',
+        headers: {
+          ...authHeaders(),
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ devEUIs: euiList }),
+      });
+      if (res.ok) {
+        const traceList = await res.json();
+        if (Array.isArray(traceList)) {
+          for (const trace of traceList) {
+            const m = batchDevices.value.find(d => (d.devEUI || '').toUpperCase() === (trace.devEUI || '').toUpperCase());
+            if (m) {
+              m.isOnline = Boolean(trace.isOnline);
+              m.lastSeenAt = trace.lastSeenAt || null;
+              m.rssi = (trace.rssi !== null && trace.rssi !== undefined) ? trace.rssi : null;
+              m.snr = (trace.snr !== null && trace.snr !== undefined) ? trace.snr : null;
+            }
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('Trace batch devices error:', e);
+    } finally {
+      batchDevices.value.forEach(d => { d.isCheckingOnline = false; });
+      loadingTrace.value = false;
+    }
+  };
+
+  const pushSelectedFleetToBatch = () => {
+    const toAdd = availableFleetDevices.value.filter(d => selectedFleetDevEUIs.value.has(d.devEUI));
+    for (const d of toAdd) {
+      if (batchDevices.value.some(x => x.devEUI === d.devEUI)) continue;
+      batchDevices.value.push({
+        devEUI: d.devEUI,
+        name: d.name || 'Device ' + d.devEUI.slice(-4),
+        sku: d.sku || selectedSoItem.value?.sku || 'LoRaWAN',
+        firmwareVersion: d.firmwareVersion || selectedSoItem.value?.firmwareVersion || '1',
+        soCode: d.salesOrder?.soCode || d.soCode || (manualSoCode.value || selectedSoCode.value || ''),
+        itemCode: d.itemCode?.itemCode || d.itemCode || (manualItemCode.value || selectedItemCode.value || ''),
+        isCheckingOnline: true,
+        isOnline: false,
+        lastSeenAt: d.lastSeenAt || d.syncDetails?.lastSeenAt || null,
+        status: 'READY',
+        totalPackets: 0,
+        rssi: null,
+        snr: null,
+        failureReason: '',
+        deviceRunId: null,
+      });
+    }
+    selectedFleetDevEUIs.value.clear();
+    selectedFleetDevEUIs.value = new Set();
+    fetchBatchDevicesTrace();
+    showToast('Pushed ' + toAdd.length + ' devices to simulation batch', 'success');
+  };
+
+  const pushSingleDeviceToBatch = (d) => {
+    if (batchDevices.value.some(x => x.devEUI === d.devEUI)) return;
+    const item = {
+      devEUI: d.devEUI,
+      name: d.name || 'Device ' + d.devEUI.slice(-4),
+      sku: d.sku || selectedSoItem.value?.sku || 'LoRaWAN',
+      firmwareVersion: d.firmwareVersion || selectedSoItem.value?.firmwareVersion || '1',
+      soCode: d.salesOrder?.soCode || d.soCode || (manualSoCode.value || selectedSoCode.value || ''),
+      itemCode: d.itemCode?.itemCode || d.itemCode || (manualItemCode.value || selectedItemCode.value || ''),
+      isCheckingOnline: true,
+      isOnline: false,
+      lastSeenAt: d.lastSeenAt || d.syncDetails?.lastSeenAt || null,
+      status: 'READY',
+      totalPackets: 0,
+      rssi: null,
+      snr: null,
+      failureReason: '',
+      deviceRunId: null,
+    };
+    batchDevices.value.push(item);
+    fetchSingleDeviceTrace(d.devEUI);
+  };
+
+  const removeDeviceFromBatch = (devEUI) => {
+    batchDevices.value = batchDevices.value.filter(d => d.devEUI !== devEUI);
+  };
+
+  const clearBatch = () => {
+    batchDevices.value = [];
+  };
+
+  const refreshWorkbenchData = async () => {
+    await Promise.all([
+      fetchSalesOrders(),
+      fetchDevices ? fetchDevices() : Promise.resolve(),
+      fetchTestSessions(),
+    ]);
+    showToast('Workbench data refreshed', 'info');
+  };
+
+  // START BATCH TEST (RECORDING UPLINKS & COUNTDOWN)
+  const startBatchTest = async () => {
+    if (!selectedSoCode.value) {
+      showToast('Please select a Sales Order first', 'warning');
+      return;
+    }
+    if (batchDevices.value.length === 0) {
+      showToast('Please push at least one device into the test batch', 'warning');
+      return;
+    }
+
+    try {
+      // 1. Create Session on backend
+      const payload = {
+        soCode: isManualSo.value ? manualSoCode.value : selectedSoCode.value,
+        itemCode: isManualSo.value ? manualItemCode.value : (selectedItemCode.value || selectedSoItem.value?.itemCode || 'GENERIC'),
+        sku: isManualSo.value ? manualSku.value : (selectedSoItem.value?.sku || undefined),
+        firmwareVersion: isManualSo.value ? manualFw.value : (selectedSoItem.value?.firmwareVersion || undefined),
+        templateId: linkedTemplate.value?.id || undefined,
+        devEUIs: batchDevices.value.map(d => d.devEUI),
+        notes: isManualSo.value ? ('Manual SO: ' + manualSoCode.value + ' (' + batchDevices.value.length + ' units)') : ('Operator batch test (' + batchDevices.value.length + ' units)'),
+        autoStart: true,
+      };
+
+      const res = await fetch('/api/d-modules/test-run/sessions', {
+        method: 'POST',
+        headers: {
+          ...authHeaders(),
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (!res.ok) {
+        const err = await res.json();
+        showToast(err.message || 'Failed to initialize batch test', 'error');
+        return;
+      }
+
+      const created = await res.json();
+      activeTestSession.value = created;
+
+      // Link deviceRunIds to batch devices
+      if (created.deviceRuns) {
+        for (const run of created.deviceRuns) {
+          const match = batchDevices.value.find(d => d.devEUI === run.devEUI);
+          if (match) {
+            match.deviceRunId = run.id;
+            match.status = 'RUNNING';
+          }
+        }
+      }
+
+      // 2. Set Start Time & Scheduled End Time
+      const dur = Number(testDurationSeconds.value) || 180;
+      batchStartTime.value = new Date();
+      batchScheduledEndTime.value = new Date(batchStartTime.value.getTime() + dur * 1000);
+      batchRemainingSeconds.value = dur;
+      isBatchTesting.value = true;
+
+      // Mark all batch devices as RUNNING
+      batchDevices.value.forEach(d => {
+        d.status = 'RUNNING';
+        d.totalPackets = 0;
+        d.failureReason = '';
+      });
+
+      // 3. Start Live 1s Countdown Timer
+      if (batchTimerInterval) clearInterval(batchTimerInterval);
+      batchTimerInterval = setInterval(() => {
+        if (!batchScheduledEndTime.value) return;
+        const now = Date.now();
+        const diff = Math.max(0, Math.round((batchScheduledEndTime.value.getTime() - now) / 1000));
+        batchRemainingSeconds.value = diff;
+
+        if (diff <= 0) {
+          clearInterval(batchTimerInterval);
+          completeBatchTest();
+        }
+      }, 1000);
+
+      showToast('Started test batch for ' + batchDevices.value.length + ' devices (' + dur + 's window)', 'success');
+      if (initRealtimeConnection) initRealtimeConnection();
+    } catch (err) {
+      showToast('Error starting batch: ' + err.message, 'error');
+    }
+  };
+
+  // ABORT BATCH TEST
+  const abortBatchTest = async () => {
+    if (!confirm('Are you sure you want to abort the running test batch?')) return;
+    if (batchTimerInterval) clearInterval(batchTimerInterval);
+    isBatchTesting.value = false;
+
+    if (activeTestSession.value) {
+      try {
+        await fetch('/api/d-modules/test-run/sessions/' + encodeURIComponent(activeTestSession.value.id) + '/abort', {
+          method: 'POST',
+          headers: authHeaders(),
+          body: JSON.stringify({ reason: 'Operator aborted batch' }),
+        });
+      } catch (e) {}
+    }
+
+    batchDevices.value.forEach(d => {
+      if (d.status === 'RUNNING') d.status = 'SKIPPED';
+    });
+    showToast('Batch test aborted', 'info');
+  };
+
+  // COMPLETE BATCH TEST (AUTO POPUP WHEN 180s EXPIRES)
+  const completeBatchTest = async () => {
+    if (batchTimerInterval) clearInterval(batchTimerInterval);
+    isBatchTesting.value = false;
+
+    const minPackets = linkedTemplate.value?.minPacketsRequired || 1;
+    let passed = 0;
+    let failed = 0;
+    let totalPackets = 0;
+
+    batchDevices.value.forEach(d => {
+      totalPackets += (d.totalPackets || 0);
+      if (d.status === 'RUNNING') {
+        if ((d.totalPackets || 0) >= minPackets && !d.failureReason) {
+          d.status = 'PASSED';
+        } else {
+          d.status = 'TIMEOUT';
+          d.failureReason = 'Test duration expired before receiving required valid packets';
+        }
+      }
+      if (d.status === 'PASSED') passed++;
+      else failed++;
+    });
+
+    // Notify backend session completion
+    if (activeTestSession.value) {
+      try {
+        await fetch('/api/d-modules/test-run/sessions/' + encodeURIComponent(activeTestSession.value.id) + '/complete', {
+          method: 'POST',
+          headers: authHeaders(),
+        });
+      } catch (e) {}
+    }
+
+    // Prepare completion stats and trigger popup
+    batchCompletionStats.value = {
+      total: batchDevices.value.length,
+      passed,
+      failed,
+      totalPackets,
+      duration: testDurationSeconds.value || 180,
+    };
+    showCompletionModal.value = true;
+    showToast('Batch Test Finished: ' + passed + ' Passed, ' + failed + ' Failed', passed >= failed ? 'success' : 'warning');
+  };
+
+  const closeCompletionModal = () => {
+    showCompletionModal.value = false;
+  };
+
+  // Realtime Socket Event Handler
+  const handleTestRealtimeEvent = (event, data) => {
+    if (!data) return;
+
+    // 1. Packet Received
+    if (event === 'test_device:packet_received') {
+      const match = batchDevices.value.find(d => d.devEUI === data.devEUI);
+      if (match) {
+        match.totalPackets = (match.totalPackets || 0) + 1;
+        match.isOnline = true;
+        match.lastSeenAt = new Date();
+        if (data.rssi) match.rssi = data.rssi;
+        if (data.snr) match.snr = data.snr;
+      }
+    }
+
+    // 2. Status Changed
+    if (event === 'test_device:status_changed') {
+      const match = batchDevices.value.find(d => d.devEUI === data.devEUI);
+      if (match) {
+        match.status = data.status;
+        match.isOnline = true;
+        if (data.batteryVoltage) match.batteryVoltage = data.batteryVoltage;
+        if (data.failureReason) match.failureReason = data.failureReason;
+      }
+    }
+
+    // 3. Session Completed from backend
+    if (event === 'test_session:completed' && isBatchTesting.value) {
+      completeBatchTest();
+    }
+  };
+
+  // Audit & Simulation Modals Handlers
+  const openAuditModal = async (dev) => {
+    activeDeviceRunForAudit.value = {
+      devEUI: dev.devEUI,
+      status: dev.status,
+    };
+    deviceLogPackets.value = [];
+    showAuditModal.value = true;
+    loadingDeviceLogs.value = true;
+
+    try {
+      const runId = dev.deviceRunId;
+      if (runId) {
+        const res = await fetch('/api/d-modules/test-run/devices/' + encodeURIComponent(runId) + '/logs', {
+          headers: authHeaders(),
+        });
+        if (res.ok) {
+          deviceLogPackets.value = await res.json();
+        }
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      loadingDeviceLogs.value = false;
+    }
+  };
+
+  const openSimulatePacketModal = (targetDevEUI) => {
+    if (targetDevEUI) {
+      simulateForm.value.devEUI = targetDevEUI;
+      const match = batchDevices.value.find(d => d.devEUI === targetDevEUI);
+      if (match?.serialNumber) {
+        simulateForm.value.serialNumber = match.serialNumber;
+      }
+    } else if (batchDevices.value.length > 0) {
+      simulateForm.value.devEUI = batchDevices.value[0].devEUI;
+      if (batchDevices.value[0].serialNumber) {
+        simulateForm.value.serialNumber = batchDevices.value[0].serialNumber;
+      }
+    }
+    showSimulateModal.value = true;
+  };
+
+  const applySimulatePreset = (type) => {
+    switch (type) {
+      case 'wslrw-th-normal':
+        simulateForm.value.payloadHex = '010100fe0201024003010e10';
+        break;
+      case 'wslrw-th-overtemp':
+        simulateForm.value.payloadHex = '010103520201024003010e10';
+        break;
+      case 'wslrw-th-lowbat':
+        simulateForm.value.payloadHex = '010100fe0201024003010898';
+        break;
+    }
+  };
+
+  const submitSimulatePacket = async () => {
+    isSimulatingPacket.value = true;
+    try {
+      const res = await fetch('/api/d-modules/test-run/simulate-packet', {
+        method: 'POST',
+        headers: {
+          ...authHeaders(),
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(simulateForm.value),
+      });
+
+      if (res.ok) {
+        const result = await res.json();
+        const msg = result.isPass ? 'Packet PASSED all assertions!' : 'Packet FAILED assertions!';
+        showToast(msg, result.isPass ? 'success' : 'error');
+        showSimulateModal.value = false;
+
+        // Update in batch list
+        const match = batchDevices.value.find(d => d.devEUI === simulateForm.value.devEUI);
+        if (match) {
+          match.totalPackets = (match.totalPackets || 0) + 1;
+          match.status = result.run?.status || (result.isPass ? 'PASSED' : 'FAILED');
+          match.isOnline = true;
+          match.rssi = simulateForm.value.rssi;
+          if (!result.isPass) {
+            match.failureReason = result.run?.failureReason || 'Assertion failed';
+          }
+        }
+
+        // Refresh evidence list if open
+        if (showEvidenceModal.value) {
+          fetchEvidences();
+        }
+      } else {
+        const err = await res.json();
+        showToast(err.message || 'Simulation failed', 'error');
+      }
+    } catch (e) {
+      showToast('Error: ' + e.message, 'error');
+    } finally {
+      isSimulatingPacket.value = false;
+    }
+  };
+
+  const exportTestSessionReport = (format = 'csv') => {
+    if (!activeTestSession.value) {
+      showToast('No active session report to export', 'warning');
+      return;
+    }
+    const url = '/api/d-modules/test-run/sessions/' + encodeURIComponent(activeTestSession.value.id) + '/export?format=' + format;
+    window.open(url, '_blank');
+  };
+
+  // Post-Test Evidence Handlers (Bằng chứng sau test)
+  const formatTimestamp = (d) => {
+    if (!d) return '--';
+    try {
+      const dt = new Date(d);
+      return isNaN(dt.getTime()) ? String(d) : dt.toLocaleString();
+    } catch (e) {
+      return String(d);
+    }
+  };
+
+  const fetchEvidences = async () => {
+    loadingEvidences.value = true;
+    try {
+      const params = new URLSearchParams();
+      if (evidenceSearchQuery.value) params.append('search', evidenceSearchQuery.value);
+      if (evidenceVerdictFilter.value && evidenceVerdictFilter.value !== 'ALL') params.append('verdict', evidenceVerdictFilter.value);
+      params.append('limit', '50');
+
+      const res = await fetch('/api/d-modules/test-run/evidence?' + params.toString(), {
+        headers: authHeaders(),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        evidenceList.value = data.items || [];
+        evidenceTotalCount.value = data.total || 0;
+      }
+    } catch (e) {
+      console.warn('Failed to fetch test evidence:', e);
+    } finally {
+      loadingEvidences.value = false;
+    }
+  };
+
+  const openEvidenceModal = () => {
+    showEvidenceModal.value = true;
+    fetchEvidences();
+  };
+
+  const exportEvidenceCsvReport = () => {
+    const params = new URLSearchParams();
+    if (evidenceSearchQuery.value) params.append('search', evidenceSearchQuery.value);
+    if (evidenceVerdictFilter.value && evidenceVerdictFilter.value !== 'ALL') params.append('verdict', evidenceVerdictFilter.value);
+    window.open('/api/d-modules/test-run/evidence/export?' + params.toString(), '_blank');
+  };
+
+  // Compatibility methods
+  const fetchTestSessions = async () => {
+    try {
+      const res = await fetch('/api/d-modules/test-run/sessions?limit=20', { headers: authHeaders() });
+      if (res.ok) {
+        const d = await res.json();
+        testSessionsList.value = d.items || [];
+      }
+    } catch (e) {}
+  };
+
+  const submitCreateTestSession = async () => {
+    showToast('Session created', 'success');
+    showCreateTestSessionModal.value = false;
+  };
+
+  // UART Device Onboarding & Registration Methods
+  const resetReadDeviceInfo = () => {
+    readDeviceInfo.value = {
+      hasData: false,
+      serialNumber: '',
+      devEUI: '',
+      itemCode: '',
+      longFw: '',
+      shortFw: '',
+      hwVersion: '',
+      meVersion: '',
+      sensorTypeCode: 71,
+      sensorTypeName: 'WSLRW-LKS',
+      sku: 'WSLRW-LKS',
+      regionCode: 'EU868',
+      devClass: 'A',
+      itemCodeMatch: false,
+    };
+    confirmSerialNumberInput.value = '';
+    registrationErrorMessage.value = '';
+  };
+
+  const openDeviceOnboardModal = async () => {
+    const effectiveSo = (manualSoCode.value || selectedSoCode.value || '').trim();
+    if (!effectiveSo) {
+      showToast('Please enter or select a Sales Order (SO) before registering devices.', 'warning');
+      return;
+    }
+    const effectiveItem = (manualItemCode.value || selectedItemCode.value || '').trim();
+    if (!effectiveItem) {
+      showToast('Please enter or select an Item Code before registering devices.', 'warning');
+      return;
+    }
+    selectedSoCode.value = effectiveSo;
+    selectedItemCode.value = effectiveItem;
+    resetReadDeviceInfo();
+    showDeviceOnboardModal.value = true;
+    fetchNetworkServersList();
+
+    // Direct read when COM port is pre-connected
+    if (uartConnected.value) {
+      uartLogMessage.value = 'COM port connected (' + (Number(uartBaudRate.value) || 9600) + ' bps). Reading device...';
+      try {
+        await readDeviceViaUart();
+      } catch (err) {
+        console.error('Auto read error upon opening modal:', err);
+      }
+    } else if (uartPort.value && typeof uartPort.value.open === 'function') {
+      uartLogMessage.value = 'Connecting to pre-selected COM port (' + (Number(uartBaudRate.value) || 9600) + ' bps)...';
+      try {
+        await connectUart();
+        if (uartConnected.value) {
+          await readDeviceViaUart();
+        } else {
+          openPortCheckModal('Could not connect to pre-selected COM port. Please check port connection.');
+        }
+      } catch (err) {
+        console.error('Auto connect and read error:', err);
+        openPortCheckModal('Error connecting to COM port: ' + (err.message || err));
+      }
+    } else {
+      uartLogMessage.value = 'Serial UART COM port is not connected. Please check port connection.';
+      openPortCheckModal('Serial UART port is not connected. Please select and connect COM port to read device.');
+    }
+  };
+
+  const closeDeviceOnboardModal = () => {
+    showDeviceOnboardModal.value = false;
+    resetReadDeviceInfo();
+  };
+
+  const selectUartPort = async () => {
+    if (!('serial' in navigator)) {
+      showToast('Browser does not support Web Serial API (Please use Google Chrome or Microsoft Edge).', 'error');
+      return;
+    }
+    try {
+      const port = await navigator.serial.requestPort();
+      if (!port || typeof port.open !== 'function') return;
+      uartPort.value = port;
+      const info = port.getInfo ? port.getInfo() : {};
+      lastConnectedUartInfo = info;
+      let desc = 'Serial Device';
+      if (info.usbVendorId) {
+        desc = 'VID: 0x' + info.usbVendorId.toString(16).toUpperCase() + ' PID: 0x' + (info.usbProductId ? info.usbProductId.toString(16).toUpperCase() : '');
+      }
+      uartPortInfo.value = desc;
+      uartLogMessage.value = 'Port selected: ' + desc + ' (' + (Number(uartBaudRate.value) || 9600) + ' bps)';
+      showToast('COM Port selected: ' + desc, 'info');
+    } catch (e) {
+      if (e.name !== 'NotFoundError') {
+        uartLogMessage.value = 'Port selection error: ' + (e.message || e);
+        showToast('COM Port selection error: ' + (e.message || e), 'error');
+      }
+    }
+  };
+
+  const safeCleanupUartPort = async () => {
+    if (activeUartReader) {
+      try {
+        await activeUartReader.cancel();
+      } catch (e) {}
+      try {
+        activeUartReader.releaseLock();
+      } catch (e) {}
+      activeUartReader = null;
+    }
+    if (activeUartWriter) {
+      try {
+        activeUartWriter.releaseLock();
+      } catch (e) {}
+      activeUartWriter = null;
+    }
+    if (uartPort.value && typeof uartPort.value.close === 'function') {
+      try {
+        await uartPort.value.close();
+      } catch (e) {}
+    }
+    uartConnected.value = false;
+    uartConnecting.value = false;
+    uartReading.value = false;
+  };
+
+  const connectUart = async (portToOpen = null) => {
+    if (uartConnected.value && uartPort.value) {
+      return;
+    }
+    if (portToOpen && typeof portToOpen === 'object' && typeof portToOpen.open === 'function') {
+      uartPort.value = portToOpen;
+    }
+    if (!uartPort.value || typeof uartPort.value.open !== 'function') {
+      await selectUartPort();
+      if (!uartPort.value || typeof uartPort.value.open !== 'function') return;
+    }
+    uartConnecting.value = true;
+    try {
+      const info = uartPort.value.getInfo ? uartPort.value.getInfo() : {};
+      if (info.usbVendorId) {
+        lastConnectedUartInfo = info;
+      }
+      const baud = Number(uartBaudRate.value) || 9600;
+      await uartPort.value.open({
+        baudRate: baud,
+        dataBits: 8,
+        stopBits: 1,
+        parity: 'none',
+        bufferSize: 255,
+      });
+      uartConnected.value = true;
+      isAutoReconnectingUart.value = false;
+      uartLogMessage.value = 'Connected to COM port successfully (' + baud + ' bps)';
+      showToast('Connected to COM port successfully', 'success');
+    } catch (e) {
+      console.error('Serial connect error:', e);
+      uartConnected.value = false;
+      uartLogMessage.value = 'COM port connection error: ' + (e.message || e);
+      showToast('Port connection error: ' + (e.message || e), 'error');
+    } finally {
+      uartConnecting.value = false;
+    }
+  };
+
+  const disconnectUart = async (isUserInitiated = true) => {
+    if (autoReconnectUartTimer) {
+      clearTimeout(autoReconnectUartTimer);
+      autoReconnectUartTimer = null;
+    }
+    await safeCleanupUartPort();
+    if (isUserInitiated) {
+      isAutoReconnectingUart.value = false;
+      uartPortInfo.value = '';
+      uartPort.value = null;
+      lastConnectedUartInfo = null;
+      uartLogMessage.value = 'UART port disconnected';
+      showToast('UART disconnected', 'info');
+    }
+  };
+
+  // Hardware disconnect event listener (unplug or chip reset due to power conflict)
+  const handleUartHardwareDisconnect = async (event) => {
+    console.warn('Hardware serial disconnect detected:', event.target);
+    const isTarget = uartPort.value && (uartPort.value === event.target || !event.target);
+    if (isTarget || uartConnected.value) {
+      const wasConnected = uartConnected.value;
+      await safeCleanupUartPort();
+      if (wasConnected) {
+        isAutoReconnectingUart.value = true;
+        uartLogMessage.value = 'Hardware disconnected (USB reset or power glitch detected). Waiting for device reconnection...';
+        showToast('USB Serial disconnected (power conflict / hardware reset)', 'warning');
+      }
+    }
+  };
+
+  // Hardware connect event listener (chip reboot & USB re-enumeration after reset)
+  const handleUartHardwareConnect = async (event) => {
+    console.log('Hardware serial connect detected:', event.target);
+    if (isAutoReconnectingUart.value || (lastConnectedUartInfo && !uartConnected.value)) {
+      const newPort = event.target || (navigator.serial && navigator.serial.getPorts ? (await navigator.serial.getPorts())[0] : null);
+      if (!newPort) return;
+      const newInfo = newPort.getInfo ? newPort.getInfo() : {};
+      const isMatching = !lastConnectedUartInfo || !lastConnectedUartInfo.usbVendorId ||
+        (newInfo.usbVendorId === lastConnectedUartInfo.usbVendorId &&
+         newInfo.usbProductId === lastConnectedUartInfo.usbProductId);
+
+      if (isMatching) {
+        uartLogMessage.value = 'USB device detected after reset. Reconnecting in 600ms...';
+        showToast('USB device re-detected. Auto-reconnecting...', 'info');
+
+        if (autoReconnectUartTimer) clearTimeout(autoReconnectUartTimer);
+        autoReconnectUartTimer = setTimeout(async () => {
+          try {
+            uartPort.value = newPort;
+            let desc = 'Serial Device';
+            if (newInfo.usbVendorId) {
+              desc = 'VID: 0x' + newInfo.usbVendorId.toString(16).toUpperCase() + ' PID: 0x' + (newInfo.usbProductId ? newInfo.usbProductId.toString(16).toUpperCase() : '');
+            }
+            uartPortInfo.value = desc;
+            await uartPort.value.open({
+              baudRate: Number(uartBaudRate.value) || 9600,
+              dataBits: 8,
+              stopBits: 1,
+              parity: 'none',
+              bufferSize: 255,
+            });
+            uartConnected.value = true;
+            isAutoReconnectingUart.value = false;
+            uartLogMessage.value = 'Auto-reconnected successfully to ' + desc;
+            showToast('USB Serial reconnected automatically', 'success');
+          } catch (connErr) {
+            console.warn('Auto-reconnect attempt 1 failed, retrying in 1000ms...', connErr);
+            setTimeout(async () => {
+              try {
+                if (uartConnected.value) return;
+                await uartPort.value.open({
+                  baudRate: Number(uartBaudRate.value) || 9600,
+                  dataBits: 8,
+                  stopBits: 1,
+                  parity: 'none',
+                  bufferSize: 255,
+                });
+                uartConnected.value = true;
+                isAutoReconnectingUart.value = false;
+                uartLogMessage.value = 'Auto-reconnected successfully after retry';
+                showToast('USB Serial reconnected successfully', 'success');
+              } catch (retryErr) {
+                console.error('Auto-reconnect failed:', retryErr);
+                isAutoReconnectingUart.value = false;
+                uartLogMessage.value = 'Auto-reconnect failed: ' + (retryErr.message || retryErr) + '. Please click Connect Port.';
+                showToast('Auto-reconnect failed. Please click Connect Port.', 'error');
+              }
+            }, 1000);
+          }
+        }, 600);
+      }
+    }
+  };
+
+  const calcModbusCRC16Local = (bytes) => {
+    let crc = 0xFFFF;
+    for (let i = 0; i < bytes.length; i++) {
+      crc ^= bytes[i];
+      for (let j = 0; j < 8; j++) {
+        if ((crc & 0x0001) !== 0) {
+          crc = (crc >> 1) ^ 0xA001;
+        } else {
+          crc = crc >> 1;
+        }
+      }
+    }
+    return crc;
+  };
+
+  const buildModbusReadReq = (slave, fc, reg, numreg) => {
+    const s = Number(slave) & 0xFF;
+    const f = Number(fc) & 0xFF;
+    const r = Number(reg);
+    const n = Number(numreg);
+    const frame = [s, f, (r >> 8) & 0xFF, r & 0xFF, (n >> 8) & 0xFF, n & 0xFF];
+    const crc = calcModbusCRC16Local(frame);
+    frame.push(crc & 0xFF);
+    frame.push((crc >> 8) & 0xFF);
+    return new Uint8Array(frame);
+  };
+
+  const readModbusRegistersFromPort = async (slave, reg, numreg, timeoutMs = 1200) => {
+    if (!uartPort.value || !uartPort.value.readable || !uartPort.value.writable) {
+      throw new Error('UART port is not available');
+    }
+    const req = buildModbusReadReq(slave, 3, reg, numreg);
+    activeUartWriter = uartPort.value.writable.getWriter();
+    try {
+      await activeUartWriter.write(req);
+    } finally {
+      try {
+        activeUartWriter.releaseLock();
+      } catch (e) {}
+      activeUartWriter = null;
+    }
+
+    activeUartReader = uartPort.value.readable.getReader();
+    const expectedBytes = 3 + numreg * 2 + 2;
+    const rxBuffer = [];
+    const startTime = Date.now();
+
+    try {
+      while (rxBuffer.length < expectedBytes && (Date.now() - startTime) < timeoutMs) {
+        const remaining = Math.max(10, timeoutMs - (Date.now() - startTime));
+        let timeoutId;
+        const timeoutPromise = new Promise((_, reject) => {
+          timeoutId = setTimeout(() => reject(new Error('TIMEOUT')), remaining);
+        });
+        let res;
+        try {
+          res = await Promise.race([activeUartReader.read(), timeoutPromise]);
+        } finally {
+          clearTimeout(timeoutId);
+        }
+        const { value, done } = res;
+        if (done) break;
+        if (value) {
+          for (let i = 0; i < value.length; i++) rxBuffer.push(value[i]);
+        }
+      }
+    } catch (err) {
+      if (activeUartReader) {
+        try {
+          await activeUartReader.cancel();
+        } catch (e) {}
+      }
+      throw err;
+    } finally {
+      if (activeUartReader) {
+        try {
+          activeUartReader.releaseLock();
+        } catch (e) {}
+        activeUartReader = null;
+      }
+    }
+
+    if (rxBuffer.length < 5) throw new Error('No response received from device');
+    const byteCount = rxBuffer[2];
+    return rxBuffer.slice(3, 3 + byteCount);
+  };
+
+  const readDeviceViaUart = async () => {
+    if (!uartPort.value || !uartConnected.value) {
+      showToast('Please connect Serial UART port before reading.', 'warning');
+      openPortCheckModal('Serial UART port is not connected. Please select and connect COM port first.');
+      return;
+    }
+
+    resetReadDeviceInfo();
+    uartReading.value = true;
+    uartLogMessage.value = 'Sending Modbus FC03 query to read hardware parameters per template_dvt.csv...';
+    try {
+      const bytesToAscii = (bytes) => {
+        if (!bytes || !bytes.length) return '';
+        return String.fromCharCode(...bytes.filter(b => b >= 32 && b <= 126)).trim();
+      };
+      const bytesToHex = (bytes) => {
+        if (!bytes || !bytes.length) return '';
+        return Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('').toUpperCase();
+      };
+
+      let longFw = '';
+      let hwVersion = '';
+      let meVersion = '';
+      let regionCode = '';
+      let devClass = '';
+      let sensorTypeCode = null;
+      let itemCode = '';
+      let serialNumber = '';
+      let devEUI = '';
+
+      // 1. Read Reg 259 (SERIAL_NUMBER: FC 3, # of Registers = 9, format = string)
+      try {
+        const snBytes = await readModbusRegistersFromPort(1, 259, 9);
+        const readSn = bytesToAscii(snBytes);
+        if (readSn) serialNumber = readSn;
+      } catch (err) {
+        console.warn('Hardware read failed for Reg 259 (SERIAL_NUMBER):', err);
+      }
+
+      // 2. Read Reg 27 (DEV_EUI: FC 3, # of Registers = 4, format = hex)
+      try {
+        const euiBytes = await readModbusRegistersFromPort(1, 27, 4);
+        if (euiBytes && euiBytes.length >= 8) {
+          devEUI = bytesToHex(euiBytes.slice(0, 8));
+        }
+      } catch (err) {
+        console.warn('Hardware read failed for Reg 27 (DEV_EUI):', err);
+      }
+
+      // Check if SERIAL_NUMBER or DEV_EUI was read:
+      // STRICT REQUIREMENT: Actual hardware read only! Do NOT pre-fill write data or fallback fake data!
+      // ( nếu đọc SERIAL_NUMBER hoặc DEV_EUI bị trống không có dữ liệu thì báo lỗi đọc lại UART như trước)
+      if (!serialNumber || !serialNumber.trim() || !devEUI || !devEUI.trim()) {
+        resetReadDeviceInfo();
+        const missingFields = [];
+        if (!serialNumber || !serialNumber.trim()) missingFields.push('SERIAL_NUMBER (Reg 259)');
+        if (!devEUI || !devEUI.trim()) missingFields.push('DEV_EUI (Reg 27)');
+        const missingMsg = missingFields.join(' and ');
+        uartLogMessage.value = 'Error: Cannot read ' + missingMsg + ' from device. Please check port connection and Baud rate.';
+        showToast('Cannot read ' + missingMsg + ' from device! Please check port connection.', 'error');
+        openPortCheckModal('Cannot read ' + missingMsg + ' from device. Please verify your COM port connection, Baud rate (' + (uartBaudRate.value || 9600) + ' bps), or UART TX/RX wiring.');
+        return;
+      }
+
+      // 2. Read Reg 5 (FW_VERSION, 4 regs)
+      try {
+        const fwBytes = await readModbusRegistersFromPort(1, 5, 4);
+        const readFw = bytesToAscii(fwBytes);
+        if (readFw) longFw = readFw;
+      } catch (e) {
+        console.warn('Failed to read Reg 5 (FW_VERSION):', e);
+      }
+
+      // 3. Read Reg 9 (HW_VERSION, 2 regs)
+      try {
+        const hwBytes = await readModbusRegistersFromPort(1, 9, 2);
+        const readHw = bytesToAscii(hwBytes);
+        if (readHw) hwVersion = readHw;
+      } catch (e) {
+        console.warn('Failed to read Reg 9 (HW_VERSION):', e);
+      }
+
+      // 4. Read Reg 15 (ME_VERSION, 2 regs)
+      try {
+        const meBytes = await readModbusRegistersFromPort(1, 15, 2);
+        const readMe = bytesToAscii(meBytes);
+        if (readMe) meVersion = readMe;
+      } catch (e) {
+        console.warn('Failed to read Reg 15 (ME_VERSION):', e);
+      }
+
+      // 5. Read Reg 69 (region code, 3 regs)
+      try {
+        const regBytes = await readModbusRegistersFromPort(1, 69, 3);
+        const readReg = bytesToAscii(regBytes);
+        if (readReg) regionCode = readReg;
+      } catch (e) {
+        console.warn('Failed to read Reg 69 (region code):', e);
+      }
+
+      // 6. Read Reg 85 (class, 1 reg)
+      try {
+        const classBytes = await readModbusRegistersFromPort(1, 85, 1);
+        const readClass = bytesToAscii(classBytes);
+        if (readClass) devClass = readClass;
+      } catch (e) {
+        console.warn('Failed to read Reg 85 (class):', e);
+      }
+
+      // 7. Read Reg 103 (sensor type, 1 reg uint16)
+      try {
+        const stBytes = await readModbusRegistersFromPort(1, 103, 1);
+        if (stBytes && stBytes.length >= 2) {
+          sensorTypeCode = (stBytes[0] << 8) | stBytes[1];
+        }
+      } catch (e) {
+        console.warn('Failed to read Reg 103 (sensor type):', e);
+      }
+
+      // 8. Read Reg 386 (ITEM_CODE, 14 regs)
+      // Per template_dvt.csv: Reg 386 has FC Write = 16P (writable).
+      // When reading from device, do NOT take writeable value; if empty/blank, fill empty directly:
+      try {
+        const icBytes = await readModbusRegistersFromPort(1, 386, 14);
+        const readIc = bytesToAscii(icBytes);
+        itemCode = readIc || '';
+      } catch (e) {
+        itemCode = '';
+      }
+
+      // Cut first char as SHORT_FW: '1F0926' -> '1'
+      const shortFw = longFw ? longFw.charAt(0) : '1';
+
+      // Resolve SKU from Sensor Type C-Module
+      let sku = 'WSLRW-LKS';
+      let sensorTypeName = 'LoRaWAN Sensor';
+      if (sensorTypeCode !== null && sensorTypeCode !== undefined) {
+        try {
+          const res = await fetch('/api/c-modules/sensor-types/resolve/' + sensorTypeCode, {
+            headers: authHeaders(),
+          });
+          if (res.ok) {
+            const typeData = await res.json();
+            if (typeData && typeData.sku) {
+              sku = typeData.sku;
+              sensorTypeName = typeData.name || sensorTypeName;
+            }
+          }
+        } catch (e) {
+          console.warn('Could not resolve sensor type:', e);
+        }
+      }
+
+      // Compare read ITEM_CODE with selected SO Item Code
+      const targetItem = (manualItemCode.value || selectedItemCode.value || selectedSoItem.value?.itemCode || '').trim();
+      const isMatch = (targetItem && itemCode) ? (itemCode.trim().toLowerCase() === targetItem.toLowerCase()) : false;
+
+      if (!showDeviceOnboardModal.value) {
+        return;
+      }
+
+      readDeviceInfo.value = {
+        hasData: true,
+        serialNumber,
+        devEUI,
+        itemCode,
+        longFw: longFw || '--',
+        shortFw,
+        hwVersion: hwVersion || '--',
+        meVersion: meVersion || '--',
+        sensorTypeCode: sensorTypeCode ?? 71,
+        sensorTypeName,
+        sku,
+        regionCode: regionCode || 'EU868',
+        devClass: devClass || 'A',
+        itemCodeMatch: isMatch,
+      };
+
+      confirmSerialNumberInput.value = '';
+      const icPart = itemCode ? (', ITEM_CODE: ' + itemCode) : '';
+      uartLogMessage.value = 'Successfully read device parameters from UART: SERIAL_NUMBER: ' + serialNumber + ', DEV_EUI: ' + devEUI + icPart + ', SKU: ' + sku + ', FW: ' + shortFw;
+      showToast('Successfully read data from UART port: ' + serialNumber + ' (' + devEUI + ')', 'success');
+    } catch (e) {
+      uartLogMessage.value = 'UART read error: ' + (e.message || e);
+      showToast('UART read error: ' + (e.message || e), 'error');
+      openPortCheckModal('UART communication error: ' + (e.message || e) + '. Please check port connection.');
+    } finally {
+      uartReading.value = false;
+    }
+  };
+
+  const simulateReadDeviceUart = async () => {
+    resetReadDeviceInfo();
+    uartReading.value = true;
+    uartLogMessage.value = 'Simulating Modbus registers read per @example/template_dvt.csv...';
+    try {
+      const longFw = '';
+      const shortFw = longFw ? longFw.charAt(0) : '1';
+      const hwVersion = '';
+      const meVersion = '';
+      const regionCode = '';
+      const devClass = '';
+      const sensorTypeCode = 71;
+      let sku = 'WSLRW-LKS';
+      let sensorTypeName = 'LoRaWAN Leak Sensor';
+
+      // Resolve SKU from Sensor Type C-Module
+      try {
+        const res = await fetch('/api/c-modules/sensor-types/resolve/' + sensorTypeCode, {
+          headers: authHeaders(),
+        });
+        if (res.ok) {
+          const typeData = await res.json();
+          if (typeData && typeData.sku) {
+            sku = typeData.sku;
+            sensorTypeName = typeData.name || sensorTypeName;
+          }
+        }
+      } catch (e) {
+        console.warn('Could not resolve sensor type:', e);
+      }
+
+      // In template_dvt.csv, Reg 386 (ITEM_CODE) is writable (FC 16P).
+      // When read out from template, do NOT take write value; if empty region, fill empty directly:
+      const itemCode = '';
+
+      // Check match with currently selected SO Item Code
+      const targetItem = (manualItemCode.value || selectedItemCode.value || selectedSoItem.value?.itemCode || '').trim();
+      const isMatch = (targetItem && itemCode) ? (itemCode.trim().toLowerCase() === targetItem.toLowerCase()) : false;
+
+      // In template_dvt.csv, Reg 259 (SERIAL_NUMBER) is blank (purely actual read from hardware).
+      // STRICT REQUIREMENT: Actual hardware read only! Do NOT auto-write or hardcode WSLRW-LKS-260901!
+      const serialNumber = '';
+      if (!serialNumber) {
+        resetReadDeviceInfo();
+        uartLogMessage.value = 'Notice: No SERIAL_NUMBER present in template. Please check port connection to read hardware.';
+        openPortCheckModal('Cannot read SERIAL_NUMBER. Please check COM port connection.');
+        return;
+      }
+
+      const devEUI = '0018B271' + Math.floor(10000000 + Math.random() * 90000000).toString(16).toUpperCase().padStart(8, '0');
+
+      readDeviceInfo.value = {
+        hasData: true,
+        serialNumber,
+        devEUI,
+        itemCode,
+        longFw,
+        shortFw,
+        hwVersion,
+        meVersion,
+        sensorTypeCode,
+        sensorTypeName,
+        sku,
+        regionCode,
+        devClass,
+        itemCodeMatch: isMatch,
+      };
+
+      confirmSerialNumberInput.value = '';
+      const icDisplay = itemCode ? ('ITEM_CODE: ' + itemCode) : 'ITEM_CODE: empty';
+      uartLogMessage.value = 'Simulated reading 10 registers from template @example/template_dvt.csv: Reg 259 (SERIAL_NUMBER: ' + serialNumber + '), Reg 386 (' + icDisplay + '), SKU: ' + sku + ', FW: ' + shortFw;
+      showToast('Successfully read data from @example/template_dvt.csv (SERIAL_NUMBER: ' + serialNumber + ')', 'success');
+    } catch (e) {
+      uartLogMessage.value = 'Simulation read error: ' + (e.message || e);
+      showToast('Error: ' + (e.message || e), 'error');
+      openPortCheckModal('Simulation read error: ' + (e.message || e));
+    } finally {
+      uartReading.value = false;
+    }
+  };
+
+  const submitRegisterToChirpstack = async () => {
+    if (!isSerialNumberConfirmed.value) {
+      showToast('Please enter exact SERIAL_NUMBER to confirm onboarding.', 'warning');
+      return;
+    }
+    isRegisteringToChirpstack.value = true;
+    try {
+      const info = readDeviceInfo.value;
+      const targetSoItem = selectedSoItem.value;
+      const targetSo = selectedSo.value;
+
+      const effectiveSo = salesOrdersList.value.find(s => (s.soCode || '').trim().toLowerCase() === (manualSoCode.value || selectedSoCode.value || '').trim().toLowerCase());
+      const effectiveSoId = effectiveSo?.id && effectiveSo.id !== 'manual-so' ? effectiveSo.id : undefined;
+
+      const effectiveItem = availableSoItems.value.find(i => (i.itemCode || '').trim().toLowerCase() === (manualItemCode.value || selectedItemCode.value || '').trim().toLowerCase());
+      const effectiveItemId = effectiveItem?.itemCodeId || (effectiveItem?.id && effectiveItem.id !== 'manual-so-item' ? effectiveItem.id : undefined);
+
+      const skuVal = (info.sku || 'WSLRW-ATH').trim();
+      const fwVer = (info.shortFw || (info.longFw ? info.longFw.charAt(0) : '') || '1').toString().trim();
+      let cleanSerial = (info.serialNumber || '').trim();
+      if (cleanSerial.startsWith(skuVal + '_' + fwVer + '_')) {
+        cleanSerial = cleanSerial.slice((skuVal + '_' + fwVer + '_').length);
+      } else if (cleanSerial.startsWith(skuVal + '-')) {
+        cleanSerial = cleanSerial.slice((skuVal + '-').length);
+      } else if (cleanSerial.startsWith(skuVal + '_')) {
+        cleanSerial = cleanSerial.slice((skuVal + '_').length);
+      }
+      const devName = skuVal + '_' + fwVer + '_' + cleanSerial;
+
+      const isLocal = selectedNetworkServerId.value === '__LOCAL__';
+      let targetNs = null;
+      let targetRegionId = undefined;
+
+      if (!isLocal) {
+        if (!networkServersList.value || networkServersList.value.length === 0) {
+          await fetchNetworkServersList();
+        }
+        if (selectedNetworkServerId.value && selectedNetworkServerId.value !== '__LOCAL__') {
+          targetNs = (networkServersList.value || []).find(ns => ns.id === selectedNetworkServerId.value);
+        }
+        if (!targetNs) {
+          targetNs = (networkServersList.value || []).find(ns => ns.isDefault) || (networkServersList.value || [])[0];
+          if (targetNs) {
+            selectedNetworkServerId.value = targetNs.id;
+          }
+        }
+
+        if (targetNs && Array.isArray(targetNs.regionProfiles) && targetNs.regionProfiles.length > 0) {
+          const matchedRegion = targetNs.regionProfiles.find(rp => 
+            (rp.region || rp.name || '').toUpperCase().includes((info.regionCode || '').toUpperCase())
+          );
+          targetRegionId = matchedRegion ? matchedRegion.id : targetNs.regionProfiles[0].id;
+        }
+      }
+
+      const isUuid = (val) => !!val && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(val));
+      const resolvedItemId = isUuid(effectiveItemId) ? effectiveItemId : (isUuid(targetSoItem?.itemCodeId) ? targetSoItem.itemCodeId : (isUuid(targetSoItem?.id) ? targetSoItem.id : undefined));
+      const resolvedSoId = isUuid(effectiveSoId) ? effectiveSoId : (isUuid(targetSo?.id) ? targetSo.id : undefined);
+
+      const regPayload = {
+        name: devName,
+        devEUI: info.devEUI,
+        sku: info.sku,
+        firmwareVersion: info.shortFw,
+        decoderId: linkedTemplate.value?.id || undefined,
+        itemCodeId: resolvedItemId || undefined,
+        salesOrderId: resolvedSoId || undefined,
+        activationType: 'OTAA',
+        appEUI: '0102030405060708',
+        appKey: '0102030405060708090A0B0C0D0E0F10',
+        provisionTarget: isLocal ? 'LOCAL' : 'SERVER',
+        networkServerId: isLocal ? undefined : (targetNs?.id || undefined),
+        regionProfileId: isLocal ? undefined : targetRegionId,
+        region: info.regionCode || undefined,
+        isActive: true,
+      };
+
+      registrationErrorMessage.value = '';
+      const res = await fetch('/lorawan/devices', {
+        method: 'POST',
+        headers: {
+          ...authHeaders(),
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(regPayload),
+      });
+
+      let resData = {};
+      try {
+        resData = await res.json();
+      } catch (e) {}
+
+      if (!res.ok) {
+        const errMsg = resData.message || (typeof resData === 'string' ? resData : 'ChirpStack device registration error');
+        const isDuplicate = res.status === 409 ||
+          (typeof errMsg === 'string' && (
+            errMsg.includes('already exists') ||
+            errMsg.includes('duplicate key') ||
+            errMsg.includes('device_pkey') ||
+            errMsg.includes('unique constraint')
+          ));
+
+        if (isDuplicate) {
+          const duplicateMsg = 'Thiết bị với DevEUI ' + info.devEUI + ' đã tồn tại trên Network Server (' + (targetNs?.name || 'ChirpStack') + ').';
+          registrationErrorMessage.value = duplicateMsg;
+          showToast(duplicateMsg, 'warning');
+          return;
+        }
+
+        registrationErrorMessage.value = errMsg;
+        throw new Error(errMsg);
+      }
+
+      // Add to active batch devices list (Live status trace check via server API, no hardcoded fake telemetry)
+      const newBatchDevice = {
+        devEUI: info.devEUI,
+        name: regPayload.name,
+        serialNumber: info.serialNumber,
+        sku: info.sku,
+        firmwareVersion: info.shortFw,
+        soCode: (manualSoCode.value || selectedSoCode.value || ''),
+        itemCode: (manualItemCode.value || selectedItemCode.value || ''),
+        isCheckingOnline: true,
+        isOnline: false,
+        lastSeenAt: null,
+        status: 'READY',
+        totalPackets: 0,
+        rssi: null,
+        snr: null,
+        failureReason: '',
+        deviceRunId: null,
+      };
+
+      if (!batchDevices.value.some(d => d.devEUI === newBatchDevice.devEUI)) {
+        batchDevices.value.push(newBatchDevice);
+      }
+      fetchSingleDeviceTrace(info.devEUI);
+
+      // Refresh fleet
+      if (fetchDevices) fetchDevices();
+
+      const targetLabel = isLocal ? 'Local Fleet' : (targetNs?.name || 'ChirpStack');
+      showToast('Device ' + info.serialNumber + ' (' + info.devEUI + ') successfully registered to ' + targetLabel + ' and added to test batch!', 'success');
+      showDeviceOnboardModal.value = false;
+    } catch (err) {
+      showToast('ChirpStack registration error: ' + err.message, 'error');
+    } finally {
+      isRegisteringToChirpstack.value = false;
+    }
+  };
+
+  // ========================================================
+  // PRODUCT TRACEABILITY INSPECTION (PostgreSQL test_result & raw_data3)
+  // UART connection is for bench hardware reading and NOT related to traceability
+  // ========================================================
+  const showTraceabilityModal = ref(false);
+  const traceModalViewMode = ref('catalog'); // 'catalog' | 'details'
+  const traceModalSearchQuery = ref('');
+  const traceModalVerdictFilter = ref('ALL');
+  const traceModalLimit = ref(50);
+  const traceModalLoading = ref(false);
+  const traceModalResults = ref([]);
+  const traceModalMetrics = ref({ total: 0, pass: 0, fail: 0, passRate: 0 });
+  const traceModalSelectedDetail = ref(null);
+  const traceModalLoadingDetail = ref(false);
+
+  const openProductTraceabilityModal = async (devOrKey) => {
+    showTraceabilityModal.value = true;
+    if (devOrKey) {
+      const searchKey = typeof devOrKey === 'string'
+        ? devOrKey
+        : (devOrKey.serialNumber || devOrKey.devEUI || devOrKey.name || '');
+      traceModalSearchQuery.value = searchKey;
+    }
+    await fetchTraceabilityModalData();
+    if (devOrKey && traceModalResults.value.length === 1) {
+      await viewTraceabilityDeviceDetail(traceModalResults.value[0]);
+    }
+  };
+
+  const closeTraceabilityModal = () => {
+    showTraceabilityModal.value = false;
+    traceModalSelectedDetail.value = null;
+    traceModalViewMode.value = 'catalog';
+  };
+
+  const fetchTraceabilityModalData = async () => {
+    traceModalLoading.value = true;
+    try {
+      const params = new URLSearchParams();
+      if (traceModalSearchQuery.value && traceModalSearchQuery.value.trim()) {
+        params.append('search', traceModalSearchQuery.value.trim());
+      }
+      if (traceModalVerdictFilter.value && traceModalVerdictFilter.value !== 'ALL') {
+        params.append('result', traceModalVerdictFilter.value);
+      }
+      params.append('limit', String(traceModalLimit.value || 50));
+
+      const res = await fetch('/api/traceability/test-results?' + params.toString(), {
+        headers: authHeaders(),
+        credentials: 'include',
+      });
+      if (res.ok) {
+        const data = await res.json();
+        const items = data.data || data.items || [];
+        traceModalResults.value = items;
+        if (data.metrics) {
+          traceModalMetrics.value = {
+            total: data.metrics.totalTests || items.length,
+            pass: data.metrics.passCount || 0,
+            fail: data.metrics.failCount || 0,
+            passRate: data.metrics.passRate || 0,
+          };
+        } else {
+          let pass = 0;
+          let fail = 0;
+          items.forEach(r => {
+            if (isTestVerdictPass(r.result)) pass++;
+            else fail++;
+          });
+          const total = items.length;
+          const passRate = total > 0 ? Math.round((pass / total) * 100) : 0;
+          traceModalMetrics.value = { total, pass, fail, passRate };
+        }
+      } else {
+        const err = await res.json().catch(() => ({}));
+        showToast(err.message || 'Failed to query test_result from PostgreSQL', 'error');
+      }
+    } catch (e) {
+      console.error('Failed to load traceability results:', e);
+      showToast('Error querying traceability records', 'error');
+    } finally {
+      traceModalLoading.value = false;
+    }
+  };
+
+  const viewTraceabilityDeviceDetail = async (itemOrId) => {
+    const key = typeof itemOrId === 'string'
+      ? itemOrId
+      : (itemOrId.testId || itemOrId.test_id || itemOrId.serialNumber || itemOrId.serial_number || itemOrId.deviceKey || itemOrId.device_key || '');
+    if (!key) {
+      showToast('Device identifier missing', 'error');
+      return;
+    }
+    traceModalViewMode.value = 'details';
+    traceModalLoadingDetail.value = true;
+    try {
+      const res = await fetch('/api/traceability/device-details?testId=' + encodeURIComponent(key) + '&serialNumber=' + encodeURIComponent(key), {
+        headers: authHeaders(),
+        credentials: 'include',
+      });
+      if (res.ok) {
+        traceModalSelectedDetail.value = await res.json();
+      } else {
+        const err = await res.json().catch(() => ({}));
+        showToast(err.message || 'Failed to load telemetry from raw_data3', 'error');
+      }
+    } catch (e) {
+      console.error('Failed to load device telemetry details:', e);
+      showToast('Network error loading telemetry details', 'error');
+    } finally {
+      traceModalLoadingDetail.value = false;
+    }
+  };
+
+  const exportTraceabilityCsv = () => {
+    const params = new URLSearchParams();
+    if (traceModalSearchQuery.value && traceModalSearchQuery.value.trim()) {
+      params.append('search', traceModalSearchQuery.value.trim());
+    }
+    if (traceModalVerdictFilter.value && traceModalVerdictFilter.value !== 'ALL') {
+      params.append('result', traceModalVerdictFilter.value);
+    }
+    window.open('/api/traceability/export-csv?' + params.toString(), '_blank');
+  };
+
+  const exportSingleDeviceTraceCsv = () => {
+    const key = traceModalSelectedDetail.value?.test_id || traceModalSelectedDetail.value?.generalInfo?.testId || traceModalSelectedDetail.value?.serial_number || '';
+    if (!key) return;
+    window.open('/api/traceability/export-csv?test_id=' + encodeURIComponent(key), '_blank');
+  };
+
+  const isTestVerdictPass = (res) => {
+    const s = String(res || '').toUpperCase();
+    return s === 'PASS' || s === 'PASSED' || s === 'OK' || s === '1' || s === 'TRUE';
+  };
+
+  const formatTraceTimestamp = (val) => {
+    if (!val) return '—';
+    try {
+      const d = new Date(typeof val === 'string' && !isNaN(Number(val)) ? Number(val) : val);
+      if (isNaN(d.getTime())) return String(val);
+      return d.toISOString().replace('T', ' ').substring(0, 19);
+    } catch(e) {
+      return String(val);
+    }
+  };
+
+  const handleDocumentClick = (e) => {
+    if (soDropdownContainer.value && !soDropdownContainer.value.contains(e.target)) {
+      soDropdownOpen.value = false;
+    }
+    if (itemDropdownContainer.value && !itemDropdownContainer.value.contains(e.target)) {
+      itemDropdownOpen.value = false;
+    }
+  };
+
+  if (typeof document !== 'undefined') {
+    document.addEventListener('click', handleDocumentClick);
+  }
+
+  // Initial load
+  onMounted(() => {
+    fetchSalesOrders();
+    fetchTestSessions();
+    if (fetchDevices) fetchDevices();
+    fetchNetworkServersList();
+
+    if (typeof navigator !== 'undefined' && navigator.serial) {
+      try {
+        navigator.serial.addEventListener('disconnect', handleUartHardwareDisconnect);
+        navigator.serial.addEventListener('connect', handleUartHardwareConnect);
+      } catch (e) {}
+    }
+  });
+
+  onUnmounted(() => {
+    if (typeof document !== 'undefined') {
+      document.removeEventListener('click', handleDocumentClick);
+    }
+    if (typeof navigator !== 'undefined' && navigator.serial) {
+      try {
+        navigator.serial.removeEventListener('disconnect', handleUartHardwareDisconnect);
+        navigator.serial.removeEventListener('connect', handleUartHardwareConnect);
+      } catch (e) {}
+    }
+    if (autoReconnectUartTimer) {
+      clearTimeout(autoReconnectUartTimer);
+      autoReconnectUartTimer = null;
+    }
+    safeCleanupUartPort();
+  });
+
+  return {
+    salesOrdersList,
+    loadingSalesOrders,
+    selectedSoCode,
+    selectedSo,
+    availableSoItems,
+    selectedItemCode,
+    selectedSoItem,
+    linkedTemplate,
+    testDurationSeconds,
+    userFleetDevices,
+    fleetSearchQuery,
+    filterOnlyMatchingSku,
+    fleetStatusFilter,
+    selectedFleetDevEUIs,
+    availableFleetDevices,
+    allVisibleFleetSelected,
+    batchDevices,
+    batchOnlineCount,
+    batchOfflineCount,
+    isBatchTesting,
+    formattedStartTime,
+    formattedEndTime,
+    formattedRemainingTime,
+    batchProgressPercentage,
+    showCompletionModal,
+    batchCompletionStats,
+    showAuditModal,
+    showSimulateModal,
+    showCreateTestSessionModal,
+    activeDeviceRunForAudit,
+    deviceLogPackets,
+    loadingDeviceLogs,
+    isSimulatingPacket,
+    simulateForm,
+    filteredTestDeviceRuns,
+    testSessionsList,
+    createSessionForm,
+    isDeviceOnline,
+    formatLastSeen,
+    getDeviceStatusBadgeClass,
+    fetchSalesOrders,
+    onSoSelectChange,
+    onItemCodeChange,
+    // Manual SO & Custom Dropdowns
+    isManualSo,
+    manualSoCode,
+    manualItemCode,
+    soDropdownOpen,
+    itemDropdownOpen,
+    soDropdownContainer,
+    itemDropdownContainer,
+    openSoDropdown,
+    toggleSoDropdown,
+    selectSoOption,
+    onSoInputTyped,
+    openItemDropdown,
+    toggleItemDropdown,
+    selectItemOption,
+    onItemInputTyped,
+    filteredSoList,
+    filteredItemList,
+    sortedSalesOrders,
+    manualSku,
+    manualFw,
+    manualTargetQty,
+    setSoMode,
+    onManualSoCodeInput,
+    onManualSoCodeChange,
+    onManualItemInput,
+    onManualItemChange,
+    // Post-Test Evidence Audit
+    showEvidenceModal,
+    selectedEvidenceDetail,
+    evidenceList,
+    evidenceTotalCount,
+    loadingEvidences,
+    evidenceSearchQuery,
+    evidenceVerdictFilter,
+    openEvidenceModal,
+    fetchEvidences,
+    exportEvidenceCsvReport,
+    formatTimestamp,
+    toggleSelectFleetDevice,
+    toggleSelectAllVisibleFleet,
+    pushSelectedFleetToBatch,
+    pushSingleDeviceToBatch,
+    fetchSingleDeviceTrace,
+    fetchBatchDevicesTrace,
+    loadingTrace,
+    removeDeviceFromBatch,
+    clearBatch,
+    refreshWorkbenchData,
+    startBatchTest,
+    abortBatchTest,
+    completeBatchTest,
+    closeCompletionModal,
+    openAuditModal,
+    openSimulatePacketModal,
+    applySimulatePreset,
+    submitSimulatePacket,
+    exportTestSessionReport,
+    handleTestRealtimeEvent,
+    fetchTestSessions,
+    submitCreateTestSession,
+    // UART Device Onboarding
+    showDeviceOnboardModal,
+    showPortCheckModal,
+    portCheckErrorMessage,
+    openPortCheckModal,
+    closePortCheckModal,
+    uartPort,
+    uartPortInfo,
+    uartConnected,
+    uartConnecting,
+    uartReading,
+    uartLogMessage,
+    isAutoReconnectingUart,
+    uartBaudRate,
+    readDeviceInfo,
+    confirmSerialNumberInput,
+    isSerialNumberConfirmed,
+    isRegisteringToChirpstack,
+    registrationErrorMessage,
+    openDeviceOnboardModal,
+    closeDeviceOnboardModal,
+    resetReadDeviceInfo,
+    selectUartPort,
+    connectUart,
+    disconnectUart,
+    readDeviceViaUart,
+    simulateReadDeviceUart,
+    networkServersList,
+    selectedNetworkServerId,
+    selectedNetworkServer,
+    fetchNetworkServersList,
+    submitRegisterToChirpstack,
+    // Product Traceability (PostgreSQL test_result & raw_data3)
+    showTraceabilityModal,
+    traceModalViewMode,
+    traceModalSearchQuery,
+    traceModalVerdictFilter,
+    traceModalLimit,
+    traceModalLoading,
+    traceModalResults,
+    traceModalMetrics,
+    traceModalSelectedDetail,
+    traceModalLoadingDetail,
+    openProductTraceabilityModal,
+    closeTraceabilityModal,
+    fetchTraceabilityModalData,
+    viewTraceabilityDeviceDetail,
+    exportTraceabilityCsv,
+    exportSingleDeviceTraceCsv,
+    isTestVerdictPass,
+    formatTraceTimestamp,
+  };
+}
+`;
+//# sourceMappingURL=test-automation.module.js.map

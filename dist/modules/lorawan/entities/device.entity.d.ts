@@ -1,0 +1,34 @@
+import { NetworkServerEntity } from '../../network-servers/entities/network-server.entity';
+import { User } from '../../users/entities/user.entity';
+import { ItemCodeEntity } from '../../c-modules/item-codes/entities/item-code.entity';
+import { SalesOrderEntity } from '../../c-modules/sales-orders/entities/sales-order.entity';
+export declare class DeviceEntity {
+    id: string;
+    devEUI: string;
+    name: string;
+    appId: string;
+    ownerId: string;
+    owner?: User;
+    networkServerId: string;
+    regionProfileId: string;
+    networkServer?: NetworkServerEntity;
+    activationMode: string;
+    appEUI: string;
+    appKey: string;
+    nwkSKey: string;
+    appSKey: string;
+    syncStatus: string;
+    syncDetails: Record<string, any>;
+    decoderId?: string;
+    itemCodeId?: string;
+    itemCode?: ItemCodeEntity;
+    salesOrderId?: string;
+    salesOrder?: SalesOrderEntity;
+    sku?: string;
+    firmwareVersion?: string;
+    payloadFormatterScript: string;
+    isActive: boolean;
+    lastSeenAt?: Date | null;
+    createdAt: Date;
+    updatedAt: Date;
+}
