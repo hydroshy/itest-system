@@ -287,6 +287,7 @@ export class TestAutomationRepository {
   public async findActiveDeviceRunForDevEUI(
     devEUI: string,
     sessionId?: string,
+    filter?: { soCode?: string; itemCode?: string },
   ): Promise<{ run: TestDeviceRunEntity; session: TestSessionEntity } | null> {
     const cleanEUI = devEUI.trim().toUpperCase();
 
@@ -306,6 +307,14 @@ export class TestAutomationRepository {
         });
       }
 
+      if (filter?.soCode && filter.soCode.trim()) {
+        qb.andWhere('LOWER(session.soCode) = LOWER(:soCode)', { soCode: filter.soCode.trim() });
+      }
+
+      if (filter?.itemCode && filter.itemCode.trim()) {
+        qb.andWhere('LOWER(session.itemCode) = LOWER(:itemCode)', { itemCode: filter.itemCode.trim() });
+      }
+
       qb.orderBy('session.createdAt', 'DESC');
       const run = await qb.getOne();
       if (run && run.session) {
@@ -322,6 +331,8 @@ export class TestAutomationRepository {
         if (session) {
           if (sessionId && session.id !== sessionId) continue;
           if (!sessionId && session.status !== 'IN_PROGRESS' && session.status !== 'PENDING') continue;
+          if (filter?.soCode && filter.soCode.trim() && session.soCode.toLowerCase() !== filter.soCode.trim().toLowerCase()) continue;
+          if (filter?.itemCode && filter.itemCode.trim() && session.itemCode.toLowerCase() !== filter.itemCode.trim().toLowerCase()) continue;
           return { run, session };
         }
       }

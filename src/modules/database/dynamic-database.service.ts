@@ -27,6 +27,8 @@ import { TestPacketLogEntity } from '../d-modules/test-automation/entities/test-
 import { TestEvidenceEntity } from '../d-modules/test-automation/entities/test-evidence.entity';
 import { TestResultEntity } from '../c-modules/traceability/entities/test-result.entity';
 import { RawData3Entity } from '../c-modules/traceability/entities/raw-data3.entity';
+import { MemmapPayloadEntity } from '../c-modules/memmap-upload/entities/memmap-payload.entity';
+import { MemmapRegEntity } from '../c-modules/memmap-upload/entities/memmap-reg.entity';
 
 export const ALL_DATABASE_ENTITIES = [
   User,
@@ -54,6 +56,8 @@ export const ALL_DATABASE_ENTITIES = [
   TestEvidenceEntity,
   TestResultEntity,
   RawData3Entity,
+  MemmapPayloadEntity,
+  MemmapRegEntity,
 ];
 
 export interface DbConnectionConfig {

@@ -36,6 +36,11 @@ import {
   TRACEABILITY_MODALS,
   TRACEABILITY_SCRIPT,
 } from './control-panel-modules/traceability.module';
+import {
+  MEMMAP_UPLOAD_TEMPLATE,
+  MEMMAP_UPLOAD_MODALS,
+  MEMMAP_UPLOAD_SCRIPT,
+} from './control-panel-modules/memmap-upload.module';
 
 export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
 <html lang="en">
@@ -1346,6 +1351,17 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
             </button>
 
             <button
+              @click="switchTab('memmap-upload')"
+              :class="{ active: activeTab === 'memmap-upload' }"
+              class="nav-item"
+            >
+              <span class="flex items-center" class="gap-2.5">
+                <i class="fa-solid fa-file-csv w-4 text-center text-xs text-amber-400"></i>
+                <span class="truncate">Memory Map Upload</span>
+              </span>
+            </button>
+
+            <button
               @click="switchTab('test-builder')"
               :class="{ active: activeTab === 'test-builder' }"
               
@@ -1489,6 +1505,13 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
           </div>
         </c-module-boundary>
 
+        <!-- TAB 18: MEMORY MAP UPLOAD -->
+        <c-module-boundary module-id="memmap-upload" title="Memory Map Upload" icon="fa-solid fa-file-csv" :active="activeTab === 'memmap-upload'">
+          <div v-if="activeTab === 'memmap-upload'" class="space-y-6">
+            ${MEMMAP_UPLOAD_TEMPLATE}
+          </div>
+        </c-module-boundary>
+
       </main>
     </div>
 
@@ -1507,6 +1530,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
     ${SALES_ORDERS_MODALS}
     ${SENSOR_TYPES_MODALS}
     ${TRACEABILITY_MODALS}
+    ${MEMMAP_UPLOAD_MODALS}
 
     <!-- TOAST NOTIFICATION -->
     <div v-if="toast.show" class="fixed top-4 right-4 z-50 flex items-center gap-2 px-4 py-3 rounded-xl shadow-2xl text-xs font-semibold" :class="toast.type === 'error' ? 'bg-red-950 border border-red-500 text-red-200' : (toast.type === 'success' ? 'bg-emerald-950 border border-emerald-500 text-emerald-200' : 'bg-sky-950 border border-sky-500 text-sky-200')">
@@ -1575,6 +1599,11 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
       ${TRACEABILITY_SCRIPT}
     } catch (e) {
       console.error('[Module Script Load Error: traceability]', e);
+    }
+    try {
+      ${MEMMAP_UPLOAD_SCRIPT}
+    } catch (e) {
+      console.error('[Module Script Load Error: memmap-upload]', e);
     }
 
     // --- TIER 1: SANDBOX LOADER & DEFENSIVE FALLBACK FACTORIES (ADR-0002) ---
@@ -1969,6 +1998,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
         'sales-orders': { id: 'c-sales-orders', tabId: 'sales-orders', title: 'Sales Orders', icon: 'fa-solid fa-file-invoice-dollar', status: 'READY', error: null, retryCount: 0, lastActive: 0, bypassed: false },
         'sensor-types': { id: 'c-sensor-types', tabId: 'sensor-types', title: 'LoRaWAN Sensor Types', icon: 'fa-solid fa-microchip', status: 'READY', error: null, retryCount: 0, lastActive: 0, bypassed: false },
         'traceability': { id: 'c-traceability', tabId: 'traceability', title: 'Traceability (T-Module)', icon: 'fa-solid fa-clipboard-check', status: 'READY', error: null, retryCount: 0, lastActive: 0, bypassed: false },
+        'memmap-upload': { id: 'c-memmap-upload', tabId: 'memmap-upload', title: 'Memory Map Upload', icon: 'fa-solid fa-file-csv', status: 'READY', error: null, retryCount: 0, lastActive: 0, bypassed: false },
       });
 
       const normalizeKey = (tabOrId) => {
@@ -2927,6 +2957,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
             case 'sales-orders': return 'Sales Orders & Item Codes';
             case 'sensor-types': return 'LoRaWAN Sensor Types';
             case 'traceability': return 'Traceability (T-Module)';
+            case 'memmap-upload': return 'Memory Map Upload';
             default: return activeTab.value;
           }
         });
@@ -6683,6 +6714,20 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
           createTraceabilityFallback
         );
 
+        const memmapUploadModule = safeExecuteModuleSetup(
+          'c-memmap-upload',
+          typeof useMemmapUploadModule === 'function' ? (ctx => useMemmapUploadModule(ctx)) : null,
+          {
+            showToast,
+            authHeaders,
+            currentUser,
+            activeTab,
+            switchTab,
+            moduleStatesRegistry: moduleStatesStore,
+          },
+          () => ({})
+        );
+
         watch(activeTab, (newTab) => {
           try {
             window.history.replaceState(null, null, '#' + newTab);
@@ -6775,6 +6820,13 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
               traceabilityModule.fetchTestResults();
             }
           }
+          if (newTab === 'memmap-upload') {
+            if (memmapUploadModule && typeof memmapUploadModule.renderMemmapTabulator === 'function') {
+              setTimeout(() => {
+                memmapUploadModule.renderMemmapTabulator();
+              }, 120);
+            }
+          }
         });
 
         const initControlPanel = async () => {
@@ -6826,6 +6878,13 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
                 }
               }, 150);
             }
+            if (hash === 'memmap-upload') {
+              if (memmapUploadModule && typeof memmapUploadModule.renderMemmapTabulator === 'function') {
+                setTimeout(() => {
+                  memmapUploadModule.renderMemmapTabulator();
+                }, 150);
+              }
+            }
           } else {
             activeTab.value = 'overview';
           }
@@ -6851,6 +6910,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
           ...salesOrdersModule,
           ...sensorTypesModule,
           ...traceabilityModule,
+          ...memmapUploadModule,
           activeTab,
           sidebarOpen,
           sidebarCollapsed,

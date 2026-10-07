@@ -25,6 +25,10 @@ import { TestSessionEntity } from '../../modules/d-modules/test-automation/entit
 import { TestDeviceRunEntity } from '../../modules/d-modules/test-automation/entities/test-device-run.entity';
 import { TestPacketLogEntity } from '../../modules/d-modules/test-automation/entities/test-packet-log.entity';
 import { TestEvidenceEntity } from '../../modules/d-modules/test-automation/entities/test-evidence.entity';
+import { TestResultEntity } from '../../modules/c-modules/traceability/entities/test-result.entity';
+import { RawData3Entity } from '../../modules/c-modules/traceability/entities/raw-data3.entity';
+import { MemmapPayloadEntity } from '../../modules/c-modules/memmap-upload/entities/memmap-payload.entity';
+import { MemmapRegEntity } from '../../modules/c-modules/memmap-upload/entities/memmap-reg.entity';
 
 
 export const ALL_DATABASE_ENTITIES = [
@@ -51,6 +55,10 @@ export const ALL_DATABASE_ENTITIES = [
   TestDeviceRunEntity,
   TestPacketLogEntity,
   TestEvidenceEntity,
+  TestResultEntity,
+  RawData3Entity,
+  MemmapPayloadEntity,
+  MemmapRegEntity,
 ];
 
 export interface DbConnectionConfig {

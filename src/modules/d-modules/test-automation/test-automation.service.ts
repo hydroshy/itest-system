@@ -5,7 +5,9 @@ import {
   BadRequestException,
   Optional,
   OnModuleInit,
+  OnModuleDestroy,
 } from '@nestjs/common';
+import { Subscription } from 'rxjs';
 import { TestAutomationRepository } from './test-automation.repository';
 import { TestSessionEntity, TestSessionStatus } from './entities/test-session.entity';
 import { TestDeviceRunEntity, TestDeviceStatus } from './entities/test-device-run.entity';
@@ -23,38 +25,55 @@ import {
   cleanHexPayload,
   isValidHex,
 } from '../../lorawan/common/lorawan-utils';
+import { SandboxAssertionService, AssertionEvalResult } from './sandbox-assertion.service';
+import { MemmapUploadService } from '../../c-modules/memmap-upload/memmap-upload.service';
+import { MemmapRegEntity } from '../../c-modules/memmap-upload/entities/memmap-reg.entity';
 
-export interface AssertionEvalResult {
-  fieldName: string;
-  operator: string;
-  expectedValue?: any;
-  actualValue?: any;
-  pass: boolean;
-  severity?: string;
-  message?: string;
-}
+export { AssertionEvalResult };
 
 @Injectable()
-export class TestAutomationService implements OnModuleInit {
+export class TestAutomationService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(TestAutomationService.name);
+  private telemetrySub?: Subscription;
 
   constructor(
     private readonly repository: TestAutomationRepository,
     @Optional() private readonly realtimeGateway?: RealtimeGateway,
     @Optional() private readonly realtimeService?: RealtimeService,
-  ) {}
+    @Optional() private readonly sandboxAssertionService?: SandboxAssertionService,
+    @Optional() private readonly memmapUploadService?: MemmapUploadService,
+  ) {
+    if (!this.sandboxAssertionService) {
+      this.sandboxAssertionService = new SandboxAssertionService();
+    }
+  }
 
   onModuleInit() {
     if (this.realtimeService) {
-      this.realtimeService.getStream().subscribe((msg: any) => {
+      this.telemetrySub = this.realtimeService.getStream().subscribe((msg: any) => {
         try {
-          if (msg && msg.type === 'telemetry' && msg.data) {
-            this.handleLiveUplinkTelemetry(msg.data);
+          const raw = msg?.data ?? msg;
+          const evt =
+            raw?.type === 'telemetry'
+              ? raw
+              : raw?.data?.type === 'telemetry'
+                ? raw.data
+                : null;
+          if (evt && evt.type === 'telemetry' && evt.data) {
+            this.handleLiveUplinkTelemetry(evt.data);
           }
         } catch (err: any) {
           this.logger.debug(`Error handling live uplink stream in test automation: ${err.message}`);
         }
       });
+    }
+  }
+
+  onModuleDestroy() {
+    if (this.telemetrySub) {
+      this.telemetrySub.unsubscribe();
+      this.telemetrySub = undefined;
+      this.logger.log('Cleaned up realtime telemetry subscription in TestAutomationService');
     }
   }
 
@@ -417,7 +436,15 @@ export class TestAutomationService implements OnModuleInit {
       throw new BadRequestException(`Invalid Hex payload: '${dto.payloadHex}'`);
     }
 
-    const activeMatch = await this.repository.findActiveDeviceRunForDevEUI(cleanEUI);
+    const filter = {
+      soCode: dto.soCode,
+      itemCode: dto.itemCode,
+    };
+    const activeMatch = await this.repository.findActiveDeviceRunForDevEUI(
+      cleanEUI,
+      dto.sessionId,
+      filter,
+    );
     if (!activeMatch) {
       throw new BadRequestException(
         `Device [${cleanEUI}] is not registered in an active in-progress Test Session`,
@@ -426,42 +453,53 @@ export class TestAutomationService implements OnModuleInit {
 
     const { run, session } = activeMatch;
 
-    // 1. Decode Payload (using built-in decoders or common heuristics)
-    const decodedData = this.decodePayload(cleanHex, dto.fPort || 1, run.sku);
-
-    // 2. Evaluate Assertions
-    const assertionResults: AssertionEvalResult[] = [];
-    let assertionsPass = true;
-    let firstErrorMessage = '';
-
-    const assertions = session.template?.assertions || [];
-    if (assertions.length > 0) {
-      for (const rule of assertions) {
-        const actualValue = this.extractFieldValue(decodedData, rule.fieldName);
-        const evalResult = this.evaluateSingleAssertion(rule, actualValue);
-        assertionResults.push(evalResult);
-
-        if (!evalResult.pass) {
-          if (rule.severity === 'ERROR') {
-            assertionsPass = false;
-            if (!firstErrorMessage) {
-              firstErrorMessage = evalResult.message || `Rule '${rule.fieldLabel || rule.fieldName}' failed`;
-            }
-          }
+    // 1a. Device context (SKU & short FW) and link with Modbus Memory Map
+    const sku = run.sku || session.itemCode || 'WSLRW-ATH';
+    const shortFw = this.parseShortFw(run.firmwareVersion || session.template?.firmwareVersion);
+    let memmapRegs: MemmapRegEntity[] = [];
+    if (this.memmapUploadService) {
+      try {
+        const memmapRes = await this.memmapUploadService.getBySkuAndShortFw(sku, shortFw);
+        if (memmapRes && memmapRes.data && memmapRes.data.registers) {
+          memmapRegs = memmapRes.data.registers;
         }
-      }
-    } else {
-      // Default heuristic assertions if no template rules assigned
-      const defaultRules: any[] = [
-        { fieldName: 'battery', operator: 'GREATER_THAN', expectedValue: 2.8, severity: 'WARNING' },
-      ];
-      for (const rule of defaultRules) {
-        const val = this.extractFieldValue(decodedData, rule.fieldName);
-        if (val !== undefined) {
-          assertionResults.push(this.evaluateSingleAssertion(rule, val));
-        }
+      } catch (err: any) {
+        this.logger.debug(`No memmap found for [${sku}_${shortFw}]: ${err.message}`);
       }
     }
+
+    // 1b. Decode Payload (using built-in decoders or common heuristics)
+    const decodedData = this.decodePayload(cleanHex, dto.fPort || 1, sku);
+
+    // 2. Evaluate Assertions in Sandbox & against Memmap
+    const evalResult = await this.sandboxAssertionService!.evaluateAll(
+      session.template,
+      decodedData,
+      {
+        devEUI: cleanEUI,
+        payloadHex: cleanHex,
+        fPort: dto.fPort || 1,
+        fCnt: dto.fCnt || (run.totalPackets + 1),
+        rssi: dto.rssi ?? -75,
+        snr: dto.snr ?? 9.5,
+      },
+      {
+        sessionId: session.id,
+        sessionCode: session.sessionCode,
+        soCode: session.soCode,
+        itemCode: session.itemCode,
+        sku,
+        shortFw,
+        devEUI: cleanEUI,
+        packetCount: (run.totalPackets || 0) + 1,
+        minPackets: session.template?.minPacketsRequired || 1,
+      },
+      memmapRegs,
+    );
+
+    const assertionResults: AssertionEvalResult[] = evalResult.assertionResults;
+    const assertionsPass = evalResult.pass;
+    const firstErrorMessage = evalResult.firstErrorMessage || '';
 
     // 3. Save Packet Log
     const packetLog = new TestPacketLogEntity();
@@ -778,124 +816,28 @@ export class TestAutomationService implements OnModuleInit {
   }
 
   /**
+   * Helper to parse and normalize firmware version to short integer (e.g. '6.0' -> 6, 'v6' -> 6)
+   */
+  public parseShortFw(rawFw: string | number | undefined | null): number {
+    if (rawFw === null || rawFw === undefined) return 0;
+    if (typeof rawFw === 'number') return Math.floor(rawFw);
+    const cleaned = String(rawFw).trim().replace(/^v/i, '');
+    const match = cleaned.match(/^(\d+)/);
+    return match ? parseInt(match[1], 10) : 0;
+  }
+
+  /**
    * Evaluate a single assertion against an actual value
    */
-  private evaluateSingleAssertion(assertRule: any, actual: any): AssertionEvalResult {
-    const op = assertRule.operator;
-    const expected = assertRule.expectedValue;
-    const tolerance = assertRule.tolerance || 0;
-    const severity = assertRule.severity || 'ERROR';
-
-    let pass = false;
-    let message = '';
-
-    if (actual === undefined || actual === null) {
-      return {
-        fieldName: assertRule.fieldName,
-        operator: op,
-        expectedValue: expected,
-        actualValue: null,
-        pass: op === 'IS_NULL',
-        severity,
-        message: op === 'IS_NULL' ? 'Field is null as expected' : `Field '${assertRule.fieldName}' missing from decoded payload`,
-      };
-    }
-
-    switch (op) {
-      case 'EQUALS':
-        if (typeof expected === 'number' && typeof actual === 'number' && tolerance > 0) {
-          pass = Math.abs(actual - expected) <= tolerance;
-          message = pass
-            ? `${actual} == ${expected} (tolerance ±${tolerance})`
-            : `${actual} deviated from ${expected} beyond ±${tolerance}`;
-        } else {
-          pass = String(actual).trim() === String(expected).trim();
-          message = pass ? `${actual} == ${expected}` : `${actual} != ${expected}`;
-        }
-        break;
-
-      case 'NOT_EQUALS':
-        pass = String(actual).trim() !== String(expected).trim();
-        message = pass ? `${actual} != ${expected}` : `${actual} == ${expected}`;
-        break;
-
-      case 'GREATER_THAN':
-        pass = Number(actual) > Number(expected);
-        message = pass ? `${actual} > ${expected}` : `${actual} <= ${expected}`;
-        break;
-
-      case 'LESS_THAN':
-        pass = Number(actual) < Number(expected);
-        message = pass ? `${actual} < ${expected}` : `${actual} >= ${expected}`;
-        break;
-
-      case 'BETWEEN':
-      case 'IN_RANGE':
-        let min = -Infinity;
-        let max = Infinity;
-        if (expected && typeof expected === 'object') {
-          min = expected.min !== undefined ? Number(expected.min) : -Infinity;
-          max = expected.max !== undefined ? Number(expected.max) : Infinity;
-        } else if (Array.isArray(expected) && expected.length >= 2) {
-          min = Number(expected[0]);
-          max = Number(expected[1]);
-        }
-        pass = Number(actual) >= min && Number(actual) <= max;
-        message = pass
-          ? `${actual} is within range [${min}, ${max}]`
-          : `${actual} is outside range [${min}, ${max}]`;
-        break;
-
-      case 'IS_NOT_NULL':
-        pass = actual !== null && actual !== undefined && actual !== '';
-        message = pass ? `Field '${assertRule.fieldName}' is populated` : `Field is empty`;
-        break;
-
-      case 'CONTAINS':
-        pass = String(actual).includes(String(expected));
-        message = pass ? `${actual} contains '${expected}'` : `${actual} missing '${expected}'`;
-        break;
-
-      case 'REGEX':
-        try {
-          const reg = new RegExp(String(expected));
-          pass = reg.test(String(actual));
-          message = pass ? `${actual} matches pattern` : `${actual} does not match regex`;
-        } catch (e: any) {
-          pass = false;
-          message = `Invalid regex pattern: ${e.message}`;
-        }
-        break;
-
-      default:
-        pass = false;
-        message = `Unknown assertion operator '${op}'`;
-    }
-
-    return {
-      fieldName: assertRule.fieldName,
-      operator: op,
-      expectedValue: expected,
-      actualValue: actual,
-      pass,
-      severity,
-      message,
-    };
+  public evaluateSingleAssertion(assertRule: any, actual: any): AssertionEvalResult {
+    return this.sandboxAssertionService!.evaluateSingleAssertion(assertRule, actual);
   }
 
   /**
    * Helper to extract nested JSON values like 'sensors.temperature'
    */
-  private extractFieldValue(obj: any, path: string): any {
-    if (!obj || !path) return undefined;
-    if (obj[path] !== undefined) return obj[path];
-    const parts = path.split('.');
-    let cur = obj;
-    for (const part of parts) {
-      if (cur === null || cur === undefined) return undefined;
-      cur = cur[part];
-    }
-    return cur;
+  public extractFieldValue(obj: any, path: string): any {
+    return this.sandboxAssertionService!.extractFieldValue(obj, path);
   }
 
   /**

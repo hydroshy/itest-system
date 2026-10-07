@@ -183,4 +183,14 @@ export const C_MODULES_REGISTRY: CModule[] = [
     routeHash: '#traceability',
     requiredPermission: 'traceability:read',
   },
+  {
+    id: 'c-memmap-upload',
+    code: 'C_MOD_MEMMAP_UPLOAD',
+    title: 'Memory Map Upload',
+    description: 'Upload and validate Modbus Register Maps (CSV WSLRW) with dual Dec/Hex continuity checks and link to SKU & Short FW',
+    icon: 'fa-solid fa-file-csv',
+    category: 'Developer',
+    routeHash: '#memmap-upload',
+    requiredPermission: 'lorawan:device:read',
+  },
 ];

@@ -66,4 +66,27 @@ export class SimulatePacketDto {
   @IsString()
   @IsOptional()
   serialNumber?: string;
+
+  @ApiPropertyOptional({
+    description: 'Filter packet ingestion by Sales Order code',
+    example: 'SO-2025-001',
+  })
+  @IsString()
+  @IsOptional()
+  soCode?: string;
+
+  @ApiPropertyOptional({
+    description: 'Filter packet ingestion by Item Code',
+    example: 'WSLRW-ATH-01',
+  })
+  @IsString()
+  @IsOptional()
+  itemCode?: string;
+
+  @ApiPropertyOptional({
+    description: 'Direct target test session UUID',
+  })
+  @IsString()
+  @IsOptional()
+  sessionId?: string;
 }
