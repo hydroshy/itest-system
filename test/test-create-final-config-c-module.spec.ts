@@ -234,8 +234,23 @@ async function runTestSuite() {
   if (!CREATE_FINAL_CONFIG_TEMPLATE.includes('create-final-config-tabulator-table')) {
     throw new Error('FAILED: CREATE_FINAL_CONFIG_TEMPLATE missing Tabulator table container');
   }
-  if (!CREATE_FINAL_CONFIG_TEMPLATE.includes('MEMMAP Chưa tồn tại')) {
-    throw new Error('FAILED: CREATE_FINAL_CONFIG_TEMPLATE missing "MEMMAP Chưa tồn tại" notice');
+  if (!CREATE_FINAL_CONFIG_TEMPLATE.includes('MEMMAP Not Found')) {
+    throw new Error('FAILED: CREATE_FINAL_CONFIG_TEMPLATE missing "MEMMAP Not Found" notice');
+  }
+  if (CREATE_FINAL_CONFIG_TEMPLATE.includes('MEMMAP Chưa tồn tại')) {
+    throw new Error('FAILED: CREATE_FINAL_CONFIG_TEMPLATE still contains Vietnamese "MEMMAP Chưa tồn tại" notice');
+  }
+  if (!CREATE_FINAL_CONFIG_TEMPLATE.includes('Total Regs:')) {
+    throw new Error('FAILED: CREATE_FINAL_CONFIG_TEMPLATE missing "Total Regs:" label');
+  }
+  if (CREATE_FINAL_CONFIG_TEMPLATE.includes('Tổng Regs')) {
+    throw new Error('FAILED: CREATE_FINAL_CONFIG_TEMPLATE still contains Vietnamese "Tổng Regs" label');
+  }
+  if (CREATE_FINAL_CONFIG_TEMPLATE.includes('>= 303')) {
+    throw new Error('FAILED: CREATE_FINAL_CONFIG_TEMPLATE still contains "(>= 303)" note');
+  }
+  if (CREATE_FINAL_CONFIG_TEMPLATE.includes('Full FW:')) {
+    throw new Error('FAILED: CREATE_FINAL_CONFIG_TEMPLATE still contains "Full FW:" badge');
   }
   if (!CREATE_FINAL_CONFIG_TEMPLATE.includes('showFinalConfigSaveModal')) {
     throw new Error('FAILED: CREATE_FINAL_CONFIG_TEMPLATE missing confirmation modal');
@@ -257,11 +272,17 @@ async function runTestSuite() {
   if (!CREATE_FINAL_CONFIG_SCRIPT.includes('precheckConfigValue')) {
     throw new Error('FAILED: Script missing precheckConfigValue');
   }
-  if (!CREATE_FINAL_CONFIG_SCRIPT.includes("placeholder = 'Trống'")) {
-    throw new Error('FAILED: Script missing placeholder "Trống" for Input Config cell');
+  if (!CREATE_FINAL_CONFIG_SCRIPT.includes("placeholder = 'Empty'")) {
+    throw new Error('FAILED: Script missing placeholder "Empty" for Input Config cell');
   }
-  if (!CREATE_FINAL_CONFIG_SCRIPT.includes('Chưa cấu hình (tự động pass)')) {
-    throw new Error('FAILED: Script missing tooltip "Chưa cấu hình (tự động pass)" for empty cell badge');
+  if (CREATE_FINAL_CONFIG_SCRIPT.includes("placeholder = 'Trống'")) {
+    throw new Error('FAILED: Script still contains Vietnamese placeholder "Trống"');
+  }
+  if (!CREATE_FINAL_CONFIG_SCRIPT.includes('Unconfigured (auto pass)')) {
+    throw new Error('FAILED: Script missing tooltip "Unconfigured (auto pass)" for empty cell badge');
+  }
+  if (CREATE_FINAL_CONFIG_SCRIPT.includes('Chưa cấu hình (tự động pass)')) {
+    throw new Error('FAILED: Script still contains Vietnamese tooltip "Chưa cấu hình (tự động pass)"');
   }
 
   // Control Panel view integration

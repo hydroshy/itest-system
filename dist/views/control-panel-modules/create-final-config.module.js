@@ -26,74 +26,74 @@ function validateRegisterValue(valStr, format, numRegs, rangeStr) {
     const numreg = Number(numRegs) > 0 ? Number(numRegs) : 1;
     if (fmt === 'uint') {
         if (!/^\d+$/.test(val)) {
-            return { valid: false, error: 'Chỉ chấp nhận số nguyên không âm (uint)' };
+            return { valid: false, error: 'Unsigned integer only (uint)' };
         }
         const n = Number(val);
         if (numreg === 1) {
             if (n < 0 || n > 65535) {
-                return { valid: false, error: 'Vượt dải 16-bit uint (0..65535)' };
+                return { valid: false, error: 'Out of 16-bit uint range (0..65535)' };
             }
         }
         else if (numreg === 2) {
             if (n < 0 || n > 4294967295) {
-                return { valid: false, error: 'Vượt dải 32-bit uint (0..4294967295)' };
+                return { valid: false, error: 'Out of 32-bit uint range (0..4294967295)' };
             }
         }
         else {
             try {
                 if (BigInt(val) < 0n) {
-                    return { valid: false, error: 'Giá trị uint phải >= 0' };
+                    return { valid: false, error: 'Value must be >= 0' };
                 }
             }
             catch (e) {
-                return { valid: false, error: 'Số nguyên không hợp lệ' };
+                return { valid: false, error: 'Invalid integer' };
             }
         }
     }
     else if (fmt === 'int') {
         if (!/^-?\d+$/.test(val)) {
-            return { valid: false, error: 'Chỉ chấp nhận số nguyên có dấu (int)' };
+            return { valid: false, error: 'Signed integer only (int)' };
         }
         const n = Number(val);
         if (numreg === 1) {
             if (n < -32768 || n > 32767) {
-                return { valid: false, error: 'Vượt dải 16-bit int (-32768..32767)' };
+                return { valid: false, error: 'Out of 16-bit int range (-32768..32767)' };
             }
         }
         else if (numreg === 2) {
             if (n < -2147483648 || n > 2147483647) {
-                return { valid: false, error: 'Vượt dải 32-bit int (-2147483648..2147483647)' };
+                return { valid: false, error: 'Out of 32-bit int range (-2147483648..2147483647)' };
             }
         }
     }
     else if (fmt === 'float') {
         if (isNaN(Number(val)) || !/^-?\d+(\.\d+)?([eE][+-]?\d+)?$/.test(val)) {
-            return { valid: false, error: 'Giá trị float không hợp lệ' };
+            return { valid: false, error: 'Invalid float value' };
         }
         if (numreg < 2) {
-            return { valid: false, error: 'Float yêu cầu ít nhất 2 thanh ghi (# Regs >= 2)' };
+            return { valid: false, error: 'Float requires at least 2 registers (# Regs >= 2)' };
         }
     }
     else if (fmt === 'string') {
         if (!/^[\x00-\x7F]*$/.test(val)) {
-            return { valid: false, error: 'Chỉ chấp nhận chuỗi ký tự ASCII' };
+            return { valid: false, error: 'ASCII characters only' };
         }
         const maxLen = numreg * 2;
         if (val.length > maxLen) {
-            return { valid: false, error: 'Độ dài (' + val.length + ') vượt quá ' + maxLen + ' ký tự' };
+            return { valid: false, error: 'Length (' + val.length + ') exceeds max ' + maxLen + ' chars' };
         }
     }
     else if (fmt === 'hex') {
         if (!/^[0-9a-fA-F\s]+$/.test(val)) {
-            return { valid: false, error: 'Chỉ chấp nhận ký tự Hex (0-9, A-F)' };
+            return { valid: false, error: 'Hex characters only (0-9, A-F)' };
         }
         const cleanHex = val.replace(/\s+/g, '');
         if (cleanHex.length % 2 !== 0) {
-            return { valid: false, error: 'Độ dài chuỗi Hex phải là số chẵn' };
+            return { valid: false, error: 'Hex string length must be even' };
         }
         const maxHexChars = numreg * 4;
         if (cleanHex.length > maxHexChars) {
-            return { valid: false, error: 'Độ dài vượt quá dung lượng thanh ghi (tối đa ' + maxHexChars + ' ký tự)' };
+            return { valid: false, error: 'Length exceeds register capacity (max ' + maxHexChars + ' chars)' };
         }
     }
     if (rangeStr && (fmt === 'uint' || fmt === 'int' || fmt === 'float')) {
@@ -104,7 +104,7 @@ function validateRegisterValue(valStr, format, numRegs, rangeStr) {
             const numVal = Number(val);
             if (!isNaN(minVal) && !isNaN(maxVal) && !isNaN(numVal)) {
                 if (numVal < minVal || numVal > maxVal) {
-                    return { valid: false, error: 'Vượt dải khuyến cáo [' + minVal + '..' + maxVal + ']' };
+                    return { valid: false, error: 'Value out of recommended range [' + minVal + '..' + maxVal + ']' };
                 }
             }
         }
@@ -126,7 +126,6 @@ exports.CREATE_FINAL_CONFIG_TEMPLATE = `
                   <h2 class="text-base font-extrabold text-white">Create Final Config</h2>
                   <span class="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-sky-500/10 text-sky-300 border border-sky-500/20">C-MODULE</span>
                 </div>
-                <p class="text-xs text-slate-400 mt-0.5">Tạo template Modbus preset từ memmap payload theo SO, Item Code, SKU & Short FW, lọc Dec Reg >= 303 với format precheck UART.</p>
               </div>
             </div>
 
@@ -137,7 +136,7 @@ exports.CREATE_FINAL_CONFIG_TEMPLATE = `
                 :disabled="!canSaveFinalConfig"
                 class="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-bold flex items-center gap-2 cursor-pointer shadow-lg shadow-emerald-600/20 transition"
               >
-                <i class="fa-solid fa-floppy-disk"></i> Tạo Final config
+                <i class="fa-solid fa-floppy-disk"></i> Create Final Config
               </button>
               <button
                 @click="resetFinalConfigForm"
@@ -172,7 +171,6 @@ exports.CREATE_FINAL_CONFIG_TEMPLATE = `
                     </option>
                   </datalist>
                 </div>
-                <p class="text-[11px] text-slate-500 mt-1">Chọn từ đơn hàng hoặc nhập mã SO mới.</p>
               </div>
 
               <!-- ITEM-CODE Input with autocomplete datalist -->
@@ -195,7 +193,6 @@ exports.CREATE_FINAL_CONFIG_TEMPLATE = `
                     </option>
                   </datalist>
                 </div>
-                <p class="text-[11px] text-slate-500 mt-1">Mã sản phẩm trong danh mục hoặc đơn hàng.</p>
               </div>
 
               <!-- SKU Input -->
@@ -219,20 +216,19 @@ exports.CREATE_FINAL_CONFIG_TEMPLATE = `
                 <p v-if="fcSkuError" class="text-[11px] text-red-400 mt-1 flex items-center gap-1 font-mono">
                   <i class="fa-solid fa-circle-exclamation"></i> {{ fcSkuError }}
                 </p>
-                <p v-else class="text-[11px] text-slate-500 mt-1">Mã phần cứng cảm biến (e.g. WSLRW-ATH).</p>
               </div>
 
-              <!-- SHORT FW VERSION Input -->
+              <!-- FW Input -->
               <div>
                 <label class="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5">
-                  Short FW Version <span class="text-red-400">*</span>
+                  FW <span class="text-red-400">*</span>
                 </label>
                 <div class="relative">
                   <input
                     v-model="finalConfigShortFw"
                     @input="onFinalConfigShortFwChange"
                     type="text"
-                    placeholder="e.g. 6 (strictly integer)"
+                    placeholder="e.g. 6"
                     class="w-full px-3.5 py-2 rounded-xl bg-slate-950/80 border text-xs font-mono text-white placeholder-slate-500 focus:outline-none transition"
                     :class="fcFwError ? 'border-red-500 focus:border-red-400' : 'border-slate-700 focus:border-sky-500'"
                   />
@@ -243,7 +239,6 @@ exports.CREATE_FINAL_CONFIG_TEMPLATE = `
                 <p v-if="fcFwError" class="text-[11px] text-red-400 mt-1 flex items-center gap-1 font-mono">
                   <i class="fa-solid fa-circle-exclamation"></i> {{ fcFwError }}
                 </p>
-                <p v-else class="text-[11px] text-slate-500 mt-1">Số nguyên dương (không có tiền tố v hoặc thập phân).</p>
               </div>
             </div>
 
@@ -255,10 +250,7 @@ exports.CREATE_FINAL_CONFIG_TEMPLATE = `
                   SKU: {{ finalConfigSku }}
                 </span>
                 <span v-if="finalConfigShortFw" class="px-2.5 py-1 rounded-lg bg-amber-500/10 text-amber-300 font-mono font-bold border border-amber-500/20">
-                  Short FW: {{ finalConfigShortFw }}
-                </span>
-                <span v-if="finalConfigFirmwareVersion" class="px-2.5 py-1 rounded-lg bg-indigo-500/10 text-indigo-300 font-mono font-bold border border-indigo-500/20">
-                  Full FW: {{ finalConfigFirmwareVersion }}
+                  FW: {{ finalConfigShortFw }}
                 </span>
                 <span v-if="finalConfigSku && finalConfigShortFw" class="px-2.5 py-1 rounded-lg bg-slate-800 text-slate-300 font-mono border border-slate-700">
                   Key: {{ finalConfigSku }}_{{ finalConfigShortFw }}
@@ -269,15 +261,15 @@ exports.CREATE_FINAL_CONFIG_TEMPLATE = `
               <div class="flex items-center gap-2">
                 <div v-if="isLoadingFcMemmap" class="flex items-center gap-2 text-sky-400 font-mono text-xs">
                   <i class="fa-solid fa-circle-notch animate-spin"></i>
-                  <span>Đang tải Memory Map...</span>
+                  <span>Loading Memory Map...</span>
                 </div>
                 <div v-else-if="fcMemmapNotFound" class="px-3 py-1 rounded-lg bg-rose-500/10 text-rose-400 border border-rose-500/30 flex items-center gap-2 font-mono font-bold text-xs">
                   <i class="fa-solid fa-triangle-exclamation"></i>
-                  <span>MEMMAP Chưa tồn tại</span>
+                  <span>MEMMAP Not Found</span>
                 </div>
                 <div v-else-if="finalConfigRegs.length > 0" class="px-3 py-1 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 flex items-center gap-2 font-mono font-bold text-xs">
                   <i class="fa-solid fa-circle-check"></i>
-                  <span>Đã nạp Memmap ({{ finalConfigRegs.length }} thanh ghi Dec Reg &gt;= 303)</span>
+                  <span>Memmap Loaded ({{ finalConfigRegs.length }} registers)</span>
                 </div>
               </div>
             </div>
@@ -293,28 +285,28 @@ exports.CREATE_FINAL_CONFIG_TEMPLATE = `
                   v-model="finalConfigTableSearch"
                   @input="onFinalConfigTableSearchChange"
                   type="text"
-                  placeholder="Tìm theo Dec Reg, Hex Reg, Description, Comment, Format..."
+                  placeholder="Search by Dec Reg, Hex Reg, Description, Comment, Format..."
                   class="w-full pl-9 pr-3.5 py-2 rounded-xl bg-slate-950/80 border border-slate-800 focus:border-sky-500 text-xs text-white placeholder-slate-500 focus:outline-none transition"
                 />
               </div>
 
               <div class="flex flex-wrap items-center gap-3 text-xs">
                 <span class="text-slate-400">
-                  Tổng Regs (&gt;= 303): <strong class="text-white">{{ finalConfigRegs.length }}</strong>
+                  Total Regs: <strong class="text-white">{{ finalConfigRegs.length }}</strong>
                 </span>
                 <span class="text-slate-600">•</span>
                 <span class="text-slate-400">
-                  Đã chọn: <strong class="text-sky-400">{{ checkedRegsCount }}</strong>
+                  Selected: <strong class="text-sky-400">{{ checkedRegsCount }}</strong>
                 </span>
                 <span class="text-slate-600">•</span>
                 <span>
                   UART Precheck:
-                  <span v-if="finalConfigRegs.length === 0" class="text-slate-500">Chưa nạp</span>
+                  <span v-if="finalConfigRegs.length === 0" class="text-slate-500">Not loaded</span>
                   <span v-else-if="precheckErrorsCount === 0" class="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-bold">
-                    <i class="fa-solid fa-check mr-1"></i>TẤT CẢ HỢP LỆ (PASS)
+                    <i class="fa-solid fa-check mr-1"></i>ALL VALID (PASS)
                   </span>
                   <span v-else class="px-2 py-0.5 rounded bg-rose-500/10 text-rose-400 border border-rose-500/20 font-bold">
-                    <i class="fa-solid fa-triangle-exclamation mr-1"></i>{{ precheckErrorsCount }} LỖI FORMAT
+                    <i class="fa-solid fa-triangle-exclamation mr-1"></i>{{ precheckErrorsCount }} FORMAT ERROR(S)
                   </span>
                 </span>
               </div>
@@ -322,15 +314,10 @@ exports.CREATE_FINAL_CONFIG_TEMPLATE = `
 
             <!-- Tabulator Container -->
             <div id="create-final-config-tabulator-table" class="rounded-xl overflow-hidden border border-slate-800 bg-slate-950/60 min-h-[460px]"></div>
-
-            <p class="text-[11px] text-slate-500 flex items-center gap-1.5">
-              <i class="fa-solid fa-circle-info text-sky-400"></i>
-              <span>Cột <strong>Input Config</strong> mặc định để trống và tự động <strong>PASS</strong>. Tiền kiểm định dạng UART chỉ kích hoạt khi người dùng nhập dữ liệu.</span>
-            </p>
           </div>
         </div>
 
-        <!-- POPUP MODAL: XÁC NHẬN TẠO FINAL CONFIG PRESET -->
+        <!-- POPUP MODAL: CONFIRM CREATE FINAL CONFIG PRESET -->
         <div
           v-if="showFinalConfigSaveModal"
           class="fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop"
@@ -343,7 +330,7 @@ exports.CREATE_FINAL_CONFIG_TEMPLATE = `
                 <div class="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 text-sm">
                   <i class="fa-solid fa-sliders"></i>
                 </div>
-                <span>Xác nhận Tạo Final Config Preset</span>
+                <span>Confirm Create Final Config Preset</span>
               </div>
               <button
                 type="button"
@@ -369,31 +356,27 @@ exports.CREATE_FINAL_CONFIG_TEMPLATE = `
                   <span class="font-bold text-cyan-300">{{ finalConfigSku }}</span>
                 </div>
                 <div class="flex justify-between items-center py-1 border-b border-slate-800/80">
-                  <span class="text-slate-400">Short Firmware Version:</span>
+                  <span class="text-slate-400">FW Version:</span>
                   <span class="font-bold text-amber-300">{{ finalConfigShortFw }}</span>
                 </div>
                 <div class="flex justify-between items-center py-1 border-b border-slate-800/80">
-                  <span class="text-slate-400">Full Firmware Version:</span>
-                  <span class="font-bold text-indigo-300">{{ finalConfigFirmwareVersion || (finalConfigShortFw + '.0') }}</span>
+                  <span class="text-slate-400">Selected Registers:</span>
+                  <span class="font-bold text-white">{{ checkedRegsCount }} registers</span>
                 </div>
                 <div class="flex justify-between items-center py-1 border-b border-slate-800/80">
-                  <span class="text-slate-400">Số thanh ghi được chọn:</span>
-                  <span class="font-bold text-white">{{ checkedRegsCount }} thanh ghi (Dec &gt;= 303)</span>
-                </div>
-                <div class="flex justify-between items-center py-1 border-b border-slate-800/80">
-                  <span class="text-slate-400">Thanh ghi cấu hình:</span>
-                  <span class="font-bold text-sky-300">{{ configuredRegsCount }} có giá trị / {{ checkedRegsCount - configuredRegsCount }} để trống</span>
+                  <span class="text-slate-400">Configured Registers:</span>
+                  <span class="font-bold text-sky-300">{{ configuredRegsCount }} set / {{ checkedRegsCount - configuredRegsCount }} empty</span>
                 </div>
                 <div class="flex justify-between items-center py-1">
-                  <span class="text-slate-400">Trạng thái UART Precheck:</span>
+                  <span class="text-slate-400">UART Precheck Status:</span>
                   <span :class="precheckErrorsCount === 0 ? 'text-emerald-400 font-bold' : 'text-rose-400 font-bold'">
-                    {{ precheckErrorsCount === 0 ? 'TẤT CẢ HỢP LỆ (PASS)' : precheckErrorsCount + ' LỖI FORMAT' }}
+                    {{ precheckErrorsCount === 0 ? 'ALL VALID (PASS)' : precheckErrorsCount + ' FORMAT ERROR(S)' }}
                   </span>
                 </div>
               </div>
 
               <div class="p-3 rounded-xl bg-slate-950/60 border border-slate-800 text-[11px] text-slate-400 leading-relaxed">
-                Chỉ các thanh ghi có nhập dữ liệu mới được ghi nhận <strong>Value to Write</strong>. Các ô để trống giữ nguyên rỗng và tự động pass check. Template Preset sẽ được lưu trữ đồng thời vào bảng <strong>final_config_presets</strong>, <strong>final_config_regs</strong> và hệ thống <strong>modbus_presets</strong> để D-Module (serial-uart / test engine) có thể nạp cấu hình trực tiếp.
+                Only registers with input values are saved as <strong>Value to Write</strong>. Empty inputs remain unconfigured and automatically pass check. Preset will be saved to <strong>final_config_presets</strong> and <strong>modbus_presets</strong> for test engine execution.
               </div>
             </div>
 
@@ -403,7 +386,7 @@ exports.CREATE_FINAL_CONFIG_TEMPLATE = `
                 @click="showFinalConfigSaveModal = false"
                 class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold cursor-pointer transition"
               >
-                Hủy
+                Cancel
               </button>
               <button
                 type="button"
@@ -412,7 +395,7 @@ exports.CREATE_FINAL_CONFIG_TEMPLATE = `
                 class="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-xs font-bold flex items-center gap-2 cursor-pointer shadow-lg shadow-emerald-600/30 transition"
               >
                 <i :class="isSavingFinalConfig ? 'fa-solid fa-circle-notch animate-spin' : 'fa-solid fa-check'"></i>
-                <span>{{ isSavingFinalConfig ? 'Đang lưu vào database...' : 'Xác nhận & Lưu Preset' }}</span>
+                <span>{{ isSavingFinalConfig ? 'Saving to database...' : 'Confirm & Save Preset' }}</span>
               </button>
             </div>
           </div>
@@ -452,7 +435,7 @@ exports.CREATE_FINAL_CONFIG_SCRIPT = `
         if (!finalConfigSku.value) return '';
         const trimmed = finalConfigSku.value.trim().toUpperCase();
         if (!/^[A-Z0-9_-]+$/.test(trimmed)) {
-          return 'SKU chỉ được chứa chữ hoa, số, dấu gạch nối hoặc gạch dưới';
+          return 'SKU only allows uppercase letters, digits, hyphens or underscores';
         }
         return '';
       });
@@ -462,10 +445,10 @@ exports.CREATE_FINAL_CONFIG_SCRIPT = `
         if (!finalConfigShortFw.value) return '';
         const trimmed = String(finalConfigShortFw.value).trim();
         if (!/^[0-9]+$/.test(trimmed)) {
-          return 'Short FW Version phải là số nguyên thuần túy (không có v, không có dấu chấm)';
+          return 'FW must be positive integer only (no v, no decimals)';
         }
         if (Number(trimmed) <= 0) {
-          return 'Short FW Version phải > 0';
+          return 'FW must be > 0';
         }
         return '';
       });
@@ -485,7 +468,7 @@ exports.CREATE_FINAL_CONFIG_SCRIPT = `
       function precheckConfigValue(valStr, format, numRegs, rangeStr) {
         const val = String(valStr !== undefined && valStr !== null ? valStr : '').trim();
 
-        // (1) & (2): Ô trống tự động pass check, trạng thái hợp lệ/bỏ qua, không báo lỗi đỏ
+        // (1) & (2): Empty input automatically passes check, valid/skipped state without error
         if (val === '') {
           return { valid: true, error: '', isEmpty: true };
         }
@@ -496,24 +479,24 @@ exports.CREATE_FINAL_CONFIG_SCRIPT = `
         // 1. UINT
         if (fmt === 'uint') {
           if (!/^\\d+$/.test(val)) {
-            return { valid: false, error: 'Chỉ chấp nhận số nguyên không âm (uint)' };
+            return { valid: false, error: 'Unsigned integer only (uint)' };
           }
           const n = Number(val);
           if (numreg === 1) {
             if (n < 0 || n > 65535) {
-              return { valid: false, error: 'Vượt dải 16-bit uint (0..65535)' };
+              return { valid: false, error: 'Out of 16-bit uint range (0..65535)' };
             }
           } else if (numreg === 2) {
             if (n < 0 || n > 4294967295) {
-              return { valid: false, error: 'Vượt dải 32-bit uint (0..4294967295)' };
+              return { valid: false, error: 'Out of 32-bit uint range (0..4294967295)' };
             }
           } else {
             try {
               if (BigInt(val) < 0n) {
-                return { valid: false, error: 'Giá trị uint phải >= 0' };
+                return { valid: false, error: 'Value must be >= 0' };
               }
             } catch (e) {
-              return { valid: false, error: 'Số nguyên không hợp lệ' };
+              return { valid: false, error: 'Invalid integer' };
             }
           }
         }
@@ -521,16 +504,16 @@ exports.CREATE_FINAL_CONFIG_SCRIPT = `
         // 2. INT
         else if (fmt === 'int') {
           if (!/^-?\\d+$/.test(val)) {
-            return { valid: false, error: 'Chỉ chấp nhận số nguyên có dấu (int)' };
+            return { valid: false, error: 'Signed integer only (int)' };
           }
           const n = Number(val);
           if (numreg === 1) {
             if (n < -32768 || n > 32767) {
-              return { valid: false, error: 'Vượt dải 16-bit int (-32768..32767)' };
+              return { valid: false, error: 'Out of 16-bit int range (-32768..32767)' };
             }
           } else if (numreg === 2) {
             if (n < -2147483648 || n > 2147483647) {
-              return { valid: false, error: 'Vượt dải 32-bit int (-2147483648..2147483647)' };
+              return { valid: false, error: 'Out of 32-bit int range (-2147483648..2147483647)' };
             }
           }
         }
@@ -538,36 +521,36 @@ exports.CREATE_FINAL_CONFIG_SCRIPT = `
         // 3. FLOAT
         else if (fmt === 'float') {
           if (isNaN(Number(val)) || !/^-?\\d+(\\.\\d+)?([eE][+-]?\\d+)?$/.test(val)) {
-            return { valid: false, error: 'Giá trị float không hợp lệ' };
+            return { valid: false, error: 'Invalid float value' };
           }
           if (numreg < 2) {
-            return { valid: false, error: 'Float yêu cầu ít nhất 2 thanh ghi (# Regs >= 2)' };
+            return { valid: false, error: 'Float requires at least 2 registers (# Regs >= 2)' };
           }
         }
 
         // 4. STRING
         else if (fmt === 'string') {
           if (!/^[\\x00-\\x7F]*$/.test(val)) {
-            return { valid: false, error: 'Chỉ chấp nhận chuỗi ký tự ASCII' };
+            return { valid: false, error: 'ASCII characters only' };
           }
           const maxLen = numreg * 2;
           if (val.length > maxLen) {
-            return { valid: false, error: 'Độ dài (' + val.length + ') vượt quá ' + maxLen + ' ký tự' };
+            return { valid: false, error: 'Length (' + val.length + ') exceeds max ' + maxLen + ' chars' };
           }
         }
 
         // 5. HEX
         else if (fmt === 'hex') {
           if (!/^[0-9a-fA-F\\s]+$/.test(val)) {
-            return { valid: false, error: 'Chỉ chấp nhận ký tự Hex (0-9, A-F)' };
+            return { valid: false, error: 'Hex characters only (0-9, A-F)' };
           }
           const cleanHex = val.replace(/\\s+/g, '');
           if (cleanHex.length % 2 !== 0) {
-            return { valid: false, error: 'Độ dài chuỗi Hex phải là số chẵn' };
+            return { valid: false, error: 'Hex string length must be even' };
           }
           const maxHexChars = numreg * 4;
           if (cleanHex.length > maxHexChars) {
-            return { valid: false, error: 'Độ dài vượt quá dung lượng thanh ghi (tối đa ' + maxHexChars + ' ký tự)' };
+            return { valid: false, error: 'Length exceeds register capacity (max ' + maxHexChars + ' chars)' };
           }
         }
 
@@ -580,7 +563,7 @@ exports.CREATE_FINAL_CONFIG_SCRIPT = `
             const numVal = Number(val);
             if (!isNaN(minVal) && !isNaN(maxVal) && !isNaN(numVal)) {
               if (numVal < minVal || numVal > maxVal) {
-                return { valid: false, error: 'Vượt dải khuyến cáo [' + minVal + '..' + maxVal + ']' };
+                return { valid: false, error: 'Value out of recommended range [' + minVal + '..' + maxVal + ']' };
               }
             }
           }
@@ -737,7 +720,7 @@ exports.CREATE_FINAL_CONFIG_SCRIPT = `
             fcMemmapNotFound.value = true;
             finalConfigRegs.value = [];
             if (showToast) {
-              showToast('MEMMAP Chưa tồn tại cho SKU [' + sku + '] & FW [' + shortFw + ']', 'warning');
+              showToast('Memory Map not found for SKU [' + sku + '] & FW [' + shortFw + ']', 'warning');
             }
             renderFinalConfigTabulator();
             return;
@@ -750,7 +733,7 @@ exports.CREATE_FINAL_CONFIG_SCRIPT = `
             fcMemmapNotFound.value = true;
             finalConfigRegs.value = [];
             if (showToast) {
-              showToast('MEMMAP Chưa tồn tại', 'warning');
+              showToast('Memory Map not found', 'warning');
             }
             renderFinalConfigTabulator();
             return;
@@ -762,7 +745,7 @@ exports.CREATE_FINAL_CONFIG_SCRIPT = `
           if (filtered.length === 0) {
             finalConfigRegs.value = [];
             if (showToast) {
-              showToast('Memmap tồn tại nhưng không có thanh ghi cấu hình (Dec Reg >= 303)', 'info');
+              showToast('Memory Map found but contains no configuration registers', 'info');
             }
             renderFinalConfigTabulator();
             return;
@@ -801,7 +784,7 @@ exports.CREATE_FINAL_CONFIG_SCRIPT = `
           });
 
           if (showToast) {
-            showToast('Đã nạp memmap: ' + finalConfigRegs.value.length + ' thanh ghi cấu hình (>= 303)', 'success');
+            showToast('Memory Map loaded: ' + finalConfigRegs.value.length + ' configuration registers', 'success');
           }
 
           renderFinalConfigTabulator();
@@ -810,7 +793,7 @@ exports.CREATE_FINAL_CONFIG_SCRIPT = `
           fcMemmapNotFound.value = true;
           finalConfigRegs.value = [];
           if (showToast) {
-            showToast('MEMMAP Chưa tồn tại', 'warning');
+            showToast('Memory Map not found', 'warning');
           }
           renderFinalConfigTabulator();
         } finally {
@@ -847,7 +830,7 @@ exports.CREATE_FINAL_CONFIG_SCRIPT = `
             data: finalConfigRegs.value,
             layout: 'fitColumns',
             height: '500px',
-            placeholder: '<div class="text-slate-500 py-8 text-center"><i class="fa-solid fa-inbox text-2xl mb-2"></i><br>Chưa có dữ liệu thanh ghi. Vui lòng nhập SKU và Short FW để tự động nạp.</div>',
+            placeholder: '<div class="text-slate-500 py-8 text-center"><i class="fa-solid fa-inbox text-2xl mb-2"></i><br>No registers loaded. Enter SKU and FW to auto-load.</div>',
             columns: [
               // 1. Checkbox Selection
               {
@@ -988,7 +971,7 @@ exports.CREATE_FINAL_CONFIG_SCRIPT = `
                   const input = document.createElement('input');
                   input.type = 'text';
                   input.value = val;
-                  input.placeholder = 'Trống';
+                  input.placeholder = 'Empty';
 
                   let inputStyleClass = 'text-amber-300 bg-slate-950/80 border border-slate-700/80 focus:border-amber-400 focus:bg-slate-900';
                   if (!isValid) {
@@ -1055,9 +1038,9 @@ exports.CREATE_FINAL_CONFIG_SCRIPT = `
                     return '<span class="px-2 py-0.5 rounded text-[11px] font-mono font-bold bg-rose-500/20 text-rose-400 border border-rose-500/30 flex items-center justify-center gap-1 cursor-help" title="' + errMsg + '"><i class="fa-solid fa-triangle-exclamation"></i> FAIL</span>';
                   }
                   if (isEmpty) {
-                    return '<span class="px-2 py-0.5 rounded text-[11px] font-mono font-bold bg-emerald-500/10 text-emerald-400/90 border border-emerald-500/20 flex items-center justify-center gap-1" title="Chưa cấu hình (tự động pass)"><i class="fa-solid fa-check"></i> PASS</span>';
+                    return '<span class="px-2 py-0.5 rounded text-[11px] font-mono font-bold bg-emerald-500/10 text-emerald-400/90 border border-emerald-500/20 flex items-center justify-center gap-1" title="Unconfigured (auto pass)"><i class="fa-solid fa-check"></i> PASS</span>';
                   }
-                  return '<span class="px-2 py-0.5 rounded text-[11px] font-mono font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center justify-center gap-1" title="Đã cấu hình hợp lệ (PASS)"><i class="fa-solid fa-check"></i> PASS</span>';
+                  return '<span class="px-2 py-0.5 rounded text-[11px] font-mono font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center justify-center gap-1" title="Configured (PASS)"><i class="fa-solid fa-check"></i> PASS</span>';
                 }
               }
             ]
@@ -1103,7 +1086,7 @@ exports.CREATE_FINAL_CONFIG_SCRIPT = `
         finalConfigTableSearch.value = '';
         renderFinalConfigTabulator();
         if (showToast) {
-          showToast('Đã xóa form cấu hình', 'info');
+          showToast('Configuration form reset', 'info');
         }
       };
 
@@ -1168,18 +1151,18 @@ exports.CREATE_FINAL_CONFIG_SCRIPT = `
 
           if (!res.ok) {
             const errData = await res.json().catch(() => ({}));
-            throw new Error(errData.message || 'Lỗi khi lưu Final Config Preset');
+            throw new Error(errData.message || 'Failed to save Final Config Preset');
           }
 
           if (showToast) {
-            showToast('Tạo Final Config Preset thành công cho ' + so + ' - ' + itemCode, 'success');
+            showToast('Final Config Preset created successfully for ' + so + ' - ' + itemCode, 'success');
           }
 
           showFinalConfigSaveModal.value = false;
         } catch (err) {
           console.error('[CreateFinalConfig] Save error:', err);
           if (showToast) {
-            showToast('Lỗi lưu Final Config: ' + err.message, 'error');
+            showToast('Failed to save Final Config Preset: ' + err.message, 'error');
           }
         } finally {
           isSavingFinalConfig.value = false;
