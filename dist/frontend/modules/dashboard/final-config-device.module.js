@@ -670,6 +670,11 @@ function useFinalConfigDeviceModule(ctx) {
   // ----------------------------------------------------------------------
   // 1. WEB SERIAL CONNECTION & HARDWARE AUTO-RECONNECT ENGINE
   // ----------------------------------------------------------------------
+  // Protocol Timing & Progressive Retry Configuration (Spec Rule 1, 2, 3)
+  const MODBUS_WRITE_TIMEOUT_MS = 3500;
+  const INTER_WRITE_SETTLING_DELAY_MS = 600;
+  const RETRY_BACKOFF_DELAYS = [800, 1500, 2500];
+
   const fcIsSerialSupported = ref(typeof navigator !== 'undefined' && 'serial' in navigator);
   const isSerialSupported = fcIsSerialSupported;
   const fcSerialPort = ref(null);
@@ -689,7 +694,7 @@ function useFinalConfigDeviceModule(ctx) {
     parity: 'none',
     flowControl: 'none',
     bufferSize: 255,
-    timeoutMs: 1200,
+    timeoutMs: 3500, // Tăng từ 1200ms lên 3500ms
   });
   const serialConfig = fcSerialConfig;
   const fcSerialSignals = ref({ dtr: false, rts: false });
@@ -757,6 +762,39 @@ function useFinalConfigDeviceModule(ctx) {
         activeUartWriter.releaseLock();
       } catch (e) {}
       activeUartWriter = null;
+    }
+  };
+
+  // Flush UART RX Buffer to drain stray/stale bytes before Modbus write or retry
+  const flushUartRxBuffer = async (flushTimeoutMs = 100) => {
+    if (!serialPort.value || !serialPort.value.readable) return;
+    await safeCleanupUartPort();
+    try {
+      activeUartReader = serialPort.value.readable.getReader();
+      const startTime = Date.now();
+      while (Date.now() - startTime < flushTimeoutMs) {
+        const remaining = Math.max(10, flushTimeoutMs - (Date.now() - startTime));
+        let timeoutId;
+        const timeoutPromise = new Promise((_, reject) => {
+          timeoutId = setTimeout(() => reject(new Error('FLUSH_TIMEOUT')), remaining);
+        });
+        let res;
+        try {
+          res = await Promise.race([activeUartReader.read(), timeoutPromise]);
+        } finally {
+          clearTimeout(timeoutId);
+        }
+        if (res.done) break;
+      }
+    } catch (e) {
+      if (activeUartReader) {
+        try { await activeUartReader.cancel(); } catch (cancelErr) {}
+      }
+    } finally {
+      if (activeUartReader) {
+        try { activeUartReader.releaseLock(); } catch (releaseErr) {}
+        activeUartReader = null;
+      }
     }
   };
 
@@ -1046,14 +1084,14 @@ function useFinalConfigDeviceModule(ctx) {
   };
 
   // Write Modbus Registers via FC 16 (0x10 - Write Multiple Registers)
-  const writeModbusRegistersToPort = async (slave, fc, reg, numreg, dataBytes, timeoutMs = 1200) => {
+  const writeModbusRegistersToPort = async (slave, fc, reg, numreg, dataBytes, timeoutMs = 3500) => {
     // Support both (slave, fc, reg, numreg, dataBytes, timeoutMs) and (slave, reg, numreg, dataBytes, timeoutMs)
     let actualReg = reg;
     let actualNumreg = numreg;
     let actualData = dataBytes;
     let actualTimeout = timeoutMs;
     if (Array.isArray(numreg) || (numreg && typeof numreg === 'object' && 'length' in numreg)) {
-      actualTimeout = dataBytes || 1200;
+      actualTimeout = dataBytes || 3500;
       actualData = numreg;
       actualNumreg = reg;
       actualReg = fc;
@@ -1705,17 +1743,22 @@ function useFinalConfigDeviceModule(ctx) {
 
         const dataBytes = encodeModbusWriteValue(valStr, fmt, endian, numreg);
 
-        // Retry up to 3 times on timeout (Mandatory Modbus FC 16 for all write operations)
+        // Progressive Retry Backoff [800ms, 1500ms, 2500ms] and UART Flush (Mandatory Modbus FC 16)
         let written = false;
         let lastErr = null;
         for (let retry = 0; retry < 3; retry++) {
           try {
+            await flushUartRxBuffer();
             await writeModbusRegistersToPort(1, 16, addr, numreg, dataBytes);
             written = true;
             break;
           } catch (wErr) {
             lastErr = wErr;
-            await new Promise(r => setTimeout(r, 150));
+            const delayMs = RETRY_BACKOFF_DELAYS[retry] || 2500;
+            addSerialLog('WARN', null, 'Write Reg ' + addr + ' failed (attempt ' + (retry + 1) + '/3): ' + (wErr?.message || wErr) + '. Retrying in ' + delayMs + 'ms...');
+            fcStatusMessage.value = 'Device settling/retrying... (Reg ' + addr + ', attempt ' + (retry + 1) + '/3)';
+            await flushUartRxBuffer();
+            await new Promise(r => setTimeout(r, delayMs));
           }
         }
         if (!written) {
@@ -1724,7 +1767,19 @@ function useFinalConfigDeviceModule(ctx) {
 
         fcWrittenRegsCount.value++;
         fcProgress.value = Math.min(45, 25 + Math.round((fcWrittenRegsCount.value / fcTotalWriteRegsCount.value) * 20));
+
+        // Inter-write settling delay (600ms) for MCU Flash/EEPROM persistence between registers
+        if (i < writeRegs.length - 1) {
+          addSerialLog('INFO', null, 'Settling MCU (' + INTER_WRITE_SETTLING_DELAY_MS + 'ms) for Flash/EEPROM persistence after Reg ' + addr + '...');
+          fcStatusMessage.value = 'Device settling/retrying... MCU settling (' + INTER_WRITE_SETTLING_DELAY_MS + 'ms) for Flash/EEPROM storage after Reg ' + addr + '...';
+          await new Promise(r => setTimeout(r, INTER_WRITE_SETTLING_DELAY_MS));
+        }
       }
+
+      // Inter-write settling delay (600ms) before writing LoRaWAN AppKey to Reg 274
+      addSerialLog('INFO', null, 'Settling MCU (' + INTER_WRITE_SETTLING_DELAY_MS + 'ms) for Flash/EEPROM persistence before AppKey Reg 274...');
+      fcStatusMessage.value = 'Device settling/retrying... MCU settling (' + INTER_WRITE_SETTLING_DELAY_MS + 'ms) for Flash/EEPROM persistence before AppKey Reg 274...';
+      await new Promise(r => setTimeout(r, INTER_WRITE_SETTLING_DELAY_MS));
 
       // Write LoRaWAN AppKey to Reg 274 (8 words = 16 bytes, FC 16)
       fcStatusMessage.value = 'Writing LoRaWAN AppKey to Reg 274 (16 bytes, FC 16)...';
@@ -1739,12 +1794,17 @@ function useFinalConfigDeviceModule(ctx) {
       let appKeyErr = null;
       for (let retry = 0; retry < 3; retry++) {
         try {
+          await flushUartRxBuffer();
           await writeModbusRegistersToPort(1, 16, 274, 8, appKeyBytes);
           appKeyWritten = true;
           break;
         } catch (kErr) {
           appKeyErr = kErr;
-          await new Promise(r => setTimeout(r, 200));
+          const delayMs = RETRY_BACKOFF_DELAYS[retry] || 2500;
+          addSerialLog('WARN', null, 'Write AppKey Reg 274 failed (attempt ' + (retry + 1) + '/3): ' + (kErr?.message || kErr) + '. Retrying in ' + delayMs + 'ms...');
+          fcStatusMessage.value = 'Device settling/retrying... (AppKey Reg 274, attempt ' + (retry + 1) + '/3)';
+          await flushUartRxBuffer();
+          await new Promise(r => setTimeout(r, delayMs));
         }
       }
       if (!appKeyWritten) {
@@ -1757,8 +1817,8 @@ function useFinalConfigDeviceModule(ctx) {
       fcProgress.value = 50;
 
       // Settle time for MCU Flash / EEPROM commit
-      fcStatusMessage.value = 'Hardware settling for Flash / EEPROM storage (350ms)...';
-      await new Promise(r => setTimeout(r, 350));
+      fcStatusMessage.value = 'Hardware settling for Flash / EEPROM storage (' + INTER_WRITE_SETTLING_DELAY_MS + 'ms)...';
+      await new Promise(r => setTimeout(r, INTER_WRITE_SETTLING_DELAY_MS));
       stage2Settled.value = true;
       stage2Status.value = 'PASS';
       if (abortRequested.value) return;
@@ -2285,6 +2345,10 @@ function useFinalConfigDeviceModule(ctx) {
     exportAuditCsv,
     exportAuditXlsx,
     fcFormatBytes: formatBytes,
+    MODBUS_WRITE_TIMEOUT_MS,
+    INTER_WRITE_SETTLING_DELAY_MS,
+    RETRY_BACKOFF_DELAYS,
+    flushUartRxBuffer,
     initFinalConfigDeviceModule,
   };
 }

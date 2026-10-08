@@ -9,6 +9,8 @@ export declare class FinalConfigPresetEntity {
     name: string;
     description?: string;
     total_regs: number;
+    write_timeout_ms?: number;
+    settling_delay_ms?: number;
     created_by?: string;
     registers?: FinalConfigRegEntity[];
     created_at: Date;

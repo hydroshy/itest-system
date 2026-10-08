@@ -52,6 +52,14 @@ __decorate([
     __metadata("design:type", Number)
 ], FinalConfigPresetEntity.prototype, "total_regs", void 0);
 __decorate([
+    (0, typeorm_1.Column)({ type: 'int', default: 3500 }),
+    __metadata("design:type", Number)
+], FinalConfigPresetEntity.prototype, "write_timeout_ms", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'int', default: 600 }),
+    __metadata("design:type", Number)
+], FinalConfigPresetEntity.prototype, "settling_delay_ms", void 0);
+__decorate([
     (0, typeorm_1.Column)({ type: 'varchar', length: 255, default: 'admin', nullable: true }),
     __metadata("design:type", String)
 ], FinalConfigPresetEntity.prototype, "created_by", void 0);

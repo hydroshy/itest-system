@@ -44,6 +44,12 @@ export class FinalConfigPresetEntity {
   @Column({ type: 'int', default: 0 })
   total_regs: number;
 
+  @Column({ type: 'int', default: 3500 })
+  write_timeout_ms?: number;
+
+  @Column({ type: 'int', default: 600 })
+  settling_delay_ms?: number;
+
   @Column({ type: 'varchar', length: 255, default: 'admin', nullable: true })
   created_by?: string;
 

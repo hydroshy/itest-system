@@ -174,7 +174,7 @@ async function runLorawanFinalConfigDeviceTestSuite() {
   console.log('========================================================================================\n');
 
   let passedTests = 0;
-  const totalTests = 10;
+  const totalTests = 11;
 
   const csvPath = path.resolve(__dirname, '../../docs/WSLRW-ATH-6.csv');
   const viewsModulePath = path.resolve(__dirname, '../src/views/dashboard-modules/final-config-device.module.ts');
@@ -632,6 +632,69 @@ async function runLorawanFinalConfigDeviceTestSuite() {
   );
 
   console.log('  -> PASS: DDL Migration 17 adheres strictly to transactional spec.\n');
+  passedTests++;
+
+  // ----------------------------------------------------------------------------------------------------
+  // TEST 11: Write Timeout 3500ms, Inter-Write Settling Delay, Progressive Backoff & UART Buffer Flush
+  // ----------------------------------------------------------------------------------------------------
+  console.log('[TEST 11] Verifying Write Timeout 3500ms, Inter-Write Settling Delay, Progressive Backoff & UART Buffer Flush...');
+
+  // 11a. Verify write timeout >= 3500ms in writeModbusRegistersToPort and fcSerialConfig
+  assert.ok(
+    viewsCode.includes('writeModbusRegistersToPort = async (slave, fc, reg, numreg, dataBytes, timeoutMs = 3500)'),
+    'writeModbusRegistersToPort default timeoutMs must be 3500ms'
+  );
+  assert.ok(
+    viewsCode.includes('timeoutMs: 3500'),
+    'fcSerialConfig.timeoutMs must be configured to 3500ms'
+  );
+
+  // 11b. Verify INTER_WRITE_SETTLING_DELAY_MS is 600ms (within 500-1000ms range)
+  assert.ok(
+    viewsCode.includes('const INTER_WRITE_SETTLING_DELAY_MS = 600;'),
+    'INTER_WRITE_SETTLING_DELAY_MS must be defined as 600ms'
+  );
+  assert.ok(
+    viewsCode.includes('await new Promise(r => setTimeout(r, INTER_WRITE_SETTLING_DELAY_MS));'),
+    'Stage 2 write loop must execute settling delay between registers and before AppKey'
+  );
+
+  // 11c. Verify progressive retry backoff [800, 1500, 2500]ms
+  assert.ok(
+    viewsCode.includes('const RETRY_BACKOFF_DELAYS = [800, 1500, 2500];'),
+    'RETRY_BACKOFF_DELAYS must be defined as [800, 1500, 2500]'
+  );
+  assert.ok(
+    viewsCode.includes('RETRY_BACKOFF_DELAYS[retry]'),
+    'Retry loop must look up backoff delay using RETRY_BACKOFF_DELAYS'
+  );
+
+  // 11d. Verify flushUartRxBuffer is implemented and called
+  assert.ok(
+    viewsCode.includes('const flushUartRxBuffer = async (flushTimeoutMs = 100)'),
+    'flushUartRxBuffer must be implemented with 100ms default timeout'
+  );
+  assert.ok(
+    viewsCode.includes('await flushUartRxBuffer();'),
+    'flushUartRxBuffer must be called before write and retry attempts'
+  );
+
+  // 11e. Verify UI message reflects settling/retrying status
+  assert.ok(
+    viewsCode.includes("'Device settling/retrying..."),
+    'fcStatusMessage must display settling/retrying notification'
+  );
+
+  // 11f. Verify DDL Migration 18 exists and has correct transactional schema
+  const migration18Path = path.resolve(__dirname, '../../deploy/database/updates/18_add_final_config_preset_timing_controls.sql');
+  assert.ok(fs.existsSync(migration18Path), 'Migration 18 SQL file must exist in deploy/database/updates/');
+  const migration18Content = fs.readFileSync(migration18Path, 'utf8');
+  assert.ok(migration18Content.includes('BEGIN;'), 'Migration 18 must start transaction BEGIN');
+  assert.ok(migration18Content.includes('COMMIT;'), 'Migration 18 must commit transaction COMMIT');
+  assert.ok(migration18Content.includes('write_timeout_ms'), 'Migration 18 must add write_timeout_ms column');
+  assert.ok(migration18Content.includes('settling_delay_ms'), 'Migration 18 must add settling_delay_ms column');
+
+  console.log('  -> PASS: Write timeout 3500ms, settling delay 600ms, progressive backoff and buffer flush verified.\n');
   passedTests++;
 
   console.log('========================================================================================');
