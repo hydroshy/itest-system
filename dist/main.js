@@ -5,10 +5,17 @@ const common_1 = require("@nestjs/common");
 const swagger_1 = require("@nestjs/swagger");
 const cookieParser = require("cookie-parser");
 const path = require("path");
+const express_1 = require("express");
 const app_module_1 = require("./app.module");
 async function bootstrap() {
     const logger = new common_1.Logger('Bootstrap');
-    const app = await core_1.NestFactory.create(app_module_1.AppModule);
+    const app = await core_1.NestFactory.create(app_module_1.AppModule, {
+        bodyParser: false,
+    });
+    const payloadLimit = process.env.PAYLOAD_LIMIT || process.env.BODY_LIMIT || '50mb';
+    app.use((0, express_1.json)({ limit: payloadLimit }));
+    app.use((0, express_1.urlencoded)({ limit: payloadLimit, extended: true }));
+    logger.log(`📦 Express Payload Limit configured to: ${payloadLimit}`);
     app.useStaticAssets(path.join(process.cwd(), 'public', 'images'), {
         prefix: '/images/',
     });

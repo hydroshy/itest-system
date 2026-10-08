@@ -18,7 +18,7 @@ export declare class DeviceTestedController {
         success: boolean;
         data: import("./device-tested.repository").DeviceTestedTreeGroup[];
     }>;
-    importCsv(dto: ImportCsvDto): Promise<{
+    importCsv(dto: ImportCsvDto, file?: any): Promise<{
         success: boolean;
         message: string;
         data: {

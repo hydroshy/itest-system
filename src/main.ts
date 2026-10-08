@@ -4,11 +4,20 @@ import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import * as cookieParser from 'cookie-parser';
 import * as path from 'path';
+import { json, urlencoded } from 'express';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
   const logger = new Logger('Bootstrap');
-  const app = await NestFactory.create<NestExpressApplication>(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, {
+    bodyParser: false,
+  });
+
+  const payloadLimit = process.env.PAYLOAD_LIMIT || process.env.BODY_LIMIT || '50mb';
+  app.use(json({ limit: payloadLimit }));
+  app.use(urlencoded({ limit: payloadLimit, extended: true }));
+
+  logger.log(`📦 Express Payload Limit configured to: ${payloadLimit}`);
 
   app.useStaticAssets(path.join(process.cwd(), 'public', 'images'), {
     prefix: '/images/',

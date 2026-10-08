@@ -2053,6 +2053,41 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
       };
     }
 
+    function createDeviceTestedFallback() {
+      const ref = (typeof Vue !== 'undefined' && Vue.ref) ? Vue.ref : function(v) { return { value: v }; };
+      return {
+        dtLoading: ref(false),
+        dtTreeGroups: ref([]),
+        dtSearchQuery: ref(''),
+        dtStatusFilter: ref('ALL'),
+        dtExpandedSos: ref({}),
+        dtShowImportModal: ref(false),
+        dtShowDetailModal: ref(false),
+        dtSelectedDevice: ref(null),
+        dtDragOver: ref(false),
+        dtSelectedFileName: ref(''),
+        dtCsvLinesCount: ref(0),
+        dtRawCsvText: ref(''),
+        dtImporting: ref(false),
+        dtImportResult: ref(null),
+        dtKpis: ref({ totalSos: 0, totalDevices: 0, fullyVerified: 0, failed: 0, passRate: 100 }),
+        dtFilteredTreeGroups: ref([]),
+        dtFetchData: function() {},
+        dtToggleSoGroup: function() {},
+        dtExpandAllSos: function() {},
+        dtCollapseAllSos: function() {},
+        dtToggleSoExpand: function() {},
+        dtOpenImportModal: function() {},
+        dtCloseImportModal: function() {},
+        dtClearSelectedFile: function() {},
+        dtHandleFileSelect: function() {},
+        dtHandleFileDrop: function() {},
+        dtSubmitCsvImport: function() {},
+        dtOpenDeviceDetailModal: function() {},
+        dtCloseDeviceDetailModal: function() {},
+      };
+    }
+
     window.safeExecuteModuleSetup = safeExecuteModuleSetup;
     window.createModbusPresetsFallback = createModbusPresetsFallback;
     window.createTestBuilderFallback = createTestBuilderFallback;
@@ -2060,8 +2095,9 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
     window.createSalesOrdersFallback = createSalesOrdersFallback;
     window.createSensorTypesFallback = createSensorTypesFallback;
     window.createTraceabilityFallback = createTraceabilityFallback;
+    window.createDeviceTestedFallback = createDeviceTestedFallback;
 
-    const { createApp, ref, computed, onMounted, watch } = Vue;
+    const { createApp, ref, computed, onMounted, watch, nextTick } = Vue;
 
     // --- TIER 3: REACTIVE MODULE STATE REGISTRY (useModuleStates) ---
     function useModuleStates() {
@@ -6860,7 +6896,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
             switchTab,
             moduleStatesRegistry: moduleStatesStore,
           },
-          () => ({})
+          createDeviceTestedFallback
         );
 
         watch(activeTab, (newTab) => {

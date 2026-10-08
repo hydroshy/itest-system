@@ -41,7 +41,7 @@ export declare class DeviceTestedRepository {
     saveOrUpdate(dto: CreateDeviceTestedDto): Promise<DeviceTestedEntity>;
     updateAppKey(serialNumber: string, appKey: string): Promise<DeviceTestedEntity | null>;
     getTree(): Promise<DeviceTestedTreeGroup[]>;
-    bulkImportCsv(csvRecords: Array<Record<string, any>>): Promise<{
+    bulkImportCsv(csvRecords: Array<Record<string, any>>, batchSize?: number): Promise<{
         imported: number;
         updated: number;
         total: number;

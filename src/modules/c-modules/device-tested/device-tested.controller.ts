@@ -7,10 +7,13 @@ import {
   Param,
   Query,
   UseGuards,
+  UseInterceptors,
+  UploadedFile,
   ExecutionContext,
   Injectable,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiBearerAuth, ApiQuery, ApiParam } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiBearerAuth, ApiQuery, ApiParam, ApiConsumes, ApiBody } from '@nestjs/swagger';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { JwtAuthGuard } from '../../../common/guards/jwt-auth.guard';
 import { DeviceTestedService } from './device-tested.service';
 import {
@@ -60,8 +63,31 @@ export class DeviceTestedController {
   }
 
   @Post('import-csv')
-  @ApiOperation({ summary: 'Import QA tested devices CSV and upsert into database' })
-  async importCsv(@Body() dto: ImportCsvDto) {
+  @ApiOperation({ summary: 'Import QA tested devices CSV and upsert into database (Supports JSON body & Multipart File up to 50MB)' })
+  @ApiConsumes('application/json', 'multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        csv_content: { type: 'string', description: 'Raw CSV text (for JSON upload)' },
+        file: { type: 'string', format: 'binary', description: 'CSV file (for multipart upload)' },
+      },
+    },
+  })
+  @UseInterceptors(FileInterceptor('file', {
+    limits: {
+      fileSize: 50 * 1024 * 1024, // 50MB
+      fieldSize: 50 * 1024 * 1024, // 50MB
+    },
+  }))
+  async importCsv(
+    @Body() dto: ImportCsvDto,
+    @UploadedFile() file?: any,
+  ) {
+    if (file && file.buffer) {
+      const csvContent = file.buffer.toString('utf-8');
+      return await this.service.importCsv(csvContent);
+    }
     return await this.service.importCsv(dto);
   }
 

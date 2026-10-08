@@ -69,13 +69,28 @@ let DeviceTestedRepository = DeviceTestedRepository_1 = class DeviceTestedReposi
     parseCsvString(csvText) {
         if (!csvText || !csvText.trim())
             return [];
-        const lines = [];
+        let headers = null;
+        const records = [];
         let currentRow = [];
         let currentCell = '';
         let inQuotes = false;
-        for (let i = 0; i < csvText.length; i++) {
+        const processRow = (row) => {
+            if (!headers) {
+                headers = row.map(h => h.trim().replace(/^"|"$/g, ''));
+                return;
+            }
+            if (!row || row.length === 0 || (row.length === 1 && !row[0]))
+                return;
+            const record = {};
+            for (let c = 0; c < headers.length; c++) {
+                record[headers[c]] = row[c] !== undefined ? row[c] : '';
+            }
+            records.push(record);
+        };
+        const len = csvText.length;
+        for (let i = 0; i < len; i++) {
             const char = csvText[i];
-            const nextChar = csvText[i + 1];
+            const nextChar = i + 1 < len ? csvText[i + 1] : '';
             if (inQuotes) {
                 if (char === '"' && nextChar === '"') {
                     currentCell += '"';
@@ -98,14 +113,14 @@ let DeviceTestedRepository = DeviceTestedRepository_1 = class DeviceTestedReposi
                 }
                 else if (char === '\r' && nextChar === '\n') {
                     currentRow.push(currentCell.trim());
-                    lines.push(currentRow);
+                    processRow(currentRow);
                     currentRow = [];
                     currentCell = '';
                     i++;
                 }
                 else if (char === '\n' || char === '\r') {
                     currentRow.push(currentCell.trim());
-                    lines.push(currentRow);
+                    processRow(currentRow);
                     currentRow = [];
                     currentCell = '';
                 }
@@ -116,21 +131,7 @@ let DeviceTestedRepository = DeviceTestedRepository_1 = class DeviceTestedReposi
         }
         if (currentCell.length > 0 || currentRow.length > 0) {
             currentRow.push(currentCell.trim());
-            lines.push(currentRow);
-        }
-        if (lines.length < 2)
-            return [];
-        const headers = lines[0].map(h => h.trim().replace(/^"|"$/g, ''));
-        const records = [];
-        for (let r = 1; r < lines.length; r++) {
-            const row = lines[r];
-            if (!row || row.length === 0 || (row.length === 1 && !row[0]))
-                continue;
-            const record = {};
-            for (let c = 0; c < headers.length; c++) {
-                record[headers[c]] = row[c] !== undefined ? row[c] : '';
-            }
-            records.push(record);
+            processRow(currentRow);
         }
         return records;
     }
@@ -497,27 +498,30 @@ let DeviceTestedRepository = DeviceTestedRepository_1 = class DeviceTestedReposi
         }
         return Array.from(groupsMap.values()).sort((a, b) => a.so_number.localeCompare(b.so_number));
     }
-    async bulkImportCsv(csvRecords) {
+    async bulkImportCsv(csvRecords, batchSize = 250) {
         let imported = 0;
         let updated = 0;
-        for (const row of csvRecords) {
-            const sn = String(row.serial_number || '').trim();
-            const itemCode = String(row.item_code || '').trim();
-            if (!sn || !itemCode)
-                continue;
-            const existing = await this.findBySerialNumber(sn, itemCode);
-            if (existing) {
-                updated++;
+        for (let i = 0; i < csvRecords.length; i += batchSize) {
+            const batch = csvRecords.slice(i, i + batchSize);
+            for (const row of batch) {
+                const sn = String(row.serial_number || '').trim();
+                const itemCode = String(row.item_code || '').trim();
+                if (!sn || !itemCode)
+                    continue;
+                const existing = await this.findBySerialNumber(sn, itemCode);
+                if (existing) {
+                    updated++;
+                }
+                else {
+                    imported++;
+                }
+                await this.saveOrUpdate({
+                    ...row,
+                    serial_number: sn,
+                    item_code: itemCode,
+                    csv_raw_data: row,
+                });
             }
-            else {
-                imported++;
-            }
-            await this.saveOrUpdate({
-                ...row,
-                serial_number: sn,
-                item_code: itemCode,
-                csv_raw_data: row,
-            });
         }
         return { imported, updated, total: imported + updated };
     }

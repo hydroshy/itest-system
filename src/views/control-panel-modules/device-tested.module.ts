@@ -500,7 +500,22 @@ export const DEVICE_TESTED_MODALS = `
 
 export const DEVICE_TESTED_SCRIPT = `
     function useDeviceTestedModule(ctx) {
-      const { showToast, authHeaders, activeTab } = ctx;
+      // Defensive Vue API destructuring with infallible fallbacks
+      const vueObj = (typeof Vue !== 'undefined') ? Vue : (typeof window !== 'undefined' && window.Vue ? window.Vue : {});
+      const {
+        ref = (v => ({ value: v })),
+        computed = (fn => ({ get value() { return fn(); } })),
+        watch = (() => {}),
+        onMounted = (() => {}),
+      } = vueObj;
+
+      const nextTick = (vueObj && typeof vueObj.nextTick === 'function')
+        ? vueObj.nextTick
+        : (typeof window !== 'undefined' && typeof window.nextTick === 'function')
+          ? window.nextTick
+          : (cb => (typeof Promise !== 'undefined' ? Promise.resolve().then(cb) : setTimeout(cb, 0)));
+
+      const { showToast, authHeaders, activeTab } = ctx || {};
 
       const dtLoading = ref(false);
       const dtTreeGroups = ref([]);
