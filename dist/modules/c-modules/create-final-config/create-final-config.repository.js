@@ -206,6 +206,33 @@ let CreateFinalConfigRepository = CreateFinalConfigRepository_1 = class CreateFi
         }
         return Array.from(this.memoryPresets.values()).sort((a, b) => b.updated_at.getTime() - a.updated_at.getTime());
     }
+    async deletePreset(id) {
+        const presetRepo = this.getPresetRepo();
+        const regRepo = this.getRegRepo();
+        if (presetRepo) {
+            try {
+                const existing = await presetRepo.findOne({ where: { id } });
+                if (!existing)
+                    return false;
+                if (regRepo) {
+                    await regRepo.delete({ preset_id: id });
+                }
+                await presetRepo.delete(id);
+                return true;
+            }
+            catch (err) {
+                this.logger.warn(`Database delete preset failed: ${err.message}`);
+            }
+        }
+        for (const [key, preset] of this.memoryPresets.entries()) {
+            if (preset.id === id) {
+                this.memoryPresets.delete(key);
+                this.memoryRegs.delete(id);
+                return true;
+            }
+        }
+        return false;
+    }
 };
 exports.CreateFinalConfigRepository = CreateFinalConfigRepository;
 exports.CreateFinalConfigRepository = CreateFinalConfigRepository = CreateFinalConfigRepository_1 = __decorate([

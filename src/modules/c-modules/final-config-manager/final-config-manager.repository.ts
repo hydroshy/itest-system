@@ -1,4 +1,4 @@
-import { Injectable, Logger, Optional } from '@nestjs/common';
+import { Injectable, Logger, Optional, NotFoundException } from '@nestjs/common';
 import { Repository } from 'typeorm';
 import { randomUUID } from 'crypto';
 import { DynamicDatabaseService } from '../../database/dynamic-database.service';
@@ -211,7 +211,65 @@ export class FinalConfigManagerRepository {
       const regs = (this.memoryRegs.get(id) || []).filter((r) => Number(r.address) >= 303);
       return { preset, registers: regs };
     }
+
+    if (this.createPresetRepo) {
+      const allPresets = await this.createPresetRepo.findAllPresets();
+      const p = allPresets.find((x) => x.id === id);
+      if (p) {
+        const found = await this.createPresetRepo.findBySoAndItemCode(p.so, p.item_code);
+        if (found) {
+          const regs = found.registers.filter((r) => Number(r.address) >= 303);
+          return { preset: found.preset, registers: regs };
+        }
+      }
+    }
+
     return null;
+  }
+
+  public async deletePreset(id: string): Promise<{ success: boolean; message: string; id: string }> {
+    const presetRepo = this.getPresetRepo();
+    const regRepo = this.getRegRepo();
+
+    if (presetRepo) {
+      const existing = await presetRepo.findOne({ where: { id } });
+      if (!existing) {
+        throw new NotFoundException(`Preset with ID ${id} not found`);
+      }
+      if (regRepo) {
+        await regRepo.delete({ preset_id: id });
+      }
+      await presetRepo.delete(id);
+
+      this.memoryPresets.delete(id);
+      this.memoryRegs.delete(id);
+      if (this.createPresetRepo) {
+        await this.createPresetRepo.deletePreset(id);
+      }
+
+      this.logger.log(`Deleted Final Config Preset [${id}] - SO [${existing.so}] Item [${existing.item_code}]`);
+      return { success: true, message: 'Preset deleted successfully', id };
+    }
+
+    // In-memory fallback
+    let found = false;
+    if (this.memoryPresets.has(id)) {
+      this.memoryPresets.delete(id);
+      this.memoryRegs.delete(id);
+      found = true;
+    }
+
+    if (this.createPresetRepo) {
+      const deletedFromCreateRepo = await this.createPresetRepo.deletePreset(id);
+      if (deletedFromCreateRepo) found = true;
+    }
+
+    if (found) {
+      this.logger.log(`Deleted Final Config Preset [${id}] from memory cache`);
+      return { success: true, message: 'Preset deleted successfully', id };
+    }
+
+    throw new NotFoundException(`Preset with ID ${id} not found`);
   }
 
   // =========================================================================

@@ -48,6 +48,9 @@ let FinalConfigManagerController = class FinalConfigManagerController {
     async getPresetById(id) {
         return await this.service.getPresetById(id);
     }
+    async deletePreset(id) {
+        return await this.service.deletePreset(id);
+    }
     async getDevices(query) {
         return await this.service.getDevices(query);
     }
@@ -102,6 +105,15 @@ __decorate([
     __metadata("design:paramtypes", [String]),
     __metadata("design:returntype", Promise)
 ], FinalConfigManagerController.prototype, "getPresetById", null);
+__decorate([
+    (0, common_1.Delete)('presets/:id'),
+    (0, swagger_1.ApiOperation)({ summary: 'Delete Final Config preset by UUID' }),
+    (0, swagger_1.ApiParam)({ name: 'id', description: 'Preset UUID' }),
+    __param(0, (0, common_1.Param)('id')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", Promise)
+], FinalConfigManagerController.prototype, "deletePreset", null);
 __decorate([
     (0, common_1.Get)('devices'),
     (0, swagger_1.ApiOperation)({ summary: 'List device Final Config records for Tab 2 with KPI counters' }),

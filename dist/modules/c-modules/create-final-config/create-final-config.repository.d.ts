@@ -21,4 +21,5 @@ export declare class CreateFinalConfigRepository {
         registers: FinalConfigRegEntity[];
     } | null>;
     findAllPresets(): Promise<FinalConfigPresetEntity[]>;
+    deletePreset(id: string): Promise<boolean>;
 }

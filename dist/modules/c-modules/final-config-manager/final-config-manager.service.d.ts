@@ -28,6 +28,11 @@ export declare class FinalConfigManagerService {
             registers: import("../create-final-config").FinalConfigRegEntity[];
         };
     }>;
+    deletePreset(id: string): Promise<{
+        success: boolean;
+        message: string;
+        id: string;
+    }>;
     getDevices(query?: QueryDevicesDto): Promise<{
         success: boolean;
         data: import(".").FinalConfigSnEntity[];

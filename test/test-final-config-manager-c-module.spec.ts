@@ -346,7 +346,43 @@ async function runTestSuite() {
     throw new Error(`FAILED: Controller getStats expected 4 devices, got ${ctrlStats?.data?.devicesCount}`);
   }
 
-  console.log('  -> PASS: Controller endpoints successfully invoked and returned expected contracts');
+  // 6.1 Test DELETE /presets/:id
+  const tempPreset = await createPresetService.saveFinalConfig({
+    so: 'SO/2026/TO-DELETE',
+    item_code: 'DELETE-ME-01',
+    sku: 'WSLRW-DEL',
+    firmware_version: '1.0',
+    short_fw: 1,
+    name: '[Final Config] Delete Me Preset',
+    registers: [
+      {
+        address: 303,
+        modbus_reg_hex: '0x012F',
+        slave: 1,
+        reg_num: 1,
+        format: 'uint',
+        parameter_name: 'Device Slave ID',
+        value_to_write: '1',
+      },
+    ],
+  });
+
+  const deleteRes = await controller.deletePreset(tempPreset.data.preset.id);
+  if (!deleteRes.success || deleteRes.id !== tempPreset.data.preset.id) {
+    throw new Error('FAILED: Controller deletePreset failed');
+  }
+
+  let delete404Thrown = false;
+  try {
+    await controller.deletePreset('00000000-0000-0000-0000-000000000000');
+  } catch (err: any) {
+    delete404Thrown = true;
+  }
+  if (!delete404Thrown) {
+    throw new Error('FAILED: Controller deletePreset should throw 404 on non-existent preset');
+  }
+
+  console.log('  -> PASS: Controller endpoints (including DELETE /presets/:id 200/404) successfully invoked and returned expected contracts');
   passedTests++;
 
   // -------------------------------------------------------------------
@@ -366,6 +402,27 @@ async function runTestSuite() {
     throw new Error('FAILED: Container #fcm-devices-table missing in TEMPLATE');
   }
 
+  // Subtitle removal verification
+  if (FINAL_CONFIG_MANAGER_TEMPLATE.includes('Manage Final Config presets and track per-device verification records')) {
+    throw new Error('FAILED: Subtitle paragraph still present in FINAL_CONFIG_MANAGER_TEMPLATE');
+  }
+
+  // Sub-tabs label renaming verification
+  if (!FINAL_CONFIG_MANAGER_TEMPLATE.includes('<span>Final Config Presets</span>')) {
+    throw new Error('FAILED: Tab 1 label "Final Config Presets" missing in TEMPLATE');
+  }
+  if (!FINAL_CONFIG_MANAGER_TEMPLATE.includes('<span>Device Final Config Records</span>')) {
+    throw new Error('FAILED: Tab 2 label "Device Final Config Records" missing in TEMPLATE');
+  }
+
+  // Context Menu verification
+  if (!FINAL_CONFIG_MANAGER_SCRIPT.includes('rowContextMenu')) {
+    throw new Error('FAILED: rowContextMenu missing in FINAL_CONFIG_MANAGER_SCRIPT');
+  }
+  if (!FINAL_CONFIG_MANAGER_SCRIPT.includes('View Registers') || !FINAL_CONFIG_MANAGER_SCRIPT.includes('Delete Preset')) {
+    throw new Error('FAILED: View Registers or Delete Preset context menu item missing in SCRIPT');
+  }
+
   if (!FINAL_CONFIG_MANAGER_MODALS.includes('fcmShowPresetRegsModal')) {
     throw new Error('FAILED: Preset inspection modal missing in MODALS');
   }
@@ -375,9 +432,21 @@ async function runTestSuite() {
   if (!FINAL_CONFIG_MANAGER_MODALS.includes('fcmShowDeviceInspectModal')) {
     throw new Error('FAILED: Device inspect modal missing in MODALS');
   }
+  if (!FINAL_CONFIG_MANAGER_MODALS.includes('fcmShowDeletePresetModal')) {
+    throw new Error('FAILED: Delete preset modal missing in MODALS');
+  }
+  if (!FINAL_CONFIG_MANAGER_MODALS.includes('Delete Final Config Preset')) {
+    throw new Error('FAILED: Delete Final Config Preset header missing in MODALS');
+  }
 
   if (!FINAL_CONFIG_MANAGER_SCRIPT.includes('useFinalConfigManagerModule')) {
     throw new Error('FAILED: useFinalConfigManagerModule missing in SCRIPT');
+  }
+  if (!FINAL_CONFIG_MANAGER_SCRIPT.includes('fcmOpenDeletePresetModal')) {
+    throw new Error('FAILED: fcmOpenDeletePresetModal missing in SCRIPT');
+  }
+  if (!FINAL_CONFIG_MANAGER_SCRIPT.includes('fcmConfirmDeletePreset')) {
+    throw new Error('FAILED: fcmConfirmDeletePreset missing in SCRIPT');
   }
 
   const cpViewPath = path.join(__dirname, '../src/views/control-panel.view.ts');
@@ -398,7 +467,7 @@ async function runTestSuite() {
     throw new Error('FAILED: Frontend re-export file missing at src/frontend/modules/control-panel/final-config-manager.module.ts');
   }
 
-  console.log('  -> PASS: Template, 2-tab Tabulator layout, 3 modals, script and control panel integration verified');
+  console.log('  -> PASS: Template (subtitle removed, new tab labels), 2-tab Tabulator layout, rowContextMenu, 4 modals (incl Delete Preset modal), script and control panel integration verified');
   passedTests++;
 
   // -------------------------------------------------------------------

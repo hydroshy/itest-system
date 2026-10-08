@@ -33,6 +33,11 @@ export declare class FinalConfigManagerRepository {
         preset: FinalConfigPresetEntity;
         registers: FinalConfigRegEntity[];
     } | null>;
+    deletePreset(id: string): Promise<{
+        success: boolean;
+        message: string;
+        id: string;
+    }>;
     findDevices(filter?: QueryDevicesDto): Promise<{
         data: FinalConfigSnEntity[];
         total: number;

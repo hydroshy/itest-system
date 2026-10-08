@@ -3,6 +3,7 @@ import {
   Get,
   Post,
   Put,
+  Delete,
   Body,
   Param,
   Query,
@@ -68,6 +69,13 @@ export class FinalConfigManagerController {
   @ApiParam({ name: 'id', description: 'Preset UUID' })
   async getPresetById(@Param('id') id: string) {
     return await this.service.getPresetById(id);
+  }
+
+  @Delete('presets/:id')
+  @ApiOperation({ summary: 'Delete Final Config preset by UUID' })
+  @ApiParam({ name: 'id', description: 'Preset UUID' })
+  async deletePreset(@Param('id') id: string) {
+    return await this.service.deletePreset(id);
   }
 
   @Get('devices')

@@ -56,6 +56,12 @@ let FinalConfigManagerService = FinalConfigManagerService_1 = class FinalConfigM
             data: result,
         };
     }
+    async deletePreset(id) {
+        if (!id || !id.trim()) {
+            throw new common_1.BadRequestException('Preset id is required');
+        }
+        return await this.repository.deletePreset(id.trim());
+    }
     async getDevices(query) {
         const { data, total, kpis } = await this.repository.findDevices(query);
         return {

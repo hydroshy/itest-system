@@ -59,6 +59,13 @@ export class FinalConfigManagerService {
     };
   }
 
+  public async deletePreset(id: string): Promise<{ success: boolean; message: string; id: string }> {
+    if (!id || !id.trim()) {
+      throw new BadRequestException('Preset id is required');
+    }
+    return await this.repository.deletePreset(id.trim());
+  }
+
   public async getDevices(query?: QueryDevicesDto) {
     const { data, total, kpis } = await this.repository.findDevices(query);
     return {

@@ -223,4 +223,30 @@ export class CreateFinalConfigRepository {
       (a, b) => b.updated_at.getTime() - a.updated_at.getTime(),
     );
   }
+
+  public async deletePreset(id: string): Promise<boolean> {
+    const presetRepo = this.getPresetRepo();
+    const regRepo = this.getRegRepo();
+    if (presetRepo) {
+      try {
+        const existing = await presetRepo.findOne({ where: { id } });
+        if (!existing) return false;
+        if (regRepo) {
+          await regRepo.delete({ preset_id: id });
+        }
+        await presetRepo.delete(id);
+        return true;
+      } catch (err: any) {
+        this.logger.warn(`Database delete preset failed: ${err.message}`);
+      }
+    }
+    for (const [key, preset] of this.memoryPresets.entries()) {
+      if (preset.id === id) {
+        this.memoryPresets.delete(key);
+        this.memoryRegs.delete(id);
+        return true;
+      }
+    }
+    return false;
+  }
 }

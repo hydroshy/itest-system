@@ -15,9 +15,6 @@ exports.FINAL_CONFIG_MANAGER_TEMPLATE = `
                   <h2 class="text-base font-extrabold text-white">Final Config Manager</h2>
                   <span class="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-emerald-500/10 text-emerald-300 border border-emerald-500/20">C-MODULE</span>
                 </div>
-                <p class="text-xs text-slate-400 mt-0.5">
-                  Manage Final Config presets and track per-device verification records by Serial Number (PASS / FAIL / NONE).
-                </p>
               </div>
             </div>
 
@@ -43,7 +40,7 @@ exports.FINAL_CONFIG_MANAGER_TEMPLATE = `
               class="px-4 py-2 rounded-xl border text-xs font-bold transition flex items-center gap-2 cursor-pointer"
             >
               <i class="fa-solid fa-sliders text-sky-400"></i>
-              <span>Tab 1: Final Config Presets Status</span>
+              <span>Final Config Presets</span>
               <span class="ml-1.5 px-2 py-0.2 rounded-full text-[10px] font-mono bg-sky-500/20 text-sky-300 border border-sky-500/30">
                 {{ fcmPresetsTotalCount }}
               </span>
@@ -55,7 +52,7 @@ exports.FINAL_CONFIG_MANAGER_TEMPLATE = `
               class="px-4 py-2 rounded-xl border text-xs font-bold transition flex items-center gap-2 cursor-pointer"
             >
               <i class="fa-solid fa-microchip text-emerald-400"></i>
-              <span>Tab 2: Device Final Config Records (PASS/FAIL/NONE)</span>
+              <span>Device Final Config Records</span>
               <span class="ml-1.5 px-2 py-0.2 rounded-full text-[10px] font-mono bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
                 {{ fcmDevicesKpis.total }}
               </span>
@@ -654,6 +651,68 @@ exports.FINAL_CONFIG_MANAGER_MODALS = `
         </div>
       </div>
     </div>
+
+    <!-- MODAL 4: DELETE PRESET CONFIRMATION MODAL -->
+    <div
+      v-if="fcmShowDeletePresetModal"
+      class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm"
+      @click.self="fcmCloseDeletePresetModal"
+    >
+      <div class="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-md p-6 shadow-2xl space-y-4 animate-in fade-in zoom-in-95 duration-200">
+        <!-- Header -->
+        <div class="flex items-center justify-between pb-3 border-b border-slate-800">
+          <div class="flex items-center gap-2.5 font-bold text-white text-sm">
+            <div class="w-8 h-8 rounded-lg bg-rose-500/20 border border-rose-500/40 flex items-center justify-center text-rose-400">
+              <i class="fa-solid fa-triangle-exclamation text-xs"></i>
+            </div>
+            <span>Delete Final Config Preset</span>
+          </div>
+          <button type="button" @click="fcmCloseDeletePresetModal" class="text-slate-400 hover:text-white cursor-pointer">
+            <i class="fa-solid fa-xmark"></i>
+          </button>
+        </div>
+
+        <!-- Body -->
+        <div class="text-xs text-slate-300 space-y-2">
+          <p>Are you sure you want to permanently delete this preset?</p>
+          <div class="p-3 bg-slate-950 border border-slate-800 rounded-xl space-y-1">
+            <div>
+              <span class="text-slate-500 text-[10px] uppercase font-bold tracking-wider">Preset Name:</span>
+              <span class="text-rose-300 font-bold block text-sm">{{ fcmPresetToDelete?.name }}</span>
+            </div>
+            <div class="text-[11px] text-slate-400 font-mono flex flex-wrap gap-x-3 gap-y-1 mt-1">
+              <span>SO: <strong class="text-sky-300">{{ fcmPresetToDelete?.so }}</strong></span>
+              <span>Item: <strong class="text-amber-300">{{ fcmPresetToDelete?.item_code }}</strong></span>
+              <span>SKU: <strong class="text-white">{{ fcmPresetToDelete?.sku }}</strong></span>
+              <span>Regs: <strong class="text-emerald-400">{{ fcmPresetToDelete?.total_regs }}</strong></span>
+            </div>
+          </div>
+          <p class="text-[11px] text-rose-400/90 font-medium">
+            <i class="fa-solid fa-circle-exclamation mr-1"></i> This action cannot be reversed. Linked register configurations will be deleted.
+          </p>
+        </div>
+
+        <!-- Footer -->
+        <div class="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-800">
+          <button
+            type="button"
+            @click="fcmCloseDeletePresetModal"
+            class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold cursor-pointer transition"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            @click="fcmConfirmDeletePreset"
+            :disabled="fcmDeletingPreset"
+            class="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 disabled:opacity-50 text-white text-xs font-bold flex items-center gap-2 shadow-lg shadow-rose-600/30 cursor-pointer transition active:scale-95"
+          >
+            <i class="fa-solid fa-trash-can text-xs" :class="{ 'fa-bounce': fcmDeletingPreset }"></i>
+            <span>{{ fcmDeletingPreset ? 'Deleting...' : 'Delete Preset' }}</span>
+          </button>
+        </div>
+      </div>
+    </div>
 `;
 exports.FINAL_CONFIG_MANAGER_SCRIPT = `
     function useFinalConfigManagerModule(ctx) {
@@ -702,6 +761,11 @@ exports.FINAL_CONFIG_MANAGER_SCRIPT = `
         serial_numbers_text: '',
         operator: 'admin',
       });
+
+      // Delete Preset Modal State
+      const fcmShowDeletePresetModal = ref(false);
+      const fcmPresetToDelete = ref(null);
+      const fcmDeletingPreset = ref(false);
 
       // Headers builder
       function getAuthHeaders() {
@@ -952,6 +1016,22 @@ exports.FINAL_CONFIG_MANAGER_SCRIPT = `
             pagination: true,
             paginationSize: 20,
             placeholder: '<div class="text-slate-500 py-8 text-center"><i class="fa-solid fa-inbox text-2xl mb-2"></i><br>No presets found</div>',
+            rowContextMenu: [
+              {
+                label: "<i class='fa-solid fa-eye text-sky-400 mr-2'></i> View Registers",
+                action: function(e, row) {
+                  const rowData = row.getData();
+                  fcmOpenPresetRegsModal(rowData);
+                }
+              },
+              {
+                label: "<i class='fa-regular fa-trash-can text-rose-400 mr-2'></i> Delete Preset",
+                action: function(e, row) {
+                  const rowData = row.getData();
+                  fcmOpenDeletePresetModal(rowData);
+                }
+              }
+            ],
             columns: [
               {
                 title: 'Sales Order',
@@ -1218,6 +1298,43 @@ exports.FINAL_CONFIG_MANAGER_SCRIPT = `
         fcmSelectedPresetRegs.value = [];
       }
 
+      function fcmOpenDeletePresetModal(preset) {
+        if (!preset) return;
+        fcmPresetToDelete.value = preset;
+        fcmShowDeletePresetModal.value = true;
+      }
+
+      function fcmCloseDeletePresetModal() {
+        fcmShowDeletePresetModal.value = false;
+        fcmPresetToDelete.value = null;
+        fcmDeletingPreset.value = false;
+      }
+
+      async function fcmConfirmDeletePreset() {
+        if (!fcmPresetToDelete.value || !fcmPresetToDelete.value.id) return;
+        const presetId = fcmPresetToDelete.value.id;
+        try {
+          fcmDeletingPreset.value = true;
+          const headers = getAuthHeaders();
+          const res = await fetch('/api/c-modules/final-config-manager/presets/' + encodeURIComponent(presetId), {
+            method: 'DELETE',
+            headers,
+          });
+          if (!res.ok) {
+            const errData = await res.json().catch(() => ({}));
+            throw new Error(errData.message || ('HTTP ' + res.status));
+          }
+          if (showToast) showToast('Preset deleted successfully', 'success');
+          fcmCloseDeletePresetModal();
+          // Refresh presets list
+          await fetchFcmPresets();
+        } catch(e) {
+          if (showToast) showToast('Failed to delete preset: ' + e.message, 'error');
+        } finally {
+          fcmDeletingPreset.value = false;
+        }
+      }
+
       function fcmOpenSyncModal() {
         fcmSyncForm.value = {
           so: fcmUniquePresetsSos.value[0] || '',
@@ -1413,6 +1530,9 @@ exports.FINAL_CONFIG_MANAGER_SCRIPT = `
         fcmShowPresetRegsModal,
         fcmSelectedPreset,
         fcmSelectedPresetRegs,
+        fcmShowDeletePresetModal,
+        fcmPresetToDelete,
+        fcmDeletingPreset,
         fcmShowDeviceInspectModal,
         fcmSelectedDevice,
         fcmSelectedDeviceRegs,
@@ -1434,6 +1554,9 @@ exports.FINAL_CONFIG_MANAGER_SCRIPT = `
         fcmSetStatusFilter,
         fcmOpenPresetRegsModal,
         fcmClosePresetRegsModal,
+        fcmOpenDeletePresetModal,
+        fcmCloseDeletePresetModal,
+        fcmConfirmDeletePreset,
         fcmOpenSyncModal,
         fcmOnSyncSoChange,
         fcmCloseSyncModal,
