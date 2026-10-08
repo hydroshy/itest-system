@@ -4361,7 +4361,6 @@ function useTestAutomationModule(ctx) {
     closeTraceabilityModal,
     fetchTraceabilityModalData,
     viewTraceabilityDeviceDetail,
-    exportTraceabilityCsv,
     exportTestAutomationTraceabilityCsv,
     exportSingleDeviceTraceCsv,
     isTestVerdictPass,

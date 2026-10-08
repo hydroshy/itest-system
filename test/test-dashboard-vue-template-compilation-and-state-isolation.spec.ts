@@ -1,6 +1,7 @@
 import * as assert from 'assert';
 import * as fs from 'fs';
 import * as path from 'path';
+import * as vm from 'vm';
 
 async function runDashboardTemplateSuite() {
   console.log('======================================================================');
@@ -8,7 +9,7 @@ async function runDashboardTemplateSuite() {
   console.log('======================================================================\n');
 
   let passedTests = 0;
-  const totalTests = 6;
+  const totalTests = 7;
 
   const viewsDir = path.resolve(__dirname, '../src/views/dashboard-modules');
   const frontDir = path.resolve(__dirname, '../src/frontend/modules/dashboard');
@@ -180,6 +181,32 @@ async function runDashboardTemplateSuite() {
     'dashboard.view.ts must declare socketClient and sseSource to prevent ReferenceError in initRealtimeConnection'
   );
   console.log('  -> PASS: socketClient and sseSource properly declared in dashboard.view.ts.\n');
+  passedTests++;
+
+  // --------------------------------------------------------------------
+  // TEST 7: Verify all inline module scripts compile cleanly in Node VM
+  // --------------------------------------------------------------------
+  console.log('[TEST 7] Verifying all inline module scripts compile cleanly in VM...');
+  let scriptErrors = 0;
+  for (const f of moduleFiles) {
+    const content = fs.readFileSync(path.join(viewsDir, f), 'utf8');
+    const matches = [...content.matchAll(/export const ([A-Z0-9_]+_SCRIPT)\s*=\s*`([\s\S]*?)\n`;/g)];
+    for (const m of matches) {
+      const varName = m[1];
+      let scriptCode = m[2];
+      try {
+        try {
+          scriptCode = eval('`' + scriptCode + '`');
+        } catch (e) {}
+        new vm.Script(scriptCode);
+      } catch (err: any) {
+        console.error(`  [SYNTAX ERROR in ${f} -> ${varName}]: ${err.message}`);
+        scriptErrors++;
+      }
+    }
+  }
+  assert.strictEqual(scriptErrors, 0, 'Must have zero syntax errors in all inline module scripts');
+  console.log('  -> PASS: All inline module scripts syntax verified with 0 errors.\n');
   passedTests++;
 
   console.log('======================================================================');

@@ -55,11 +55,11 @@ exports.FINAL_CONFIG_DEVICE_TEMPLATE = `          <div v-else-if="activeFeature.
                 <div class="flex items-center gap-2 flex-wrap">
                   <div class="px-3 py-1.5 rounded-lg bg-slate-950 border border-slate-800 text-[11px] font-mono text-slate-300 flex items-center gap-3">
                     <span class="text-cyan-400 font-bold" title="Transmitted Packets">
-                      <i class="fa-solid fa-arrow-up text-[10px] mr-1"></i>TX: {{ fcSerialStats.txPackets }} ({{ formatBytes(fcSerialStats.txBytes) }})
+                      <i class="fa-solid fa-arrow-up text-[10px] mr-1"></i>TX: {{ fcSerialStats.txPackets }} ({{ fcFormatBytes(fcSerialStats.txBytes) }})
                     </span>
                     <span class="text-slate-700">|</span>
                     <span class="text-emerald-400 font-bold" title="Received Packets">
-                      <i class="fa-solid fa-arrow-down text-[10px] mr-1"></i>RX: {{ fcSerialStats.rxPackets }} ({{ formatBytes(fcSerialStats.rxBytes) }})
+                      <i class="fa-solid fa-arrow-down text-[10px] mr-1"></i>RX: {{ fcSerialStats.rxPackets }} ({{ fcFormatBytes(fcSerialStats.rxBytes) }})
                     </span>
                     <span class="text-slate-700">|</span>
                     <span class="text-rose-400 font-bold" title="Communication Errors">
@@ -1667,7 +1667,7 @@ function useFinalConfigDeviceModule(ctx) {
       stage2Status.value = 'RUNNING';
 
       // 1. Generate random 128-bit LoRaWAN AppKey (32 uppercase hex characters)
-      const cleanAppKey = generateRandomAppKey();
+      let cleanAppKey = generateRandomAppKey();
       appKeyInput.value = cleanAppKey;
       fcStatusMessage.value = 'Generated 128-bit LoRaWAN AppKey: ' + cleanAppKey + '. Writing preset registers (Dec >= 303)...';
 
@@ -1711,7 +1711,7 @@ function useFinalConfigDeviceModule(ctx) {
 
       // Write LoRaWAN AppKey to Reg 274 (8 words = 16 bytes, FC 16)
       fcStatusMessage.value = 'Writing LoRaWAN AppKey to Reg 274 (16 bytes, FC 16)...';
-      const cleanAppKey = appKeyInput.value.replace(/[^0-9a-fA-F]/g, '');
+      cleanAppKey = appKeyInput.value.replace(/[^0-9a-fA-F]/g, '');
       const appKeyBytes = [];
       for (let i = 0; i < cleanAppKey.length; i += 2) {
         appKeyBytes.push(parseInt(cleanAppKey.substr(i, 2), 16) || 0);
@@ -2267,7 +2267,7 @@ function useFinalConfigDeviceModule(ctx) {
     abortFinalConfig,
     exportAuditCsv,
     exportAuditXlsx,
-    formatBytes,
+    fcFormatBytes: formatBytes,
     initFinalConfigDeviceModule,
   };
 }

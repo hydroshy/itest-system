@@ -1116,7 +1116,7 @@ exports.CONTROL_PANEL_HTML = `<!DOCTYPE html>
               
               class="nav-item"
             >
-              <span class="flex items-center" class="gap-2.5">
+              <span class="flex items-center gap-2.5">
                 <i class="fa-solid fa-chart-pie w-4 text-center text-xs text-sky-400"></i>
                 <span class="truncate">Overview Hub</span>
               </span>
@@ -1128,7 +1128,7 @@ exports.CONTROL_PANEL_HTML = `<!DOCTYPE html>
               
               class="nav-item"
             >
-              <span class="flex items-center" class="gap-2.5">
+              <span class="flex items-center gap-2.5">
                 <i class="fa-solid fa-cubes w-4 text-center text-xs text-cyan-400"></i>
                 <span class="truncate">Dashboard module Manager</span>
               </span>
@@ -1140,7 +1140,7 @@ exports.CONTROL_PANEL_HTML = `<!DOCTYPE html>
               
               class="nav-item"
             >
-              <span class="flex items-center" class="gap-2.5">
+              <span class="flex items-center gap-2.5">
                 <i class="fa-solid fa-database w-4 text-center text-xs text-indigo-400"></i>
                 <span class="truncate">Database Manager</span>
               </span>
@@ -1161,7 +1161,7 @@ exports.CONTROL_PANEL_HTML = `<!DOCTYPE html>
               :title="sidebarCollapsed ? 'Sales Orders & Items' : ''"
               class="nav-item"
             >
-              <span class="flex items-center" class="gap-2.5">
+              <span class="flex items-center gap-2.5">
                 <i class="fa-solid fa-boxes-stacked w-4 text-center text-xs text-amber-400"></i>
                 <span class="truncate">Sales Orders & Items</span>
               </span>
@@ -1173,7 +1173,7 @@ exports.CONTROL_PANEL_HTML = `<!DOCTYPE html>
               
               class="nav-item"
             >
-              <span class="flex items-center" class="gap-2.5">
+              <span class="flex items-center gap-2.5">
                 <i class="fa-solid fa-barcode w-4 text-center text-xs text-cyan-400"></i>
                 <span class="truncate">Item Code Catalog</span>
               </span>
@@ -1184,7 +1184,7 @@ exports.CONTROL_PANEL_HTML = `<!DOCTYPE html>
               :class="{ active: activeTab === 'traceability' }"
               class="nav-item"
             >
-              <span class="flex items-center" class="gap-2.5">
+              <span class="flex items-center gap-2.5">
                 <i class="fa-solid fa-clipboard-check w-4 text-center text-xs text-emerald-400"></i>
                 <span class="truncate">Traceability (T-Module)</span>
               </span>
@@ -1205,7 +1205,7 @@ exports.CONTROL_PANEL_HTML = `<!DOCTYPE html>
               
               class="nav-item"
             >
-              <span class="flex items-center" class="gap-2.5">
+              <span class="flex items-center gap-2.5">
                 <i class="fa-solid fa-shield-halved w-4 text-center text-xs text-amber-400"></i>
                 <span class="truncate">Roles & RBAC</span>
               </span>
@@ -1217,7 +1217,7 @@ exports.CONTROL_PANEL_HTML = `<!DOCTYPE html>
               
               class="nav-item"
             >
-              <span class="flex items-center" class="gap-2.5">
+              <span class="flex items-center gap-2.5">
                 <i class="fa-solid fa-users w-4 text-center text-xs text-emerald-400"></i>
                 <span class="truncate">User Accounts</span>
               </span>
@@ -1237,7 +1237,7 @@ exports.CONTROL_PANEL_HTML = `<!DOCTYPE html>
               
               class="nav-item"
             >
-              <span class="flex items-center" class="gap-2.5">
+              <span class="flex items-center gap-2.5">
                 <i class="fa-solid fa-tower-broadcast w-4 text-center text-xs text-sky-400"></i>
                 <span class="truncate">Network Servers</span>
               </span>
@@ -1249,7 +1249,7 @@ exports.CONTROL_PANEL_HTML = `<!DOCTYPE html>
               
               class="nav-item"
             >
-              <span class="flex items-center" class="gap-2.5">
+              <span class="flex items-center gap-2.5">
                 <i class="fa-solid fa-microchip w-4 text-center text-xs text-teal-400"></i>
                 <span class="truncate">Device Fleet</span>
               </span>
@@ -1261,7 +1261,7 @@ exports.CONTROL_PANEL_HTML = `<!DOCTYPE html>
               
               class="nav-item"
             >
-              <span class="flex items-center" class="gap-2.5">
+              <span class="flex items-center gap-2.5">
                 <i class="fa-solid fa-microchip w-4 text-center text-xs text-sky-400"></i>
                 <span class="truncate">Sensor Types & SKU</span>
               </span>
@@ -1273,7 +1273,7 @@ exports.CONTROL_PANEL_HTML = `<!DOCTYPE html>
               
               class="nav-item"
             >
-              <span class="flex items-center" class="gap-2.5">
+              <span class="flex items-center gap-2.5">
                 <i class="fa-solid fa-satellite-dish w-4 text-center text-xs text-sky-400"></i>
                 <span class="truncate">Webhook Manager</span>
               </span>
@@ -1285,7 +1285,7 @@ exports.CONTROL_PANEL_HTML = `<!DOCTYPE html>
               
               class="nav-item"
             >
-              <span class="flex items-center" class="gap-2.5">
+              <span class="flex items-center gap-2.5">
                 <i class="fa-solid fa-code w-4 text-center text-xs text-purple-400"></i>
                 <span class="truncate">Decoder Manager</span>
               </span>
@@ -1297,7 +1297,7 @@ exports.CONTROL_PANEL_HTML = `<!DOCTYPE html>
               
               class="nav-item"
             >
-              <span class="flex items-center" class="gap-2.5">
+              <span class="flex items-center gap-2.5">
                 <i class="fa-solid fa-palette w-4 text-center text-xs text-amber-400"></i>
                 <span class="truncate">HMI SCADA Studio</span>
               </span>
@@ -1309,7 +1309,7 @@ exports.CONTROL_PANEL_HTML = `<!DOCTYPE html>
               
               class="nav-item"
             >
-              <span class="flex items-center" class="gap-2.5">
+              <span class="flex items-center gap-2.5">
                 <i class="fa-solid fa-paper-plane w-4 text-center text-xs text-indigo-400"></i>
                 <span class="truncate">Downlink Actuator</span>
               </span>
@@ -1321,7 +1321,7 @@ exports.CONTROL_PANEL_HTML = `<!DOCTYPE html>
               
               class="nav-item"
             >
-              <span class="flex items-center" class="gap-2.5">
+              <span class="flex items-center gap-2.5">
                 <i class="fa-solid fa-file-excel w-4 text-center text-xs text-emerald-400"></i>
                 <span class="truncate">Modbus Presets</span>
               </span>
@@ -1332,7 +1332,7 @@ exports.CONTROL_PANEL_HTML = `<!DOCTYPE html>
               :class="{ active: activeTab === 'memmap-upload' }"
               class="nav-item"
             >
-              <span class="flex items-center" class="gap-2.5">
+              <span class="flex items-center gap-2.5">
                 <i class="fa-solid fa-file-csv w-4 text-center text-xs text-amber-400"></i>
                 <span class="truncate">Memory Map Upload</span>
               </span>
@@ -1343,7 +1343,7 @@ exports.CONTROL_PANEL_HTML = `<!DOCTYPE html>
               :class="{ active: activeTab === 'create-final-config' }"
               class="nav-item"
             >
-              <span class="flex items-center" class="gap-2.5">
+              <span class="flex items-center gap-2.5">
                 <i class="fa-solid fa-sliders w-4 text-center text-xs text-sky-400"></i>
                 <span class="truncate">Create Final Config</span>
               </span>
@@ -1354,7 +1354,7 @@ exports.CONTROL_PANEL_HTML = `<!DOCTYPE html>
               :class="{ active: activeTab === 'final-config-manager' }"
               class="nav-item"
             >
-              <span class="flex items-center" class="gap-2.5">
+              <span class="flex items-center gap-2.5">
                 <i class="fa-solid fa-list-check w-4 text-center text-xs text-emerald-400"></i>
                 <span class="truncate">Final Config Manager</span>
               </span>
@@ -1365,7 +1365,7 @@ exports.CONTROL_PANEL_HTML = `<!DOCTYPE html>
               :class="{ active: activeTab === 'device-tested' }"
               class="nav-item"
             >
-              <span class="flex items-center" class="gap-2.5">
+              <span class="flex items-center gap-2.5">
                 <i class="fa-solid fa-vial-circle-check w-4 text-center text-xs text-cyan-400"></i>
                 <span class="truncate">Tested Devices (QA)</span>
               </span>
@@ -1377,7 +1377,7 @@ exports.CONTROL_PANEL_HTML = `<!DOCTYPE html>
               
               class="nav-item"
             >
-              <span class="flex items-center" class="gap-2.5">
+              <span class="flex items-center gap-2.5">
                 <i class="fa-solid fa-vial-circle-check w-4 text-center text-xs text-indigo-400"></i>
                 <span class="truncate">Test Automation</span>
               </span>
