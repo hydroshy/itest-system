@@ -2,11 +2,13 @@ import { OnModuleInit } from '@nestjs/common';
 import { DynamicDatabaseService } from '../../database/dynamic-database.service';
 import { ModbusPresetEntity } from './entities/modbus-preset.entity';
 import { CreateModbusPresetDto, UpdateModbusPresetDto } from './dto/modbus-preset.dto';
+import { CreateFinalConfigService } from '../create-final-config/create-final-config.service';
 export declare class ModbusPresetsService implements OnModuleInit {
     private readonly dbService?;
+    private readonly finalConfigService?;
     private readonly logger;
     private presets;
-    constructor(dbService?: DynamicDatabaseService);
+    constructor(dbService?: DynamicDatabaseService, finalConfigService?: CreateFinalConfigService);
     private getConfigPath;
     onModuleInit(): Promise<void>;
     private loadPresetsFromFile;

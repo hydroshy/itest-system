@@ -41,6 +41,11 @@ import {
   MEMMAP_UPLOAD_MODALS,
   MEMMAP_UPLOAD_SCRIPT,
 } from './control-panel-modules/memmap-upload.module';
+import {
+  CREATE_FINAL_CONFIG_TEMPLATE,
+  CREATE_FINAL_CONFIG_MODALS,
+  CREATE_FINAL_CONFIG_SCRIPT,
+} from './control-panel-modules/create-final-config.module';
 
 export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
 <html lang="en">
@@ -1362,6 +1367,17 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
             </button>
 
             <button
+              @click="switchTab('create-final-config')"
+              :class="{ active: activeTab === 'create-final-config' }"
+              class="nav-item"
+            >
+              <span class="flex items-center" class="gap-2.5">
+                <i class="fa-solid fa-sliders w-4 text-center text-xs text-sky-400"></i>
+                <span class="truncate">Create Final Config</span>
+              </span>
+            </button>
+
+            <button
               @click="switchTab('test-builder')"
               :class="{ active: activeTab === 'test-builder' }"
               
@@ -1512,6 +1528,13 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
           </div>
         </c-module-boundary>
 
+        <!-- TAB 19: CREATE FINAL CONFIG -->
+        <c-module-boundary module-id="create-final-config" title="Create Final Config" icon="fa-solid fa-sliders" :active="activeTab === 'create-final-config'">
+          <div v-if="activeTab === 'create-final-config'" class="space-y-6">
+            ${CREATE_FINAL_CONFIG_TEMPLATE}
+          </div>
+        </c-module-boundary>
+
       </main>
     </div>
 
@@ -1531,6 +1554,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
     ${SENSOR_TYPES_MODALS}
     ${TRACEABILITY_MODALS}
     ${MEMMAP_UPLOAD_MODALS}
+    ${CREATE_FINAL_CONFIG_MODALS}
 
     <!-- TOAST NOTIFICATION -->
     <div v-if="toast.show" class="fixed top-4 right-4 z-50 flex items-center gap-2 px-4 py-3 rounded-xl shadow-2xl text-xs font-semibold" :class="toast.type === 'error' ? 'bg-red-950 border border-red-500 text-red-200' : (toast.type === 'success' ? 'bg-emerald-950 border border-emerald-500 text-emerald-200' : 'bg-sky-950 border border-sky-500 text-sky-200')">
@@ -1604,6 +1628,11 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
       ${MEMMAP_UPLOAD_SCRIPT}
     } catch (e) {
       console.error('[Module Script Load Error: memmap-upload]', e);
+    }
+    try {
+      ${CREATE_FINAL_CONFIG_SCRIPT}
+    } catch (e) {
+      console.error('[Module Script Load Error: create-final-config]', e);
     }
 
     // --- TIER 1: SANDBOX LOADER & DEFENSIVE FALLBACK FACTORIES (ADR-0002) ---
@@ -1999,6 +2028,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
         'sensor-types': { id: 'c-sensor-types', tabId: 'sensor-types', title: 'LoRaWAN Sensor Types', icon: 'fa-solid fa-microchip', status: 'READY', error: null, retryCount: 0, lastActive: 0, bypassed: false },
         'traceability': { id: 'c-traceability', tabId: 'traceability', title: 'Traceability (T-Module)', icon: 'fa-solid fa-clipboard-check', status: 'READY', error: null, retryCount: 0, lastActive: 0, bypassed: false },
         'memmap-upload': { id: 'c-memmap-upload', tabId: 'memmap-upload', title: 'Memory Map Upload', icon: 'fa-solid fa-file-csv', status: 'READY', error: null, retryCount: 0, lastActive: 0, bypassed: false },
+        'create-final-config': { id: 'c-create-final-config', tabId: 'create-final-config', title: 'Create Final Config', icon: 'fa-solid fa-sliders', status: 'READY', error: null, retryCount: 0, lastActive: 0, bypassed: false },
       });
 
       const normalizeKey = (tabOrId) => {
@@ -2958,6 +2988,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
             case 'sensor-types': return 'LoRaWAN Sensor Types';
             case 'traceability': return 'Traceability (T-Module)';
             case 'memmap-upload': return 'Memory Map Upload';
+            case 'create-final-config': return 'Create Final Config';
             default: return activeTab.value;
           }
         });
@@ -6728,6 +6759,20 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
           () => ({})
         );
 
+        const createFinalConfigModule = safeExecuteModuleSetup(
+          'c-create-final-config',
+          typeof useCreateFinalConfigModule === 'function' ? (ctx => useCreateFinalConfigModule(ctx)) : null,
+          {
+            showToast,
+            authHeaders,
+            currentUser,
+            activeTab,
+            switchTab,
+            moduleStatesRegistry: moduleStatesStore,
+          },
+          () => ({})
+        );
+
         watch(activeTab, (newTab) => {
           try {
             window.history.replaceState(null, null, '#' + newTab);
@@ -6827,6 +6872,13 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
               }, 120);
             }
           }
+          if (newTab === 'create-final-config') {
+            if (createFinalConfigModule && typeof createFinalConfigModule.renderFinalConfigTabulator === 'function') {
+              setTimeout(() => {
+                createFinalConfigModule.renderFinalConfigTabulator();
+              }, 120);
+            }
+          }
         });
 
         const initControlPanel = async () => {
@@ -6885,6 +6937,13 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
                 }, 150);
               }
             }
+            if (hash === 'create-final-config') {
+              if (createFinalConfigModule && typeof createFinalConfigModule.renderFinalConfigTabulator === 'function') {
+                setTimeout(() => {
+                  createFinalConfigModule.renderFinalConfigTabulator();
+                }, 150);
+              }
+            }
           } else {
             activeTab.value = 'overview';
           }
@@ -6911,6 +6970,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
           ...sensorTypesModule,
           ...traceabilityModule,
           ...memmapUploadModule,
+          ...createFinalConfigModule,
           activeTab,
           sidebarOpen,
           sidebarCollapsed,

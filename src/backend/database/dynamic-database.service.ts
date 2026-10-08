@@ -29,6 +29,8 @@ import { TestResultEntity } from '../../modules/c-modules/traceability/entities/
 import { RawData3Entity } from '../../modules/c-modules/traceability/entities/raw-data3.entity';
 import { MemmapPayloadEntity } from '../../modules/c-modules/memmap-upload/entities/memmap-payload.entity';
 import { MemmapRegEntity } from '../../modules/c-modules/memmap-upload/entities/memmap-reg.entity';
+import { FinalConfigPresetEntity } from '../../modules/c-modules/create-final-config/entities/final-config-preset.entity';
+import { FinalConfigRegEntity } from '../../modules/c-modules/create-final-config/entities/final-config-reg.entity';
 
 
 export const ALL_DATABASE_ENTITIES = [
@@ -59,6 +61,8 @@ export const ALL_DATABASE_ENTITIES = [
   RawData3Entity,
   MemmapPayloadEntity,
   MemmapRegEntity,
+  FinalConfigPresetEntity,
+  FinalConfigRegEntity,
 ];
 
 export interface DbConnectionConfig {

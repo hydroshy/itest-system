@@ -4,6 +4,11 @@ export declare class CreateModbusPresetDto {
     description?: string;
     profileType?: string;
     createdBy?: string;
+    so?: string;
+    itemCode?: string;
+    sku?: string;
+    firmwareVersion?: string;
+    shortFw?: number;
     registers: ModbusRegisterItem[];
 }
 export declare class UpdateModbusPresetDto {

@@ -23,6 +23,30 @@ export class CreateModbusPresetDto {
   @IsOptional()
   createdBy?: string;
 
+  @ApiPropertyOptional({ description: 'Sales Order ID or Code' })
+  @IsString()
+  @IsOptional()
+  so?: string;
+
+  @ApiPropertyOptional({ description: 'Item Code' })
+  @IsString()
+  @IsOptional()
+  itemCode?: string;
+
+  @ApiPropertyOptional({ description: 'Hardware SKU' })
+  @IsString()
+  @IsOptional()
+  sku?: string;
+
+  @ApiPropertyOptional({ description: 'Firmware Version' })
+  @IsString()
+  @IsOptional()
+  firmwareVersion?: string;
+
+  @ApiPropertyOptional({ description: 'Short Firmware Version' })
+  @IsOptional()
+  shortFw?: number;
+
   @ApiProperty({ description: 'Array of Modbus register mappings' })
   @IsArray()
   registers: ModbusRegisterItem[];

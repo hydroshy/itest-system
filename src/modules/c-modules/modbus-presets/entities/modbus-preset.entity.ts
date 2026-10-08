@@ -20,6 +20,8 @@ export interface ModbusRegisterItem {
   valuetowrite?: string;
   comment?: string;
   range?: string;
+  modbus_reg_hex?: string;
+  value_on_memmap?: string;
 }
 
 @Entity('modbus_presets')

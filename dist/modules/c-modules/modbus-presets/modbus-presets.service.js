@@ -19,9 +19,11 @@ const fs = require("fs");
 const path = require("path");
 const dynamic_database_service_1 = require("../../database/dynamic-database.service");
 const modbus_preset_entity_1 = require("./entities/modbus-preset.entity");
+const create_final_config_service_1 = require("../create-final-config/create-final-config.service");
 let ModbusPresetsService = ModbusPresetsService_1 = class ModbusPresetsService {
-    constructor(dbService) {
+    constructor(dbService, finalConfigService) {
         this.dbService = dbService;
+        this.finalConfigService = finalConfigService;
         this.logger = new common_1.Logger(ModbusPresetsService_1.name);
         this.presets = [];
     }
@@ -182,6 +184,51 @@ let ModbusPresetsService = ModbusPresetsService_1 = class ModbusPresetsService {
         this.savePresetsToFile();
         await this.syncToDatabase(newPreset, 'save');
         this.logger.log(`Created new Modbus preset: [${newPreset.id}] "${newPreset.name}" by ${newPreset.createdBy}`);
+        if ((dto.profileType === 'FinalConfig' || (dto.so && dto.itemCode)) &&
+            this.finalConfigService) {
+            try {
+                const regsForFinalConfig = (dto.registers || [])
+                    .filter((r) => Number(r.reg ?? r.address) >= 303)
+                    .map((r, idx) => ({
+                    address: Number(r.reg ?? r.address),
+                    modbus_reg_hex: r.modbus_reg_hex ||
+                        `0x${Number(r.reg ?? r.address).toString(16).padStart(4, '0').toUpperCase()}`,
+                    slave: r.slave !== undefined ? Number(r.slave) : 1,
+                    reg_num: r.numreg !== undefined
+                        ? Number(r.numreg)
+                        : r.reg_num !== undefined
+                            ? Number(r.reg_num)
+                            : 1,
+                    format: r.format || 'uint',
+                    parameter_name: r.parameter || r.parameter_name || '',
+                    value_to_write: String(r.valuetowrite ?? r.value_to_write ?? ''),
+                    value_on_memmap: r.value_on_memmap || r.end_user_default || undefined,
+                    endianness: r.endianness || 'big-endian',
+                    fn_read: String(r.fc ?? r.fn_read ?? '3'),
+                    fn_write: String(r.fn_write ?? '16'),
+                    order_no: r.order !== undefined
+                        ? Number(r.order)
+                        : r.order_no !== undefined
+                            ? Number(r.order_no)
+                            : idx,
+                    checked: r.checked !== undefined ? !!r.checked : true,
+                }));
+                await this.finalConfigService.saveFinalConfig({
+                    so: dto.so || 'SO-UNKNOWN',
+                    item_code: dto.itemCode || 'ITEM-UNKNOWN',
+                    sku: dto.sku || 'SKU-UNKNOWN',
+                    firmware_version: dto.firmwareVersion || `${dto.shortFw || 1}.0`,
+                    short_fw: Number(dto.shortFw || 1),
+                    name: rawName,
+                    description: dto.description || undefined,
+                    created_by: dto.createdBy || username || 'admin',
+                    registers: regsForFinalConfig,
+                }, dto.createdBy || username || 'admin');
+            }
+            catch (err) {
+                this.logger.warn(`Failed to persist to final_config_presets & regs: ${err.message}`);
+            }
+        }
         return newPreset;
     }
     async update(id, dto, username = 'admin') {
@@ -305,6 +352,8 @@ exports.ModbusPresetsService = ModbusPresetsService;
 exports.ModbusPresetsService = ModbusPresetsService = ModbusPresetsService_1 = __decorate([
     (0, common_1.Injectable)(),
     __param(0, (0, common_1.Optional)()),
-    __metadata("design:paramtypes", [dynamic_database_service_1.DynamicDatabaseService])
+    __param(1, (0, common_1.Optional)()),
+    __metadata("design:paramtypes", [dynamic_database_service_1.DynamicDatabaseService,
+        create_final_config_service_1.CreateFinalConfigService])
 ], ModbusPresetsService);
 //# sourceMappingURL=modbus-presets.service.js.map

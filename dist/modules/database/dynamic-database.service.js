@@ -42,6 +42,8 @@ const test_result_entity_1 = require("../c-modules/traceability/entities/test-re
 const raw_data3_entity_1 = require("../c-modules/traceability/entities/raw-data3.entity");
 const memmap_payload_entity_1 = require("../c-modules/memmap-upload/entities/memmap-payload.entity");
 const memmap_reg_entity_1 = require("../c-modules/memmap-upload/entities/memmap-reg.entity");
+const final_config_preset_entity_1 = require("../c-modules/create-final-config/entities/final-config-preset.entity");
+const final_config_reg_entity_1 = require("../c-modules/create-final-config/entities/final-config-reg.entity");
 exports.ALL_DATABASE_ENTITIES = [
     user_entity_1.User,
     role_entity_1.Role,
@@ -70,6 +72,8 @@ exports.ALL_DATABASE_ENTITIES = [
     raw_data3_entity_1.RawData3Entity,
     memmap_payload_entity_1.MemmapPayloadEntity,
     memmap_reg_entity_1.MemmapRegEntity,
+    final_config_preset_entity_1.FinalConfigPresetEntity,
+    final_config_reg_entity_1.FinalConfigRegEntity,
 ];
 let DynamicDatabaseService = DynamicDatabaseService_1 = class DynamicDatabaseService {
     constructor() {

@@ -27,7 +27,9 @@ import { TestResultEntity } from '../c-modules/traceability/entities/test-result
 import { RawData3Entity } from '../c-modules/traceability/entities/raw-data3.entity';
 import { MemmapPayloadEntity } from '../c-modules/memmap-upload/entities/memmap-payload.entity';
 import { MemmapRegEntity } from '../c-modules/memmap-upload/entities/memmap-reg.entity';
-export declare const ALL_DATABASE_ENTITIES: (typeof Permission | typeof Role | typeof User | typeof NetworkServerEntity | typeof ApplicationEntity | typeof TestAssertionEntity | typeof TestTemplateEntity | typeof ItemCodeEntity | typeof SalesOrderItemEntity | typeof SalesOrderEntity | typeof DeviceEntity | typeof GatewayEntity | typeof TelemetryEntity | typeof DecoderEntity | typeof WebhookLogEntity | typeof HmiScreenEntity | typeof DownlinkLogEntity | typeof ModbusPresetEntity | typeof SensorTypeEntity | typeof TestPacketLogEntity | typeof TestDeviceRunEntity | typeof TestSessionEntity | typeof TestEvidenceEntity | typeof TestResultEntity | typeof RawData3Entity | typeof MemmapRegEntity | typeof MemmapPayloadEntity)[];
+import { FinalConfigPresetEntity } from '../c-modules/create-final-config/entities/final-config-preset.entity';
+import { FinalConfigRegEntity } from '../c-modules/create-final-config/entities/final-config-reg.entity';
+export declare const ALL_DATABASE_ENTITIES: (typeof Permission | typeof Role | typeof User | typeof NetworkServerEntity | typeof ApplicationEntity | typeof TestAssertionEntity | typeof TestTemplateEntity | typeof ItemCodeEntity | typeof SalesOrderItemEntity | typeof SalesOrderEntity | typeof DeviceEntity | typeof GatewayEntity | typeof TelemetryEntity | typeof DecoderEntity | typeof WebhookLogEntity | typeof HmiScreenEntity | typeof DownlinkLogEntity | typeof ModbusPresetEntity | typeof SensorTypeEntity | typeof TestPacketLogEntity | typeof TestDeviceRunEntity | typeof TestSessionEntity | typeof TestEvidenceEntity | typeof TestResultEntity | typeof RawData3Entity | typeof MemmapRegEntity | typeof MemmapPayloadEntity | typeof FinalConfigRegEntity | typeof FinalConfigPresetEntity)[];
 export interface DbConnectionConfig {
     host: string;
     port: number;

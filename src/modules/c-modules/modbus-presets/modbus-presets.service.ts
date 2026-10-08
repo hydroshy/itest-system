@@ -12,13 +12,17 @@ import { Repository } from 'typeorm';
 import { DynamicDatabaseService } from '../../database/dynamic-database.service';
 import { ModbusPresetEntity, ModbusRegisterItem } from './entities/modbus-preset.entity';
 import { CreateModbusPresetDto, UpdateModbusPresetDto } from './dto/modbus-preset.dto';
+import { CreateFinalConfigService } from '../create-final-config/create-final-config.service';
 
 @Injectable()
 export class ModbusPresetsService implements OnModuleInit {
   private readonly logger = new Logger(ModbusPresetsService.name);
   private presets: ModbusPresetEntity[] = [];
 
-  constructor(@Optional() private readonly dbService?: DynamicDatabaseService) {}
+  constructor(
+    @Optional() private readonly dbService?: DynamicDatabaseService,
+    @Optional() private readonly finalConfigService?: CreateFinalConfigService,
+  ) {}
 
   private getConfigPath(): string {
     if (process.env.MODBUS_PRESETS_CONFIG_PATH) return process.env.MODBUS_PRESETS_CONFIG_PATH;
@@ -179,6 +183,61 @@ export class ModbusPresetsService implements OnModuleInit {
     this.savePresetsToFile();
     await this.syncToDatabase(newPreset, 'save');
     this.logger.log(`Created new Modbus preset: [${newPreset.id}] "${newPreset.name}" by ${newPreset.createdBy}`);
+
+    if (
+      (dto.profileType === 'FinalConfig' || (dto.so && dto.itemCode)) &&
+      this.finalConfigService
+    ) {
+      try {
+        const regsForFinalConfig = (dto.registers || [])
+          .filter((r) => Number(r.reg ?? (r as any).address) >= 303)
+          .map((r, idx) => ({
+            address: Number(r.reg ?? (r as any).address),
+            modbus_reg_hex:
+              r.modbus_reg_hex ||
+              `0x${Number(r.reg ?? (r as any).address).toString(16).padStart(4, '0').toUpperCase()}`,
+            slave: r.slave !== undefined ? Number(r.slave) : 1,
+            reg_num:
+              r.numreg !== undefined
+                ? Number(r.numreg)
+                : (r as any).reg_num !== undefined
+                ? Number((r as any).reg_num)
+                : 1,
+            format: r.format || 'uint',
+            parameter_name: r.parameter || (r as any).parameter_name || '',
+            value_to_write: String(r.valuetowrite ?? (r as any).value_to_write ?? ''),
+            value_on_memmap: r.value_on_memmap || (r as any).end_user_default || undefined,
+            endianness: r.endianness || 'big-endian',
+            fn_read: String(r.fc ?? (r as any).fn_read ?? '3'),
+            fn_write: String((r as any).fn_write ?? '16'),
+            order_no:
+              r.order !== undefined
+                ? Number(r.order)
+                : (r as any).order_no !== undefined
+                ? Number((r as any).order_no)
+                : idx,
+            checked: r.checked !== undefined ? !!r.checked : true,
+          }));
+
+        await this.finalConfigService.saveFinalConfig(
+          {
+            so: dto.so || 'SO-UNKNOWN',
+            item_code: dto.itemCode || 'ITEM-UNKNOWN',
+            sku: dto.sku || 'SKU-UNKNOWN',
+            firmware_version: dto.firmwareVersion || `${dto.shortFw || 1}.0`,
+            short_fw: Number(dto.shortFw || 1),
+            name: rawName,
+            description: dto.description || undefined,
+            created_by: dto.createdBy || username || 'admin',
+            registers: regsForFinalConfig,
+          },
+          dto.createdBy || username || 'admin',
+        );
+      } catch (err: any) {
+        this.logger.warn(`Failed to persist to final_config_presets & regs: ${err.message}`);
+      }
+    }
+
     return newPreset;
   }
 

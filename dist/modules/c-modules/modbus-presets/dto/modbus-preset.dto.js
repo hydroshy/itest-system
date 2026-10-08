@@ -40,6 +40,35 @@ __decorate([
     __metadata("design:type", String)
 ], CreateModbusPresetDto.prototype, "createdBy", void 0);
 __decorate([
+    (0, swagger_1.ApiPropertyOptional)({ description: 'Sales Order ID or Code' }),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.IsOptional)(),
+    __metadata("design:type", String)
+], CreateModbusPresetDto.prototype, "so", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({ description: 'Item Code' }),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.IsOptional)(),
+    __metadata("design:type", String)
+], CreateModbusPresetDto.prototype, "itemCode", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({ description: 'Hardware SKU' }),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.IsOptional)(),
+    __metadata("design:type", String)
+], CreateModbusPresetDto.prototype, "sku", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({ description: 'Firmware Version' }),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.IsOptional)(),
+    __metadata("design:type", String)
+], CreateModbusPresetDto.prototype, "firmwareVersion", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({ description: 'Short Firmware Version' }),
+    (0, class_validator_1.IsOptional)(),
+    __metadata("design:type", Number)
+], CreateModbusPresetDto.prototype, "shortFw", void 0);
+__decorate([
     (0, swagger_1.ApiProperty)({ description: 'Array of Modbus register mappings' }),
     (0, class_validator_1.IsArray)(),
     __metadata("design:type", Array)

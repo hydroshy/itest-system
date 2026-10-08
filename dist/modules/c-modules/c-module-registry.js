@@ -181,5 +181,15 @@ exports.C_MODULES_REGISTRY = [
         routeHash: '#memmap-upload',
         requiredPermission: 'lorawan:device:read',
     },
+    {
+        id: 'c-create-final-config',
+        code: 'C_MOD_CREATE_FINAL_CONFIG',
+        title: 'Create Final Config',
+        description: 'Tạo template Modbus preset từ memmap payload theo SO, Item Code, SKU & Short FW, lọc Dec Reg >= 303 với format precheck.',
+        icon: 'fa-solid fa-sliders',
+        category: 'Developer',
+        routeHash: '#create-final-config',
+        requiredPermission: 'lorawan:device:read',
+    },
 ];
 //# sourceMappingURL=c-module-registry.js.map
