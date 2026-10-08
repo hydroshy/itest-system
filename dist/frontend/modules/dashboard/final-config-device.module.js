@@ -34,20 +34,20 @@ exports.FINAL_CONFIG_DEVICE_TEMPLATE = `          <div v-else-if="activeFeature.
                   <!-- Connection status pill -->
                   <div
                     class="px-3 py-1.5 rounded-full text-xs font-semibold flex items-center gap-2 border transition ml-auto lg:ml-2"
-                    :class="serialConnected
+                    :class="fcSerialConnected
                       ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-300'
-                      : (isAutoReconnecting
+                      : (fcIsAutoReconnecting
                         ? 'bg-amber-500/15 border-amber-500/40 text-amber-300'
-                        : (serialPort
+                        : (fcSerialPort
                           ? 'bg-blue-500/15 border-blue-500/40 text-blue-300'
                           : 'bg-slate-800/80 border-slate-700 text-slate-400'))"
                   >
                     <span
                       class="w-2 h-2 rounded-full"
-                      :class="serialConnected ? 'bg-emerald-400 animate-ping' : (isAutoReconnecting ? 'bg-amber-400 animate-ping' : (serialPort ? 'bg-blue-400' : 'bg-slate-500'))"
+                      :class="fcSerialConnected ? 'bg-emerald-400 animate-ping' : (fcIsAutoReconnecting ? 'bg-amber-400 animate-ping' : (fcSerialPort ? 'bg-blue-400' : 'bg-slate-500'))"
                     ></span>
-                    <i :class="serialConnected ? 'fa-solid fa-link' : (isAutoReconnecting ? 'fa-solid fa-arrows-rotate animate-spin text-amber-400' : (serialPort ? 'fa-solid fa-microchip' : 'fa-solid fa-plug-circle-xmark'))"></i>
-                    <span class="font-mono text-xs">{{ serialPortInfo || 'No Port Selected' }} {{ serialConnected ? '(Connected)' : (isAutoReconnecting ? '(Reconnecting...)' : (serialPort ? '(Ready)' : '')) }}</span>
+                    <i :class="fcSerialConnected ? 'fa-solid fa-link' : (fcIsAutoReconnecting ? 'fa-solid fa-arrows-rotate animate-spin text-amber-400' : (fcSerialPort ? 'fa-solid fa-microchip' : 'fa-solid fa-plug-circle-xmark'))"></i>
+                    <span class="font-mono text-xs">{{ fcSerialPortInfo || 'No Port Selected' }} {{ fcSerialConnected ? '(Connected)' : (fcIsAutoReconnecting ? '(Reconnecting...)' : (fcSerialPort ? '(Ready)' : '')) }}</span>
                   </div>
                 </div>
 
@@ -55,15 +55,15 @@ exports.FINAL_CONFIG_DEVICE_TEMPLATE = `          <div v-else-if="activeFeature.
                 <div class="flex items-center gap-2 flex-wrap">
                   <div class="px-3 py-1.5 rounded-lg bg-slate-950 border border-slate-800 text-[11px] font-mono text-slate-300 flex items-center gap-3">
                     <span class="text-cyan-400 font-bold" title="Transmitted Packets">
-                      <i class="fa-solid fa-arrow-up text-[10px] mr-1"></i>TX: {{ serialStats.txPackets }} ({{ formatBytes(serialStats.txBytes) }})
+                      <i class="fa-solid fa-arrow-up text-[10px] mr-1"></i>TX: {{ fcSerialStats.txPackets }} ({{ formatBytes(fcSerialStats.txBytes) }})
                     </span>
                     <span class="text-slate-700">|</span>
                     <span class="text-emerald-400 font-bold" title="Received Packets">
-                      <i class="fa-solid fa-arrow-down text-[10px] mr-1"></i>RX: {{ serialStats.rxPackets }} ({{ formatBytes(serialStats.rxBytes) }})
+                      <i class="fa-solid fa-arrow-down text-[10px] mr-1"></i>RX: {{ fcSerialStats.rxPackets }} ({{ formatBytes(fcSerialStats.rxBytes) }})
                     </span>
                     <span class="text-slate-700">|</span>
                     <span class="text-rose-400 font-bold" title="Communication Errors">
-                      <i class="fa-solid fa-circle-exclamation text-[10px] mr-1"></i>Err: {{ serialStats.errCount }}
+                      <i class="fa-solid fa-circle-exclamation text-[10px] mr-1"></i>Err: {{ fcSerialStats.errCount }}
                     </span>
                   </div>
                 </div>
@@ -74,9 +74,9 @@ exports.FINAL_CONFIG_DEVICE_TEMPLATE = `          <div v-else-if="activeFeature.
                 <div class="flex items-center gap-2 flex-wrap">
                   <!-- Select Port button -->
                   <button
-                    v-if="!serialPort"
+                    v-if="!fcSerialPort"
                     type="button"
-                    @click="selectSerialPort"
+                    @click="fcSelectSerialPort"
                     class="px-3.5 py-1.5 rounded-lg bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-semibold text-xs shadow-lg shadow-cyan-900/20 flex items-center gap-1.5 cursor-pointer transition"
                   >
                     <i class="fa-solid fa-plug"></i>
@@ -85,21 +85,21 @@ exports.FINAL_CONFIG_DEVICE_TEMPLATE = `          <div v-else-if="activeFeature.
 
                   <!-- Connect button -->
                   <button
-                    v-if="serialPort && !serialConnected"
+                    v-if="fcSerialPort && !fcSerialConnected"
                     type="button"
-                    @click="connectSerial(serialPort)"
-                    :disabled="serialConnecting || isAutoReconnecting"
+                    @click="fcConnectSerial(fcSerialPort)"
+                    :disabled="fcSerialConnecting || fcIsAutoReconnecting"
                     class="px-3.5 py-1.5 rounded-lg bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-semibold text-xs shadow-lg shadow-emerald-900/20 flex items-center gap-1.5 cursor-pointer transition disabled:opacity-50"
                   >
-                    <i class="fa-solid fa-link" :class="{ 'animate-spin': serialConnecting || isAutoReconnecting }"></i>
-                    <span>{{ isAutoReconnecting ? 'Reconnecting...' : 'Connect' }}</span>
+                    <i class="fa-solid fa-link" :class="{ 'animate-spin': fcSerialConnecting || fcIsAutoReconnecting }"></i>
+                    <span>{{ fcIsAutoReconnecting ? 'Reconnecting...' : 'Connect' }}</span>
                   </button>
 
                   <!-- Disconnect button -->
                   <button
-                    v-if="serialConnected"
+                    v-if="fcSerialConnected"
                     type="button"
-                    @click="disconnectSerial(true)"
+                    @click="fcDisconnectSerial(true)"
                     class="px-3.5 py-1.5 rounded-lg bg-rose-500/15 hover:bg-rose-500/25 border border-rose-500/30 text-rose-300 font-semibold text-xs flex items-center gap-1.5 cursor-pointer transition"
                   >
                     <i class="fa-solid fa-link-slash"></i>
@@ -108,10 +108,10 @@ exports.FINAL_CONFIG_DEVICE_TEMPLATE = `          <div v-else-if="activeFeature.
 
                   <!-- Change Port button -->
                   <button
-                    v-if="serialPort"
+                    v-if="fcSerialPort"
                     type="button"
-                    @click="selectSerialPort"
-                    :disabled="serialConnected || isRunningFinalConfig"
+                    @click="fcSelectSerialPort"
+                    :disabled="fcSerialConnected || isRunningFinalConfig"
                     class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium flex items-center gap-1.5 cursor-pointer transition disabled:opacity-40"
                   >
                     <i class="fa-solid fa-rotate"></i>
@@ -122,8 +122,8 @@ exports.FINAL_CONFIG_DEVICE_TEMPLATE = `          <div v-else-if="activeFeature.
                   <div class="flex items-center gap-1.5 ml-2">
                     <label class="text-[11px] text-slate-400 font-medium">Baud:</label>
                     <select
-                      v-model.number="serialConfig.baudRate"
-                      :disabled="serialConnected || isRunningFinalConfig"
+                      v-model.number="fcSerialConfig.baudRate"
+                      :disabled="fcSerialConnected || isRunningFinalConfig"
                       class="px-2.5 py-1 rounded-lg bg-slate-950 border border-slate-700 text-white text-xs font-mono focus:border-cyan-500 focus:outline-none transition disabled:opacity-50"
                     >
                       <option :value="9600">9600 bps</option>
@@ -138,23 +138,23 @@ exports.FINAL_CONFIG_DEVICE_TEMPLATE = `          <div v-else-if="activeFeature.
                   <div class="flex items-center gap-1 ml-2">
                     <button
                       type="button"
-                      @click="toggleDTR"
-                      :disabled="!serialConnected"
+                      @click="fcToggleDTR"
+                      :disabled="!fcSerialConnected"
                       class="px-2 py-1 rounded text-[10px] font-mono font-bold border transition cursor-pointer disabled:opacity-30"
-                      :class="serialSignals.dtr ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/40' : 'bg-slate-800 text-slate-500 border-slate-700'"
+                      :class="fcSerialSignals.dtr ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/40' : 'bg-slate-800 text-slate-500 border-slate-700'"
                       title="Toggle Data Terminal Ready"
                     >
-                      DTR: {{ serialSignals.dtr ? '1' : '0' }}
+                      DTR: {{ fcSerialSignals.dtr ? '1' : '0' }}
                     </button>
                     <button
                       type="button"
-                      @click="toggleRTS"
-                      :disabled="!serialConnected"
+                      @click="fcToggleRTS"
+                      :disabled="!fcSerialConnected"
                       class="px-2 py-1 rounded text-[10px] font-mono font-bold border transition cursor-pointer disabled:opacity-30"
-                      :class="serialSignals.rts ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/40' : 'bg-slate-800 text-slate-500 border-slate-700'"
+                      :class="fcSerialSignals.rts ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/40' : 'bg-slate-800 text-slate-500 border-slate-700'"
                       title="Toggle Request To Send"
                     >
-                      RTS: {{ serialSignals.rts ? '1' : '0' }}
+                      RTS: {{ fcSerialSignals.rts ? '1' : '0' }}
                     </button>
                   </div>
                 </div>
@@ -163,12 +163,12 @@ exports.FINAL_CONFIG_DEVICE_TEMPLATE = `          <div v-else-if="activeFeature.
                 <div class="flex items-center gap-2">
                   <button
                     type="button"
-                    @click="showTerminalLogs = !showTerminalLogs"
+                    @click="fcShowTerminalLogs = !fcShowTerminalLogs"
                     class="px-3 py-1.5 rounded-lg border text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer"
-                    :class="showTerminalLogs ? 'bg-slate-800 border-slate-600 text-white' : 'bg-slate-950 border-slate-800 text-slate-400 hover:text-slate-200'"
+                    :class="fcShowTerminalLogs ? 'bg-slate-800 border-slate-600 text-white' : 'bg-slate-950 border-slate-800 text-slate-400 hover:text-slate-200'"
                   >
                     <i class="fa-solid fa-terminal"></i>
-                    <span>UART Log ({{ serialLogs.length }})</span>
+                    <span>UART Log ({{ fcSerialLogs.length }})</span>
                   </button>
                 </div>
               </div>
@@ -193,13 +193,13 @@ exports.FINAL_CONFIG_DEVICE_TEMPLATE = `          <div v-else-if="activeFeature.
                     Sales Order (SO) <span class="text-rose-400">*</span>
                   </label>
                   <select
-                    v-model="selectedSo"
-                    @change="onSoChange"
+                    v-model="fcSelectedSo"
+                    @change="fcOnSoChange"
                     :disabled="isRunningFinalConfig"
                     class="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-700 text-white text-xs font-mono focus:border-cyan-500 focus:outline-none transition disabled:opacity-50"
                   >
                     <option value="">-- Select Sales Order --</option>
-                    <option v-for="so in salesOrdersList" :key="so.soCode || so.id" :value="so.soCode">
+                    <option v-for="so in fcSalesOrdersList" :key="so.soCode || so.id" :value="so.soCode">
                       {{ so.soCode }} ({{ so.customerName || 'Customer' }})
                     </option>
                   </select>
@@ -211,13 +211,13 @@ exports.FINAL_CONFIG_DEVICE_TEMPLATE = `          <div v-else-if="activeFeature.
                     Item Code <span class="text-rose-400">*</span>
                   </label>
                   <select
-                    v-model="selectedItemCode"
-                    @change="onItemCodeChange"
-                    :disabled="!selectedSo || isRunningFinalConfig"
+                    v-model="fcSelectedItemCode"
+                    @change="fcOnItemCodeChange"
+                    :disabled="!fcSelectedSo || isRunningFinalConfig"
                     class="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-700 text-white text-xs font-mono focus:border-cyan-500 focus:outline-none transition disabled:opacity-50"
                   >
                     <option value="">-- Select Item Code --</option>
-                    <option v-for="item in itemCodesList" :key="item.itemCode || item.id" :value="item.itemCode">
+                    <option v-for="item in fcItemCodesList" :key="item.itemCode || item.id" :value="item.itemCode">
                       {{ item.itemCode }} ({{ item.sku || 'SKU' }})
                     </option>
                   </select>
@@ -292,7 +292,7 @@ exports.FINAL_CONFIG_DEVICE_TEMPLATE = `          <div v-else-if="activeFeature.
                   <button
                     type="button"
                     @click="startFinalConfig"
-                    :disabled="isRunningFinalConfig || !serialConnected || !selectedSo || !selectedItemCode || !currentPreset || !isAppKeyValid"
+                    :disabled="isRunningFinalConfig || !fcSerialConnected || !fcSelectedSo || !fcSelectedItemCode || !currentPreset || !isAppKeyValid"
                     class="px-5 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 hover:from-emerald-500 hover:to-cyan-500 text-white font-bold text-xs uppercase tracking-wider shadow-lg shadow-emerald-900/30 flex items-center gap-2 cursor-pointer transition disabled:opacity-40 disabled:cursor-not-allowed"
                   >
                     <i class="fa-solid" :class="isRunningFinalConfig ? 'fa-spinner animate-spin' : 'fa-play'"></i>
@@ -375,7 +375,7 @@ exports.FINAL_CONFIG_DEVICE_TEMPLATE = `          <div v-else-if="activeFeature.
                     ? 'bg-cyan-500/10 border-cyan-500/50 shadow-lg shadow-cyan-950/30'
                     : (currentStage > 1
                       ? 'bg-slate-950/80 border-emerald-500/30'
-                      : 'bg-slate-950/40 border-slate-800/80'))"
+                      : 'bg-slate-950/40 border-slate-800/80')"
                 >
                   <div class="flex items-center justify-between mb-2">
                     <span class="text-[11px] font-bold uppercase tracking-wider text-slate-400">STAGE 1 (0-25%)</span>
@@ -429,7 +429,7 @@ exports.FINAL_CONFIG_DEVICE_TEMPLATE = `          <div v-else-if="activeFeature.
                     ? 'bg-cyan-500/10 border-cyan-500/50 shadow-lg shadow-cyan-950/30'
                     : (currentStage > 2
                       ? 'bg-slate-950/80 border-emerald-500/30'
-                      : 'bg-slate-950/40 border-slate-800/80'))"
+                      : 'bg-slate-950/40 border-slate-800/80')"
                 >
                   <div class="flex items-center justify-between mb-2">
                     <span class="text-[11px] font-bold uppercase tracking-wider text-slate-400">STAGE 2 (25-50%)</span>
@@ -479,7 +479,7 @@ exports.FINAL_CONFIG_DEVICE_TEMPLATE = `          <div v-else-if="activeFeature.
                     ? 'bg-cyan-500/10 border-cyan-500/50 shadow-lg shadow-cyan-950/30'
                     : (currentStage > 3
                       ? 'bg-slate-950/80 border-emerald-500/30'
-                      : 'bg-slate-950/40 border-slate-800/80'))"
+                      : 'bg-slate-950/40 border-slate-800/80')"
                 >
                   <div class="flex items-center justify-between mb-2">
                     <span class="text-[11px] font-bold uppercase tracking-wider text-slate-400">STAGE 3 (50-75%)</span>
@@ -524,7 +524,7 @@ exports.FINAL_CONFIG_DEVICE_TEMPLATE = `          <div v-else-if="activeFeature.
                     ? 'bg-cyan-500/10 border-cyan-500/50 shadow-lg shadow-cyan-950/30'
                     : (currentStage > 4 || finalVerdict !== 'NONE'
                       ? 'bg-slate-950/80 border-emerald-500/30'
-                      : 'bg-slate-950/40 border-slate-800/80'))"
+                      : 'bg-slate-950/40 border-slate-800/80')"
                 >
                   <div class="flex items-center justify-between mb-2">
                     <span class="text-[11px] font-bold uppercase tracking-wider text-slate-400">STAGE 4 (75-100%)</span>
@@ -663,7 +663,7 @@ exports.FINAL_CONFIG_DEVICE_TEMPLATE = `          <div v-else-if="activeFeature.
             </div>
 
             <!-- 5. UART LOG TERMINAL DRAWER -->
-            <div v-if="showTerminalLogs" class="p-5 rounded-2xl bg-slate-900/90 border border-slate-800 space-y-3 shadow-xl">
+            <div v-if="fcShowTerminalLogs" class="p-5 rounded-2xl bg-slate-900/90 border border-slate-800 space-y-3 shadow-xl">
               <div class="flex items-center justify-between">
                 <div class="flex items-center gap-2">
                   <i class="fa-solid fa-terminal text-cyan-400"></i>
@@ -672,14 +672,14 @@ exports.FINAL_CONFIG_DEVICE_TEMPLATE = `          <div v-else-if="activeFeature.
                 <div class="flex items-center gap-2">
                   <button
                     type="button"
-                    @click="copySerialLogs"
+                    @click="fcCopySerialLogs"
                     class="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold"
                   >
                     <i class="fa-solid fa-copy mr-1"></i>Copy
                   </button>
                   <button
                     type="button"
-                    @click="clearSerialLogs"
+                    @click="fcClearSerialLogs"
                     class="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold"
                   >
                     <i class="fa-solid fa-trash mr-1"></i>Clear
@@ -688,10 +688,10 @@ exports.FINAL_CONFIG_DEVICE_TEMPLATE = `          <div v-else-if="activeFeature.
               </div>
 
               <div class="h-48 overflow-y-auto font-mono text-[11px] p-3 rounded-xl bg-slate-950 border border-slate-800 space-y-1">
-                <div v-if="serialLogs.length === 0" class="text-slate-600 text-center py-6">
+                <div v-if="fcSerialLogs.length === 0" class="text-slate-600 text-center py-6">
                   No UART communication packets recorded yet.
                 </div>
-                <div v-for="(log, idx) in serialLogs" :key="idx" class="flex items-start gap-2 leading-relaxed">
+                <div v-for="(log, idx) in fcSerialLogs" :key="idx" class="flex items-start gap-2 leading-relaxed">
                   <span class="text-slate-500 whitespace-nowrap">{{ log.time }}</span>
                   <span
                     class="px-1.5 py-0.2 rounded text-[9px] font-bold"
@@ -721,13 +721,19 @@ function useFinalConfigDeviceModule(ctx) {
   // ----------------------------------------------------------------------
   // 1. WEB SERIAL CONNECTION & HARDWARE AUTO-RECONNECT ENGINE
   // ----------------------------------------------------------------------
-  const isSerialSupported = ref(typeof navigator !== 'undefined' && 'serial' in navigator);
-  const serialPort = ref(null);
-  const serialConnected = ref(false);
-  const serialConnecting = ref(false);
-  const isAutoReconnecting = ref(false);
-  const serialPortInfo = ref('');
-  const serialConfig = ref({
+  const fcIsSerialSupported = ref(typeof navigator !== 'undefined' && 'serial' in navigator);
+  const isSerialSupported = fcIsSerialSupported;
+  const fcSerialPort = ref(null);
+  const serialPort = fcSerialPort;
+  const fcSerialConnected = ref(false);
+  const serialConnected = fcSerialConnected;
+  const fcSerialConnecting = ref(false);
+  const serialConnecting = fcSerialConnecting;
+  const fcIsAutoReconnecting = ref(false);
+  const isAutoReconnecting = fcIsAutoReconnecting;
+  const fcSerialPortInfo = ref('');
+  const serialPortInfo = fcSerialPortInfo;
+  const fcSerialConfig = ref({
     baudRate: 9600,
     dataBits: 8,
     stopBits: 1,
@@ -736,16 +742,21 @@ function useFinalConfigDeviceModule(ctx) {
     bufferSize: 255,
     timeoutMs: 1200,
   });
-  const serialSignals = ref({ dtr: false, rts: false });
-  const serialStats = ref({
+  const serialConfig = fcSerialConfig;
+  const fcSerialSignals = ref({ dtr: false, rts: false });
+  const serialSignals = fcSerialSignals;
+  const fcSerialStats = ref({
     txPackets: 0,
     rxPackets: 0,
     txBytes: 0,
     rxBytes: 0,
     errCount: 0,
   });
-  const serialLogs = ref([]);
-  const showTerminalLogs = ref(false);
+  const serialStats = fcSerialStats;
+  const fcSerialLogs = ref([]);
+  const serialLogs = fcSerialLogs;
+  const fcShowTerminalLogs = ref(false);
+  const showTerminalLogs = fcShowTerminalLogs;
 
   let lastConnectedPortInfo = null;
   let autoReconnectTimer = null;
@@ -1301,10 +1312,14 @@ function useFinalConfigDeviceModule(ctx) {
   // ----------------------------------------------------------------------
   // 3. REACTIVE STATE & FORM BINDING
   // ----------------------------------------------------------------------
-  const selectedSo = ref('');
-  const selectedItemCode = ref('');
-  const salesOrdersList = ref([]);
-  const itemCodesList = ref([]);
+  const fcSelectedSo = ref('');
+  const selectedSo = fcSelectedSo;
+  const fcSelectedItemCode = ref('');
+  const selectedItemCode = fcSelectedItemCode;
+  const fcSalesOrdersList = ref([]);
+  const salesOrdersList = fcSalesOrdersList;
+  const fcItemCodesList = ref([]);
+  const itemCodesList = fcItemCodesList;
   const currentPreset = ref(null);
   const appKeyInput = ref('2B7E151628AED2A6ABF7158809CF4F3C');
 
@@ -2087,22 +2102,41 @@ function useFinalConfigDeviceModule(ctx) {
     }
   });
 
+  const fcSelectSerialPort = selectSerialPort;
+  const fcConnectSerial = connectSerial;
+  const fcDisconnectSerial = disconnectSerial;
+  const fcToggleDTR = toggleDTR;
+  const fcToggleRTS = toggleRTS;
+  const fcCopySerialLogs = copySerialLogs;
+  const fcClearSerialLogs = clearSerialLogs;
+  const fcOnSoChange = onSoChange;
+  const fcOnItemCodeChange = onItemCodeChange;
+
   return {
-    isSerialSupported,
-    serialPort,
-    serialConnected,
-    serialConnecting,
-    isAutoReconnecting,
-    serialPortInfo,
-    serialConfig,
-    serialSignals,
-    serialStats,
-    serialLogs,
-    showTerminalLogs,
-    selectedSo,
-    selectedItemCode,
-    salesOrdersList,
-    itemCodesList,
+    fcIsSerialSupported,
+    fcSerialPort,
+    fcSerialConnected,
+    fcSerialConnecting,
+    fcIsAutoReconnecting,
+    fcSerialPortInfo,
+    fcSerialConfig,
+    fcSerialSignals,
+    fcSerialStats,
+    fcSerialLogs,
+    fcShowTerminalLogs,
+    fcSelectedSo,
+    fcSelectedItemCode,
+    fcSalesOrdersList,
+    fcItemCodesList,
+    fcSelectSerialPort,
+    fcConnectSerial,
+    fcDisconnectSerial,
+    fcToggleDTR,
+    fcToggleRTS,
+    fcCopySerialLogs,
+    fcClearSerialLogs,
+    fcOnSoChange,
+    fcOnItemCodeChange,
     currentPreset,
     appKeyInput,
     isAppKeyValid,
@@ -2129,21 +2163,12 @@ function useFinalConfigDeviceModule(ctx) {
     auditSearchQuery,
     auditStatusFilter,
     filteredAuditRegisters,
-    selectSerialPort,
-    connectSerial,
-    disconnectSerial,
-    toggleDTR,
-    toggleRTS,
     generateRandomAppKey,
-    onSoChange,
-    onItemCodeChange,
     startFinalConfig,
     resetFinalConfig,
     abortFinalConfig,
     exportAuditCsv,
     exportAuditXlsx,
-    copySerialLogs,
-    clearSerialLogs,
     formatBytes,
     initFinalConfigDeviceModule,
   };

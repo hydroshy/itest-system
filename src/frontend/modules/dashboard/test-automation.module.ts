@@ -1831,7 +1831,7 @@ export const TEST_AUTOMATION_MODALS = `
             <div class="flex items-center gap-2">
               <button
                 type="button"
-                @click="exportTraceabilityCsv"
+                @click="exportTestAutomationTraceabilityCsv"
                 class="px-3 py-1.5 rounded-xl bg-emerald-600/30 hover:bg-emerald-600/40 text-emerald-300 border border-emerald-500/40 text-xs font-bold flex items-center gap-1.5 cursor-pointer transition shadow-sm"
                 title="Export Traceability Results to CSV"
               >
@@ -2173,6 +2173,7 @@ export const TEST_AUTOMATION_MODALS = `
 
 export const TEST_AUTOMATION_SCRIPT = `
 function useTestAutomationModule(ctx) {
+  const { ref, computed, watch, nextTick, onMounted, onUnmounted } = Vue;
   const { showToast, authHeaders, activeFeature, copyText, devicesList, currentUser, fetchDevices, initRealtimeConnection } = ctx;
   const networkServersList = ctx.networkServersList || ref([]);
   const selectedNetworkServerId = ref('');
@@ -4139,6 +4140,7 @@ function useTestAutomationModule(ctx) {
     }
     window.open('/api/traceability/export-csv?' + params.toString(), '_blank');
   };
+  const exportTestAutomationTraceabilityCsv = exportTraceabilityCsv;
 
   const exportSingleDeviceTraceCsv = () => {
     const key = traceModalSelectedDetail.value?.test_id || traceModalSelectedDetail.value?.generalInfo?.testId || traceModalSelectedDetail.value?.serial_number || '';
@@ -4360,6 +4362,7 @@ function useTestAutomationModule(ctx) {
     fetchTraceabilityModalData,
     viewTraceabilityDeviceDetail,
     exportTraceabilityCsv,
+    exportTestAutomationTraceabilityCsv,
     exportSingleDeviceTraceCsv,
     isTestVerdictPass,
     formatTraceTimestamp,

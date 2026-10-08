@@ -890,8 +890,7 @@ exports.TRACEABILITY_TEMPLATE = `          <div v-else-if="activeFeature.id === 
                       <div
                         v-for="field in filteredRawDataFieldList"
                         :key="field.key"
-                        class="p-3.5 rounded-xl border space-y-2.5 transition flex flex-col justify-between"
-                        class="border-slate-800 bg-slate-950/80 hover:border-slate-700"
+                        class="p-3.5 rounded-xl border space-y-2.5 transition flex flex-col justify-between border-slate-800 bg-slate-950/80 hover:border-slate-700"
                       >
                         <!-- Header of Field Trend Card with Interactive Action Buttons -->
                         <div class="flex items-start justify-between gap-2 border-b border-slate-800/80 pb-2">

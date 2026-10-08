@@ -2380,6 +2380,9 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
           getWidgetTrendPath,
         } = hmiModule;
 
+        let socketClient = null;
+        let sseSource = null;
+
         function initRealtimeConnection() {
           if (socketClient || sseSource) return;
 
