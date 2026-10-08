@@ -40,6 +40,8 @@
     "test_result": "core_db",
     "raw_data3": "core_db",
     "final_config_presets": "core_db",
-    "final_config_regs": "core_db"
+    "final_config_regs": "core_db",
+    "final_config_sn": "core_db",
+    "final_config_regs_sn": "core_db"
   }
 }

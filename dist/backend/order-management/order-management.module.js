@@ -12,19 +12,21 @@ const sales_orders_module_1 = require("../../modules/c-modules/sales-orders/sale
 const item_codes_module_1 = require("../../modules/c-modules/item-codes/item-codes.module");
 const sensor_types_module_1 = require("../../modules/c-modules/sensor-types/sensor-types.module");
 const traceability_module_1 = require("../../modules/c-modules/traceability/traceability.module");
+const final_config_manager_module_1 = require("../../modules/c-modules/final-config-manager/final-config-manager.module");
 const order_management_diagnostic_service_1 = require("./order-management-diagnostic.service");
 let OrderManagementSubsystemModule = class OrderManagementSubsystemModule {
 };
 exports.OrderManagementSubsystemModule = OrderManagementSubsystemModule;
 exports.OrderManagementSubsystemModule = OrderManagementSubsystemModule = __decorate([
     (0, common_1.Module)({
-        imports: [sales_orders_module_1.SalesOrdersModule, item_codes_module_1.ItemCodesModule, sensor_types_module_1.SensorTypesModule, traceability_module_1.TraceabilityModule],
+        imports: [sales_orders_module_1.SalesOrdersModule, item_codes_module_1.ItemCodesModule, sensor_types_module_1.SensorTypesModule, traceability_module_1.TraceabilityModule, final_config_manager_module_1.FinalConfigManagerModule],
         providers: [order_management_diagnostic_service_1.OrderManagementDiagnosticService],
         exports: [
             sales_orders_module_1.SalesOrdersModule,
             item_codes_module_1.ItemCodesModule,
             sensor_types_module_1.SensorTypesModule,
             traceability_module_1.TraceabilityModule,
+            final_config_manager_module_1.FinalConfigManagerModule,
             order_management_diagnostic_service_1.OrderManagementDiagnosticService,
         ],
     })

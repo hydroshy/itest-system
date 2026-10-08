@@ -17,6 +17,7 @@ const sensor_types_module_1 = require("./control-panel-modules/sensor-types.modu
 const traceability_module_1 = require("./control-panel-modules/traceability.module");
 const memmap_upload_module_1 = require("./control-panel-modules/memmap-upload.module");
 const create_final_config_module_1 = require("./control-panel-modules/create-final-config.module");
+const final_config_manager_module_1 = require("./control-panel-modules/final-config-manager.module");
 exports.CONTROL_PANEL_HTML = `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -1348,6 +1349,17 @@ exports.CONTROL_PANEL_HTML = `<!DOCTYPE html>
             </button>
 
             <button
+              @click="switchTab('final-config-manager')"
+              :class="{ active: activeTab === 'final-config-manager' }"
+              class="nav-item"
+            >
+              <span class="flex items-center" class="gap-2.5">
+                <i class="fa-solid fa-list-check w-4 text-center text-xs text-emerald-400"></i>
+                <span class="truncate">Final Config Manager</span>
+              </span>
+            </button>
+
+            <button
               @click="switchTab('test-builder')"
               :class="{ active: activeTab === 'test-builder' }"
               
@@ -1505,6 +1517,13 @@ exports.CONTROL_PANEL_HTML = `<!DOCTYPE html>
           </div>
         </c-module-boundary>
 
+        <!-- TAB 20: FINAL CONFIG MANAGER -->
+        <c-module-boundary module-id="final-config-manager" title="Final Config Manager" icon="fa-solid fa-list-check" :active="activeTab === 'final-config-manager'">
+          <div v-if="activeTab === 'final-config-manager'" class="space-y-6">
+            ${final_config_manager_module_1.FINAL_CONFIG_MANAGER_TEMPLATE}
+          </div>
+        </c-module-boundary>
+
       </main>
     </div>
 
@@ -1525,6 +1544,7 @@ exports.CONTROL_PANEL_HTML = `<!DOCTYPE html>
     ${traceability_module_1.TRACEABILITY_MODALS}
     ${memmap_upload_module_1.MEMMAP_UPLOAD_MODALS}
     ${create_final_config_module_1.CREATE_FINAL_CONFIG_MODALS}
+    ${final_config_manager_module_1.FINAL_CONFIG_MANAGER_MODALS}
 
     <!-- TOAST NOTIFICATION -->
     <div v-if="toast.show" class="fixed top-4 right-4 z-50 flex items-center gap-2 px-4 py-3 rounded-xl shadow-2xl text-xs font-semibold" :class="toast.type === 'error' ? 'bg-red-950 border border-red-500 text-red-200' : (toast.type === 'success' ? 'bg-emerald-950 border border-emerald-500 text-emerald-200' : 'bg-sky-950 border border-sky-500 text-sky-200')">
@@ -1603,6 +1623,11 @@ exports.CONTROL_PANEL_HTML = `<!DOCTYPE html>
       ${create_final_config_module_1.CREATE_FINAL_CONFIG_SCRIPT}
     } catch (e) {
       console.error('[Module Script Load Error: create-final-config]', e);
+    }
+    try {
+      ${final_config_manager_module_1.FINAL_CONFIG_MANAGER_SCRIPT}
+    } catch (e) {
+      console.error('[Module Script Load Error: final-config-manager]', e);
     }
 
     // --- TIER 1: SANDBOX LOADER & DEFENSIVE FALLBACK FACTORIES (ADR-0002) ---
@@ -1999,6 +2024,7 @@ exports.CONTROL_PANEL_HTML = `<!DOCTYPE html>
         'traceability': { id: 'c-traceability', tabId: 'traceability', title: 'Traceability (T-Module)', icon: 'fa-solid fa-clipboard-check', status: 'READY', error: null, retryCount: 0, lastActive: 0, bypassed: false },
         'memmap-upload': { id: 'c-memmap-upload', tabId: 'memmap-upload', title: 'Memory Map Upload', icon: 'fa-solid fa-file-csv', status: 'READY', error: null, retryCount: 0, lastActive: 0, bypassed: false },
         'create-final-config': { id: 'c-create-final-config', tabId: 'create-final-config', title: 'Create Final Config', icon: 'fa-solid fa-sliders', status: 'READY', error: null, retryCount: 0, lastActive: 0, bypassed: false },
+        'final-config-manager': { id: 'c-final-config-manager', tabId: 'final-config-manager', title: 'Final Config Manager', icon: 'fa-solid fa-list-check', status: 'READY', error: null, retryCount: 0, lastActive: 0, bypassed: false },
       });
 
       const normalizeKey = (tabOrId) => {
@@ -2959,6 +2985,7 @@ exports.CONTROL_PANEL_HTML = `<!DOCTYPE html>
             case 'traceability': return 'Traceability (T-Module)';
             case 'memmap-upload': return 'Memory Map Upload';
             case 'create-final-config': return 'Create Final Config';
+            case 'final-config-manager': return 'Final Config Manager';
             default: return activeTab.value;
           }
         });
@@ -6743,6 +6770,20 @@ exports.CONTROL_PANEL_HTML = `<!DOCTYPE html>
           () => ({})
         );
 
+        const finalConfigManagerModule = safeExecuteModuleSetup(
+          'c-final-config-manager',
+          typeof useFinalConfigManagerModule === 'function' ? (ctx => useFinalConfigManagerModule(ctx)) : null,
+          {
+            showToast,
+            authHeaders,
+            currentUser,
+            activeTab,
+            switchTab,
+            moduleStatesRegistry: moduleStatesStore,
+          },
+          () => ({})
+        );
+
         watch(activeTab, (newTab) => {
           try {
             window.history.replaceState(null, null, '#' + newTab);
@@ -6849,6 +6890,13 @@ exports.CONTROL_PANEL_HTML = `<!DOCTYPE html>
               }, 120);
             }
           }
+          if (newTab === 'final-config-manager') {
+            if (finalConfigManagerModule && typeof finalConfigManagerModule.onTabActivated === 'function') {
+              setTimeout(() => {
+                finalConfigManagerModule.onTabActivated();
+              }, 120);
+            }
+          }
         });
 
         const initControlPanel = async () => {
@@ -6914,6 +6962,13 @@ exports.CONTROL_PANEL_HTML = `<!DOCTYPE html>
                 }, 150);
               }
             }
+            if (hash === 'final-config-manager') {
+              if (finalConfigManagerModule && typeof finalConfigManagerModule.onTabActivated === 'function') {
+                setTimeout(() => {
+                  finalConfigManagerModule.onTabActivated();
+                }, 150);
+              }
+            }
           } else {
             activeTab.value = 'overview';
           }
@@ -6941,6 +6996,7 @@ exports.CONTROL_PANEL_HTML = `<!DOCTYPE html>
           ...traceabilityModule,
           ...memmapUploadModule,
           ...createFinalConfigModule,
+          ...finalConfigManagerModule,
           activeTab,
           sidebarOpen,
           sidebarCollapsed,

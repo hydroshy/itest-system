@@ -27,4 +27,8 @@ __exportStar(require("../../modules/c-modules/item-codes/item-code-utils"), expo
 __exportStar(require("../../modules/c-modules/sensor-types/sensor-types.service"), exports);
 __exportStar(require("../../modules/c-modules/sensor-types/sensor-types.controller"), exports);
 __exportStar(require("../../modules/c-modules/sensor-types/entities/sensor-type.entity"), exports);
+__exportStar(require("../../modules/c-modules/final-config-manager/final-config-manager.service"), exports);
+__exportStar(require("../../modules/c-modules/final-config-manager/final-config-manager.controller"), exports);
+__exportStar(require("../../modules/c-modules/final-config-manager/entities/final-config-sn.entity"), exports);
+__exportStar(require("../../modules/c-modules/final-config-manager/entities/final-config-regs-sn.entity"), exports);
 //# sourceMappingURL=index.js.map

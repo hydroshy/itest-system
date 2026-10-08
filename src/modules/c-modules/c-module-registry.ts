@@ -203,4 +203,14 @@ export const C_MODULES_REGISTRY: CModule[] = [
     routeHash: '#create-final-config',
     requiredPermission: 'lorawan:device:read',
   },
+  {
+    id: 'c-final-config-manager',
+    code: 'C_MOD_FINAL_CONFIG_MANAGER',
+    title: 'Final Config Manager',
+    description: 'Manage Final Config presets and track per-device Final Config records by Serial Number with PASS/FAIL/NONE status.',
+    icon: 'fa-solid fa-list-check',
+    category: 'Governance',
+    routeHash: '#final-config-manager',
+    requiredPermission: 'lorawan:device:read',
+  },
 ];

@@ -31,6 +31,8 @@ import { MemmapPayloadEntity } from '../c-modules/memmap-upload/entities/memmap-
 import { MemmapRegEntity } from '../c-modules/memmap-upload/entities/memmap-reg.entity';
 import { FinalConfigPresetEntity } from '../c-modules/create-final-config/entities/final-config-preset.entity';
 import { FinalConfigRegEntity } from '../c-modules/create-final-config/entities/final-config-reg.entity';
+import { FinalConfigSnEntity } from '../c-modules/final-config-manager/entities/final-config-sn.entity';
+import { FinalConfigRegsSnEntity } from '../c-modules/final-config-manager/entities/final-config-regs-sn.entity';
 
 export const ALL_DATABASE_ENTITIES = [
   User,
@@ -62,6 +64,8 @@ export const ALL_DATABASE_ENTITIES = [
   MemmapRegEntity,
   FinalConfigPresetEntity,
   FinalConfigRegEntity,
+  FinalConfigSnEntity,
+  FinalConfigRegsSnEntity,
 ];
 
 export interface DbConnectionConfig {

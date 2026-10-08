@@ -16,3 +16,7 @@ export * from '../../modules/c-modules/item-codes/item-code-utils';
 export * from '../../modules/c-modules/sensor-types/sensor-types.service';
 export * from '../../modules/c-modules/sensor-types/sensor-types.controller';
 export * from '../../modules/c-modules/sensor-types/entities/sensor-type.entity';
+export * from '../../modules/c-modules/final-config-manager/final-config-manager.service';
+export * from '../../modules/c-modules/final-config-manager/final-config-manager.controller';
+export * from '../../modules/c-modules/final-config-manager/entities/final-config-sn.entity';
+export * from '../../modules/c-modules/final-config-manager/entities/final-config-regs-sn.entity';
