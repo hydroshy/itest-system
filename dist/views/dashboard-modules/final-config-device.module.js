@@ -412,7 +412,7 @@ exports.FINAL_CONFIG_DEVICE_TEMPLATE = `          <div v-else-if="activeFeature.
                     </div>
                     <div class="flex justify-between text-slate-400">
                       <span>Write Method:</span>
-                      <span class="text-cyan-300">Modbus FC 16 / 06</span>
+                      <span class="text-cyan-300">Modbus FC 16</span>
                     </div>
                     <div class="flex justify-between text-slate-400">
                       <span>EEPROM Settle:</span>
@@ -938,7 +938,7 @@ function useFinalConfigDeviceModule(ctx) {
   };
 
   // ----------------------------------------------------------------------
-  // 2. MODBUS RTU COMMUNICATION PROTOCOL (FC 03, FC 06, FC 16)
+  // 2. MODBUS RTU COMMUNICATION PROTOCOL (FC 03, FC 16)
   // ----------------------------------------------------------------------
   const calcModbusCRC16 = (bytes) => {
     let crc = 0xFFFF;
@@ -1045,35 +1045,41 @@ function useFinalConfigDeviceModule(ctx) {
     return rxBuffer.slice(3, 3 + byteCount);
   };
 
-  // Write Modbus Registers via FC 16 (Multiple) or FC 06 (Single)
+  // Write Modbus Registers via FC 16 (0x10 - Write Multiple Registers)
   const writeModbusRegistersToPort = async (slave, fc, reg, numreg, dataBytes, timeoutMs = 1200) => {
+    // Support both (slave, fc, reg, numreg, dataBytes, timeoutMs) and (slave, reg, numreg, dataBytes, timeoutMs)
+    let actualReg = reg;
+    let actualNumreg = numreg;
+    let actualData = dataBytes;
+    let actualTimeout = timeoutMs;
+    if (Array.isArray(numreg) || (numreg && typeof numreg === 'object' && 'length' in numreg)) {
+      actualTimeout = dataBytes || 1200;
+      actualData = numreg;
+      actualNumreg = reg;
+      actualReg = fc;
+    }
+
     if (!serialPort.value || !serialPort.value.readable || !serialPort.value.writable) {
       throw new Error('Serial port is not open or writable');
     }
     await safeCleanupUartPort();
 
     const s = Number(slave) & 0xFF;
-    const r = Number(reg);
-    let frame = [];
+    const r = Number(actualReg);
+    const n = Number(actualNumreg);
+    const byteCount = actualData.length;
 
-    if (fc === 6 && numreg === 1 && dataBytes.length === 2) {
-      // Single Register FC 06
-      frame = [s, 0x06, (r >> 8) & 0xFF, r & 0xFF, dataBytes[0], dataBytes[1]];
-    } else {
-      // Multiple Registers FC 16 (0x10)
-      const n = Number(numreg);
-      const byteCount = dataBytes.length;
-      frame = [
-        s,
-        0x10,
-        (r >> 8) & 0xFF,
-        r & 0xFF,
-        (n >> 8) & 0xFF,
-        n & 0xFF,
-        byteCount,
-        ...dataBytes,
-      ];
-    }
+    // Standard Modbus FC 16 (0x10): Mandatory for 100% write operations
+    const frame = [
+      s,
+      0x10,
+      (r >> 8) & 0xFF,
+      r & 0xFF,
+      (n >> 8) & 0xFF,
+      n & 0xFF,
+      byteCount,
+      ...actualData,
+    ];
 
     const crc = calcModbusCRC16(frame);
     frame.push(crc & 0xFF);
@@ -1085,7 +1091,7 @@ function useFinalConfigDeviceModule(ctx) {
       await activeUartWriter.write(req);
       serialStats.value.txPackets++;
       serialStats.value.txBytes += req.length;
-      addSerialLog('TX', req, 'Write Reg ' + reg + ' (FC ' + (fc === 6 ? '06' : '16') + ')');
+      addSerialLog('TX', req, 'Write Reg ' + actualReg + ' (FC 16)');
     } finally {
       try { activeUartWriter.releaseLock(); } catch (e) {}
       activeUartWriter = null;
@@ -1097,8 +1103,8 @@ function useFinalConfigDeviceModule(ctx) {
     const startTime = Date.now();
 
     try {
-      while (rxBuffer.length < expectedBytes && (Date.now() - startTime) < timeoutMs) {
-        const remaining = Math.max(10, timeoutMs - (Date.now() - startTime));
+      while (rxBuffer.length < expectedBytes && (Date.now() - startTime) < actualTimeout) {
+        const remaining = Math.max(10, actualTimeout - (Date.now() - startTime));
         let timeoutId;
         const timeoutPromise = new Promise((_, reject) => {
           timeoutId = setTimeout(() => reject(new Error('TIMEOUT')), remaining);
@@ -1130,17 +1136,29 @@ function useFinalConfigDeviceModule(ctx) {
 
     if (rxBuffer.length < 5) {
       serialStats.value.errCount++;
-      throw new Error('No write response received for register ' + reg);
+      throw new Error('No write response received for register ' + actualReg);
     }
 
     serialStats.value.rxPackets++;
     serialStats.value.rxBytes += rxBuffer.length;
-    addSerialLog('RX', rxBuffer, 'Write Reg ' + reg + ' response');
+    addSerialLog('RX', rxBuffer, 'Write Reg ' + actualReg + ' response');
 
     // Check Modbus exception (FC | 0x80)
     if (rxBuffer[1] & 0x80) {
       serialStats.value.errCount++;
-      throw new Error('Modbus Exception Code ' + rxBuffer[2] + ' on register ' + reg);
+      throw new Error('Modbus Exception Code ' + rxBuffer[2] + ' on register ' + actualReg);
+    }
+
+    if (rxBuffer.length < 8) {
+      serialStats.value.errCount++;
+      throw new Error('Incomplete write response for register ' + actualReg + ': expected 8 bytes, got ' + rxBuffer.length);
+    }
+
+    const calcCrc = calcModbusCRC16(rxBuffer.slice(0, 6));
+    const rxCrc = rxBuffer[6] | (rxBuffer[7] << 8);
+    if (calcCrc !== rxCrc) {
+      serialStats.value.errCount++;
+      throw new Error('CRC error on write response for register ' + actualReg);
     }
 
     return rxBuffer;
@@ -1404,7 +1422,7 @@ function useFinalConfigDeviceModule(ctx) {
             format: r.format || 'uint',
             endianness: r.endianness || 'Big-Endian',
             reg_num: Number(r.reg_num) || 1,
-            fn_write: r.fn_write || 'FC 16',
+            fn_write: 'FC 16',
             value_to_write: r.value_to_write !== undefined ? String(r.value_to_write) : '',
             value_read_back: '',
             status: 'NONE',
@@ -1686,14 +1704,13 @@ function useFinalConfigDeviceModule(ctx) {
         const valStr = String(regItem.value_to_write);
 
         const dataBytes = encodeModbusWriteValue(valStr, fmt, endian, numreg);
-        const fc = regItem.fn_write === 'FC 06' || numreg === 1 ? 6 : 16;
 
-        // Retry up to 3 times on timeout
+        // Retry up to 3 times on timeout (Mandatory Modbus FC 16 for all write operations)
         let written = false;
         let lastErr = null;
         for (let retry = 0; retry < 3; retry++) {
           try {
-            await writeModbusRegistersToPort(1, fc, addr, numreg, dataBytes);
+            await writeModbusRegistersToPort(1, 16, addr, numreg, dataBytes);
             written = true;
             break;
           } catch (wErr) {
@@ -2151,7 +2168,7 @@ function useFinalConfigDeviceModule(ctx) {
       'Target Value': r.value_to_write,
       'Read-Back Value': r.value_read_back,
       Status: r.status,
-      'FC Write': r.fn_write,
+      'FC Write': r.fn_write || 'FC 16',
     }));
     const ws = XLSX.utils.json_to_sheet(data);
     const wb = XLSX.utils.book_new();

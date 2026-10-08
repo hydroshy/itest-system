@@ -174,7 +174,7 @@ async function runLorawanFinalConfigDeviceTestSuite() {
   console.log('========================================================================================\n');
 
   let passedTests = 0;
-  const totalTests = 8;
+  const totalTests = 10;
 
   const csvPath = path.resolve(__dirname, '../../docs/WSLRW-ATH-6.csv');
   const viewsModulePath = path.resolve(__dirname, '../src/views/dashboard-modules/final-config-device.module.ts');
@@ -343,6 +343,24 @@ async function runLorawanFinalConfigDeviceTestSuite() {
   const calculatedCrc = calculateCrc16(fc16Frame.subarray(0, fc16Frame.length - 2));
   const frameCrc = fc16Frame[fc16Frame.length - 2] | (fc16Frame[fc16Frame.length - 1] << 8);
   assert.strictEqual(calculatedCrc, frameCrc, 'Modbus RTU CRC16 checksum must be mathematically valid');
+
+  // Verify Single-word Register 317 (Region) FC 16 Frame Construction (11 bytes total)
+  // Register 317 (0x013D), 1 word = 2 bytes, value = 5 (EU868 = 0x0005)
+  const reg317Words = [5];
+  const fc16Reg317Frame = buildModbusFc16Frame(1, 317, reg317Words);
+  assert.strictEqual(fc16Reg317Frame.length, 11, 'Reg 317 FC 16 request frame must be exactly 11 bytes (7 header/qty/count + 2 data + 2 crc)');
+  assert.strictEqual(fc16Reg317Frame[0], 0x01, 'Slave address must be 0x01');
+  assert.strictEqual(fc16Reg317Frame[1], 0x10, 'Function Code must be 0x10 (FC 16)');
+  assert.strictEqual(fc16Reg317Frame[2], 0x01, 'Start reg high byte must be 0x01');
+  assert.strictEqual(fc16Reg317Frame[3], 0x3d, 'Start reg low byte must be 0x3D (317 = 0x013D)');
+  assert.strictEqual(fc16Reg317Frame[4], 0x00, 'Quantity high byte must be 0x00');
+  assert.strictEqual(fc16Reg317Frame[5], 0x01, 'Quantity low byte must be 0x01 (1 word)');
+  assert.strictEqual(fc16Reg317Frame[6], 0x02, 'Byte count must be 0x02 (2 bytes)');
+  assert.strictEqual(fc16Reg317Frame[7], 0x00, 'Value high byte must be 0x00');
+  assert.strictEqual(fc16Reg317Frame[8], 0x05, 'Value low byte must be 0x05 (EU868)');
+  const reg317Crc = calculateCrc16(fc16Reg317Frame.subarray(0, 9));
+  const reg317FrameCrc = fc16Reg317Frame[9] | (fc16Reg317Frame[10] << 8);
+  assert.strictEqual(reg317Crc, reg317FrameCrc, 'Reg 317 FC 16 frame CRC16 must be valid');
 
   // Verify preset filtering constraint: address >= 303
   const candidatePresets = [
@@ -539,6 +557,81 @@ async function runLorawanFinalConfigDeviceTestSuite() {
   assert.strictEqual(dMod.category, 'Factory');
 
   console.log('  -> PASS: Entity and D-Module architecture verified.\n');
+  passedTests++;
+
+  // ----------------------------------------------------------------------------------------------------
+  // TEST 9: Strict Static Code Analysis: 100% Modbus FC 16 for Writes (Zero FC 06)
+  // ----------------------------------------------------------------------------------------------------
+  console.log('[TEST 9] Verifying Static Code Analysis: 100% Modbus FC 16 for all write operations (Zero FC 06)...');
+  // 9a. Verify writeModbusRegistersToPort always hardcodes Function Code 0x10 in frame header
+  assert.ok(
+    viewsCode.includes('0x10,') && viewsCode.includes('(r >> 8) & 0xFF'),
+    'writeModbusRegistersToPort frame header must explicitly hardcode 0x10 (FC 16)'
+  );
+
+  // 9b. Verify no residual branching or usage of FC 06 / 6 in write logic
+  const forbiddenFc06Patterns = [
+    /numreg\s*===?\s*1\s*\?\s*6\s*:\s*16/,
+    /fn_write\s*===?\s*['"]FC\s*06['"]/,
+    /fn_write\s*===?\s*['"]06['"]/,
+    /writeModbusRegistersToPort\([^)]*,\s*6\s*,/,
+    /writeModbusRegistersToPort\([^)]*,\s*0x06\s*,/,
+    /fc\s*===?\s*6\b/,
+    /fc\s*===?\s*0x06\b/,
+  ];
+
+  for (const pat of forbiddenFc06Patterns) {
+    const match = viewsCode.match(pat);
+    assert.strictEqual(
+      match,
+      null,
+      `Forbidden FC 06 write pattern ${pat} detected in final-config-device.module.ts!`
+    );
+  }
+
+  // 9c. Verify write calls in Stage 2 explicitly use FC 16
+  assert.ok(
+    viewsCode.includes('await writeModbusRegistersToPort(1, 16, addr, numreg, dataBytes);'),
+    'Stage 2 register preset write must explicitly call writeModbusRegistersToPort with FC 16'
+  );
+  assert.ok(
+    viewsCode.includes('await writeModbusRegistersToPort(1, 16, 274, 8, appKeyBytes);'),
+    'Stage 2 AppKey write must explicitly call writeModbusRegistersToPort with FC 16'
+  );
+
+  // 9d. Verify UI and log indicators reflect FC 16
+  assert.ok(
+    viewsCode.includes("' (FC 16)'"),
+    "Serial log TX message must indicate '(FC 16)'"
+  );
+  assert.ok(
+    viewsCode.includes('Modbus FC 16'),
+    "Audit & UI text must reference 'Modbus FC 16'"
+  );
+
+  console.log('  -> PASS: 100% Modbus FC 16 enforced across all write operations. Zero FC 06 confirmed.\n');
+  passedTests++;
+
+  // ----------------------------------------------------------------------------------------------------
+  // TEST 10: Spec Database DDL Migration 17_standardize_final_config_fn_write_fc16.sql Verification
+  // ----------------------------------------------------------------------------------------------------
+  console.log('[TEST 10] Verifying Migration 17_standardize_final_config_fn_write_fc16.sql...');
+  const migration17Path = path.resolve(__dirname, '../../deploy/database/updates/17_standardize_final_config_fn_write_fc16.sql');
+  assert.ok(fs.existsSync(migration17Path), 'Migration 17 SQL file must exist in deploy/database/updates/');
+  const migration17Content = fs.readFileSync(migration17Path, 'utf8');
+
+  assert.ok(migration17Content.includes('BEGIN;'), 'Migration 17 must start transaction BEGIN');
+  assert.ok(migration17Content.includes('COMMIT;'), 'Migration 17 must commit transaction COMMIT');
+  assert.ok(migration17Content.includes('UPDATE "final_config_regs"'), 'Migration 17 must update final_config_regs');
+  assert.ok(migration17Content.includes('UPDATE "final_config_regs_sn"'), 'Migration 17 must update final_config_regs_sn');
+  assert.ok(migration17Content.includes('SET "fn_write" = \'16\''), 'Migration 17 must set fn_write = 16');
+  assert.ok(
+    migration17Content.includes("ALTER TABLE \"final_config_regs\" \nALTER COLUMN \"fn_write\" SET DEFAULT '16'") ||
+    migration17Content.includes("ALTER COLUMN \"fn_write\" SET DEFAULT '16'"),
+    'Migration 17 must set default 16 on fn_write'
+  );
+
+  console.log('  -> PASS: DDL Migration 17 adheres strictly to transactional spec.\n');
   passedTests++;
 
   console.log('========================================================================================');

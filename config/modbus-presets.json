@@ -1,6 +1,6 @@
 [
   {
-    "id": "tpl_final-config-so-002-item-02_muyxrjx2",
+    "id": "tpl_final-config-so-002-item-02_muzpuhs9",
     "name": "[Final Config] SO-002 - ITEM-02",
     "description": "",
     "profileType": "FinalConfig",
@@ -23,7 +23,7 @@
         "valuetowrite": "120"
       }
     ],
-    "createdAt": "2026-10-08T02:47:23.030Z",
-    "updatedAt": "2026-10-08T02:47:23.030Z"
+    "createdAt": "2026-10-08T15:53:29.481Z",
+    "updatedAt": "2026-10-08T15:53:29.481Z"
   }
 ]
