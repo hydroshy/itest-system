@@ -171,6 +171,10 @@ export class SaveDeviceFinalConfigDto {
 
   @IsOptional()
   @IsString()
+  app_key?: string;
+
+  @IsOptional()
+  @IsString()
   operator?: string;
 
   @IsOptional()

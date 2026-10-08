@@ -500,6 +500,7 @@ export class FinalConfigManagerRepository {
               short_fw: dto.short_fw !== undefined ? Number(dto.short_fw) : existing.short_fw,
               status: computedStatus,
               dev_eui: dto.dev_eui !== undefined ? dto.dev_eui : existing.dev_eui,
+              app_key: dto.app_key !== undefined ? dto.app_key : existing.app_key,
               configured_regs_count: configuredCount,
               total_regs_count: validRegDtos.length > 0 ? validRegDtos.length : existing.total_regs_count,
               tested_at: computedStatus !== 'NONE' ? new Date() : existing.tested_at,
@@ -522,6 +523,7 @@ export class FinalConfigManagerRepository {
               short_fw: dto.short_fw ? Number(dto.short_fw) : undefined,
               status: computedStatus,
               dev_eui: dto.dev_eui,
+              app_key: dto.app_key,
               configured_regs_count: configuredCount,
               total_regs_count: validRegDtos.length,
               tested_at: computedStatus !== 'NONE' ? new Date() : undefined,
@@ -595,6 +597,7 @@ export class FinalConfigManagerRepository {
     device.short_fw = dto.short_fw ? Number(dto.short_fw) : undefined;
     device.status = computedStatus;
     device.dev_eui = dto.dev_eui;
+    if (dto.app_key !== undefined) device.app_key = dto.app_key;
     device.configured_regs_count = configuredCount;
     device.total_regs_count = validRegDtos.length > 0 ? validRegDtos.length : device.total_regs_count || 0;
     device.tested_at = computedStatus !== 'NONE' ? now : device.tested_at;

@@ -18,6 +18,7 @@ const traceability_module_1 = require("./control-panel-modules/traceability.modu
 const memmap_upload_module_1 = require("./control-panel-modules/memmap-upload.module");
 const create_final_config_module_1 = require("./control-panel-modules/create-final-config.module");
 const final_config_manager_module_1 = require("./control-panel-modules/final-config-manager.module");
+const device_tested_module_1 = require("./control-panel-modules/device-tested.module");
 exports.CONTROL_PANEL_HTML = `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -1360,6 +1361,17 @@ exports.CONTROL_PANEL_HTML = `<!DOCTYPE html>
             </button>
 
             <button
+              @click="switchTab('device-tested')"
+              :class="{ active: activeTab === 'device-tested' }"
+              class="nav-item"
+            >
+              <span class="flex items-center" class="gap-2.5">
+                <i class="fa-solid fa-vial-circle-check w-4 text-center text-xs text-cyan-400"></i>
+                <span class="truncate">Tested Devices (QA)</span>
+              </span>
+            </button>
+
+            <button
               @click="switchTab('test-builder')"
               :class="{ active: activeTab === 'test-builder' }"
               
@@ -1524,6 +1536,13 @@ exports.CONTROL_PANEL_HTML = `<!DOCTYPE html>
           </div>
         </c-module-boundary>
 
+        <!-- TAB 21: DEVICE TESTED (QA INSPECTION) -->
+        <c-module-boundary module-id="device-tested" title="Tested Devices (QA Inspection)" icon="fa-solid fa-vial-circle-check" :active="activeTab === 'device-tested'">
+          <div v-if="activeTab === 'device-tested'" class="space-y-6">
+            ${device_tested_module_1.DEVICE_TESTED_TEMPLATE}
+          </div>
+        </c-module-boundary>
+
       </main>
     </div>
 
@@ -1545,6 +1564,7 @@ exports.CONTROL_PANEL_HTML = `<!DOCTYPE html>
     ${memmap_upload_module_1.MEMMAP_UPLOAD_MODALS}
     ${create_final_config_module_1.CREATE_FINAL_CONFIG_MODALS}
     ${final_config_manager_module_1.FINAL_CONFIG_MANAGER_MODALS}
+    ${device_tested_module_1.DEVICE_TESTED_MODALS}
 
     <!-- TOAST NOTIFICATION -->
     <div v-if="toast.show" class="fixed top-4 right-4 z-50 flex items-center gap-2 px-4 py-3 rounded-xl shadow-2xl text-xs font-semibold" :class="toast.type === 'error' ? 'bg-red-950 border border-red-500 text-red-200' : (toast.type === 'success' ? 'bg-emerald-950 border border-emerald-500 text-emerald-200' : 'bg-sky-950 border border-sky-500 text-sky-200')">
@@ -1628,6 +1648,11 @@ exports.CONTROL_PANEL_HTML = `<!DOCTYPE html>
       ${final_config_manager_module_1.FINAL_CONFIG_MANAGER_SCRIPT}
     } catch (e) {
       console.error('[Module Script Load Error: final-config-manager]', e);
+    }
+    try {
+      ${device_tested_module_1.DEVICE_TESTED_SCRIPT}
+    } catch (e) {
+      console.error('[Module Script Load Error: device-tested]', e);
     }
 
     // --- TIER 1: SANDBOX LOADER & DEFENSIVE FALLBACK FACTORIES (ADR-0002) ---
@@ -2025,6 +2050,7 @@ exports.CONTROL_PANEL_HTML = `<!DOCTYPE html>
         'memmap-upload': { id: 'c-memmap-upload', tabId: 'memmap-upload', title: 'Memory Map Upload', icon: 'fa-solid fa-file-csv', status: 'READY', error: null, retryCount: 0, lastActive: 0, bypassed: false },
         'create-final-config': { id: 'c-create-final-config', tabId: 'create-final-config', title: 'Create Final Config', icon: 'fa-solid fa-sliders', status: 'READY', error: null, retryCount: 0, lastActive: 0, bypassed: false },
         'final-config-manager': { id: 'c-final-config-manager', tabId: 'final-config-manager', title: 'Final Config Manager', icon: 'fa-solid fa-list-check', status: 'READY', error: null, retryCount: 0, lastActive: 0, bypassed: false },
+        'device-tested': { id: 'c-device-tested', tabId: 'device-tested', title: 'Tested Devices (QA Inspection)', icon: 'fa-solid fa-vial-circle-check', status: 'READY', error: null, retryCount: 0, lastActive: 0, bypassed: false },
       });
 
       const normalizeKey = (tabOrId) => {
@@ -2986,6 +3012,7 @@ exports.CONTROL_PANEL_HTML = `<!DOCTYPE html>
             case 'memmap-upload': return 'Memory Map Upload';
             case 'create-final-config': return 'Create Final Config';
             case 'final-config-manager': return 'Final Config Manager';
+            case 'device-tested': return 'Tested Devices (QA Inspection)';
             default: return activeTab.value;
           }
         });
@@ -6784,6 +6811,20 @@ exports.CONTROL_PANEL_HTML = `<!DOCTYPE html>
           () => ({})
         );
 
+        const deviceTestedModule = safeExecuteModuleSetup(
+          'c-device-tested',
+          typeof useDeviceTestedModule === 'function' ? (ctx => useDeviceTestedModule(ctx)) : null,
+          {
+            showToast,
+            authHeaders,
+            currentUser,
+            activeTab,
+            switchTab,
+            moduleStatesRegistry: moduleStatesStore,
+          },
+          () => ({})
+        );
+
         watch(activeTab, (newTab) => {
           try {
             window.history.replaceState(null, null, '#' + newTab);
@@ -6897,6 +6938,13 @@ exports.CONTROL_PANEL_HTML = `<!DOCTYPE html>
               }, 120);
             }
           }
+          if (newTab === 'device-tested') {
+            if (deviceTestedModule && typeof deviceTestedModule.dtFetchData === 'function') {
+              setTimeout(() => {
+                deviceTestedModule.dtFetchData();
+              }, 120);
+            }
+          }
         });
 
         const initControlPanel = async () => {
@@ -6969,6 +7017,13 @@ exports.CONTROL_PANEL_HTML = `<!DOCTYPE html>
                 }, 150);
               }
             }
+            if (hash === 'device-tested') {
+              if (deviceTestedModule && typeof deviceTestedModule.dtFetchData === 'function') {
+                setTimeout(() => {
+                  deviceTestedModule.dtFetchData();
+                }, 150);
+              }
+            }
           } else {
             activeTab.value = 'overview';
           }
@@ -6997,6 +7052,7 @@ exports.CONTROL_PANEL_HTML = `<!DOCTYPE html>
           ...memmapUploadModule,
           ...createFinalConfigModule,
           ...finalConfigManagerModule,
+          ...deviceTestedModule,
           activeTab,
           sidebarOpen,
           sidebarCollapsed,

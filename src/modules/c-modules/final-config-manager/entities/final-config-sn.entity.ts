@@ -99,6 +99,16 @@ export class FinalConfigSnEntity {
     this.dev_eui = val;
   }
 
+  @Column({ name: 'app_key', type: 'varchar', length: 64, nullable: true })
+  app_key?: string;
+
+  get appKey(): string | undefined {
+    return this.app_key;
+  }
+  set appKey(val: string | undefined) {
+    this.app_key = val;
+  }
+
   @Column({ name: 'configured_regs_count', type: 'int', default: 0 })
   configured_regs_count: number;
 

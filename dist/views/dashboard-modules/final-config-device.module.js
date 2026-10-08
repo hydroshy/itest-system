@@ -174,128 +174,58 @@ exports.FINAL_CONFIG_DEVICE_TEMPLATE = `          <div v-else-if="activeFeature.
               </div>
             </div>
 
-            <!-- 2. WORK ORDER & PRESET SELECTOR STRIP -->
-            <div class="p-5 rounded-2xl bg-slate-900/90 border border-slate-800 space-y-4 shadow-xl">
+            <!-- 2. WORK ORDER & SERIAL NUMBER STRIP (READONLY, SHOWN AFTER 25%) -->
+            <!-- Layout mode reference: lg:grid-cols-5 -->
+            <div v-if="fcProgress >= 25" class="p-5 rounded-2xl bg-slate-900/90 border border-slate-800 space-y-4 shadow-xl">
               <div class="flex items-center justify-between border-b border-slate-800/80 pb-3">
                 <div class="flex items-center gap-2">
                   <i class="fa-solid fa-clipboard-list text-cyan-400"></i>
-                  <h3 class="text-xs font-bold text-white uppercase tracking-wider">WORK ORDER & TARGET PRESET BINDING</h3>
+                  <h3 class="text-xs font-bold text-white uppercase tracking-wider">WORK ORDER & SERIAL NUMBER</h3>
                 </div>
-                <div class="text-[11px] text-slate-400">
-                  Target configuration registers (Dec >= 303) and LoRaWAN AppKey will be written based on selected preset.
+                <div class="text-[11px] text-emerald-400 flex items-center gap-1.5 font-semibold">
+                  <i class="fa-solid fa-circle-check"></i>
+                  <span>Hardware identified & QA verified (Read-only)</span>
                 </div>
               </div>
 
-              <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <!-- Serial Number (SN) -->
                 <div>
                   <label class="block text-xs font-semibold text-slate-300 mb-1.5">
-                    Serial Number (SN)
+                    SERIAL NUMBER
                   </label>
                   <input
                     type="text"
                     v-model="fcSerialNumberInput"
-                    @change="fcOnSerialNumberChange"
                     placeholder="Auto-read Reg 259..."
-                    :disabled="isRunningFinalConfig"
-                    class="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-700 text-white text-xs font-mono focus:border-cyan-500 focus:outline-none transition disabled:opacity-50"
+                    readonly
+                    class="w-full px-3.5 py-2.5 rounded-xl bg-slate-950/80 border border-slate-700 text-cyan-300 text-xs font-mono font-bold cursor-not-allowed select-all"
                   />
                 </div>
 
-                <!-- Select Sales Order (SO) -->
+                <!-- Sales Order (SO) -->
                 <div>
                   <label class="block text-xs font-semibold text-slate-300 mb-1.5">
-                    Sales Order (SO)
+                    SALES ORDER (SO)
                   </label>
-                  <select
+                  <input
+                    type="text"
                     v-model="fcSelectedSo"
-                    @change="fcOnSoChange"
-                    :disabled="isRunningFinalConfig"
-                    class="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-700 text-white text-xs font-mono focus:border-cyan-500 focus:outline-none transition disabled:opacity-50"
-                  >
-                    <option value="">-- Select Sales Order --</option>
-                    <option v-for="so in fcSalesOrdersList" :key="so.soCode || so.id" :value="so.soCode">
-                      {{ so.soCode }} ({{ so.customerName || 'Customer' }})
-                    </option>
-                  </select>
-                </div>
-
-                <!-- Select Item Code -->
-                <div>
-                  <label class="block text-xs font-semibold text-slate-300 mb-1.5">
-                    Item Code
-                  </label>
-                  <select
-                    v-model="fcSelectedItemCode"
-                    @change="fcOnItemCodeChange"
-                    :disabled="!fcSelectedSo || isRunningFinalConfig"
-                    class="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-700 text-white text-xs font-mono focus:border-cyan-500 focus:outline-none transition disabled:opacity-50"
-                  >
-                    <option value="">-- Select Item Code --</option>
-                    <option v-for="item in fcItemCodesList" :key="item.itemCode || item.id" :value="item.itemCode">
-                      {{ item.itemCode }} ({{ item.sku || 'SKU' }})
-                    </option>
-                  </select>
-                </div>
-
-                <!-- Target SKU & Short FW -->
-                <div>
-                  <label class="block text-xs font-semibold text-slate-300 mb-1.5">
-                    Resolved SKU & Short FW
-                  </label>
-                  <div class="flex items-center gap-2">
-                    <input
-                      type="text"
-                      :value="currentPreset ? (currentPreset.sku + ' / FW ' + currentPreset.short_fw) : 'None'"
-                      readonly
-                      class="w-full px-3 py-2 rounded-xl bg-slate-950/60 border border-slate-800 text-slate-300 text-xs font-mono"
-                    />
-                    <span
-                      class="px-2.5 py-1 rounded-lg text-[10px] font-mono font-bold whitespace-nowrap border"
-                      :class="currentPreset ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30' : 'bg-slate-800 text-slate-500 border-slate-700'"
-                    >
-                      {{ currentPreset ? currentPreset.total_regs + ' Regs' : 'No Preset' }}
-                    </span>
-                  </div>
-                </div>
-
-                <!-- LoRaWAN AppKey (Reg 274) Input -->
-                <div>
-                  <div class="flex items-center justify-between mb-1.5">
-                    <label class="text-xs font-semibold text-slate-300">
-                      LoRaWAN AppKey (Dec 274)
-                    </label>
-                    <button
-                      type="button"
-                      @click="generateRandomAppKey"
-                      :disabled="isRunningFinalConfig"
-                      class="text-[10px] text-cyan-400 hover:text-cyan-300 underline font-semibold cursor-pointer disabled:opacity-40"
-                    >
-                      Generate
-                    </button>
-                  </div>
-                  <div class="relative">
-                    <input
-                      type="text"
-                      v-model="appKeyInput"
-                      maxlength="32"
-                      placeholder="32-char Hex Key (16 bytes)"
-                      :disabled="isRunningFinalConfig"
-                      class="w-full px-3 py-2 rounded-xl bg-slate-950 border text-white text-xs font-mono uppercase focus:outline-none transition pr-8"
-                      :class="isAppKeyValid ? 'border-slate-700 focus:border-cyan-500' : 'border-rose-500 focus:border-rose-400'"
-                    />
-                    <button
-                      type="button"
-                      @click="copyText(appKeyInput)"
-                      class="absolute right-2.5 top-2.5 text-slate-500 hover:text-slate-300 text-xs"
-                      title="Copy AppKey"
-                    >
-                      <i class="fa-solid fa-copy"></i>
-                    </button>
-                  </div>
-                  <p v-if="!isAppKeyValid" class="text-[10px] text-rose-400 mt-1">Must be exactly 32 hex characters (128-bit AES key).</p>
+                    placeholder="Auto-mapped from QA device_tested..."
+                    readonly
+                    class="w-full px-3.5 py-2.5 rounded-xl bg-slate-950/80 border border-slate-700 text-white text-xs font-mono font-bold cursor-not-allowed select-all"
+                  />
                 </div>
               </div>
+            </div>
+
+            <!-- Banner placeholder before 25% -->
+            <div v-else class="p-4 rounded-2xl bg-slate-900/60 border border-slate-800/80 flex items-center justify-between text-slate-400 text-xs shadow-md">
+              <div class="flex items-center gap-2.5">
+                <i class="fa-solid fa-shield-halved text-cyan-400 text-sm"></i>
+                <span>Work Order & Serial Number will automatically appear after Stage 1 (>= 25%) hardware identification and QA validation.</span>
+              </div>
+              <span class="text-[10px] font-mono font-bold text-slate-500 uppercase px-2 py-0.5 rounded bg-slate-950 border border-slate-800">Awaiting Stage 1</span>
             </div>
 
             <!-- 3. EXECUTION CONTROLS & 4-STAGE PROGRESS WORKBENCH -->
@@ -420,6 +350,10 @@ exports.FINAL_CONFIG_DEVICE_TEMPLATE = `          <div v-else-if="activeFeature.
                     <div class="flex justify-between text-slate-400">
                       <span>FW (5) / Type (103):</span>
                       <span class="text-slate-300">{{ fcHardwareInfo.firmwareVersion || '-' }} / {{ fcHardwareInfo.sensorType || '-' }}</span>
+                    </div>
+                    <div class="flex justify-between text-slate-400">
+                      <span>HW (9):</span>
+                      <span class="text-cyan-300 font-bold">{{ fcHardwareInfo.hwVersion || '-' }}</span>
                     </div>
                     <div class="flex justify-between text-slate-400">
                       <span>Item Code (386):</span>
@@ -1353,6 +1287,7 @@ function useFinalConfigDeviceModule(ctx) {
     serialNumber: '',
     devEui: '',
     firmwareVersion: '',
+    hwVersion: '',
     shortFw: 1,
     sensorType: 0,
     itemCode: '',
@@ -1390,13 +1325,16 @@ function useFinalConfigDeviceModule(ctx) {
   });
 
   const generateRandomAppKey = () => {
-    const chars = '0123456789ABCDEF';
-    let key = '';
-    for (let i = 0; i < 32; i++) {
-      key += chars.charAt(Math.floor(Math.random() * chars.length));
+    const array = new Uint8Array(16);
+    if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
+      crypto.getRandomValues(array);
+    } else {
+      for (let i = 0; i < 16; i++) array[i] = Math.floor(Math.random() * 256);
     }
+    const key = Array.from(array, b => b.toString(16).padStart(2, '0')).join('').toUpperCase();
     appKeyInput.value = key;
     if (showToast) showToast('Generated new random LoRaWAN AppKey', 'info');
+    return key;
   };
 
   // ----------------------------------------------------------------------
@@ -1612,7 +1550,17 @@ function useFinalConfigDeviceModule(ctx) {
       fcHardwareInfo.value.firmwareVersion = readFw || '1.0.0';
       fcHardwareInfo.value.shortFw = readFw ? (parseInt(readFw.charAt(0), 10) || 1) : 1;
 
-      // 4. Read Reg 103 (SENSOR_TYPE: 1 reg, uint16)
+      // 4. Read Reg 9 (HW_VERSION: 2 regs, string, FC 03)
+      let readHw = '';
+      try {
+        const hwBytes = await readModbusRegistersFromPort(1, 9, 2);
+        readHw = bytesToAscii(hwBytes);
+      } catch (e) {
+        console.warn('Failed to read HW (Reg 9):', e);
+      }
+      fcHardwareInfo.value.hwVersion = readHw || '';
+
+      // 5. Read Reg 103 (SENSOR_TYPE: 1 reg, uint16)
       let readType = 0;
       try {
         const typeBytes = await readModbusRegistersFromPort(1, 103, 1);
@@ -1624,7 +1572,7 @@ function useFinalConfigDeviceModule(ctx) {
       }
       fcHardwareInfo.value.sensorType = readType;
 
-      // 5. Read Reg 386 (ITEM_CODE: 14 regs, string)
+      // 6. Read Reg 386 (ITEM_CODE: 14 regs, string)
       let readItemCode = '';
       try {
         const icBytes = await readModbusRegistersFromPort(1, 386, 14);
@@ -1635,11 +1583,20 @@ function useFinalConfigDeviceModule(ctx) {
       fcHardwareInfo.value.itemCode = readItemCode;
       fcProgress.value = 20;
 
-      // 6. Verify against device_tested table & Auto-map SO, Item Code, AppKey & Preset
+      // 7. Verify against device_tested table & Auto-map SO, Item Code, AppKey & Preset
       fcStatusMessage.value = 'Verifying QA test status and Sales Order match in device_tested...';
       let verifyUrl = '/api/device-tested/verify?serial_number=' + encodeURIComponent(readSn);
+      if (readDevEui) {
+        verifyUrl += '&device_key=' + encodeURIComponent(readDevEui);
+      }
       if (readItemCode || selectedItemCode.value) {
         verifyUrl += '&item_code=' + encodeURIComponent(readItemCode || selectedItemCode.value);
+      }
+      if (readFw) {
+        verifyUrl += '&fw_ver=' + encodeURIComponent(readFw);
+      }
+      if (readHw) {
+        verifyUrl += '&hw_ver=' + encodeURIComponent(readHw);
       }
       if (selectedSo.value) {
         verifyUrl += '&so=' + encodeURIComponent(selectedSo.value);
@@ -1660,13 +1617,12 @@ function useFinalConfigDeviceModule(ctx) {
       const record = verifyJson.data;
 
       // Auto-map / match Sales Order (SO)
-      if (selectedSo.value) {
+      const mappedSo = (record && (record.so_number || record.so)) || selectedSo.value;
+      if (mappedSo) {
+        selectedSo.value = record.so || record.so_number || mappedSo;
+        fcSelectedSo.value = record.so || record.so_number || mappedSo;
         fcSoCheckStatus.value = 'MATCH';
-      } else if (record && record.so) {
-        selectedSo.value = record.so;
-        fcSelectedSo.value = record.so;
-        fcSoCheckStatus.value = 'MATCH';
-        await fetchItemCodesForSo(record.so);
+        await fetchItemCodesForSo(mappedSo);
       }
 
       // Auto-fill Serial Number
@@ -1683,16 +1639,9 @@ function useFinalConfigDeviceModule(ctx) {
         fcHardwareInfo.value.itemCode = resolvedItemCode;
       }
 
-      // Auto-fill LoRaWAN AppKey from device_tested
+      // Auto-fill LoRaWAN AppKey from device_tested if exists
       if (record && record.app_key) {
         appKeyInput.value = record.app_key.toUpperCase();
-      }
-
-      // Validate AppKey
-      if (!isAppKeyValid.value) {
-        stage1Status.value = 'FAIL';
-        finalVerdict.value = 'FAIL';
-        throw new Error('Device tested AppKey is invalid (must be 32 hex characters).');
       }
 
       // Auto-load configuration preset by (SO, Item Code)
@@ -1716,7 +1665,11 @@ function useFinalConfigDeviceModule(ctx) {
       // ==================================================================
       currentStage.value = 2;
       stage2Status.value = 'RUNNING';
-      fcStatusMessage.value = 'Writing preset target configuration registers (Dec >= 303)...';
+
+      // 1. Generate random 128-bit LoRaWAN AppKey (32 uppercase hex characters)
+      const cleanAppKey = generateRandomAppKey();
+      appKeyInput.value = cleanAppKey;
+      fcStatusMessage.value = 'Generated 128-bit LoRaWAN AppKey: ' + cleanAppKey + '. Writing preset registers (Dec >= 303)...';
 
       // Registers to write: address >= 303
       const writeRegs = (currentPreset.value.registers || []).filter(r => Number(r.address) >= 303 && r.value_to_write !== undefined && r.value_to_write !== '');
@@ -1802,6 +1755,24 @@ function useFinalConfigDeviceModule(ctx) {
 
       // Build target registers to read back
       const allAuditList = [...fcAuditRegisters.value];
+
+      // Ensure HW_VERSION Reg 9 is in audit list
+      if (!allAuditList.some(r => r.address === 9)) {
+        allAuditList.unshift({
+          order_no: -1,
+          address: 9,
+          modbus_reg_hex: '0x0009',
+          parameter_name: 'HW Version',
+          format: 'ascii',
+          endianness: 'Big-Endian',
+          reg_num: 2,
+          fn_read: 'FC 03',
+          value_to_write: fcHardwareInfo.value.hwVersion || '',
+          value_read_back: '',
+          status: 'NONE',
+        });
+      }
+
       // Ensure AppKey 274 is in audit list
       if (!allAuditList.some(r => r.address === 274)) {
         allAuditList.unshift({
@@ -1832,6 +1803,8 @@ function useFinalConfigDeviceModule(ctx) {
           const rawBytes = await readModbusRegistersFromPort(1, addr, numreg);
           if (addr === 274 && numreg === 8) {
             row.value_read_back = bytesToHex(rawBytes);
+          } else if (addr === 9 && numreg === 2) {
+            row.value_read_back = bytesToAscii(rawBytes);
           } else {
             row.value_read_back = decodeModbusPayload(rawBytes, row.format, row.endianness);
           }
@@ -1871,6 +1844,9 @@ function useFinalConfigDeviceModule(ctx) {
         if (row.address === 274) {
           // Hex compare (AppKey)
           isMatch = read.toUpperCase() === target.toUpperCase();
+        } else if (row.address === 9) {
+          // HW_VERSION compare
+          isMatch = target ? (read.toUpperCase() === target.toUpperCase()) : (read !== 'READ_ERR');
         } else if (row.format === 'float' || row.format === 'float32') {
           const numT = parseFloat(target);
           const numR = parseFloat(read);
@@ -1906,6 +1882,7 @@ function useFinalConfigDeviceModule(ctx) {
         short_fw: fcHardwareInfo.value.shortFw,
         status: verdict,
         dev_eui: fcHardwareInfo.value.devEui,
+        app_key: appKeyInput.value,
         configured_regs_count: fcWrittenRegsCount.value,
         total_regs_count: fcAuditRegisters.value.length,
         tested_at: new Date().toISOString(),
@@ -1938,6 +1915,20 @@ function useFinalConfigDeviceModule(ctx) {
         }
       } catch (saveErr) {
         console.warn('DB save request failed:', saveErr);
+      }
+
+      // Update app_key in device_tested table
+      try {
+        await fetch('/api/device-tested/' + encodeURIComponent(fcHardwareInfo.value.serialNumber) + '/app-key', {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(authHeaders ? authHeaders() : {}),
+          },
+          body: JSON.stringify({ app_key: appKeyInput.value }),
+        });
+      } catch (dtErr) {
+        console.warn('device_tested patch app_key warning:', dtErr);
       }
 
       fcProgress.value = 100;
@@ -1988,10 +1979,16 @@ function useFinalConfigDeviceModule(ctx) {
     fcTotalMemmapRegsCount.value = 0;
     fcSoCheckStatus.value = 'NONE';
     fcSerialNumberInput.value = '';
+    fcSelectedSo.value = '';
+    selectedSo.value = '';
+    selectedItemCode.value = '';
+    fcSelectedItemCode.value = '';
+    appKeyInput.value = '';
     fcHardwareInfo.value = {
       serialNumber: '',
       devEui: '',
       firmwareVersion: '',
+      hwVersion: '',
       shortFw: 1,
       sensorType: 0,
       itemCode: '',

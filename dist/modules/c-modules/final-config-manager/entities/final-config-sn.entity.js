@@ -50,6 +50,12 @@ let FinalConfigSnEntity = class FinalConfigSnEntity {
     set devEui(val) {
         this.dev_eui = val;
     }
+    get appKey() {
+        return this.app_key;
+    }
+    set appKey(val) {
+        this.app_key = val;
+    }
     get configuredRegsCount() {
         return this.configured_regs_count;
     }
@@ -127,6 +133,10 @@ __decorate([
     (0, typeorm_1.Column)({ name: 'dev_eui', type: 'varchar', length: 50, nullable: true }),
     __metadata("design:type", String)
 ], FinalConfigSnEntity.prototype, "dev_eui", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ name: 'app_key', type: 'varchar', length: 64, nullable: true }),
+    __metadata("design:type", String)
+], FinalConfigSnEntity.prototype, "app_key", void 0);
 __decorate([
     (0, typeorm_1.Column)({ name: 'configured_regs_count', type: 'int', default: 0 }),
     __metadata("design:type", Number)

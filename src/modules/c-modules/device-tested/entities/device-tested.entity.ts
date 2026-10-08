@@ -23,8 +23,21 @@ export class DeviceTestedEntity {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column({ name: 'so', type: 'varchar', length: 100 })
-  so: string;
+  // Legacy SO column
+  @Column({ name: 'so', type: 'varchar', length: 100, nullable: true })
+  so?: string;
+
+  // Standardized SO column from CSV
+  @Column({ name: 'so_number', type: 'varchar', length: 100, nullable: true })
+  so_number?: string;
+
+  get soNumber(): string {
+    return this.so_number || this.so || '';
+  }
+  set soNumber(val: string) {
+    this.so_number = val;
+    this.so = val;
+  }
 
   @Column({ name: 'item_code', type: 'varchar', length: 100 })
   item_code: string;
@@ -46,27 +59,65 @@ export class DeviceTestedEntity {
     this.serial_number = val;
   }
 
-  @Column({ name: 'dev_eui', type: 'varchar', length: 50 })
-  dev_eui: string;
+  // Legacy DevEUI column
+  @Column({ name: 'dev_eui', type: 'varchar', length: 50, nullable: true })
+  dev_eui?: string;
+
+  // Standardized DevEUI / Device Key from CSV
+  @Column({ name: 'device_key', type: 'varchar', length: 50, nullable: true })
+  device_key?: string;
 
   get devEui(): string {
-    return this.dev_eui;
+    return this.device_key || this.dev_eui || '';
   }
   set devEui(val: string) {
     this.dev_eui = val;
+    this.device_key = val;
   }
 
-  @Column({ name: 'sku', type: 'varchar', length: 100 })
+  get deviceKey(): string {
+    return this.device_key || this.dev_eui || '';
+  }
+  set deviceKey(val: string) {
+    this.device_key = val;
+    this.dev_eui = val;
+  }
+
+  @Column({ name: 'sku', type: 'varchar', length: 100, nullable: true })
   sku: string;
 
-  @Column({ name: 'firmware_version', type: 'varchar', length: 50 })
-  firmware_version: string;
+  // Legacy Firmware Version column
+  @Column({ name: 'firmware_version', type: 'varchar', length: 50, nullable: true })
+  firmware_version?: string;
+
+  // Standardized FW Version from CSV
+  @Column({ name: 'fw_ver', type: 'varchar', length: 50, nullable: true })
+  fw_ver?: string;
 
   get firmwareVersion(): string {
-    return this.firmware_version;
+    return this.fw_ver || this.firmware_version || '';
   }
   set firmwareVersion(val: string) {
     this.firmware_version = val;
+    this.fw_ver = val;
+  }
+
+  get fwVer(): string {
+    return this.fw_ver || this.firmware_version || '';
+  }
+  set fwVer(val: string) {
+    this.fw_ver = val;
+    this.firmware_version = val;
+  }
+
+  @Column({ name: 'hw_ver', type: 'varchar', length: 50, nullable: true })
+  hw_ver?: string;
+
+  get hwVer(): string {
+    return this.hw_ver || '';
+  }
+  set hwVer(val: string) {
+    this.hw_ver = val;
   }
 
   @Column({ name: 'short_fw', type: 'int', default: 1 })
@@ -89,17 +140,54 @@ export class DeviceTestedEntity {
     this.sensor_type = val;
   }
 
+  // Legacy Status column
   @Column({ name: 'status', type: 'varchar', length: 20, default: 'PASS' })
   status: DeviceTestedStatus;
+
+  // Standardized overall result from CSV ('PASS' | 'FAIL')
+  @Column({ name: 'result', type: 'varchar', length: 20, default: 'PASS' })
+  result?: string;
+
+  // Automated check status from CSV ('PASS' | 'FAIL')
+  @Column({ name: 'auto_check', type: 'varchar', length: 20, default: 'PASS' })
+  auto_check?: string;
+
+  @Column({ name: 'test_id', type: 'varchar', length: 150, nullable: true })
+  test_id?: string;
+
+  @Column({ name: 'label_check_code', type: 'varchar', length: 50, nullable: true })
+  label_check_code?: string;
+
+  @Column({ name: 'start_time', type: 'varchar', length: 50, nullable: true })
+  start_time?: string;
+
+  @Column({ name: 'duration_time', type: 'varchar', length: 50, nullable: true })
+  duration_time?: string;
+
+  @Column({ name: 'time_finish', type: 'bigint', nullable: true })
+  time_finish?: number | string;
+
+  @Column({ name: 'test_station', type: 'varchar', length: 100, nullable: true })
+  test_station?: string;
+
+  @Column({ name: 'test_person', type: 'varchar', length: 100, nullable: true })
+  test_person?: string;
+
+  @Column({ name: 'test_note', type: 'text', nullable: true })
+  test_note?: string;
+
+  @Column({ name: 'test_result_id', type: 'varchar', length: 150, nullable: true })
+  test_result_id?: string;
 
   @Column({ name: 'station_id', type: 'varchar', length: 100, default: 'STATION-01', nullable: true })
   station_id?: string;
 
   get stationId(): string | undefined {
-    return this.station_id;
+    return this.station_id || this.test_station;
   }
   set stationId(val: string | undefined) {
     this.station_id = val;
+    this.test_station = val;
   }
 
   @Column({ name: 'operator', type: 'varchar', length: 100, default: 'admin', nullable: true })
@@ -130,6 +218,9 @@ export class DeviceTestedEntity {
 
   @Column({ name: 'metadata', type: 'jsonb', default: {} })
   metadata: Record<string, any>;
+
+  @Column({ name: 'csv_raw_data', type: 'jsonb', default: {} })
+  csv_raw_data: Record<string, any>;
 
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   created_at: Date;

@@ -2,6 +2,7 @@ import {
   Controller,
   Get,
   Post,
+  Patch,
   Body,
   Param,
   Query,
@@ -12,7 +13,13 @@ import {
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiQuery, ApiParam } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../../common/guards/jwt-auth.guard';
 import { DeviceTestedService } from './device-tested.service';
-import { CreateDeviceTestedDto, QueryDeviceTestedDto, VerifyDeviceTestedDto } from './dto/device-tested.dto';
+import {
+  CreateDeviceTestedDto,
+  QueryDeviceTestedDto,
+  VerifyDeviceTestedDto,
+  UpdateAppKeyDto,
+  ImportCsvDto,
+} from './dto/device-tested.dto';
 
 @Injectable()
 export class DeviceTestedAuthGuard extends JwtAuthGuard {
@@ -27,7 +34,7 @@ export class DeviceTestedAuthGuard extends JwtAuthGuard {
   }
 }
 
-@ApiTags('C-Module: Device Tested (QA Verification)')
+@ApiTags('C-Module: Device Tested (QA Verification & Tree View)')
 @Controller(['api/device-tested', 'api/c-modules/device-tested'])
 @UseGuards(DeviceTestedAuthGuard)
 @ApiBearerAuth()
@@ -35,12 +42,37 @@ export class DeviceTestedController {
   constructor(private readonly service: DeviceTestedService) {}
 
   @Get('verify')
-  @ApiOperation({ summary: 'Verify device eligibility from QA testing table (Stage 1 check)' })
+  @ApiOperation({ summary: 'Verify device eligibility from QA testing table (Stage 1 strict 6-field check)' })
   @ApiQuery({ name: 'serial_number', required: true, description: 'Device Serial Number' })
+  @ApiQuery({ name: 'device_key', required: false, description: 'Device Key / DevEUI' })
   @ApiQuery({ name: 'item_code', required: false, description: 'Item Code' })
+  @ApiQuery({ name: 'fw_ver', required: false, description: 'Firmware Version' })
+  @ApiQuery({ name: 'hw_ver', required: false, description: 'Hardware Version' })
   @ApiQuery({ name: 'so', required: false, description: 'Current selected Sales Order' })
   async verify(@Query() query: VerifyDeviceTestedDto) {
     return await this.service.verify(query);
+  }
+
+  @Get('tree')
+  @ApiOperation({ summary: 'Get tested devices hierarchical tree view grouped by Sales Order' })
+  async getTree() {
+    return await this.service.getTree();
+  }
+
+  @Post('import-csv')
+  @ApiOperation({ summary: 'Import QA tested devices CSV and upsert into database' })
+  async importCsv(@Body() dto: ImportCsvDto) {
+    return await this.service.importCsv(dto);
+  }
+
+  @Patch(':serialNumber/app-key')
+  @ApiOperation({ summary: 'Update LoRaWAN AppKey for tested device after Final Config Stage 2/4' })
+  @ApiParam({ name: 'serialNumber', description: 'Device Serial Number' })
+  async updateAppKey(
+    @Param('serialNumber') serialNumber: string,
+    @Body() dto: UpdateAppKeyDto,
+  ) {
+    return await this.service.updateAppKey(serialNumber, dto.app_key);
   }
 
   @Get('by-sn/:serialNumber')

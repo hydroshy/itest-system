@@ -213,4 +213,14 @@ export const C_MODULES_REGISTRY: CModule[] = [
     routeHash: '#final-config-manager',
     requiredPermission: 'lorawan:device:read',
   },
+  {
+    id: 'c-device-tested',
+    code: 'C_MOD_DEVICE_TESTED',
+    title: 'Tested Devices (QA Inspection)',
+    description: 'Import QA testing CSV files, manage tested device inventory by Sales Order tree view, and inspect multi-field validation criteria.',
+    icon: 'fa-solid fa-vial-circle-check',
+    category: 'Governance',
+    routeHash: '#device-tested',
+    requiredPermission: 'traceability:read',
+  },
 ];

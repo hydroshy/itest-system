@@ -49,6 +49,7 @@ export declare class SaveDeviceFinalConfigDto {
     short_fw?: number;
     status?: FinalConfigStatus;
     dev_eui?: string;
+    app_key?: string;
     operator?: string;
     notes?: string;
     metadata?: Record<string, any>;

@@ -227,6 +227,11 @@ __decorate([
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsString)(),
     __metadata("design:type", String)
+], SaveDeviceFinalConfigDto.prototype, "app_key", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
 ], SaveDeviceFinalConfigDto.prototype, "operator", void 0);
 __decorate([
     (0, class_validator_1.IsOptional)(),

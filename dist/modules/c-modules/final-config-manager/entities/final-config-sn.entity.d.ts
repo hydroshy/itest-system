@@ -24,6 +24,9 @@ export declare class FinalConfigSnEntity {
     dev_eui?: string;
     get devEui(): string | undefined;
     set devEui(val: string | undefined);
+    app_key?: string;
+    get appKey(): string | undefined;
+    set appKey(val: string | undefined);
     configured_regs_count: number;
     get configuredRegsCount(): number;
     set configuredRegsCount(val: number);

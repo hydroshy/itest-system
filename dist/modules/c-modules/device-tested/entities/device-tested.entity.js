@@ -12,6 +12,13 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.DeviceTestedEntity = void 0;
 const typeorm_1 = require("typeorm");
 let DeviceTestedEntity = class DeviceTestedEntity {
+    get soNumber() {
+        return this.so_number || this.so || '';
+    }
+    set soNumber(val) {
+        this.so_number = val;
+        this.so = val;
+    }
     get itemCode() {
         return this.item_code;
     }
@@ -25,16 +32,38 @@ let DeviceTestedEntity = class DeviceTestedEntity {
         this.serial_number = val;
     }
     get devEui() {
-        return this.dev_eui;
+        return this.device_key || this.dev_eui || '';
     }
     set devEui(val) {
         this.dev_eui = val;
+        this.device_key = val;
+    }
+    get deviceKey() {
+        return this.device_key || this.dev_eui || '';
+    }
+    set deviceKey(val) {
+        this.device_key = val;
+        this.dev_eui = val;
     }
     get firmwareVersion() {
-        return this.firmware_version;
+        return this.fw_ver || this.firmware_version || '';
     }
     set firmwareVersion(val) {
         this.firmware_version = val;
+        this.fw_ver = val;
+    }
+    get fwVer() {
+        return this.fw_ver || this.firmware_version || '';
+    }
+    set fwVer(val) {
+        this.fw_ver = val;
+        this.firmware_version = val;
+    }
+    get hwVer() {
+        return this.hw_ver || '';
+    }
+    set hwVer(val) {
+        this.hw_ver = val;
     }
     get shortFw() {
         return this.short_fw;
@@ -49,10 +78,11 @@ let DeviceTestedEntity = class DeviceTestedEntity {
         this.sensor_type = val;
     }
     get stationId() {
-        return this.station_id;
+        return this.station_id || this.test_station;
     }
     set stationId(val) {
         this.station_id = val;
+        this.test_station = val;
     }
     get appKey() {
         return this.app_key;
@@ -85,9 +115,13 @@ __decorate([
     __metadata("design:type", String)
 ], DeviceTestedEntity.prototype, "id", void 0);
 __decorate([
-    (0, typeorm_1.Column)({ name: 'so', type: 'varchar', length: 100 }),
+    (0, typeorm_1.Column)({ name: 'so', type: 'varchar', length: 100, nullable: true }),
     __metadata("design:type", String)
 ], DeviceTestedEntity.prototype, "so", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ name: 'so_number', type: 'varchar', length: 100, nullable: true }),
+    __metadata("design:type", String)
+], DeviceTestedEntity.prototype, "so_number", void 0);
 __decorate([
     (0, typeorm_1.Column)({ name: 'item_code', type: 'varchar', length: 100 }),
     __metadata("design:type", String)
@@ -97,17 +131,29 @@ __decorate([
     __metadata("design:type", String)
 ], DeviceTestedEntity.prototype, "serial_number", void 0);
 __decorate([
-    (0, typeorm_1.Column)({ name: 'dev_eui', type: 'varchar', length: 50 }),
+    (0, typeorm_1.Column)({ name: 'dev_eui', type: 'varchar', length: 50, nullable: true }),
     __metadata("design:type", String)
 ], DeviceTestedEntity.prototype, "dev_eui", void 0);
 __decorate([
-    (0, typeorm_1.Column)({ name: 'sku', type: 'varchar', length: 100 }),
+    (0, typeorm_1.Column)({ name: 'device_key', type: 'varchar', length: 50, nullable: true }),
+    __metadata("design:type", String)
+], DeviceTestedEntity.prototype, "device_key", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ name: 'sku', type: 'varchar', length: 100, nullable: true }),
     __metadata("design:type", String)
 ], DeviceTestedEntity.prototype, "sku", void 0);
 __decorate([
-    (0, typeorm_1.Column)({ name: 'firmware_version', type: 'varchar', length: 50 }),
+    (0, typeorm_1.Column)({ name: 'firmware_version', type: 'varchar', length: 50, nullable: true }),
     __metadata("design:type", String)
 ], DeviceTestedEntity.prototype, "firmware_version", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ name: 'fw_ver', type: 'varchar', length: 50, nullable: true }),
+    __metadata("design:type", String)
+], DeviceTestedEntity.prototype, "fw_ver", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ name: 'hw_ver', type: 'varchar', length: 50, nullable: true }),
+    __metadata("design:type", String)
+], DeviceTestedEntity.prototype, "hw_ver", void 0);
 __decorate([
     (0, typeorm_1.Column)({ name: 'short_fw', type: 'int', default: 1 }),
     __metadata("design:type", Number)
@@ -120,6 +166,50 @@ __decorate([
     (0, typeorm_1.Column)({ name: 'status', type: 'varchar', length: 20, default: 'PASS' }),
     __metadata("design:type", String)
 ], DeviceTestedEntity.prototype, "status", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ name: 'result', type: 'varchar', length: 20, default: 'PASS' }),
+    __metadata("design:type", String)
+], DeviceTestedEntity.prototype, "result", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ name: 'auto_check', type: 'varchar', length: 20, default: 'PASS' }),
+    __metadata("design:type", String)
+], DeviceTestedEntity.prototype, "auto_check", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ name: 'test_id', type: 'varchar', length: 150, nullable: true }),
+    __metadata("design:type", String)
+], DeviceTestedEntity.prototype, "test_id", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ name: 'label_check_code', type: 'varchar', length: 50, nullable: true }),
+    __metadata("design:type", String)
+], DeviceTestedEntity.prototype, "label_check_code", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ name: 'start_time', type: 'varchar', length: 50, nullable: true }),
+    __metadata("design:type", String)
+], DeviceTestedEntity.prototype, "start_time", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ name: 'duration_time', type: 'varchar', length: 50, nullable: true }),
+    __metadata("design:type", String)
+], DeviceTestedEntity.prototype, "duration_time", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ name: 'time_finish', type: 'bigint', nullable: true }),
+    __metadata("design:type", Object)
+], DeviceTestedEntity.prototype, "time_finish", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ name: 'test_station', type: 'varchar', length: 100, nullable: true }),
+    __metadata("design:type", String)
+], DeviceTestedEntity.prototype, "test_station", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ name: 'test_person', type: 'varchar', length: 100, nullable: true }),
+    __metadata("design:type", String)
+], DeviceTestedEntity.prototype, "test_person", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ name: 'test_note', type: 'text', nullable: true }),
+    __metadata("design:type", String)
+], DeviceTestedEntity.prototype, "test_note", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ name: 'test_result_id', type: 'varchar', length: 150, nullable: true }),
+    __metadata("design:type", String)
+], DeviceTestedEntity.prototype, "test_result_id", void 0);
 __decorate([
     (0, typeorm_1.Column)({ name: 'station_id', type: 'varchar', length: 100, default: 'STATION-01', nullable: true }),
     __metadata("design:type", String)
@@ -144,6 +234,10 @@ __decorate([
     (0, typeorm_1.Column)({ name: 'metadata', type: 'jsonb', default: {} }),
     __metadata("design:type", Object)
 ], DeviceTestedEntity.prototype, "metadata", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ name: 'csv_raw_data', type: 'jsonb', default: {} }),
+    __metadata("design:type", Object)
+], DeviceTestedEntity.prototype, "csv_raw_data", void 0);
 __decorate([
     (0, typeorm_1.CreateDateColumn)({ name: 'created_at', type: 'timestamptz' }),
     __metadata("design:type", Date)

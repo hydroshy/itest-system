@@ -40,6 +40,15 @@ let DeviceTestedController = class DeviceTestedController {
     async verify(query) {
         return await this.service.verify(query);
     }
+    async getTree() {
+        return await this.service.getTree();
+    }
+    async importCsv(dto) {
+        return await this.service.importCsv(dto);
+    }
+    async updateAppKey(serialNumber, dto) {
+        return await this.service.updateAppKey(serialNumber, dto.app_key);
+    }
     async getBySerialNumber(serialNumber, itemCode) {
         return await this.service.findBySerialNumber(serialNumber, itemCode);
     }
@@ -53,15 +62,43 @@ let DeviceTestedController = class DeviceTestedController {
 exports.DeviceTestedController = DeviceTestedController;
 __decorate([
     (0, common_1.Get)('verify'),
-    (0, swagger_1.ApiOperation)({ summary: 'Verify device eligibility from QA testing table (Stage 1 check)' }),
+    (0, swagger_1.ApiOperation)({ summary: 'Verify device eligibility from QA testing table (Stage 1 strict 6-field check)' }),
     (0, swagger_1.ApiQuery)({ name: 'serial_number', required: true, description: 'Device Serial Number' }),
+    (0, swagger_1.ApiQuery)({ name: 'device_key', required: false, description: 'Device Key / DevEUI' }),
     (0, swagger_1.ApiQuery)({ name: 'item_code', required: false, description: 'Item Code' }),
+    (0, swagger_1.ApiQuery)({ name: 'fw_ver', required: false, description: 'Firmware Version' }),
+    (0, swagger_1.ApiQuery)({ name: 'hw_ver', required: false, description: 'Hardware Version' }),
     (0, swagger_1.ApiQuery)({ name: 'so', required: false, description: 'Current selected Sales Order' }),
     __param(0, (0, common_1.Query)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [device_tested_dto_1.VerifyDeviceTestedDto]),
     __metadata("design:returntype", Promise)
 ], DeviceTestedController.prototype, "verify", null);
+__decorate([
+    (0, common_1.Get)('tree'),
+    (0, swagger_1.ApiOperation)({ summary: 'Get tested devices hierarchical tree view grouped by Sales Order' }),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", []),
+    __metadata("design:returntype", Promise)
+], DeviceTestedController.prototype, "getTree", null);
+__decorate([
+    (0, common_1.Post)('import-csv'),
+    (0, swagger_1.ApiOperation)({ summary: 'Import QA tested devices CSV and upsert into database' }),
+    __param(0, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [device_tested_dto_1.ImportCsvDto]),
+    __metadata("design:returntype", Promise)
+], DeviceTestedController.prototype, "importCsv", null);
+__decorate([
+    (0, common_1.Patch)(':serialNumber/app-key'),
+    (0, swagger_1.ApiOperation)({ summary: 'Update LoRaWAN AppKey for tested device after Final Config Stage 2/4' }),
+    (0, swagger_1.ApiParam)({ name: 'serialNumber', description: 'Device Serial Number' }),
+    __param(0, (0, common_1.Param)('serialNumber')),
+    __param(1, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, device_tested_dto_1.UpdateAppKeyDto]),
+    __metadata("design:returntype", Promise)
+], DeviceTestedController.prototype, "updateAppKey", null);
 __decorate([
     (0, common_1.Get)('by-sn/:serialNumber'),
     (0, swagger_1.ApiOperation)({ summary: 'Look up device test record by Serial Number' }),
@@ -90,7 +127,7 @@ __decorate([
     __metadata("design:returntype", Promise)
 ], DeviceTestedController.prototype, "create", null);
 exports.DeviceTestedController = DeviceTestedController = __decorate([
-    (0, swagger_1.ApiTags)('C-Module: Device Tested (QA Verification)'),
+    (0, swagger_1.ApiTags)('C-Module: Device Tested (QA Verification & Tree View)'),
     (0, common_1.Controller)(['api/device-tested', 'api/c-modules/device-tested']),
     (0, common_1.UseGuards)(DeviceTestedAuthGuard),
     (0, swagger_1.ApiBearerAuth)(),
