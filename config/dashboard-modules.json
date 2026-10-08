@@ -90,6 +90,19 @@
       "requiredPermission": "lorawan:device:read",
       "status": "active",
       "isActive": true
+    },
+    {
+      "id": "final-config-device",
+      "code": "D_MOD_FINAL_CONFIG_DEVICE",
+      "title": "FINAL CONFIG DEVICE",
+      "description": "Direct UART Modbus final config runner: 4-stage automated execution (HW Discovery & SO Check, Preset & AppKey 274 Write, Full Memmap Read, and Automated Pass/Fail Verdict).",
+      "icon": "fa-solid fa-sliders",
+      "color": "from-emerald-600 to-teal-700",
+      "badge": "Production QA",
+      "category": "Factory",
+      "requiredPermission": "lorawan:device:read",
+      "status": "active",
+      "isActive": true
     }
   ],
   "roleLayouts": {
@@ -102,7 +115,8 @@
         "lorawan-downlink",
         "serial-uart-monitor",
         "test-automation",
-        "traceability"
+        "traceability",
+        "final-config-device"
       ],
       "disabledModuleIds": [],
       "updatedAt": "2026-09-22T12:00:00.000Z"
@@ -116,7 +130,8 @@
         "lorawan-downlink",
         "serial-uart-monitor",
         "test-automation",
-        "traceability"
+        "traceability",
+        "final-config-device"
       ],
       "disabledModuleIds": [],
       "updatedAt": "2026-09-22T12:00:00.000Z"

@@ -13,6 +13,7 @@ const test_automation_module_1 = require("../../modules/d-modules/test-automatio
 const test_builder_module_1 = require("../../modules/c-modules/test-builder/test-builder.module");
 const decoder_module_1 = require("../../modules/c-modules/decoder-admin/decoder.module");
 const memmap_upload_module_1 = require("../../modules/c-modules/memmap-upload/memmap-upload.module");
+const device_tested_module_1 = require("../../modules/c-modules/device-tested/device-tested.module");
 const test_automation_diagnostic_service_1 = require("./test-automation-diagnostic.service");
 let TestAutomationSubsystemModule = class TestAutomationSubsystemModule {
 };
@@ -25,6 +26,7 @@ exports.TestAutomationSubsystemModule = TestAutomationSubsystemModule = __decora
             test_builder_module_1.TestBuilderModule,
             decoder_module_1.DecoderModule,
             memmap_upload_module_1.MemmapUploadModule,
+            device_tested_module_1.DeviceTestedModule,
         ],
         providers: [test_automation_diagnostic_service_1.TestAutomationDiagnosticService],
         exports: [
@@ -33,6 +35,7 @@ exports.TestAutomationSubsystemModule = TestAutomationSubsystemModule = __decora
             test_builder_module_1.TestBuilderModule,
             decoder_module_1.DecoderModule,
             memmap_upload_module_1.MemmapUploadModule,
+            device_tested_module_1.DeviceTestedModule,
             test_automation_diagnostic_service_1.TestAutomationDiagnosticService,
         ],
     })

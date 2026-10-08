@@ -21,3 +21,4 @@ export * from './modules/dashboard/hmi-scada.module';
 export { DOWNLINK_TEMPLATE as DASHBOARD_DOWNLINK_TEMPLATE, DOWNLINK_MODALS as DASHBOARD_DOWNLINK_MODALS, DOWNLINK_SCRIPT as DASHBOARD_DOWNLINK_SCRIPT, } from './modules/dashboard/downlink.module';
 export * from './modules/dashboard/serial-uart.module';
 export * from './modules/dashboard/traceability.module';
+export * from './modules/dashboard/final-config-device.module';

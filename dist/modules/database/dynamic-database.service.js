@@ -46,6 +46,7 @@ const final_config_preset_entity_1 = require("../c-modules/create-final-config/e
 const final_config_reg_entity_1 = require("../c-modules/create-final-config/entities/final-config-reg.entity");
 const final_config_sn_entity_1 = require("../c-modules/final-config-manager/entities/final-config-sn.entity");
 const final_config_regs_sn_entity_1 = require("../c-modules/final-config-manager/entities/final-config-regs-sn.entity");
+const device_tested_entity_1 = require("../c-modules/device-tested/entities/device-tested.entity");
 exports.ALL_DATABASE_ENTITIES = [
     user_entity_1.User,
     role_entity_1.Role,
@@ -78,6 +79,7 @@ exports.ALL_DATABASE_ENTITIES = [
     final_config_reg_entity_1.FinalConfigRegEntity,
     final_config_sn_entity_1.FinalConfigSnEntity,
     final_config_regs_sn_entity_1.FinalConfigRegsSnEntity,
+    device_tested_entity_1.DeviceTestedEntity,
 ];
 let DynamicDatabaseService = DynamicDatabaseService_1 = class DynamicDatabaseService {
     constructor() {

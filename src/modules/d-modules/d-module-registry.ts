@@ -10,7 +10,7 @@ export interface DModule {
   icon: string; // FontAwesome icon class
   color: string; // Tailwind gradient color class
   badge?: string;
-  category: 'Monitoring' | 'Fleet' | 'Analytics' | 'System' | 'Reports' | 'Infrastructure' | 'Custom';
+  category: 'Monitoring' | 'Fleet' | 'Analytics' | 'System' | 'Reports' | 'Infrastructure' | 'Custom' | 'Factory';
   requiredPermission?: string;
   allowedRoleCodes?: string[];
   status?: 'active' | 'ready' | 'beta';
@@ -115,6 +115,19 @@ export const DEFAULT_D_MODULES: DModule[] = [
     color: 'from-purple-600 to-indigo-600',
     badge: 'Traceability',
     category: 'Reports',
+    requiredPermission: 'lorawan:device:read',
+    status: 'active',
+    isActive: true,
+  },
+  {
+    id: 'final-config-device',
+    code: 'D_MOD_FINAL_CONFIG_DEVICE',
+    title: 'FINAL CONFIG DEVICE',
+    description: 'Direct UART Modbus final config runner: 4-stage automated execution (HW Discovery & SO Check, Preset & AppKey 274 Write, Full Memmap Read, and Automated Pass/Fail Verdict).',
+    icon: 'fa-solid fa-sliders',
+    color: 'from-emerald-600 to-teal-700',
+    badge: 'Production QA',
+    category: 'Factory',
     requiredPermission: 'lorawan:device:read',
     status: 'active',
     isActive: true,

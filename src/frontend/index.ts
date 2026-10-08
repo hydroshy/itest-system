@@ -35,4 +35,5 @@ export {
 } from './modules/dashboard/downlink.module';
 export * from './modules/dashboard/serial-uart.module';
 export * from './modules/dashboard/traceability.module';
+export * from './modules/dashboard/final-config-device.module';
 

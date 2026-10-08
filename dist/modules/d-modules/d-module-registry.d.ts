@@ -6,7 +6,7 @@ export interface DModule {
     icon: string;
     color: string;
     badge?: string;
-    category: 'Monitoring' | 'Fleet' | 'Analytics' | 'System' | 'Reports' | 'Infrastructure' | 'Custom';
+    category: 'Monitoring' | 'Fleet' | 'Analytics' | 'System' | 'Reports' | 'Infrastructure' | 'Custom' | 'Factory';
     requiredPermission?: string;
     allowedRoleCodes?: string[];
     status?: 'active' | 'ready' | 'beta';

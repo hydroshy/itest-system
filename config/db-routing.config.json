@@ -42,6 +42,7 @@
     "final_config_presets": "core_db",
     "final_config_regs": "core_db",
     "final_config_sn": "core_db",
-    "final_config_regs_sn": "core_db"
+    "final_config_regs_sn": "core_db",
+    "device_tested": "core_db"
   }
 }

@@ -33,6 +33,7 @@ import { FinalConfigPresetEntity } from '../c-modules/create-final-config/entiti
 import { FinalConfigRegEntity } from '../c-modules/create-final-config/entities/final-config-reg.entity';
 import { FinalConfigSnEntity } from '../c-modules/final-config-manager/entities/final-config-sn.entity';
 import { FinalConfigRegsSnEntity } from '../c-modules/final-config-manager/entities/final-config-regs-sn.entity';
+import { DeviceTestedEntity } from '../c-modules/device-tested/entities/device-tested.entity';
 
 export const ALL_DATABASE_ENTITIES = [
   User,
@@ -66,6 +67,7 @@ export const ALL_DATABASE_ENTITIES = [
   FinalConfigRegEntity,
   FinalConfigSnEntity,
   FinalConfigRegsSnEntity,
+  DeviceTestedEntity,
 ];
 
 export interface DbConnectionConfig {

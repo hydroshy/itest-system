@@ -44,4 +44,5 @@ Object.defineProperty(exports, "DASHBOARD_DOWNLINK_MODALS", { enumerable: true, 
 Object.defineProperty(exports, "DASHBOARD_DOWNLINK_SCRIPT", { enumerable: true, get: function () { return downlink_module_1.DOWNLINK_SCRIPT; } });
 __exportStar(require("./modules/dashboard/serial-uart.module"), exports);
 __exportStar(require("./modules/dashboard/traceability.module"), exports);
+__exportStar(require("./modules/dashboard/final-config-device.module"), exports);
 //# sourceMappingURL=index.js.map

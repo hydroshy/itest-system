@@ -5,6 +5,7 @@ import { DOWNLINK_TEMPLATE, DOWNLINK_MODALS, DOWNLINK_SCRIPT } from './dashboard
 import { SERIAL_UART_TEMPLATE, SERIAL_UART_MODALS, SERIAL_UART_SCRIPT } from './dashboard-modules/serial-uart.module';
 import { TEST_AUTOMATION_TEMPLATE, TEST_AUTOMATION_MODALS, TEST_AUTOMATION_SCRIPT } from './dashboard-modules/test-automation.module';
 import { TRACEABILITY_TEMPLATE, TRACEABILITY_MODALS, TRACEABILITY_SCRIPT } from './dashboard-modules/traceability.module';
+import { FINAL_CONFIG_DEVICE_TEMPLATE, FINAL_CONFIG_DEVICE_MODALS, FINAL_CONFIG_DEVICE_SCRIPT } from './dashboard-modules/final-config-device.module';
 
 export const DASHBOARD_HTML = `<!DOCTYPE html>
 <html lang="en">
@@ -1272,6 +1273,8 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
 
           ${TRACEABILITY_TEMPLATE}
 
+          ${FINAL_CONFIG_DEVICE_TEMPLATE}
+
           <!-- General Module Template for independent module source extension -->
           <div v-else class="text-center py-10 space-y-4">
             <div class="w-16 h-16 rounded-2xl bg-sky-500/10 border border-sky-500/25 flex items-center justify-center text-sky-400 text-2xl mx-auto shadow-inner">
@@ -1306,6 +1309,8 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
       ${TEST_AUTOMATION_MODALS}
 
       ${TRACEABILITY_MODALS}
+
+      ${FINAL_CONFIG_DEVICE_MODALS}
 
     </div>
 
@@ -1357,6 +1362,8 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
     ${TEST_AUTOMATION_SCRIPT}
 
     ${TRACEABILITY_SCRIPT}
+
+    ${FINAL_CONFIG_DEVICE_SCRIPT}
 
     const { createApp, ref, computed, onMounted, onUnmounted, nextTick, watch } = Vue;
 
@@ -2193,6 +2200,13 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
           copyText,
           currentUser,
         });
+        const finalConfigDeviceModule = useFinalConfigDeviceModule({
+          showToast,
+          authHeaders,
+          activeFeature,
+          copyText,
+          currentUser,
+        });
 
         // Destructure module variables for seamless template & method access
         const {
@@ -2531,6 +2545,8 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
             initRealtimeConnection();
           } else if (feature.id === 'traceability' || feature.id === 'product-traceability') {
             if (traceabilityModule.fetchTestResults) traceabilityModule.fetchTestResults();
+          } else if (feature.id === 'final-config-device') {
+            if (finalConfigDeviceModule.initFinalConfigDeviceModule) finalConfigDeviceModule.initFinalConfigDeviceModule();
           }
         };
 
@@ -2625,6 +2641,8 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
                     initRealtimeConnection();
                   } else if (found.id === 'traceability' || found.id === 'product-traceability') {
                     if (traceabilityModule.fetchTestResults) traceabilityModule.fetchTestResults();
+                  } else if (found.id === 'final-config-device') {
+                    if (finalConfigDeviceModule.initFinalConfigDeviceModule) finalConfigDeviceModule.initFinalConfigDeviceModule();
                   }
                 }
               }
@@ -3048,6 +3066,7 @@ export const DASHBOARD_HTML = `<!DOCTYPE html>
           ...serialModule,
           ...testAutomationModule,
           ...traceabilityModule,
+          ...finalConfigDeviceModule,
         };
       }
     });

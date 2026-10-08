@@ -4,11 +4,12 @@ import { TestAutomationModule } from '../../modules/d-modules/test-automation/te
 import { TestBuilderModule } from '../../modules/c-modules/test-builder/test-builder.module';
 import { DecoderModule } from '../../modules/c-modules/decoder-admin/decoder.module';
 import { MemmapUploadModule } from '../../modules/c-modules/memmap-upload/memmap-upload.module';
+import { DeviceTestedModule } from '../../modules/c-modules/device-tested/device-tested.module';
 import { TestAutomationDiagnosticService } from './test-automation-diagnostic.service';
 
 /**
  * Test Automation Domain Subsystem
- * Unifies D-Modules registry, Test Automation workbench, C-Module Test Builder flow engine, Memory Map Upload, and Payload Decoders.
+ * Unifies D-Modules registry, Test Automation workbench, C-Module Test Builder flow engine, Memory Map Upload, Payload Decoders, and Device Tested QA Verification.
  */
 @Module({
   imports: [
@@ -17,6 +18,7 @@ import { TestAutomationDiagnosticService } from './test-automation-diagnostic.se
     TestBuilderModule,
     DecoderModule,
     MemmapUploadModule,
+    DeviceTestedModule,
   ],
   providers: [TestAutomationDiagnosticService],
   exports: [
@@ -25,6 +27,7 @@ import { TestAutomationDiagnosticService } from './test-automation-diagnostic.se
     TestBuilderModule,
     DecoderModule,
     MemmapUploadModule,
+    DeviceTestedModule,
     TestAutomationDiagnosticService,
   ],
 })

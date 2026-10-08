@@ -93,5 +93,18 @@ exports.DEFAULT_D_MODULES = [
         status: 'active',
         isActive: true,
     },
+    {
+        id: 'final-config-device',
+        code: 'D_MOD_FINAL_CONFIG_DEVICE',
+        title: 'FINAL CONFIG DEVICE',
+        description: 'Direct UART Modbus final config runner: 4-stage automated execution (HW Discovery & SO Check, Preset & AppKey 274 Write, Full Memmap Read, and Automated Pass/Fail Verdict).',
+        icon: 'fa-solid fa-sliders',
+        color: 'from-emerald-600 to-teal-700',
+        badge: 'Production QA',
+        category: 'Factory',
+        requiredPermission: 'lorawan:device:read',
+        status: 'active',
+        isActive: true,
+    },
 ];
 //# sourceMappingURL=d-module-registry.js.map
