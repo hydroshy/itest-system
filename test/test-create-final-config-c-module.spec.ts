@@ -10,6 +10,8 @@ import { ModbusPresetsService } from '../src/modules/c-modules/modbus-presets/mo
 import {
   CREATE_FINAL_CONFIG_TEMPLATE,
   CREATE_FINAL_CONFIG_SCRIPT,
+  validateRegisterValue as moduleValidateRegisterValue,
+  precheckConfigValue as modulePrecheckConfigValue,
 } from '../src/views/control-panel-modules/create-final-config.module';
 
 async function runTestSuite() {
@@ -59,61 +61,30 @@ async function runTestSuite() {
   passedTests++;
 
   // -------------------------------------------------------------------
-  // TEST 3: Precheck UART Format Engine Algorithm
+  // TEST 3: Precheck UART Format Engine Algorithm & Empty Value Auto-Pass
   // -------------------------------------------------------------------
-  console.log('\n[TEST 3] Verifying UART Format Precheck Engine algorithm...');
-  // Extract and verify precheck functions
-  function normalizeFormat(f: string | undefined): 'string' | 'float' | 'uint' | 'int' | 'hex' {
-    const s = String(f || '').toLowerCase().trim();
-    if (s.includes('string') || s.includes('str') || s.includes('ascii') || s.includes('text')) return 'string';
-    if (s.includes('float') || s.includes('double')) return 'float';
-    if (s.includes('uint')) return 'uint';
-    if (s.includes('int')) return 'int';
-    if (s.includes('hex')) return 'hex';
-    return 'uint';
+  console.log('\n[TEST 3] Verifying UART Format Precheck Engine algorithm & empty value auto-pass...');
+  const validateRegisterValue = moduleValidateRegisterValue;
+
+  // (Spec Requirement 1 & 2): Empty value auto-pass check
+  const emptyCheck1 = validateRegisterValue('', 'uint', 1);
+  if (!emptyCheck1.valid || !emptyCheck1.isEmpty) {
+    throw new Error('FAILED: Empty string should be valid (pass check) and marked isEmpty');
   }
-
-  function validateRegisterValue(valStr: any, format: string, numRegs: number, rangeStr?: string) {
-    const fmt = normalizeFormat(format);
-    const val = String(valStr !== undefined && valStr !== null ? valStr : '').trim();
-    const numreg = Number(numRegs) > 0 ? Number(numRegs) : 1;
-
-    if (val === '') return { valid: false, error: 'Empty value' };
-
-    if (fmt === 'uint') {
-      if (!/^\d+$/.test(val)) return { valid: false, error: 'Must be non-negative integer' };
-      const n = Number(val);
-      if (numreg === 1 && (n < 0 || n > 65535)) return { valid: false, error: 'Exceeds uint16' };
-      if (numreg === 2 && (n < 0 || n > 4294967295)) return { valid: false, error: 'Exceeds uint32' };
-    } else if (fmt === 'int') {
-      if (!/^-?\d+$/.test(val)) return { valid: false, error: 'Must be signed integer' };
-      const n = Number(val);
-      if (numreg === 1 && (n < -32768 || n > 32767)) return { valid: false, error: 'Exceeds int16' };
-      if (numreg === 2 && (n < -2147483648 || n > 2147483647)) return { valid: false, error: 'Exceeds int32' };
-    } else if (fmt === 'float') {
-      if (isNaN(Number(val)) || !/^-?\d+(\.\d+)?([eE][+-]?\d+)?$/.test(val)) return { valid: false, error: 'Invalid float' };
-      if (numreg < 2) return { valid: false, error: 'Float requires numreg >= 2' };
-    } else if (fmt === 'string') {
-      if (!/^[\x00-\x7F]*$/.test(val)) return { valid: false, error: 'Non-ASCII chars' };
-      if (val.length > numreg * 2) return { valid: false, error: 'Length exceeds max chars' };
-    } else if (fmt === 'hex') {
-      if (!/^[0-9a-fA-F\s]+$/.test(val)) return { valid: false, error: 'Invalid hex chars' };
-      const clean = val.replace(/\s+/g, '');
-      if (clean.length % 2 !== 0) return { valid: false, error: 'Odd hex length' };
-      if (clean.length > numreg * 4) return { valid: false, error: 'Hex length exceeds max' };
-    }
-
-    if (rangeStr && (fmt === 'uint' || fmt === 'int' || fmt === 'float')) {
-      const match = String(rangeStr).match(/^(-?\d+(?:\.\d+)?)\s*(?:\.\.|-)\s*(-?\d+(?:\.\d+)?)$/);
-      if (match) {
-        const minVal = Number(match[1]);
-        const maxVal = Number(match[2]);
-        const numVal = Number(val);
-        if (numVal < minVal || numVal > maxVal) return { valid: false, error: 'Out of range' };
-      }
-    }
-
-    return { valid: true, error: '' };
+  const emptyCheck2 = validateRegisterValue('   ', 'float', 2);
+  if (!emptyCheck2.valid || !emptyCheck2.isEmpty) {
+    throw new Error('FAILED: Whitespace-only string should be valid (pass check) and marked isEmpty');
+  }
+  const emptyCheck3 = validateRegisterValue(undefined, 'string', 4);
+  if (!emptyCheck3.valid || !emptyCheck3.isEmpty) {
+    throw new Error('FAILED: undefined value should be valid (pass check) and marked isEmpty');
+  }
+  const emptyCheck4 = validateRegisterValue(null, 'hex', 1);
+  if (!emptyCheck4.valid || !emptyCheck4.isEmpty) {
+    throw new Error('FAILED: null value should be valid (pass check) and marked isEmpty');
+  }
+  if (modulePrecheckConfigValue('', 'int', 1).valid !== true) {
+    throw new Error('FAILED: precheckConfigValue alias must also pass empty string');
   }
 
   // Uint tests
@@ -269,6 +240,9 @@ async function runTestSuite() {
   if (!CREATE_FINAL_CONFIG_TEMPLATE.includes('showFinalConfigSaveModal')) {
     throw new Error('FAILED: CREATE_FINAL_CONFIG_TEMPLATE missing confirmation modal');
   }
+  if (!CREATE_FINAL_CONFIG_TEMPLATE.includes('configuredRegsCount')) {
+    throw new Error('FAILED: CREATE_FINAL_CONFIG_TEMPLATE missing configuredRegsCount in modal');
+  }
 
   // Script contents
   if (!CREATE_FINAL_CONFIG_SCRIPT.includes('useCreateFinalConfigModule')) {
@@ -279,6 +253,15 @@ async function runTestSuite() {
   }
   if (!CREATE_FINAL_CONFIG_SCRIPT.includes('modbus_reg_dec') || !CREATE_FINAL_CONFIG_SCRIPT.includes('303')) {
     throw new Error('FAILED: Script missing Dec Reg >= 303 filter');
+  }
+  if (!CREATE_FINAL_CONFIG_SCRIPT.includes('precheckConfigValue')) {
+    throw new Error('FAILED: Script missing precheckConfigValue');
+  }
+  if (!CREATE_FINAL_CONFIG_SCRIPT.includes("placeholder = 'Trống'")) {
+    throw new Error('FAILED: Script missing placeholder "Trống" for Input Config cell');
+  }
+  if (!CREATE_FINAL_CONFIG_SCRIPT.includes('Chưa cấu hình (tự động pass)')) {
+    throw new Error('FAILED: Script missing tooltip "Chưa cấu hình (tự động pass)" for empty cell badge');
   }
 
   // Control Panel view integration

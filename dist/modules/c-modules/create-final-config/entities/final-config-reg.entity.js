@@ -55,7 +55,7 @@ __decorate([
     __metadata("design:type", String)
 ], FinalConfigRegEntity.prototype, "parameter_name", void 0);
 __decorate([
-    (0, typeorm_1.Column)({ type: 'text' }),
+    (0, typeorm_1.Column)({ type: 'text', nullable: true, default: '' }),
     __metadata("design:type", String)
 ], FinalConfigRegEntity.prototype, "value_to_write", void 0);
 __decorate([

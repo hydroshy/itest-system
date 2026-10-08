@@ -9,7 +9,7 @@ export declare class FinalConfigRegEntity {
     reg_num: number;
     format: string;
     parameter_name: string;
-    value_to_write: string;
+    value_to_write?: string;
     value_on_memmap?: string;
     endianness: string;
     fn_read?: string;

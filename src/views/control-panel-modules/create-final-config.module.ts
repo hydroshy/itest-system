@@ -2,6 +2,130 @@
 // C-MODULE: CREATE FINAL CONFIG & MODBUS PRESET GENERATOR
 // ========================================================
 
+export function normalizeFormat(f: string | undefined): 'string' | 'float' | 'uint' | 'int' | 'hex' {
+  const s = String(f || '').toLowerCase().trim();
+  if (s.includes('string') || s.includes('str') || s.includes('ascii') || s.includes('text')) return 'string';
+  if (s.includes('float') || s.includes('double')) return 'float';
+  if (s.includes('uint')) return 'uint';
+  if (s.includes('int')) return 'int';
+  if (s.includes('hex')) return 'hex';
+  return 'uint';
+}
+
+export function validateRegisterValue(
+  valStr: any,
+  format: string,
+  numRegs: number,
+  rangeStr?: string,
+): { valid: boolean; error: string; isEmpty?: boolean } {
+  const val = String(valStr !== undefined && valStr !== null ? valStr : '').trim();
+
+  // (1) & (2): Ô trống tự động pass check, trạng thái hợp lệ/bỏ qua, không báo lỗi đỏ
+  if (val === '') {
+    return { valid: true, error: '', isEmpty: true };
+  }
+
+  const fmt = normalizeFormat(format);
+  const numreg = Number(numRegs) > 0 ? Number(numRegs) : 1;
+
+  // 1. UINT
+  if (fmt === 'uint') {
+    if (!/^\d+$/.test(val)) {
+      return { valid: false, error: 'Chỉ chấp nhận số nguyên không âm (uint)' };
+    }
+    const n = Number(val);
+    if (numreg === 1) {
+      if (n < 0 || n > 65535) {
+        return { valid: false, error: 'Vượt dải 16-bit uint (0..65535)' };
+      }
+    } else if (numreg === 2) {
+      if (n < 0 || n > 4294967295) {
+        return { valid: false, error: 'Vượt dải 32-bit uint (0..4294967295)' };
+      }
+    } else {
+      try {
+        if (BigInt(val) < 0n) {
+          return { valid: false, error: 'Giá trị uint phải >= 0' };
+        }
+      } catch (e) {
+        return { valid: false, error: 'Số nguyên không hợp lệ' };
+      }
+    }
+  }
+
+  // 2. INT
+  else if (fmt === 'int') {
+    if (!/^-?\d+$/.test(val)) {
+      return { valid: false, error: 'Chỉ chấp nhận số nguyên có dấu (int)' };
+    }
+    const n = Number(val);
+    if (numreg === 1) {
+      if (n < -32768 || n > 32767) {
+        return { valid: false, error: 'Vượt dải 16-bit int (-32768..32767)' };
+      }
+    } else if (numreg === 2) {
+      if (n < -2147483648 || n > 2147483647) {
+        return { valid: false, error: 'Vượt dải 32-bit int (-2147483648..2147483647)' };
+      }
+    }
+  }
+
+  // 3. FLOAT
+  else if (fmt === 'float') {
+    if (isNaN(Number(val)) || !/^-?\d+(\.\d+)?([eE][+-]?\d+)?$/.test(val)) {
+      return { valid: false, error: 'Giá trị float không hợp lệ' };
+    }
+    if (numreg < 2) {
+      return { valid: false, error: 'Float yêu cầu ít nhất 2 thanh ghi (# Regs >= 2)' };
+    }
+  }
+
+  // 4. STRING
+  else if (fmt === 'string') {
+    if (!/^[\x00-\x7F]*$/.test(val)) {
+      return { valid: false, error: 'Chỉ chấp nhận chuỗi ký tự ASCII' };
+    }
+    const maxLen = numreg * 2;
+    if (val.length > maxLen) {
+      return { valid: false, error: 'Độ dài (' + val.length + ') vượt quá ' + maxLen + ' ký tự' };
+    }
+  }
+
+  // 5. HEX
+  else if (fmt === 'hex') {
+    if (!/^[0-9a-fA-F\s]+$/.test(val)) {
+      return { valid: false, error: 'Chỉ chấp nhận ký tự Hex (0-9, A-F)' };
+    }
+    const cleanHex = val.replace(/\s+/g, '');
+    if (cleanHex.length % 2 !== 0) {
+      return { valid: false, error: 'Độ dài chuỗi Hex phải là số chẵn' };
+    }
+    const maxHexChars = numreg * 4;
+    if (cleanHex.length > maxHexChars) {
+      return { valid: false, error: 'Độ dài vượt quá dung lượng thanh ghi (tối đa ' + maxHexChars + ' ký tự)' };
+    }
+  }
+
+  // 6. Range
+  if (rangeStr && (fmt === 'uint' || fmt === 'int' || fmt === 'float')) {
+    const rangeMatch = String(rangeStr).match(/^(-?\d+(?:\.\d+)?)\s*(?:\.\.|-)\s*(-?\d+(?:\.\d+)?)$/);
+    if (rangeMatch) {
+      const minVal = Number(rangeMatch[1]);
+      const maxVal = Number(rangeMatch[2]);
+      const numVal = Number(val);
+      if (!isNaN(minVal) && !isNaN(maxVal) && !isNaN(numVal)) {
+        if (numVal < minVal || numVal > maxVal) {
+          return { valid: false, error: 'Vượt dải khuyến cáo [' + minVal + '..' + maxVal + ']' };
+        }
+      }
+    }
+  }
+
+  return { valid: true, error: '', isEmpty: false };
+}
+
+export const precheckConfigValue = validateRegisterValue;
+
 export const CREATE_FINAL_CONFIG_TEMPLATE = `
         <!-- TAB 19: CREATE FINAL CONFIG -->
         <div v-show="activeTab === 'create-final-config'" class="space-y-6">
@@ -215,7 +339,7 @@ export const CREATE_FINAL_CONFIG_TEMPLATE = `
 
             <p class="text-[11px] text-slate-500 flex items-center gap-1.5">
               <i class="fa-solid fa-circle-info text-sky-400"></i>
-              <span>Cột <strong>Input Config</strong> cho phép sửa trực tiếp. Định dạng được kiểm tra tiền kiểm thời gian thực (UART Precheck) dựa trên kiểu dữ liệu và dung lượng thanh ghi.</span>
+              <span>Cột <strong>Input Config</strong> mặc định để trống và tự động <strong>PASS</strong>. Tiền kiểm định dạng UART chỉ kích hoạt khi người dùng nhập dữ liệu.</span>
             </p>
           </div>
         </div>
@@ -270,6 +394,10 @@ export const CREATE_FINAL_CONFIG_TEMPLATE = `
                   <span class="text-slate-400">Số thanh ghi được chọn:</span>
                   <span class="font-bold text-white">{{ checkedRegsCount }} thanh ghi (Dec &gt;= 303)</span>
                 </div>
+                <div class="flex justify-between items-center py-1 border-b border-slate-800/80">
+                  <span class="text-slate-400">Thanh ghi cấu hình:</span>
+                  <span class="font-bold text-sky-300">{{ configuredRegsCount }} có giá trị / {{ checkedRegsCount - configuredRegsCount }} để trống</span>
+                </div>
                 <div class="flex justify-between items-center py-1">
                   <span class="text-slate-400">Trạng thái UART Precheck:</span>
                   <span :class="precheckErrorsCount === 0 ? 'text-emerald-400 font-bold' : 'text-rose-400 font-bold'">
@@ -279,7 +407,7 @@ export const CREATE_FINAL_CONFIG_TEMPLATE = `
               </div>
 
               <div class="p-3 rounded-xl bg-slate-950/60 border border-slate-800 text-[11px] text-slate-400 leading-relaxed">
-                Template Preset sẽ được lưu trữ đồng thời vào bảng <strong>final_config_presets</strong>, <strong>final_config_regs</strong> và hệ thống <strong>modbus_presets</strong> để D-Module (serial-uart / test engine) có thể nạp cấu hình trực tiếp.
+                Chỉ các thanh ghi có nhập dữ liệu mới được ghi nhận <strong>Value to Write</strong>. Các ô để trống giữ nguyên rỗng và tự động pass check. Template Preset sẽ được lưu trữ đồng thời vào bảng <strong>final_config_presets</strong>, <strong>final_config_regs</strong> và hệ thống <strong>modbus_presets</strong> để D-Module (serial-uart / test engine) có thể nạp cấu hình trực tiếp.
               </div>
             </div>
 
@@ -370,14 +498,16 @@ export const CREATE_FINAL_CONFIG_SCRIPT = `
       }
 
       // UART Format Precheck Engine (matching serial-uart.module.ts)
-      function validateRegisterValue(valStr, format, numRegs, rangeStr) {
-        const fmt = normalizeFormat(format);
+      function precheckConfigValue(valStr, format, numRegs, rangeStr) {
         const val = String(valStr !== undefined && valStr !== null ? valStr : '').trim();
-        const numreg = Number(numRegs) > 0 ? Number(numRegs) : 1;
 
+        // (1) & (2): Ô trống tự động pass check, trạng thái hợp lệ/bỏ qua, không báo lỗi đỏ
         if (val === '') {
-          return { valid: false, error: 'Giá trị không được để trống' };
+          return { valid: true, error: '', isEmpty: true };
         }
+
+        const fmt = normalizeFormat(format);
+        const numreg = Number(numRegs) > 0 ? Number(numRegs) : 1;
 
         // 1. UINT
         if (fmt === 'uint') {
@@ -472,8 +602,10 @@ export const CREATE_FINAL_CONFIG_SCRIPT = `
           }
         }
 
-        return { valid: true, error: '' };
+        return { valid: true, error: '', isEmpty: false };
       }
+
+      const validateRegisterValue = precheckConfigValue;
 
       // Computed counters
       const checkedRegsCount = computed(() => {
@@ -482,6 +614,10 @@ export const CREATE_FINAL_CONFIG_SCRIPT = `
 
       const precheckErrorsCount = computed(() => {
         return finalConfigRegs.value.filter(r => !!r.checked && !r.valid).length;
+      });
+
+      const configuredRegsCount = computed(() => {
+        return finalConfigRegs.value.filter(r => !!r.checked && String(r.value_to_write !== undefined && r.value_to_write !== null ? r.value_to_write : '').trim() !== '').length;
       });
 
       const canSaveFinalConfig = computed(() => {
@@ -650,8 +786,8 @@ export const CREATE_FINAL_CONFIG_SCRIPT = `
 
           finalConfigRegs.value = filtered.map((r, idx) => {
             const defaultVal = r.end_user_default !== undefined && r.end_user_default !== null ? String(r.end_user_default) : '';
-            const valToWrite = defaultVal;
-            const validation = validateRegisterValue(valToWrite, r.format, r.num_regs, r.range_val);
+            const valToWrite = '';
+            const validation = precheckConfigValue(valToWrite, r.format, r.num_regs, r.range_val);
             const decVal = Number(r.modbus_reg_dec);
             const hexVal = r.modbus_reg_hex || ('0x' + decVal.toString(16).padStart(4, '0').toUpperCase());
 
@@ -676,6 +812,7 @@ export const CREATE_FINAL_CONFIG_SCRIPT = `
               order_no: idx + 1,
               valid: validation.valid,
               validationError: validation.error,
+              isEmpty: validation.isEmpty,
             };
           });
 
@@ -862,14 +999,21 @@ export const CREATE_FINAL_CONFIG_SCRIPT = `
                   const row = cell.getRow().getData();
                   const val = row.value_to_write !== undefined && row.value_to_write !== null ? row.value_to_write : '';
                   const isValid = !!row.valid;
+                  const isValEmpty = String(val).trim() === '';
 
                   const input = document.createElement('input');
                   input.type = 'text';
                   input.value = val;
-                  input.className = 'w-full h-7 px-2 text-center text-xs font-mono font-bold rounded outline-none transition ' +
-                    (isValid
-                      ? 'text-amber-300 bg-slate-950/80 border border-slate-700/80 focus:border-amber-400 focus:bg-slate-900'
-                      : 'text-rose-300 bg-rose-950/40 border border-rose-500 focus:border-rose-400');
+                  input.placeholder = 'Trống';
+
+                  let inputStyleClass = 'text-amber-300 bg-slate-950/80 border border-slate-700/80 focus:border-amber-400 focus:bg-slate-900';
+                  if (!isValid) {
+                    inputStyleClass = 'text-rose-300 bg-rose-950/40 border border-rose-500 focus:border-rose-400';
+                  } else if (isValEmpty) {
+                    inputStyleClass = 'text-slate-300 placeholder-slate-500 bg-slate-950/60 border border-slate-700/60 focus:border-sky-400 focus:bg-slate-900';
+                  }
+
+                  input.className = 'w-full h-7 px-2 text-center text-xs font-mono font-bold rounded outline-none transition ' + inputStyleClass;
                   input.style.width = '100%';
                   input.style.boxSizing = 'border-box';
 
@@ -879,17 +1023,21 @@ export const CREATE_FINAL_CONFIG_SCRIPT = `
                     const r = finalConfigRegs.value.find(x => x.id === row.id);
                     if (r) {
                       r.value_to_write = v;
-                      const check = validateRegisterValue(v, r.format, r.reg_num, r.range_val);
+                      const check = precheckConfigValue(v, r.format, r.reg_num, r.range_val);
                       r.valid = check.valid;
                       r.validationError = check.error;
+                      r.isEmpty = check.isEmpty;
                       row.valid = check.valid;
                       row.validationError = check.error;
+                      row.isEmpty = check.isEmpty;
 
                       // Update border color realtime
-                      if (check.valid) {
-                        input.className = 'w-full h-7 px-2 text-center text-xs font-mono font-bold rounded outline-none transition text-amber-300 bg-slate-950/80 border border-slate-700/80 focus:border-amber-400 focus:bg-slate-900';
-                      } else {
+                      if (!check.valid) {
                         input.className = 'w-full h-7 px-2 text-center text-xs font-mono font-bold rounded outline-none transition text-rose-300 bg-rose-950/40 border border-rose-500 focus:border-rose-400';
+                      } else if (check.isEmpty) {
+                        input.className = 'w-full h-7 px-2 text-center text-xs font-mono font-bold rounded outline-none transition text-slate-300 placeholder-slate-500 bg-slate-950/60 border border-slate-700/60 focus:border-sky-400 focus:bg-slate-900';
+                      } else {
+                        input.className = 'w-full h-7 px-2 text-center text-xs font-mono font-bold rounded outline-none transition text-amber-300 bg-slate-950/80 border border-slate-700/80 focus:border-amber-400 focus:bg-slate-900';
                       }
 
                       // Re-validate row in Tabulator
@@ -916,11 +1064,16 @@ export const CREATE_FINAL_CONFIG_SCRIPT = `
                   const row = cell.getRow().getData();
                   const isValid = !!row.valid;
                   const errMsg = row.validationError || '';
-                  if (isValid) {
-                    return '<span class="px-2 py-0.5 rounded text-[11px] font-mono font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center justify-center gap-1"><i class="fa-solid fa-check"></i> PASS</span>';
-                  } else {
+                  const val = String(row.value_to_write !== undefined && row.value_to_write !== null ? row.value_to_write : '').trim();
+                  const isEmpty = val === '' || !!row.isEmpty;
+
+                  if (!isValid) {
                     return '<span class="px-2 py-0.5 rounded text-[11px] font-mono font-bold bg-rose-500/20 text-rose-400 border border-rose-500/30 flex items-center justify-center gap-1 cursor-help" title="' + errMsg + '"><i class="fa-solid fa-triangle-exclamation"></i> FAIL</span>';
                   }
+                  if (isEmpty) {
+                    return '<span class="px-2 py-0.5 rounded text-[11px] font-mono font-bold bg-emerald-500/10 text-emerald-400/90 border border-emerald-500/20 flex items-center justify-center gap-1" title="Chưa cấu hình (tự động pass)"><i class="fa-solid fa-check"></i> PASS</span>';
+                  }
+                  return '<span class="px-2 py-0.5 rounded text-[11px] font-mono font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center justify-center gap-1" title="Đã cấu hình hợp lệ (PASS)"><i class="fa-solid fa-check"></i> PASS</span>';
                 }
               }
             ]
@@ -985,25 +1138,28 @@ export const CREATE_FINAL_CONFIG_SCRIPT = `
 
           const checkedRegs = finalConfigRegs.value
             .filter(r => !!r.checked)
-            .map((r, idx) => ({
-              id: 'reg_' + r.modbus_reg_dec + '_' + idx,
-              order: idx + 1,
-              checked: true,
-              slave: r.slave || 1,
-              fc: Number(r.fn_read) || 3,
-              reg: Number(r.modbus_reg_dec),
-              numreg: Number(r.reg_num) || 1,
-              format: r.format || 'uint',
-              endianness: r.endianness || 'big-endian',
-              parameter: r.parameter_name || r.description || '',
-              valuetowrite: String(r.value_to_write !== undefined ? r.value_to_write : ''),
-              value_on_memmap: r.value_on_memmap || '',
-              comment: r.comment || '',
-              range: r.range_val || '',
-              modbus_reg_hex: r.modbus_reg_hex,
-              fn_read: r.fn_read || '3',
-              fn_write: r.fn_write || '16',
-            }));
+            .map((r, idx) => {
+              const rawInput = r.value_to_write !== undefined && r.value_to_write !== null ? String(r.value_to_write).trim() : '';
+              return {
+                id: 'reg_' + r.modbus_reg_dec + '_' + idx,
+                order: idx + 1,
+                checked: true,
+                slave: r.slave || 1,
+                fc: Number(r.fn_read) || 3,
+                reg: Number(r.modbus_reg_dec),
+                numreg: Number(r.reg_num) || 1,
+                format: r.format || 'uint',
+                endianness: r.endianness || 'big-endian',
+                parameter: r.parameter_name || r.description || '',
+                valuetowrite: rawInput,
+                value_on_memmap: r.value_on_memmap || '',
+                comment: r.comment || '',
+                range: r.range_val || '',
+                modbus_reg_hex: r.modbus_reg_hex,
+                fn_read: r.fn_read || '3',
+                fn_write: r.fn_write || '16',
+              };
+            });
 
           const payload = {
             name: presetName,
@@ -1084,6 +1240,7 @@ export const CREATE_FINAL_CONFIG_SCRIPT = `
         fcSkuError,
         fcFwError,
         checkedRegsCount,
+        configuredRegsCount,
         precheckErrorsCount,
         canSaveFinalConfig,
         onFinalConfigSoChange,
@@ -1096,10 +1253,15 @@ export const CREATE_FINAL_CONFIG_SCRIPT = `
         confirmSaveFinalConfig,
         renderFinalConfigTabulator,
         loadReferenceData,
+        precheckConfigValue,
+        validateRegisterValue,
       };
     }
 
     if (typeof window !== 'undefined') {
       window.useCreateFinalConfigModule = useCreateFinalConfigModule;
+      window.precheckConfigValue = precheckConfigValue;
+      window.validateRegisterValue = validateRegisterValue;
+      window.normalizeFormat = normalizeFormat;
     }
 `;

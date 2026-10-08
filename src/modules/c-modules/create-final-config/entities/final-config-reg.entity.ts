@@ -44,8 +44,8 @@ export class FinalConfigRegEntity {
   @Column({ type: 'varchar', length: 255 })
   parameter_name: string;
 
-  @Column({ type: 'text' })
-  value_to_write: string;
+  @Column({ type: 'text', nullable: true, default: '' })
+  value_to_write?: string;
 
   @Column({ type: 'text', nullable: true })
   value_on_memmap?: string;
