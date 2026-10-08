@@ -220,8 +220,66 @@ async function runFinalConfigDeviceSuite() {
   console.log('  -> PASS: Dashboard view and frontend index integration verified.\n');
   passedTests++;
 
+  // --------------------------------------------------------------------
+  // TEST 8: START Button Refactor, Auto SO/AppKey Map & SN Input
+  // --------------------------------------------------------------------
+  console.log('[TEST 8] Verifying START Button State, Auto SO/AppKey Stage 1 & SN Input...');
+  
+  // 8a. Verify START button binding and text
+  assert.ok(
+    viewsContent.includes(':disabled="!fcSerialConnected || isRunningFinalConfig"'),
+    'START button disabled condition must only be !fcSerialConnected || isRunningFinalConfig'
+  );
+  assert.ok(
+    !viewsContent.includes('!fcSelectedSo || !fcSelectedItemCode || !currentPreset || !isAppKeyValid'),
+    'START button must not be locked by SO, Item Code, Preset or AppKey pre-conditions'
+  );
+  assert.ok(
+    viewsContent.includes("isRunningFinalConfig ? 'EXECUTING...' : 'START'"),
+    'START button label must be START when idle and EXECUTING... when running'
+  );
+
+  // 8b. Verify Serial Number (SN) input in Section 2
+  assert.ok(
+    viewsContent.includes('v-model="fcSerialNumberInput"'),
+    'Section 2 must include Serial Number (SN) input with v-model="fcSerialNumberInput"'
+  );
+  assert.ok(
+    viewsContent.includes('lg:grid-cols-5'),
+    'Work Order & Preset Strip grid must be expanded to 5 columns'
+  );
+
+  // 8c. Verify Stage 1 automated SO & AppKey mapping contract
+  assert.ok(
+    viewsContent.includes('fcSerialNumberInput.value = readSn'),
+    'Stage 1 must populate fcSerialNumberInput with readSn from Reg 259'
+  );
+  assert.ok(
+    viewsContent.includes('appKeyInput.value = record.app_key.toUpperCase()'),
+    'Stage 1 must automatically map AppKey from device_tested to appKeyInput'
+  );
+  assert.ok(
+    viewsContent.includes('selectedSo.value = record.so'),
+    'Stage 1 must auto-assign SO when selectedSo was not previously selected'
+  );
+  assert.ok(
+    viewsContent.includes('loadPresetBySoItem(selectedSo.value, selectedItemCode.value)'),
+    'Stage 1 must automatically load preset by matched SO and Item Code'
+  );
+
+  // 8d. Verify Backend Service lookup without SO (by SN only)
+  const autoLookRecord = await service.verify({
+    serial_number: 'SN2026040001',
+    item_code: 'WSLRW-ATH-01',
+  });
+  assert.strictEqual(autoLookRecord.verified, true, 'Stage 1 verify must pass without pre-selected SO if SN & Item Code match PASS record');
+  assert.strictEqual(autoLookRecord.data?.so, 'SO-TEST-2026', 'Record must return stored SO for auto-mapping');
+
+  console.log('  -> PASS: START button refactor, Stage 1 auto-map & SN input fully verified.\n');
+  passedTests++;
+
   console.log('======================================================================');
-  console.log(`ALL TESTS PASSED: ${passedTests}/${totalTests} CHECKS SUCCESSFUL`);
+  console.log(`ALL TESTS PASSED: ${passedTests}/${totalTests + 1} CHECKS SUCCESSFUL`);
   console.log('======================================================================');
 }
 

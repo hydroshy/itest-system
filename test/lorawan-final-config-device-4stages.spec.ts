@@ -252,6 +252,7 @@ async function runLorawanFinalConfigDeviceTestSuite() {
     short_fw: 6,
     sensor_type: 103,
     status: 'PASS',
+    app_key: '2B7E151628AED2A6ABF7158809CF4F3C',
   });
 
   await service.create({
@@ -301,6 +302,15 @@ async function runLorawanFinalConfigDeviceTestSuite() {
     so: 'SO-DAVITEQ-2026-A',
   });
   assert.strictEqual(verifyUnregistered.verified, false, 'Stage 1 must fail when device not found in device_tested');
+
+  // 2e. Verify without pre-selected SO -> MUST AUTO-MAP SO and AppKey
+  const verifyNoPreselectedSo = await service.verify({
+    serial_number: 'SN-WSLRW-0001',
+    item_code: 'WSLRW-ATH-01',
+  });
+  assert.strictEqual(verifyNoPreselectedSo.verified, true, 'Stage 1 must pass when no SO is pre-selected and device is PASS in device_tested');
+  assert.strictEqual(verifyNoPreselectedSo.data?.so, 'SO-DAVITEQ-2026-A', 'Must auto-map SO from device_tested record');
+  assert.ok(verifyNoPreselectedSo.data?.app_key, 'Must return app_key for automatic Stage 2 Reg 274 programming');
 
   console.log('  -> PASS: Stage 1 hardware ID & QA gate check rigorously verified.\n');
   passedTests++;

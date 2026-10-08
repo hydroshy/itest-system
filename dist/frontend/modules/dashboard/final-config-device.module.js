@@ -186,11 +186,26 @@ exports.FINAL_CONFIG_DEVICE_TEMPLATE = `          <div v-else-if="activeFeature.
                 </div>
               </div>
 
-              <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+                <!-- Serial Number (SN) -->
+                <div>
+                  <label class="block text-xs font-semibold text-slate-300 mb-1.5">
+                    Serial Number (SN)
+                  </label>
+                  <input
+                    type="text"
+                    v-model="fcSerialNumberInput"
+                    @change="fcOnSerialNumberChange"
+                    placeholder="Auto-read Reg 259..."
+                    :disabled="isRunningFinalConfig"
+                    class="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-700 text-white text-xs font-mono focus:border-cyan-500 focus:outline-none transition disabled:opacity-50"
+                  />
+                </div>
+
                 <!-- Select Sales Order (SO) -->
                 <div>
                   <label class="block text-xs font-semibold text-slate-300 mb-1.5">
-                    Sales Order (SO) <span class="text-rose-400">*</span>
+                    Sales Order (SO)
                   </label>
                   <select
                     v-model="fcSelectedSo"
@@ -208,7 +223,7 @@ exports.FINAL_CONFIG_DEVICE_TEMPLATE = `          <div v-else-if="activeFeature.
                 <!-- Select Item Code -->
                 <div>
                   <label class="block text-xs font-semibold text-slate-300 mb-1.5">
-                    Item Code <span class="text-rose-400">*</span>
+                    Item Code
                   </label>
                   <select
                     v-model="fcSelectedItemCode"
@@ -248,7 +263,7 @@ exports.FINAL_CONFIG_DEVICE_TEMPLATE = `          <div v-else-if="activeFeature.
                 <div>
                   <div class="flex items-center justify-between mb-1.5">
                     <label class="text-xs font-semibold text-slate-300">
-                      LoRaWAN AppKey (Dec 274) <span class="text-rose-400">*</span>
+                      LoRaWAN AppKey (Dec 274)
                     </label>
                     <button
                       type="button"
@@ -288,15 +303,15 @@ exports.FINAL_CONFIG_DEVICE_TEMPLATE = `          <div v-else-if="activeFeature.
               <!-- Top Actions: Run, Reset, Abort & Verdict Banner -->
               <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div class="flex items-center gap-3 flex-wrap">
-                  <!-- RUN BUTTON -->
+                  <!-- START BUTTON -->
                   <button
                     type="button"
                     @click="startFinalConfig"
-                    :disabled="isRunningFinalConfig || !fcSerialConnected || !fcSelectedSo || !fcSelectedItemCode || !currentPreset || !isAppKeyValid"
+                    :disabled="!fcSerialConnected || isRunningFinalConfig"
                     class="px-5 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 hover:from-emerald-500 hover:to-cyan-500 text-white font-bold text-xs uppercase tracking-wider shadow-lg shadow-emerald-900/30 flex items-center gap-2 cursor-pointer transition disabled:opacity-40 disabled:cursor-not-allowed"
                   >
                     <i class="fa-solid" :class="isRunningFinalConfig ? 'fa-spinner animate-spin' : 'fa-play'"></i>
-                    <span>{{ isRunningFinalConfig ? 'Executing 4 Stages...' : 'RUN 4-STAGE FINAL CONFIG' }}</span>
+                    <span>{{ isRunningFinalConfig ? 'EXECUTING...' : 'START' }}</span>
                   </button>
 
                   <!-- RESET BUTTON -->
@@ -1312,6 +1327,8 @@ function useFinalConfigDeviceModule(ctx) {
   // ----------------------------------------------------------------------
   // 3. REACTIVE STATE & FORM BINDING
   // ----------------------------------------------------------------------
+  const fcSerialNumberInput = ref('');
+  const serialNumberInput = fcSerialNumberInput;
   const fcSelectedSo = ref('');
   const selectedSo = fcSelectedSo;
   const fcSelectedItemCode = ref('');
@@ -1479,6 +1496,46 @@ function useFinalConfigDeviceModule(ctx) {
     }
   };
 
+  const lookupDeviceBySn = async (sn) => {
+    if (!sn || !sn.trim()) return null;
+    try {
+      const res = await fetch('/api/device-tested/by-sn/' + encodeURIComponent(sn.trim()), {
+        headers: authHeaders ? authHeaders() : {},
+      });
+      if (res.ok) {
+        const json = await res.json();
+        if (json.success && json.data) {
+          const record = json.data;
+          if (record.so && !selectedSo.value) {
+            selectedSo.value = record.so;
+            fcSelectedSo.value = record.so;
+            await fetchItemCodesForSo(record.so);
+          }
+          if (record.item_code && !selectedItemCode.value) {
+            selectedItemCode.value = record.item_code;
+            fcSelectedItemCode.value = record.item_code;
+            if (selectedSo.value) {
+              await loadPresetBySoItem(selectedSo.value, record.item_code);
+            }
+          }
+          if (record.app_key) {
+            appKeyInput.value = record.app_key.toUpperCase();
+          }
+          return record;
+        }
+      }
+    } catch (e) {
+      console.warn('Failed to lookup device by SN:', e);
+    }
+    return null;
+  };
+
+  const fcOnSerialNumberChange = async () => {
+    if (fcSerialNumberInput.value) {
+      await lookupDeviceBySn(fcSerialNumberInput.value);
+    }
+  };
+
   // ----------------------------------------------------------------------
   // 5. AUTOMATED 4-STAGE FINAL CONFIG WORKFLOW
   // ----------------------------------------------------------------------
@@ -1487,24 +1544,12 @@ function useFinalConfigDeviceModule(ctx) {
       if (showToast) showToast('Please select and connect COM port first.', 'warning');
       return;
     }
-    if (!selectedSo.value || !selectedItemCode.value) {
-      if (showToast) showToast('Please select Sales Order and Item Code.', 'warning');
-      return;
-    }
-    if (!currentPreset.value) {
-      if (showToast) showToast('No configuration preset found for selected SO and Item Code.', 'error');
-      return;
-    }
-    if (!isAppKeyValid.value) {
-      if (showToast) showToast('LoRaWAN AppKey must be exactly 32 hex characters.', 'error');
-      return;
-    }
 
     isRunningFinalConfig.value = true;
     abortRequested.value = false;
     finalVerdict.value = 'NONE';
     fcProgress.value = 0;
-    currentStage.value = 0;
+    currentStage.value = 1;
     fcMismatchCount.value = 0;
     fcDbSaved.value = false;
     stage1Status.value = 'RUNNING';
@@ -1541,6 +1586,7 @@ function useFinalConfigDeviceModule(ctx) {
       }
       if (!readSn) throw new Error('Serial Number (Reg 259) read from hardware is empty');
       fcHardwareInfo.value.serialNumber = readSn;
+      fcSerialNumberInput.value = readSn;
       fcProgress.value = 10;
 
       // 2. Read Reg 27 (DEV_EUI: 4 regs = 8 bytes, hex)
@@ -1586,15 +1632,18 @@ function useFinalConfigDeviceModule(ctx) {
       } catch (e) {
         console.warn('Failed to read Item Code (Reg 386):', e);
       }
-      fcHardwareInfo.value.itemCode = readItemCode || selectedItemCode.value;
-      fcHardwareInfo.value.sku = currentPreset.value?.sku || 'WSLRW';
+      fcHardwareInfo.value.itemCode = readItemCode;
       fcProgress.value = 20;
 
-      // 6. Verify against device_tested table
+      // 6. Verify against device_tested table & Auto-map SO, Item Code, AppKey & Preset
       fcStatusMessage.value = 'Verifying QA test status and Sales Order match in device_tested...';
-      const verifyUrl = '/api/device-tested/verify?serial_number=' + encodeURIComponent(readSn) +
-        '&item_code=' + encodeURIComponent(selectedItemCode.value) +
-        '&so=' + encodeURIComponent(selectedSo.value);
+      let verifyUrl = '/api/device-tested/verify?serial_number=' + encodeURIComponent(readSn);
+      if (readItemCode || selectedItemCode.value) {
+        verifyUrl += '&item_code=' + encodeURIComponent(readItemCode || selectedItemCode.value);
+      }
+      if (selectedSo.value) {
+        verifyUrl += '&so=' + encodeURIComponent(selectedSo.value);
+      }
       const verifyRes = await fetch(verifyUrl, {
         headers: authHeaders ? authHeaders() : {},
       });
@@ -1608,9 +1657,58 @@ function useFinalConfigDeviceModule(ctx) {
         throw new Error('QA Check Failed: ' + (verifyJson.message || 'Device not verified in device_tested table'));
       }
 
-      fcSoCheckStatus.value = 'MATCH';
+      const record = verifyJson.data;
+
+      // Auto-map / match Sales Order (SO)
+      if (selectedSo.value) {
+        fcSoCheckStatus.value = 'MATCH';
+      } else if (record && record.so) {
+        selectedSo.value = record.so;
+        fcSelectedSo.value = record.so;
+        fcSoCheckStatus.value = 'MATCH';
+        await fetchItemCodesForSo(record.so);
+      }
+
+      // Auto-fill Serial Number
+      if (record && record.serial_number) {
+        fcSerialNumberInput.value = record.serial_number;
+        fcHardwareInfo.value.serialNumber = record.serial_number;
+      }
+
+      // Auto-fill Item Code
+      const resolvedItemCode = (record && record.item_code) || readItemCode || selectedItemCode.value;
+      if (resolvedItemCode) {
+        selectedItemCode.value = resolvedItemCode;
+        fcSelectedItemCode.value = resolvedItemCode;
+        fcHardwareInfo.value.itemCode = resolvedItemCode;
+      }
+
+      // Auto-fill LoRaWAN AppKey from device_tested
+      if (record && record.app_key) {
+        appKeyInput.value = record.app_key.toUpperCase();
+      }
+
+      // Validate AppKey
+      if (!isAppKeyValid.value) {
+        stage1Status.value = 'FAIL';
+        finalVerdict.value = 'FAIL';
+        throw new Error('Device tested AppKey is invalid (must be 32 hex characters).');
+      }
+
+      // Auto-load configuration preset by (SO, Item Code)
+      if (selectedSo.value && selectedItemCode.value) {
+        await loadPresetBySoItem(selectedSo.value, selectedItemCode.value);
+      }
+      if (!currentPreset.value) {
+        stage1Status.value = 'FAIL';
+        finalVerdict.value = 'FAIL';
+        throw new Error('No configuration preset found for SO [' + selectedSo.value + '] and Item Code [' + selectedItemCode.value + ']');
+      }
+
+      fcHardwareInfo.value.sku = currentPreset.value?.sku || 'WSLRW';
       stage1Status.value = 'PASS';
       fcProgress.value = 25;
+      fcStatusMessage.value = 'Stage 1 PASSED: Hardware verified with QA device_tested. SO & AppKey mapped.';
       if (abortRequested.value) return;
 
       // ==================================================================
@@ -1889,6 +1987,7 @@ function useFinalConfigDeviceModule(ctx) {
     fcReadBackRegsCount.value = 0;
     fcTotalMemmapRegsCount.value = 0;
     fcSoCheckStatus.value = 'NONE';
+    fcSerialNumberInput.value = '';
     fcHardwareInfo.value = {
       serialNumber: '',
       devEui: '',
@@ -2124,6 +2223,8 @@ function useFinalConfigDeviceModule(ctx) {
     fcSerialStats,
     fcSerialLogs,
     fcShowTerminalLogs,
+    fcSerialNumberInput,
+    fcOnSerialNumberChange,
     fcSelectedSo,
     fcSelectedItemCode,
     fcSalesOrdersList,
