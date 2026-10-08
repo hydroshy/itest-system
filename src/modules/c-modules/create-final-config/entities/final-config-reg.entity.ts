@@ -50,6 +50,9 @@ export class FinalConfigRegEntity {
   @Column({ type: 'text', nullable: true })
   value_on_memmap?: string;
 
+  @Column({ type: 'text', nullable: true, default: '' })
+  default_value?: string;
+
   @Column({ type: 'varchar', length: 50, default: 'big-endian' })
   endianness: string;
 

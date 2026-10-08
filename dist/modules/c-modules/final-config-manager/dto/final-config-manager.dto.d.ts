@@ -32,6 +32,7 @@ export declare class DeviceRegisterDto {
     format?: string;
     parameter_name?: string;
     value_to_write?: string;
+    default_value?: string;
     value_read_back?: string;
     status?: FinalConfigStatus;
     endianness?: string;

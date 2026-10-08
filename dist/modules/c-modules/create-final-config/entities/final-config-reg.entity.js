@@ -63,6 +63,10 @@ __decorate([
     __metadata("design:type", String)
 ], FinalConfigRegEntity.prototype, "value_on_memmap", void 0);
 __decorate([
+    (0, typeorm_1.Column)({ type: 'text', nullable: true, default: '' }),
+    __metadata("design:type", String)
+], FinalConfigRegEntity.prototype, "default_value", void 0);
+__decorate([
     (0, typeorm_1.Column)({ type: 'varchar', length: 50, default: 'big-endian' }),
     __metadata("design:type", String)
 ], FinalConfigRegEntity.prototype, "endianness", void 0);

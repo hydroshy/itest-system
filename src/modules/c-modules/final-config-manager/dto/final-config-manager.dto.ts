@@ -108,6 +108,10 @@ export class DeviceRegisterDto {
 
   @IsOptional()
   @IsString()
+  default_value?: string;
+
+  @IsOptional()
+  @IsString()
   value_read_back?: string;
 
   @IsOptional()

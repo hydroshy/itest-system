@@ -55,6 +55,12 @@ let FinalConfigRegsSnEntity = class FinalConfigRegsSnEntity {
     set valueToWrite(val) {
         this.value_to_write = val;
     }
+    get defaultValue() {
+        return this.default_value;
+    }
+    set defaultValue(val) {
+        this.default_value = val;
+    }
     get valueReadBack() {
         return this.value_read_back;
     }
@@ -142,6 +148,10 @@ __decorate([
     (0, typeorm_1.Column)({ name: 'value_to_write', type: 'text', nullable: true, default: '' }),
     __metadata("design:type", String)
 ], FinalConfigRegsSnEntity.prototype, "value_to_write", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ name: 'default_value', type: 'text', nullable: true, default: '' }),
+    __metadata("design:type", String)
+], FinalConfigRegsSnEntity.prototype, "default_value", void 0);
 __decorate([
     (0, typeorm_1.Column)({ name: 'value_read_back', type: 'text', nullable: true, default: '' }),
     __metadata("design:type", String)

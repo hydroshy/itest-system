@@ -26,6 +26,9 @@ export declare class FinalConfigRegsSnEntity {
     value_to_write: string;
     get valueToWrite(): string;
     set valueToWrite(val: string);
+    default_value: string;
+    get defaultValue(): string;
+    set defaultValue(val: string);
     value_read_back: string;
     get valueReadBack(): string;
     set valueReadBack(val: string);

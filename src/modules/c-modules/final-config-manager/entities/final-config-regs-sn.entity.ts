@@ -107,6 +107,16 @@ export class FinalConfigRegsSnEntity {
     this.value_to_write = val;
   }
 
+  @Column({ name: 'default_value', type: 'text', nullable: true, default: '' })
+  default_value: string;
+
+  get defaultValue(): string {
+    return this.default_value;
+  }
+  set defaultValue(val: string) {
+    this.default_value = val;
+  }
+
   @Column({ name: 'value_read_back', type: 'text', nullable: true, default: '' })
   value_read_back: string;
 

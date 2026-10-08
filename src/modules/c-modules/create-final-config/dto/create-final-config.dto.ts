@@ -7,6 +7,7 @@ export interface FinalConfigRegisterDto {
   parameter_name: string;
   value_to_write?: string;
   value_on_memmap?: string;
+  default_value?: string;
   endianness?: string;
   fn_read?: string;
   fn_write?: string;

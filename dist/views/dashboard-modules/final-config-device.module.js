@@ -265,6 +265,14 @@ exports.FINAL_CONFIG_DEVICE_TEMPLATE = `          <div v-else-if="activeFeature.
                     <i class="fa-solid fa-hand"></i>
                     <span>Abort</span>
                   </button>
+
+                  <!-- DEBUG MODE SLIDE SWITCH -->
+                  <div class="h-6 w-px bg-slate-800 mx-1"></div>
+                  <label class="relative inline-flex items-center cursor-pointer select-none gap-2">
+                    <input type="checkbox" v-model="fcDebugMode" class="sr-only peer" />
+                    <div class="w-10 h-5 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-cyan-600 border border-slate-700"></div>
+                    <span class="text-xs font-bold text-slate-300">Debug Mode</span>
+                  </label>
                 </div>
 
                 <!-- Overall Verdict Badge -->
@@ -281,9 +289,8 @@ exports.FINAL_CONFIG_DEVICE_TEMPLATE = `          <div v-else-if="activeFeature.
                       <i :class="finalVerdict === 'PASS' ? 'fa-solid fa-circle-check text-emerald-400' : (finalVerdict === 'FAIL' ? 'fa-solid fa-circle-xmark text-rose-400' : 'fa-solid fa-circle-dot text-slate-600')"></i>
                     </div>
                     <div>
-                      <div class="text-[10px] font-bold uppercase tracking-wider text-slate-400">FINAL VERDICT</div>
-                      <div class="text-sm font-black font-mono">
-                        {{ finalVerdict === 'PASS' ? 'FINAL PASS' : (finalVerdict === 'FAIL' ? 'FINAL FAIL' : 'NONE / READY') }}
+                      <div class="text-xl font-black font-mono tracking-wider">
+                        {{ finalVerdict === 'PASS' ? 'PASS' : (finalVerdict === 'FAIL' ? 'FAIL' : 'READY') }}
                       </div>
                     </div>
                   </div>
@@ -298,21 +305,20 @@ exports.FINAL_CONFIG_DEVICE_TEMPLATE = `          <div v-else-if="activeFeature.
                     <span class="text-cyan-400">{{ fcProgress }}%</span>
                     <span v-if="fcStatusMessage" class="text-slate-400 font-normal">({{ fcStatusMessage }})</span>
                   </span>
-                  <span class="text-slate-400">Stage {{ currentStage > 0 ? currentStage : '-' }} / 4</span>
                 </div>
-                <div class="w-full h-3 rounded-full bg-slate-950 border border-slate-800 overflow-hidden relative">
+                <div class="w-full h-6 rounded-full bg-slate-950 border border-slate-800 overflow-hidden relative p-0.5 shadow-inner">
                   <div
-                    class="h-full transition-all duration-300 rounded-full"
+                    class="h-full transition-all duration-300 rounded-full flex items-center justify-center text-[10px] font-mono font-bold text-white tracking-wider"
                     :class="finalVerdict === 'FAIL'
-                      ? 'bg-gradient-to-r from-amber-500 to-rose-500'
-                      : 'bg-gradient-to-r from-cyan-500 via-teal-500 to-emerald-500'"
+                      ? 'bg-gradient-to-r from-amber-500 to-rose-500 shadow-lg shadow-rose-950/50'
+                      : 'bg-gradient-to-r from-cyan-500 via-teal-500 to-emerald-500 shadow-lg shadow-cyan-950/50'"
                     :style="{ width: fcProgress + '%' }"
                   ></div>
                 </div>
               </div>
 
               <!-- 4-Stage Step Cards Grid -->
-              <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 pt-2">
+              <div v-show="fcDebugMode" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 pt-2">
                 <!-- STAGE 1: 0% -> 25% -->
                 <div
                   class="p-4 rounded-xl border transition-all"
@@ -519,7 +525,7 @@ exports.FINAL_CONFIG_DEVICE_TEMPLATE = `          <div v-else-if="activeFeature.
             </div>
 
             <!-- 4. LIVE REGISTER AUDIT GRID (TABULATOR 6.X) -->
-            <div class="p-5 rounded-2xl bg-slate-900/90 border border-slate-800 space-y-4 shadow-xl">
+            <div v-show="fcDebugMode" class="p-5 rounded-2xl bg-slate-900/90 border border-slate-800 space-y-4 shadow-xl">
               <!-- Grid Toolbar -->
               <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div class="flex items-center gap-3 flex-wrap">
@@ -1371,6 +1377,7 @@ function useFinalConfigDeviceModule(ctx) {
   const fcAuditRegisters = ref([]);
   const auditSearchQuery = ref('');
   const auditStatusFilter = ref('ALL');
+  const fcDebugMode = ref(false);
   let auditTabulatorInstance = null;
 
   // Validation
@@ -1452,7 +1459,8 @@ function useFinalConfigDeviceModule(ctx) {
           currentPreset.value = json.data;
           // Seed audit table from preset
           const regs = json.data.registers || [];
-          fcAuditRegisters.value = regs.map((r, i) => ({
+          const sortedRegs = [...regs].sort((a, b) => Number(a.address) - Number(b.address));
+          fcAuditRegisters.value = sortedRegs.map((r, i) => ({
             order_no: i + 1,
             address: Number(r.address),
             modbus_reg_hex: r.modbus_reg_hex || ('0x' + Number(r.address).toString(16).padStart(4, '0').toUpperCase()),
@@ -1461,6 +1469,7 @@ function useFinalConfigDeviceModule(ctx) {
             endianness: r.endianness || 'Big-Endian',
             reg_num: Number(r.reg_num) || 1,
             fn_write: 'FC 16',
+            default_value: r.default_value || r.value_on_memmap || '',
             value_to_write: r.value_to_write !== undefined ? String(r.value_to_write) : '',
             value_read_back: '',
             status: 'NONE',
@@ -1835,8 +1844,8 @@ function useFinalConfigDeviceModule(ctx) {
 
       // Ensure HW_VERSION Reg 9 is in audit list
       if (!allAuditList.some(r => r.address === 9)) {
-        allAuditList.unshift({
-          order_no: -1,
+        allAuditList.push({
+          order_no: 0,
           address: 9,
           modbus_reg_hex: '0x0009',
           parameter_name: 'HW Version',
@@ -1844,6 +1853,7 @@ function useFinalConfigDeviceModule(ctx) {
           endianness: 'Big-Endian',
           reg_num: 2,
           fn_read: 'FC 03',
+          default_value: '-',
           value_to_write: fcHardwareInfo.value.hwVersion || '',
           value_read_back: '',
           status: 'NONE',
@@ -1852,7 +1862,7 @@ function useFinalConfigDeviceModule(ctx) {
 
       // Ensure AppKey 274 is in audit list
       if (!allAuditList.some(r => r.address === 274)) {
-        allAuditList.unshift({
+        allAuditList.push({
           order_no: 0,
           address: 274,
           modbus_reg_hex: '0x0112',
@@ -1861,11 +1871,18 @@ function useFinalConfigDeviceModule(ctx) {
           endianness: 'Big-Endian',
           reg_num: 8,
           fn_write: 'FC 16',
+          default_value: '-',
           value_to_write: cleanAppKey.toUpperCase(),
           value_read_back: '',
           status: 'NONE',
         });
       }
+
+      // Sort strictly ascending by Dec reg (address ASC: 9 -> 274 -> 303 -> ...)
+      allAuditList.sort((a, b) => Number(a.address) - Number(b.address));
+      allAuditList.forEach((r, idx) => {
+        r.order_no = idx + 1;
+      });
 
       fcTotalMemmapRegsCount.value = allAuditList.length;
       fcReadBackRegsCount.value = 0;
@@ -1876,18 +1893,35 @@ function useFinalConfigDeviceModule(ctx) {
         const addr = Number(row.address);
         const numreg = Number(row.reg_num) || 1;
 
-        try {
-          const rawBytes = await readModbusRegistersFromPort(1, addr, numreg);
-          if (addr === 274 && numreg === 8) {
-            row.value_read_back = bytesToHex(rawBytes);
-          } else if (addr === 9 && numreg === 2) {
-            row.value_read_back = bytesToAscii(rawBytes);
-          } else {
-            row.value_read_back = decodeModbusPayload(rawBytes, row.format, row.endianness);
+        let readSuccess = false;
+        let lastReadErr = null;
+        for (let retry = 0; retry < 3; retry++) {
+          try {
+            await flushUartRxBuffer();
+            const rawBytes = await readModbusRegistersFromPort(1, addr, numreg);
+            if (addr === 274 && numreg === 8) {
+              row.value_read_back = bytesToHex(rawBytes);
+            } else if (addr === 9 && numreg === 2) {
+              row.value_read_back = bytesToAscii(rawBytes);
+            } else {
+              row.value_read_back = decodeModbusPayload(rawBytes, row.format, row.endianness);
+            }
+            readSuccess = true;
+            break;
+          } catch (rErr) {
+            lastReadErr = rErr;
+            if (retry < 2) {
+              const delayMs = RETRY_BACKOFF_DELAYS[retry] || 800;
+              addSerialLog('WARN', null, 'Read Reg ' + addr + ' failed (attempt ' + (retry + 1) + '/3): ' + (rErr?.message || rErr) + '. Retrying in ' + delayMs + 'ms...');
+              fcStatusMessage.value = 'Device settling/retrying... (Read Reg ' + addr + ', attempt ' + (retry + 1) + '/3)';
+              await flushUartRxBuffer();
+              await new Promise(r => setTimeout(r, delayMs));
+            } else {
+              addSerialLog('ERROR', null, 'Read Reg ' + addr + ' failed after 3 attempts: ' + (rErr?.message || rErr));
+              row.value_read_back = 'READ_ERR';
+              console.warn('Read-back error for register ' + addr + ' after 3 attempts:', rErr);
+            }
           }
-        } catch (rErr) {
-          row.value_read_back = 'READ_ERR';
-          console.warn('Read-back error for register ' + addr + ':', rErr);
         }
 
         fcReadBackRegsCount.value++;
@@ -1970,6 +2004,7 @@ function useFinalConfigDeviceModule(ctx) {
           reg_num: r.reg_num,
           format: r.format,
           parameter_name: r.parameter_name,
+          default_value: r.default_value || '',
           value_to_write: r.value_to_write,
           value_read_back: r.value_read_back,
           status: r.status,
@@ -2099,8 +2134,8 @@ function useFinalConfigDeviceModule(ctx) {
       const q = auditSearchQuery.value.trim().toLowerCase();
       list = list.filter(r =>
         String(r.address).includes(q) ||
-        String(r.modbus_reg_hex || '').toLowerCase().includes(q) ||
         String(r.parameter_name || '').toLowerCase().includes(q) ||
+        String(r.default_value || '').toLowerCase().includes(q) ||
         String(r.value_to_write || '').toLowerCase().includes(q) ||
         String(r.value_read_back || '').toLowerCase().includes(q)
       );
@@ -2129,6 +2164,9 @@ function useFinalConfigDeviceModule(ctx) {
         layout: 'fitColumns',
         height: '460px',
         placeholder: 'No configuration registers loaded. Select SO and Item Code to populate.',
+        initialSort: [
+          { column: 'address', dir: 'asc' },
+        ],
         columns: [
           { title: '#', field: 'order_no', width: 50, hozAlign: 'center', headerHozAlign: 'center' },
           {
@@ -2139,14 +2177,6 @@ function useFinalConfigDeviceModule(ctx) {
             headerHozAlign: 'center',
             formatter: (cell) => '<span class="font-mono font-bold text-slate-200">' + cell.getValue() + '</span>',
           },
-          {
-            title: 'Hex Reg',
-            field: 'modbus_reg_hex',
-            width: 90,
-            hozAlign: 'center',
-            headerHozAlign: 'center',
-            formatter: (cell) => '<span class="font-mono text-cyan-400">' + (cell.getValue() || '') + '</span>',
-          },
           { title: 'Parameter Name', field: 'parameter_name', minWidth: 180 },
           {
             title: 'Format',
@@ -2155,6 +2185,18 @@ function useFinalConfigDeviceModule(ctx) {
             hozAlign: 'center',
             headerHozAlign: 'center',
             formatter: (cell) => '<span class="px-1.5 py-0.5 rounded text-[10px] font-mono bg-slate-800 text-slate-300">' + cell.getValue() + '</span>',
+          },
+          {
+            title: 'Default Value',
+            field: 'default_value',
+            width: 120,
+            hozAlign: 'left',
+            headerHozAlign: 'left',
+            formatter: (cell) => {
+              const v = cell.getValue();
+              const displayVal = (v !== undefined && v !== null && String(v).trim() !== '') ? v : '-';
+              return '<span class="font-mono text-slate-400">' + displayVal + '</span>';
+            },
           },
           {
             title: 'Target Value',
@@ -2191,14 +2233,6 @@ function useFinalConfigDeviceModule(ctx) {
               return '<span class="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-slate-800 text-slate-500 border border-slate-700">NONE</span>';
             },
           },
-          {
-            title: 'FC Write',
-            field: 'fn_write',
-            width: 80,
-            hozAlign: 'center',
-            headerHozAlign: 'center',
-            formatter: (cell) => '<span class="text-[10px] font-mono text-slate-400">' + (cell.getValue() || 'FC 16') + '</span>',
-          },
         ],
       });
     });
@@ -2206,6 +2240,19 @@ function useFinalConfigDeviceModule(ctx) {
 
   watch(filteredAuditRegisters, () => {
     updateTabulatorData();
+  });
+
+  watch(fcDebugMode, (newVal) => {
+    if (newVal) {
+      nextTick(() => {
+        if (!auditTabulatorInstance) {
+          initTabulatorTable();
+        } else {
+          auditTabulatorInstance.redraw(true);
+          updateTabulatorData();
+        }
+      });
+    }
   });
 
   const exportAuditCsv = () => {
@@ -2222,13 +2269,12 @@ function useFinalConfigDeviceModule(ctx) {
     const data = fcAuditRegisters.value.map(r => ({
       Order: r.order_no,
       'Dec Address': r.address,
-      'Hex Address': r.modbus_reg_hex,
       'Parameter Name': r.parameter_name,
       Format: r.format,
+      'Default Value': r.default_value || '-',
       'Target Value': r.value_to_write,
       'Read-Back Value': r.value_read_back,
       Status: r.status,
-      'FC Write': r.fn_write || 'FC 16',
     }));
     const ws = XLSX.utils.json_to_sheet(data);
     const wb = XLSX.utils.book_new();
@@ -2338,6 +2384,7 @@ function useFinalConfigDeviceModule(ctx) {
     auditSearchQuery,
     auditStatusFilter,
     filteredAuditRegisters,
+    fcDebugMode,
     generateRandomAppKey,
     startFinalConfig,
     resetFinalConfig,

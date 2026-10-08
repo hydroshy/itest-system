@@ -549,6 +549,7 @@ export class FinalConfigManagerRepository {
                 format: r.format || 'uint',
                 parameter_name: r.parameter_name || '',
                 value_to_write: r.value_to_write !== undefined ? String(r.value_to_write) : '',
+                default_value: r.default_value !== undefined ? String(r.default_value) : '',
                 value_read_back: r.value_read_back !== undefined ? String(r.value_read_back) : '',
                 status: r.status || 'NONE',
                 endianness: r.endianness || 'big-endian',
@@ -623,6 +624,7 @@ export class FinalConfigManagerRepository {
         item.format = r.format || 'uint';
         item.parameter_name = r.parameter_name || '';
         item.value_to_write = r.value_to_write !== undefined ? String(r.value_to_write) : '';
+        item.default_value = r.default_value !== undefined ? String(r.default_value) : '';
         item.value_read_back = r.value_read_back !== undefined ? String(r.value_read_back) : '';
         item.status = r.status || 'NONE';
         item.endianness = r.endianness || 'big-endian';
@@ -681,6 +683,7 @@ export class FinalConfigManagerRepository {
         format: vr.format || 'uint',
         parameter_name: vr.parameter_name || '',
         value_to_write: vr.value_to_write || '',
+        default_value: (vr as any).default_value || vr.value_on_memmap || '',
         value_read_back: '',
         status: FinalConfigStatus.NONE,
         endianness: vr.endianness || 'big-endian',

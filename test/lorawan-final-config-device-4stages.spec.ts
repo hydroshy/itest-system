@@ -174,7 +174,7 @@ async function runLorawanFinalConfigDeviceTestSuite() {
   console.log('========================================================================================\n');
 
   let passedTests = 0;
-  const totalTests = 11;
+  const totalTests = 12;
 
   const csvPath = path.resolve(__dirname, '../../docs/WSLRW-ATH-6.csv');
   const viewsModulePath = path.resolve(__dirname, '../src/views/dashboard-modules/final-config-device.module.ts');
@@ -695,6 +695,122 @@ async function runLorawanFinalConfigDeviceTestSuite() {
   assert.ok(migration18Content.includes('settling_delay_ms'), 'Migration 18 must add settling_delay_ms column');
 
   console.log('  -> PASS: Write timeout 3500ms, settling delay 600ms, progressive backoff and buffer flush verified.\n');
+  passedTests++;
+
+  // ----------------------------------------------------------------------------------------------------
+  // TEST 12: Spec Read-back Ascending Order, Read Retry, UI Table Refactor, Debug Mode, Progress & Verdict
+  // ----------------------------------------------------------------------------------------------------
+  console.log('[TEST 12] Verifying Read-back Ascending Order, Read Retry, UI Table Refactor, Debug Mode, Progress & Verdict...');
+
+  // 12a. Verify Stage 3 Read-back Order: reg 9, 274, presets >= 303 sorted ascending by address
+  assert.ok(
+    viewsCode.includes('allAuditList.sort((a, b) => Number(a.address) - Number(b.address));'),
+    'Stage 3 must sort allAuditList strictly ascending by numeric address'
+  );
+  assert.ok(
+    viewsCode.includes('allAuditList.forEach((r, idx) => {') && viewsCode.includes('r.order_no = idx + 1;'),
+    'Stage 3 must reassign order_no sequentially after ascending sort'
+  );
+
+  // 12b. Verify Stage 3 Read Retry Engine: up to 3 attempts, progressive backoff [800, 1500]ms, flushUartRxBuffer
+  assert.ok(
+    viewsCode.includes('for (let retry = 0; retry < 3; retry++) {') &&
+    viewsCode.includes('await flushUartRxBuffer();') &&
+    viewsCode.includes('const rawBytes = await readModbusRegistersFromPort(1, addr, numreg);'),
+    'Stage 3 read loop must implement 3-attempt retry with flushUartRxBuffer'
+  );
+  assert.ok(
+    viewsCode.includes("const delayMs = RETRY_BACKOFF_DELAYS[retry] || 800;") &&
+    viewsCode.includes("'Read Reg ' + addr + ' failed (attempt ' + (retry + 1) + '/3):"),
+    'Stage 3 read retry must log warning with attempt count and delay'
+  );
+  assert.ok(
+    viewsCode.includes("row.value_read_back = 'READ_ERR';"),
+    'Stage 3 must assign READ_ERR after 3 failed read attempts'
+  );
+
+  // 12c. Verify UI Table Refactoring: No Hex Reg, No FC Write, Default Value before Target Value, Initial sort
+  assert.ok(
+    !viewsCode.includes("title: 'Hex Reg'"),
+    'UI Tabulator columns must NOT contain Hex Reg column'
+  );
+  assert.ok(
+    !viewsCode.includes("title: 'FC Write'"),
+    'UI Tabulator columns must NOT contain FC Write column'
+  );
+  assert.ok(
+    viewsCode.includes("title: 'Default Value'") && viewsCode.includes("field: 'default_value'"),
+    'UI Tabulator columns must contain Default Value column'
+  );
+
+  // Check column order: Default Value must appear before Target Value
+  const defaultValIdx = viewsCode.indexOf("title: 'Default Value'");
+  const targetValIdx = viewsCode.indexOf("title: 'Target Value'");
+  assert.ok(defaultValIdx !== -1 && targetValIdx !== -1, 'Both Default Value and Target Value columns must exist');
+  assert.ok(defaultValIdx < targetValIdx, 'Default Value column must precede Target Value column');
+
+  // Verify initialSort on address ascending
+  assert.ok(
+    viewsCode.includes("initialSort: [") && viewsCode.includes("{ column: 'address', dir: 'asc' }"),
+    'Tabulator configuration must set initialSort by address asc'
+  );
+
+  // 12d. Verify Debug Mode Slide Switch: default false, v-show on 4 stage cards and audit grid
+  assert.ok(
+    viewsCode.includes('const fcDebugMode = ref(false);'),
+    'Debug Mode reactive state fcDebugMode must be default false (OFF)'
+  );
+  assert.ok(
+    viewsCode.includes('<input type="checkbox" v-model="fcDebugMode" class="sr-only peer" />'),
+    'Debug Mode slide switch must be bound to fcDebugMode'
+  );
+  assert.ok(
+    viewsCode.includes('<div v-show="fcDebugMode" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 pt-2">'),
+    '4-Stage panels container must use v-show="fcDebugMode"'
+  );
+  assert.ok(
+    viewsCode.includes('<div v-show="fcDebugMode" class="p-5 rounded-2xl bg-slate-900/90 border border-slate-800 space-y-4 shadow-xl">'),
+    'Live Register Audit Grid container must use v-show="fcDebugMode"'
+  );
+
+  // 12e. Verify Progress Bar: h-6 height, no Stage X / 4 label
+  assert.ok(
+    viewsCode.includes('class="w-full h-6 rounded-full bg-slate-950 border border-slate-800 overflow-hidden relative p-0.5 shadow-inner"'),
+    'Progress bar container must have h-6 (24px) height with shadow-inner'
+  );
+  assert.ok(
+    !viewsCode.includes('Stage {{ currentStage > 0 ? currentStage : \'-\' }} / 4') &&
+    !viewsCode.includes('Stage {{ currentStage }} / 4') &&
+    !viewsCode.includes('Stage 4 / 4'),
+    'Progress bar header must NOT display Stage X / 4 label'
+  );
+
+  // 12f. Verify Final Verdict: No FINAL VERDICT text, only clear PASS/FAIL/READY badge
+  assert.ok(
+    !viewsCode.includes('FINAL VERDICT'),
+    'UI template must NOT contain the text FINAL VERDICT'
+  );
+  assert.ok(
+    viewsCode.includes("{{ finalVerdict === 'PASS' ? 'PASS' : (finalVerdict === 'FAIL' ? 'FAIL' : 'READY') }}"),
+    'Verdict badge must directly display PASS, FAIL or READY'
+  );
+
+  // 12g. Verify Migration 19: default_value column in final_config_regs and final_config_regs_sn
+  const migration19Path = path.resolve(__dirname, '../../deploy/database/updates/19_add_default_value_to_final_config_regs.sql');
+  assert.ok(fs.existsSync(migration19Path), 'Migration 19 SQL file must exist in deploy/database/updates/');
+  const migration19Content = fs.readFileSync(migration19Path, 'utf8');
+  assert.ok(migration19Content.includes('BEGIN;'), 'Migration 19 must be transactional (BEGIN)');
+  assert.ok(migration19Content.includes('COMMIT;'), 'Migration 19 must commit transaction (COMMIT)');
+  assert.ok(
+    migration19Content.includes('"final_config_regs_sn"') && migration19Content.includes('"default_value"'),
+    'Migration 19 must add default_value to final_config_regs_sn'
+  );
+  assert.ok(
+    migration19Content.includes('"final_config_regs"') && migration19Content.includes('"default_value"'),
+    'Migration 19 must add default_value to final_config_regs'
+  );
+
+  console.log('  -> PASS: Read-back ascending order, retry engine, UI refactor, debug switch, progress & verdict fully verified.\n');
   passedTests++;
 
   console.log('========================================================================================');
