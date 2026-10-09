@@ -2,6 +2,7 @@ import { MemmapUploadRepository } from './memmap-upload.repository';
 import { UploadMemmapDto, MemmapRegItemDto } from './dto/upload-memmap.dto';
 import { MemmapPayloadEntity } from './entities/memmap-payload.entity';
 import { MemmapRegEntity } from './entities/memmap-reg.entity';
+export { extractShortFwFromLongFw } from './fw-utils';
 export interface ContinuityCheckResult {
     decValid: boolean;
     hexValid: boolean;
@@ -19,6 +20,7 @@ export declare class MemmapUploadService {
         data: {
             payloadId: string;
             sku: string;
+            longFw?: string;
             shortFw: number;
             totalRegs: number;
             decValid: boolean;

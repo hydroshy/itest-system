@@ -10,9 +10,11 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 };
 var MemmapUploadService_1;
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.MemmapUploadService = void 0;
+exports.MemmapUploadService = exports.extractShortFwFromLongFw = void 0;
 const common_1 = require("@nestjs/common");
 const memmap_upload_repository_1 = require("./memmap-upload.repository");
+var fw_utils_1 = require("./fw-utils");
+Object.defineProperty(exports, "extractShortFwFromLongFw", { enumerable: true, get: function () { return fw_utils_1.extractShortFwFromLongFw; } });
 let MemmapUploadService = MemmapUploadService_1 = class MemmapUploadService {
     constructor(repository) {
         this.repository = repository;
@@ -93,22 +95,25 @@ let MemmapUploadService = MemmapUploadService_1 = class MemmapUploadService {
             throw new common_1.BadRequestException('Memory map phải có ít nhất 1 dòng thanh ghi');
         }
         const continuity = this.validateContinuity(dto.registers);
+        const longFw = (dto.long_fw || '').trim() || String(shortFw);
         const { payload } = await this.repository.saveOrUpdate({
             sku: rawSku,
             short_fw: shortFw,
+            long_fw: longFw,
             file_name: dto.file_name?.trim() || `${rawSku}-${shortFw}.csv`,
             total_regs: dto.registers.length,
             dec_valid: continuity.decValid,
             hex_valid: continuity.hexValid,
             created_by: author,
         }, dto.registers);
-        this.logger.log(`Saved Memory Map for SKU [${rawSku}] Short FW [${shortFw}]: ${dto.registers.length} regs (Dec: ${continuity.decValid ? 'PASS' : 'FAIL'}, Hex: ${continuity.hexValid ? 'PASS' : 'FAIL'})`);
+        this.logger.log(`Saved Memory Map for SKU [${rawSku}] Long FW [${longFw}] Short FW [${shortFw}]: ${dto.registers.length} regs (Dec: ${continuity.decValid ? 'PASS' : 'FAIL'}, Hex: ${continuity.hexValid ? 'PASS' : 'FAIL'})`);
         return {
             success: true,
             message: 'Memory map saved successfully',
             data: {
                 payloadId: payload.id,
                 sku: payload.sku,
+                longFw: payload.long_fw || longFw,
                 shortFw: payload.short_fw,
                 totalRegs: payload.total_regs,
                 decValid: payload.dec_valid,

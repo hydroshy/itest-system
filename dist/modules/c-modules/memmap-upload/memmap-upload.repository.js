@@ -19,11 +19,15 @@ const dynamic_database_service_1 = require("../../database/dynamic-database.serv
 const memmap_payload_entity_1 = require("./entities/memmap-payload.entity");
 const memmap_reg_entity_1 = require("./entities/memmap-reg.entity");
 let MemmapUploadRepository = MemmapUploadRepository_1 = class MemmapUploadRepository {
+    get memoryPayloads() {
+        return MemmapUploadRepository_1.sharedMemoryPayloads;
+    }
+    get memoryRegs() {
+        return MemmapUploadRepository_1.sharedMemoryRegs;
+    }
     constructor(dbService) {
         this.dbService = dbService;
         this.logger = new common_1.Logger(MemmapUploadRepository_1.name);
-        this.memoryPayloads = new Map();
-        this.memoryRegs = new Map();
     }
     getPayloadRepo() {
         if (!this.dbService)
@@ -51,6 +55,9 @@ let MemmapUploadRepository = MemmapUploadRepository_1 = class MemmapUploadReposi
     async saveOrUpdate(payloadData, registersData) {
         const sku = (payloadData.sku || '').trim().toUpperCase();
         const shortFw = Number(payloadData.short_fw);
+        const longFw = payloadData.long_fw !== undefined && payloadData.long_fw !== null && String(payloadData.long_fw).trim() !== ''
+            ? String(payloadData.long_fw).trim()
+            : String(shortFw);
         const payloadRepo = this.getPayloadRepo();
         const regRepo = this.getRegRepo();
         if (payloadRepo && regRepo) {
@@ -64,6 +71,7 @@ let MemmapUploadRepository = MemmapUploadRepository_1 = class MemmapUploadReposi
                     if (existing) {
                         payloadId = existing.id;
                         await manager.update(memmap_payload_entity_1.MemmapPayloadEntity, payloadId, {
+                            long_fw: longFw || existing.long_fw || String(shortFw),
                             file_name: payloadData.file_name,
                             total_regs: payloadData.total_regs,
                             dec_valid: payloadData.dec_valid,
@@ -78,6 +86,7 @@ let MemmapUploadRepository = MemmapUploadRepository_1 = class MemmapUploadReposi
                             ...payloadData,
                             sku,
                             short_fw: shortFw,
+                            long_fw: longFw,
                             created_at: new Date(),
                             updated_at: new Date(),
                         });
@@ -111,6 +120,7 @@ let MemmapUploadRepository = MemmapUploadRepository_1 = class MemmapUploadReposi
             id: payloadId,
             sku,
             short_fw: shortFw,
+            long_fw: longFw || payload?.long_fw || String(shortFw),
             file_name: payloadData.file_name,
             total_regs: payloadData.total_regs || registersData.length,
             dec_valid: payloadData.dec_valid ?? true,
@@ -186,10 +196,67 @@ let MemmapUploadRepository = MemmapUploadRepository_1 = class MemmapUploadReposi
                 this.logger.debug(`Database findAll failed: ${err.message}`);
             }
         }
-        return Array.from(this.memoryPayloads.values());
+        return Array.from(this.memoryPayloads.values()).sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+    }
+    async findPayloadByIdWithRegs(id) {
+        const payloadRepo = this.getPayloadRepo();
+        const regRepo = this.getRegRepo();
+        if (payloadRepo) {
+            try {
+                const payload = await payloadRepo.findOne({ where: { id } });
+                if (payload) {
+                    const registers = regRepo
+                        ? await regRepo.find({ where: { payload_id: id }, order: { no: 'ASC' } })
+                        : [];
+                    return { payload, registers };
+                }
+            }
+            catch (err) {
+                this.logger.debug(`Database findPayloadByIdWithRegs failed: ${err.message}`);
+            }
+        }
+        for (const [key, p] of this.memoryPayloads.entries()) {
+            if (p.id === id) {
+                const registers = this.memoryRegs.get(key) || [];
+                return { payload: p, registers: [...registers].sort((a, b) => a.no - b.no) };
+            }
+        }
+        return null;
+    }
+    async deletePayloadById(id) {
+        const payloadRepo = this.getPayloadRepo();
+        const regRepo = this.getRegRepo();
+        if (payloadRepo) {
+            try {
+                const payload = await payloadRepo.findOne({ where: { id } });
+                if (payload) {
+                    if (regRepo) {
+                        await regRepo.delete({ payload_id: id });
+                    }
+                    await payloadRepo.delete({ id });
+                    const key = this.getCompositeKey(payload.sku, payload.short_fw);
+                    this.memoryPayloads.delete(key);
+                    this.memoryRegs.delete(key);
+                    return payload;
+                }
+            }
+            catch (err) {
+                this.logger.debug(`Database deletePayloadById failed: ${err.message}`);
+            }
+        }
+        for (const [key, p] of this.memoryPayloads.entries()) {
+            if (p.id === id) {
+                this.memoryPayloads.delete(key);
+                this.memoryRegs.delete(key);
+                return p;
+            }
+        }
+        return null;
     }
 };
 exports.MemmapUploadRepository = MemmapUploadRepository;
+MemmapUploadRepository.sharedMemoryPayloads = new Map();
+MemmapUploadRepository.sharedMemoryRegs = new Map();
 exports.MemmapUploadRepository = MemmapUploadRepository = MemmapUploadRepository_1 = __decorate([
     (0, common_1.Injectable)(),
     __param(0, (0, common_1.Optional)()),

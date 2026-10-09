@@ -194,6 +194,16 @@ export const C_MODULES_REGISTRY: CModule[] = [
     requiredPermission: 'lorawan:device:read',
   },
   {
+    id: 'c-memmap-manager',
+    code: 'C_MOD_MEMMAP_MANAGER',
+    title: 'Memory Map Manager',
+    description: 'Manage stored Modbus Memory Map payloads, inspect 16-column register definitions, and delete obsolete maps with row context menu.',
+    icon: 'fa-solid fa-map-location-dot',
+    category: 'Developer',
+    routeHash: '#memmap-manager',
+    requiredPermission: 'lorawan:device:read',
+  },
+  {
     id: 'c-create-final-config',
     code: 'C_MOD_CREATE_FINAL_CONFIG',
     title: 'Create Final Config',

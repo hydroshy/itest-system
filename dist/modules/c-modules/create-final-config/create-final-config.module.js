@@ -10,11 +10,13 @@ exports.CreateFinalConfigModule = void 0;
 const common_1 = require("@nestjs/common");
 const create_final_config_repository_1 = require("./create-final-config.repository");
 const create_final_config_service_1 = require("./create-final-config.service");
+const create_final_config_controller_1 = require("./create-final-config.controller");
 let CreateFinalConfigModule = class CreateFinalConfigModule {
 };
 exports.CreateFinalConfigModule = CreateFinalConfigModule;
 exports.CreateFinalConfigModule = CreateFinalConfigModule = __decorate([
     (0, common_1.Module)({
+        controllers: [create_final_config_controller_1.CreateFinalConfigController],
         providers: [create_final_config_repository_1.CreateFinalConfigRepository, create_final_config_service_1.CreateFinalConfigService],
         exports: [create_final_config_repository_1.CreateFinalConfigRepository, create_final_config_service_1.CreateFinalConfigService],
     })

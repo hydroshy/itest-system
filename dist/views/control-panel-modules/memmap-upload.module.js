@@ -69,6 +69,27 @@ exports.MEMMAP_UPLOAD_TEMPLATE = `
 
               <div>
                 <label class="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5">
+                  LONG_FW <span class="text-slate-500 font-normal">(e.g. 3F0825, 6Fmmdd)</span>
+                </label>
+                <div class="relative">
+                  <input
+                    v-model="memmapLongFw"
+                    @input="onMemmapLongFwInput"
+                    type="text"
+                    placeholder="e.g. 3F0825 or 6Fmmdd"
+                    class="w-full px-3.5 py-2 rounded-xl bg-slate-950/80 border border-slate-700 focus:border-sky-500 text-xs font-mono text-white placeholder-slate-500 focus:outline-none transition"
+                  />
+                  <span v-if="memmapLongFw" class="absolute right-3 top-2.5 text-xs text-sky-400">
+                    <i class="fa-solid fa-code-branch"></i>
+                  </span>
+                </div>
+                <p class="text-[11px] text-slate-500 mt-1">
+                  Full firmware version string. Extracts SHORT_FW automatically.
+                </p>
+              </div>
+
+              <div>
+                <label class="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5">
                   Short FW Version <span class="text-red-400">*</span>
                 </label>
                 <div class="relative">
@@ -92,11 +113,17 @@ exports.MEMMAP_UPLOAD_TEMPLATE = `
                 </p>
               </div>
 
-              <div v-if="memmapSku && memmapShortFw && !skuValidationError && !fwValidationError" class="p-3 rounded-xl bg-slate-950/60 border border-slate-800 text-xs">
-                <span class="text-slate-400">Unique Version Key:</span>
-                <span class="ml-2 px-2 py-0.5 rounded bg-sky-500/10 text-sky-300 font-mono font-bold border border-sky-500/20">
-                  {{ memmapSku }}_{{ memmapShortFw }}
-                </span>
+              <div v-if="memmapSku && memmapShortFw && !skuValidationError && !fwValidationError" class="p-3 rounded-xl bg-slate-950/60 border border-slate-800 text-xs space-y-1">
+                <div class="flex items-center justify-between">
+                  <span class="text-slate-400">Unique Version Key:</span>
+                  <span class="px-2 py-0.5 rounded bg-sky-500/10 text-sky-300 font-mono font-bold border border-sky-500/20">
+                    {{ memmapSku }}_{{ memmapShortFw }}
+                  </span>
+                </div>
+                <div v-if="memmapLongFw" class="flex items-center justify-between pt-1 border-t border-slate-800/60">
+                  <span class="text-slate-400">LONG_FW:</span>
+                  <span class="font-mono text-sky-400 font-semibold">{{ memmapLongFw }}</span>
+                </div>
               </div>
             </div>
 
@@ -249,6 +276,10 @@ exports.MEMMAP_UPLOAD_MODALS = `
             <span class="text-slate-400">Hardware SKU:</span>
             <span class="font-bold text-cyan-300">{{ memmapSku }}</span>
           </div>
+          <div v-if="memmapLongFw" class="flex justify-between items-center py-1 border-b border-slate-800/80">
+            <span class="text-slate-400">LONG_FW:</span>
+            <span class="font-bold text-sky-300">{{ memmapLongFw }}</span>
+          </div>
           <div class="flex justify-between items-center py-1 border-b border-slate-800/80">
             <span class="text-slate-400">Short Firmware Version:</span>
             <span class="font-bold text-amber-300">{{ memmapShortFw }}</span>
@@ -368,6 +399,7 @@ exports.MEMMAP_UPLOAD_SCRIPT = `
       const { showToast, authHeaders, activeTab } = ctx;
 
       const memmapSku = ref('');
+      const memmapLongFw = ref('');
       const memmapShortFw = ref('');
       const memmapFileName = ref('');
       const memmapRegisters = ref([]);
@@ -381,6 +413,21 @@ exports.MEMMAP_UPLOAD_SCRIPT = `
 
       let memmapTabulatorInstance = null;
       let initTableTimeout = null;
+
+      function extractShortFwFromLongFw(longFw) {
+        if (!longFw || typeof longFw !== 'string') return null;
+        const trimmed = longFw.trim();
+        const match = trimmed.match(/^(\d+)[fF]/i);
+        if (match) {
+          const val = parseInt(match[1], 10);
+          return isNaN(val) ? null : val;
+        }
+        if (/^\d+$/.test(trimmed)) {
+          const val = parseInt(trimmed, 10);
+          return isNaN(val) ? null : val;
+        }
+        return null;
+      }
 
       // Validation
       const skuValidationError = computed(() => {
@@ -407,6 +454,15 @@ exports.MEMMAP_UPLOAD_SCRIPT = `
       const onMemmapSkuInput = () => {
         if (memmapSku.value) {
           memmapSku.value = memmapSku.value.toUpperCase();
+        }
+      };
+
+      const onMemmapLongFwInput = () => {
+        if (memmapLongFw.value) {
+          const extracted = extractShortFwFromLongFw(memmapLongFw.value);
+          if (extracted !== null) {
+            memmapShortFw.value = String(extracted);
+          }
         }
       };
 
@@ -591,6 +647,24 @@ exports.MEMMAP_UPLOAD_SCRIPT = `
             }
           }
 
+          // Scan Reg 5 (FW_VERSION) to auto-extract LONG_FW and SHORT_FW
+          const reg5 = parsedItems.find(r =>
+            (r.description && String(r.description).toUpperCase() === 'FW_VERSION') ||
+            Number(r.modbus_reg_dec) === 5
+          );
+          if (reg5 && reg5.end_user_default) {
+            const fwVal = String(reg5.end_user_default).trim();
+            if (fwVal) {
+              if (!memmapLongFw.value) {
+                memmapLongFw.value = fwVal;
+              }
+              const extracted = extractShortFwFromLongFw(fwVal);
+              if (extracted !== null) {
+                memmapShortFw.value = String(extracted);
+              }
+            }
+          }
+
           showToast('Loaded ' + parsedItems.length + ' registers from ' + fileName, 'success');
           renderMemmapTabulator();
         } catch (err) {
@@ -718,6 +792,7 @@ exports.MEMMAP_UPLOAD_SCRIPT = `
         try {
           const payload = {
             sku: memmapSku.value.trim().toUpperCase(),
+            long_fw: (memmapLongFw.value || '').trim() || String(memmapShortFw.value.trim()),
             short_fw: Number(memmapShortFw.value.trim()),
             file_name: memmapFileName.value || 'WSLRW.csv',
             registers: memmapRegisters.value,
@@ -750,6 +825,7 @@ exports.MEMMAP_UPLOAD_SCRIPT = `
 
       const resetMemmapForm = () => {
         memmapSku.value = '';
+        memmapLongFw.value = '';
         memmapShortFw.value = '';
         memmapFileName.value = '';
         memmapRegisters.value = [];
@@ -772,6 +848,7 @@ exports.MEMMAP_UPLOAD_SCRIPT = `
 
       return {
         memmapSku,
+        memmapLongFw,
         memmapShortFw,
         memmapFileName,
         memmapRegisters,
@@ -786,6 +863,7 @@ exports.MEMMAP_UPLOAD_SCRIPT = `
         continuityResults,
         canSaveMemmap,
         onMemmapSkuInput,
+        onMemmapLongFwInput,
         onMemmapShortFwInput,
         onCsvFileSelected,
         triggerCsvFileInput,

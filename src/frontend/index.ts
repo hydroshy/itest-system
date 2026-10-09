@@ -22,6 +22,7 @@ export * from './modules/control-panel/item-codes.module';
 export * from './modules/control-panel/test-builder.module';
 export * from './modules/control-panel/system-modules.module';
 export * from './modules/control-panel/memmap-upload.module';
+export * from './modules/control-panel/memmap-manager.module';
 
 // Dashboard User Feature Modules
 export * from './modules/dashboard/device-manager.module';

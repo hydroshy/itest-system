@@ -16,6 +16,7 @@ var __exportStar = (this && this.__exportStar) || function(m, exports) {
 Object.defineProperty(exports, "__esModule", { value: true });
 __exportStar(require("./create-final-config.module"), exports);
 __exportStar(require("./create-final-config.service"), exports);
+__exportStar(require("./create-final-config.controller"), exports);
 __exportStar(require("./create-final-config.repository"), exports);
 __exportStar(require("./dto/create-final-config.dto"), exports);
 __exportStar(require("./entities/final-config-preset.entity"), exports);

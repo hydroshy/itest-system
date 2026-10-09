@@ -118,6 +118,15 @@ __decorate([
     __metadata("design:type", String)
 ], UploadMemmapDto.prototype, "sku", void 0);
 __decorate([
+    (0, swagger_1.ApiPropertyOptional)({
+        description: 'Full Firmware Version identifier string (e.g. 3F0825, 6Fmmdd)',
+        example: '3F0825',
+    }),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.IsOptional)(),
+    __metadata("design:type", String)
+], UploadMemmapDto.prototype, "long_fw", void 0);
+__decorate([
     (0, swagger_1.ApiProperty)({
         description: 'Strict integer Short Firmware Version without prefix or decimals (e.g. 6)',
         example: 6,

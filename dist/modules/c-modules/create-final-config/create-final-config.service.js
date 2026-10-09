@@ -36,20 +36,24 @@ let CreateFinalConfigService = CreateFinalConfigService_1 = class CreateFinalCon
         if (validRegs.length === 0) {
             throw new common_1.BadRequestException('Final Config requires at least one register with Dec Reg >= 303');
         }
-        const cleanFw = (0, final_config_utils_1.sanitizeFw)(dto.firmware_version || String(dto.short_fw));
+        const rawLongFw = (dto.firmware_version || '').trim();
+        const shortFwNum = Number(dto.short_fw);
+        const longFwToSave = /[fF]/.test(rawLongFw)
+            ? rawLongFw
+            : (0, final_config_utils_1.sanitizeFw)(rawLongFw || String(shortFwNum));
         const payloadToSave = {
             ...dto,
             so: dto.so.trim(),
             item_code: dto.item_code.trim(),
             sku: dto.sku.trim().toUpperCase(),
-            firmware_version: cleanFw,
-            short_fw: Number(cleanFw),
-            name: dto.name ? dto.name.trim() : `[Final Config] ${dto.so} - ${dto.item_code}`,
+            firmware_version: longFwToSave,
+            short_fw: shortFwNum,
+            name: dto.name ? dto.name.trim() : `[Final Config] ${dto.so.trim()} - ${dto.item_code.trim()}`,
             created_by: author || dto.created_by || 'admin',
             registers: validRegs,
         };
         const result = await this.repository.saveOrUpdate(payloadToSave);
-        this.logger.log(`Saved Final Config Preset for SO [${dto.so}] Item [${dto.item_code}] SKU [${dto.sku}] Short FW [${dto.short_fw}]: ${result.registers.length} regs`);
+        this.logger.log(`Saved Final Config Preset for SO [${dto.so}] Item [${dto.item_code}] SKU [${dto.sku}] Long FW [${longFwToSave}] Short FW [${shortFwNum}]: ${result.registers.length} regs`);
         return {
             success: true,
             message: 'Final Config saved successfully',

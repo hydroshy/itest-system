@@ -28,6 +28,10 @@ __decorate([
     __metadata("design:type", Number)
 ], MemmapPayloadEntity.prototype, "short_fw", void 0);
 __decorate([
+    (0, typeorm_1.Column)({ type: 'varchar', length: 50, default: '', nullable: true }),
+    __metadata("design:type", String)
+], MemmapPayloadEntity.prototype, "long_fw", void 0);
+__decorate([
     (0, typeorm_1.Column)({ type: 'varchar', length: 255, nullable: true }),
     __metadata("design:type", String)
 ], MemmapPayloadEntity.prototype, "file_name", void 0);

@@ -8,6 +8,9 @@ import { MemmapUploadRepository } from './memmap-upload.repository';
 import { UploadMemmapDto, MemmapRegItemDto } from './dto/upload-memmap.dto';
 import { MemmapPayloadEntity } from './entities/memmap-payload.entity';
 import { MemmapRegEntity } from './entities/memmap-reg.entity';
+import { extractShortFwFromLongFw } from './fw-utils';
+
+export { extractShortFwFromLongFw } from './fw-utils';
 
 export interface ContinuityCheckResult {
   decValid: boolean;
@@ -99,6 +102,7 @@ export class MemmapUploadService {
     data: {
       payloadId: string;
       sku: string;
+      longFw?: string;
       shortFw: number;
       totalRegs: number;
       decValid: boolean;
@@ -147,11 +151,15 @@ export class MemmapUploadService {
     // 4. Run continuity check
     const continuity = this.validateContinuity(dto.registers);
 
-    // 5. Save / Upsert in DB
+    // 5. Long FW resolution
+    const longFw = (dto.long_fw || '').trim() || String(shortFw);
+
+    // 6. Save / Upsert in DB
     const { payload } = await this.repository.saveOrUpdate(
       {
         sku: rawSku,
         short_fw: shortFw,
+        long_fw: longFw,
         file_name: dto.file_name?.trim() || `${rawSku}-${shortFw}.csv`,
         total_regs: dto.registers.length,
         dec_valid: continuity.decValid,
@@ -162,7 +170,7 @@ export class MemmapUploadService {
     );
 
     this.logger.log(
-      `Saved Memory Map for SKU [${rawSku}] Short FW [${shortFw}]: ${dto.registers.length} regs (Dec: ${continuity.decValid ? 'PASS' : 'FAIL'}, Hex: ${continuity.hexValid ? 'PASS' : 'FAIL'})`,
+      `Saved Memory Map for SKU [${rawSku}] Long FW [${longFw}] Short FW [${shortFw}]: ${dto.registers.length} regs (Dec: ${continuity.decValid ? 'PASS' : 'FAIL'}, Hex: ${continuity.hexValid ? 'PASS' : 'FAIL'})`,
     );
 
     return {
@@ -171,6 +179,7 @@ export class MemmapUploadService {
       data: {
         payloadId: payload.id,
         sku: payload.sku,
+        longFw: payload.long_fw || longFw,
         shortFw: payload.short_fw,
         totalRegs: payload.total_regs,
         decValid: payload.dec_valid,

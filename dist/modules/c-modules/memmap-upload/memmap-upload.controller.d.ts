@@ -10,6 +10,7 @@ export declare class MemmapUploadController {
         data: {
             payloadId: string;
             sku: string;
+            longFw?: string;
             shortFw: number;
             totalRegs: number;
             decValid: boolean;

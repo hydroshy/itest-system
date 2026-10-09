@@ -34,6 +34,7 @@ __exportStar(require("./modules/control-panel/item-codes.module"), exports);
 __exportStar(require("./modules/control-panel/test-builder.module"), exports);
 __exportStar(require("./modules/control-panel/system-modules.module"), exports);
 __exportStar(require("./modules/control-panel/memmap-upload.module"), exports);
+__exportStar(require("./modules/control-panel/memmap-manager.module"), exports);
 __exportStar(require("./modules/dashboard/device-manager.module"), exports);
 __exportStar(require("./modules/dashboard/test-automation.module"), exports);
 __exportStar(require("./modules/dashboard/telemetry.module"), exports);

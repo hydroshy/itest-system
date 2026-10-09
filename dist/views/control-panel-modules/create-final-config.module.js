@@ -150,7 +150,7 @@ exports.CREATE_FINAL_CONFIG_TEMPLATE = `
 
           <!-- Configuration Selector Card -->
           <div class="glass-card rounded-2xl p-5 border border-slate-800 space-y-4 shadow-xl">
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
               <!-- SO Input with autocomplete datalist -->
               <div>
                 <label class="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5">
@@ -218,17 +218,39 @@ exports.CREATE_FINAL_CONFIG_TEMPLATE = `
                 </p>
               </div>
 
-              <!-- FW Input -->
+              <!-- LONG_FW Input -->
               <div>
                 <label class="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5">
-                  FW <span class="text-red-400">*</span>
+                  LONG_FW <span class="text-slate-500 font-normal">(e.g. 3F0825)</span>
+                </label>
+                <div class="relative">
+                  <input
+                    v-model="finalConfigLongFw"
+                    @input="onFinalConfigLongFwChange"
+                    type="text"
+                    placeholder="e.g. 3F0825"
+                    class="w-full px-3.5 py-2 rounded-xl bg-slate-950/80 border border-slate-700 focus:border-sky-500 text-xs font-mono text-white placeholder-slate-500 focus:outline-none transition uppercase"
+                  />
+                  <span v-if="finalConfigLongFw" class="absolute right-3 top-2.5 text-xs text-sky-400">
+                    <i class="fa-solid fa-code-branch"></i>
+                  </span>
+                </div>
+                <p class="text-[11px] text-slate-500 mt-1">
+                  Full firmware version. Auto-calculates SHORT_FW.
+                </p>
+              </div>
+
+              <!-- SHORT_FW Input -->
+              <div>
+                <label class="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5">
+                  SHORT_FW <span class="text-red-400">*</span>
                 </label>
                 <div class="relative">
                   <input
                     v-model="finalConfigShortFw"
                     @input="onFinalConfigShortFwChange"
                     type="text"
-                    placeholder="e.g. 6"
+                    placeholder="e.g. 3"
                     class="w-full px-3.5 py-2 rounded-xl bg-slate-950/80 border text-xs font-mono text-white placeholder-slate-500 focus:outline-none transition"
                     :class="fcFwError ? 'border-red-500 focus:border-red-400' : 'border-slate-700 focus:border-sky-500'"
                   />
@@ -249,8 +271,11 @@ exports.CREATE_FINAL_CONFIG_TEMPLATE = `
                 <span v-if="finalConfigSku" class="px-2.5 py-1 rounded-lg bg-sky-500/10 text-sky-300 font-mono font-bold border border-sky-500/20">
                   SKU: {{ finalConfigSku }}
                 </span>
+                <span v-if="finalConfigLongFw" class="px-2.5 py-1 rounded-lg bg-sky-500/20 text-sky-300 font-mono font-bold border border-sky-500/30">
+                  LONG_FW: {{ finalConfigLongFw }}
+                </span>
                 <span v-if="finalConfigShortFw" class="px-2.5 py-1 rounded-lg bg-amber-500/10 text-amber-300 font-mono font-bold border border-amber-500/20">
-                  FW: {{ finalConfigShortFw }}
+                  SHORT_FW: {{ finalConfigShortFw }}
                 </span>
                 <span v-if="finalConfigSku && finalConfigShortFw" class="px-2.5 py-1 rounded-lg bg-slate-800 text-slate-300 font-mono border border-slate-700">
                   Key: {{ finalConfigSku }}_{{ finalConfigShortFw }}
@@ -411,8 +436,24 @@ exports.CREATE_FINAL_CONFIG_SCRIPT = `
       const finalConfigSo = ref('');
       const finalConfigItemCode = ref('');
       const finalConfigSku = ref('');
+      const finalConfigLongFw = ref('');
       const finalConfigShortFw = ref('');
       const finalConfigFirmwareVersion = ref('');
+
+      function extractShortFwFromLongFw(longFw) {
+        if (!longFw || typeof longFw !== 'string') return null;
+        const trimmed = longFw.trim();
+        const match = trimmed.match(/^(\d+)[fF]/i);
+        if (match) {
+          const val = parseInt(match[1], 10);
+          return isNaN(val) ? null : val;
+        }
+        if (/^\d+$/.test(trimmed)) {
+          const val = parseInt(trimmed, 10);
+          return isNaN(val) ? null : val;
+        }
+        return null;
+      }
 
       // Reference options fetched from DB
       const fcSalesOrdersList = ref([]);
@@ -653,10 +694,16 @@ exports.CREATE_FINAL_CONFIG_SCRIPT = `
         if (matched) {
           if (matched.sku) finalConfigSku.value = matched.sku.toUpperCase();
           if (matched.firmwareVersion) {
+            finalConfigLongFw.value = matched.firmwareVersion;
             finalConfigFirmwareVersion.value = matched.firmwareVersion;
-            const parsedShort = parseInt(String(matched.firmwareVersion).replace(/^v/i, ''), 10);
-            if (!isNaN(parsedShort) && parsedShort > 0) {
-              finalConfigShortFw.value = String(parsedShort);
+            const extracted = extractShortFwFromLongFw(matched.firmwareVersion);
+            if (extracted !== null) {
+              finalConfigShortFw.value = String(extracted);
+            } else {
+              const parsedShort = parseInt(String(matched.firmwareVersion).replace(/^v/i, ''), 10);
+              if (!isNaN(parsedShort) && parsedShort > 0) {
+                finalConfigShortFw.value = String(parsedShort);
+              }
             }
           }
           triggerAutoLoadMemmap();
@@ -670,10 +717,16 @@ exports.CREATE_FINAL_CONFIG_SCRIPT = `
             if (foundInSo) {
               if (foundInSo.sku) finalConfigSku.value = foundInSo.sku.toUpperCase();
               if (foundInSo.firmwareVersion) {
+                finalConfigLongFw.value = foundInSo.firmwareVersion;
                 finalConfigFirmwareVersion.value = foundInSo.firmwareVersion;
-                const parsedShort = parseInt(String(foundInSo.firmwareVersion).replace(/^v/i, ''), 10);
-                if (!isNaN(parsedShort) && parsedShort > 0) {
-                  finalConfigShortFw.value = String(parsedShort);
+                const extracted = extractShortFwFromLongFw(foundInSo.firmwareVersion);
+                if (extracted !== null) {
+                  finalConfigShortFw.value = String(extracted);
+                } else {
+                  const parsedShort = parseInt(String(foundInSo.firmwareVersion).replace(/^v/i, ''), 10);
+                  if (!isNaN(parsedShort) && parsedShort > 0) {
+                    finalConfigShortFw.value = String(parsedShort);
+                  }
                 }
               }
               triggerAutoLoadMemmap();
@@ -681,6 +734,16 @@ exports.CREATE_FINAL_CONFIG_SCRIPT = `
             }
           }
         }
+      };
+
+      const onFinalConfigLongFwChange = () => {
+        if (finalConfigLongFw.value) {
+          const extracted = extractShortFwFromLongFw(finalConfigLongFw.value);
+          if (extracted !== null) {
+            finalConfigShortFw.value = String(extracted);
+          }
+        }
+        triggerAutoLoadMemmap();
       };
 
       const onFinalConfigSkuChange = () => {
@@ -1079,6 +1142,7 @@ exports.CREATE_FINAL_CONFIG_SCRIPT = `
         finalConfigSo.value = '';
         finalConfigItemCode.value = '';
         finalConfigSku.value = '';
+        finalConfigLongFw.value = '';
         finalConfigShortFw.value = '';
         finalConfigFirmwareVersion.value = '';
         finalConfigRegs.value = [];
@@ -1100,7 +1164,7 @@ exports.CREATE_FINAL_CONFIG_SCRIPT = `
           const itemCode = finalConfigItemCode.value.trim();
           const sku = finalConfigSku.value.trim().toUpperCase();
           const shortFw = Number(finalConfigShortFw.value.trim());
-          const fwVer = finalConfigFirmwareVersion.value.trim() || (shortFw + '.0');
+          const fwVer = (finalConfigLongFw.value || '').trim() || (finalConfigFirmwareVersion.value || '').trim() || String(shortFw);
           const presetName = '[Final Config] ' + so + ' - ' + itemCode + ' (' + sku + '_' + shortFw + ')';
 
           const checkedRegs = finalConfigRegs.value
@@ -1194,6 +1258,7 @@ exports.CREATE_FINAL_CONFIG_SCRIPT = `
         finalConfigSo,
         finalConfigItemCode,
         finalConfigSku,
+        finalConfigLongFw,
         finalConfigShortFw,
         finalConfigFirmwareVersion,
         fcSalesOrdersList,
@@ -1213,6 +1278,7 @@ exports.CREATE_FINAL_CONFIG_SCRIPT = `
         onFinalConfigSoChange,
         onFinalConfigItemCodeChange,
         onFinalConfigSkuChange,
+        onFinalConfigLongFwChange,
         onFinalConfigShortFwChange,
         onFinalConfigTableSearchChange,
         openFinalConfigSaveModal,

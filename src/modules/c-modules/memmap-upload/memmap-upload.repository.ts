@@ -8,9 +8,17 @@ import { MemmapRegEntity } from './entities/memmap-reg.entity';
 export class MemmapUploadRepository {
   private readonly logger = new Logger(MemmapUploadRepository.name);
 
-  // In-memory fallback cache when PostgreSQL is offline or running tests
-  private memoryPayloads = new Map<string, MemmapPayloadEntity>();
-  private memoryRegs = new Map<string, MemmapRegEntity[]>();
+  // Shared in-memory fallback cache across repository instances (when PostgreSQL is offline or running tests)
+  public static readonly sharedMemoryPayloads = new Map<string, MemmapPayloadEntity>();
+  public static readonly sharedMemoryRegs = new Map<string, MemmapRegEntity[]>();
+
+  private get memoryPayloads(): Map<string, MemmapPayloadEntity> {
+    return MemmapUploadRepository.sharedMemoryPayloads;
+  }
+
+  private get memoryRegs(): Map<string, MemmapRegEntity[]> {
+    return MemmapUploadRepository.sharedMemoryRegs;
+  }
 
   constructor(@Optional() private readonly dbService?: DynamicDatabaseService) {}
 
@@ -42,6 +50,9 @@ export class MemmapUploadRepository {
   ): Promise<{ payload: MemmapPayloadEntity; registers: MemmapRegEntity[] }> {
     const sku = (payloadData.sku || '').trim().toUpperCase();
     const shortFw = Number(payloadData.short_fw);
+    const longFw = payloadData.long_fw !== undefined && payloadData.long_fw !== null && String(payloadData.long_fw).trim() !== ''
+      ? String(payloadData.long_fw).trim()
+      : String(shortFw);
     const payloadRepo = this.getPayloadRepo();
     const regRepo = this.getRegRepo();
 
@@ -57,6 +68,7 @@ export class MemmapUploadRepository {
           if (existing) {
             payloadId = existing.id;
             await manager.update(MemmapPayloadEntity, payloadId, {
+              long_fw: longFw || existing.long_fw || String(shortFw),
               file_name: payloadData.file_name,
               total_regs: payloadData.total_regs,
               dec_valid: payloadData.dec_valid,
@@ -71,6 +83,7 @@ export class MemmapUploadRepository {
               ...payloadData,
               sku,
               short_fw: shortFw,
+              long_fw: longFw,
               created_at: new Date(),
               updated_at: new Date(),
             });
@@ -111,6 +124,7 @@ export class MemmapUploadRepository {
       id: payloadId,
       sku,
       short_fw: shortFw,
+      long_fw: longFw || payload?.long_fw || String(shortFw),
       file_name: payloadData.file_name,
       total_regs: payloadData.total_regs || registersData.length,
       dec_valid: payloadData.dec_valid ?? true,
@@ -196,6 +210,74 @@ export class MemmapUploadRepository {
         this.logger.debug(`Database findAll failed: ${err.message}`);
       }
     }
-    return Array.from(this.memoryPayloads.values());
+    return Array.from(this.memoryPayloads.values()).sort(
+      (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+    );
+  }
+
+  public async findPayloadByIdWithRegs(
+    id: string,
+  ): Promise<{ payload: MemmapPayloadEntity; registers: MemmapRegEntity[] } | null> {
+    const payloadRepo = this.getPayloadRepo();
+    const regRepo = this.getRegRepo();
+
+    if (payloadRepo) {
+      try {
+        const payload = await payloadRepo.findOne({ where: { id } });
+        if (payload) {
+          const registers = regRepo
+            ? await regRepo.find({ where: { payload_id: id }, order: { no: 'ASC' } })
+            : [];
+          return { payload, registers };
+        }
+      } catch (err: any) {
+        this.logger.debug(`Database findPayloadByIdWithRegs failed: ${err.message}`);
+      }
+    }
+
+    // Memory fallback
+    for (const [key, p] of this.memoryPayloads.entries()) {
+      if (p.id === id) {
+        const registers = this.memoryRegs.get(key) || [];
+        return { payload: p, registers: [...registers].sort((a, b) => a.no - b.no) };
+      }
+    }
+    return null;
+  }
+
+  public async deletePayloadById(id: string): Promise<MemmapPayloadEntity | null> {
+    const payloadRepo = this.getPayloadRepo();
+    const regRepo = this.getRegRepo();
+
+    if (payloadRepo) {
+      try {
+        const payload = await payloadRepo.findOne({ where: { id } });
+        if (payload) {
+          if (regRepo) {
+            await regRepo.delete({ payload_id: id });
+          }
+          await payloadRepo.delete({ id });
+
+          // Clean in-memory cache as well
+          const key = this.getCompositeKey(payload.sku, payload.short_fw);
+          this.memoryPayloads.delete(key);
+          this.memoryRegs.delete(key);
+
+          return payload;
+        }
+      } catch (err: any) {
+        this.logger.debug(`Database deletePayloadById failed: ${err.message}`);
+      }
+    }
+
+    // Memory fallback
+    for (const [key, p] of this.memoryPayloads.entries()) {
+      if (p.id === id) {
+        this.memoryPayloads.delete(key);
+        this.memoryRegs.delete(key);
+        return p;
+      }
+    }
+    return null;
   }
 }

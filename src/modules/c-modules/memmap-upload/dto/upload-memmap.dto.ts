@@ -95,6 +95,14 @@ export class UploadMemmapDto {
   @IsNotEmpty()
   sku: string;
 
+  @ApiPropertyOptional({
+    description: 'Full Firmware Version identifier string (e.g. 3F0825, 6Fmmdd)',
+    example: '3F0825',
+  })
+  @IsString()
+  @IsOptional()
+  long_fw?: string;
+
   @ApiProperty({
     description: 'Strict integer Short Firmware Version without prefix or decimals (e.g. 6)',
     example: 6,

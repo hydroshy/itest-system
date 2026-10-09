@@ -18,6 +18,7 @@ export declare class MemmapRegItemDto {
 }
 export declare class UploadMemmapDto {
     sku: string;
+    long_fw?: string;
     short_fw: number;
     file_name?: string;
     registers: MemmapRegItemDto[];

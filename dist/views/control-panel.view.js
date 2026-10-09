@@ -16,6 +16,7 @@ const sales_orders_module_1 = require("./control-panel-modules/sales-orders.modu
 const sensor_types_module_1 = require("./control-panel-modules/sensor-types.module");
 const traceability_module_1 = require("./control-panel-modules/traceability.module");
 const memmap_upload_module_1 = require("./control-panel-modules/memmap-upload.module");
+const memmap_manager_module_1 = require("./control-panel-modules/memmap-manager.module");
 const create_final_config_module_1 = require("./control-panel-modules/create-final-config.module");
 const final_config_manager_module_1 = require("./control-panel-modules/final-config-manager.module");
 const device_tested_module_1 = require("./control-panel-modules/device-tested.module");
@@ -1339,6 +1340,17 @@ exports.CONTROL_PANEL_HTML = `<!DOCTYPE html>
             </button>
 
             <button
+              @click="switchTab('memmap-manager')"
+              :class="{ active: activeTab === 'memmap-manager' }"
+              class="nav-item"
+            >
+              <span class="flex items-center gap-2.5">
+                <i class="fa-solid fa-map-location-dot w-4 text-center text-xs text-sky-400"></i>
+                <span class="truncate">Memory Map Manager</span>
+              </span>
+            </button>
+
+            <button
               @click="switchTab('create-final-config')"
               :class="{ active: activeTab === 'create-final-config' }"
               class="nav-item"
@@ -1522,6 +1534,13 @@ exports.CONTROL_PANEL_HTML = `<!DOCTYPE html>
           </div>
         </c-module-boundary>
 
+        <!-- TAB: MEMORY MAP MANAGER -->
+        <c-module-boundary module-id="memmap-manager" title="Memory Map Manager" icon="fa-solid fa-map-location-dot" :active="activeTab === 'memmap-manager'">
+          <div v-if="activeTab === 'memmap-manager'" class="space-y-6">
+            ${memmap_manager_module_1.MEMMAP_MANAGER_TEMPLATE}
+          </div>
+        </c-module-boundary>
+
         <!-- TAB 19: CREATE FINAL CONFIG -->
         <c-module-boundary module-id="create-final-config" title="Create Final Config" icon="fa-solid fa-sliders" :active="activeTab === 'create-final-config'">
           <div v-if="activeTab === 'create-final-config'" class="space-y-6">
@@ -1562,6 +1581,7 @@ exports.CONTROL_PANEL_HTML = `<!DOCTYPE html>
     ${sensor_types_module_1.SENSOR_TYPES_MODALS}
     ${traceability_module_1.TRACEABILITY_MODALS}
     ${memmap_upload_module_1.MEMMAP_UPLOAD_MODALS}
+    ${memmap_manager_module_1.MEMMAP_MANAGER_MODALS}
     ${create_final_config_module_1.CREATE_FINAL_CONFIG_MODALS}
     ${final_config_manager_module_1.FINAL_CONFIG_MANAGER_MODALS}
     ${device_tested_module_1.DEVICE_TESTED_MODALS}
@@ -1638,6 +1658,11 @@ exports.CONTROL_PANEL_HTML = `<!DOCTYPE html>
       ${memmap_upload_module_1.MEMMAP_UPLOAD_SCRIPT}
     } catch (e) {
       console.error('[Module Script Load Error: memmap-upload]', e);
+    }
+    try {
+      ${memmap_manager_module_1.MEMMAP_MANAGER_SCRIPT}
+    } catch (e) {
+      console.error('[Module Script Load Error: memmap-manager]', e);
     }
     try {
       ${create_final_config_module_1.CREATE_FINAL_CONFIG_SCRIPT}
@@ -2084,6 +2109,7 @@ exports.CONTROL_PANEL_HTML = `<!DOCTYPE html>
         'sensor-types': { id: 'c-sensor-types', tabId: 'sensor-types', title: 'LoRaWAN Sensor Types', icon: 'fa-solid fa-microchip', status: 'READY', error: null, retryCount: 0, lastActive: 0, bypassed: false },
         'traceability': { id: 'c-traceability', tabId: 'traceability', title: 'Traceability (T-Module)', icon: 'fa-solid fa-clipboard-check', status: 'READY', error: null, retryCount: 0, lastActive: 0, bypassed: false },
         'memmap-upload': { id: 'c-memmap-upload', tabId: 'memmap-upload', title: 'Memory Map Upload', icon: 'fa-solid fa-file-csv', status: 'READY', error: null, retryCount: 0, lastActive: 0, bypassed: false },
+        'memmap-manager': { id: 'c-memmap-manager', tabId: 'memmap-manager', title: 'Memory Map Manager', icon: 'fa-solid fa-map-location-dot', status: 'READY', error: null, retryCount: 0, lastActive: 0, bypassed: false },
         'create-final-config': { id: 'c-create-final-config', tabId: 'create-final-config', title: 'Create Final Config', icon: 'fa-solid fa-sliders', status: 'READY', error: null, retryCount: 0, lastActive: 0, bypassed: false },
         'final-config-manager': { id: 'c-final-config-manager', tabId: 'final-config-manager', title: 'Final Config Manager', icon: 'fa-solid fa-list-check', status: 'READY', error: null, retryCount: 0, lastActive: 0, bypassed: false },
         'device-tested': { id: 'c-device-tested', tabId: 'device-tested', title: 'Tested Devices (QA Inspection)', icon: 'fa-solid fa-vial-circle-check', status: 'READY', error: null, retryCount: 0, lastActive: 0, bypassed: false },
@@ -3046,6 +3072,7 @@ exports.CONTROL_PANEL_HTML = `<!DOCTYPE html>
             case 'sensor-types': return 'LoRaWAN Sensor Types';
             case 'traceability': return 'Traceability (T-Module)';
             case 'memmap-upload': return 'Memory Map Upload';
+            case 'memmap-manager': return 'Memory Map Manager';
             case 'create-final-config': return 'Create Final Config';
             case 'final-config-manager': return 'Final Config Manager';
             case 'device-tested': return 'Tested Devices (QA Inspection)';
@@ -6819,6 +6846,20 @@ exports.CONTROL_PANEL_HTML = `<!DOCTYPE html>
           () => ({})
         );
 
+        const memmapManagerModule = safeExecuteModuleSetup(
+          'c-memmap-manager',
+          typeof useMemmapManagerModule === 'function' ? (ctx => useMemmapManagerModule(ctx)) : null,
+          {
+            showToast,
+            authHeaders,
+            currentUser,
+            activeTab,
+            switchTab,
+            moduleStatesRegistry: moduleStatesStore,
+          },
+          () => ({})
+        );
+
         const createFinalConfigModule = safeExecuteModuleSetup(
           'c-create-final-config',
           typeof useCreateFinalConfigModule === 'function' ? (ctx => useCreateFinalConfigModule(ctx)) : null,
@@ -6960,6 +7001,13 @@ exports.CONTROL_PANEL_HTML = `<!DOCTYPE html>
               }, 120);
             }
           }
+          if (newTab === 'memmap-manager') {
+            if (memmapManagerModule && typeof memmapManagerModule.fmmFetchData === 'function') {
+              setTimeout(() => {
+                memmapManagerModule.fmmFetchData();
+              }, 120);
+            }
+          }
           if (newTab === 'create-final-config') {
             if (createFinalConfigModule && typeof createFinalConfigModule.renderFinalConfigTabulator === 'function') {
               setTimeout(() => {
@@ -7039,6 +7087,13 @@ exports.CONTROL_PANEL_HTML = `<!DOCTYPE html>
                 }, 150);
               }
             }
+            if (hash === 'memmap-manager') {
+              if (memmapManagerModule && typeof memmapManagerModule.fmmFetchData === 'function') {
+                setTimeout(() => {
+                  memmapManagerModule.fmmFetchData();
+                }, 150);
+              }
+            }
             if (hash === 'create-final-config') {
               if (createFinalConfigModule && typeof createFinalConfigModule.renderFinalConfigTabulator === 'function') {
                 setTimeout(() => {
@@ -7086,6 +7141,7 @@ exports.CONTROL_PANEL_HTML = `<!DOCTYPE html>
           ...sensorTypesModule,
           ...traceabilityModule,
           ...memmapUploadModule,
+          ...memmapManagerModule,
           ...createFinalConfigModule,
           ...finalConfigManagerModule,
           ...deviceTestedModule,

@@ -3,6 +3,7 @@ export declare class MemmapPayloadEntity {
     id: string;
     sku: string;
     short_fw: number;
+    long_fw?: string;
     file_name?: string;
     total_regs: number;
     dec_valid: boolean;

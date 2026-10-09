@@ -24,6 +24,9 @@ export class MemmapPayloadEntity {
   @Column({ type: 'int' })
   short_fw: number;
 
+  @Column({ type: 'varchar', length: 50, default: '', nullable: true })
+  long_fw?: string;
+
   @Column({ type: 'varchar', length: 255, nullable: true })
   file_name?: string;
 

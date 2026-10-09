@@ -21,4 +21,5 @@ __exportStar(require("./memmap-upload.repository"), exports);
 __exportStar(require("./dto/upload-memmap.dto"), exports);
 __exportStar(require("./entities/memmap-payload.entity"), exports);
 __exportStar(require("./entities/memmap-reg.entity"), exports);
+__exportStar(require("./fw-utils"), exports);
 //# sourceMappingURL=index.js.map

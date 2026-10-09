@@ -5,8 +5,10 @@ import { MemmapRegEntity } from './entities/memmap-reg.entity';
 export declare class MemmapUploadRepository {
     private readonly dbService?;
     private readonly logger;
-    private memoryPayloads;
-    private memoryRegs;
+    static readonly sharedMemoryPayloads: Map<string, MemmapPayloadEntity>;
+    static readonly sharedMemoryRegs: Map<string, MemmapRegEntity[]>;
+    private get memoryPayloads();
+    private get memoryRegs();
     constructor(dbService?: DynamicDatabaseService);
     getPayloadRepo(): Repository<MemmapPayloadEntity> | null;
     getRegRepo(): Repository<MemmapRegEntity> | null;
@@ -20,4 +22,9 @@ export declare class MemmapUploadRepository {
         registers: MemmapRegEntity[];
     } | null>;
     findAllPayloads(): Promise<MemmapPayloadEntity[]>;
+    findPayloadByIdWithRegs(id: string): Promise<{
+        payload: MemmapPayloadEntity;
+        registers: MemmapRegEntity[];
+    } | null>;
+    deletePayloadById(id: string): Promise<MemmapPayloadEntity | null>;
 }
