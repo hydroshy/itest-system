@@ -40,6 +40,29 @@ export declare class DeviceRegisterDto {
     fn_write?: string;
     order_no?: number;
 }
+export interface TraceabilityData {
+    fw_code: string;
+    fw_version: string;
+    hw_version: string;
+    lorawan_protocol_version: string;
+    spare_15?: string;
+    dev_eui: string;
+    app_eui: string;
+    factory_app_key: string;
+    factory_nwk_skey: string;
+    factory_app_skey: string;
+    read_at: string;
+    read_duration_ms?: number;
+    max_read_attempts?: number;
+}
+export interface FinalConfigSnMetadata {
+    traceability?: TraceabilityData;
+    client_environment?: {
+        app_version?: string;
+        serial_port?: string;
+    };
+    [key: string]: any;
+}
 export declare class SaveDeviceFinalConfigDto {
     serial_number: string;
     item_code: string;
@@ -53,7 +76,7 @@ export declare class SaveDeviceFinalConfigDto {
     app_key?: string;
     operator?: string;
     notes?: string;
-    metadata?: Record<string, any>;
+    metadata?: FinalConfigSnMetadata;
     registers?: DeviceRegisterDto[];
 }
 export declare class SyncFromPresetDto {

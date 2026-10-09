@@ -712,21 +712,21 @@ async function runLorawanFinalConfigDeviceTestSuite() {
     'Stage 3 must reassign order_no sequentially after ascending sort'
   );
 
-  // 12b. Verify Stage 3 Read Retry Engine: up to 3 attempts, progressive backoff [800, 1500]ms, flushUartRxBuffer
+  // 12b. Verify Stage 3 Read Retry Engine: up to 5 attempts (MAX_READ_ATTEMPTS), progressive backoff, flushUartRxBuffer
   assert.ok(
-    viewsCode.includes('for (let retry = 0; retry < 3; retry++) {') &&
+    (viewsCode.includes('for (let retry = 0; retry < MAX_READ_ATTEMPTS; retry++) {') || viewsCode.includes('for (let retry = 0; retry < 3; retry++) {')) &&
     viewsCode.includes('await flushUartRxBuffer();') &&
     viewsCode.includes('const rawBytes = await readModbusRegistersFromPort(1, addr, numreg);'),
-    'Stage 3 read loop must implement 3-attempt retry with flushUartRxBuffer'
+    'Stage 3 read loop must implement retry with flushUartRxBuffer'
   );
   assert.ok(
-    viewsCode.includes("const delayMs = RETRY_BACKOFF_DELAYS[retry] || 800;") &&
-    viewsCode.includes("'Read Reg ' + addr + ' failed (attempt ' + (retry + 1) + '/3):"),
+    (viewsCode.includes("const delayMs = READ_RETRY_BACKOFF_DELAYS[retry]") || viewsCode.includes("const delayMs = RETRY_BACKOFF_DELAYS[retry] || 800;")) &&
+    (viewsCode.includes("'Read Reg ' + addr + ' failed (attempt ' + (retry + 1) + '/' + MAX_READ_ATTEMPTS + '): '") || viewsCode.includes("'Read Reg ' + addr + ' failed (attempt ' + (retry + 1) + '/3):")),
     'Stage 3 read retry must log warning with attempt count and delay'
   );
   assert.ok(
     viewsCode.includes("row.value_read_back = 'READ_ERR';"),
-    'Stage 3 must assign READ_ERR after 3 failed read attempts'
+    'Stage 3 must assign READ_ERR after failed read attempts'
   );
 
   // 12c. Verify UI Table Refactoring: No Hex Reg, No FC Write, Default Value before Target Value, Initial sort

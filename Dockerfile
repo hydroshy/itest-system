@@ -1,31 +1,45 @@
-# Stage 1: Build stage
+# ==============================================================================
+# STAGE 1: Builder
+# ==============================================================================
 FROM node:20-alpine AS builder
 
 WORKDIR /app
 
-# Install dependencies
+# Cài đặt build tool biên dịch native module (bcrypt C++ addon)
+RUN apk add --no-cache python3 make g++
+
 COPY package*.json ./
 RUN npm ci
 
-# Copy source code and build
 COPY . .
 RUN npm run build
 
-# Stage 2: Production stage
+# ==============================================================================
+# STAGE 2: Production Runner
+# ==============================================================================
 FROM node:20-alpine AS runner
 
 WORKDIR /app
 
 ENV NODE_ENV=production
 
-# Install production dependencies only
-COPY package*.json ./
-RUN npm ci --only=production
+# Cài đặt curl phục vụ healthcheck
+RUN apk add --no-cache curl
 
-# Copy built artifacts and config from builder
+COPY package*.json ./
+# Cài đặt dependencies production và compile native modules
+RUN apk add --no-cache python3 make g++ && \
+    npm ci --only=production && \
+    apk del python3 make g++
+
+# Sao chép artifacts đã build và cấu hình
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/config ./config
+COPY --from=builder /app/public ./public
 
 EXPOSE 3000
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+  CMD curl -f http://localhost:3000/login || exit 1
 
 CMD ["node", "dist/main.js"]

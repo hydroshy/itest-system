@@ -688,6 +688,11 @@ function useFinalConfigDeviceModule(ctx) {
   const INTER_WRITE_SETTLING_DELAY_MS = 600;
   const RETRY_BACKOFF_DELAYS = [800, 1500, 2500];
 
+  // Progressive Read Retry & Speed Optimization (< 60s sleep limit)
+  const MAX_READ_ATTEMPTS = 5;
+  const READ_RETRY_BACKOFF_DELAYS = [50, 100, 200, 400];
+  const INTER_READ_DELAY_MS = 35;
+
   const fcIsSerialSupported = ref(typeof navigator !== 'undefined' && 'serial' in navigator);
   const isSerialSupported = fcIsSerialSupported;
   const fcSerialPort = ref(null);
@@ -1365,6 +1370,7 @@ function useFinalConfigDeviceModule(ctx) {
     sku: '',
   });
   const fcSoCheckStatus = ref('NONE'); // 'MATCH' | 'MISMATCH' | 'NONE'
+  const fcTraceabilityData = ref(null);
 
   // Stage 1 - 4 progress status
   const stage1Status = ref('IDLE'); // 'IDLE' | 'RUNNING' | 'PASS' | 'FAIL'
@@ -1580,42 +1586,154 @@ function useFinalConfigDeviceModule(ctx) {
       // STAGE 1: HARDWARE IDENTIFICATION & QA VERIFICATION (0% -> 25%)
       // ==================================================================
       currentStage.value = 1;
-      fcStatusMessage.value = 'Reading hardware registers (SN, FW, DevEUI, Type, Item Code)...';
-      fcProgress.value = 5;
+      const stage1StartTime = Date.now();
+      fcStatusMessage.value = 'Reading hardware & traceability registers (0..51, 103, 259, 386)...';
+      fcProgress.value = 3;
 
-      const bytesToAscii = (bytes) => {
+      const bytesToString = (bytes) => {
         if (!bytes || !bytes.length) return '';
         return String.fromCharCode(...bytes.filter(b => b >= 32 && b <= 126)).trim();
       };
+      const bytesToAscii = bytesToString;
       const bytesToHex = (bytes) => {
         if (!bytes || !bytes.length) return '';
         return Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('').toUpperCase();
       };
 
-      // 1. Read Reg 259 (SERIAL_NUMBER: 9 regs, string)
-      let readSn = '';
-      try {
-        const snBytes = await readModbusRegistersFromPort(1, 259, 9);
-        readSn = bytesToAscii(snBytes);
-      } catch (err) {
-        throw new Error('Failed to read Serial Number (Reg 259): ' + (err.message || err));
-      }
-      if (!readSn) throw new Error('Serial Number (Reg 259) read from hardware is empty');
-      fcHardwareInfo.value.serialNumber = readSn;
-      fcSerialNumberInput.value = readSn;
-      fcProgress.value = 10;
+      const readRegisterWithRetry = async (slave, addr, numreg) => {
+        let lastErr = null;
+        for (let retry = 0; retry < MAX_READ_ATTEMPTS; retry++) {
+          try {
+            await flushUartRxBuffer();
+            const rawBytes = await readModbusRegistersFromPort(slave, addr, numreg);
+            await new Promise(r => setTimeout(r, INTER_READ_DELAY_MS));
+            return { success: true, rawBytes };
+          } catch (rErr) {
+            lastErr = rErr;
+            if (retry < MAX_READ_ATTEMPTS - 1) {
+              const delayMs = READ_RETRY_BACKOFF_DELAYS[retry] || 400;
+              addSerialLog('WARN', null, 'Read Reg ' + addr + ' failed (attempt ' + (retry + 1) + '/' + MAX_READ_ATTEMPTS + '): ' + (rErr?.message || rErr) + '. Retrying in ' + delayMs + 'ms...');
+              fcStatusMessage.value = 'Device settling/retrying... (Read Reg ' + addr + ', attempt ' + (retry + 1) + '/' + MAX_READ_ATTEMPTS + ')';
+              await flushUartRxBuffer();
+              await new Promise(r => setTimeout(r, delayMs));
+            } else {
+              addSerialLog('ERROR', null, 'Read Reg ' + addr + ' failed after ' + MAX_READ_ATTEMPTS + ' attempts: ' + (rErr?.message || rErr));
+              console.warn('Read error for register ' + addr + ' after ' + MAX_READ_ATTEMPTS + ' attempts:', rErr);
+            }
+          }
+        }
+        return { success: false, error: lastErr, rawBytes: null };
+      };
 
-      // 2. Read Reg 27 (DEV_EUI: 4 regs = 8 bytes, hex)
+      // Read strictly ascending: 0 -> 5 -> 9 -> 11 -> 15 -> 27 -> 31 -> 35 -> 43 -> 51 -> 103 -> 259 -> 386
+
+      // 1. Reg 0 (FW_CODE: 5 regs, string)
+      let readFwCode = '';
+      const resReg0 = await readRegisterWithRetry(1, 0, 5);
+      if (resReg0.success) readFwCode = bytesToString(resReg0.rawBytes);
+      fcProgress.value = 5;
+
+      // 2. Reg 5 (FW_VERSION: 4 regs, string)
+      let readFw = '';
+      const resReg5 = await readRegisterWithRetry(1, 5, 4);
+      if (resReg5.success) readFw = bytesToString(resReg5.rawBytes);
+      fcHardwareInfo.value.firmwareVersion = readFw || '1.0.0';
+      fcHardwareInfo.value.shortFw = readFw ? (parseInt(readFw.charAt(0), 10) || 1) : 1;
+      fcProgress.value = 7;
+
+      // 3. Reg 9 (HW_VERSION: 2 regs, string, FC 03)
+      let readHw = '';
+      const resReg9 = await readRegisterWithRetry(1, 9, 2);
+      if (resReg9.success) readHw = bytesToString(resReg9.rawBytes);
+      fcHardwareInfo.value.hwVersion = readHw || '';
+      fcProgress.value = 9;
+
+      // 4. Reg 11 (LORAWAN_PROTOCOL: 4 regs, string)
+      let readProto = '';
+      const resReg11 = await readRegisterWithRetry(1, 11, 4);
+      if (resReg11.success) readProto = bytesToString(resReg11.rawBytes);
+      fcProgress.value = 11;
+
+      // 5. Reg 15 (SPARE_15: 12 regs, hex)
+      let readSpare = '';
+      const resReg15 = await readRegisterWithRetry(1, 15, 12);
+      if (resReg15.success) readSpare = bytesToHex(resReg15.rawBytes);
+      fcProgress.value = 13;
+
+      // 6. Reg 27 (DEV_EUI: 4 regs = 8 bytes, hex)
       let readDevEui = '';
-      try {
-        const euiBytes = await readModbusRegistersFromPort(1, 27, 4);
-        readDevEui = bytesToHex(euiBytes);
-      } catch (err) {
-        throw new Error('Failed to read DevEUI (Reg 27): ' + (err.message || err));
-      }
+      const resReg27 = await readRegisterWithRetry(1, 27, 4);
+      if (resReg27.success) readDevEui = bytesToHex(resReg27.rawBytes);
       if (!readDevEui) throw new Error('DevEUI (Reg 27) read from hardware is empty');
       fcHardwareInfo.value.devEui = readDevEui;
       fcProgress.value = 15;
+
+      // 7. Reg 31 (APP_EUI: 4 regs = 8 bytes, hex)
+      let readAppEui = '';
+      const resReg31 = await readRegisterWithRetry(1, 31, 4);
+      if (resReg31.success) readAppEui = bytesToHex(resReg31.rawBytes);
+      fcProgress.value = 17;
+
+      // 8. Reg 35 (FACTORY_APP_KEY: 8 regs = 16 bytes, hex)
+      let readFactoryAppKey = '';
+      const resReg35 = await readRegisterWithRetry(1, 35, 8);
+      if (resReg35.success) readFactoryAppKey = bytesToHex(resReg35.rawBytes);
+      fcProgress.value = 18;
+
+      // 9. Reg 43 (NWK_SKEY: 8 regs = 16 bytes, hex)
+      let readNwkSkey = '';
+      const resReg43 = await readRegisterWithRetry(1, 43, 8);
+      if (resReg43.success) readNwkSkey = bytesToHex(resReg43.rawBytes);
+      fcProgress.value = 19;
+
+      // 10. Reg 51 (APP_SKEY: 8 regs = 16 bytes, hex)
+      let readAppSkey = '';
+      const resReg51 = await readRegisterWithRetry(1, 51, 8);
+      if (resReg51.success) readAppSkey = bytesToHex(resReg51.rawBytes);
+      fcProgress.value = 20;
+
+      // 11. Reg 103 (SENSOR_TYPE: 1 reg, uint16)
+      let readType = 0;
+      const resReg103 = await readRegisterWithRetry(1, 103, 1);
+      if (resReg103.success && resReg103.rawBytes && resReg103.rawBytes.length >= 2) {
+        readType = (resReg103.rawBytes[0] << 8) | resReg103.rawBytes[1];
+      }
+      fcHardwareInfo.value.sensorType = readType;
+      fcProgress.value = 21;
+
+      // 12. Reg 259 (SERIAL_NUMBER: 9 regs, string)
+      let readSn = '';
+      const resReg259 = await readRegisterWithRetry(1, 259, 9);
+      if (resReg259.success) readSn = bytesToString(resReg259.rawBytes);
+      if (!readSn) throw new Error('Serial Number (Reg 259) read from hardware is empty');
+      fcHardwareInfo.value.serialNumber = readSn;
+      fcSerialNumberInput.value = readSn;
+      fcProgress.value = 23;
+
+      // 13. Reg 386 (ITEM_CODE: 14 regs, string)
+      let readItemCode = '';
+      const resReg386 = await readRegisterWithRetry(1, 386, 14);
+      if (resReg386.success) readItemCode = bytesToString(resReg386.rawBytes);
+      fcHardwareInfo.value.itemCode = readItemCode;
+      fcProgress.value = 24;
+
+      // Ingest Traceability passport data
+      const traceDuration = Date.now() - stage1StartTime;
+      fcTraceabilityData.value = {
+        fw_code: readFwCode,
+        fw_version: readFw,
+        hw_version: readHw,
+        lorawan_protocol_version: readProto,
+        spare_15: readSpare,
+        dev_eui: readDevEui,
+        app_eui: readAppEui,
+        factory_app_key: readFactoryAppKey,
+        factory_nwk_skey: readNwkSkey,
+        factory_app_skey: readAppSkey,
+        read_at: new Date().toISOString(),
+        read_duration_ms: traceDuration,
+        max_read_attempts: MAX_READ_ATTEMPTS,
+      };
 
       // Check if device has already passed Final Configuration
       fcStatusMessage.value = 'Checking if device already passed Final Configuration...';
@@ -1638,51 +1756,7 @@ function useFinalConfigDeviceModule(ctx) {
         console.warn('Check passed final config API warning:', checkErr);
       }
 
-      // 3. Read Reg 5 (FW_VERSION: 4 regs, string)
-      let readFw = '';
-      try {
-        const fwBytes = await readModbusRegistersFromPort(1, 5, 4);
-        readFw = bytesToAscii(fwBytes);
-      } catch (e) {
-        console.warn('Failed to read FW (Reg 5):', e);
-      }
-      fcHardwareInfo.value.firmwareVersion = readFw || '1.0.0';
-      fcHardwareInfo.value.shortFw = readFw ? (parseInt(readFw.charAt(0), 10) || 1) : 1;
-
-      // 4. Read Reg 9 (HW_VERSION: 2 regs, string, FC 03)
-      let readHw = '';
-      try {
-        const hwBytes = await readModbusRegistersFromPort(1, 9, 2);
-        readHw = bytesToAscii(hwBytes);
-      } catch (e) {
-        console.warn('Failed to read HW (Reg 9):', e);
-      }
-      fcHardwareInfo.value.hwVersion = readHw || '';
-
-      // 5. Read Reg 103 (SENSOR_TYPE: 1 reg, uint16)
-      let readType = 0;
-      try {
-        const typeBytes = await readModbusRegistersFromPort(1, 103, 1);
-        if (typeBytes && typeBytes.length >= 2) {
-          readType = (typeBytes[0] << 8) | typeBytes[1];
-        }
-      } catch (e) {
-        console.warn('Failed to read Sensor Type (Reg 103):', e);
-      }
-      fcHardwareInfo.value.sensorType = readType;
-
-      // 6. Read Reg 386 (ITEM_CODE: 14 regs, string)
-      let readItemCode = '';
-      try {
-        const icBytes = await readModbusRegistersFromPort(1, 386, 14);
-        readItemCode = bytesToAscii(icBytes);
-      } catch (e) {
-        console.warn('Failed to read Item Code (Reg 386):', e);
-      }
-      fcHardwareInfo.value.itemCode = readItemCode;
-      fcProgress.value = 20;
-
-      // 7. Verify against device_tested table & Auto-map SO, Item Code, AppKey & Preset
+      // Verify against device_tested table & Auto-map SO, Item Code, AppKey & Preset
       fcStatusMessage.value = 'Verifying QA test status and Sales Order match in device_tested...';
       let verifyUrl = '/api/device-tested/verify?serial_number=' + encodeURIComponent(readSn);
       if (readDevEui) {
@@ -1871,31 +1945,52 @@ function useFinalConfigDeviceModule(ctx) {
       // ==================================================================
       currentStage.value = 3;
       stage3Status.value = 'RUNNING';
-      fcStatusMessage.value = 'Reading full register memory map and taking snapshot...';
+      fcStatusMessage.value = 'Reading full register memory map and taking snapshot (0..51, 274, 303+)...';
 
       // Build target registers to read back
       const allAuditList = [...fcAuditRegisters.value];
 
-      // Ensure HW_VERSION Reg 9 is in audit list
-      if (!allAuditList.some(r => r.address === 9)) {
-        allAuditList.push({
-          order_no: 0,
-          address: 9,
-          modbus_reg_hex: '0x0009',
-          parameter_name: 'HW Version',
-          format: 'ascii',
-          endianness: 'Big-Endian',
-          reg_num: 2,
-          fn_read: 'FC 03',
-          default_value: '-',
-          value_to_write: fcHardwareInfo.value.hwVersion || '',
-          value_read_back: '',
-          status: 'NONE',
-        });
+      // 10 Traceability registers config (WSLRW-ATH-6.csv)
+      const TRACE_DEFS = [
+        { address: 0, modbus_reg_hex: '0x0000', parameter_name: 'Firmware Code', format: 'string', reg_num: 5, endianness: 'Big-Endian', fn_read: 'FC 03', default_value: '-', value_to_write: '' },
+        { address: 5, modbus_reg_hex: '0x0005', parameter_name: 'Firmware Version', format: 'string', reg_num: 4, endianness: 'Big-Endian', fn_read: 'FC 03', default_value: '-', value_to_write: '' },
+        { address: 9, modbus_reg_hex: '0x0009', parameter_name: 'HW Version', format: 'string', reg_num: 2, endianness: 'Big-Endian', fn_read: 'FC 03', default_value: '-', value_to_write: fcHardwareInfo.value.hwVersion || '' },
+        { address: 11, modbus_reg_hex: '0x000B', parameter_name: 'LoRaWAN Protocol Version', format: 'string', reg_num: 4, endianness: 'Big-Endian', fn_read: 'FC 03', default_value: '-', value_to_write: '' },
+        { address: 15, modbus_reg_hex: '0x000F', parameter_name: 'Spare Data', format: 'hex', reg_num: 12, endianness: 'Big-Endian', fn_read: 'FC 03', default_value: '-', value_to_write: '' },
+        { address: 27, modbus_reg_hex: '0x001B', parameter_name: 'Device EUI', format: 'hex', reg_num: 4, endianness: 'Big-Endian', fn_read: 'FC 03', default_value: '-', value_to_write: '' },
+        { address: 31, modbus_reg_hex: '0x001F', parameter_name: 'LoRaWAN App EUI', format: 'hex', reg_num: 4, endianness: 'Big-Endian', fn_read: 'FC 03', default_value: '-', value_to_write: '' },
+        { address: 35, modbus_reg_hex: '0x0023', parameter_name: 'Factory Root AppKey', format: 'hex', reg_num: 8, endianness: 'Big-Endian', fn_read: 'FC 03', default_value: '-', value_to_write: '' },
+        { address: 43, modbus_reg_hex: '0x002B', parameter_name: 'Network Session Key', format: 'hex', reg_num: 8, endianness: 'Big-Endian', fn_read: 'FC 03', default_value: '-', value_to_write: '' },
+        { address: 51, modbus_reg_hex: '0x0033', parameter_name: 'Application Session Key', format: 'hex', reg_num: 8, endianness: 'Big-Endian', fn_read: 'FC 03', default_value: '-', value_to_write: '' },
+      ];
+
+      for (const tDef of TRACE_DEFS) {
+        let existing = allAuditList.find(r => Number(r.address) === tDef.address);
+        if (!existing) {
+          allAuditList.push({
+            order_no: 0,
+            address: tDef.address,
+            modbus_reg_hex: tDef.modbus_reg_hex,
+            parameter_name: tDef.parameter_name,
+            format: tDef.format,
+            endianness: tDef.endianness,
+            reg_num: tDef.reg_num,
+            fn_read: tDef.fn_read,
+            default_value: tDef.default_value,
+            value_to_write: tDef.value_to_write,
+            value_read_back: '',
+            status: 'NONE',
+          });
+        } else {
+          if (tDef.address === 9) {
+            existing.format = 'string';
+          }
+        }
       }
 
       // Ensure AppKey 274 is in audit list
-      if (!allAuditList.some(r => r.address === 274)) {
+      let appKeyReg = allAuditList.find(r => Number(r.address) === 274);
+      if (!appKeyReg) {
         allAuditList.push({
           order_no: 0,
           address: 274,
@@ -1905,14 +2000,17 @@ function useFinalConfigDeviceModule(ctx) {
           endianness: 'Big-Endian',
           reg_num: 8,
           fn_write: 'FC 16',
+          fn_read: 'FC 03',
           default_value: '-',
           value_to_write: cleanAppKey.toUpperCase(),
           value_read_back: '',
           status: 'NONE',
         });
+      } else {
+        appKeyReg.value_to_write = cleanAppKey.toUpperCase();
       }
 
-      // Sort strictly ascending by Dec reg (address ASC: 9 -> 274 -> 303 -> ...)
+      // Sort strictly ascending by Dec reg (address ASC: 0 -> 5 -> 9 -> ... -> 274 -> 303 -> ...)
       allAuditList.sort((a, b) => Number(a.address) - Number(b.address));
       allAuditList.forEach((r, idx) => {
         r.order_no = idx + 1;
@@ -1929,31 +2027,32 @@ function useFinalConfigDeviceModule(ctx) {
 
         let readSuccess = false;
         let lastReadErr = null;
-        for (let retry = 0; retry < 3; retry++) {
+        for (let retry = 0; retry < MAX_READ_ATTEMPTS; retry++) {
           try {
             await flushUartRxBuffer();
             const rawBytes = await readModbusRegistersFromPort(1, addr, numreg);
-            if (addr === 274 && numreg === 8) {
+            if (row.format === 'hex' || (addr === 274 && numreg === 8)) {
               row.value_read_back = bytesToHex(rawBytes);
-            } else if (addr === 9 && numreg === 2) {
-              row.value_read_back = bytesToAscii(rawBytes);
+            } else if (row.format === 'string' || row.format === 'ascii') {
+              row.value_read_back = bytesToString(rawBytes);
             } else {
               row.value_read_back = decodeModbusPayload(rawBytes, row.format, row.endianness);
             }
             readSuccess = true;
+            await new Promise(r => setTimeout(r, INTER_READ_DELAY_MS));
             break;
           } catch (rErr) {
             lastReadErr = rErr;
-            if (retry < 2) {
-              const delayMs = RETRY_BACKOFF_DELAYS[retry] || 800;
-              addSerialLog('WARN', null, 'Read Reg ' + addr + ' failed (attempt ' + (retry + 1) + '/3): ' + (rErr?.message || rErr) + '. Retrying in ' + delayMs + 'ms...');
-              fcStatusMessage.value = 'Device settling/retrying... (Read Reg ' + addr + ', attempt ' + (retry + 1) + '/3)';
+            if (retry < MAX_READ_ATTEMPTS - 1) {
+              const delayMs = READ_RETRY_BACKOFF_DELAYS[retry] || 400;
+              addSerialLog('WARN', null, 'Read Reg ' + addr + ' failed (attempt ' + (retry + 1) + '/' + MAX_READ_ATTEMPTS + '): ' + (rErr?.message || rErr) + '. Retrying in ' + delayMs + 'ms...');
+              fcStatusMessage.value = 'Device settling/retrying... (Read Reg ' + addr + ', attempt ' + (retry + 1) + '/' + MAX_READ_ATTEMPTS + ')';
               await flushUartRxBuffer();
               await new Promise(r => setTimeout(r, delayMs));
             } else {
-              addSerialLog('ERROR', null, 'Read Reg ' + addr + ' failed after 3 attempts: ' + (rErr?.message || rErr));
+              addSerialLog('ERROR', null, 'Read Reg ' + addr + ' failed after ' + MAX_READ_ATTEMPTS + ' attempts: ' + (rErr?.message || rErr));
               row.value_read_back = 'READ_ERR';
-              console.warn('Read-back error for register ' + addr + ' after 3 attempts:', rErr);
+              console.warn('Read-back error for register ' + addr + ' after ' + MAX_READ_ATTEMPTS + ' attempts:', rErr);
             }
           }
         }
@@ -1992,6 +2091,8 @@ function useFinalConfigDeviceModule(ctx) {
         } else if (row.address === 9) {
           // HW_VERSION compare
           isMatch = target ? (read.toUpperCase() === target.toUpperCase()) : (read !== 'READ_ERR');
+        } else if (row.format === 'hex') {
+          isMatch = read.toUpperCase() === target.toUpperCase();
         } else if (row.format === 'float' || row.format === 'float32') {
           const numT = parseFloat(target);
           const numR = parseFloat(read);
@@ -2012,10 +2113,20 @@ function useFinalConfigDeviceModule(ctx) {
       const verdict = mismatchCount === 0 ? 'PASS' : 'FAIL';
       finalVerdict.value = verdict;
       stage4Status.value = verdict;
-      fcProgress.value = 90;
+      fcProgress.value = 100;
+      fcStatusMessage.value = verdict === 'PASS' ? 'Final Config completed successfully! (PASS)' : 'Final Config completed with mismatches (FAIL)';
+      updateTabulatorData();
 
-      // Persist results to DB via POST /api/c-modules/final-config-manager/devices
-      fcStatusMessage.value = 'Saving final config results to PostgreSQL (final_config_sn)...';
+      if (showToast) {
+        showToast(
+          verdict === 'PASS'
+            ? 'FINAL CONFIG PASS: Device ' + fcHardwareInfo.value.serialNumber + ' passed verification.'
+            : 'FINAL CONFIG FAIL: Device ' + fcHardwareInfo.value.serialNumber + ' has ' + mismatchCount + ' mismatched registers.',
+          verdict === 'PASS' ? 'success' : 'error'
+        );
+      }
+
+      // Persist results asynchronously (non-blocking for UI & Serial)
       const operator = currentUser?.value?.username || 'admin';
       const savePayload = {
         serial_number: fcHardwareInfo.value.serialNumber,
@@ -2032,6 +2143,13 @@ function useFinalConfigDeviceModule(ctx) {
         total_regs_count: fcAuditRegisters.value.length,
         tested_at: new Date().toISOString(),
         operator,
+        metadata: {
+          traceability: fcTraceabilityData.value || null,
+          client_environment: {
+            app_version: '1.0.0',
+            serial_port: serialPortInfo.value || '',
+          },
+        },
         registers: fcAuditRegisters.value.map(r => ({
           address: r.address,
           modbus_reg_hex: r.modbus_reg_hex,
@@ -2045,50 +2163,39 @@ function useFinalConfigDeviceModule(ctx) {
         })),
       };
 
-      try {
-        const saveRes = await fetch('/api/c-modules/final-config-manager/devices', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            ...(authHeaders ? authHeaders() : {}),
-          },
-          body: JSON.stringify(savePayload),
-        });
-        if (saveRes.ok) {
-          fcDbSaved.value = true;
-        } else {
-          console.warn('DB save warning:', await saveRes.text());
+      (async () => {
+        try {
+          const saveRes = await fetch('/api/c-modules/final-config-manager/devices', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              ...(authHeaders ? authHeaders() : {}),
+            },
+            body: JSON.stringify(savePayload),
+          });
+          if (saveRes.ok) {
+            fcDbSaved.value = true;
+          } else {
+            console.warn('DB save warning:', await saveRes.text());
+          }
+        } catch (saveErr) {
+          console.warn('DB save request failed:', saveErr);
         }
-      } catch (saveErr) {
-        console.warn('DB save request failed:', saveErr);
-      }
 
-      // Update app_key in device_tested table
-      try {
-        await fetch('/api/device-tested/' + encodeURIComponent(fcHardwareInfo.value.serialNumber) + '/app-key', {
-          method: 'PATCH',
-          headers: {
-            'Content-Type': 'application/json',
-            ...(authHeaders ? authHeaders() : {}),
-          },
-          body: JSON.stringify({ app_key: appKeyInput.value }),
-        });
-      } catch (dtErr) {
-        console.warn('device_tested patch app_key warning:', dtErr);
-      }
-
-      fcProgress.value = 100;
-      fcStatusMessage.value = verdict === 'PASS' ? 'Final Config completed successfully! (PASS)' : 'Final Config completed with mismatches (FAIL)';
-      updateTabulatorData();
-
-      if (showToast) {
-        showToast(
-          verdict === 'PASS'
-            ? 'FINAL CONFIG PASS: Device ' + fcHardwareInfo.value.serialNumber + ' passed verification.'
-            : 'FINAL CONFIG FAIL: Device ' + fcHardwareInfo.value.serialNumber + ' has ' + mismatchCount + ' mismatched registers.',
-          verdict === 'PASS' ? 'success' : 'error'
-        );
-      }
+        // Update app_key in device_tested table
+        try {
+          await fetch('/api/device-tested/' + encodeURIComponent(fcHardwareInfo.value.serialNumber) + '/app-key', {
+            method: 'PATCH',
+            headers: {
+              'Content-Type': 'application/json',
+              ...(authHeaders ? authHeaders() : {}),
+            },
+            body: JSON.stringify({ app_key: appKeyInput.value }),
+          });
+        } catch (dtErr) {
+          console.warn('device_tested patch app_key warning:', dtErr);
+        }
+      })();
     } catch (err) {
       console.error('Final Config 4-Stage Workflow error:', err);
       finalVerdict.value = 'FAIL';
@@ -2148,6 +2255,7 @@ function useFinalConfigDeviceModule(ctx) {
     }
     alreadyPassedModal.value = false;
     alreadyPassedInfo.value = null;
+    fcTraceabilityData.value = null;
     if (showToast) showToast('Execution state reset.', 'info');
   };
 
@@ -2433,6 +2541,10 @@ function useFinalConfigDeviceModule(ctx) {
     MODBUS_WRITE_TIMEOUT_MS,
     INTER_WRITE_SETTLING_DELAY_MS,
     RETRY_BACKOFF_DELAYS,
+    MAX_READ_ATTEMPTS,
+    READ_RETRY_BACKOFF_DELAYS,
+    INTER_READ_DELAY_MS,
+    fcTraceabilityData,
     flushUartRxBuffer,
     initFinalConfigDeviceModule,
   };

@@ -1,6 +1,27 @@
 version: '3.8'
 
 services:
+  postgres_db:
+    image: postgres:15-alpine
+    container_name: postgres_db
+    restart: always
+    environment:
+      POSTGRES_USER: ${DB_USERNAME:-admin}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-mason}
+      POSTGRES_DB: ${DB_NAME:-dvt}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ../deploy/database/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-admin} -d ${DB_NAME:-dvt}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - lorawan_net
+
   app:
     build:
       context: .
@@ -12,17 +33,30 @@ services:
     environment:
       - PORT=3000
       - NODE_ENV=production
+      - DB_HOST=postgres_db
+      - DB_PORT=5432
+      - DB_USERNAME=${DB_USERNAME:-admin}
+      - DB_PASSWORD=${DB_PASSWORD:-mason}
+      - DB_NAME=${DB_NAME:-dvt}
       - DB_SYNCHRONIZE=false
-      - JWT_SECRET=Production_Super_Secret_Key_Change_Me_2025!
+      - JWT_SECRET=${JWT_SECRET:-Production_Super_Secret_Key_Change_Me_2025!}
       - DB_ROUTING_CONFIG_PATH=/app/config/db-routing.config.json
       - OPS_AGENT_URL=http://ops_agent:3099
+      - PAYLOAD_LIMIT=${PAYLOAD_LIMIT:-50mb}
     volumes:
       - ./config:/app/config
     depends_on:
-      - postgres_db
+      postgres_db:
+        condition: service_healthy
     extra_hosts:
       - "mas.local:host-gateway"
       - "host.docker.internal:host-gateway"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:3000/login || exit 1"]
+      interval: 30s
+      timeout: 5s
+      start_period: 15s
+      retries: 3
     networks:
       - lorawan_net
 
@@ -40,27 +74,15 @@ services:
       - REPO_DIR=/app/repo
       - DB_HOST=postgres_db
       - DB_PORT=5432
-      - DB_USERNAME=admin
-      - DB_PASSWORD=mason
-      - DB_DATABASE=dvt
+      - DB_USERNAME=${DB_USERNAME:-admin}
+      - DB_PASSWORD=${DB_PASSWORD:-mason}
+      - DB_DATABASE=${DB_NAME:-dvt}
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - .:/app/repo:ro
-    networks:
-      - lorawan_net
-
-  postgres_db:
-    image: postgres:15-alpine
-    container_name: postgres_db
-    restart: always
-    environment:
-      POSTGRES_USER: admin
-      POSTGRES_PASSWORD: mason
-      POSTGRES_DB: dvt
-    ports:
-      - "5432:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
+    depends_on:
+      postgres_db:
+        condition: service_healthy
     networks:
       - lorawan_net
 
@@ -70,3 +92,4 @@ networks:
 
 volumes:
   postgres_data:
+    driver: local
