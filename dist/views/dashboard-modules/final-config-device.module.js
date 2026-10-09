@@ -1,6 +1,54 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.FINAL_CONFIG_DEVICE_SCRIPT = exports.FINAL_CONFIG_DEVICE_MODALS = exports.FINAL_CONFIG_DEVICE_TEMPLATE = void 0;
+exports.readFirstRegisterUntilSuccess = readFirstRegisterUntilSuccess;
+async function readFirstRegisterUntilSuccess(slave, addr, numreg, options) {
+    const backoffMs = options?.backoffMs || 300;
+    const label = options?.label || `Reg ${addr}`;
+    let attempt = 0;
+    let lastErr = null;
+    while (!options?.abortRef?.value) {
+        if (options?.isConnectedFn && !options.isConnectedFn()) {
+            if (options?.logFn) {
+                options.logFn('ERROR', null, `[First Register] ${label} serial port disconnected. Halting retry loop.`);
+            }
+            return { success: false, aborted: true, error: new Error('Serial port disconnected'), rawBytes: null };
+        }
+        attempt++;
+        try {
+            if (options?.flushBufferFn)
+                await options.flushBufferFn();
+            if (!options?.readModbusFn) {
+                throw new Error('readModbusFn not provided');
+            }
+            const rawBytes = await options.readModbusFn(slave, addr, numreg);
+            if (options?.interReadDelayMs) {
+                await new Promise((r) => setTimeout(r, options.interReadDelayMs));
+            }
+            if (options?.logFn) {
+                options.logFn('INFO', null, `[First Register] ${label} read SUCCESS on attempt ${attempt}`);
+            }
+            return { success: true, rawBytes, attempts: attempt };
+        }
+        catch (rErr) {
+            lastErr = rErr;
+            if (options?.abortRef?.value || (options?.isConnectedFn && !options.isConnectedFn())) {
+                return { success: false, aborted: true, error: new Error('User aborted operation or serial port disconnected'), rawBytes: null };
+            }
+            const errMsg = rErr?.message || String(rErr);
+            if (options?.logFn) {
+                options.logFn('WARN', null, `[First Register] ${label} read failed (attempt ${attempt}): ${errMsg}. Retrying continuously until MCU wakes up...`);
+            }
+            if (options?.statusMsgRef) {
+                options.statusMsgRef.value = `Waking up MCU / Retrying ${label} (attempt ${attempt})...`;
+            }
+            if (options?.flushBufferFn)
+                await options.flushBufferFn();
+            await new Promise((r) => setTimeout(r, backoffMs));
+        }
+    }
+    return { success: false, aborted: true, error: lastErr || new Error('Aborted'), rawBytes: null };
+}
 exports.FINAL_CONFIG_DEVICE_TEMPLATE = `          <div v-else-if="activeFeature.id === 'final-config-device'" class="space-y-6">
 
             <!-- 1. TOP HEADER -->
@@ -902,6 +950,10 @@ function useFinalConfigDeviceModule(ctx) {
     }
     serialConnected.value = false;
     if (isManual) {
+      if (isRunningFinalConfig.value) {
+        abortRequested.value = true;
+        isRunningFinalConfig.value = false;
+      }
       isAutoReconnecting.value = false;
       serialPort.value = null;
       serialPortInfo.value = '';
@@ -1555,6 +1607,57 @@ function useFinalConfigDeviceModule(ctx) {
   };
 
   // ----------------------------------------------------------------------
+  // 4.5. CONTINUOUS RETRY ENGINE FOR FIRST REGISTER (MCU WAKE-UP GUARD)
+  // ----------------------------------------------------------------------
+  const readFirstRegisterUntilSuccess = async (slave, addr, numreg, options) => {
+    const backoffMs = (options && options.backoffMs) || 300;
+    const label = (options && options.label) || ('Reg ' + addr);
+    let attempt = 0;
+    let lastErr = null;
+
+    while (!abortRequested.value) {
+      // 0. Physical disconnect guard: Stop retry loop if port disconnected and not auto-reconnecting
+      if (!serialConnected.value && !isAutoReconnecting.value) {
+        addSerialLog('ERROR', null, '[First Register] Serial port is disconnected. Aborting retry loop.');
+        return { success: false, aborted: true, error: new Error('Serial port disconnected'), rawBytes: null };
+      }
+
+      attempt++;
+      try {
+        // 1. Luôn flush UART RX Buffer trước mỗi lần gửi frame Modbus
+        await flushUartRxBuffer();
+
+        // 2. Gửi request Modbus FC 03
+        const rawBytes = await readModbusRegistersFromPort(slave, addr, numreg);
+
+        // 3. Thành công -> Đợi settling delay tiêu chuẩn giữa 2 lần đọc
+        await new Promise(r => setTimeout(r, INTER_READ_DELAY_MS));
+
+        addSerialLog('INFO', null, '[First Register] ' + label + ' read SUCCESS on attempt ' + attempt);
+        return { success: true, rawBytes, attempts: attempt };
+      } catch (rErr) {
+        lastErr = rErr;
+
+        // 4. Nếu người dùng đã bấm Abort hoặc mất kết nối serial -> Dừng ngay lập tức
+        if (abortRequested.value || (!serialConnected.value && !isAutoReconnecting.value)) {
+          return { success: false, aborted: true, error: rErr || new Error('User aborted operation or serial port disconnected'), rawBytes: null };
+        }
+
+        // 5. Cập nhật thông báo tiến trình và log cảnh báo
+        const errMsg = (rErr && rErr.message) || String(rErr);
+        addSerialLog('WARN', null, '[First Register] ' + label + ' read failed (attempt ' + attempt + '): ' + errMsg + '. Retrying continuously until MCU wakes up...');
+        fcStatusMessage.value = 'Waking up MCU / Retrying ' + label + ' (attempt ' + attempt + ')...';
+
+        // 6. Flush bộ đệm và nghỉ backoff trước lần thử tiếp theo
+        await flushUartRxBuffer();
+        await new Promise(r => setTimeout(r, backoffMs));
+      }
+    }
+
+    return { success: false, aborted: true, error: lastErr || new Error('Aborted'), rawBytes: null };
+  };
+
+  // ----------------------------------------------------------------------
   // 5. AUTOMATED 4-STAGE FINAL CONFIG WORKFLOW
   // ----------------------------------------------------------------------
   const startFinalConfig = async () => {
@@ -1627,10 +1730,11 @@ function useFinalConfigDeviceModule(ctx) {
 
       // Read strictly ascending: 0 -> 5 -> 9 -> 11 -> 15 -> 27 -> 31 -> 35 -> 43 -> 51 -> 103 -> 259 -> 386
 
-      // 1. Reg 0 (FW_CODE: 5 regs, string)
+      // 1. Reg 0 (FW_CODE: 5 regs, string) - readRegisterWithRetry(1, 0, 5) upgraded to continuous retry until MCU wakes up
       let readFwCode = '';
-      const resReg0 = await readRegisterWithRetry(1, 0, 5);
-      if (resReg0.success) readFwCode = bytesToString(resReg0.rawBytes);
+      const resReg0 = await readFirstRegisterUntilSuccess(1, 0, 5, { label: 'Reg 0 (FW_CODE)' });
+      if (abortRequested.value || resReg0.aborted || !resReg0.success) return;
+      if (resReg0.rawBytes) readFwCode = bytesToString(resReg0.rawBytes);
       fcProgress.value = 5;
 
       // 2. Reg 5 (FW_VERSION: 4 regs, string)
@@ -2027,34 +2131,50 @@ function useFinalConfigDeviceModule(ctx) {
 
         let readSuccess = false;
         let lastReadErr = null;
-        for (let retry = 0; retry < MAX_READ_ATTEMPTS; retry++) {
-          try {
-            await flushUartRxBuffer();
-            const rawBytes = await readModbusRegistersFromPort(1, addr, numreg);
-            if (row.format === 'hex' || (addr === 274 && numreg === 8)) {
-              row.value_read_back = bytesToHex(rawBytes);
-            } else if (row.format === 'string' || row.format === 'ascii') {
-              row.value_read_back = bytesToString(rawBytes);
-            } else {
-              row.value_read_back = decodeModbusPayload(rawBytes, row.format, row.endianness);
-            }
+        let readBytes = null;
+
+        if (i === 0) {
+          const resFirst = await readFirstRegisterUntilSuccess(1, addr, numreg, { label: 'Audit Reg ' + addr });
+          if (abortRequested.value || resFirst.aborted) return;
+          if (resFirst.success) {
             readSuccess = true;
-            await new Promise(r => setTimeout(r, INTER_READ_DELAY_MS));
-            break;
-          } catch (rErr) {
-            lastReadErr = rErr;
-            if (retry < MAX_READ_ATTEMPTS - 1) {
-              const delayMs = READ_RETRY_BACKOFF_DELAYS[retry] || 400;
-              addSerialLog('WARN', null, 'Read Reg ' + addr + ' failed (attempt ' + (retry + 1) + '/' + MAX_READ_ATTEMPTS + '): ' + (rErr?.message || rErr) + '. Retrying in ' + delayMs + 'ms...');
-              fcStatusMessage.value = 'Device settling/retrying... (Read Reg ' + addr + ', attempt ' + (retry + 1) + '/' + MAX_READ_ATTEMPTS + ')';
+            readBytes = resFirst.rawBytes;
+          }
+        } else {
+          for (let retry = 0; retry < MAX_READ_ATTEMPTS; retry++) {
+            try {
               await flushUartRxBuffer();
-              await new Promise(r => setTimeout(r, delayMs));
-            } else {
-              addSerialLog('ERROR', null, 'Read Reg ' + addr + ' failed after ' + MAX_READ_ATTEMPTS + ' attempts: ' + (rErr?.message || rErr));
-              row.value_read_back = 'READ_ERR';
-              console.warn('Read-back error for register ' + addr + ' after ' + MAX_READ_ATTEMPTS + ' attempts:', rErr);
+              const rawBytes = await readModbusRegistersFromPort(1, addr, numreg);
+              readBytes = rawBytes;
+              readSuccess = true;
+              await new Promise(r => setTimeout(r, INTER_READ_DELAY_MS));
+              break;
+            } catch (rErr) {
+              lastReadErr = rErr;
+              if (retry < MAX_READ_ATTEMPTS - 1) {
+                const delayMs = READ_RETRY_BACKOFF_DELAYS[retry] || 400;
+                addSerialLog('WARN', null, 'Read Reg ' + addr + ' failed (attempt ' + (retry + 1) + '/' + MAX_READ_ATTEMPTS + '): ' + (rErr?.message || rErr) + '. Retrying in ' + delayMs + 'ms...');
+                fcStatusMessage.value = 'Device settling/retrying... (Read Reg ' + addr + ', attempt ' + (retry + 1) + '/' + MAX_READ_ATTEMPTS + ')';
+                await flushUartRxBuffer();
+                await new Promise(r => setTimeout(r, delayMs));
+              } else {
+                addSerialLog('ERROR', null, 'Read Reg ' + addr + ' failed after ' + MAX_READ_ATTEMPTS + ' attempts: ' + (rErr?.message || rErr));
+                console.warn('Read-back error for register ' + addr + ' after ' + MAX_READ_ATTEMPTS + ' attempts:', rErr);
+              }
             }
           }
+        }
+
+        if (readSuccess && readBytes) {
+          if (row.format === 'hex' || (addr === 274 && numreg === 8)) {
+            row.value_read_back = bytesToHex(readBytes);
+          } else if (row.format === 'string' || row.format === 'ascii') {
+            row.value_read_back = bytesToString(readBytes);
+          } else {
+            row.value_read_back = decodeModbusPayload(readBytes, row.format, row.endianness);
+          }
+        } else {
+          row.value_read_back = 'READ_ERR';
         }
 
         fcReadBackRegsCount.value++;
@@ -2546,6 +2666,7 @@ function useFinalConfigDeviceModule(ctx) {
     INTER_READ_DELAY_MS,
     fcTraceabilityData,
     flushUartRxBuffer,
+    readFirstRegisterUntilSuccess,
     initFinalConfigDeviceModule,
   };
 }

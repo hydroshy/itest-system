@@ -13,6 +13,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.FinalConfigManagerService = void 0;
 const common_1 = require("@nestjs/common");
 const final_config_manager_repository_1 = require("./final-config-manager.repository");
+const final_config_utils_1 = require("./final-config-utils");
 let FinalConfigManagerService = FinalConfigManagerService_1 = class FinalConfigManagerService {
     constructor(repository) {
         this.repository = repository;
@@ -142,11 +143,19 @@ let FinalConfigManagerService = FinalConfigManagerService_1 = class FinalConfigM
         if (!dto.sku || !dto.sku.trim()) {
             throw new common_1.BadRequestException('Hardware SKU (sku) is required');
         }
+        const cleanFw = dto.firmware_version !== undefined
+            ? (0, final_config_utils_1.sanitizeFw)(dto.firmware_version)
+            : (dto.short_fw !== undefined ? (0, final_config_utils_1.sanitizeFw)(dto.short_fw) : undefined);
+        const cleanShortFw = dto.short_fw !== undefined
+            ? Number((0, final_config_utils_1.sanitizeFw)(dto.short_fw))
+            : (dto.firmware_version !== undefined ? Number((0, final_config_utils_1.sanitizeFw)(dto.firmware_version)) : undefined);
         const payload = {
             ...dto,
             serial_number: dto.serial_number.trim(),
             item_code: dto.item_code.trim(),
             sku: dto.sku.trim().toUpperCase(),
+            firmware_version: cleanFw,
+            short_fw: cleanShortFw,
             operator: dto.operator || operator || 'admin',
         };
         const result = await this.repository.saveOrUpdateDevice(payload);

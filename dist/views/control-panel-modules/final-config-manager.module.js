@@ -1,6 +1,18 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.FINAL_CONFIG_MANAGER_SCRIPT = exports.FINAL_CONFIG_MANAGER_MODALS = exports.FINAL_CONFIG_MANAGER_TEMPLATE = void 0;
+exports.FINAL_CONFIG_MANAGER_SCRIPT = exports.FINAL_CONFIG_MANAGER_MODALS = exports.FINAL_CONFIG_MANAGER_TEMPLATE = exports.formatShortFw = void 0;
+exports.sanitizeFw = sanitizeFw;
+function sanitizeFw(rawFw) {
+    if (rawFw === null || rawFw === undefined || rawFw === '')
+        return '1';
+    let clean = String(rawFw).trim().replace(/^[vV]+/, '');
+    clean = clean.replace(/(\.0+)+$/, '');
+    const match = clean.match(/^(\d+)/);
+    if (match)
+        return match[1];
+    return clean.length > 0 ? clean : '1';
+}
+exports.formatShortFw = sanitizeFw;
 exports.FINAL_CONFIG_MANAGER_TEMPLATE = `
         <!-- C-MODULE: FINAL CONFIG MANAGER -->
         <div v-show="activeTab === 'final-config-manager'" class="space-y-6">
@@ -309,7 +321,8 @@ exports.FINAL_CONFIG_MANAGER_MODALS = `
               <p class="text-xs text-slate-400 font-mono mt-0.5">
                 SO: <span class="text-sky-300 font-bold">{{ fcmSelectedPreset?.so }}</span> | 
                 Item: <span class="text-amber-300 font-bold">{{ fcmSelectedPreset?.item_code }}</span> | 
-                SKU: <span class="text-white">{{ fcmSelectedPreset?.sku }}</span>
+                SKU: <span class="text-white">{{ fcmSelectedPreset?.sku }}</span> | 
+                FW: <span class="text-emerald-300 font-bold">{{ sanitizeFw(fcmSelectedPreset?.firmware_version || fcmSelectedPreset?.short_fw) }}</span>
               </p>
             </div>
           </div>
@@ -512,6 +525,7 @@ exports.FINAL_CONFIG_MANAGER_MODALS = `
                 SN: <span class="text-amber-300 font-bold">{{ fcmSelectedDevice?.serial_number }}</span> | 
                 Item: <span class="text-sky-300">{{ fcmSelectedDevice?.item_code }}</span> | 
                 SO: <span class="text-slate-300">{{ fcmSelectedDevice?.so || '—' }}</span> | 
+                FW: <span class="text-emerald-300 font-bold">{{ sanitizeFw(fcmSelectedDevice?.firmware_version || fcmSelectedDevice?.short_fw) }}</span> | 
                 Operator: <span class="text-slate-300">{{ fcmSelectedDevice?.operator || 'admin' }}</span>
               </p>
             </div>
@@ -684,6 +698,7 @@ exports.FINAL_CONFIG_MANAGER_MODALS = `
               <span>SO: <strong class="text-sky-300">{{ fcmPresetToDelete?.so }}</strong></span>
               <span>Item: <strong class="text-amber-300">{{ fcmPresetToDelete?.item_code }}</strong></span>
               <span>SKU: <strong class="text-white">{{ fcmPresetToDelete?.sku }}</strong></span>
+              <span>FW: <strong class="text-emerald-400">{{ sanitizeFw(fcmPresetToDelete?.firmware_version || fcmPresetToDelete?.short_fw) }}</strong></span>
               <span>Regs: <strong class="text-emerald-400">{{ fcmPresetToDelete?.total_regs }}</strong></span>
             </div>
           </div>
@@ -742,6 +757,17 @@ exports.FINAL_CONFIG_MANAGER_SCRIPT = `
       // Tab 2: Devices Filters & State
       const fcmDevicesSearch = ref('');
       const fcmStatusFilter = ref('ALL');
+
+      // Helper: Firmware version normalizer (short FW integer)
+      function sanitizeFw(rawFw) {
+        if (rawFw === null || rawFw === undefined || rawFw === '') return '1';
+        let clean = String(rawFw).trim().replace(/^[vV]+/, '');
+        clean = clean.replace(/(\.0+)+$/, '');
+        const match = clean.match(/^(\d+)/);
+        if (match) return match[1];
+        return clean.length > 0 ? clean : '1';
+      }
+      const formatShortFw = sanitizeFw;
 
       // Modals State
       const fcmShowPresetRegsModal = ref(false);
@@ -1064,8 +1090,10 @@ exports.FINAL_CONFIG_MANAGER_SCRIPT = `
                 field: 'firmware_version',
                 width: 110,
                 formatter: function(cell) {
-                  const val = cell.getValue() || '—';
-                  return '<span class="px-2 py-0.5 rounded font-mono text-[11px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">' + val + '</span>';
+                  const row = cell.getRow().getData();
+                  const val = cell.getValue();
+                  const cleanFw = sanitizeFw(val || row.short_fw);
+                  return '<span class="px-2 py-0.5 rounded font-mono text-[11px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">' + cleanFw + '</span>';
                 }
               },
               {
@@ -1182,6 +1210,17 @@ exports.FINAL_CONFIG_MANAGER_SCRIPT = `
                 formatter: function(cell) {
                   const val = cell.getValue();
                   return val ? '<span class="font-mono text-slate-300">' + val + '</span>' : '<span class="text-slate-500">—</span>';
+                }
+              },
+              {
+                title: 'Firmware',
+                field: 'firmware_version',
+                width: 100,
+                formatter: function(cell) {
+                  const row = cell.getRow().getData();
+                  const val = cell.getValue();
+                  const cleanFw = sanitizeFw(val || row.short_fw);
+                  return '<span class="px-2 py-0.5 rounded font-mono text-[11px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">' + cleanFw + '</span>';
                 }
               },
               {
@@ -1567,6 +1606,8 @@ exports.FINAL_CONFIG_MANAGER_SCRIPT = `
         fcmSaveDeviceNotes,
         renderPresetsTabulator,
         renderDevicesTabulator,
+        sanitizeFw,
+        formatShortFw,
         onTabActivated,
       };
     }

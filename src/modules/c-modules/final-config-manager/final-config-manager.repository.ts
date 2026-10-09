@@ -15,6 +15,7 @@ import {
   UpdateDeviceStatusDto,
   FinalConfigStatus,
 } from './dto/final-config-manager.dto';
+import { sanitizeFw } from './final-config-utils';
 
 @Injectable()
 export class FinalConfigManagerRepository {
@@ -544,8 +545,8 @@ export class FinalConfigManagerRepository {
               so: so !== undefined ? so : existing.so,
               preset_id: dto.preset_id !== undefined ? dto.preset_id : existing.preset_id,
               sku,
-              firmware_version: dto.firmware_version !== undefined ? dto.firmware_version : existing.firmware_version,
-              short_fw: dto.short_fw !== undefined ? Number(dto.short_fw) : existing.short_fw,
+              firmware_version: dto.firmware_version !== undefined ? sanitizeFw(dto.firmware_version) : existing.firmware_version,
+              short_fw: dto.short_fw !== undefined ? Number(sanitizeFw(dto.short_fw)) : (dto.firmware_version !== undefined ? Number(sanitizeFw(dto.firmware_version)) : existing.short_fw),
               status: computedStatus,
               dev_eui: dto.dev_eui !== undefined ? dto.dev_eui : existing.dev_eui,
               app_key: dto.app_key !== undefined ? dto.app_key : existing.app_key,
@@ -567,8 +568,8 @@ export class FinalConfigManagerRepository {
               so,
               preset_id: dto.preset_id,
               sku,
-              firmware_version: dto.firmware_version,
-              short_fw: dto.short_fw ? Number(dto.short_fw) : undefined,
+              firmware_version: dto.firmware_version !== undefined ? sanitizeFw(dto.firmware_version) : (dto.short_fw !== undefined ? sanitizeFw(dto.short_fw) : undefined),
+              short_fw: dto.short_fw !== undefined ? Number(sanitizeFw(dto.short_fw)) : (dto.firmware_version !== undefined ? Number(sanitizeFw(dto.firmware_version)) : undefined),
               status: computedStatus,
               dev_eui: dto.dev_eui,
               app_key: dto.app_key,
@@ -642,8 +643,8 @@ export class FinalConfigManagerRepository {
     device.so = so;
     device.preset_id = dto.preset_id;
     device.sku = sku;
-    device.firmware_version = dto.firmware_version;
-    device.short_fw = dto.short_fw ? Number(dto.short_fw) : undefined;
+    device.firmware_version = dto.firmware_version !== undefined ? sanitizeFw(dto.firmware_version) : (dto.short_fw !== undefined ? sanitizeFw(dto.short_fw) : undefined);
+    device.short_fw = dto.short_fw !== undefined ? Number(sanitizeFw(dto.short_fw)) : (dto.firmware_version !== undefined ? Number(sanitizeFw(dto.firmware_version)) : undefined);
     device.status = computedStatus;
     device.dev_eui = dto.dev_eui;
     if (dto.app_key !== undefined) device.app_key = dto.app_key;
@@ -746,8 +747,8 @@ export class FinalConfigManagerRepository {
         so: preset.so,
         preset_id: preset.id,
         sku: preset.sku,
-        firmware_version: preset.firmware_version,
-        short_fw: preset.short_fw,
+        firmware_version: sanitizeFw(preset.firmware_version || String(preset.short_fw || 1)),
+        short_fw: preset.short_fw ? Number(sanitizeFw(preset.short_fw)) : Number(sanitizeFw(preset.firmware_version || '1')),
         status: FinalConfigStatus.NONE,
         operator: dto.operator || 'admin',
         registers: regPayload,

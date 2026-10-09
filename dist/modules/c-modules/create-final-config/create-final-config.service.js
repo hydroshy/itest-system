@@ -13,6 +13,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.CreateFinalConfigService = void 0;
 const common_1 = require("@nestjs/common");
 const create_final_config_repository_1 = require("./create-final-config.repository");
+const final_config_utils_1 = require("../final-config-manager/final-config-utils");
 let CreateFinalConfigService = CreateFinalConfigService_1 = class CreateFinalConfigService {
     constructor(repository) {
         this.repository = repository;
@@ -35,13 +36,14 @@ let CreateFinalConfigService = CreateFinalConfigService_1 = class CreateFinalCon
         if (validRegs.length === 0) {
             throw new common_1.BadRequestException('Final Config requires at least one register with Dec Reg >= 303');
         }
+        const cleanFw = (0, final_config_utils_1.sanitizeFw)(dto.firmware_version || String(dto.short_fw));
         const payloadToSave = {
             ...dto,
             so: dto.so.trim(),
             item_code: dto.item_code.trim(),
             sku: dto.sku.trim().toUpperCase(),
-            firmware_version: dto.firmware_version ? dto.firmware_version.trim() : `${dto.short_fw}.0`,
-            short_fw: Number(dto.short_fw),
+            firmware_version: cleanFw,
+            short_fw: Number(cleanFw),
             name: dto.name ? dto.name.trim() : `[Final Config] ${dto.so} - ${dto.item_code}`,
             created_by: author || dto.created_by || 'admin',
             registers: validRegs,

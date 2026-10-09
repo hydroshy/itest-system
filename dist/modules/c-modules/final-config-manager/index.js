@@ -20,5 +20,6 @@ __exportStar(require("./dto/final-config-manager.dto"), exports);
 __exportStar(require("./final-config-manager.repository"), exports);
 __exportStar(require("./final-config-manager.service"), exports);
 __exportStar(require("./final-config-manager.controller"), exports);
+__exportStar(require("./final-config-utils"), exports);
 __exportStar(require("./final-config-manager.module"), exports);
 //# sourceMappingURL=index.js.map

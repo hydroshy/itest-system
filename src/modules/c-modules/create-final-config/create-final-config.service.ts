@@ -3,6 +3,7 @@ import { CreateFinalConfigRepository } from './create-final-config.repository';
 import { SaveFinalConfigDto } from './dto/create-final-config.dto';
 import { FinalConfigPresetEntity } from './entities/final-config-preset.entity';
 import { FinalConfigRegEntity } from './entities/final-config-reg.entity';
+import { sanitizeFw } from '../final-config-manager/final-config-utils';
 
 @Injectable()
 export class CreateFinalConfigService {
@@ -39,13 +40,14 @@ export class CreateFinalConfigService {
       throw new BadRequestException('Final Config requires at least one register with Dec Reg >= 303');
     }
 
+    const cleanFw = sanitizeFw(dto.firmware_version || String(dto.short_fw));
     const payloadToSave: SaveFinalConfigDto = {
       ...dto,
       so: dto.so.trim(),
       item_code: dto.item_code.trim(),
       sku: dto.sku.trim().toUpperCase(),
-      firmware_version: dto.firmware_version ? dto.firmware_version.trim() : `${dto.short_fw}.0`,
-      short_fw: Number(dto.short_fw),
+      firmware_version: cleanFw,
+      short_fw: Number(cleanFw),
       name: dto.name ? dto.name.trim() : `[Final Config] ${dto.so} - ${dto.item_code}`,
       created_by: author || dto.created_by || 'admin',
       registers: validRegs,

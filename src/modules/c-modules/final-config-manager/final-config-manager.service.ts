@@ -1,5 +1,6 @@
 import { Injectable, BadRequestException, NotFoundException, Logger } from '@nestjs/common';
 import { FinalConfigManagerRepository } from './final-config-manager.repository';
+import { sanitizeFw } from './final-config-utils';
 import {
   QueryPresetsDto,
   QueryDevicesDto,
@@ -166,11 +167,20 @@ export class FinalConfigManagerService {
       throw new BadRequestException('Hardware SKU (sku) is required');
     }
 
+    const cleanFw = dto.firmware_version !== undefined
+      ? sanitizeFw(dto.firmware_version)
+      : (dto.short_fw !== undefined ? sanitizeFw(dto.short_fw) : undefined);
+    const cleanShortFw = dto.short_fw !== undefined
+      ? Number(sanitizeFw(dto.short_fw))
+      : (dto.firmware_version !== undefined ? Number(sanitizeFw(dto.firmware_version)) : undefined);
+
     const payload: SaveDeviceFinalConfigDto = {
       ...dto,
       serial_number: dto.serial_number.trim(),
       item_code: dto.item_code.trim(),
       sku: dto.sku.trim().toUpperCase(),
+      firmware_version: cleanFw,
+      short_fw: cleanShortFw,
       operator: dto.operator || operator || 'admin',
     };
 
