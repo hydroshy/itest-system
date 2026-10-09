@@ -94,14 +94,21 @@ let MemmapUploadRepository = MemmapUploadRepository_1 = class MemmapUploadReposi
                         payloadId = saved.id;
                         existing = saved;
                     }
-                    const regsToInsert = registersData.map((r, idx) => manager.create(memmap_reg_entity_1.MemmapRegEntity, {
-                        ...r,
-                        payload_id: payloadId,
-                        sku,
-                        short_fw: shortFw,
-                        no: r.no !== undefined ? r.no : idx + 1,
-                        created_at: new Date(),
-                    }));
+                    const regsToInsert = registersData.map((r, idx) => {
+                        const { id: _ignoreId, ...rest } = r;
+                        return manager.create(memmap_reg_entity_1.MemmapRegEntity, {
+                            ...rest,
+                            payload_id: payloadId,
+                            sku,
+                            short_fw: shortFw,
+                            no: rest.no !== undefined ? rest.no : idx + 1,
+                            in_rd1_template: Boolean(rest.in_rd1_template),
+                            in_engineering_template: Boolean(rest.in_engineering_template),
+                            in_end_user_template: Boolean(rest.in_end_user_template),
+                            in_full_template: Boolean(rest.in_full_template),
+                            created_at: new Date(),
+                        });
+                    });
                     const savedRegs = await manager.save(memmap_reg_entity_1.MemmapRegEntity, regsToInsert);
                     const reloaded = await manager.findOne(memmap_payload_entity_1.MemmapPayloadEntity, {
                         where: { id: payloadId },

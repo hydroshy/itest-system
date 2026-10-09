@@ -1076,6 +1076,7 @@ export class LorawanService implements OnModuleInit {
           itemCode: d.itemCode.itemCode,
           sku: d.itemCode.sku,
           firmwareVersion: d.itemCode.firmwareVersion,
+          skuFw: d.itemCode.skuFw,
           defaultTemplateId: d.itemCode.defaultTemplateId,
         } : (d.itemCodeId ? { id: d.itemCodeId } : null),
         salesOrder: d.salesOrder ? {

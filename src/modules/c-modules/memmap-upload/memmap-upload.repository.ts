@@ -92,16 +92,21 @@ export class MemmapUploadRepository {
             existing = saved;
           }
 
-          const regsToInsert = registersData.map((r, idx) =>
-            manager.create(MemmapRegEntity, {
-              ...r,
+          const regsToInsert = registersData.map((r, idx) => {
+            const { id: _ignoreId, ...rest } = r;
+            return manager.create(MemmapRegEntity, {
+              ...rest,
               payload_id: payloadId,
               sku,
               short_fw: shortFw,
-              no: r.no !== undefined ? r.no : idx + 1,
+              no: rest.no !== undefined ? rest.no : idx + 1,
+              in_rd1_template: Boolean(rest.in_rd1_template),
+              in_engineering_template: Boolean(rest.in_engineering_template),
+              in_end_user_template: Boolean(rest.in_end_user_template),
+              in_full_template: Boolean(rest.in_full_template),
               created_at: new Date(),
-            }),
-          );
+            });
+          });
 
           const savedRegs = await manager.save(MemmapRegEntity, regsToInsert);
           const reloaded = await manager.findOne(MemmapPayloadEntity, {
