@@ -89,6 +89,17 @@ export class FinalConfigManagerController {
     return await this.service.getDevices(query);
   }
 
+  @Get('check-pass')
+  @ApiOperation({ summary: 'Check if device has already passed Final Configuration by SN or DevEUI' })
+  @ApiQuery({ name: 'serial_number', required: false, description: 'Device Serial Number' })
+  @ApiQuery({ name: 'dev_eui', required: false, description: 'Device EUI' })
+  async checkDevicePassed(
+    @Query('serial_number') serialNumber?: string,
+    @Query('dev_eui') devEui?: string,
+  ) {
+    return await this.service.checkDevicePassed(serialNumber, devEui);
+  }
+
   @Get('devices/:serialNumber')
   @ApiOperation({ summary: 'Get device Final Config record and registers by Serial Number' })
   @ApiParam({ name: 'serialNumber', description: 'Device Serial Number' })

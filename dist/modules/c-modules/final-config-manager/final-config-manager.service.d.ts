@@ -51,6 +51,20 @@ export declare class FinalConfigManagerService {
             registers: import(".").FinalConfigRegsSnEntity[];
         };
     }>;
+    checkDevicePassed(serialNumber?: string, devEui?: string): Promise<{
+        success: boolean;
+        passed: boolean;
+        data: {
+            id: string;
+            serial_number: string;
+            dev_eui: string;
+            item_code: string;
+            so: string;
+            status: "PASS";
+            tested_at: Date;
+        };
+        message: string;
+    }>;
     getDeviceById(id: string): Promise<{
         success: boolean;
         data: {

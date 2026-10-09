@@ -49,6 +49,20 @@ export declare class FinalConfigManagerController {
             none: number;
         };
     }>;
+    checkDevicePassed(serialNumber?: string, devEui?: string): Promise<{
+        success: boolean;
+        passed: boolean;
+        data: {
+            id: string;
+            serial_number: string;
+            dev_eui: string;
+            item_code: string;
+            so: string;
+            status: "PASS";
+            tested_at: Date;
+        };
+        message: string;
+    }>;
     getDeviceBySerialNumber(serialNumber: string, itemCode?: string): Promise<{
         success: boolean;
         data: {

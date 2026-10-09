@@ -227,8 +227,8 @@ async function runFinalConfigDeviceSuite() {
   
   // 8a. Verify START button binding and text
   assert.ok(
-    viewsContent.includes(':disabled="!fcSerialConnected || isRunningFinalConfig"'),
-    'START button disabled condition must only be !fcSerialConnected || isRunningFinalConfig'
+    viewsContent.includes(':disabled="!fcSerialConnected || isRunningFinalConfig || finalVerdict === \'FAIL\'"'),
+    'START button disabled condition must freeze when finalVerdict === FAIL'
   );
   assert.ok(
     !viewsContent.includes('!fcSelectedSo || !fcSelectedItemCode || !currentPreset || !isAppKeyValid'),

@@ -84,6 +84,41 @@ let FinalConfigManagerService = FinalConfigManagerService_1 = class FinalConfigM
             data: result,
         };
     }
+    async checkDevicePassed(serialNumber, devEui) {
+        const sn = serialNumber ? serialNumber.trim() : undefined;
+        const eui = devEui ? devEui.trim() : undefined;
+        if (!sn && !eui) {
+            return {
+                success: true,
+                passed: false,
+                data: null,
+                message: 'Missing device identifiers',
+            };
+        }
+        const record = await this.repository.findPassedRecord(sn, eui);
+        if (record && record.status === 'PASS') {
+            return {
+                success: true,
+                passed: true,
+                data: {
+                    id: record.id,
+                    serial_number: record.serial_number,
+                    dev_eui: record.dev_eui,
+                    item_code: record.item_code,
+                    so: record.so,
+                    status: record.status,
+                    tested_at: record.tested_at,
+                },
+                message: 'Device has already passed Final Configuration!',
+            };
+        }
+        return {
+            success: true,
+            passed: false,
+            data: null,
+            message: 'Device has not passed Final Configuration',
+        };
+    }
     async getDeviceById(id) {
         if (!id || !id.trim()) {
             throw new common_1.BadRequestException('Device id is required');

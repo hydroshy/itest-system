@@ -180,6 +180,9 @@ exports.FinalConfigSnEntity = FinalConfigSnEntity = __decorate([
     (0, typeorm_1.Index)('idx_final_config_sn_item_code', ['item_code']),
     (0, typeorm_1.Index)('idx_final_config_sn_so', ['so']),
     (0, typeorm_1.Index)('idx_final_config_sn_status', ['status']),
+    (0, typeorm_1.Index)('idx_final_config_sn_dev_eui', ['dev_eui']),
+    (0, typeorm_1.Index)('idx_final_config_sn_sn_status', ['serial_number', 'status']),
+    (0, typeorm_1.Index)('idx_final_config_sn_deveui_status', ['dev_eui', 'status']),
     (0, typeorm_1.Index)('idx_final_config_sn_preset_id', ['preset_id']),
     (0, typeorm_1.Index)('idx_final_config_sn_tested_at', ['tested_at']),
     (0, typeorm_1.Index)('idx_final_config_sn_created_at', ['created_at'])

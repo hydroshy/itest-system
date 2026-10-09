@@ -363,6 +363,54 @@ let FinalConfigManagerRepository = FinalConfigManagerRepository_1 = class FinalC
         }
         return null;
     }
+    async findPassedRecord(serialNumber, devEui) {
+        const sn = serialNumber ? serialNumber.trim() : undefined;
+        const eui = devEui ? devEui.trim() : undefined;
+        if (!sn && !eui)
+            return null;
+        const snRepo = this.getSnRepo();
+        if (snRepo) {
+            try {
+                const qb = snRepo.createQueryBuilder('d').where("d.status = 'PASS'");
+                if (sn && eui) {
+                    qb.andWhere('(d.serial_number = :sn OR d.dev_eui = :eui)', { sn, eui });
+                }
+                else if (sn) {
+                    qb.andWhere('d.serial_number = :sn', { sn });
+                }
+                else if (eui) {
+                    qb.andWhere('d.dev_eui = :eui', { eui });
+                }
+                qb.orderBy('d.tested_at', 'DESC');
+                const found = await qb.getOne();
+                if (found)
+                    return found;
+            }
+            catch (err) {
+                this.logger.warn(`DB findPassedRecord failed: ${err.message}`);
+            }
+        }
+        const items = Array.from(this.memoryDevices.values()).filter((d) => d.status === 'PASS');
+        const matched = items.filter((d) => {
+            const matchSn = sn && d.serial_number && d.serial_number.toUpperCase() === sn.toUpperCase();
+            const matchEui = eui && d.dev_eui && d.dev_eui.toUpperCase() === eui.toUpperCase();
+            if (sn && eui)
+                return matchSn || matchEui;
+            if (sn)
+                return matchSn;
+            if (eui)
+                return matchEui;
+            return false;
+        });
+        if (matched.length === 0)
+            return null;
+        matched.sort((a, b) => {
+            const timeA = a.tested_at ? new Date(a.tested_at).getTime() : 0;
+            const timeB = b.tested_at ? new Date(b.tested_at).getTime() : 0;
+            return timeB - timeA;
+        });
+        return matched[0];
+    }
     async findDeviceById(id) {
         const snRepo = this.getSnRepo();
         const regRepo = this.getSnRegRepo();

@@ -52,6 +52,7 @@ export declare class FinalConfigManagerRepository {
         device: FinalConfigSnEntity;
         registers: FinalConfigRegsSnEntity[];
     } | null>;
+    findPassedRecord(serialNumber?: string, devEui?: string): Promise<FinalConfigSnEntity | null>;
     findDeviceById(id: string): Promise<{
         device: FinalConfigSnEntity;
         registers: FinalConfigRegsSnEntity[];

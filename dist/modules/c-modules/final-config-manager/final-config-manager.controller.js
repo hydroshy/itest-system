@@ -54,6 +54,9 @@ let FinalConfigManagerController = class FinalConfigManagerController {
     async getDevices(query) {
         return await this.service.getDevices(query);
     }
+    async checkDevicePassed(serialNumber, devEui) {
+        return await this.service.checkDevicePassed(serialNumber, devEui);
+    }
     async getDeviceBySerialNumber(serialNumber, itemCode) {
         return await this.service.getDeviceBySerialNumber(serialNumber, itemCode);
     }
@@ -127,6 +130,17 @@ __decorate([
     __metadata("design:paramtypes", [final_config_manager_dto_1.QueryDevicesDto]),
     __metadata("design:returntype", Promise)
 ], FinalConfigManagerController.prototype, "getDevices", null);
+__decorate([
+    (0, common_1.Get)('check-pass'),
+    (0, swagger_1.ApiOperation)({ summary: 'Check if device has already passed Final Configuration by SN or DevEUI' }),
+    (0, swagger_1.ApiQuery)({ name: 'serial_number', required: false, description: 'Device Serial Number' }),
+    (0, swagger_1.ApiQuery)({ name: 'dev_eui', required: false, description: 'Device EUI' }),
+    __param(0, (0, common_1.Query)('serial_number')),
+    __param(1, (0, common_1.Query)('dev_eui')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String]),
+    __metadata("design:returntype", Promise)
+], FinalConfigManagerController.prototype, "checkDevicePassed", null);
 __decorate([
     (0, common_1.Get)('devices/:serialNumber'),
     (0, swagger_1.ApiOperation)({ summary: 'Get device Final Config record and registers by Serial Number' }),

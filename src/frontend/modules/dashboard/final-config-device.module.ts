@@ -5,10 +5,10 @@
 
 export const FINAL_CONFIG_DEVICE_TEMPLATE = `          <div v-else-if="activeFeature.id === 'final-config-device'" class="space-y-6">
 
-            <!-- 1. TOP HEADER & WEB SERIAL CONNECTION BAR -->
+            <!-- 1. TOP HEADER -->
             <div class="p-5 rounded-2xl bg-slate-900/90 border border-slate-800 space-y-4 shadow-xl">
               <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-                <!-- Title, Badges & Hardware Status -->
+                <!-- Title & Badges -->
                 <div class="flex items-center gap-3.5 flex-wrap">
                   <div class="w-11 h-11 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 text-xl shadow-inner">
                     <i class="fa-solid fa-sliders"></i>
@@ -28,33 +28,11 @@ export const FINAL_CONFIG_DEVICE_TEMPLATE = `          <div v-else-if="activeFea
                         PRODUCTION QA
                       </span>
                     </div>
-                    <p class="text-xs text-slate-400 mt-0.5">
-                      Direct UART Modbus RTU execution: Hardware ID & SO Verification, Preset & AppKey 274 Writing, Memory Snapshot, and Automated Pass/Fail Verdict.
-                    </p>
-                  </div>
-
-                  <!-- Connection status pill -->
-                  <div
-                    class="px-3 py-1.5 rounded-full text-xs font-semibold flex items-center gap-2 border transition ml-auto lg:ml-2"
-                    :class="fcSerialConnected
-                      ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-300'
-                      : (fcIsAutoReconnecting
-                        ? 'bg-amber-500/15 border-amber-500/40 text-amber-300'
-                        : (fcSerialPort
-                          ? 'bg-blue-500/15 border-blue-500/40 text-blue-300'
-                          : 'bg-slate-800/80 border-slate-700 text-slate-400'))"
-                  >
-                    <span
-                      class="w-2 h-2 rounded-full"
-                      :class="fcSerialConnected ? 'bg-emerald-400 animate-ping' : (fcIsAutoReconnecting ? 'bg-amber-400 animate-ping' : (fcSerialPort ? 'bg-blue-400' : 'bg-slate-500'))"
-                    ></span>
-                    <i :class="fcSerialConnected ? 'fa-solid fa-link' : (fcIsAutoReconnecting ? 'fa-solid fa-arrows-rotate animate-spin text-amber-400' : (fcSerialPort ? 'fa-solid fa-microchip' : 'fa-solid fa-plug-circle-xmark'))"></i>
-                    <span class="font-mono text-xs">{{ fcSerialPortInfo || 'No Port Selected' }} {{ fcSerialConnected ? '(Connected)' : (fcIsAutoReconnecting ? '(Reconnecting...)' : (fcSerialPort ? '(Ready)' : '')) }}</span>
                   </div>
                 </div>
 
-                <!-- Packet & Communication Counters -->
-                <div class="flex items-center gap-2 flex-wrap">
+                <!-- Packet & Communication Counters (Debug Mode only) -->
+                <div v-show="fcDebugMode" class="flex items-center gap-2 flex-wrap">
                   <div class="px-3 py-1.5 rounded-lg bg-slate-950 border border-slate-800 text-[11px] font-mono text-slate-300 flex items-center gap-3">
                     <span class="text-cyan-400 font-bold" title="Transmitted Packets">
                       <i class="fa-solid fa-arrow-up text-[10px] mr-1"></i>TX: {{ fcSerialStats.txPackets }} ({{ fcFormatBytes(fcSerialStats.txBytes) }})
@@ -70,9 +48,57 @@ export const FINAL_CONFIG_DEVICE_TEMPLATE = `          <div v-else-if="activeFea
                   </div>
                 </div>
               </div>
+            </div>
 
-              <!-- Connection Actions Bar -->
-              <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-3 border-t border-slate-800/80">
+            <!-- 2. WORK ORDER & SERIAL NUMBER STRIP (READONLY, SHOWN AFTER 25%) -->
+            <!-- Layout mode reference: lg:grid-cols-5 -->
+            <div v-if="fcProgress >= 25" class="p-5 rounded-2xl bg-slate-900/90 border border-slate-800 space-y-4 shadow-xl">
+              <div class="flex items-center justify-between border-b border-slate-800/80 pb-3">
+                <div class="flex items-center gap-2">
+                  <i class="fa-solid fa-clipboard-list text-cyan-400"></i>
+                  <h3 class="text-xs font-bold text-white uppercase tracking-wider">WORK ORDER & SERIAL NUMBER</h3>
+                </div>
+                <div class="text-[11px] text-emerald-400 flex items-center gap-1.5 font-semibold">
+                  <i class="fa-solid fa-circle-check"></i>
+                  <span>Hardware identified & QA verified (Read-only)</span>
+                </div>
+              </div>
+
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <!-- Serial Number (SN) -->
+                <div>
+                  <label class="block text-xs font-semibold text-slate-300 mb-1.5">
+                    SERIAL NUMBER
+                  </label>
+                  <input
+                    type="text"
+                    v-model="fcSerialNumberInput"
+                    placeholder="Auto-read Reg 259..."
+                    readonly
+                    class="w-full px-3.5 py-2.5 rounded-xl bg-slate-950/80 border border-slate-700 text-cyan-300 text-xs font-mono font-bold cursor-not-allowed select-all"
+                  />
+                </div>
+
+                <!-- Sales Order (SO) -->
+                <div>
+                  <label class="block text-xs font-semibold text-slate-300 mb-1.5">
+                    SALES ORDER (SO)
+                  </label>
+                  <input
+                    type="text"
+                    v-model="fcSelectedSo"
+                    placeholder="Auto-mapped from QA device_tested..."
+                    readonly
+                    class="w-full px-3.5 py-2.5 rounded-xl bg-slate-950/80 border border-slate-700 text-white text-xs font-mono font-bold cursor-not-allowed select-all"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <!-- 3. EXECUTION CONTROLS & 4-STAGE PROGRESS WORKBENCH -->
+            <div class="p-5 rounded-2xl bg-slate-900/90 border border-slate-800 space-y-5 shadow-xl">
+              <!-- Serial Port Selection & Connection Row (Placed directly above Action Controls) -->
+              <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-800/80">
                 <div class="flex items-center gap-2 flex-wrap">
                   <!-- Select Port button -->
                   <button
@@ -161,77 +187,26 @@ export const FINAL_CONFIG_DEVICE_TEMPLATE = `          <div v-else-if="activeFea
                   </div>
                 </div>
 
-                <!-- Right controls: Terminal Log Toggle -->
-                <div class="flex items-center gap-2">
-                  <button
-                    type="button"
-                    @click="fcShowTerminalLogs = !fcShowTerminalLogs"
-                    class="px-3 py-1.5 rounded-lg border text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer"
-                    :class="fcShowTerminalLogs ? 'bg-slate-800 border-slate-600 text-white' : 'bg-slate-950 border-slate-800 text-slate-400 hover:text-slate-200'"
-                  >
-                    <i class="fa-solid fa-terminal"></i>
-                    <span>UART Log ({{ fcSerialLogs.length }})</span>
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            <!-- 2. WORK ORDER & SERIAL NUMBER STRIP (READONLY, SHOWN AFTER 25%) -->
-            <!-- Layout mode reference: lg:grid-cols-5 -->
-            <div v-if="fcProgress >= 25" class="p-5 rounded-2xl bg-slate-900/90 border border-slate-800 space-y-4 shadow-xl">
-              <div class="flex items-center justify-between border-b border-slate-800/80 pb-3">
-                <div class="flex items-center gap-2">
-                  <i class="fa-solid fa-clipboard-list text-cyan-400"></i>
-                  <h3 class="text-xs font-bold text-white uppercase tracking-wider">WORK ORDER & SERIAL NUMBER</h3>
-                </div>
-                <div class="text-[11px] text-emerald-400 flex items-center gap-1.5 font-semibold">
-                  <i class="fa-solid fa-circle-check"></i>
-                  <span>Hardware identified & QA verified (Read-only)</span>
+                <!-- Port Status Badge -->
+                <div
+                  class="px-3 py-1.5 rounded-full text-xs font-semibold flex items-center gap-2 border transition"
+                  :class="fcSerialConnected
+                    ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-300'
+                    : (fcIsAutoReconnecting
+                      ? 'bg-amber-500/15 border-amber-500/40 text-amber-300'
+                      : (fcSerialPort
+                        ? 'bg-blue-500/15 border-blue-500/40 text-blue-300'
+                        : 'bg-slate-800/80 border-slate-700 text-slate-400'))"
+                >
+                  <span
+                    class="w-2 h-2 rounded-full"
+                    :class="fcSerialConnected ? 'bg-emerald-400 animate-ping' : (fcIsAutoReconnecting ? 'bg-amber-400 animate-ping' : (fcSerialPort ? 'bg-blue-400' : 'bg-slate-500'))"
+                  ></span>
+                  <i :class="fcSerialConnected ? 'fa-solid fa-link' : (fcIsAutoReconnecting ? 'fa-solid fa-arrows-rotate animate-spin text-amber-400' : (fcSerialPort ? 'fa-solid fa-microchip' : 'fa-solid fa-plug-circle-xmark'))"></i>
+                  <span class="font-mono text-xs">{{ fcSerialPortInfo || 'No Port Selected' }} {{ fcSerialConnected ? '(Connected)' : (fcIsAutoReconnecting ? '(Reconnecting...)' : (fcSerialPort ? '(Ready)' : '')) }}</span>
                 </div>
               </div>
 
-              <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <!-- Serial Number (SN) -->
-                <div>
-                  <label class="block text-xs font-semibold text-slate-300 mb-1.5">
-                    SERIAL NUMBER
-                  </label>
-                  <input
-                    type="text"
-                    v-model="fcSerialNumberInput"
-                    placeholder="Auto-read Reg 259..."
-                    readonly
-                    class="w-full px-3.5 py-2.5 rounded-xl bg-slate-950/80 border border-slate-700 text-cyan-300 text-xs font-mono font-bold cursor-not-allowed select-all"
-                  />
-                </div>
-
-                <!-- Sales Order (SO) -->
-                <div>
-                  <label class="block text-xs font-semibold text-slate-300 mb-1.5">
-                    SALES ORDER (SO)
-                  </label>
-                  <input
-                    type="text"
-                    v-model="fcSelectedSo"
-                    placeholder="Auto-mapped from QA device_tested..."
-                    readonly
-                    class="w-full px-3.5 py-2.5 rounded-xl bg-slate-950/80 border border-slate-700 text-white text-xs font-mono font-bold cursor-not-allowed select-all"
-                  />
-                </div>
-              </div>
-            </div>
-
-            <!-- Banner placeholder before 25% -->
-            <div v-else class="p-4 rounded-2xl bg-slate-900/60 border border-slate-800/80 flex items-center justify-between text-slate-400 text-xs shadow-md">
-              <div class="flex items-center gap-2.5">
-                <i class="fa-solid fa-shield-halved text-cyan-400 text-sm"></i>
-                <span>Work Order & Serial Number will automatically appear after Stage 1 (>= 25%) hardware identification and QA validation.</span>
-              </div>
-              <span class="text-[10px] font-mono font-bold text-slate-500 uppercase px-2 py-0.5 rounded bg-slate-950 border border-slate-800">Awaiting Stage 1</span>
-            </div>
-
-            <!-- 3. EXECUTION CONTROLS & 4-STAGE PROGRESS WORKBENCH -->
-            <div class="p-5 rounded-2xl bg-slate-900/90 border border-slate-800 space-y-5 shadow-xl">
               <!-- Top Actions: Run, Reset, Abort & Verdict Banner -->
               <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div class="flex items-center gap-3 flex-wrap">
@@ -239,7 +214,7 @@ export const FINAL_CONFIG_DEVICE_TEMPLATE = `          <div v-else-if="activeFea
                   <button
                     type="button"
                     @click="startFinalConfig"
-                    :disabled="!fcSerialConnected || isRunningFinalConfig"
+                    :disabled="!fcSerialConnected || isRunningFinalConfig || finalVerdict === 'FAIL'"
                     class="px-5 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 hover:from-emerald-500 hover:to-cyan-500 text-white font-bold text-xs uppercase tracking-wider shadow-lg shadow-emerald-900/30 flex items-center gap-2 cursor-pointer transition disabled:opacity-40 disabled:cursor-not-allowed"
                   >
                     <i class="fa-solid" :class="isRunningFinalConfig ? 'fa-spinner animate-spin' : 'fa-play'"></i>
@@ -303,9 +278,8 @@ export const FINAL_CONFIG_DEVICE_TEMPLATE = `          <div v-else-if="activeFea
               <div class="space-y-2">
                 <div class="flex items-center justify-between text-xs font-mono font-bold">
                   <span class="text-slate-300 flex items-center gap-2">
-                    <span>EXECUTION PROGRESS:</span>
-                    <span class="text-cyan-400">{{ fcProgress }}%</span>
-                    <span v-if="fcStatusMessage" class="text-slate-400 font-normal">({{ fcStatusMessage }})</span>
+                    <span class="text-cyan-400 font-mono font-bold">PROGRESS: {{ fcProgress }}%</span>
+                    <span v-if="fcStatusMessage" class="text-slate-400 font-normal text-xs truncate">({{ fcStatusMessage }})</span>
                   </span>
                 </div>
                 <div class="w-full h-6 rounded-full bg-slate-950 border border-slate-800 overflow-hidden relative p-0.5 shadow-inner">
@@ -620,7 +594,7 @@ export const FINAL_CONFIG_DEVICE_TEMPLATE = `          <div v-else-if="activeFea
             </div>
 
             <!-- 5. UART LOG TERMINAL DRAWER -->
-            <div v-if="fcShowTerminalLogs" class="p-5 rounded-2xl bg-slate-900/90 border border-slate-800 space-y-3 shadow-xl">
+            <div v-show="fcDebugMode" class="p-5 rounded-2xl bg-slate-900/90 border border-slate-800 space-y-3 shadow-xl">
               <div class="flex items-center justify-between">
                 <div class="flex items-center gap-2">
                   <i class="fa-solid fa-terminal text-cyan-400"></i>
@@ -670,7 +644,40 @@ export const FINAL_CONFIG_DEVICE_TEMPLATE = `          <div v-else-if="activeFea
           </div>
 `;
 
-export const FINAL_CONFIG_DEVICE_MODALS = ``;
+export const FINAL_CONFIG_DEVICE_MODALS = `
+  <!-- POPUP CẢNH BÁO THIẾT BỊ ĐÃ FINAL CONFIG PASS -->
+  <div v-if="alreadyPassedModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop" style="background: rgba(2, 6, 23, 0.85); backdrop-filter: blur(6px);">
+    <div class="bg-slate-900 border border-amber-500/50 rounded-2xl p-6 max-w-md w-full shadow-2xl space-y-4">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-400 text-xl">
+          <i class="fa-solid fa-triangle-exclamation"></i>
+        </div>
+        <div>
+          <h3 class="text-sm font-bold text-white uppercase tracking-wider">Device Already Configured</h3>
+          <p class="text-xs text-amber-400 font-semibold">Final Configuration Protection</p>
+        </div>
+      </div>
+      <div class="p-4 rounded-xl bg-slate-950 border border-slate-800 text-xs text-slate-300 space-y-2">
+        <div class="font-bold text-amber-300">Device has already passed Final Configuration!</div>
+        <div v-if="alreadyPassedInfo" class="space-y-1 font-mono text-[11px] text-slate-400">
+          <div>Serial Number: <span class="text-white font-bold">{{ alreadyPassedInfo.serial_number }}</span></div>
+          <div v-if="alreadyPassedInfo.dev_eui">DevEUI: <span class="text-cyan-300">{{ alreadyPassedInfo.dev_eui }}</span></div>
+          <div v-if="alreadyPassedInfo.so">Sales Order: <span class="text-slate-300">{{ alreadyPassedInfo.so }}</span></div>
+          <div v-if="alreadyPassedInfo.tested_at">Passed At: <span class="text-emerald-400">{{ new Date(alreadyPassedInfo.tested_at).toLocaleString() }}</span></div>
+        </div>
+      </div>
+      <div class="flex justify-end pt-2">
+        <button
+          type="button"
+          @click="alreadyPassedModal = false"
+          class="px-5 py-2 rounded-xl bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-500 hover:to-amber-600 text-white font-bold text-xs shadow-lg transition cursor-pointer"
+        >
+          Acknowledge & Close
+        </button>
+      </div>
+    </div>
+  </div>
+`;
 
 export const FINAL_CONFIG_DEVICE_SCRIPT = `
 function useFinalConfigDeviceModule(ctx) {
@@ -721,6 +728,8 @@ function useFinalConfigDeviceModule(ctx) {
   const serialLogs = fcSerialLogs;
   const fcShowTerminalLogs = ref(false);
   const showTerminalLogs = fcShowTerminalLogs;
+  const alreadyPassedModal = ref(false);
+  const alreadyPassedInfo = ref(null);
 
   let lastConnectedPortInfo = null;
   let autoReconnectTimer = null;
@@ -1547,6 +1556,10 @@ function useFinalConfigDeviceModule(ctx) {
   // 5. AUTOMATED 4-STAGE FINAL CONFIG WORKFLOW
   // ----------------------------------------------------------------------
   const startFinalConfig = async () => {
+    if (finalVerdict.value === 'FAIL') {
+      if (showToast) showToast('Please click Reset before restarting after a failure.', 'warning');
+      return;
+    }
     if (!serialConnected.value) {
       if (showToast) showToast('Please select and connect COM port first.', 'warning');
       return;
@@ -1607,6 +1620,27 @@ function useFinalConfigDeviceModule(ctx) {
       if (!readDevEui) throw new Error('DevEUI (Reg 27) read from hardware is empty');
       fcHardwareInfo.value.devEui = readDevEui;
       fcProgress.value = 15;
+
+      // Check if device has already passed Final Configuration
+      fcStatusMessage.value = 'Checking if device already passed Final Configuration...';
+      try {
+        const checkPassUrl = '/api/c-modules/final-config-manager/check-pass?serial_number=' + encodeURIComponent(readSn) + '&dev_eui=' + encodeURIComponent(readDevEui);
+        const checkPassRes = await fetch(checkPassUrl, {
+          headers: authHeaders ? authHeaders() : {},
+        });
+        const checkPassJson = await checkPassRes.json();
+        if (checkPassJson && checkPassJson.passed) {
+          alreadyPassedInfo.value = checkPassJson.data;
+          alreadyPassedModal.value = true;
+          if (showToast) showToast('Device has already passed Final Configuration!', 'warning');
+          fcStatusMessage.value = 'Device has already passed Final Configuration!';
+          stage1Status.value = 'IDLE';
+          finalVerdict.value = 'NONE';
+          return;
+        }
+      } catch (checkErr) {
+        console.warn('Check passed final config API warning:', checkErr);
+      }
 
       // 3. Read Reg 5 (FW_VERSION: 4 regs, string)
       let readFw = '';
@@ -2116,6 +2150,8 @@ function useFinalConfigDeviceModule(ctx) {
       fcAuditRegisters.value = [];
       updateTabulatorData();
     }
+    alreadyPassedModal.value = false;
+    alreadyPassedInfo.value = null;
     if (showToast) showToast('Execution state reset.', 'info');
   };
 
@@ -2389,6 +2425,8 @@ function useFinalConfigDeviceModule(ctx) {
     auditStatusFilter,
     filteredAuditRegisters,
     fcDebugMode,
+    alreadyPassedModal,
+    alreadyPassedInfo,
     generateRandomAppKey,
     startFinalConfig,
     resetFinalConfig,
