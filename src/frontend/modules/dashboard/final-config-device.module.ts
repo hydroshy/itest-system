@@ -1743,24 +1743,133 @@ function useFinalConfigDeviceModule(ctx) {
       ? Boolean(currentPreset.value.enable_usb_reconnect_patience)
       : true;
 
-    return await probeDeviceReadyAndVerifiedCore(
-      slave,
-      reg,
-      numreg,
-      expectedBytes,
-      isWriteOnly,
-      {
-        ...options,
-        usbReconnectTimeoutMs: options.usbReconnectTimeoutMs || patienceTimeoutMs,
-        enableUsbReconnectPatience: options.enableUsbReconnectPatience !== undefined ? options.enableUsbReconnectPatience : enablePatience,
-        waitForPortReconnectionFn: options.waitForPortReconnectionFn || ((tMs) => waitForPortReconnection(tMs)),
-        isPortConnectedFn: options.isPortConnectedFn || (() => Boolean(serialConnected.value && !isAutoReconnecting.value && serialPort.value?.readable && serialPort.value?.writable)),
-        readModbusFn: options.readModbusFn || ((s, fc, r, n, t) => readModbusRegistersFromPort(s, fc, r, n, t)),
-        flushBufferFn: options.flushBufferFn || ((t) => flushUartRxBuffer(t)),
-        logFn: options.logFn || ((lvl, frame, msg) => addSerialLog(lvl, frame, msg)),
-        statusMsgRef: options.statusMsgRef || fcStatusMessage,
+    const opts = {
+      ...options,
+      usbReconnectTimeoutMs: options.usbReconnectTimeoutMs || patienceTimeoutMs,
+      enableUsbReconnectPatience: options.enableUsbReconnectPatience !== undefined ? options.enableUsbReconnectPatience : enablePatience,
+      waitForPortReconnectionFn: options.waitForPortReconnectionFn || ((tMs) => waitForPortReconnection(tMs)),
+      isPortConnectedFn: options.isPortConnectedFn || (() => Boolean(serialConnected.value && !isAutoReconnecting.value && serialPort.value?.readable && serialPort.value?.writable)),
+      readModbusFn: options.readModbusFn || ((s, fc, r, n, t) => readModbusRegistersFromPort(s, fc, r, n, t)),
+      flushBufferFn: options.flushBufferFn || ((t) => flushUartRxBuffer(t)),
+      logFn: options.logFn || ((lvl, frame, msg) => addSerialLog(lvl, frame, msg)),
+      statusMsgRef: options.statusMsgRef || fcStatusMessage,
+    };
+
+    const isAppKeyOrHeavy = Boolean(reg === 274 || opts.isAppKey || opts.isFlashHeavy);
+    const enableProbe = opts.enableProbe !== undefined
+      ? Boolean(opts.enableProbe)
+      : (opts.enable_probe_verification !== undefined ? Boolean(opts.enable_probe_verification) : true);
+    const effectiveTimeout = isAppKeyOrHeavy
+      ? (opts.appkeyProbeTimeoutMs || opts.appkey_probe_timeout_ms || opts.maxProbeTimeoutMs || opts.max_probe_timeout_ms || 10000)
+      : (opts.maxProbeTimeoutMs || opts.max_probe_timeout_ms || 6000);
+    const safeReg = opts.safeProbeRegister !== undefined
+      ? Number(opts.safeProbeRegister)
+      : (opts.safe_probe_register !== undefined ? Number(opts.safe_probe_register) : 0);
+    const guardSilence = opts.guardSilenceMs !== undefined
+      ? Number(opts.guardSilenceMs)
+      : (opts.guard_silence_ms !== undefined ? Number(opts.guard_silence_ms) : (isAppKeyOrHeavy ? 150 : 30));
+    const enableUsbPatience = opts.enableUsbReconnectPatience;
+    const usbReconnectTimeoutMs = opts.usbReconnectTimeoutMs;
+
+    if (!enableProbe) {
+      if (opts.logFn) opts.logFn('INFO', null, 'Settling MCU (600ms) for Flash/EEPROM persistence (Probe disabled)...');
+      if (opts.statusMsgRef) opts.statusMsgRef.value = 'Device settling/retrying... MCU settling (600ms) for Flash/EEPROM storage...';
+      await new Promise((r) => setTimeout(r, 600));
+      return { success: true, elapsedMs: 600, attempts: 1 };
+    }
+
+    if (guardSilence > 0) {
+      await new Promise((r) => setTimeout(r, guardSilence));
+    }
+
+    const isAdaptive = opts.enableAdaptiveProbe !== undefined
+      ? Boolean(opts.enableAdaptiveProbe)
+      : (opts.enable_adaptive_probe !== undefined ? Boolean(opts.enable_adaptive_probe) : true);
+
+    const getAdaptiveInterval = (elapsedMs) => {
+      if (!isAdaptive) return opts.probeIntervalMs || opts.probe_interval_ms || 50;
+      if (elapsedMs < 1000) return 100;
+      if (elapsedMs < 4000) return 300;
+      return 800;
+    };
+
+    const invokeRead = async (s, r, n, t) => {
+      if (!opts.readModbusFn) throw new Error('readModbusFn not provided in options');
+      return await opts.readModbusFn(s, 3, r, n, t);
+    };
+
+    const startTime = Date.now();
+    let totalFrozenMs = 0;
+    let attempts = 0;
+    let lastMismatch = false;
+
+    while ((Date.now() - startTime - totalFrozenMs) < effectiveTimeout) {
+      if (enableUsbPatience && opts.isPortConnectedFn && !opts.isPortConnectedFn()) {
+        if (opts.waitForPortReconnectionFn) {
+          const freezeStart = Date.now();
+          await opts.waitForPortReconnectionFn(usbReconnectTimeoutMs);
+          totalFrozenMs += (Date.now() - freezeStart);
+          if (opts.flushBufferFn) await opts.flushBufferFn(50);
+          continue;
+        }
       }
-    );
+
+      attempts++;
+      const elapsedNow = Date.now() - startTime - totalFrozenMs;
+      const remainingTime = Math.max(50, effectiveTimeout - elapsedNow);
+      const probeTimeout = Math.min(Math.max(300, remainingTime), 500);
+
+      try {
+        if (isWriteOnly) {
+          const readBytes = await invokeRead(slave, safeReg, 1, probeTimeout);
+          if (readBytes && readBytes.length >= 2) {
+            return { success: true, elapsedMs: Date.now() - startTime, attempts };
+          }
+        } else {
+          const readBytes = await invokeRead(slave, reg, numreg, probeTimeout);
+          let match = false;
+          if (readBytes && expectedBytes && readBytes.length === expectedBytes.length) {
+            match = true;
+            for (let b = 0; b < expectedBytes.length; b++) {
+              if (readBytes[b] !== expectedBytes[b]) { match = false; break; }
+            }
+          }
+          if (match) {
+            return { success: true, elapsedMs: Date.now() - startTime, attempts };
+          } else {
+            lastMismatch = true;
+          }
+        }
+      } catch (probeErr) {
+        if (enableUsbPatience && isPortDisconnectedError(probeErr)) {
+          if (opts.waitForPortReconnectionFn) {
+            const freezeStart = Date.now();
+            await opts.waitForPortReconnectionFn(usbReconnectTimeoutMs);
+            totalFrozenMs += (Date.now() - freezeStart);
+            if (opts.flushBufferFn) await opts.flushBufferFn(50);
+            continue;
+          }
+        }
+      }
+
+      const enableRecovery = opts.uartStallRecoveryFlush !== undefined
+        ? Boolean(opts.uartStallRecoveryFlush)
+        : (opts.uart_stall_recovery_flush !== undefined ? Boolean(opts.uart_stall_recovery_flush) : true);
+      if (enableRecovery) {
+        try {
+          if (opts.flushBufferFn) await opts.flushBufferFn(50);
+        } catch (flushErr) {}
+      }
+
+      const currentInterval = getAdaptiveInterval(Date.now() - startTime - totalFrozenMs);
+      const sleepTime = Math.min(currentInterval, Math.max(10, effectiveTimeout - (Date.now() - startTime - totalFrozenMs)));
+      await new Promise((r) => setTimeout(r, sleepTime));
+    }
+
+    if (lastMismatch) {
+      throw new Error('Device busy / probe timeout after ' + (Date.now() - startTime - totalFrozenMs) + 'ms for register ' + reg + ' (data mismatch)');
+    }
+    throw new Error('Device busy / probe timeout after ' + (Date.now() - startTime - totalFrozenMs) + 'ms for register ' + reg + (isAppKeyOrHeavy ? ' (AppKey/Flash-heavy timeout ' + effectiveTimeout + 'ms reached)' : ''));
   };
 
   // Helper: Encode Value String to Modbus Bytes
