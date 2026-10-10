@@ -14,6 +14,9 @@ export declare class FinalConfigPresetEntity {
     enable_probe_verification?: boolean;
     probe_interval_ms?: number;
     max_probe_timeout_ms?: number;
+    appkey_probe_timeout_ms?: number;
+    enable_adaptive_probe?: boolean;
+    uart_stall_recovery_flush?: boolean;
     safe_probe_register?: number;
     created_by?: string;
     registers?: FinalConfigRegEntity[];

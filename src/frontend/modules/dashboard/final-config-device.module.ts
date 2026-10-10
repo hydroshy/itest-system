@@ -92,10 +92,18 @@ export interface ProbeTimingOptions {
   probe_interval_ms?: number;
   maxProbeTimeoutMs?: number;
   max_probe_timeout_ms?: number;
+  appkeyProbeTimeoutMs?: number;
+  appkey_probe_timeout_ms?: number;
+  enableAdaptiveProbe?: boolean;
+  enable_adaptive_probe?: boolean;
+  uartStallRecoveryFlush?: boolean;
+  uart_stall_recovery_flush?: boolean;
   safeProbeRegister?: number;
   safe_probe_register?: number;
   guardSilenceMs?: number;
   guard_silence_ms?: number;
+  isAppKey?: boolean;
+  isFlashHeavy?: boolean;
   readModbusFn?: (slave: number, fc: number, reg: number, numreg: number, timeoutMs: number) => Promise<number[]>;
   flushBufferFn?: (flushTimeoutMs?: number) => Promise<void>;
   logFn?: (level: string, frame: any, msg: string) => void;
@@ -109,8 +117,8 @@ export interface ProbeVerificationResult {
 }
 
 /**
- * Closed-Loop Write-Verification Handshake (Write-Then-Probe Polling)
- * Architectural Contract: Spec Section 3.2.A
+ * Closed-Loop Write-Verification Handshake (Adaptive Write-Then-Probe Polling Engine)
+ * Architectural Contract: Spec Section 2, 4.2 & Section 6
  */
 export async function probeDeviceReadyAndVerified(
   slave: number,
@@ -120,17 +128,19 @@ export async function probeDeviceReadyAndVerified(
   isWriteOnly: boolean,
   options?: ProbeTimingOptions,
 ): Promise<ProbeVerificationResult> {
+  const isAppKeyOrHeavy = Boolean(reg === 274 || options?.isAppKey || options?.isFlashHeavy);
   const enableProbe = options?.enableProbe !== undefined
     ? Boolean(options.enableProbe)
     : (options?.enable_probe_verification !== undefined ? Boolean(options.enable_probe_verification) : true);
-  const probeInterval = options?.probeIntervalMs || options?.probe_interval_ms || 50;
-  const maxTimeout = options?.maxProbeTimeoutMs || options?.max_probe_timeout_ms || 1500;
+  const effectiveTimeout = isAppKeyOrHeavy
+    ? (options?.appkeyProbeTimeoutMs || options?.appkey_probe_timeout_ms || options?.maxProbeTimeoutMs || options?.max_probe_timeout_ms || 10000)
+    : (options?.maxProbeTimeoutMs || options?.max_probe_timeout_ms || 6000);
   const safeReg = options?.safeProbeRegister !== undefined
     ? Number(options.safeProbeRegister)
     : (options?.safe_probe_register !== undefined ? Number(options.safe_probe_register) : 0);
   const guardSilence = options?.guardSilenceMs !== undefined
     ? Number(options.guardSilenceMs)
-    : (options?.guard_silence_ms !== undefined ? Number(options.guard_silence_ms) : 30);
+    : (options?.guard_silence_ms !== undefined ? Number(options.guard_silence_ms) : (isAppKeyOrHeavy ? 150 : 30));
 
   // Backward compatibility: If probe disabled, fallback to settling delay
   if (!enableProbe) {
@@ -149,6 +159,19 @@ export async function probeDeviceReadyAndVerified(
     await new Promise((r) => setTimeout(r, guardSilence));
   }
 
+  const isAdaptive = options?.enableAdaptiveProbe !== undefined
+    ? Boolean(options.enableAdaptiveProbe)
+    : (options?.enable_adaptive_probe !== undefined ? Boolean(options.enable_adaptive_probe) : true);
+
+  const getAdaptiveInterval = (elapsedMs: number): number => {
+    if (!isAdaptive) {
+      return options?.probeIntervalMs || options?.probe_interval_ms || 50;
+    }
+    if (elapsedMs < 1000) return 100;
+    if (elapsedMs < 4000) return 300;
+    return 800; // Patience mode
+  };
+
   const startTime = Date.now();
   let attempts = 0;
   let lastMismatch = false;
@@ -163,12 +186,13 @@ export async function probeDeviceReadyAndVerified(
     return await options.readModbusFn(s, 3, r, n, t);
   };
 
-  while (Date.now() - startTime < maxTimeout) {
+  while (Date.now() - startTime < effectiveTimeout) {
     attempts++;
-    try {
-      const remainingTime = Math.max(50, maxTimeout - (Date.now() - startTime));
-      const probeTimeout = Math.min(300, remainingTime);
+    const elapsedNow = Date.now() - startTime;
+    const remainingTime = Math.max(50, effectiveTimeout - elapsedNow);
+    const probeTimeout = Math.min(Math.max(300, remainingTime), 500);
 
+    try {
       if (isWriteOnly) {
         // Case B: Write-Only register (e.g. AppKey Reg 274) -> Read Safe Anchor (default Reg 0x0000 Firmware Code)
         const readBytes = await invokeRead(slave, safeReg, 1, probeTimeout);
@@ -195,24 +219,36 @@ export async function probeDeviceReadyAndVerified(
         }
       }
     } catch (probeErr) {
-      // MCU busy with Flash Erase/Program, UART IRQ masked or frame timeout/CRC error
+      // MCU busy with Flash write, UART IRQ masked or frame timeout/CRC error
     }
 
-    if (options?.flushBufferFn) {
+    // Active UART Stall Recovery Purge
+    const enableRecovery = options?.uartStallRecoveryFlush !== undefined
+      ? Boolean(options.uartStallRecoveryFlush)
+      : (options?.uart_stall_recovery_flush !== undefined ? Boolean(options.uart_stall_recovery_flush) : true);
+
+    if (enableRecovery) {
       try {
-        await options.flushBufferFn(50);
-      } catch (e) {}
+        if (options?.flushBufferFn) {
+          await options.flushBufferFn(50);
+        } else if (typeof (globalThis as any).flushUartRxBuffer === 'function') {
+          await (globalThis as any).flushUartRxBuffer(50);
+        }
+      } catch (flushErr) {}
     }
 
-    const sleepTime = Math.min(probeInterval, Math.max(10, maxTimeout - (Date.now() - startTime)));
+    const currentInterval = getAdaptiveInterval(Date.now() - startTime);
+    const sleepTime = Math.min(currentInterval, Math.max(10, effectiveTimeout - (Date.now() - startTime)));
     await new Promise((r) => setTimeout(r, sleepTime));
   }
 
   if (lastMismatch) {
     throw new Error('Device busy / probe timeout after ' + (Date.now() - startTime) + 'ms for register ' + reg + ' (data mismatch)');
   }
-  throw new Error('Device busy / probe timeout after ' + (Date.now() - startTime) + 'ms for register ' + reg);
+  throw new Error('Device busy / probe timeout after ' + (Date.now() - startTime) + 'ms for register ' + reg + (isAppKeyOrHeavy ? ' (AppKey/Flash-heavy timeout ' + effectiveTimeout + 'ms reached)' : ''));
 }
+
+const probeDeviceReadyAndVerifiedCore = probeDeviceReadyAndVerified;
 
 export const FINAL_CONFIG_DEVICE_TEMPLATE = `          <div v-else-if="activeFeature.id === 'final-config-device'" class="space-y-6">
 
@@ -918,6 +954,7 @@ function useFinalConfigDeviceModule(ctx) {
   const serialConnecting = fcSerialConnecting;
   const fcIsAutoReconnecting = ref(false);
   const isAutoReconnecting = fcIsAutoReconnecting;
+  const isWaitingReconnectOnAppKey = ref(false);
   const fcSerialPortInfo = ref('');
   const serialPortInfo = fcSerialPortInfo;
   const fcSerialConfig = ref({
@@ -1005,6 +1042,15 @@ function useFinalConfigDeviceModule(ctx) {
     if (!serialPort.value || !serialPort.value.readable) return;
     await safeCleanupUartPort();
     try {
+      // Pulse Hardware Handshake Signals (RTS/DTR toggle if supported) to reset transceiver state
+      if (serialPort.value.setSignals) {
+        try {
+          await serialPort.value.setSignals({ requestToSend: false, dataTerminalReady: false });
+          await new Promise(r => setTimeout(r, 5));
+          await serialPort.value.setSignals({ requestToSend: true, dataTerminalReady: true });
+        } catch (sigErr) {}
+      }
+
       activeUartReader = serialPort.value.readable.getReader();
       const startTime = Date.now();
       while (Date.now() - startTime < flushTimeoutMs) {
@@ -1031,6 +1077,8 @@ function useFinalConfigDeviceModule(ctx) {
         activeUartReader = null;
       }
     }
+    // RS485 line idle recovery (30ms)
+    await new Promise(r => setTimeout(r, 30));
   };
 
   // Select COM Port
@@ -1122,6 +1170,7 @@ function useFinalConfigDeviceModule(ctx) {
         isRunningFinalConfig.value = false;
       }
       isAutoReconnecting.value = false;
+      isWaitingReconnectOnAppKey.value = false;
       serialPort.value = null;
       serialPortInfo.value = '';
       lastConnectedPortInfo = null;
@@ -1138,6 +1187,11 @@ function useFinalConfigDeviceModule(ctx) {
     await disconnectSerial(false);
     if (wasConnected) {
       isAutoReconnecting.value = true;
+      if (isRunningFinalConfig.value && currentStage.value === 2) {
+        isWaitingReconnectOnAppKey.value = true;
+        addSerialLog('WARN', null, 'COM port dropped during Stage 2 Flash write. Waiting for USB re-enumeration...');
+        fcStatusMessage.value = 'USB disconnect detected during Flash write. Waiting for auto-reconnect...';
+      }
       if (showToast) showToast('Serial disconnected. Waiting for USB re-enumeration...', 'warning');
       addSerialLog('SYS', null, 'Stream locks released. Auto-reconnect armed.');
     }
@@ -1170,6 +1224,10 @@ function useFinalConfigDeviceModule(ctx) {
             serialPortInfo.value = desc;
             await connectSerial(newPort);
             isAutoReconnecting.value = false;
+            if (isWaitingReconnectOnAppKey.value) {
+              addSerialLog('SYS', null, 'COM port reconnected during Stage 2. Resuming probe recovery...');
+              isWaitingReconnectOnAppKey.value = false;
+            }
             addSerialLog('SYS', null, 'Auto-reconnected successfully to ' + desc);
             if (showToast) showToast('COM port auto-reconnected successfully', 'success');
           } catch (err) {
@@ -1179,11 +1237,16 @@ function useFinalConfigDeviceModule(ctx) {
                 if (serialConnected.value) return;
                 await connectSerial(newPort);
                 isAutoReconnecting.value = false;
+                if (isWaitingReconnectOnAppKey.value) {
+                  addSerialLog('SYS', null, 'COM port reconnected during Stage 2. Resuming probe recovery...');
+                  isWaitingReconnectOnAppKey.value = false;
+                }
                 addSerialLog('SYS', null, 'Auto-reconnected successfully on retry');
                 if (showToast) showToast('COM port auto-reconnected successfully', 'success');
               } catch (retryErr) {
                 console.error('Auto-reconnect retry failed:', retryErr);
                 isAutoReconnecting.value = false;
+                isWaitingReconnectOnAppKey.value = false;
                 addSerialLog('ERR', null, 'Auto-reconnect failed: ' + (retryErr.message || retryErr));
                 if (showToast) showToast('Auto-reconnect failed. Click Connect to retry.', 'error');
               }
@@ -1452,7 +1515,7 @@ function useFinalConfigDeviceModule(ctx) {
   };
 
   // Closed-Loop Write-Verification Handshake (Write-Then-Probe Polling)
-  // Contract: Spec Section 3.2.A
+  // Contract: Spec Section 3.2.A & Section 4.2
   const probeDeviceReadyAndVerified = async (
     slave,
     reg,
@@ -1461,96 +1524,20 @@ function useFinalConfigDeviceModule(ctx) {
     isWriteOnly,
     options = {}
   ) => {
-    const enableProbe = options.enableProbe !== undefined
-      ? Boolean(options.enableProbe)
-      : (options.enable_probe_verification !== undefined ? Boolean(options.enable_probe_verification) : true);
-    const probeInterval = options.probeIntervalMs || options.probe_interval_ms || 50;
-    const maxTimeout = options.maxProbeTimeoutMs || options.max_probe_timeout_ms || 1500;
-    const safeReg = options.safeProbeRegister !== undefined
-      ? Number(options.safeProbeRegister)
-      : (options.safe_probe_register !== undefined ? Number(options.safe_probe_register) : 0);
-    const guardSilence = options.guardSilenceMs !== undefined
-      ? Number(options.guardSilenceMs)
-      : (options.guard_silence_ms !== undefined ? Number(options.guard_silence_ms) : 30);
-
-    // Backward compatibility: If probe disabled, fallback to settling delay
-    if (!enableProbe) {
-      addSerialLog('INFO', null, 'Settling MCU (' + INTER_WRITE_SETTLING_DELAY_MS + 'ms) for Flash/EEPROM persistence (Probe disabled)...');
-      fcStatusMessage.value = 'Device settling/retrying... MCU settling (' + INTER_WRITE_SETTLING_DELAY_MS + 'ms) for Flash/EEPROM storage...';
-      await new Promise(r => setTimeout(r, INTER_WRITE_SETTLING_DELAY_MS));
-      return { success: true, elapsedMs: INTER_WRITE_SETTLING_DELAY_MS, attempts: 1 };
-    }
-
-    // Guard silence interval before first probe to allow MCU to begin Flash/EEPROM cycle safely
-    if (guardSilence > 0) {
-      await new Promise(r => setTimeout(r, guardSilence));
-    }
-
-    const startTime = Date.now();
-    let attempts = 0;
-    let lastMismatch = false;
-
-    const invokeRead = async (s, r, n, t) => {
-      if (options.readModbusFn) {
-        if (options.readModbusFn.length <= 4) {
-          return await options.readModbusFn(s, r, n, t);
-        }
-        return await options.readModbusFn(s, 3, r, n, t);
+    return await probeDeviceReadyAndVerifiedCore(
+      slave,
+      reg,
+      numreg,
+      expectedBytes,
+      isWriteOnly,
+      {
+        ...options,
+        readModbusFn: options.readModbusFn || ((s, fc, r, n, t) => readModbusRegistersFromPort(s, fc, r, n, t)),
+        flushBufferFn: options.flushBufferFn || ((t) => flushUartRxBuffer(t)),
+        logFn: options.logFn || ((lvl, frame, msg) => addSerialLog(lvl, frame, msg)),
+        statusMsgRef: options.statusMsgRef || fcStatusMessage,
       }
-      return await readModbusRegistersFromPort(s, 3, r, n, t);
-    };
-
-    while (Date.now() - startTime < maxTimeout) {
-      attempts++;
-      try {
-        const remainingTime = Math.max(50, maxTimeout - (Date.now() - startTime));
-        const probeTimeout = Math.min(300, remainingTime);
-
-        if (isWriteOnly) {
-          // Case B: Write-Only register -> Read Safe Anchor (default Reg 0x0000 Firmware Code)
-          const readBytes = await invokeRead(slave, safeReg, 1, probeTimeout);
-          if (readBytes && readBytes.length >= 2) {
-            return { success: true, elapsedMs: Date.now() - startTime, attempts };
-          }
-        } else {
-          // Case A: Read-Write register -> Read Target Reg & compare byte-to-byte
-          const readBytes = await invokeRead(slave, reg, numreg, probeTimeout);
-          let match = false;
-          if (readBytes && expectedBytes && readBytes.length === expectedBytes.length) {
-            match = true;
-            for (let b = 0; b < expectedBytes.length; b++) {
-              if (readBytes[b] !== expectedBytes[b]) {
-                match = false;
-                break;
-              }
-            }
-          }
-          if (match) {
-            return { success: true, elapsedMs: Date.now() - startTime, attempts };
-          } else {
-            lastMismatch = true;
-          }
-        }
-      } catch (probeErr) {
-        // MCU busy with Flash Erase/Program, UART IRQ masked or frame timeout/CRC error
-      }
-
-      try {
-        if (options.flushBufferFn) {
-          await options.flushBufferFn(50);
-        } else {
-          await flushUartRxBuffer(50);
-        }
-      } catch (e) {}
-
-      const sleepTime = Math.min(probeInterval, Math.max(10, maxTimeout - (Date.now() - startTime)));
-      await new Promise(r => setTimeout(r, sleepTime));
-    }
-
-    if (lastMismatch) {
-      throw new Error('Device busy / probe timeout after ' + (Date.now() - startTime) + 'ms for register ' + reg + ' (data mismatch)');
-    }
-    throw new Error('Device busy / probe timeout after ' + (Date.now() - startTime) + 'ms for register ' + reg);
+    );
   };
 
   // Helper: Encode Value String to Modbus Bytes
@@ -2231,7 +2218,10 @@ function useFinalConfigDeviceModule(ctx) {
       const timingOpts = {
         enableProbe: currentPreset.value?.enable_probe_verification !== undefined ? Boolean(currentPreset.value.enable_probe_verification) : true,
         probeIntervalMs: currentPreset.value?.probe_interval_ms || 50,
-        maxProbeTimeoutMs: currentPreset.value?.max_probe_timeout_ms || 1500,
+        maxProbeTimeoutMs: currentPreset.value?.max_probe_timeout_ms || 6000,
+        appkeyProbeTimeoutMs: currentPreset.value?.appkey_probe_timeout_ms || 10000,
+        enableAdaptiveProbe: currentPreset.value?.enable_adaptive_probe !== undefined ? Boolean(currentPreset.value.enable_adaptive_probe) : true,
+        uartStallRecoveryFlush: currentPreset.value?.uart_stall_recovery_flush !== undefined ? Boolean(currentPreset.value.uart_stall_recovery_flush) : true,
         safeProbeRegister: currentPreset.value?.safe_probe_register !== undefined ? Number(currentPreset.value.safe_probe_register) : 0,
         guardSilenceMs: 30,
       };
@@ -2326,8 +2316,14 @@ function useFinalConfigDeviceModule(ctx) {
       fcWrittenRegsCount.value++;
       fcProgress.value = 50;
 
-      // Closed-Loop Handshake Probe for LoRaWAN AppKey (Write-Only -> Safe Anchor)
-      const res = await probeDeviceReadyAndVerified(1, 274, 8, appKeyBytes, true, timingOpts);
+      // Closed-Loop Handshake Probe for LoRaWAN AppKey (Write-Only -> Safe Anchor with 10s Adaptive Timeout)
+      const appKeyTimingOpts = {
+        ...timingOpts,
+        isAppKey: true,
+        guardSilenceMs: 150,
+      };
+      fcStatusMessage.value = 'Probing MCU recovery & Flash persistence for AppKey Reg 274 (adaptive up to 10s)...';
+      const res = await probeDeviceReadyAndVerified(1, 274, 8, appKeyBytes, true, appKeyTimingOpts);
       addSerialLog('INFO', null, 'Handshake verified for AppKey Reg 274 via safe anchor in ' + res.elapsedMs + 'ms (' + res.attempts + ' probes)');
       fcStatusMessage.value = 'Verified AppKey Reg 274 (' + res.elapsedMs + 'ms). Stage 2 completed.';
 
@@ -2629,6 +2625,7 @@ function useFinalConfigDeviceModule(ctx) {
   const resetFinalConfig = () => {
     isRunningFinalConfig.value = false;
     abortRequested.value = false;
+    isWaitingReconnectOnAppKey.value = false;
     fcProgress.value = 0;
     currentStage.value = 0;
     finalVerdict.value = 'NONE';
@@ -2677,6 +2674,7 @@ function useFinalConfigDeviceModule(ctx) {
   const abortFinalConfig = () => {
     abortRequested.value = true;
     isRunningFinalConfig.value = false;
+    isWaitingReconnectOnAppKey.value = false;
     fcStatusMessage.value = 'Aborted by operator.';
     if (showToast) showToast('Execution aborted by operator.', 'warning');
   };
@@ -2896,6 +2894,7 @@ function useFinalConfigDeviceModule(ctx) {
     fcSerialConnected,
     fcSerialConnecting,
     fcIsAutoReconnecting,
+    isWaitingReconnectOnAppKey,
     fcSerialPortInfo,
     fcSerialConfig,
     fcSerialSignals,

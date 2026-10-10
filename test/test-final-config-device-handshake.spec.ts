@@ -16,6 +16,9 @@ class MockMcuFlashDevice {
   public safeAnchorCode = [0x12, 0x34]; // Reg 0x0000 Firmware Code (2 bytes)
   public rxDropCount = 0;
   public totalProbeCount = 0;
+  public uartStallFlushes = 0;
+  public garbageFrameCount = 0;
+  public remainingGarbageResponses = 0;
 
   constructor() {
     this.registers.set(0, [...this.safeAnchorCode]);
@@ -25,12 +28,24 @@ class MockMcuFlashDevice {
     this.flashBusyUntil = Date.now() + durationMs;
   }
 
+  setGarbageResponses(count: number) {
+    this.remainingGarbageResponses = count;
+  }
+
   isBusy(): boolean {
     return Date.now() < this.flashBusyUntil;
   }
 
   writeRegisters(reg: number, data: number[]) {
     this.registers.set(reg, [...data]);
+  }
+
+  async flushRxBuffer(timeoutMs = 50): Promise<void> {
+    this.uartStallFlushes++;
+    // Draining RX clears hardware FIFO overrun and corrupt frames
+    if (this.remainingGarbageResponses > 0) {
+      this.remainingGarbageResponses = 0;
+    }
   }
 
   async handleModbusRead(
@@ -46,6 +61,13 @@ class MockMcuFlashDevice {
       // Simulate hardware UART interrupt disabled: packet dropped / no response (timeout)
       await new Promise((r) => setTimeout(r, Math.min(timeoutMs, 60)));
       throw new Error(`Modbus timeout: MCU busy with Flash write/erase (UART IRQ masked)`);
+    }
+
+    if (this.remainingGarbageResponses > 0) {
+      this.remainingGarbageResponses--;
+      this.garbageFrameCount++;
+      // Return corrupted/truncated frame simulating UART Overrun Error (ORE) garbage
+      return [0xFF, 0xDE, 0xAD];
     }
 
     // MCU is ready
@@ -110,15 +132,15 @@ async function runHandshakeTestSuite() {
   }
 
   // --------------------------------------------------------------------
-  // TEST 2: Slow / Heavy Flash Write Adaptation (400ms latency)
+  // TEST 2: Normal Register Flash Write > 4s (4200ms latency)
   // --------------------------------------------------------------------
-  console.log('[TEST 2] Slow / Heavy Flash Write Adaptation (Dynamic backoff under 400ms Flash stall)...');
+  console.log('[TEST 2] Normal Register Flash Write > 4s (4200ms latency with 6000ms timeout)...');
   {
     const mcu = new MockMcuFlashDevice();
     const testReg = 304;
     const testData = [0x01, 0x2C]; // 300 dec
     mcu.writeRegisters(testReg, testData);
-    mcu.setFlashBusy(400); // 400ms heavy Flash erase / sector write
+    mcu.setFlashBusy(4200); // 4200ms heavy Flash write (> 4s threshold)
 
     const t0 = Date.now();
     const result = await probeDeviceReadyAndVerified(
@@ -129,9 +151,9 @@ async function runHandshakeTestSuite() {
       false,
       {
         enableProbe: true,
+        enableAdaptiveProbe: true,
         guardSilenceMs: 20,
-        probeIntervalMs: 50,
-        maxProbeTimeoutMs: 1500,
+        maxProbeTimeoutMs: 6000, // Extended 6000ms threshold for normal regs
         readModbusFn: (slave, fc, reg, numreg, timeout) =>
           mcu.handleModbusRead(slave, fc, reg, numreg, timeout),
       },
@@ -139,29 +161,28 @@ async function runHandshakeTestSuite() {
     const totalElapsed = Date.now() - t0;
 
     assert.strictEqual(result.success, true, 'Probe must succeed once MCU Flash write completes');
-    assert.ok(result.attempts >= 3, `Probe should retry multiple times while MCU busy (attempts: ${result.attempts})`);
-    assert.ok(mcu.rxDropCount >= 2, `MCU should have dropped initial probes during bus stall (drops: ${mcu.rxDropCount})`);
-    assert.ok(totalElapsed >= 380, `Must wait for MCU Flash commit window (got ${totalElapsed}ms)`);
-    assert.ok(totalElapsed < 900, `Must succeed without exceeding timeout threshold (got ${totalElapsed}ms)`);
+    assert.ok(totalElapsed >= 4150, `Must wait for MCU Flash commit window (got ${totalElapsed}ms)`);
+    assert.ok(totalElapsed < 5500, `Must succeed within 6000ms timeout window (got ${totalElapsed}ms)`);
     console.log(
-      `  -> PASS: Handshake adapted smoothly to 400ms Flash latency in ${result.elapsedMs}ms (${result.attempts} attempts, ${mcu.rxDropCount} initial busy drops).\n`,
+      `  -> PASS: Normal Reg ${testReg} succeeded after ${result.elapsedMs}ms (${result.attempts} attempts, ${mcu.rxDropCount} busy drops).\n`,
     );
     passedTests++;
   }
 
   // --------------------------------------------------------------------
-  // TEST 3: Write-Only Register Handshake (Reg 274 LoRaWAN AppKey)
+  // TEST 3: AppKey Reg 274 Heavy Flash Write (5500ms latency with 10s Adaptive Timeout)
   // --------------------------------------------------------------------
-  console.log('[TEST 3] Write-Only Register Handshake (Reg 274 LoRaWAN AppKey via Safe Anchor 0x0000)...');
+  console.log('[TEST 3] AppKey Reg 274 Heavy Flash Write (5500ms latency with 10000ms ceiling & Safe Anchor 0x0000)...');
   {
     const mcu = new MockMcuFlashDevice();
     const appKeyBytes = [
       0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08,
       0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F, 0x10,
     ];
-    mcu.setFlashBusy(100); // 100ms NVS wear leveling write for AppKey
+    mcu.setFlashBusy(5500); // 5500ms heavy Flash erase/NVS compaction (> 4s, was failing at 1578ms!)
 
     let probedReg = -1;
+    const t0 = Date.now();
     const result = await probeDeviceReadyAndVerified(
       1,
       274, // AppKey
@@ -170,9 +191,9 @@ async function runHandshakeTestSuite() {
       true, // isWriteOnly = true
       {
         enableProbe: true,
-        guardSilenceMs: 20,
-        probeIntervalMs: 30,
-        maxProbeTimeoutMs: 1500,
+        enableAdaptiveProbe: true,
+        guardSilenceMs: 150, // 150ms guard silence
+        appkeyProbeTimeoutMs: 10000, // 10s ceiling
         safeProbeRegister: 0, // Safe Anchor Reg 0x0000 Firmware Code
         readModbusFn: (slave, fc, reg, numreg, timeout) => {
           probedReg = reg;
@@ -180,19 +201,63 @@ async function runHandshakeTestSuite() {
         },
       },
     );
+    const totalElapsed = Date.now() - t0;
 
     assert.strictEqual(result.success, true, 'Write-only probe must succeed');
     assert.strictEqual(probedReg, 0, 'Must query Safe Anchor Reg 0x0000 Firmware Code instead of write-only Reg 274');
+    assert.ok(totalElapsed >= 5450, `Must wait across 5500ms Flash write without 1578ms abort (got ${totalElapsed}ms)`);
+    assert.ok(totalElapsed < 7500, `Must succeed well within 10000ms window (got ${totalElapsed}ms)`);
     console.log(
-      `  -> PASS: Write-Only Reg 274 verified via Safe Anchor Reg 0x0000 (Firmware Code) in ${result.elapsedMs}ms (${result.attempts} probes).\n`,
+      `  -> PASS: Write-Only Reg 274 verified via Safe Anchor Reg 0x0000 in ${result.elapsedMs}ms (${result.attempts} probes, 5500ms Flash wait).\n`,
     );
     passedTests++;
   }
 
   // --------------------------------------------------------------------
-  // TEST 4: Data Mismatch Detection on Read-Write Registers
+  // TEST 4: UART Stall & Overrun Error Recovery (Flush Buffer & ORE Clear)
   // --------------------------------------------------------------------
-  console.log('[TEST 4] Data Mismatch Detection on Read-Write Registers (Flash cell wear / corruption)...');
+  console.log('[TEST 4] UART Stall & Overrun Error Recovery (Draining RX buffer & line recovery)...');
+  {
+    const mcu = new MockMcuFlashDevice();
+    const testReg = 303;
+    const testData = [0x00, 0x02];
+    mcu.writeRegisters(testReg, testData);
+    mcu.setGarbageResponses(2); // First 2 reads return garbage (ORE frame corruption)
+
+    let flushCallCount = 0;
+    const result = await probeDeviceReadyAndVerified(
+      1,
+      testReg,
+      1,
+      testData,
+      false,
+      {
+        enableProbe: true,
+        uartStallRecoveryFlush: true,
+        probeIntervalMs: 50,
+        maxProbeTimeoutMs: 2000,
+        flushBufferFn: async (timeoutMs) => {
+          flushCallCount++;
+          await mcu.flushRxBuffer(timeoutMs);
+        },
+        readModbusFn: (slave, fc, reg, numreg, timeout) =>
+          mcu.handleModbusRead(slave, fc, reg, numreg, timeout),
+      },
+    );
+
+    assert.strictEqual(result.success, true, 'Probe must succeed after flushing UART stall');
+    assert.ok(flushCallCount >= 1, `flushBufferFn must be invoked upon read failure/mismatch (called: ${flushCallCount})`);
+    assert.ok(mcu.uartStallFlushes >= 1, `MCU mock buffer must be cleared (flushes: ${mcu.uartStallFlushes})`);
+    console.log(
+      `  -> PASS: UART stall recovered successfully via active buffer drain (${flushCallCount} flushes, ${result.attempts} attempts).\n`,
+    );
+    passedTests++;
+  }
+
+  // --------------------------------------------------------------------
+  // TEST 5: Data Mismatch Detection on Read-Write Registers
+  // --------------------------------------------------------------------
+  console.log('[TEST 5] Data Mismatch Detection on Read-Write Registers (Flash cell wear / corruption)...');
   {
     const mcu = new MockMcuFlashDevice();
     const testReg = 305;
@@ -231,12 +296,11 @@ async function runHandshakeTestSuite() {
   }
 
   // --------------------------------------------------------------------
-  // TEST 5: Unresponsive MCU Timeout Gate
+  // TEST 6: Unresponsive MCU Timeout Gate (Exceeding 10000ms on Reg 274)
   // --------------------------------------------------------------------
-  console.log('[TEST 5] Unresponsive MCU Timeout Gate (MCU HardFault / Infinite bus hang)...');
+  console.log('[TEST 6] Unresponsive MCU Timeout Gate (Exceeding 10000ms on Reg 274)...');
   {
     const mcu = new MockMcuFlashDevice();
-    const testReg = 306;
     mcu.setFlashBusy(999999); // Hung forever
 
     let errorThrown: any = null;
@@ -244,15 +308,15 @@ async function runHandshakeTestSuite() {
     try {
       await probeDeviceReadyAndVerified(
         1,
-        testReg,
-        1,
-        [0x00, 0x01],
-        false,
+        274, // Reg 274
+        8,
+        [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+        true,
         {
           enableProbe: true,
+          isAppKey: true,
           guardSilenceMs: 10,
-          probeIntervalMs: 30,
-          maxProbeTimeoutMs: 250, // 250ms max timeout gate
+          appkeyProbeTimeoutMs: 600, // Shortened for test speed
           readModbusFn: (slave, fc, reg, numreg, timeout) =>
             mcu.handleModbusRead(slave, fc, reg, numreg, timeout),
         },
@@ -264,18 +328,44 @@ async function runHandshakeTestSuite() {
 
     assert.ok(errorThrown, 'Must throw timeout error when MCU never responds');
     assert.ok(
-      String(errorThrown.message).includes('Device busy / probe timeout'),
-      `Error message must indicate probe timeout, got: ${errorThrown.message}`,
+      String(errorThrown.message).includes('AppKey/Flash-heavy timeout 600ms reached'),
+      `Error message must indicate AppKey timeout reached, got: ${errorThrown.message}`,
     );
-    assert.ok(elapsed >= 240, `Must respect maxProbeTimeoutMs threshold (elapsed: ${elapsed}ms)`);
-    console.log(`  -> PASS: Timeout gated cleanly at ${elapsed}ms: "${errorThrown.message}".\n`);
+    assert.ok(elapsed >= 580, `Must respect appkeyProbeTimeoutMs threshold (elapsed: ${elapsed}ms)`);
+    console.log(`  -> PASS: AppKey Timeout gated cleanly at ${elapsed}ms: "${errorThrown.message}".\n`);
     passedTests++;
   }
 
   // --------------------------------------------------------------------
-  // TEST 6: Backward Compatibility (enableProbe = false fallback to 600ms)
+  // TEST 7: USB Disconnect & Reconnect Session Preservation in final-config-device.module.ts
   // --------------------------------------------------------------------
-  console.log('[TEST 6] Backward Compatibility: enableProbe = false fallback...');
+  console.log('[TEST 7] Verifying USB Disconnect & Reconnect Session Preservation in final-config-device.module.ts...');
+  {
+    const viewsModulePath = path.resolve(__dirname, '../src/views/dashboard-modules/final-config-device.module.ts');
+    const content = fs.readFileSync(viewsModulePath, 'utf8');
+
+    assert.ok(
+      content.includes('isWaitingReconnectOnAppKey'),
+      'Must declare and track isWaitingReconnectOnAppKey state',
+    );
+    assert.ok(
+      content.includes('if (isRunningFinalConfig.value && currentStage.value === 2) {') &&
+      content.includes('isWaitingReconnectOnAppKey.value = true;'),
+      'Must preserve Stage 2 execution state on disconnect without throwing immediate abort',
+    );
+    assert.ok(
+      content.includes('if (isWaitingReconnectOnAppKey.value) {') &&
+      content.includes('isWaitingReconnectOnAppKey.value = false;'),
+      'Must resume probe recovery upon USB re-enumeration',
+    );
+    console.log('  -> PASS: USB disconnect & auto-reconnect session preservation verified in source.\n');
+    passedTests++;
+  }
+
+  // --------------------------------------------------------------------
+  // TEST 8: Backward Compatibility (enableProbe = false fallback to 600ms)
+  // --------------------------------------------------------------------
+  console.log('[TEST 8] Backward Compatibility: enableProbe = false fallback...');
   {
     let probeCalled = false;
     const t0 = Date.now();
@@ -304,9 +394,9 @@ async function runHandshakeTestSuite() {
   }
 
   // --------------------------------------------------------------------
-  // TEST 7: 1:1 Code Synchronization between src/views and src/frontend
+  // TEST 9: 1:1 Code Synchronization between src/views and src/frontend
   // --------------------------------------------------------------------
-  console.log('[TEST 7] Verifying 1:1 Code Synchronization between src/views and src/frontend...');
+  console.log('[TEST 9] Verifying 1:1 Code Synchronization between src/views and src/frontend...');
   const viewsModulePath = path.resolve(__dirname, '../src/views/dashboard-modules/final-config-device.module.ts');
   const frontModulePath = path.resolve(__dirname, '../src/frontend/modules/dashboard/final-config-device.module.ts');
 

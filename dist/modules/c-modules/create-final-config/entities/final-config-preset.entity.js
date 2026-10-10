@@ -68,9 +68,21 @@ __decorate([
     __metadata("design:type", Number)
 ], FinalConfigPresetEntity.prototype, "probe_interval_ms", void 0);
 __decorate([
-    (0, typeorm_1.Column)({ type: 'int', default: 1500 }),
+    (0, typeorm_1.Column)({ type: 'int', default: 6000 }),
     __metadata("design:type", Number)
 ], FinalConfigPresetEntity.prototype, "max_probe_timeout_ms", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'int', default: 10000 }),
+    __metadata("design:type", Number)
+], FinalConfigPresetEntity.prototype, "appkey_probe_timeout_ms", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'boolean', default: true }),
+    __metadata("design:type", Boolean)
+], FinalConfigPresetEntity.prototype, "enable_adaptive_probe", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'boolean', default: true }),
+    __metadata("design:type", Boolean)
+], FinalConfigPresetEntity.prototype, "uart_stall_recovery_flush", void 0);
 __decorate([
     (0, typeorm_1.Column)({ type: 'int', default: 0 }),
     __metadata("design:type", Number)

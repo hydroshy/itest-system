@@ -56,8 +56,17 @@ export class FinalConfigPresetEntity {
   @Column({ type: 'int', default: 50 })
   probe_interval_ms?: number;
 
-  @Column({ type: 'int', default: 1500 })
+  @Column({ type: 'int', default: 6000 })
   max_probe_timeout_ms?: number;
+
+  @Column({ type: 'int', default: 10000 })
+  appkey_probe_timeout_ms?: number;
+
+  @Column({ type: 'boolean', default: true })
+  enable_adaptive_probe?: boolean;
+
+  @Column({ type: 'boolean', default: true })
+  uart_stall_recovery_flush?: boolean;
 
   @Column({ type: 'int', default: 0 })
   safe_probe_register?: number;
