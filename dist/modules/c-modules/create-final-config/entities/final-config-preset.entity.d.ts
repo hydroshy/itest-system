@@ -17,6 +17,9 @@ export declare class FinalConfigPresetEntity {
     appkey_probe_timeout_ms?: number;
     enable_adaptive_probe?: boolean;
     uart_stall_recovery_flush?: boolean;
+    usb_reconnect_patience_timeout_ms?: number;
+    enable_usb_reconnect_patience?: boolean;
+    enable_stage1_cache_reuse?: boolean;
     safe_probe_register?: number;
     created_by?: string;
     registers?: FinalConfigRegEntity[];

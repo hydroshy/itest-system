@@ -2,6 +2,8 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.FINAL_CONFIG_DEVICE_SCRIPT = exports.FINAL_CONFIG_DEVICE_MODALS = exports.FINAL_CONFIG_DEVICE_TEMPLATE = void 0;
 exports.readFirstRegisterUntilSuccess = readFirstRegisterUntilSuccess;
+exports.isPortDisconnectedError = isPortDisconnectedError;
+exports.waitForPortReconnection = waitForPortReconnection;
 exports.probeDeviceReadyAndVerified = probeDeviceReadyAndVerified;
 async function readFirstRegisterUntilSuccess(slave, addr, numreg, options) {
     const backoffMs = options?.backoffMs || 300;
@@ -50,6 +52,65 @@ async function readFirstRegisterUntilSuccess(slave, addr, numreg, options) {
     }
     return { success: false, aborted: true, error: lastErr || new Error('Aborted'), rawBytes: null };
 }
+function isPortDisconnectedError(err) {
+    if (!err)
+        return false;
+    const msg = String(err?.message || err).toLowerCase();
+    const name = String(err?.name || '').toLowerCase();
+    return (name === 'networkerror' ||
+        msg.includes('networkerror') ||
+        msg.includes('serial port is not open') ||
+        msg.includes('not open or readable') ||
+        msg.includes('not open or writable') ||
+        msg.includes('the device has been lost') ||
+        msg.includes('device lost') ||
+        msg.includes('closed') ||
+        msg.includes('disconnected') ||
+        msg.includes('cannot read properties of null') ||
+        msg.includes('underlying stream has been closed'));
+}
+async function waitForPortReconnection(timeoutMs = 15000, options) {
+    if (options?.isConnectedFn && options.isConnectedFn()) {
+        return true;
+    }
+    const startWait = Date.now();
+    if (options?.logFn) {
+        options.logFn('WARN', null, `[Patience Wait] USB port disconnected/resetting. Waiting up to ${Math.round(timeoutMs / 1000)}s for reconnect...`);
+    }
+    if (options?.statusMsgRef) {
+        options.statusMsgRef.value = `USB reset detected. Patience waiting for USB reconnect (max ${Math.round(timeoutMs / 1000)}s)...`;
+    }
+    const intervalMs = options?.checkIntervalMs || 100;
+    return new Promise((resolve, reject) => {
+        let checkInterval = null;
+        let timeoutTimer = null;
+        const cleanup = () => {
+            if (checkInterval)
+                clearInterval(checkInterval);
+            if (timeoutTimer)
+                clearTimeout(timeoutTimer);
+        };
+        checkInterval = setInterval(() => {
+            if (options?.abortRef?.value) {
+                cleanup();
+                reject(new Error('Operation aborted by operator'));
+                return;
+            }
+            if (options?.isConnectedFn && options.isConnectedFn()) {
+                cleanup();
+                const duration = Date.now() - startWait;
+                if (options?.logFn) {
+                    options.logFn('SYS', null, `[Patience Wait] USB port re-enumerated & reconnected successfully after ${duration}ms. Resuming...`);
+                }
+                resolve(true);
+            }
+        }, intervalMs);
+        timeoutTimer = setTimeout(() => {
+            cleanup();
+            reject(new Error(`USB reconnection patience wait timeout (${timeoutMs}ms) exceeded. Port did not recover.`));
+        }, timeoutMs);
+    });
+}
 async function probeDeviceReadyAndVerified(slave, reg, numreg, expectedBytes, isWriteOnly, options) {
     const isAppKeyOrHeavy = Boolean(reg === 274 || options?.isAppKey || options?.isFlashHeavy);
     const enableProbe = options?.enableProbe !== undefined
@@ -64,6 +125,10 @@ async function probeDeviceReadyAndVerified(slave, reg, numreg, expectedBytes, is
     const guardSilence = options?.guardSilenceMs !== undefined
         ? Number(options.guardSilenceMs)
         : (options?.guard_silence_ms !== undefined ? Number(options.guard_silence_ms) : (isAppKeyOrHeavy ? 150 : 30));
+    const enableUsbPatience = options?.enableUsbReconnectPatience !== undefined
+        ? Boolean(options.enableUsbReconnectPatience)
+        : (options?.enable_usb_reconnect_patience !== undefined ? Boolean(options.enable_usb_reconnect_patience) : true);
+    const usbReconnectTimeoutMs = options?.usbReconnectTimeoutMs || options?.usb_reconnect_patience_timeout_ms || 15000;
     if (!enableProbe) {
         if (options?.logFn) {
             options.logFn('INFO', null, 'Settling MCU (600ms) for Flash/EEPROM persistence (Probe disabled)...');
@@ -91,6 +156,7 @@ async function probeDeviceReadyAndVerified(slave, reg, numreg, expectedBytes, is
         return 800;
     };
     const startTime = Date.now();
+    let totalFrozenMs = 0;
     let attempts = 0;
     let lastMismatch = false;
     const invokeRead = async (s, r, n, t) => {
@@ -102,9 +168,19 @@ async function probeDeviceReadyAndVerified(slave, reg, numreg, expectedBytes, is
         }
         return await options.readModbusFn(s, 3, r, n, t);
     };
-    while (Date.now() - startTime < effectiveTimeout) {
+    while ((Date.now() - startTime - totalFrozenMs) < effectiveTimeout) {
+        if (enableUsbPatience && options?.isPortConnectedFn && !options.isPortConnectedFn()) {
+            if (options.waitForPortReconnectionFn) {
+                const freezeStart = Date.now();
+                await options.waitForPortReconnectionFn(usbReconnectTimeoutMs);
+                totalFrozenMs += (Date.now() - freezeStart);
+                if (options.flushBufferFn)
+                    await options.flushBufferFn(50);
+                continue;
+            }
+        }
         attempts++;
-        const elapsedNow = Date.now() - startTime;
+        const elapsedNow = Date.now() - startTime - totalFrozenMs;
         const remainingTime = Math.max(50, effectiveTimeout - elapsedNow);
         const probeTimeout = Math.min(Math.max(300, remainingTime), 500);
         try {
@@ -135,6 +211,16 @@ async function probeDeviceReadyAndVerified(slave, reg, numreg, expectedBytes, is
             }
         }
         catch (probeErr) {
+            if (enableUsbPatience && isPortDisconnectedError(probeErr)) {
+                if (options?.waitForPortReconnectionFn) {
+                    const freezeStart = Date.now();
+                    await options.waitForPortReconnectionFn(usbReconnectTimeoutMs);
+                    totalFrozenMs += (Date.now() - freezeStart);
+                    if (options?.flushBufferFn)
+                        await options.flushBufferFn(50);
+                    continue;
+                }
+            }
         }
         const enableRecovery = options?.uartStallRecoveryFlush !== undefined
             ? Boolean(options.uartStallRecoveryFlush)
@@ -150,16 +236,23 @@ async function probeDeviceReadyAndVerified(slave, reg, numreg, expectedBytes, is
             }
             catch (flushErr) { }
         }
-        const currentInterval = getAdaptiveInterval(Date.now() - startTime);
-        const sleepTime = Math.min(currentInterval, Math.max(10, effectiveTimeout - (Date.now() - startTime)));
+        const currentInterval = getAdaptiveInterval(Date.now() - startTime - totalFrozenMs);
+        const sleepTime = Math.min(currentInterval, Math.max(10, effectiveTimeout - (Date.now() - startTime - totalFrozenMs)));
         await new Promise((r) => setTimeout(r, sleepTime));
     }
     if (lastMismatch) {
-        throw new Error('Device busy / probe timeout after ' + (Date.now() - startTime) + 'ms for register ' + reg + ' (data mismatch)');
+        throw new Error('Device busy / probe timeout after ' + (Date.now() - startTime - totalFrozenMs) + 'ms for register ' + reg + ' (data mismatch)');
     }
-    throw new Error('Device busy / probe timeout after ' + (Date.now() - startTime) + 'ms for register ' + reg + (isAppKeyOrHeavy ? ' (AppKey/Flash-heavy timeout ' + effectiveTimeout + 'ms reached)' : ''));
+    throw new Error('Device busy / probe timeout after ' + (Date.now() - startTime - totalFrozenMs) + 'ms for register ' + reg + (isAppKeyOrHeavy ? ' (AppKey/Flash-heavy timeout ' + effectiveTimeout + 'ms reached)' : ''));
 }
 const probeDeviceReadyAndVerifiedCore = probeDeviceReadyAndVerified;
+const isPortDisconnectedErrorCore = isPortDisconnectedError;
+const waitForPortReconnectionCore = waitForPortReconnection;
+if (typeof globalThis !== 'undefined') {
+    globalThis.probeDeviceReadyAndVerifiedCore = probeDeviceReadyAndVerified;
+    globalThis.isPortDisconnectedError = isPortDisconnectedError;
+    globalThis.waitForPortReconnection = waitForPortReconnection;
+}
 exports.FINAL_CONFIG_DEVICE_TEMPLATE = `          <div v-else-if="activeFeature.id === 'final-config-device'" class="space-y-6">
 
             <!-- 1. TOP HEADER -->
@@ -1186,6 +1279,67 @@ function useFinalConfigDeviceModule(ctx) {
   };
 
   // ----------------------------------------------------------------------
+  // 1.5. PATIENCE WAIT & USB RECONNECT ENGINE (Spec Section 3.1 & 3.2)
+  // ----------------------------------------------------------------------
+  const isPortDisconnectedError = (err) => {
+    if (!err) return false;
+    const msg = String(err?.message || err).toLowerCase();
+    const name = String(err?.name || '').toLowerCase();
+    return (
+      name === 'networkerror' ||
+      msg.includes('networkerror') ||
+      msg.includes('serial port is not open') ||
+      msg.includes('not open or readable') ||
+      msg.includes('not open or writable') ||
+      msg.includes('the device has been lost') ||
+      msg.includes('device lost') ||
+      msg.includes('closed') ||
+      msg.includes('disconnected') ||
+      msg.includes('cannot read properties of null') ||
+      msg.includes('underlying stream has been closed')
+    );
+  };
+
+  const waitForPortReconnection = async (timeoutMs = 15000) => {
+    if (serialConnected.value && serialPort.value && serialPort.value.readable && serialPort.value.writable) {
+      return true;
+    }
+
+    const startWait = Date.now();
+    addSerialLog('WARN', null, '[Patience Wait] USB port disconnected/resetting. Waiting up to ' + Math.round(timeoutMs / 1000) + 's for reconnect...');
+    fcStatusMessage.value = 'USB reset detected. Patience waiting for USB reconnect (max ' + Math.round(timeoutMs / 1000) + 's)...';
+
+    return new Promise((resolve, reject) => {
+      let checkInterval = null;
+      let timeoutTimer = null;
+
+      const cleanup = () => {
+        if (checkInterval) clearInterval(checkInterval);
+        if (timeoutTimer) clearTimeout(timeoutTimer);
+      };
+
+      checkInterval = setInterval(() => {
+        if (abortRequested.value) {
+          cleanup();
+          reject(new Error('Operation aborted by operator'));
+          return;
+        }
+        if (serialConnected.value && serialPort.value && serialPort.value.readable && serialPort.value.writable) {
+          cleanup();
+          const duration = Date.now() - startWait;
+          addSerialLog('SYS', null, '[Patience Wait] USB port re-enumerated & reconnected successfully after ' + duration + 'ms. Resuming...');
+          resolve(true);
+        }
+      }, 100);
+
+      timeoutTimer = setTimeout(() => {
+        cleanup();
+        reject(new Error('USB reconnection patience wait timeout (' + timeoutMs + 'ms) exceeded. Port did not recover.'));
+      }, timeoutMs);
+    });
+  };
+
+  // ----------------------------------------------------------------------
   // 2. MODBUS RTU COMMUNICATION PROTOCOL (FC 03, FC 16)
   // ----------------------------------------------------------------------
   const calcModbusCRC16 = (bytes) => {
@@ -1227,8 +1381,18 @@ function useFinalConfigDeviceModule(ctx) {
       actualTimeout = maybeTimeoutMs;
     }
 
-    if (!serialPort.value || !serialPort.value.readable || !serialPort.value.writable) {
-      throw new Error('Serial port is not open or readable');
+    const patienceTimeoutMs = currentPreset.value?.usb_reconnect_patience_timeout_ms || 15000;
+    const enablePatience = currentPreset.value?.enable_usb_reconnect_patience !== undefined
+      ? Boolean(currentPreset.value.enable_usb_reconnect_patience)
+      : true;
+
+    if (!serialPort.value || !serialPort.value.readable || !serialPort.value.writable || !serialConnected.value || isAutoReconnecting.value) {
+      if (enablePatience) {
+        await waitForPortReconnection(patienceTimeoutMs);
+        await flushUartRxBuffer();
+      } else {
+        throw new Error('Serial port is not open or readable');
+      }
     }
     await safeCleanupUartPort();
 
@@ -1317,8 +1481,18 @@ function useFinalConfigDeviceModule(ctx) {
       actualReg = fc;
     }
 
-    if (!serialPort.value || !serialPort.value.readable || !serialPort.value.writable) {
-      throw new Error('Serial port is not open or writable');
+    const patienceTimeoutMs = currentPreset.value?.usb_reconnect_patience_timeout_ms || 15000;
+    const enablePatience = currentPreset.value?.enable_usb_reconnect_patience !== undefined
+      ? Boolean(currentPreset.value.enable_usb_reconnect_patience)
+      : true;
+
+    if (!serialPort.value || !serialPort.value.readable || !serialPort.value.writable || !serialConnected.value || isAutoReconnecting.value) {
+      if (enablePatience) {
+        await waitForPortReconnection(patienceTimeoutMs);
+        await flushUartRxBuffer();
+      } else {
+        throw new Error('Serial port is not open or writable');
+      }
     }
     await safeCleanupUartPort();
 
@@ -1423,7 +1597,7 @@ function useFinalConfigDeviceModule(ctx) {
   };
 
   // Closed-Loop Write-Verification Handshake (Write-Then-Probe Polling)
-  // Contract: Spec Section 3.2.A & Section 4.2
+  // Contract: Spec Section 3.2.A, 3.4 & Section 4.2
   const probeDeviceReadyAndVerified = async (
     slave,
     reg,
@@ -1432,6 +1606,11 @@ function useFinalConfigDeviceModule(ctx) {
     isWriteOnly,
     options = {}
   ) => {
+    const patienceTimeoutMs = currentPreset.value?.usb_reconnect_patience_timeout_ms || 15000;
+    const enablePatience = currentPreset.value?.enable_usb_reconnect_patience !== undefined
+      ? Boolean(currentPreset.value.enable_usb_reconnect_patience)
+      : true;
+
     return await probeDeviceReadyAndVerifiedCore(
       slave,
       reg,
@@ -1440,6 +1619,10 @@ function useFinalConfigDeviceModule(ctx) {
       isWriteOnly,
       {
         ...options,
+        usbReconnectTimeoutMs: options.usbReconnectTimeoutMs || patienceTimeoutMs,
+        enableUsbReconnectPatience: options.enableUsbReconnectPatience !== undefined ? options.enableUsbReconnectPatience : enablePatience,
+        waitForPortReconnectionFn: options.waitForPortReconnectionFn || ((tMs) => waitForPortReconnection(tMs)),
+        isPortConnectedFn: options.isPortConnectedFn || (() => Boolean(serialConnected.value && !isAutoReconnecting.value && serialPort.value?.readable && serialPort.value?.writable)),
         readModbusFn: options.readModbusFn || ((s, fc, r, n, t) => readModbusRegistersFromPort(s, fc, r, n, t)),
         flushBufferFn: options.flushBufferFn || ((t) => flushUartRxBuffer(t)),
         logFn: options.logFn || ((lvl, frame, msg) => addSerialLog(lvl, frame, msg)),
@@ -1698,23 +1881,40 @@ function useFinalConfigDeviceModule(ctx) {
         const json = await res.json();
         if (json.success && json.data) {
           currentPreset.value = json.data;
-          // Seed audit table from preset
+          // Seed audit table from preset, preserving any Stage 1 read-back cache (Spec Section 4.3.1)
           const regs = json.data.registers || [];
           const sortedRegs = [...regs].sort((a, b) => Number(a.address) - Number(b.address));
-          fcAuditRegisters.value = sortedRegs.map((r, i) => ({
-            order_no: i + 1,
-            address: Number(r.address),
-            modbus_reg_hex: r.modbus_reg_hex || ('0x' + Number(r.address).toString(16).padStart(4, '0').toUpperCase()),
-            parameter_name: r.parameter_name || ('Register ' + r.address),
-            format: r.format || 'uint',
-            endianness: r.endianness || 'Big-Endian',
-            reg_num: Number(r.reg_num) || 1,
-            fn_write: 'FC 16',
-            default_value: r.default_value || r.value_on_memmap || '',
-            value_to_write: r.value_to_write !== undefined ? String(r.value_to_write) : '',
-            value_read_back: '',
-            status: 'NONE',
-          }));
+          const existingMap = new Map();
+          for (const ex of fcAuditRegisters.value) {
+            existingMap.set(Number(ex.address), ex);
+          }
+          const mergedList = sortedRegs.map((r, i) => {
+            const addr = Number(r.address);
+            const ex = existingMap.get(addr);
+            return {
+              order_no: i + 1,
+              address: addr,
+              modbus_reg_hex: r.modbus_reg_hex || ('0x' + addr.toString(16).padStart(4, '0').toUpperCase()),
+              parameter_name: r.parameter_name || ('Register ' + addr),
+              format: r.format || 'uint',
+              endianness: r.endianness || 'Big-Endian',
+              reg_num: Number(r.reg_num) || 1,
+              fn_write: 'FC 16',
+              default_value: r.default_value || r.value_on_memmap || '',
+              value_to_write: r.value_to_write !== undefined ? String(r.value_to_write) : '',
+              value_read_back: (ex && ex.value_read_back) ? ex.value_read_back : '',
+              status: (ex && ex.status && ex.status !== 'NONE') ? ex.status : 'NONE',
+            };
+          });
+          // Also retain any Stage 1 scanned hardware registers that are not in preset
+          for (const [addr, ex] of existingMap.entries()) {
+            if (!mergedList.some(r => Number(r.address) === addr)) {
+              mergedList.push({ ...ex });
+            }
+          }
+          mergedList.sort((a, b) => Number(a.address) - Number(b.address));
+          mergedList.forEach((r, idx) => { r.order_no = idx + 1; });
+          fcAuditRegisters.value = mergedList;
           updateTabulatorData();
         } else {
           currentPreset.value = null;
@@ -1788,12 +1988,26 @@ function useFinalConfigDeviceModule(ctx) {
     const label = (options && options.label) || ('Reg ' + addr);
     let attempt = 0;
     let lastErr = null;
+    const patienceTimeoutMs = currentPreset.value?.usb_reconnect_patience_timeout_ms || 15000;
+    const enablePatience = currentPreset.value?.enable_usb_reconnect_patience !== undefined
+      ? Boolean(currentPreset.value.enable_usb_reconnect_patience)
+      : true;
 
     while (!abortRequested.value) {
-      // 0. Physical disconnect guard: Stop retry loop if port disconnected and not auto-reconnecting
-      if (!serialConnected.value && !isAutoReconnecting.value) {
-        addSerialLog('ERROR', null, '[First Register] Serial port is disconnected. Aborting retry loop.');
-        return { success: false, aborted: true, error: new Error('Serial port disconnected'), rawBytes: null };
+      // 0. Physical disconnect guard & Patience wait:
+      if (!serialConnected.value || isAutoReconnecting.value || !serialPort.value) {
+        if (enablePatience) {
+          try {
+            await waitForPortReconnection(patienceTimeoutMs);
+            await flushUartRxBuffer();
+          } catch (pErr) {
+            addSerialLog('ERROR', null, '[First Register] USB reconnection timeout exceeded. Aborting retry loop.');
+            return { success: false, aborted: true, error: pErr, rawBytes: null };
+          }
+        } else {
+          addSerialLog('ERROR', null, '[First Register] Serial port is disconnected. Aborting retry loop.');
+          return { success: false, aborted: true, error: new Error('Serial port disconnected'), rawBytes: null };
+        }
       }
 
       attempt++;
@@ -1812,8 +2026,24 @@ function useFinalConfigDeviceModule(ctx) {
       } catch (rErr) {
         lastErr = rErr;
 
-        // 4. Nếu người dùng đã bấm Abort hoặc mất kết nối serial -> Dừng ngay lập tức
-        if (abortRequested.value || (!serialConnected.value && !isAutoReconnecting.value)) {
+        // 4. Nếu người dùng đã bấm Abort
+        if (abortRequested.value) {
+          return { success: false, aborted: true, error: rErr || new Error('User aborted operation'), rawBytes: null };
+        }
+
+        if (enablePatience && isPortDisconnectedError(rErr)) {
+          addSerialLog('WARN', null, '[First Register] Port dropped during ' + label + '. Awaiting USB reconnect...');
+          try {
+            await waitForPortReconnection(patienceTimeoutMs);
+            await flushUartRxBuffer();
+            attempt--; // Do not count dropped port against wake-up attempts
+            continue;
+          } catch (pErr) {
+            return { success: false, aborted: true, error: pErr, rawBytes: null };
+          }
+        }
+
+        if (!enablePatience && (!serialConnected.value && !isAutoReconnecting.value)) {
           return { success: false, aborted: true, error: rErr || new Error('User aborted operation or serial port disconnected'), rawBytes: null };
         }
 
@@ -1877,9 +2107,70 @@ function useFinalConfigDeviceModule(ctx) {
         return Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('').toUpperCase();
       };
 
+      // Pre-seed Stage 1 audit table with 13 hardware registers (0..51, 103, 259, 386)
+      const STAGE1_REGISTER_DEFS = [
+        { address: 0, modbus_reg_hex: '0x0000', parameter_name: 'Firmware Code', format: 'string', endianness: 'Big-Endian', reg_num: 5, fn_read: 'FC 03', default_value: '-', value_to_write: '' },
+        { address: 5, modbus_reg_hex: '0x0005', parameter_name: 'Firmware Version', format: 'string', endianness: 'Big-Endian', reg_num: 4, fn_read: 'FC 03', default_value: '-', value_to_write: '' },
+        { address: 9, modbus_reg_hex: '0x0009', parameter_name: 'HW Version', format: 'string', endianness: 'Big-Endian', reg_num: 2, fn_read: 'FC 03', default_value: '-', value_to_write: '' },
+        { address: 11, modbus_reg_hex: '0x000B', parameter_name: 'LoRaWAN Protocol Version', format: 'string', endianness: 'Big-Endian', reg_num: 4, fn_read: 'FC 03', default_value: '-', value_to_write: '' },
+        { address: 15, modbus_reg_hex: '0x000F', parameter_name: 'Spare Data', format: 'hex', endianness: 'Big-Endian', reg_num: 12, fn_read: 'FC 03', default_value: '-', value_to_write: '' },
+        { address: 27, modbus_reg_hex: '0x001B', parameter_name: 'Device EUI', format: 'hex', endianness: 'Big-Endian', reg_num: 4, fn_read: 'FC 03', default_value: '-', value_to_write: '' },
+        { address: 31, modbus_reg_hex: '0x001F', parameter_name: 'LoRaWAN App EUI', format: 'hex', endianness: 'Big-Endian', reg_num: 4, fn_read: 'FC 03', default_value: '-', value_to_write: '' },
+        { address: 35, modbus_reg_hex: '0x0023', parameter_name: 'Factory Root AppKey', format: 'hex', endianness: 'Big-Endian', reg_num: 8, fn_read: 'FC 03', default_value: '-', value_to_write: '' },
+        { address: 43, modbus_reg_hex: '0x002B', parameter_name: 'Network Session Key', format: 'hex', endianness: 'Big-Endian', reg_num: 8, fn_read: 'FC 03', default_value: '-', value_to_write: '' },
+        { address: 51, modbus_reg_hex: '0x0033', parameter_name: 'Application Session Key', format: 'hex', endianness: 'Big-Endian', reg_num: 8, fn_read: 'FC 03', default_value: '-', value_to_write: '' },
+        { address: 103, modbus_reg_hex: '0x0067', parameter_name: 'Sensor Type', format: 'uint16', endianness: 'Big-Endian', reg_num: 1, fn_read: 'FC 03', default_value: '-', value_to_write: '' },
+        { address: 259, modbus_reg_hex: '0x0103', parameter_name: 'Serial Number', format: 'string', endianness: 'Big-Endian', reg_num: 9, fn_read: 'FC 03', default_value: '-', value_to_write: '' },
+        { address: 386, modbus_reg_hex: '0x0182', parameter_name: 'Item Code', format: 'string', endianness: 'Big-Endian', reg_num: 14, fn_read: 'FC 03', default_value: '-', value_to_write: '' },
+      ];
+
+      fcAuditRegisters.value = STAGE1_REGISTER_DEFS.map((def, idx) => ({
+        order_no: idx + 1,
+        address: def.address,
+        modbus_reg_hex: def.modbus_reg_hex,
+        parameter_name: def.parameter_name,
+        format: def.format,
+        endianness: def.endianness,
+        reg_num: def.reg_num,
+        fn_read: def.fn_read,
+        default_value: def.default_value,
+        value_to_write: def.value_to_write,
+        value_read_back: '',
+        status: 'NONE',
+      }));
+      updateTabulatorData();
+
+      const updateStage1AuditRow = (addr, val, isSuccess = true) => {
+        const row = fcAuditRegisters.value.find(r => Number(r.address) === addr);
+        if (row) {
+          row.value_read_back = isSuccess ? String(val ?? '') : 'READ_ERR';
+          row.status = isSuccess ? 'PASS' : 'FAIL';
+          updateTabulatorData();
+        }
+      };
+
       const readRegisterWithRetry = async (slave, addr, numreg) => {
         let lastErr = null;
+        const patienceTimeoutMs = currentPreset.value?.usb_reconnect_patience_timeout_ms || 15000;
+        const enablePatience = currentPreset.value?.enable_usb_reconnect_patience !== undefined
+          ? Boolean(currentPreset.value.enable_usb_reconnect_patience)
+          : true;
+
         for (let retry = 0; retry < MAX_READ_ATTEMPTS; retry++) {
+          if (abortRequested.value) {
+            return { success: false, error: new Error('Aborted'), rawBytes: null };
+          }
+          if (enablePatience && (!serialConnected.value || isAutoReconnecting.value || !serialPort.value)) {
+            try {
+              await waitForPortReconnection(patienceTimeoutMs);
+              await flushUartRxBuffer();
+              retry--;
+              continue;
+            } catch (pErr) {
+              return { success: false, error: pErr, rawBytes: null };
+            }
+          }
+
           try {
             await flushUartRxBuffer();
             const rawBytes = await readModbusRegistersFromPort(slave, addr, numreg);
@@ -1887,6 +2178,18 @@ function useFinalConfigDeviceModule(ctx) {
             return { success: true, rawBytes };
           } catch (rErr) {
             lastErr = rErr;
+            if (enablePatience && isPortDisconnectedError(rErr)) {
+              addSerialLog('WARN', null, 'Port disconnected during Read Reg ' + addr + '. Waiting for USB reconnect...');
+              try {
+                await waitForPortReconnection(patienceTimeoutMs);
+                await flushUartRxBuffer();
+                retry--;
+                continue;
+              } catch (pErr) {
+                return { success: false, error: pErr, rawBytes: null };
+              }
+            }
+
             if (retry < MAX_READ_ATTEMPTS - 1) {
               const delayMs = READ_RETRY_BACKOFF_DELAYS[retry] || 400;
               addSerialLog('WARN', null, 'Read Reg ' + addr + ' failed (attempt ' + (retry + 1) + '/' + MAX_READ_ATTEMPTS + '): ' + (rErr?.message || rErr) + '. Retrying in ' + delayMs + 'ms...');
@@ -1909,6 +2212,7 @@ function useFinalConfigDeviceModule(ctx) {
       const resReg0 = await readFirstRegisterUntilSuccess(1, 0, 5, { label: 'Reg 0 (FW_CODE)' });
       if (abortRequested.value || resReg0.aborted || !resReg0.success) return;
       if (resReg0.rawBytes) readFwCode = bytesToString(resReg0.rawBytes);
+      updateStage1AuditRow(0, readFwCode, resReg0.success);
       fcProgress.value = 5;
 
       // 2. Reg 5 (FW_VERSION: 4 regs, string)
@@ -1917,6 +2221,7 @@ function useFinalConfigDeviceModule(ctx) {
       if (resReg5.success) readFw = bytesToString(resReg5.rawBytes);
       fcHardwareInfo.value.firmwareVersion = readFw || '1.0.0';
       fcHardwareInfo.value.shortFw = readFw ? (parseInt(readFw.charAt(0), 10) || 1) : 1;
+      updateStage1AuditRow(5, readFw, resReg5.success);
       fcProgress.value = 7;
 
       // 3. Reg 9 (HW_VERSION: 2 regs, string, FC 03)
@@ -1924,18 +2229,27 @@ function useFinalConfigDeviceModule(ctx) {
       const resReg9 = await readRegisterWithRetry(1, 9, 2);
       if (resReg9.success) readHw = bytesToString(resReg9.rawBytes);
       fcHardwareInfo.value.hwVersion = readHw || '';
+      const row9 = fcAuditRegisters.value.find(r => Number(r.address) === 9);
+      if (row9) {
+        row9.value_to_write = readHw || '';
+        row9.value_read_back = readHw || '';
+        row9.status = resReg9.success ? 'PASS' : 'FAIL';
+        updateTabulatorData();
+      }
       fcProgress.value = 9;
 
       // 4. Reg 11 (LORAWAN_PROTOCOL: 4 regs, string)
       let readProto = '';
       const resReg11 = await readRegisterWithRetry(1, 11, 4);
       if (resReg11.success) readProto = bytesToString(resReg11.rawBytes);
+      updateStage1AuditRow(11, readProto, resReg11.success);
       fcProgress.value = 11;
 
       // 5. Reg 15 (SPARE_15: 12 regs, hex)
       let readSpare = '';
       const resReg15 = await readRegisterWithRetry(1, 15, 12);
       if (resReg15.success) readSpare = bytesToHex(resReg15.rawBytes);
+      updateStage1AuditRow(15, readSpare, resReg15.success);
       fcProgress.value = 13;
 
       // 6. Reg 27 (DEV_EUI: 4 regs = 8 bytes, hex)
@@ -1944,30 +2258,35 @@ function useFinalConfigDeviceModule(ctx) {
       if (resReg27.success) readDevEui = bytesToHex(resReg27.rawBytes);
       if (!readDevEui) throw new Error('DevEUI (Reg 27) read from hardware is empty');
       fcHardwareInfo.value.devEui = readDevEui;
+      updateStage1AuditRow(27, readDevEui, resReg27.success);
       fcProgress.value = 15;
 
       // 7. Reg 31 (APP_EUI: 4 regs = 8 bytes, hex)
       let readAppEui = '';
       const resReg31 = await readRegisterWithRetry(1, 31, 4);
       if (resReg31.success) readAppEui = bytesToHex(resReg31.rawBytes);
+      updateStage1AuditRow(31, readAppEui, resReg31.success);
       fcProgress.value = 17;
 
       // 8. Reg 35 (FACTORY_APP_KEY: 8 regs = 16 bytes, hex)
       let readFactoryAppKey = '';
       const resReg35 = await readRegisterWithRetry(1, 35, 8);
       if (resReg35.success) readFactoryAppKey = bytesToHex(resReg35.rawBytes);
+      updateStage1AuditRow(35, readFactoryAppKey, resReg35.success);
       fcProgress.value = 18;
 
       // 9. Reg 43 (NWK_SKEY: 8 regs = 16 bytes, hex)
       let readNwkSkey = '';
       const resReg43 = await readRegisterWithRetry(1, 43, 8);
       if (resReg43.success) readNwkSkey = bytesToHex(resReg43.rawBytes);
+      updateStage1AuditRow(43, readNwkSkey, resReg43.success);
       fcProgress.value = 19;
 
       // 10. Reg 51 (APP_SKEY: 8 regs = 16 bytes, hex)
       let readAppSkey = '';
       const resReg51 = await readRegisterWithRetry(1, 51, 8);
       if (resReg51.success) readAppSkey = bytesToHex(resReg51.rawBytes);
+      updateStage1AuditRow(51, readAppSkey, resReg51.success);
       fcProgress.value = 20;
 
       // 11. Reg 103 (SENSOR_TYPE: 1 reg, uint16)
@@ -1977,6 +2296,7 @@ function useFinalConfigDeviceModule(ctx) {
         readType = (resReg103.rawBytes[0] << 8) | resReg103.rawBytes[1];
       }
       fcHardwareInfo.value.sensorType = readType;
+      updateStage1AuditRow(103, readType, resReg103.success);
       fcProgress.value = 21;
 
       // 12. Reg 259 (SERIAL_NUMBER: 9 regs, string)
@@ -1986,6 +2306,7 @@ function useFinalConfigDeviceModule(ctx) {
       if (!readSn) throw new Error('Serial Number (Reg 259) read from hardware is empty');
       fcHardwareInfo.value.serialNumber = readSn;
       fcSerialNumberInput.value = readSn;
+      updateStage1AuditRow(259, readSn, resReg259.success);
       fcProgress.value = 23;
 
       // 13. Reg 386 (ITEM_CODE: 14 regs, string)
@@ -1993,6 +2314,7 @@ function useFinalConfigDeviceModule(ctx) {
       const resReg386 = await readRegisterWithRetry(1, 386, 14);
       if (resReg386.success) readItemCode = bytesToString(resReg386.rawBytes);
       fcHardwareInfo.value.itemCode = readItemCode;
+      updateStage1AuditRow(386, readItemCode, resReg386.success);
       fcProgress.value = 24;
 
       // Ingest Traceability passport data
@@ -2123,6 +2445,11 @@ function useFinalConfigDeviceModule(ctx) {
       fcStatusMessage.value = 'Generated 128-bit LoRaWAN AppKey: ' + cleanAppKey + '. Writing preset registers (Dec >= 303)...';
 
       // Closed-Loop Handshake timing options from preset
+      const patienceTimeoutMs = currentPreset.value?.usb_reconnect_patience_timeout_ms || 15000;
+      const enablePatience = currentPreset.value?.enable_usb_reconnect_patience !== undefined
+        ? Boolean(currentPreset.value.enable_usb_reconnect_patience)
+        : true;
+
       const timingOpts = {
         enableProbe: currentPreset.value?.enable_probe_verification !== undefined ? Boolean(currentPreset.value.enable_probe_verification) : true,
         probeIntervalMs: currentPreset.value?.probe_interval_ms || 50,
@@ -2132,6 +2459,10 @@ function useFinalConfigDeviceModule(ctx) {
         uartStallRecoveryFlush: currentPreset.value?.uart_stall_recovery_flush !== undefined ? Boolean(currentPreset.value.uart_stall_recovery_flush) : true,
         safeProbeRegister: currentPreset.value?.safe_probe_register !== undefined ? Number(currentPreset.value.safe_probe_register) : 0,
         guardSilenceMs: 30,
+        usbReconnectTimeoutMs: patienceTimeoutMs,
+        enableUsbReconnectPatience: enablePatience,
+        waitForPortReconnectionFn: (tMs) => waitForPortReconnection(tMs),
+        isPortConnectedFn: () => Boolean(serialConnected.value && !isAutoReconnecting.value && serialPort.value?.readable && serialPort.value?.writable),
       };
 
       // Registers to write: address >= 303
@@ -2154,6 +2485,18 @@ function useFinalConfigDeviceModule(ctx) {
         let written = false;
         let lastErr = null;
         for (let retry = 0; retry < 3; retry++) {
+          if (abortRequested.value) return;
+          if (enablePatience && (!serialConnected.value || isAutoReconnecting.value || !serialPort.value)) {
+            try {
+              await waitForPortReconnection(patienceTimeoutMs);
+              await flushUartRxBuffer();
+              retry--;
+              continue;
+            } catch (pErr) {
+              lastErr = pErr;
+              break;
+            }
+          }
           try {
             await flushUartRxBuffer();
             await writeModbusRegistersToPort(1, 16, addr, numreg, dataBytes);
@@ -2161,6 +2504,18 @@ function useFinalConfigDeviceModule(ctx) {
             break;
           } catch (wErr) {
             lastErr = wErr;
+            if (enablePatience && isPortDisconnectedError(wErr)) {
+              addSerialLog('WARN', null, 'Write Reg ' + addr + ' port dropped. Waiting for USB reconnect...');
+              try {
+                await waitForPortReconnection(patienceTimeoutMs);
+                await flushUartRxBuffer();
+                retry--;
+                continue;
+              } catch (pErr) {
+                lastErr = pErr;
+                break;
+              }
+            }
             const delayMs = RETRY_BACKOFF_DELAYS[retry] || 2500;
             addSerialLog('WARN', null, 'Write Reg ' + addr + ' failed (attempt ' + (retry + 1) + '/3): ' + (wErr?.message || wErr) + '. Retrying in ' + delayMs + 'ms...');
             fcStatusMessage.value = 'Device settling/retrying... (Reg ' + addr + ', attempt ' + (retry + 1) + '/3)';
@@ -2201,6 +2556,18 @@ function useFinalConfigDeviceModule(ctx) {
       let appKeyWritten = false;
       let appKeyErr = null;
       for (let retry = 0; retry < 3; retry++) {
+        if (abortRequested.value) return;
+        if (enablePatience && (!serialConnected.value || isAutoReconnecting.value || !serialPort.value)) {
+          try {
+            await waitForPortReconnection(patienceTimeoutMs);
+            await flushUartRxBuffer();
+            retry--;
+            continue;
+          } catch (pErr) {
+            appKeyErr = pErr;
+            break;
+          }
+        }
         try {
           await flushUartRxBuffer();
           await writeModbusRegistersToPort(1, 16, 274, 8, appKeyBytes);
@@ -2208,6 +2575,18 @@ function useFinalConfigDeviceModule(ctx) {
           break;
         } catch (kErr) {
           appKeyErr = kErr;
+          if (enablePatience && isPortDisconnectedError(kErr)) {
+            addSerialLog('WARN', null, 'Write AppKey Reg 274 port dropped. Waiting for USB reconnect...');
+            try {
+              await waitForPortReconnection(patienceTimeoutMs);
+              await flushUartRxBuffer();
+              retry--;
+              continue;
+            } catch (pErr) {
+              appKeyErr = pErr;
+              break;
+            }
+          }
           const delayMs = RETRY_BACKOFF_DELAYS[retry] || 2500;
           addSerialLog('WARN', null, 'Write AppKey Reg 274 failed (attempt ' + (retry + 1) + '/3): ' + (kErr?.message || kErr) + '. Retrying in ' + delayMs + 'ms...');
           fcStatusMessage.value = 'Device settling/retrying... (AppKey Reg 274, attempt ' + (retry + 1) + '/3)';
@@ -2319,6 +2698,10 @@ function useFinalConfigDeviceModule(ctx) {
         r.order_no = idx + 1;
       });
 
+      const enableStage1CacheReuse = currentPreset.value?.enable_stage1_cache_reuse !== undefined
+        ? Boolean(currentPreset.value.enable_stage1_cache_reuse)
+        : true;
+
       fcTotalMemmapRegsCount.value = allAuditList.length;
       fcReadBackRegsCount.value = 0;
 
@@ -2327,6 +2710,21 @@ function useFinalConfigDeviceModule(ctx) {
         const row = allAuditList[i];
         const addr = Number(row.address);
         const numreg = Number(row.reg_num) || 1;
+
+        // Stage 1 Cache Reuse (Spec Section 4.3.2)
+        const isStage1StaticReg = [0, 5, 9, 11, 15, 27, 31, 35, 43, 51, 103, 259, 386].includes(addr);
+        if (
+          enableStage1CacheReuse &&
+          row.value_read_back &&
+          row.value_read_back !== 'READ_ERR' &&
+          (isStage1StaticReg || (addr < 303 && addr !== 274)) &&
+          addr !== 274
+        ) {
+          addSerialLog('INFO', null, '[Stage 3 Cache] Reusing Stage 1 cached value for Reg ' + addr + " ('" + row.value_read_back + "'). Skipping redundant Modbus read.");
+          fcReadBackRegsCount.value++;
+          fcProgress.value = Math.min(75, 50 + Math.round((fcReadBackRegsCount.value / fcTotalMemmapRegsCount.value) * 25));
+          continue;
+        }
 
         let readSuccess = false;
         let lastReadErr = null;
@@ -2341,6 +2739,18 @@ function useFinalConfigDeviceModule(ctx) {
           }
         } else {
           for (let retry = 0; retry < MAX_READ_ATTEMPTS; retry++) {
+            if (abortRequested.value) return;
+            if (enablePatience && (!serialConnected.value || isAutoReconnecting.value || !serialPort.value)) {
+              try {
+                await waitForPortReconnection(patienceTimeoutMs);
+                await flushUartRxBuffer();
+                retry--;
+                continue;
+              } catch (pErr) {
+                lastReadErr = pErr;
+                break;
+              }
+            }
             try {
               await flushUartRxBuffer();
               const rawBytes = await readModbusRegistersFromPort(1, addr, numreg);
@@ -2350,6 +2760,18 @@ function useFinalConfigDeviceModule(ctx) {
               break;
             } catch (rErr) {
               lastReadErr = rErr;
+              if (enablePatience && isPortDisconnectedError(rErr)) {
+                addSerialLog('WARN', null, 'Port disconnected during Read Reg ' + addr + '. Waiting for USB reconnect...');
+                try {
+                  await waitForPortReconnection(patienceTimeoutMs);
+                  await flushUartRxBuffer();
+                  retry--;
+                  continue;
+                } catch (pErr) {
+                  lastReadErr = pErr;
+                  break;
+                }
+              }
               if (retry < MAX_READ_ATTEMPTS - 1) {
                 const delayMs = READ_RETRY_BACKOFF_DELAYS[retry] || 400;
                 addSerialLog('WARN', null, 'Read Reg ' + addr + ' failed (attempt ' + (retry + 1) + '/' + MAX_READ_ATTEMPTS + '): ' + (rErr?.message || rErr) + '. Retrying in ' + delayMs + 'ms...');
@@ -2870,6 +3292,8 @@ function useFinalConfigDeviceModule(ctx) {
     flushUartRxBuffer,
     readFirstRegisterUntilSuccess,
     probeDeviceReadyAndVerified,
+    waitForPortReconnection,
+    isPortDisconnectedError,
     initFinalConfigDeviceModule,
   };
 }

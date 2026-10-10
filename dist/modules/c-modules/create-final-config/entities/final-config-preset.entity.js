@@ -84,6 +84,18 @@ __decorate([
     __metadata("design:type", Boolean)
 ], FinalConfigPresetEntity.prototype, "uart_stall_recovery_flush", void 0);
 __decorate([
+    (0, typeorm_1.Column)({ type: 'int', default: 15000 }),
+    __metadata("design:type", Number)
+], FinalConfigPresetEntity.prototype, "usb_reconnect_patience_timeout_ms", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'boolean', default: true }),
+    __metadata("design:type", Boolean)
+], FinalConfigPresetEntity.prototype, "enable_usb_reconnect_patience", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'boolean', default: true }),
+    __metadata("design:type", Boolean)
+], FinalConfigPresetEntity.prototype, "enable_stage1_cache_reuse", void 0);
+__decorate([
     (0, typeorm_1.Column)({ type: 'int', default: 0 }),
     __metadata("design:type", Number)
 ], FinalConfigPresetEntity.prototype, "safe_probe_register", void 0);

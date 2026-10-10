@@ -68,6 +68,15 @@ export class FinalConfigPresetEntity {
   @Column({ type: 'boolean', default: true })
   uart_stall_recovery_flush?: boolean;
 
+  @Column({ type: 'int', default: 15000 })
+  usb_reconnect_patience_timeout_ms?: number;
+
+  @Column({ type: 'boolean', default: true })
+  enable_usb_reconnect_patience?: boolean;
+
+  @Column({ type: 'boolean', default: true })
+  enable_stage1_cache_reuse?: boolean;
+
   @Column({ type: 'int', default: 0 })
   safe_probe_register?: number;
 
