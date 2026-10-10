@@ -50,6 +50,18 @@ export class FinalConfigPresetEntity {
   @Column({ type: 'int', default: 600 })
   settling_delay_ms?: number;
 
+  @Column({ type: 'boolean', default: true })
+  enable_probe_verification?: boolean;
+
+  @Column({ type: 'int', default: 50 })
+  probe_interval_ms?: number;
+
+  @Column({ type: 'int', default: 1500 })
+  max_probe_timeout_ms?: number;
+
+  @Column({ type: 'int', default: 0 })
+  safe_probe_register?: number;
+
   @Column({ type: 'varchar', length: 255, default: 'admin', nullable: true })
   created_by?: string;
 

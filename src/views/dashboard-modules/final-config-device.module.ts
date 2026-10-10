@@ -85,6 +85,135 @@ export async function readFirstRegisterUntilSuccess(
   return { success: false, aborted: true, error: lastErr || new Error('Aborted'), rawBytes: null };
 }
 
+export interface ProbeTimingOptions {
+  enableProbe?: boolean;
+  enable_probe_verification?: boolean;
+  probeIntervalMs?: number;
+  probe_interval_ms?: number;
+  maxProbeTimeoutMs?: number;
+  max_probe_timeout_ms?: number;
+  safeProbeRegister?: number;
+  safe_probe_register?: number;
+  guardSilenceMs?: number;
+  guard_silence_ms?: number;
+  readModbusFn?: (slave: number, fc: number, reg: number, numreg: number, timeoutMs: number) => Promise<number[]>;
+  flushBufferFn?: (flushTimeoutMs?: number) => Promise<void>;
+  logFn?: (level: string, frame: any, msg: string) => void;
+  statusMsgRef?: { value: string };
+}
+
+export interface ProbeVerificationResult {
+  success: boolean;
+  elapsedMs: number;
+  attempts: number;
+}
+
+/**
+ * Closed-Loop Write-Verification Handshake (Write-Then-Probe Polling)
+ * Architectural Contract: Spec Section 3.2.A
+ */
+export async function probeDeviceReadyAndVerified(
+  slave: number,
+  reg: number,
+  numreg: number,
+  expectedBytes: number[],
+  isWriteOnly: boolean,
+  options?: ProbeTimingOptions,
+): Promise<ProbeVerificationResult> {
+  const enableProbe = options?.enableProbe !== undefined
+    ? Boolean(options.enableProbe)
+    : (options?.enable_probe_verification !== undefined ? Boolean(options.enable_probe_verification) : true);
+  const probeInterval = options?.probeIntervalMs || options?.probe_interval_ms || 50;
+  const maxTimeout = options?.maxProbeTimeoutMs || options?.max_probe_timeout_ms || 1500;
+  const safeReg = options?.safeProbeRegister !== undefined
+    ? Number(options.safeProbeRegister)
+    : (options?.safe_probe_register !== undefined ? Number(options.safe_probe_register) : 0);
+  const guardSilence = options?.guardSilenceMs !== undefined
+    ? Number(options.guardSilenceMs)
+    : (options?.guard_silence_ms !== undefined ? Number(options.guard_silence_ms) : 30);
+
+  // Backward compatibility: If probe disabled, fallback to settling delay
+  if (!enableProbe) {
+    if (options?.logFn) {
+      options.logFn('INFO', null, 'Settling MCU (600ms) for Flash/EEPROM persistence (Probe disabled)...');
+    }
+    if (options?.statusMsgRef) {
+      options.statusMsgRef.value = 'Device settling/retrying... MCU settling (600ms) for Flash/EEPROM storage...';
+    }
+    await new Promise((r) => setTimeout(r, 600));
+    return { success: true, elapsedMs: 600, attempts: 1 };
+  }
+
+  // Guard silence interval before first probe to allow MCU to begin Flash/EEPROM cycle safely
+  if (guardSilence > 0) {
+    await new Promise((r) => setTimeout(r, guardSilence));
+  }
+
+  const startTime = Date.now();
+  let attempts = 0;
+  let lastMismatch = false;
+
+  const invokeRead = async (s: number, r: number, n: number, t: number): Promise<number[]> => {
+    if (!options?.readModbusFn) {
+      throw new Error('readModbusFn not provided in options');
+    }
+    if (options.readModbusFn.length <= 4) {
+      return await (options.readModbusFn as any)(s, r, n, t);
+    }
+    return await options.readModbusFn(s, 3, r, n, t);
+  };
+
+  while (Date.now() - startTime < maxTimeout) {
+    attempts++;
+    try {
+      const remainingTime = Math.max(50, maxTimeout - (Date.now() - startTime));
+      const probeTimeout = Math.min(300, remainingTime);
+
+      if (isWriteOnly) {
+        // Case B: Write-Only register (e.g. AppKey Reg 274) -> Read Safe Anchor (default Reg 0x0000 Firmware Code)
+        const readBytes = await invokeRead(slave, safeReg, 1, probeTimeout);
+        if (readBytes && readBytes.length >= 2) {
+          return { success: true, elapsedMs: Date.now() - startTime, attempts };
+        }
+      } else {
+        // Case A: Read-Write register -> Read Target Reg & compare byte-to-byte
+        const readBytes = await invokeRead(slave, reg, numreg, probeTimeout);
+        let match = false;
+        if (readBytes && expectedBytes && readBytes.length === expectedBytes.length) {
+          match = true;
+          for (let b = 0; b < expectedBytes.length; b++) {
+            if (readBytes[b] !== expectedBytes[b]) {
+              match = false;
+              break;
+            }
+          }
+        }
+        if (match) {
+          return { success: true, elapsedMs: Date.now() - startTime, attempts };
+        } else {
+          lastMismatch = true;
+        }
+      }
+    } catch (probeErr) {
+      // MCU busy with Flash Erase/Program, UART IRQ masked or frame timeout/CRC error
+    }
+
+    if (options?.flushBufferFn) {
+      try {
+        await options.flushBufferFn(50);
+      } catch (e) {}
+    }
+
+    const sleepTime = Math.min(probeInterval, Math.max(10, maxTimeout - (Date.now() - startTime)));
+    await new Promise((r) => setTimeout(r, sleepTime));
+  }
+
+  if (lastMismatch) {
+    throw new Error('Device busy / probe timeout after ' + (Date.now() - startTime) + 'ms for register ' + reg + ' (data mismatch)');
+  }
+  throw new Error('Device busy / probe timeout after ' + (Date.now() - startTime) + 'ms for register ' + reg);
+}
+
 export const FINAL_CONFIG_DEVICE_TEMPLATE = `          <div v-else-if="activeFeature.id === 'final-config-device'" class="space-y-6">
 
             <!-- 1. TOP HEADER -->
@@ -1116,32 +1245,42 @@ function useFinalConfigDeviceModule(ctx) {
   };
 
   // Read Modbus Registers via FC 03
-  const readModbusRegistersFromPort = async (slave, reg, numreg, timeoutMs = 1200) => {
+  const readModbusRegistersFromPort = async (slave, reg, numreg, timeoutMs = 1200, maybeTimeoutMs) => {
+    let actualReg = reg;
+    let actualNumreg = numreg;
+    let actualTimeout = timeoutMs;
+    if (maybeTimeoutMs !== undefined) {
+      // Support (slave, fc, reg, numreg, timeoutMs)
+      actualReg = numreg;
+      actualNumreg = timeoutMs;
+      actualTimeout = maybeTimeoutMs;
+    }
+
     if (!serialPort.value || !serialPort.value.readable || !serialPort.value.writable) {
       throw new Error('Serial port is not open or readable');
     }
     await safeCleanupUartPort();
 
-    const req = buildModbusReadReq(slave, 3, reg, numreg);
+    const req = buildModbusReadReq(slave, 3, actualReg, actualNumreg);
     activeUartWriter = serialPort.value.writable.getWriter();
     try {
       await activeUartWriter.write(req);
       serialStats.value.txPackets++;
       serialStats.value.txBytes += req.length;
-      addSerialLog('TX', req, 'Read Reg ' + reg + ' (' + numreg + ' regs)');
+      addSerialLog('TX', req, 'Read Reg ' + actualReg + ' (' + actualNumreg + ' regs)');
     } finally {
       try { activeUartWriter.releaseLock(); } catch (e) {}
       activeUartWriter = null;
     }
 
     activeUartReader = serialPort.value.readable.getReader();
-    const expectedBytes = 3 + numreg * 2 + 2;
+    const expectedBytes = 3 + actualNumreg * 2 + 2;
     const rxBuffer = [];
     const startTime = Date.now();
 
     try {
-      while (rxBuffer.length < expectedBytes && (Date.now() - startTime) < timeoutMs) {
-        const remaining = Math.max(10, timeoutMs - (Date.now() - startTime));
+      while (rxBuffer.length < expectedBytes && (Date.now() - startTime) < actualTimeout) {
+        const remaining = Math.max(10, actualTimeout - (Date.now() - startTime));
         let timeoutId;
         const timeoutPromise = new Promise((_, reject) => {
           timeoutId = setTimeout(() => reject(new Error('TIMEOUT')), remaining);
@@ -1173,12 +1312,12 @@ function useFinalConfigDeviceModule(ctx) {
 
     if (rxBuffer.length < 5) {
       serialStats.value.errCount++;
-      throw new Error('No response received from device for register ' + reg);
+      throw new Error('No response received from device for register ' + actualReg);
     }
 
     serialStats.value.rxPackets++;
     serialStats.value.rxBytes += rxBuffer.length;
-    addSerialLog('RX', rxBuffer, 'Read Reg ' + reg + ' response');
+    addSerialLog('RX', rxBuffer, 'Read Reg ' + actualReg + ' response');
 
     // CRC check
     const dataLen = rxBuffer.length;
@@ -1186,7 +1325,7 @@ function useFinalConfigDeviceModule(ctx) {
     const rxCrc = rxBuffer[dataLen - 2] | (rxBuffer[dataLen - 1] << 8);
     if (calcCrc !== rxCrc) {
       serialStats.value.errCount++;
-      throw new Error('CRC error for register ' + reg);
+      throw new Error('CRC error for register ' + actualReg);
     }
 
     const byteCount = rxBuffer[2];
@@ -1310,6 +1449,108 @@ function useFinalConfigDeviceModule(ctx) {
     }
 
     return rxBuffer;
+  };
+
+  // Closed-Loop Write-Verification Handshake (Write-Then-Probe Polling)
+  // Contract: Spec Section 3.2.A
+  const probeDeviceReadyAndVerified = async (
+    slave,
+    reg,
+    numreg,
+    expectedBytes,
+    isWriteOnly,
+    options = {}
+  ) => {
+    const enableProbe = options.enableProbe !== undefined
+      ? Boolean(options.enableProbe)
+      : (options.enable_probe_verification !== undefined ? Boolean(options.enable_probe_verification) : true);
+    const probeInterval = options.probeIntervalMs || options.probe_interval_ms || 50;
+    const maxTimeout = options.maxProbeTimeoutMs || options.max_probe_timeout_ms || 1500;
+    const safeReg = options.safeProbeRegister !== undefined
+      ? Number(options.safeProbeRegister)
+      : (options.safe_probe_register !== undefined ? Number(options.safe_probe_register) : 0);
+    const guardSilence = options.guardSilenceMs !== undefined
+      ? Number(options.guardSilenceMs)
+      : (options.guard_silence_ms !== undefined ? Number(options.guard_silence_ms) : 30);
+
+    // Backward compatibility: If probe disabled, fallback to settling delay
+    if (!enableProbe) {
+      addSerialLog('INFO', null, 'Settling MCU (' + INTER_WRITE_SETTLING_DELAY_MS + 'ms) for Flash/EEPROM persistence (Probe disabled)...');
+      fcStatusMessage.value = 'Device settling/retrying... MCU settling (' + INTER_WRITE_SETTLING_DELAY_MS + 'ms) for Flash/EEPROM storage...';
+      await new Promise(r => setTimeout(r, INTER_WRITE_SETTLING_DELAY_MS));
+      return { success: true, elapsedMs: INTER_WRITE_SETTLING_DELAY_MS, attempts: 1 };
+    }
+
+    // Guard silence interval before first probe to allow MCU to begin Flash/EEPROM cycle safely
+    if (guardSilence > 0) {
+      await new Promise(r => setTimeout(r, guardSilence));
+    }
+
+    const startTime = Date.now();
+    let attempts = 0;
+    let lastMismatch = false;
+
+    const invokeRead = async (s, r, n, t) => {
+      if (options.readModbusFn) {
+        if (options.readModbusFn.length <= 4) {
+          return await options.readModbusFn(s, r, n, t);
+        }
+        return await options.readModbusFn(s, 3, r, n, t);
+      }
+      return await readModbusRegistersFromPort(s, 3, r, n, t);
+    };
+
+    while (Date.now() - startTime < maxTimeout) {
+      attempts++;
+      try {
+        const remainingTime = Math.max(50, maxTimeout - (Date.now() - startTime));
+        const probeTimeout = Math.min(300, remainingTime);
+
+        if (isWriteOnly) {
+          // Case B: Write-Only register -> Read Safe Anchor (default Reg 0x0000 Firmware Code)
+          const readBytes = await invokeRead(slave, safeReg, 1, probeTimeout);
+          if (readBytes && readBytes.length >= 2) {
+            return { success: true, elapsedMs: Date.now() - startTime, attempts };
+          }
+        } else {
+          // Case A: Read-Write register -> Read Target Reg & compare byte-to-byte
+          const readBytes = await invokeRead(slave, reg, numreg, probeTimeout);
+          let match = false;
+          if (readBytes && expectedBytes && readBytes.length === expectedBytes.length) {
+            match = true;
+            for (let b = 0; b < expectedBytes.length; b++) {
+              if (readBytes[b] !== expectedBytes[b]) {
+                match = false;
+                break;
+              }
+            }
+          }
+          if (match) {
+            return { success: true, elapsedMs: Date.now() - startTime, attempts };
+          } else {
+            lastMismatch = true;
+          }
+        }
+      } catch (probeErr) {
+        // MCU busy with Flash Erase/Program, UART IRQ masked or frame timeout/CRC error
+      }
+
+      try {
+        if (options.flushBufferFn) {
+          await options.flushBufferFn(50);
+        } else {
+          await flushUartRxBuffer(50);
+        }
+      } catch (e) {}
+
+      const sleepTime = Math.min(probeInterval, Math.max(10, maxTimeout - (Date.now() - startTime)));
+      await new Promise(r => setTimeout(r, sleepTime));
+    }
+
+    if (lastMismatch) {
+      throw new Error('Device busy / probe timeout after ' + (Date.now() - startTime) + 'ms for register ' + reg + ' (data mismatch)');
+    }
+    throw new Error('Device busy / probe timeout after ' + (Date.now() - startTime) + 'ms for register ' + reg);
   };
 
   // Helper: Encode Value String to Modbus Bytes
@@ -1986,6 +2227,15 @@ function useFinalConfigDeviceModule(ctx) {
       appKeyInput.value = cleanAppKey;
       fcStatusMessage.value = 'Generated 128-bit LoRaWAN AppKey: ' + cleanAppKey + '. Writing preset registers (Dec >= 303)...';
 
+      // Closed-Loop Handshake timing options from preset
+      const timingOpts = {
+        enableProbe: currentPreset.value?.enable_probe_verification !== undefined ? Boolean(currentPreset.value.enable_probe_verification) : true,
+        probeIntervalMs: currentPreset.value?.probe_interval_ms || 50,
+        maxProbeTimeoutMs: currentPreset.value?.max_probe_timeout_ms || 1500,
+        safeProbeRegister: currentPreset.value?.safe_probe_register !== undefined ? Number(currentPreset.value.safe_probe_register) : 0,
+        guardSilenceMs: 30,
+      };
+
       // Registers to write: address >= 303
       const writeRegs = (currentPreset.value.registers || []).filter(r => Number(r.address) >= 303 && r.value_to_write !== undefined && r.value_to_write !== '');
       fcTotalWriteRegsCount.value = writeRegs.length + 1; // +1 for AppKey 274
@@ -2027,18 +2277,19 @@ function useFinalConfigDeviceModule(ctx) {
         fcWrittenRegsCount.value++;
         fcProgress.value = Math.min(45, 25 + Math.round((fcWrittenRegsCount.value / fcTotalWriteRegsCount.value) * 20));
 
-        // Inter-write settling delay (600ms) for MCU Flash/EEPROM persistence between registers
-        if (i < writeRegs.length - 1) {
-          addSerialLog('INFO', null, 'Settling MCU (' + INTER_WRITE_SETTLING_DELAY_MS + 'ms) for Flash/EEPROM persistence after Reg ' + addr + '...');
-          fcStatusMessage.value = 'Device settling/retrying... MCU settling (' + INTER_WRITE_SETTLING_DELAY_MS + 'ms) for Flash/EEPROM storage after Reg ' + addr + '...';
-          await new Promise(r => setTimeout(r, INTER_WRITE_SETTLING_DELAY_MS));
-        }
+        // Closed-Loop Handshake Probe or Settling Delay
+        const isWriteOnly = regItem.fn_read === undefined || regItem.fn_read === '' || regItem.fn_read === null || !String(regItem.fn_read).includes('FC 03');
+        const res = await probeDeviceReadyAndVerified(1, addr, numreg, dataBytes, isWriteOnly, timingOpts);
+        addSerialLog('INFO', null, 'Handshake verified for Reg ' + addr + ' in ' + res.elapsedMs + 'ms (' + res.attempts + ' probes)');
+        fcStatusMessage.value = 'Verified Reg ' + addr + ' (' + res.elapsedMs + 'ms). Writing next register...';
       }
 
-      // Inter-write settling delay (600ms) before writing LoRaWAN AppKey to Reg 274
-      addSerialLog('INFO', null, 'Settling MCU (' + INTER_WRITE_SETTLING_DELAY_MS + 'ms) for Flash/EEPROM persistence before AppKey Reg 274...');
-      fcStatusMessage.value = 'Device settling/retrying... MCU settling (' + INTER_WRITE_SETTLING_DELAY_MS + 'ms) for Flash/EEPROM persistence before AppKey Reg 274...';
-      await new Promise(r => setTimeout(r, INTER_WRITE_SETTLING_DELAY_MS));
+      // Settling delay before AppKey Reg 274 when probe handshake is disabled
+      if (!timingOpts.enableProbe) {
+        addSerialLog('INFO', null, 'Settling MCU (' + INTER_WRITE_SETTLING_DELAY_MS + 'ms) for Flash/EEPROM persistence before AppKey Reg 274...');
+        fcStatusMessage.value = 'Device settling/retrying... MCU settling (' + INTER_WRITE_SETTLING_DELAY_MS + 'ms) for Flash/EEPROM persistence before AppKey Reg 274...';
+        await new Promise(r => setTimeout(r, INTER_WRITE_SETTLING_DELAY_MS));
+      }
 
       // Write LoRaWAN AppKey to Reg 274 (8 words = 16 bytes, FC 16)
       fcStatusMessage.value = 'Writing LoRaWAN AppKey to Reg 274 (16 bytes, FC 16)...';
@@ -2075,9 +2326,15 @@ function useFinalConfigDeviceModule(ctx) {
       fcWrittenRegsCount.value++;
       fcProgress.value = 50;
 
-      // Settle time for MCU Flash / EEPROM commit
-      fcStatusMessage.value = 'Hardware settling for Flash / EEPROM storage (' + INTER_WRITE_SETTLING_DELAY_MS + 'ms)...';
-      await new Promise(r => setTimeout(r, INTER_WRITE_SETTLING_DELAY_MS));
+      // Closed-Loop Handshake Probe for LoRaWAN AppKey (Write-Only -> Safe Anchor)
+      const res = await probeDeviceReadyAndVerified(1, 274, 8, appKeyBytes, true, timingOpts);
+      addSerialLog('INFO', null, 'Handshake verified for AppKey Reg 274 via safe anchor in ' + res.elapsedMs + 'ms (' + res.attempts + ' probes)');
+      fcStatusMessage.value = 'Verified AppKey Reg 274 (' + res.elapsedMs + 'ms). Stage 2 completed.';
+
+      if (!timingOpts.enableProbe) {
+        fcStatusMessage.value = 'Hardware settling for Flash / EEPROM storage (' + INTER_WRITE_SETTLING_DELAY_MS + 'ms)...';
+        await new Promise(r => setTimeout(r, INTER_WRITE_SETTLING_DELAY_MS));
+      }
       stage2Settled.value = true;
       stage2Status.value = 'PASS';
       if (abortRequested.value) return;
@@ -2705,6 +2962,7 @@ function useFinalConfigDeviceModule(ctx) {
     fcTraceabilityData,
     flushUartRxBuffer,
     readFirstRegisterUntilSuccess,
+    probeDeviceReadyAndVerified,
     initFinalConfigDeviceModule,
   };
 }

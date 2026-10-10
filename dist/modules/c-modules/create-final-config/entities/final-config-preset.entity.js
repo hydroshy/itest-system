@@ -60,6 +60,22 @@ __decorate([
     __metadata("design:type", Number)
 ], FinalConfigPresetEntity.prototype, "settling_delay_ms", void 0);
 __decorate([
+    (0, typeorm_1.Column)({ type: 'boolean', default: true }),
+    __metadata("design:type", Boolean)
+], FinalConfigPresetEntity.prototype, "enable_probe_verification", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'int', default: 50 }),
+    __metadata("design:type", Number)
+], FinalConfigPresetEntity.prototype, "probe_interval_ms", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'int', default: 1500 }),
+    __metadata("design:type", Number)
+], FinalConfigPresetEntity.prototype, "max_probe_timeout_ms", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ type: 'int', default: 0 }),
+    __metadata("design:type", Number)
+], FinalConfigPresetEntity.prototype, "safe_probe_register", void 0);
+__decorate([
     (0, typeorm_1.Column)({ type: 'varchar', length: 255, default: 'admin', nullable: true }),
     __metadata("design:type", String)
 ], FinalConfigPresetEntity.prototype, "created_by", void 0);

@@ -11,6 +11,10 @@ export declare class FinalConfigPresetEntity {
     total_regs: number;
     write_timeout_ms?: number;
     settling_delay_ms?: number;
+    enable_probe_verification?: boolean;
+    probe_interval_ms?: number;
+    max_probe_timeout_ms?: number;
+    safe_probe_register?: number;
     created_by?: string;
     registers?: FinalConfigRegEntity[];
     created_at: Date;
