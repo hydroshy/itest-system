@@ -232,7 +232,7 @@ export async function probeDeviceReadyAndVerified(
     : (options?.enable_probe_verification !== undefined ? Boolean(options.enable_probe_verification) : true);
   const effectiveTimeout = isAppKeyOrHeavy
     ? (options?.appkeyProbeTimeoutMs || options?.appkey_probe_timeout_ms || options?.maxProbeTimeoutMs || options?.max_probe_timeout_ms || 10000)
-    : (options?.maxProbeTimeoutMs || options?.max_probe_timeout_ms || 6000);
+    : (options?.maxProbeTimeoutMs || options?.max_probe_timeout_ms || 10000);
   const safeReg = options?.safeProbeRegister !== undefined
     ? Number(options.safeProbeRegister)
     : (options?.safe_probe_register !== undefined ? Number(options.safe_probe_register) : 0);
@@ -1761,7 +1761,7 @@ function useFinalConfigDeviceModule(ctx) {
       : (opts.enable_probe_verification !== undefined ? Boolean(opts.enable_probe_verification) : true);
     const effectiveTimeout = isAppKeyOrHeavy
       ? (opts.appkeyProbeTimeoutMs || opts.appkey_probe_timeout_ms || opts.maxProbeTimeoutMs || opts.max_probe_timeout_ms || 10000)
-      : (opts.maxProbeTimeoutMs || opts.max_probe_timeout_ms || 6000);
+      : (opts.maxProbeTimeoutMs || opts.max_probe_timeout_ms || 10000);
     const safeReg = opts.safeProbeRegister !== undefined
       ? Number(opts.safeProbeRegister)
       : (opts.safe_probe_register !== undefined ? Number(opts.safe_probe_register) : 0);
@@ -2694,7 +2694,7 @@ function useFinalConfigDeviceModule(ctx) {
       const timingOpts = {
         enableProbe: currentPreset.value?.enable_probe_verification !== undefined ? Boolean(currentPreset.value.enable_probe_verification) : true,
         probeIntervalMs: currentPreset.value?.probe_interval_ms || 50,
-        maxProbeTimeoutMs: currentPreset.value?.max_probe_timeout_ms || 6000,
+        maxProbeTimeoutMs: currentPreset.value?.max_probe_timeout_ms || 10000,
         appkeyProbeTimeoutMs: currentPreset.value?.appkey_probe_timeout_ms || 10000,
         enableAdaptiveProbe: currentPreset.value?.enable_adaptive_probe !== undefined ? Boolean(currentPreset.value.enable_adaptive_probe) : true,
         uartStallRecoveryFlush: currentPreset.value?.uart_stall_recovery_flush !== undefined ? Boolean(currentPreset.value.uart_stall_recovery_flush) : true,
