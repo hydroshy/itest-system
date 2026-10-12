@@ -2954,8 +2954,8 @@ function useFinalConfigDeviceModule(ctx) {
       const STAGE3_READ_TIMEOUT_MS = 400;
       const STAGE3_BATCH_CHUNK = 100;
 
-      const cachedRows: typeof allAuditList = [];
-      const readRows: typeof allAuditList = [];
+      const cachedRows = [];
+      const readRows = [];
 
       for (const row of allAuditList) {
         const addr = Number(row.address);
@@ -2981,7 +2981,7 @@ function useFinalConfigDeviceModule(ctx) {
       }
 
       // Build batchMap: addr -> rawBytes | null
-      const batchMap = new Map<number, Uint8Array | null>();
+      const batchMap = new Map();
 
       if (readRows.length > 0) {
         // Wait for device ready via first reg (may need USB patience)
@@ -2990,7 +2990,7 @@ function useFinalConfigDeviceModule(ctx) {
         const firstNumreg = Number(firstRow.reg_num) || 1;
         const resFirst = await readFirstRegisterUntilSuccess(1, firstAddr, firstNumreg, { label: 'Audit Reg ' + firstAddr });
         if (abortRequested.value || resFirst.aborted) return;
-        batchMap.set(firstAddr, resFirst.success ? (resFirst.rawBytes as Uint8Array) : null);
+        batchMap.set(firstAddr, resFirst.success ? resFirst.rawBytes : null);
 
         // Compute one covering range over all remaining rows, read in chunks
         const remainingRows = readRows.slice(1);
@@ -3022,7 +3022,7 @@ function useFinalConfigDeviceModule(ctx) {
                 const n = Number(row.reg_num) || 1;
                 const byteOffset = (addr - chunkStart) * 2;
                 if (byteOffset + n * 2 <= raw.length) {
-                  batchMap.set(addr, raw.slice(byteOffset, byteOffset + n * 2) as Uint8Array);
+                  batchMap.set(addr, raw.slice(byteOffset, byteOffset + n * 2));
                 } else {
                   batchMap.set(addr, null);
                 }
