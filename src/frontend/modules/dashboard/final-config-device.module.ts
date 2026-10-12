@@ -2946,13 +2946,19 @@ function useFinalConfigDeviceModule(ctx) {
       fcTotalMemmapRegsCount.value = allAuditList.length;
       fcReadBackRegsCount.value = 0;
 
-      for (let i = 0; i < allAuditList.length; i++) {
-        if (abortRequested.value) return;
-        const row = allAuditList[i];
-        const addr = Number(row.address);
-        const numreg = Number(row.reg_num) || 1;
+      // ── Stage 3 Batch Read ──────────────────────────────────────────────
+      // Split rows: cached (Stage 1 reuse, skip Modbus) vs need-to-read.
+      // For need-to-read, compute covering range; issue one FC03 per 100-reg
+      // chunk instead of one request per register.
+      // ponytail: STAGE3_BATCH_CHUNK=100 (FC03 limit); raise to 125 if firmware allows
+      const STAGE3_READ_TIMEOUT_MS = 400;
+      const STAGE3_BATCH_CHUNK = 100;
 
-        // Stage 1 Cache Reuse (Spec Section 4.3.2)
+      const cachedRows = [];
+      const readRows = [];
+
+      for (const row of allAuditList) {
+        const addr = Number(row.address);
         const isStage1StaticReg = [0, 5, 9, 11, 15, 27, 31, 35, 43, 51, 103, 259, 386].includes(addr);
         if (
           enableStage1CacheReuse &&
@@ -2961,84 +2967,101 @@ function useFinalConfigDeviceModule(ctx) {
           (isStage1StaticReg || (addr < 303 && addr !== 274)) &&
           addr !== 274
         ) {
-          addSerialLog('INFO', null, '[Stage 3 Cache] Reusing Stage 1 cached value for Reg ' + addr + " ('" + row.value_read_back + "'). Skipping redundant Modbus read.");
-          fcReadBackRegsCount.value++;
-          fcProgress.value = Math.min(75, 50 + Math.round((fcReadBackRegsCount.value / fcTotalMemmapRegsCount.value) * 25));
-          continue;
-        }
-
-        let readSuccess = false;
-        let lastReadErr = null;
-        let readBytes = null;
-
-        if (i === 0) {
-          const resFirst = await readFirstRegisterUntilSuccess(1, addr, numreg, { label: 'Audit Reg ' + addr });
-          if (abortRequested.value || resFirst.aborted) return;
-          if (resFirst.success) {
-            readSuccess = true;
-            readBytes = resFirst.rawBytes;
-          }
+          cachedRows.push(row);
         } else {
-          for (let retry = 0; retry < MAX_READ_ATTEMPTS; retry++) {
+          readRows.push(row);
+        }
+      }
+
+      // Log cache hits upfront
+      for (const row of cachedRows) {
+        addSerialLog('INFO', null, '[Stage 3 Cache] Reusing Stage 1 cached value for Reg ' + Number(row.address) + " ('" + row.value_read_back + "'). Skipping redundant Modbus read.");
+        fcReadBackRegsCount.value++;
+        fcProgress.value = Math.min(75, 50 + Math.round((fcReadBackRegsCount.value / fcTotalMemmapRegsCount.value) * 25));
+      }
+
+      // Build batchMap: addr -> rawBytes | null
+      const batchMap = new Map();
+
+      if (readRows.length > 0) {
+        // Wait for device ready via first reg (may need USB patience)
+        const firstRow = readRows[0];
+        const firstAddr = Number(firstRow.address);
+        const firstNumreg = Number(firstRow.reg_num) || 1;
+        const resFirst = await readFirstRegisterUntilSuccess(1, firstAddr, firstNumreg, { label: 'Audit Reg ' + firstAddr });
+        if (abortRequested.value || resFirst.aborted) return;
+        batchMap.set(firstAddr, resFirst.success ? resFirst.rawBytes : null);
+
+        // Compute one covering range over all remaining rows, read in chunks
+        const remainingRows = readRows.slice(1);
+        if (remainingRows.length > 0) {
+          const remainAddrs = remainingRows.map(r => Number(r.address));
+          const minAddr = Math.min(...remainAddrs);
+          const maxRow = remainingRows.reduce((m, r) =>
+            Number(r.address) + (Number(r.reg_num) || 1) > Number(m.address) + (Number(m.reg_num) || 1) ? r : m
+          );
+          const totalRegs = Number(maxRow.address) + (Number(maxRow.reg_num) || 1) - minAddr;
+
+          fcStatusMessage.value = 'Reading register range ' + minAddr + '\u2013' + (minAddr + totalRegs - 1) + ' in batches...';
+
+          for (let offset = 0; offset < totalRegs; offset += STAGE3_BATCH_CHUNK) {
             if (abortRequested.value) return;
             if (enablePatience && (!serialConnected.value || isAutoReconnecting.value || !serialPort.value)) {
-              try {
-                await waitForPortReconnection(patienceTimeoutMs);
-                await flushUartRxBuffer();
-                retry--;
-                continue;
-              } catch (pErr) {
-                lastReadErr = pErr;
-                break;
-              }
+              try { await waitForPortReconnection(patienceTimeoutMs); await flushUartRxBuffer(); }
+              catch (e) { addSerialLog('WARN', null, 'Port lost during Stage 3 batch read. Continuing...'); break; }
             }
+            const chunkRegs = Math.min(STAGE3_BATCH_CHUNK, totalRegs - offset);
+            const chunkStart = minAddr + offset;
             try {
               await flushUartRxBuffer();
-              const rawBytes = await readModbusRegistersFromPort(1, addr, numreg);
-              readBytes = rawBytes;
-              readSuccess = true;
-              await new Promise(r => setTimeout(r, INTER_READ_DELAY_MS));
-              break;
-            } catch (rErr) {
-              lastReadErr = rErr;
-              if (enablePatience && isPortDisconnectedError(rErr)) {
-                addSerialLog('WARN', null, 'Port disconnected during Read Reg ' + addr + '. Waiting for USB reconnect...');
-                try {
-                  await waitForPortReconnection(patienceTimeoutMs);
-                  await flushUartRxBuffer();
-                  retry--;
-                  continue;
-                } catch (pErr) {
-                  lastReadErr = pErr;
-                  break;
+              const raw = await readModbusRegistersFromPort(1, chunkStart, chunkRegs, STAGE3_READ_TIMEOUT_MS);
+              addSerialLog('RX', null, 'Batch Read Reg ' + chunkStart + '\u2013' + (chunkStart + chunkRegs - 1) + ' (' + chunkRegs + ' regs)');
+              for (const row of remainingRows) {
+                const addr = Number(row.address);
+                if (addr < chunkStart || addr >= chunkStart + chunkRegs) continue;
+                const n = Number(row.reg_num) || 1;
+                const byteOffset = (addr - chunkStart) * 2;
+                if (byteOffset + n * 2 <= raw.length) {
+                  batchMap.set(addr, raw.slice(byteOffset, byteOffset + n * 2));
+                } else {
+                  batchMap.set(addr, null);
                 }
               }
-              if (retry < MAX_READ_ATTEMPTS - 1) {
-                const delayMs = READ_RETRY_BACKOFF_DELAYS[retry] || 400;
-                addSerialLog('WARN', null, 'Read Reg ' + addr + ' failed (attempt ' + (retry + 1) + '/' + MAX_READ_ATTEMPTS + '): ' + (rErr?.message || rErr) + '. Retrying in ' + delayMs + 'ms...');
-                fcStatusMessage.value = 'Device settling/retrying... (Read Reg ' + addr + ', attempt ' + (retry + 1) + '/' + MAX_READ_ATTEMPTS + ')';
-                await flushUartRxBuffer();
-                await new Promise(r => setTimeout(r, delayMs));
-              } else {
-                addSerialLog('ERROR', null, 'Read Reg ' + addr + ' failed after ' + MAX_READ_ATTEMPTS + ' attempts: ' + (rErr?.message || rErr));
-                console.warn('Read-back error for register ' + addr + ' after ' + MAX_READ_ATTEMPTS + ' attempts:', rErr);
+              await new Promise(r => setTimeout(r, INTER_READ_DELAY_MS));
+            } catch (rErr) {
+              if (enablePatience && isPortDisconnectedError(rErr)) {
+                addSerialLog('WARN', null, 'Port disconnected during batch Read Reg ' + chunkStart + '. Waiting for USB reconnect...');
+                try { await waitForPortReconnection(patienceTimeoutMs); await flushUartRxBuffer(); offset -= STAGE3_BATCH_CHUNK; continue; }
+                catch (e) { break; }
+              }
+              addSerialLog('ERROR', null, 'Batch Read Reg ' + chunkStart + '\u2013' + (chunkStart + chunkRegs - 1) + ' failed: ' + (rErr?.message || rErr));
+              for (const row of remainingRows) {
+                const addr = Number(row.address);
+                if (addr >= chunkStart && addr < chunkStart + chunkRegs && !batchMap.has(addr)) {
+                  batchMap.set(addr, null);
+                }
               }
             }
           }
         }
+      }
 
-        if (readSuccess && readBytes) {
+      // Decode batchMap into readRows
+      for (const row of readRows) {
+        const addr = Number(row.address);
+        const numreg = Number(row.reg_num) || 1;
+        const rawBytes = batchMap.get(addr) ?? null;
+        if (rawBytes) {
           if (row.format === 'hex' || (addr === 274 && numreg === 8)) {
-            row.value_read_back = bytesToHex(readBytes);
+            row.value_read_back = bytesToHex(rawBytes);
           } else if (row.format === 'string' || row.format === 'ascii') {
-            row.value_read_back = bytesToString(readBytes);
+            row.value_read_back = bytesToString(rawBytes);
           } else {
-            row.value_read_back = decodeModbusPayload(readBytes, row.format, row.endianness);
+            row.value_read_back = decodeModbusPayload(rawBytes, row.format, row.endianness);
           }
         } else {
           row.value_read_back = 'READ_ERR';
         }
-
         fcReadBackRegsCount.value++;
         fcProgress.value = Math.min(75, 50 + Math.round((fcReadBackRegsCount.value / fcTotalMemmapRegsCount.value) * 25));
       }
@@ -3088,7 +3111,10 @@ function useFinalConfigDeviceModule(ctx) {
         }
 
         row.status = isMatch ? 'PASS' : 'FAIL';
-        if (!isMatch) mismatchCount++;
+        if (!isMatch) {
+          mismatchCount++;
+          addSerialLog('WARN', null, '[Stage 4 MISMATCH] Reg ' + Number(row.address) + ' (' + row.parameter_name + '): read="' + read + '" expected="' + target + '" format=' + row.format);
+        }
       }
 
       fcMismatchCount.value = mismatchCount;

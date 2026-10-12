@@ -3008,7 +3008,7 @@ function useFinalConfigDeviceModule(ctx) {
             if (abortRequested.value) return;
             if (enablePatience && (!serialConnected.value || isAutoReconnecting.value || !serialPort.value)) {
               try { await waitForPortReconnection(patienceTimeoutMs); await flushUartRxBuffer(); }
-              catch { addSerialLog('WARN', null, 'Port lost during Stage 3 batch read. Continuing...'); break; }
+              catch (e) { addSerialLog('WARN', null, 'Port lost during Stage 3 batch read. Continuing...'); break; }
             }
             const chunkRegs = Math.min(STAGE3_BATCH_CHUNK, totalRegs - offset);
             const chunkStart = minAddr + offset;
@@ -3032,7 +3032,7 @@ function useFinalConfigDeviceModule(ctx) {
               if (enablePatience && isPortDisconnectedError(rErr)) {
                 addSerialLog('WARN', null, 'Port disconnected during batch Read Reg ' + chunkStart + '. Waiting for USB reconnect...');
                 try { await waitForPortReconnection(patienceTimeoutMs); await flushUartRxBuffer(); offset -= STAGE3_BATCH_CHUNK; continue; }
-                catch { break; }
+                catch (e) { break; }
               }
               addSerialLog('ERROR', null, 'Batch Read Reg ' + chunkStart + '\u2013' + (chunkStart + chunkRegs - 1) + ' failed: ' + (rErr?.message || rErr));
               for (const row of remainingRows) {
@@ -3115,6 +3115,7 @@ function useFinalConfigDeviceModule(ctx) {
           mismatchCount++;
           addSerialLog('WARN', null, '[Stage 4 MISMATCH] Reg ' + Number(row.address) + ' (' + row.parameter_name + '): read="' + read + '" expected="' + target + '" format=' + row.format);
         }
+      }
 
       fcMismatchCount.value = mismatchCount;
       const verdict = mismatchCount === 0 ? 'PASS' : 'FAIL';
