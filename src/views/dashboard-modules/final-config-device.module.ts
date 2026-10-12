@@ -2139,7 +2139,7 @@ function useFinalConfigDeviceModule(ctx) {
               parameter_name: r.parameter_name || ('Register ' + addr),
               format: r.format || 'uint',
               endianness: r.endianness || 'Big-Endian',
-              reg_num: Number(r.reg_num) || 1,
+              reg_num: Number(r.reg_num || r.numreg) || 1,
               fn_write: 'FC 16',
               default_value: r.default_value || r.value_on_memmap || '',
               value_to_write: r.value_to_write !== undefined ? String(r.value_to_write) : '',
@@ -2998,11 +2998,13 @@ function useFinalConfigDeviceModule(ctx) {
           const remainAddrs = remainingRows.map(r => Number(r.address));
           const minAddr = Math.min(...remainAddrs);
           const maxRow = remainingRows.reduce((m, r) =>
-            Number(r.address) + (Number(r.reg_num) || 1) > Number(m.address) + (Number(m.reg_num) || 1) ? r : m
+            Number(r.address) + (Number(r.reg_num || r.numreg) || 1) > Number(m.address) + (Number(m.reg_num || m.numreg) || 1) ? r : m
           );
-          const totalRegs = Number(maxRow.address) + (Number(maxRow.reg_num) || 1) - minAddr;
+          const totalRegs = Number(maxRow.address) + (Number(maxRow.reg_num || maxRow.numreg) || 1) - minAddr;
 
           fcStatusMessage.value = 'Reading register range ' + minAddr + '\u2013' + (minAddr + totalRegs - 1) + ' in batches...';
+
+          const rawMemory = new Map();
 
           for (let offset = 0; offset < totalRegs; offset += STAGE3_BATCH_CHUNK) {
             if (abortRequested.value) return;
@@ -3016,15 +3018,9 @@ function useFinalConfigDeviceModule(ctx) {
               await flushUartRxBuffer();
               const raw = await readModbusRegistersFromPort(1, chunkStart, chunkRegs, STAGE3_READ_TIMEOUT_MS);
               addSerialLog('RX', null, 'Batch Read Reg ' + chunkStart + '\u2013' + (chunkStart + chunkRegs - 1) + ' (' + chunkRegs + ' regs)');
-              for (const row of remainingRows) {
-                const addr = Number(row.address);
-                if (addr < chunkStart || addr >= chunkStart + chunkRegs) continue;
-                const n = Number(row.reg_num) || 1;
-                const byteOffset = (addr - chunkStart) * 2;
-                if (byteOffset + n * 2 <= raw.length) {
-                  batchMap.set(addr, raw.slice(byteOffset, byteOffset + n * 2));
-                } else {
-                  batchMap.set(addr, null);
+              for (let i = 0; i < chunkRegs; i++) {
+                if (i * 2 + 1 < raw.length) {
+                  rawMemory.set(chunkStart + i, [raw[i * 2], raw[i * 2 + 1]]);
                 }
               }
               await new Promise(r => setTimeout(r, INTER_READ_DELAY_MS));
@@ -3035,13 +3031,24 @@ function useFinalConfigDeviceModule(ctx) {
                 catch (e) { break; }
               }
               addSerialLog('ERROR', null, 'Batch Read Reg ' + chunkStart + '\u2013' + (chunkStart + chunkRegs - 1) + ' failed: ' + (rErr?.message || rErr));
-              for (const row of remainingRows) {
-                const addr = Number(row.address);
-                if (addr >= chunkStart && addr < chunkStart + chunkRegs && !batchMap.has(addr)) {
-                  batchMap.set(addr, null);
-                }
-              }
             }
+          }
+
+          // Stitch registers from rawMemory across chunk boundaries
+          for (const row of remainingRows) {
+            const addr = Number(row.address);
+            const n = Number(row.reg_num || row.numreg) || 1;
+            const bytes = [];
+            let allPresent = true;
+            for (let r = 0; r < n; r++) {
+              const pair = rawMemory.get(addr + r);
+              if (!pair) {
+                allPresent = false;
+                break;
+              }
+              bytes.push(pair[0], pair[1]);
+            }
+            batchMap.set(addr, allPresent ? bytes : null);
           }
         }
       }
@@ -3049,7 +3056,7 @@ function useFinalConfigDeviceModule(ctx) {
       // Decode batchMap into readRows
       for (const row of readRows) {
         const addr = Number(row.address);
-        const numreg = Number(row.reg_num) || 1;
+        const numreg = Number(row.reg_num || row.numreg) || 1;
         const rawBytes = batchMap.get(addr) ?? null;
         if (rawBytes) {
           if (row.format === 'hex' || (addr === 274 && numreg === 8)) {
