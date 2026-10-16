@@ -8,7 +8,7 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.RealtimeSubsystemModule = void 0;
 const common_1 = require("@nestjs/common");
-const realtime_module_1 = require("../../modules/realtime/realtime.module");
+const realtime_module_1 = require("./modules/realtime/realtime.module");
 const realtime_diagnostic_service_1 = require("./realtime-diagnostic.service");
 let RealtimeSubsystemModule = class RealtimeSubsystemModule {
 };

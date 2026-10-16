@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { SubsystemHealthStatus, BackendSubsystem } from '../common/subsystem.types';
-import { RealtimeGateway } from '../../modules/realtime/realtime.gateway';
+import { RealtimeGateway } from './modules/realtime/realtime.gateway';
 
 @Injectable()
 export class RealtimeDiagnosticService {

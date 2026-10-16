@@ -16,13 +16,13 @@ var __exportStar = (this && this.__exportStar) || function(m, exports) {
 Object.defineProperty(exports, "__esModule", { value: true });
 __exportStar(require("./identity-subsystem.module"), exports);
 __exportStar(require("./identity-diagnostic.service"), exports);
-__exportStar(require("../../modules/auth/auth.service"), exports);
-__exportStar(require("../../modules/auth/auth.controller"), exports);
-__exportStar(require("../../modules/users/users.service"), exports);
-__exportStar(require("../../modules/users/users.controller"), exports);
-__exportStar(require("../../modules/users/entities/user.entity"), exports);
-__exportStar(require("../../modules/roles-permissions/roles.service"), exports);
-__exportStar(require("../../modules/roles-permissions/roles.controller"), exports);
-__exportStar(require("../../modules/roles-permissions/entities/role.entity"), exports);
-__exportStar(require("../../modules/roles-permissions/entities/permission.entity"), exports);
+__exportStar(require("./modules/auth/auth.service"), exports);
+__exportStar(require("./modules/auth/auth.controller"), exports);
+__exportStar(require("./modules/users/users.service"), exports);
+__exportStar(require("./modules/users/users.controller"), exports);
+__exportStar(require("./modules/users/entities/user.entity"), exports);
+__exportStar(require("./modules/roles-permissions/roles.service"), exports);
+__exportStar(require("./modules/roles-permissions/roles.controller"), exports);
+__exportStar(require("./modules/roles-permissions/entities/role.entity"), exports);
+__exportStar(require("./modules/roles-permissions/entities/permission.entity"), exports);
 //# sourceMappingURL=index.js.map

@@ -14,7 +14,7 @@ const common_1 = require("@nestjs/common");
 const core_1 = require("@nestjs/core");
 const permissions_decorator_1 = require("../decorators/permissions.decorator");
 const roles_decorator_1 = require("../decorators/roles.decorator");
-const user_entity_1 = require("../../modules/users/entities/user.entity");
+const user_entity_1 = require("../../backend/identity/modules/users/entities/user.entity");
 let PermissionsGuard = class PermissionsGuard {
     constructor(reflector) {
         this.reflector = reflector;

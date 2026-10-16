@@ -4,12 +4,9 @@ exports.FrontendSubsystem = exports.BackendSubsystem = void 0;
 var BackendSubsystem;
 (function (BackendSubsystem) {
     BackendSubsystem["DATABASE"] = "DATABASE";
-    BackendSubsystem["LORAWAN"] = "LORAWAN_NETWORK_SERVER";
-    BackendSubsystem["ORDER_MANAGEMENT"] = "ORDER_MANAGEMENT";
-    BackendSubsystem["TEST_AUTOMATION"] = "TEST_AUTOMATION";
     BackendSubsystem["IDENTITY"] = "IDENTITY_AUTH";
-    BackendSubsystem["INDUSTRIAL_IOT"] = "INDUSTRIAL_IOT";
     BackendSubsystem["REALTIME"] = "REALTIME_STREAM";
+    BackendSubsystem["PLUGINS"] = "PLUGINS_CORE";
 })(BackendSubsystem || (exports.BackendSubsystem = BackendSubsystem = {}));
 var FrontendSubsystem;
 (function (FrontendSubsystem) {

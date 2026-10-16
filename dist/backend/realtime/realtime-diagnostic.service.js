@@ -12,7 +12,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.RealtimeDiagnosticService = void 0;
 const common_1 = require("@nestjs/common");
 const subsystem_types_1 = require("../common/subsystem.types");
-const realtime_gateway_1 = require("../../modules/realtime/realtime.gateway");
+const realtime_gateway_1 = require("./modules/realtime/realtime.gateway");
 let RealtimeDiagnosticService = class RealtimeDiagnosticService {
     constructor(realtimeGateway) {
         this.realtimeGateway = realtimeGateway;

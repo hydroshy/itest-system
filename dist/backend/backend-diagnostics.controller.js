@@ -14,40 +14,45 @@ const common_1 = require("@nestjs/common");
 const swagger_1 = require("@nestjs/swagger");
 const subsystem_types_1 = require("./common/subsystem.types");
 const database_diagnostic_service_1 = require("./database/database-diagnostic.service");
-const lorawan_diagnostic_service_1 = require("./lorawan/lorawan-diagnostic.service");
-const order_management_diagnostic_service_1 = require("./order-management/order-management-diagnostic.service");
-const test_automation_diagnostic_service_1 = require("./test-automation/test-automation-diagnostic.service");
 const identity_diagnostic_service_1 = require("./identity/identity-diagnostic.service");
-const industrial_iot_diagnostic_service_1 = require("./industrial-iot/industrial-iot-diagnostic.service");
 const realtime_diagnostic_service_1 = require("./realtime/realtime-diagnostic.service");
+const plugin_manager_service_1 = require("./plugins/plugin-manager.service");
 let BackendDiagnosticsController = class BackendDiagnosticsController {
-    constructor(dbDiagnostic, lorawanDiagnostic, orderManagementDiagnostic, testAutomationDiagnostic, identityDiagnostic, industrialIotDiagnostic, realtimeDiagnostic) {
+    constructor(dbDiagnostic, identityDiagnostic, realtimeDiagnostic, pluginManager) {
         this.dbDiagnostic = dbDiagnostic;
-        this.lorawanDiagnostic = lorawanDiagnostic;
-        this.orderManagementDiagnostic = orderManagementDiagnostic;
-        this.testAutomationDiagnostic = testAutomationDiagnostic;
         this.identityDiagnostic = identityDiagnostic;
-        this.industrialIotDiagnostic = industrialIotDiagnostic;
         this.realtimeDiagnostic = realtimeDiagnostic;
+        this.pluginManager = pluginManager;
     }
     async getDiagnostics() {
-        const [db, lora, order, testAuto, identity, iot, realtime] = await Promise.all([
+        const [db, identity, realtime] = await Promise.all([
             this.dbDiagnostic.checkHealth(),
-            this.lorawanDiagnostic.checkHealth(),
-            this.orderManagementDiagnostic.checkHealth(),
-            this.testAutomationDiagnostic.checkHealth(),
             this.identityDiagnostic.checkHealth(),
-            this.industrialIotDiagnostic.checkHealth(),
             this.realtimeDiagnostic.checkHealth(),
         ]);
+        let pluginsStatus;
+        try {
+            const plugins = await this.pluginManager.listPlugins();
+            pluginsStatus = {
+                subsystem: subsystem_types_1.BackendSubsystem.PLUGINS,
+                status: 'UP',
+                timestamp: new Date().toISOString(),
+                details: { totalPlugins: plugins.length },
+            };
+        }
+        catch (err) {
+            pluginsStatus = {
+                subsystem: subsystem_types_1.BackendSubsystem.PLUGINS,
+                status: 'DEGRADED',
+                timestamp: new Date().toISOString(),
+                error: err.message,
+            };
+        }
         const subsystems = {
             [subsystem_types_1.BackendSubsystem.DATABASE]: db,
-            [subsystem_types_1.BackendSubsystem.LORAWAN]: lora,
-            [subsystem_types_1.BackendSubsystem.ORDER_MANAGEMENT]: order,
-            [subsystem_types_1.BackendSubsystem.TEST_AUTOMATION]: testAuto,
             [subsystem_types_1.BackendSubsystem.IDENTITY]: identity,
-            [subsystem_types_1.BackendSubsystem.INDUSTRIAL_IOT]: iot,
             [subsystem_types_1.BackendSubsystem.REALTIME]: realtime,
+            [subsystem_types_1.BackendSubsystem.PLUGINS]: pluginsStatus,
         };
         const hasDown = Object.values(subsystems).some((s) => s.status === 'DOWN');
         const hasDegraded = Object.values(subsystems).some((s) => s.status === 'DEGRADED');
@@ -58,16 +63,16 @@ let BackendDiagnosticsController = class BackendDiagnosticsController {
             debugGuidance: [
                 'Check X-Daviteq-Subsystem in HTTP response headers to identify which domain handled the request.',
                 'If DATABASE is DEGRADED: verify db-routing.config.json and connection string credentials.',
-                'If LORAWAN_NETWORK_SERVER errors: check ChirpStack/TTN API key and gRPC/REST gateway connection.',
-                'If ORDER_MANAGEMENT errors: check SO item mapping and SKU regex rule in item-code-utils.',
-                'If TEST_AUTOMATION errors: inspect TestSession packet log and flow-graph assertion definitions.',
+                'If IDENTITY errors: verify database user table and JWT secret configuration.',
+                'If REALTIME errors: verify WebSocket gateway listening port and client connection limits.',
+                'If PLUGINS errors: check core_plugins database table and plugin storage directory.',
             ],
         };
     }
     getSubsystemDirectory() {
         return {
-            architecture: 'Daviteq Domain-Subsystem Modular Architecture',
-            version: '2.0.0',
+            architecture: 'Platform Core Backbone & Dynamic Plugin Architecture',
+            version: '3.0.0',
             subsystems: [
                 {
                     id: subsystem_types_1.BackendSubsystem.DATABASE,
@@ -76,40 +81,22 @@ let BackendDiagnosticsController = class BackendDiagnosticsController {
                     description: 'Multi-tenant database connection pool, dynamic routing & health.',
                 },
                 {
-                    id: subsystem_types_1.BackendSubsystem.LORAWAN,
-                    name: 'LoRaWAN Network Server Subsystem',
-                    routes: ['/api/lorawan/*', '/api/network-servers/*', '/api/webhook/*'],
-                    description: 'ChirpStack/TTN connectivity, device keys, downlinks, webhooks.',
-                },
-                {
-                    id: subsystem_types_1.BackendSubsystem.ORDER_MANAGEMENT,
-                    name: 'Order Management Subsystem (SO / Item / SKU)',
-                    routes: ['/api/sales-orders/*', '/api/item-codes/*', '/api/sensor-types/*'],
-                    description: 'Sales Orders, Item Codes/SKU catalog, and sensor type mapping.',
-                },
-                {
-                    id: subsystem_types_1.BackendSubsystem.TEST_AUTOMATION,
-                    name: 'Test Automation Subsystem',
-                    routes: ['/api/d-modules/test-run/*', '/api/test-builder/*', '/api/decoder/*'],
-                    description: 'D-Module test workbench, C-Module test builder flow engine, decoders.',
-                },
-                {
                     id: subsystem_types_1.BackendSubsystem.IDENTITY,
                     name: 'Identity & Access Control Subsystem',
                     routes: ['/auth/*', '/api/users/*', '/api/roles/*'],
                     description: 'JWT authentication, RBAC authorization, and user administration.',
                 },
                 {
-                    id: subsystem_types_1.BackendSubsystem.INDUSTRIAL_IOT,
-                    name: 'Industrial IoT Subsystem',
-                    routes: ['/api/c-modules/modbus-presets/*', '/api/c-modules/hmi-studio/*', '/api/c-modules/overview-hub/*'],
-                    description: 'Modbus registers, HMI SCADA studio, and system overview.',
-                },
-                {
                     id: subsystem_types_1.BackendSubsystem.REALTIME,
                     name: 'Realtime Streaming Subsystem',
                     routes: ['/realtime/*', 'ws://*'],
                     description: 'WebSocket telemetry and test packet streaming.',
+                },
+                {
+                    id: subsystem_types_1.BackendSubsystem.PLUGINS,
+                    name: 'Plugin Management Engine',
+                    routes: ['/api/plugins/*'],
+                    description: 'Plugin lifecycle, storage, audit logs, and dynamic extension loading.',
                 },
             ],
         };
@@ -118,7 +105,7 @@ let BackendDiagnosticsController = class BackendDiagnosticsController {
 exports.BackendDiagnosticsController = BackendDiagnosticsController;
 __decorate([
     (0, common_1.Get)('diagnostics'),
-    (0, swagger_1.ApiOperation)({ summary: 'Comprehensive health check and debug report for all 7 backend subsystems' }),
+    (0, swagger_1.ApiOperation)({ summary: 'Comprehensive health check and debug report for platform core subsystems' }),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", []),
     __metadata("design:returntype", Promise)
@@ -134,11 +121,8 @@ exports.BackendDiagnosticsController = BackendDiagnosticsController = __decorate
     (0, swagger_1.ApiTags)('Backend Architecture & Diagnostics'),
     (0, common_1.Controller)('backend'),
     __metadata("design:paramtypes", [database_diagnostic_service_1.DatabaseDiagnosticService,
-        lorawan_diagnostic_service_1.LorawanDiagnosticService,
-        order_management_diagnostic_service_1.OrderManagementDiagnosticService,
-        test_automation_diagnostic_service_1.TestAutomationDiagnosticService,
         identity_diagnostic_service_1.IdentityDiagnosticService,
-        industrial_iot_diagnostic_service_1.IndustrialIotDiagnosticService,
-        realtime_diagnostic_service_1.RealtimeDiagnosticService])
+        realtime_diagnostic_service_1.RealtimeDiagnosticService,
+        plugin_manager_service_1.PluginManagerService])
 ], BackendDiagnosticsController);
 //# sourceMappingURL=backend-diagnostics.controller.js.map

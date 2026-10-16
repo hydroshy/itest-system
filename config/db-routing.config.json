@@ -8,41 +8,18 @@
       "password": "mason",
       "database": "dvt",
       "ssl": false,
-      "poolSize": 20
+      "poolSize": 25,
+      "idleTimeoutMillis": 30000,
+      "connectionTimeoutMillis": 5000
     }
   },
   "table_routes": {
     "users": "core_db",
-    "user_role": "core_db",
     "roles": "core_db",
     "role_permissions": "core_db",
     "permission": "core_db",
-    "permissions": "core_db",
-    "network_servers": "core_db",
-    "applications": "core_db",
-    "devices": "core_db",
-    "gateways": "core_db",
-    "uplink_telemetry": "core_db",
-    "decoder": "core_db",
-    "webhook_logs": "core_db",
-    "hmi_screens": "core_db",
-    "modbus_presets": "core_db",
-    "test_templates": "core_db",
-    "test_assertions": "core_db",
-    "sales_orders": "core_db",
-    "sales_order_items": "core_db",
-    "item_codes": "core_db",
-    "test_sessions": "core_db",
-    "test_device_runs": "core_db",
-    "test_packet_logs": "core_db",
-    "sensor_types": "core_db",
-    "test_evidence": "core_db",
-    "test_result": "core_db",
-    "raw_data3": "core_db",
-    "final_config_presets": "core_db",
-    "final_config_regs": "core_db",
-    "final_config_sn": "core_db",
-    "final_config_regs_sn": "core_db",
-    "device_tested": "core_db"
+    "core_plugins": "core_db",
+    "plugin_audit_logs": "core_db",
+    "unified_devices": "core_db"
   }
 }

@@ -1,11 +1,10 @@
 /**
- * Verification test for TypeORM Entity Registration & Metadata Resolution
+ * Verification test for Core TypeORM Entity Registration & Metadata Resolution
  * Validates:
- * 1. TestTemplateEntity & TestAssertionEntity registration in ALL_DATABASE_ENTITIES
+ * 1. Core entities registration in ALL_DATABASE_ENTITIES (User, Role, Permission, CorePluginEntity, PluginAuditLogEntity, UnifiedDeviceEntity)
  * 2. TypeORM DataSource metadata resolution without EntityMetadataNotFoundError
- * 3. Table and column mapping integrity
- * 4. Relationship integrity (TestTemplateEntity 1:N TestAssertionEntity)
- * 5. DB routing configuration in db-routing.config.json
+ * 3. Table and column mapping integrity for Core Micro-kernel
+ * 4. DB routing configuration in db-routing.config.json
  */
 
 import 'reflect-metadata';
@@ -13,9 +12,13 @@ import * as assert from 'assert';
 import * as fs from 'fs';
 import * as path from 'path';
 import { DataSource } from 'typeorm';
-import { ALL_DATABASE_ENTITIES } from '../src/modules/database/dynamic-database.service';
-import { TestTemplateEntity } from '../src/modules/c-modules/test-builder/entities/test-template.entity';
-import { TestAssertionEntity } from '../src/modules/c-modules/test-builder/entities/test-assertion.entity';
+import { ALL_DATABASE_ENTITIES } from '../src/backend/database/dynamic-database.service';
+import { User } from '../src/backend/identity/modules/users/entities/user.entity';
+import { Role } from '../src/backend/identity/modules/roles-permissions/entities/role.entity';
+import { Permission } from '../src/backend/identity/modules/roles-permissions/entities/permission.entity';
+import { CorePluginEntity } from '../src/backend/core-models/core-plugin.entity';
+import { PluginAuditLogEntity } from '../src/backend/core-models/plugin-audit-log.entity';
+import { UnifiedDeviceEntity } from '../src/backend/core-models/unified-device.entity';
 
 class TestDataSource extends DataSource {
   public async build() {
@@ -24,114 +27,74 @@ class TestDataSource extends DataSource {
 }
 
 async function verifyTypeOrmMetadata() {
-  console.log('=== VERIFYING TYPEORM ENTITY METADATA & REGISTRATION ===\n');
+  console.log('=== VERIFYING CORE TYPEORM ENTITY METADATA & REGISTRATION ===\n');
 
   // Check 1: Entities present in ALL_DATABASE_ENTITIES
-  console.log('[Check 1] ALL_DATABASE_ENTITIES contains TestTemplateEntity and TestAssertionEntity');
+  console.log('[Check 1] ALL_DATABASE_ENTITIES contains Core Micro-kernel entities');
   const entityNames = ALL_DATABASE_ENTITIES.map((e: any) => e?.name);
-  assert.ok(
-    entityNames.includes('TestTemplateEntity'),
-    'TestTemplateEntity must be included in ALL_DATABASE_ENTITIES',
-  );
-  assert.ok(
-    entityNames.includes('TestAssertionEntity'),
-    'TestAssertionEntity must be included in ALL_DATABASE_ENTITIES',
-  );
-  console.log('  -> PASS: Both entities registered in ALL_DATABASE_ENTITIES array\n');
+  const expectedEntities = [
+    'User',
+    'Role',
+    'Permission',
+    'CorePluginEntity',
+    'PluginAuditLogEntity',
+    'UnifiedDeviceEntity',
+  ];
 
-  // Check 2: DataSource metadata build
-  console.log('[Check 2] TypeORM DataSource builds metadata successfully');
-  const ds = new TestDataSource({
+  for (const expected of expectedEntities) {
+    assert.ok(
+      entityNames.includes(expected),
+      `${expected} must be included in ALL_DATABASE_ENTITIES`,
+    );
+  }
+  console.log('  -> PASS: All Core entities registered in ALL_DATABASE_ENTITIES array\n');
+
+  // Check 2: DataSource metadata resolution without EntityMetadataNotFoundError
+  console.log('[Check 2] TypeORM DataSource resolves metadata cleanly for all Core entities');
+  const testDs = new TestDataSource({
     type: 'postgres',
+    host: 'localhost',
+    port: 5432,
+    username: 'postgres',
+    database: 'itest_test_db',
     entities: ALL_DATABASE_ENTITIES,
+    synchronize: false,
   });
 
-  await ds.build();
+  await testDs.build();
 
-  assert.strictEqual(
-    ds.hasMetadata(TestTemplateEntity),
-    true,
-    'DataSource must contain metadata for TestTemplateEntity',
-  );
-  assert.strictEqual(
-    ds.hasMetadata(TestAssertionEntity),
-    true,
-    'DataSource must contain metadata for TestAssertionEntity',
-  );
-  console.log('  -> PASS: TypeORM has valid metadata for both entities (No metadata error resolved)\n');
+  for (const entity of ALL_DATABASE_ENTITIES) {
+    const meta = testDs.getMetadata(entity);
+    assert.ok(meta, `Metadata for ${entity.name} must resolve cleanly`);
+    assert.ok(meta.tableName, `Table name for ${entity.name} must be defined`);
+    console.log(`  -> Entity '${entity.name}' maps to table '${meta.tableName}' (${meta.columns.length} columns)`);
+  }
+  console.log('  -> PASS: All Core entities resolve without EntityMetadataNotFoundError\n');
 
-  // Check 3: Table and column definitions
-  console.log('[Check 3] Entity metadata table name and schema checks');
-  const templateMeta = ds.getMetadata(TestTemplateEntity);
-  const assertionMeta = ds.getMetadata(TestAssertionEntity);
+  // Check 3: Relationship integrity (Role <-> Permission N:M)
+  console.log('[Check 3] Core Relationship integrity');
+  const roleMeta = testDs.getMetadata(Role);
+  const permRelation = roleMeta.relations.find((r) => r.propertyName === 'permissions');
+  assert.ok(permRelation, 'Role must have permissions relation');
+  assert.strictEqual(permRelation.relationType, 'many-to-many', 'Role-Permission must be many-to-many');
+  console.log('  -> PASS: Role-Permission many-to-many relation verified\n');
 
-  assert.strictEqual(templateMeta.tableName, 'test_templates');
-  assert.strictEqual(assertionMeta.tableName, 'test_assertions');
+  // Check 4: DB routing configuration
+  console.log('[Check 4] db-routing.config.json routes all Core tables');
+  const configPath = path.resolve(__dirname, '../config/db-routing.config.json');
+  assert.ok(fs.existsSync(configPath), 'db-routing.config.json must exist');
+  const configContent = JSON.parse(fs.readFileSync(configPath, 'utf8'));
 
-  const requiredTemplateCols = [
-    'id',
-    'name',
-    'code',
-    'sku',
-    'firmwareVersion',
-    'executionMode',
-    'flowConfig',
-    'timeoutSeconds',
-    'minPacketsRequired',
-    'isActive',
-  ];
-  for (const col of requiredTemplateCols) {
+  const coreTables = ['users', 'roles', 'permission', 'core_plugins', 'plugin_audit_logs', 'unified_devices'];
+  for (const table of coreTables) {
     assert.ok(
-      templateMeta.findColumnWithPropertyName(col),
-      `TestTemplateEntity missing column: ${col}`,
+      configContent.table_routes[table] !== undefined,
+      `Table '${table}' must be mapped in db-routing.config.json`,
     );
   }
+  console.log('  -> PASS: Core tables mapped in db-routing.config.json\n');
 
-  const requiredAssertionCols = [
-    'id',
-    'templateId',
-    'fieldName',
-    'operator',
-    'expectedValue',
-    'severity',
-  ];
-  for (const col of requiredAssertionCols) {
-    assert.ok(
-      assertionMeta.findColumnWithPropertyName(col),
-      `TestAssertionEntity missing column: ${col}`,
-    );
-  }
-  console.log('  -> PASS: Table names and column schemas verified\n');
-
-  // Check 4: Relation mapping
-  console.log('[Check 4] Entity relationship mapping (1:N)');
-  const assertionsRel = templateMeta.findRelationWithPropertyPath('assertions');
-  assert.ok(assertionsRel, 'TestTemplateEntity must have assertions relation');
-  assert.strictEqual(assertionsRel?.isOneToMany, true);
-
-  const templateRel = assertionMeta.findRelationWithPropertyPath('template');
-  assert.ok(templateRel, 'TestAssertionEntity must have template relation');
-  assert.strictEqual(templateRel?.isManyToOne, true);
-  console.log('  -> PASS: TestTemplate (1) <-> TestAssertion (N) relation verified\n');
-
-  // Check 5: DB routing config
-  console.log('[Check 5] db-routing.config.json table_routes');
-  const routingConfigPath = path.resolve(__dirname, '../config/db-routing.config.json');
-  assert.ok(fs.existsSync(routingConfigPath), 'db-routing.config.json must exist');
-  const routingConfig = JSON.parse(fs.readFileSync(routingConfigPath, 'utf8'));
-  assert.ok(
-    routingConfig.table_routes?.['test_templates'],
-    'table_routes must route test_templates',
-  );
-  assert.ok(
-    routingConfig.table_routes?.['test_assertions'],
-    'table_routes must route test_assertions',
-  );
-  console.log(
-    `  -> PASS: test_templates -> ${routingConfig.table_routes['test_templates']}, test_assertions -> ${routingConfig.table_routes['test_assertions']}\n`,
-  );
-
-  console.log('=== ALL TYPEORM METADATA VERIFICATION CHECKS PASSED ===\n');
+  console.log('=== ALL CORE ENTITY METADATA CHECKS PASSED SUCCESSFULLY ===');
 }
 
 verifyTypeOrmMetadata().catch((err) => {

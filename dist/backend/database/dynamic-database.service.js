@@ -15,71 +15,19 @@ const common_1 = require("@nestjs/common");
 const typeorm_1 = require("typeorm");
 const fs = require("fs");
 const path = require("path");
-const user_entity_1 = require("../../modules/users/entities/user.entity");
-const role_entity_1 = require("../../modules/roles-permissions/entities/role.entity");
-const permission_entity_1 = require("../../modules/roles-permissions/entities/permission.entity");
-const network_server_entity_1 = require("../../modules/network-servers/entities/network-server.entity");
-const application_entity_1 = require("../../modules/lorawan/entities/application.entity");
-const device_entity_1 = require("../../modules/lorawan/entities/device.entity");
-const gateway_entity_1 = require("../../modules/lorawan/entities/gateway.entity");
-const telemetry_entity_1 = require("../../modules/lorawan/entities/telemetry.entity");
-const decoder_entity_1 = require("../../modules/c-modules/decoder-admin/entities/decoder.entity");
-const webhook_log_entity_1 = require("../../modules/c-modules/webhook-admin/entities/webhook-log.entity");
-const hmi_screen_entity_1 = require("../../modules/c-modules/hmi-studio/entities/hmi-screen.entity");
-const downlink_log_entity_1 = require("../../modules/network-servers/entities/downlink-log.entity");
-const modbus_preset_entity_1 = require("../../modules/c-modules/modbus-presets/entities/modbus-preset.entity");
-const test_template_entity_1 = require("../../modules/c-modules/test-builder/entities/test-template.entity");
-const test_assertion_entity_1 = require("../../modules/c-modules/test-builder/entities/test-assertion.entity");
-const sales_order_entity_1 = require("../../modules/c-modules/sales-orders/entities/sales-order.entity");
-const sales_order_item_entity_1 = require("../../modules/c-modules/sales-orders/entities/sales-order-item.entity");
-const item_code_entity_1 = require("../../modules/c-modules/item-codes/entities/item-code.entity");
-const sensor_type_entity_1 = require("../../modules/c-modules/sensor-types/entities/sensor-type.entity");
-const test_session_entity_1 = require("../../modules/d-modules/test-automation/entities/test-session.entity");
-const test_device_run_entity_1 = require("../../modules/d-modules/test-automation/entities/test-device-run.entity");
-const test_packet_log_entity_1 = require("../../modules/d-modules/test-automation/entities/test-packet-log.entity");
-const test_evidence_entity_1 = require("../../modules/d-modules/test-automation/entities/test-evidence.entity");
-const test_result_entity_1 = require("../../modules/c-modules/traceability/entities/test-result.entity");
-const raw_data3_entity_1 = require("../../modules/c-modules/traceability/entities/raw-data3.entity");
-const memmap_payload_entity_1 = require("../../modules/c-modules/memmap-upload/entities/memmap-payload.entity");
-const memmap_reg_entity_1 = require("../../modules/c-modules/memmap-upload/entities/memmap-reg.entity");
-const final_config_preset_entity_1 = require("../../modules/c-modules/create-final-config/entities/final-config-preset.entity");
-const final_config_reg_entity_1 = require("../../modules/c-modules/create-final-config/entities/final-config-reg.entity");
-const final_config_sn_entity_1 = require("../../modules/c-modules/final-config-manager/entities/final-config-sn.entity");
-const final_config_regs_sn_entity_1 = require("../../modules/c-modules/final-config-manager/entities/final-config-regs-sn.entity");
-const device_tested_entity_1 = require("../../modules/c-modules/device-tested/entities/device-tested.entity");
+const user_entity_1 = require("../identity/modules/users/entities/user.entity");
+const role_entity_1 = require("../identity/modules/roles-permissions/entities/role.entity");
+const permission_entity_1 = require("../identity/modules/roles-permissions/entities/permission.entity");
+const core_plugin_entity_1 = require("../core-models/core-plugin.entity");
+const plugin_audit_log_entity_1 = require("../core-models/plugin-audit-log.entity");
+const unified_device_entity_1 = require("../core-models/unified-device.entity");
 exports.ALL_DATABASE_ENTITIES = [
     user_entity_1.User,
     role_entity_1.Role,
     permission_entity_1.Permission,
-    network_server_entity_1.NetworkServerEntity,
-    application_entity_1.ApplicationEntity,
-    device_entity_1.DeviceEntity,
-    gateway_entity_1.GatewayEntity,
-    telemetry_entity_1.TelemetryEntity,
-    decoder_entity_1.DecoderEntity,
-    webhook_log_entity_1.WebhookLogEntity,
-    hmi_screen_entity_1.HmiScreenEntity,
-    downlink_log_entity_1.DownlinkLogEntity,
-    modbus_preset_entity_1.ModbusPresetEntity,
-    test_template_entity_1.TestTemplateEntity,
-    test_assertion_entity_1.TestAssertionEntity,
-    sales_order_entity_1.SalesOrderEntity,
-    sales_order_item_entity_1.SalesOrderItemEntity,
-    item_code_entity_1.ItemCodeEntity,
-    sensor_type_entity_1.SensorTypeEntity,
-    test_session_entity_1.TestSessionEntity,
-    test_device_run_entity_1.TestDeviceRunEntity,
-    test_packet_log_entity_1.TestPacketLogEntity,
-    test_evidence_entity_1.TestEvidenceEntity,
-    test_result_entity_1.TestResultEntity,
-    raw_data3_entity_1.RawData3Entity,
-    memmap_payload_entity_1.MemmapPayloadEntity,
-    memmap_reg_entity_1.MemmapRegEntity,
-    final_config_preset_entity_1.FinalConfigPresetEntity,
-    final_config_reg_entity_1.FinalConfigRegEntity,
-    final_config_sn_entity_1.FinalConfigSnEntity,
-    final_config_regs_sn_entity_1.FinalConfigRegsSnEntity,
-    device_tested_entity_1.DeviceTestedEntity,
+    core_plugin_entity_1.CorePluginEntity,
+    plugin_audit_log_entity_1.PluginAuditLogEntity,
+    unified_device_entity_1.UnifiedDeviceEntity,
 ];
 let DynamicDatabaseService = DynamicDatabaseService_1 = class DynamicDatabaseService {
     constructor() {

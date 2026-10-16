@@ -4,7 +4,7 @@ import { DynamicDatabaseService } from './dynamic-database.service';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../common/guards/permissions.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
-import { UserType } from '../../modules/users/entities/user.entity';
+import { UserType } from '../identity/modules/users/entities/user.entity';
 
 @ApiTags('Database Health & Dynamic Routing (Super Admin Only)')
 @ApiBearerAuth()

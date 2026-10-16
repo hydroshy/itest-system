@@ -16,7 +16,7 @@ const dynamic_database_service_1 = require("./dynamic-database.service");
 const jwt_auth_guard_1 = require("../../common/guards/jwt-auth.guard");
 const permissions_guard_1 = require("../../common/guards/permissions.guard");
 const roles_decorator_1 = require("../../common/decorators/roles.decorator");
-const user_entity_1 = require("../../modules/users/entities/user.entity");
+const user_entity_1 = require("../identity/modules/users/entities/user.entity");
 let DatabaseController = class DatabaseController {
     constructor(dbService) {
         this.dbService = dbService;

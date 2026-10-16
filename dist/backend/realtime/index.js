@@ -16,6 +16,6 @@ var __exportStar = (this && this.__exportStar) || function(m, exports) {
 Object.defineProperty(exports, "__esModule", { value: true });
 __exportStar(require("./realtime-subsystem.module"), exports);
 __exportStar(require("./realtime-diagnostic.service"), exports);
-__exportStar(require("../../modules/realtime/realtime.service"), exports);
-__exportStar(require("../../modules/realtime/realtime.gateway"), exports);
+__exportStar(require("./modules/realtime/realtime.service"), exports);
+__exportStar(require("./modules/realtime/realtime.gateway"), exports);
 //# sourceMappingURL=index.js.map

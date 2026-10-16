@@ -8,11 +8,11 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.IdentitySubsystemModule = void 0;
 const common_1 = require("@nestjs/common");
-const auth_module_1 = require("../../modules/auth/auth.module");
-const users_module_1 = require("../../modules/users/users.module");
-const roles_module_1 = require("../../modules/roles-permissions/roles.module");
-const admin_panel_module_1 = require("../../modules/admin-panel/admin-panel.module");
-const user_panel_module_1 = require("../../modules/user-panel/user-panel.module");
+const auth_module_1 = require("./modules/auth/auth.module");
+const users_module_1 = require("./modules/users/users.module");
+const roles_module_1 = require("./modules/roles-permissions/roles.module");
+const admin_panel_module_1 = require("./modules/admin-panel/admin-panel.module");
+const user_panel_module_1 = require("./modules/user-panel/user-panel.module");
 const identity_diagnostic_service_1 = require("./identity-diagnostic.service");
 let IdentitySubsystemModule = class IdentitySubsystemModule {
 };

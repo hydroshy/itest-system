@@ -1,177 +1,165 @@
-# LoRaWAN Network & IoT Platform - NestJS Backend (Dynamic PostgreSQL & RBAC)
+# ITEST Universal IoT & Industrial Communication Platform - Micro-kernel Core Backbone
 
-Hệ thống Backend chuẩn doanh nghiệp xây dựng trên **NestJS Framework**, thiết kế chuyên biệt cho hệ sinh thái **LoRaWAN Network Server & Application Server** (tương tự như Datacake, The Things Network - TTN, ThingPark).
-
----
-
-## 🌟 Tính Năng Cốt Lõi (Key Features)
-
-### 1. 🗄️ Dynamic Database Routing (Cấu hình PostgreSQL động theo từng Bảng)
-* Cho phép định cấu hình linh hoạt file JSON/environment để **từng bảng (Table/Entity)** có thể nằm ở các **PostgreSQL Database khác nhau** (hoặc khác Host/IP).
-* Ví dụ:
-  * Bảng `users`, `roles`, `permissions`, `applications`, `devices` nằm ở `core_db`.
-  * Bảng `gateways` nằm ở `gateway_db` (Dedicated Gateway Server).
-  * Bảng `uplink_telemetry` (chứa triệu records dữ liệu cảm biến) nằm ở `lorawan_telemetry_db` (Dedicated Time-Series/High-Write DB).
-* Quản lý kết nối tập trung qua `DynamicDatabaseService` và tự động khôi phục / nạp lại cấu hình hot-reload.
-
-### 2. 🔐 Hệ Thống Phân Quyền Hạn Đa Cấp (Granular RBAC & Sub-Admin Management)
-* **Super Admin (Admin chính)**: Toàn quyền cấu hình hệ thống, nạp lại cấu hình Database, tạo Admin phụ, set Role và gán quyền trực tiếp cho từng user.
-* **Sub-Admin (Admin phụ)**: Quản lý tập khách hàng/User, thiết bị LoRaWAN và Gateway được phân công, không được sửa các quyền hệ thống cao cấp.
-* **User / Tenant User**: Quản lý Application, Device, Gateway của chính mình và xem telemetry dữ liệu đo đạc.
-* **Roles & Permissions Matrix**: Phân quyền chi tiết dạng `<module>:<action>` (Ví dụ: `users:create`, `lorawan:device:manage`, `lorawan:telemetry:read`).
-
-### 3. 📡 LoRaWAN Application Server & JavaScript Payload Formatter (Datacake / TTN Model)
-* Quản lý **Applications**, **Devices** (DevEUI, JoinEUI, AppKey, NwkSKey, AppSKey, OTAA / ABP, Class A/B/C).
-* Quản lý **Gateways** (GatewayEUI, GPS Latitude/Longitude/Altitude, Trạng thái Online/Offline).
-* **Payload Formatter JS Engine**: Tích hợp trình thực thi JavaScript trong sandbox (Node.js `vm`) hỗ trợ viết script giải mã gói tin thô Hex (uplink hex) sang JSON chuẩn Datacake/TTN:
-  ```javascript
-  function decodeUplink(input) {
-    var bytes = input.bytes;
-    var temp = ((bytes[0] << 8) | bytes[1]) / 10.0;
-    var humidity = bytes[2];
-    return {
-      data: { temperature: temp, humidity: humidity }
-    };
-  }
-  ```
-
-### 4. 🎛️ Control Panel Admin & User
-* **Admin Control Panel**: Thống kê tổng quan toàn hệ thống, danh sách Sub-Admin/Users, theo dõi trạng thái các kết nối Database Node (core_db, telemetry_db, gateway_db).
-* **User Control Panel**: Dashboard cá nhân cho End-User theo dõi số lượng thiết bị, Application và biểu đồ telemetry.
+Nền tảng lõi tối giản (**Micro-kernel Core Backbone**) xây dựng trên **NestJS Framework** (Backend) và **Vue 3 + Vite App Shell** (Frontend), thiết kế theo triết lý Micro-kernel:
+- **Lõi hệ thống (itest-system)** chỉ duy trì hạ tầng thiết yếu: Dynamic Database Router, Granular Multi-tenant RBAC, Event Bus, Plugin Manager & Dynamic Loader, Hardware Bus Lock và Web Shell.
+- **Hệ sinh thái Plugin (itest-plugins)**: Toàn bộ giao thức công nghiệp (LoRaWAN, Modbus RTU/TCP, MQTT), bộ giải mã codec payload, adapter phần cứng, và giao diện mở rộng được đóng gói thành các plugin độc lập tuân thủ chuẩn vòng đời `IPluginLifecycle`.
 
 ---
 
-## 📁 Cấu Trúc Dự Án (Project Architecture)
+## 🌟 Tính Năng Cốt Lõi (Core Backbone Capabilities)
 
-```text
-Daviteq/
-├── config/
-│   └── db-routing.config.json   # File cấu hình động Router Database theo từng bảng
+### 1. 🗄️ Dynamic Database Routing (Định tuyến CSDL động theo bảng & tenant)
+* Hỗ trợ cấu hình linh hoạt để từng bảng (Table/Entity) hoặc từng Tenant có thể nằm ở các **PostgreSQL Database khác nhau** (hoặc khác Host/IP/Port/Schema).
+* Quản lý kết nối tập trung qua `DynamicDatabaseService`, hỗ trợ hot-reload cấu hình mà không cần khởi động lại toàn bộ tiến trình.
+* Phân lập dữ liệu triệt để, không thiết lập quan hệ cứng hoặc ràng buộc CASCADE xuyên schema/database.
+
+### 2. 🔐 Hệ Thống Phân Quyền Hạn Đa Cấp (Granular RBAC & Multi-tenant)
+* **Super Admin**: Quản trị cấu hình hệ thống, quản lý plugin registry, quản trị database router và phân bổ tài nguyên.
+* **Tenant Admin / Sub-Admin**: Quản lý người dùng, ứng dụng, thiết bị và cấu hình plugin trong phạm vi tenant.
+* **Standard User / Operator**: Vận hành thiết bị, giám sát telemetry, xem dashboard và gửi lệnh điều khiển trong phạm vi quyền hạn.
+* **Ma trận Roles & Permissions**: Định nghĩa quyền hạn chi tiết theo dạng `<module>:<action>` (ví dụ: `devices:read`, `plugins:manage`, `telemetry:export`).
+
+### 3. 🔌 Plugin Management & Runtime Sandbox (Quản trị & Nạp Plugin Động)
+* **Plugin Registry & Manifest Verification**: Quản lý metadata, versioning, permissions, dependencies và kiểm tra tính toàn vẹn (SRI hash).
+* **Chuẩn hóa vòng đời IPluginLifecycle**: Bắt buộc các plugin triển khai đầy đủ các hook vòng đời: `init()`, `mount()`, `unmount()`, `dispose()`.
+* **Dynamic Loader & Sandbox Execution**: Nạp và thực thi plugin an toàn, có cô lập tài nguyên, timeout và kiểm soát quyền truy cập hệ thống.
+* **Extension Points & UI Slots**: Cung cấp các điểm gắn kết trên App Shell (Navigation, Dashboard, Device Details, Settings) để plugin frontend tự động đăng ký giao diện.
+
+### 4. ⚡ Event Bus & Realtime Communication
+* Event Bus bất đồng bộ nội bộ kết nối lõi với các plugin giao thức và connector.
+* WebSocket Gateway phân phối sự kiện và dữ liệu thời gian thực tới frontend theo các kênh đăng ký (Topic/Room).
+* Half-duplex Bus Lock: Cơ chế khóa điều phối tuần tự kèm độ trễ an toàn dành cho các giao tiếp phần cứng nửa song công (RS485, Serial Bus).
+
+---
+
+## 🏗️ Kiến Trúc Hệ Thống (Architecture Overview)
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                           ITEST APP SHELL (UI)                          │
+│     (Vue 3, Pinia, Dynamic Plugin Loader, Extension Slot Registry)      │
+└────────────────────────────────────┬────────────────────────────────────┘
+                                     │ HTTP / WebSocket
+┌────────────────────────────────────▼────────────────────────────────────┐
+│                    ITEST-SYSTEM (MICRO-KERNEL CORE)                     │
+│  ┌─────────────────────────┐  ┌──────────────────────────────────────┐  │
+│  │ Identity & RBAC Engine  │  │ Dynamic Database Router (PostgreSQL) │  │
+│  └─────────────────────────┘  └──────────────────────────────────────┘  │
+│  ┌─────────────────────────┐  ┌──────────────────────────────────────┐  │
+│  │ Plugin Manager & Loader │  │ Unified Event Bus & Realtime Engine  │  │
+│  └─────────────────────────┘  └──────────────────────────────────────┘  │
+│  ┌─────────────────────────┐  ┌──────────────────────────────────────┐  │
+│  │ HalfDuplex HardwareLock │  │ Subsystem Diagnostics & Audit Log    │  │
+│  └─────────────────────────┘  └──────────────────────────────────────┘  │
+└────────────────────────────────────┬────────────────────────────────────┘
+                                     │ Plugin SDK / Event Bus / Contracts
+┌────────────────────────────────────▼────────────────────────────────────┐
+│                    ITEST-PLUGINS (STANDALONE PLUGINS)                   │
+│  ┌─────────────────────────┐  ┌──────────────────────────────────────┐  │
+│  │ Protocol & Connectors   │  │ Hardware & Serial Adapters           │  │
+│  │ (Modbus, MQTT, LoRaWAN) │  │ (Web Serial, USB-UART, RS485)        │  │
+│  └─────────────────────────┘  └──────────────────────────────────────┘  │
+│  ┌─────────────────────────┐  ┌──────────────────────────────────────┐  │
+│  │ Payload Codecs          │  │ Application Extensions               │  │
+│  │ (Decoders, Encoders)    │  │ (Telemetry, Alarms, Device Manager)  │  │
+│  └─────────────────────────┘  └──────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## 📂 Cấu Trúc Thư Mục (Directory Structure)
+
+```
+itest-system/
+├── frontend/                     # Vue 3 App Shell & Micro-Frontend Host
+│   ├── src/
+│   │   ├── api/                  # Core API clients
+│   │   ├── components/           # Core layout & ExtensionSlot components
+│   │   ├── plugins/              # Dynamic plugin runtime loader
+│   │   ├── router/               # Dynamic routes
+│   │   └── views/                # Core platform views (Login, System Admin, Plugins)
+│   └── package.json
 ├── src/
-│   ├── common/
-│   │   ├── decorators/          # @CurrentUser(), @Roles(), @RequirePermissions()
-│   │   └── guards/              # JwtAuthGuard, PermissionsGuard
-│   ├── modules/
-│   │   ├── database/            # DynamicDatabaseModule & DynamicDatabaseService
-│   │   ├── auth/                # AuthModule, JWT Strategy, Login/Register
-│   │   ├── users/               # UsersModule (Admin, Sub-Admin, Users management)
-│   │   ├── roles-permissions/   # RolesModule & Permissions Matrix
-│   │   ├── lorawan/             # Application, Device, Gateway, Telemetry, JS Decoder
-│   │   │   ├── applications/
-│   │   │   ├── devices/
-│   │   │   ├── gateways/
-│   │   │   ├── telemetry/
-│   │   │   └── payload-formatters/
-│   │   ├── admin-panel/         # Admin System Dashboard & Connection Inspector
-│   │   └── user-panel/          # User Dashboard & Device Monitoring
-│   ├── app.module.ts
-│   └── main.ts
+│   ├── backend/
+│   │   ├── common/               # Subsystem logging, interceptors, base types
+│   │   ├── core-models/          # Core entity definitions (Plugins, Audit, Unified Device)
+│   │   ├── database/             # Dynamic Database Router & In-memory cache
+│   │   ├── identity/             # Auth, User, Role, Permission & RBAC
+│   │   ├── plugins/              # Plugin Registry, Sandbox Manager, Lifecycle Hooks
+│   │   ├── backend-diagnostics.controller.ts
+│   │   ├── backend.module.ts     # Core backend root aggregator
+│   │   └── index.ts
+│   ├── app.module.ts             # NestJS root application module
+│   └── main.ts                   # Entry point (Bootstrap, Swagger, CORS, Validation)
 ├── package.json
 └── README.md
 ```
 
 ---
 
-## ⚙️ Cấu Hình File Database Động (`config/db-routing.config.json`)
+## 🚀 Hướng Dẫn Cài Đặt & Khởi Chạy (Quick Start)
 
-Bạn có thể thêm bớt kết nối DB hoặc chuyển bảng sang DB khác chỉ bằng cách chỉnh sửa file cấu hình:
+### Yêu Cầu Môi Trường
+* Node.js: >= 20.x
+* pnpm: >= 9.x
+* PostgreSQL: >= 15.x
 
-```json
-{
-  "default_connection": "core_db",
-  "connections": {
-    "core_db": {
-      "host": "localhost",
-      "port": 5432,
-      "username": "postgres",
-      "password": "postgres_password",
-      "database": "lorawan_core",
-      "poolSize": 10
-    },
-    "lorawan_telemetry_db": {
-      "host": "telemetry-db-host",
-      "port": 5432,
-      "username": "postgres",
-      "password": "postgres_password",
-      "database": "lorawan_telemetry",
-      "poolSize": 20
-    },
-    "gateway_db": {
-      "host": "gateway-db-host",
-      "port": 5432,
-      "username": "postgres",
-      "password": "postgres_password",
-      "database": "lorawan_gateways",
-      "poolSize": 10
-    }
-  },
-  "table_routes": {
-    "users": "core_db",
-    "roles": "core_db",
-    "permissions": "core_db",
-    "applications": "core_db",
-    "devices": "core_db",
-    "gateways": "gateway_db",
-    "uplink_telemetry": "lorawan_telemetry_db"
-  }
-}
-```
-
----
-
-## 🚀 Hướng Dẫn Khởi Chạy (Getting Started)
-
-### 1. Cài đặt các gói phụ thuộc (Dependencies)
+### 1. Cài đặt Dependencies
 ```bash
-npm install
+# Cài đặt dependencies cho backend và frontend
+pnpm install
 ```
 
-### 2. Chuẩn bị PostgreSQL Database
-Tạo các cơ sở dữ liệu tương ứng trong PostgreSQL (ví dụ `lorawan_core`, `lorawan_telemetry`, `lorawan_gateways`) hoặc chỉ định chung 1 DB nếu khởi tạo thử nghiệm ban đầu.
+### 2. Cấu hình Môi trường (.env)
+Tạo file `.env` dựa trên `.env.example`:
+```env
+PORT=3000
+NODE_ENV=development
 
-### 3. Khởi chạy ở môi trường Development
+# JWT Secret
+JWT_SECRET=your-super-secret-key-change-in-production
+JWT_EXPIRES_IN=7d
+
+# Database Configuration (Master / Routing)
+DB_HOST=127.0.0.1
+DB_PORT=5432
+DB_USER=postgres
+DB_PASSWORD=your_password
+DB_NAME=itest_core_db
+```
+
+### 3. Khởi chạy Hệ thống
 ```bash
-npm run start:dev
+# Chạy NestJS Backend chế độ Development
+pnpm run start:dev
+
+# Chạy App Shell Frontend (trong thư mục frontend)
+cd frontend
+pnpm run dev
 ```
 
-### 4. Tài khoản Quản trị viên Khởi tạo (Default Super Admin)
-Hệ thống tự động khởi tạo (auto-seed) tài khoản Super Admin với quyền hạn cao nhất:
-* **Tên đăng nhập (Username)**: `admin`
-* **Mật khẩu (Password)**: `Dvt@123`
-* **Email**: `admin@daviteq.com`
-* **Vai trò (Role)**: `SUPER_ADMIN` (đầy đủ toàn bộ permissions ma trận `users:*`, `lorawan:*`, `admin:*`)
-
-### 5. Truy cập Web Control Panel & Swagger Docs
-* **Trang chủ (`http://localhost:3000/`)**: Tự động chuyển hướng (Redirect 302) về trang đăng nhập `/login`.
-* **Trang Đăng nhập Control Panel**: `http://localhost:3000/login`
-* **Trang Quản trị Control Panel**: `http://localhost:3000/control-panel`
-* **Swagger API UI**: `http://localhost:3000/api/docs`
+* API Backend & Swagger Docs: `http://localhost:3000/api/docs`
+* Frontend App Shell: `http://localhost:5173`
 
 ---
 
-## 📌 Các Route API & Webhook Quan Trọng (Primary Endpoints)
+## 🧪 Kiểm Thử (Testing & Quality Gate)
 
-| Module | Method | Endpoint | Mô tả |
-|---|---|---|---|
-| **Web** | GET | `/` | Chuyển hướng (302) trực tiếp về `/login` |
-| **Web** | GET | `/login` | Giao diện Đăng nhập Control Panel (HTML) |
-| **Web** | GET | `/control-panel` | Giao diện Web Control Panel quản trị toàn diện |
-| **Auth** | POST | `/auth/login` | Đăng nhập lấy JWT Bearer Token |
-| **Auth** | GET | `/auth/profile` | Xem thông tin User đăng nhập & danh sách quyền |
-| **Auth** | POST | `/auth/init-superadmin` | Khởi tạo / cập nhật tài khoản Super Admin |
-| **Admin** | GET | `/admin-panel/dashboard` | Thống kê Admin & trạng thái kết nối các DB pool |
-| **Admin** | POST | `/admin-panel/reload-db-config` | Reload cấu hình DB động không cần restart server |
-| **Users** | POST | `/users` | Tạo mới User / Admin phụ (Sub-Admin) |
-| **Users** | PUT | `/users/:id/permissions` | Set vai trò (Roles) và cấp quyền riêng (Direct Permissions) |
-| **LoRaWAN** | POST | `/lorawan/devices` | Đăng ký thiết bị LoRaWAN (DevEUI, OTAA/ABP) |
-| **LoRaWAN** | PUT | `/lorawan/devices/:devEUI/payload-formatter` | Cập nhật script JS Decode payload cho thiết bị |
-| **Webhook** | POST | `/lorawan/webhook/chirpstack` | Webhook nhận gói tin từ ChirpStack v3/v4 và lưu DB |
-| **Webhook** | POST | `/lorawan/webhook/thingpark` | Webhook nhận gói tin từ ThingPark Wireless và lưu DB |
-| **LoRaWAN** | POST | `/lorawan/uplink` | Webhook nhận gói tin thô Uplink Hex & tự giải mã |
-| **LoRaWAN** | POST | `/lorawan/payload-formatter/test` | Test nhanh script Javascript Decoder (Datacake style) |
-| **LoRaWAN** | GET | `/lorawan/telemetry` | Xem danh sách dữ liệu Telemetry nhận từ Webhooks |
+Mọi thay đổi trên Core Backbone phải vượt qua 100% các bài kiểm thử đơn vị và tích hợp:
+
+```bash
+# Chạy unit tests
+pnpm run test
+
+# Kiểm tra linting và formatting
+pnpm run lint
+
+# Build production artifacts
+pnpm run build
+```
 
 ---
 
-## 🛡️ License
-Dự án được bảo hộ theo giấy phép MIT.
+## 📜 Giấy Phép (License)
+Phát triển bởi đội ngũ kỹ thuật ITEST. Bản quyền thuộc về ITEST Platform.

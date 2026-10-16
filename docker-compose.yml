@@ -60,29 +60,16 @@ services:
     networks:
       - lorawan_net
 
-  ops_agent:
+  frontend:
     build:
       context: .
-      dockerfile: Dockerfile.ops-agent
-    container_name: daviteq_ops_agent
+      dockerfile: frontend/Dockerfile
+    container_name: itest_frontend
     restart: always
     ports:
-      - "3099:3099"
-    environment:
-      - PORT=3099
-      - TARGET_CONTAINER_NAME=nest_lorawan_app
-      - REPO_DIR=/app/repo
-      - DB_HOST=postgres_db
-      - DB_PORT=5432
-      - DB_USERNAME=${DB_USERNAME:-admin}
-      - DB_PASSWORD=${DB_PASSWORD:-mason}
-      - DB_DATABASE=${DB_NAME:-dvt}
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
-      - .:/app/repo:ro
+      - "8080:80"
     depends_on:
-      postgres_db:
-        condition: service_healthy
+      - app
     networks:
       - lorawan_net
 

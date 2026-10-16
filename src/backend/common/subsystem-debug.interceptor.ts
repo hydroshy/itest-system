@@ -26,40 +26,14 @@ export class SubsystemDebugInterceptor implements NestInterceptor {
       return BackendSubsystem.DATABASE;
     }
     if (
-      cleanUrl.includes('/lorawan') ||
-      cleanUrl.includes('/network-servers') ||
-      cleanUrl.includes('/webhook')
-    ) {
-      return BackendSubsystem.LORAWAN;
-    }
-    if (
-      cleanUrl.includes('/sales-orders') ||
-      cleanUrl.includes('/item-codes') ||
-      cleanUrl.includes('/sensor-types')
-    ) {
-      return BackendSubsystem.ORDER_MANAGEMENT;
-    }
-    if (
-      cleanUrl.includes('/test-run') ||
-      cleanUrl.includes('/test-builder') ||
-      cleanUrl.includes('/decoder') ||
-      cleanUrl.includes('/test-automation')
-    ) {
-      return BackendSubsystem.TEST_AUTOMATION;
-    }
-    if (
       cleanUrl.includes('/auth') ||
       cleanUrl.includes('/users') ||
       cleanUrl.includes('/roles')
     ) {
       return BackendSubsystem.IDENTITY;
     }
-    if (
-      cleanUrl.includes('/modbus') ||
-      cleanUrl.includes('/hmi') ||
-      cleanUrl.includes('/overview')
-    ) {
-      return BackendSubsystem.INDUSTRIAL_IOT;
+    if (cleanUrl.includes('/plugins')) {
+      return BackendSubsystem.PLUGINS;
     }
     if (cleanUrl.includes('/realtime') || cleanUrl.includes('/socket.io')) {
       return BackendSubsystem.REALTIME;

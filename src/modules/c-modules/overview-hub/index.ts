@@ -1,6 +1,0 @@
-export const C_OVERVIEW_HUB = {
-  id: 'c-overview-hub',
-  code: 'C_MOD_OVERVIEW',
-  title: 'Overview Hub',
-  description: 'System-wide summary metrics, engine health, and quick navigation cards.',
-};

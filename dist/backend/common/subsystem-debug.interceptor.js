@@ -21,31 +21,13 @@ let SubsystemDebugInterceptor = SubsystemDebugInterceptor_1 = class SubsystemDeb
         if (cleanUrl.includes('/database')) {
             return subsystem_types_1.BackendSubsystem.DATABASE;
         }
-        if (cleanUrl.includes('/lorawan') ||
-            cleanUrl.includes('/network-servers') ||
-            cleanUrl.includes('/webhook')) {
-            return subsystem_types_1.BackendSubsystem.LORAWAN;
-        }
-        if (cleanUrl.includes('/sales-orders') ||
-            cleanUrl.includes('/item-codes') ||
-            cleanUrl.includes('/sensor-types')) {
-            return subsystem_types_1.BackendSubsystem.ORDER_MANAGEMENT;
-        }
-        if (cleanUrl.includes('/test-run') ||
-            cleanUrl.includes('/test-builder') ||
-            cleanUrl.includes('/decoder') ||
-            cleanUrl.includes('/test-automation')) {
-            return subsystem_types_1.BackendSubsystem.TEST_AUTOMATION;
-        }
         if (cleanUrl.includes('/auth') ||
             cleanUrl.includes('/users') ||
             cleanUrl.includes('/roles')) {
             return subsystem_types_1.BackendSubsystem.IDENTITY;
         }
-        if (cleanUrl.includes('/modbus') ||
-            cleanUrl.includes('/hmi') ||
-            cleanUrl.includes('/overview')) {
-            return subsystem_types_1.BackendSubsystem.INDUSTRIAL_IOT;
+        if (cleanUrl.includes('/plugins')) {
+            return subsystem_types_1.BackendSubsystem.PLUGINS;
         }
         if (cleanUrl.includes('/realtime') || cleanUrl.includes('/socket.io')) {
             return subsystem_types_1.BackendSubsystem.REALTIME;

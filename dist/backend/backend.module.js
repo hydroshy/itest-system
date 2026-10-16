@@ -10,12 +10,9 @@ exports.BackendModule = void 0;
 const common_1 = require("@nestjs/common");
 const core_1 = require("@nestjs/core");
 const dynamic_database_module_1 = require("./database/dynamic-database.module");
-const lorawan_subsystem_module_1 = require("./lorawan/lorawan-subsystem.module");
-const order_management_module_1 = require("./order-management/order-management.module");
-const test_automation_subsystem_module_1 = require("./test-automation/test-automation-subsystem.module");
 const identity_subsystem_module_1 = require("./identity/identity-subsystem.module");
-const industrial_iot_subsystem_module_1 = require("./industrial-iot/industrial-iot-subsystem.module");
 const realtime_subsystem_module_1 = require("./realtime/realtime-subsystem.module");
+const plugin_management_module_1 = require("./plugins/plugin-management.module");
 const backend_diagnostics_controller_1 = require("./backend-diagnostics.controller");
 const subsystem_debug_interceptor_1 = require("./common/subsystem-debug.interceptor");
 let BackendModule = class BackendModule {
@@ -25,12 +22,9 @@ exports.BackendModule = BackendModule = __decorate([
     (0, common_1.Module)({
         imports: [
             dynamic_database_module_1.DatabaseSubsystemModule,
-            lorawan_subsystem_module_1.LorawanSubsystemModule,
-            order_management_module_1.OrderManagementSubsystemModule,
-            test_automation_subsystem_module_1.TestAutomationSubsystemModule,
             identity_subsystem_module_1.IdentitySubsystemModule,
-            industrial_iot_subsystem_module_1.IndustrialIotSubsystemModule,
             realtime_subsystem_module_1.RealtimeSubsystemModule,
+            plugin_management_module_1.PluginManagementModule,
         ],
         controllers: [backend_diagnostics_controller_1.BackendDiagnosticsController],
         providers: [
@@ -41,12 +35,9 @@ exports.BackendModule = BackendModule = __decorate([
         ],
         exports: [
             dynamic_database_module_1.DatabaseSubsystemModule,
-            lorawan_subsystem_module_1.LorawanSubsystemModule,
-            order_management_module_1.OrderManagementSubsystemModule,
-            test_automation_subsystem_module_1.TestAutomationSubsystemModule,
             identity_subsystem_module_1.IdentitySubsystemModule,
-            industrial_iot_subsystem_module_1.IndustrialIotSubsystemModule,
             realtime_subsystem_module_1.RealtimeSubsystemModule,
+            plugin_management_module_1.PluginManagementModule,
         ],
     })
 ], BackendModule);

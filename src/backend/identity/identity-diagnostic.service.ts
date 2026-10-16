@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { SubsystemHealthStatus, BackendSubsystem } from '../common/subsystem.types';
-import { UsersService } from '../../modules/users/users.service';
-import { RolesService } from '../../modules/roles-permissions/roles.service';
+import { UsersService } from './modules/users/users.service';
+import { RolesService } from './modules/roles-permissions/roles.service';
 
 @Injectable()
 export class IdentityDiagnosticService {

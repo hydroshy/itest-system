@@ -20,10 +20,8 @@ __exportStar(require("./common/subsystem.types"), exports);
 __exportStar(require("./common/subsystem-logger.service"), exports);
 __exportStar(require("./common/subsystem-debug.interceptor"), exports);
 __exportStar(require("./database"), exports);
-__exportStar(require("./lorawan"), exports);
-__exportStar(require("./order-management"), exports);
-__exportStar(require("./test-automation"), exports);
 __exportStar(require("./identity"), exports);
-__exportStar(require("./industrial-iot"), exports);
 __exportStar(require("./realtime"), exports);
+__exportStar(require("./plugins"), exports);
+__exportStar(require("./core-models"), exports);
 //# sourceMappingURL=index.js.map

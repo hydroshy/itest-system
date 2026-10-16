@@ -12,8 +12,8 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.IdentityDiagnosticService = void 0;
 const common_1 = require("@nestjs/common");
 const subsystem_types_1 = require("../common/subsystem.types");
-const users_service_1 = require("../../modules/users/users.service");
-const roles_service_1 = require("../../modules/roles-permissions/roles.service");
+const users_service_1 = require("./modules/users/users.service");
+const roles_service_1 = require("./modules/roles-permissions/roles.service");
 let IdentityDiagnosticService = class IdentityDiagnosticService {
     constructor(usersService, rolesService) {
         this.usersService = usersService;
