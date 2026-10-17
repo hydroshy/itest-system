@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, ForbiddenException, OnModuleInit, OnApplicationBootstrap, Logger } from '@nestjs/common';
 import { In } from 'typeorm';
-import { DynamicDatabaseService } from '../../../database/modules/database/dynamic-database.service';
+import { DynamicDatabaseService } from '../../../database/dynamic-database.service';
 import { Role } from './entities/role.entity';
 import { Permission } from './entities/permission.entity';
 

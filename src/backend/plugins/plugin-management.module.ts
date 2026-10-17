@@ -1,5 +1,5 @@
 import { Module } from '@nestjs/common';
-import { DynamicDatabaseModule } from '../database/modules/database/dynamic-database.module';
+import { DynamicDatabaseModule } from '../database/dynamic-database.module';
 import { RealtimeModule } from '../realtime/modules/realtime/realtime.module';
 import { PluginStorageService } from './plugin-storage.service';
 import { PluginManagerService } from './plugin-manager.service';

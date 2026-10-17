@@ -1,7 +1,7 @@
 import { Injectable, ConflictException, NotFoundException, ForbiddenException } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
 import { In } from 'typeorm';
-import { DynamicDatabaseService } from '../../../database/modules/database/dynamic-database.service';
+import { DynamicDatabaseService } from '../../../database/dynamic-database.service';
 import { User, UserType } from './entities/user.entity';
 import { Role } from '../roles-permissions/entities/role.entity';
 import { Permission } from '../roles-permissions/entities/permission.entity';

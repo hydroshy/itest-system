@@ -1,7 +1,7 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
-import { DynamicDatabaseService } from '../../../database/modules/database/dynamic-database.service';
+import { DynamicDatabaseService } from '../../../database/dynamic-database.service';
 import { User } from '../users/entities/user.entity';
 
 export interface JwtPayload {

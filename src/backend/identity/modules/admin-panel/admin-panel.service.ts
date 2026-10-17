@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { DynamicDatabaseService } from '../../../database/modules/database/dynamic-database.service';
+import { DynamicDatabaseService } from '../../../database/dynamic-database.service';
 
 @Injectable()
 export class AdminPanelService {

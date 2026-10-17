@@ -1,7 +1,7 @@
 import { Injectable, Logger, OnModuleInit, Optional } from '@nestjs/common';
 import * as crypto from 'crypto';
 import * as path from 'path';
-import { DynamicDatabaseService } from '../database/modules/database/dynamic-database.service';
+import { DynamicDatabaseService } from '../database/dynamic-database.service';
 import { RealtimeService } from '../realtime/modules/realtime/realtime.service';
 import { PluginStorageService } from './plugin-storage.service';
 import { CorePluginEntity, PluginAuditLogEntity } from '../core-models';

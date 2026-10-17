@@ -1,7 +1,7 @@
 import { Injectable, UnauthorizedException, ConflictException, Logger, OnModuleInit, OnApplicationBootstrap, Inject, forwardRef } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
-import { DynamicDatabaseService } from '../../../database/modules/database/dynamic-database.service';
+import { DynamicDatabaseService } from '../../../database/dynamic-database.service';
 import { User, UserType } from '../users/entities/user.entity';
 import { Role } from '../roles-permissions/entities/role.entity';
 import { Permission } from '../roles-permissions/entities/permission.entity';
