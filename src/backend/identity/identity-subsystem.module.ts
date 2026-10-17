@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { DynamicDatabaseModule } from '../database/dynamic-database.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { UsersModule } from './modules/users/users.module';
 import { RolesModule } from './modules/roles-permissions/roles.module';
@@ -12,6 +13,7 @@ import { IdentityDiagnosticService } from './identity-diagnostic.service';
  */
 @Module({
   imports: [
+    DynamicDatabaseModule,
     AuthModule,
     UsersModule,
     RolesModule,
@@ -20,6 +22,7 @@ import { IdentityDiagnosticService } from './identity-diagnostic.service';
   ],
   providers: [IdentityDiagnosticService],
   exports: [
+    DynamicDatabaseModule,
     AuthModule,
     UsersModule,
     RolesModule,

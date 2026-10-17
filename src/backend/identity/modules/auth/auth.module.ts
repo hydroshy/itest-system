@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
+import { DynamicDatabaseModule } from '../../../database/dynamic-database.module';
 import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
 import { JwtStrategy } from './jwt.strategy';
@@ -8,6 +9,7 @@ import { RolesModule } from '../roles-permissions/roles.module';
 
 @Module({
   imports: [
+    DynamicDatabaseModule,
     PassportModule,
     RolesModule,
     JwtModule.register({
