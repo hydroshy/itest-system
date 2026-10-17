@@ -124,12 +124,12 @@ PAYLOAD_LIMIT=50mb
 
 JWT_SECRET=Your_Super_Secret_Key_Change_In_Production!
 
-# Kết nối PostgreSQL 17 (schema: system_schema)
+# Kết nối PostgreSQL 17 itest-database (schema: system_schema)
 DB_HOST=localhost
 DB_PORT=5432
 DB_USERNAME=itest_system_user
-DB_PASSWORD=itest_system_secure_pass_2026
-DB_NAME=itest_db
+DB_PASSWORD=system_secret_2026
+DB_NAME=itest_platform
 DB_SYNCHRONIZE=false
 DB_LOGGING=false
 
