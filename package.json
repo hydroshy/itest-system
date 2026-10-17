@@ -1,8 +1,8 @@
 {
-  "name": "nest-lorawan-platform",
+  "name": "@itest/core-system",
   "version": "1.0.0",
-  "description": "NestJS LoRaWAN Network & Application Server Platform with Dynamic PostgreSQL Table-to-DB Routing & RBAC",
-  "author": "Daviteq Platform Team",
+  "description": "ITEST Micro-kernel Core Backbone & Application Server Platform with Dynamic PostgreSQL Table-to-DB Routing & RBAC",
+  "author": "ITEST Platform Team",
   "private": true,
   "license": "MIT",
   "main": "dist/main.js",
@@ -17,6 +17,8 @@
     "start:debug": "nest start --debug --watch",
     "start:prod": "node dist/main.js",
     "check-db": "ts-node src/check-db.ts",
+    "test": "ts-node -r tsconfig-paths/register test/plugin-management-api.spec.ts",
+    "test:entities": "ts-node -r tsconfig-paths/register test/entity-metadata-verification.spec.ts",
     "lint": "eslint \"{src,apps,libs,test}/**/*.ts\" --fix"
   },
   "dependencies": {

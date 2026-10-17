@@ -1,5 +1,5 @@
 {
-  "name": "universal-iot-frontend",
+  "name": "@itest/frontend-shell",
   "version": "1.0.0",
   "private": true,
   "type": "module",

@@ -2,31 +2,30 @@ version: '3.8'
 
 services:
   postgres_db:
-    image: postgres:15-alpine
-    container_name: postgres_db
+    image: postgres:17-alpine
+    container_name: itest_core_postgres
     restart: always
     environment:
-      POSTGRES_USER: ${DB_USERNAME:-admin}
-      POSTGRES_PASSWORD: ${DB_PASSWORD:-mason}
-      POSTGRES_DB: ${DB_NAME:-dvt}
+      POSTGRES_USER: ${DB_USERNAME:-itest_system_user}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-itest_system_secure_pass_2026}
+      POSTGRES_DB: ${DB_NAME:-itest_db}
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ../deploy/database/init:/docker-entrypoint-initdb.d:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-admin} -d ${DB_NAME:-dvt}"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-itest_system_user} -d ${DB_NAME:-itest_db}"]
       interval: 5s
       timeout: 5s
       retries: 5
     networks:
-      - lorawan_net
+      - itest_net
 
-  app:
+  backend:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: nest_lorawan_app
+    container_name: itest_core_backend
     restart: always
     ports:
       - "3000:3000"
@@ -35,16 +34,17 @@ services:
       - NODE_ENV=production
       - DB_HOST=postgres_db
       - DB_PORT=5432
-      - DB_USERNAME=${DB_USERNAME:-admin}
-      - DB_PASSWORD=${DB_PASSWORD:-mason}
-      - DB_NAME=${DB_NAME:-dvt}
+      - DB_USERNAME=${DB_USERNAME:-itest_system_user}
+      - DB_PASSWORD=${DB_PASSWORD:-itest_system_secure_pass_2026}
+      - DB_NAME=${DB_NAME:-itest_db}
       - DB_SYNCHRONIZE=false
-      - JWT_SECRET=${JWT_SECRET:-Production_Super_Secret_Key_Change_Me_2025!}
+      - JWT_SECRET=${JWT_SECRET:-Production_Super_Secret_Key_Change_Me_2026!}
       - DB_ROUTING_CONFIG_PATH=/app/config/db-routing.config.json
-      - OPS_AGENT_URL=http://ops_agent:3099
+      - OPS_AGENT_URL=${OPS_AGENT_URL:-http://ops_agent:3099}
       - PAYLOAD_LIMIT=${PAYLOAD_LIMIT:-50mb}
     volumes:
       - ./config:/app/config
+      - ./storage:/app/storage
     depends_on:
       postgres_db:
         condition: service_healthy
@@ -52,31 +52,19 @@ services:
       - "mas.local:host-gateway"
       - "host.docker.internal:host-gateway"
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:3000/login || exit 1"]
+      test: ["CMD-SHELL", "curl -f http://localhost:3000/api/plugins || exit 1"]
       interval: 30s
       timeout: 5s
       start_period: 15s
       retries: 3
     networks:
-      - lorawan_net
-
-  frontend:
-    build:
-      context: .
-      dockerfile: frontend/Dockerfile
-    container_name: itest_frontend
-    restart: always
-    ports:
-      - "8080:80"
-    depends_on:
-      - app
-    networks:
-      - lorawan_net
-
-networks:
-  lorawan_net:
-    driver: bridge
+      - itest_net
 
 volumes:
   postgres_data:
     driver: local
+
+networks:
+  itest_net:
+    name: itest_net
+    driver: bridge

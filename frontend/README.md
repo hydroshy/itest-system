@@ -1,88 +1,98 @@
-# Universal IoT Platform - Vue 3 Application Shell & Frontend Plugin System
+# @itest/frontend-shell
 
-Industrial-grade Vue 3 Frontend Shell featuring dynamic micro-frontend plugin architecture, multi-tenant switching, RBAC permission guards, and integrated Web Serial hardware communication.
+**ITEST Micro-kernel Frontend Application Shell & Dynamic Plugin Host**
 
-## Key Features
+Kiến trúc Frontend App Shell chuẩn công nghiệp xây dựng trên nền tảng **Vue 3**, **Vite** và **Element Plus**, hoạt động như một máy chủ giao diện (Shell Host) tải động các module mở rộng từ hệ sinh thái độc lập (`itest-plugins`).
 
-1. **Micro-Frontend Plugin Architecture (`@platform/frontend-sdk`)**:
-   - Zero-reload dynamic route injection into Vue Router 4.
-   - Dynamic navigation menu injection into Sidebar with automatic order sorting and permission filtering.
-   - Dynamic dashboard widget registry supporting ECharts charts and telemetry cards.
-   - UI Extension Slots (`<ExtensionSlot name="..." />`) allowing plugins to inject panels into Device Details and Dashboard views.
-   - Scoped lifecycle hooks (`activate`, `deactivate`) and typed inter-plugin event bus.
+---
 
-2. **Industrial UI & Component System**:
-   - Element Plus with responsive layout and industrial dark/light accents.
-   - `StatusBadge`: Industrial state indicators (Online, Offline, Warning, Error) with pulsating animations.
-   - `ConnectionIndicator`: Real-time hardware/protocol connection status monitor.
-   - `MetricCard`: Industrial KPI telemetry cards with quality tags and trend analytics.
-   - `PermissionGuard`: Declarative RBAC security wrapper with fallback slots.
-   - `ExtensionSlot`: Standardized slot component for plug-and-play UI hooks.
+## 🌟 Kiến Trúc Nền Tảng (Architecture)
 
-3. **Core Platform Views**:
-   - **Dashboard**: Real-time telemetry summary, status indicators, and active plugin widgets grid.
-   - **Device Explorer**: Multi-protocol device fleet management (LoRaWAN, Modbus RTU/TCP, MQTT) with inspection modal and plugin extension points.
-   - **Plugin Manager**: Centralized catalog showing installed plugins, runtime status toggles, capabilities breakdown (routes, menus, widgets, extensions), and JSON manifest inspector.
-   - **Login & Tenant Switcher**: Multi-tenant authentication with instant role switching (Admin vs. Operator).
+1. **Pure Micro-kernel App Shell**:
+   - Tối giản hóa tối đa, không chứa mã nguồn nghiệp vụ hoặc driver giao thức cụ thể.
+   - Quản trị định danh tập trung, điều hướng (`Vue Router 4`), kiểm soát phân quyền (`Pinia` + `PermissionGuard`).
+   - Tích hợp chuẩn **ExtensionSlot** cho phép các standalone plugin cắm các giao diện (Widget, Device Details tab, Dashboard cards, Action buttons) vào Shell mà không cần rebuild lại mã nguồn App Shell.
 
-4. **Reference Plugins Included**:
-   - `plugin-hello-world`: Minimal reference implementation covering routes, menus, widgets, and device inspector extensions.
-   - `plugin-serial-terminal`: Industrial Web Serial API configurator with port scanning, baud rate selection, ASCII/HEX logging, and export capabilities.
-   - `plugin-telemetry-monitor`: Real-time ECharts telemetry trend visualization with multi-device metrics.
+2. **Cơ Chế Nạp Động An Toàn (Secure Dynamic Plugin Loader)**:
+   - Nạp bundle JavaScript của plugin trực tiếp qua URL hoặc từ Core Plugin Storage (`/api/v1/plugins/:id/bundle`).
+   - Kiểm duyệt tính toàn vẹn thông qua mã băm **SRI (Subresource Integrity)** trước khi thực thi.
+   - Vận hành trong Sandbox bảo vệ tài nguyên trình duyệt, cách ly ngữ cảnh và giao tiếp liên plugin thông qua Event Bus tiêu chuẩn của `@platform/frontend-sdk`.
 
-## Project Structure
+3. **Giao Diện Chuẩn Công Nghiệp (Industrial UI)**:
+   - Bộ component sẵn sàng cho SCADA / IoT: `StatusBadge`, `ConnectionIndicator`, `MetricCard`.
+   - `PermissionGuard`: Kiểm soát phân quyền khai báo (declarative RBAC) bảo vệ các nút bấm và view chức năng.
+
+---
+
+## 📂 Cấu Trúc Thư Mục (Directory Structure)
 
 ```text
-frontend/
+itest-system/frontend/
+├── dist/                      # Thư mục build production sẵn sàng triển khai
 ├── src/
-│   ├── assets/             # Global CSS and themes
-│   ├── components/
-│   │   └── shared/         # Reusable industrial components (MetricCard, StatusBadge, etc.)
-│   ├── composables/        # useAuth, usePermissions, useTenant, usePlugins
-│   ├── layouts/            # AppLayout, TopNavbar, SidebarNav, BreadcrumbBar
-│   ├── plugins/            # Sample plugins (hello-world, serial-terminal, telemetry-monitor)
-│   ├── router/             # Vue Router with dynamic route management & navigation guards
-│   ├── stores/             # Pinia stores (auth, plugins)
-│   ├── views/              # Core views (Dashboard, Devices, PluginManager, Login, NotFound)
-│   ├── __tests__/          # Vitest unit test suite (plugin-registry, permission-guard)
-│   ├── App.vue             # Root component
-│   └── main.ts             # App bootstrap & plugin registration
-└── package.json
+│   ├── assets/                # CSS, logo, styles chuẩn công nghiệp
+│   ├── components/            # Shared components (ExtensionSlot, PermissionGuard, ...)
+│   ├── plugins/               # Dynamic Plugin Loader, SRI Verifier & Registry
+│   ├── router/                # Vue Router 4 cấu hình routes lõi và dynamic injection
+│   ├── stores/                # Pinia store (Auth, Plugins, Telemetry state)
+│   ├── views/                 # Core Shell views (Dashboard, Devices, Plugin Manager, Login)
+│   ├── __tests__/             # Vitest test suite xác thực Plugin Registry & RBAC Guards
+│   ├── App.vue                # Root App component
+│   └── main.ts                # Entrypoint khởi tạo Vue 3 Shell
+├── index.html                 # HTML template
+├── nginx.conf                 # Cấu hình máy chủ web production (Reverse Proxy & Cache)
+├── Dockerfile                 # Multi-stage Docker build cho Frontend Shell
+├── package.json               # Khai báo metadata @itest/frontend-shell và dependencies
+├── tsconfig.json              # Cấu hình TypeScript nghiêm ngặt
+├── vite.config.ts             # Cấu hình Vite bundler & vendor chunking
+└── vitest.config.ts           # Cấu hình Vitest runner
 ```
 
-## Getting Started
+---
 
-### Prerequisites
+## 🚀 Hướng Dẫn Phát Triển & Khởi Chạy (Getting Started)
 
-Node.js >= 18, npm or pnpm.
+### 1. Cài đặt Dependencies
 
-### 1. Build Frontend SDK
-
+Sử dụng `npm`:
 ```bash
-cd plugin/packages/frontend-sdk
-pnpm install
-pnpm run build
-```
-
-### 2. Install & Run Frontend
-
-```bash
-cd frontend
 npm install
+```
+
+### 2. Khởi chạy Môi trường Phát triển (Development)
+
+```bash
 npm run dev
 ```
+Truy cập giao diện tại: `http://localhost:5173` (mặc định trỏ API backend tới `http://localhost:3000`).
 
-The application will start on `http://localhost:5173`.
+### 3. Kiểm Thử Đơn Vị (Vitest Unit Tests)
 
-### 3. Run Tests
-
+Chạy bộ test suite xác thực Plugin Registry, Dynamic Loader và Permission Guard:
 ```bash
-npm run test
+npm test
 ```
+*Yêu cầu tiêu chuẩn: 100% tests PASS (3/3 test suites, 11/11 tests).*
 
-### 4. Build for Production
+### 4. Đóng Gói Triển Khai (Production Build)
 
+Kiểm tra kiểu dữ liệu (TypeScript typecheck) và đóng gói bundle tối ưu:
 ```bash
 npm run build
 ```
-Generates optimized production assets in `dist/` with full TypeScript verification (`vue-tsc`).
+Artifacts sản phẩm hoàn tất sẽ được đặt trong thư mục `dist/`.
+
+---
+
+## 🐳 Triển Khai với Docker & Nginx
+
+Build image Docker tối ưu multi-stage:
+```bash
+docker build -t itest-frontend-shell:latest .
+```
+
+Khởi chạy container phục vụ giao diện trên cổng `80`:
+```bash
+docker run -d -p 80:80 --name itest_frontend itest-frontend-shell:latest
+```
+Nginx đã được cấu hình tự động xử lý route SPA (`try_files $uri $uri/ /index.html;`) và reverse proxy các API call `/api/` về Backend Core.
