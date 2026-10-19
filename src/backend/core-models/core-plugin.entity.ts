@@ -8,7 +8,7 @@ import {
 } from 'typeorm';
 import type { PluginType, PluginStatus } from '../plugins/plugin-manifest.interface';
 
-@Entity({ name: 'core_plugins', schema: 'public' })
+@Entity({ name: 'core_plugins' })
 @Index('idx_core_plugins_type', ['type'])
 @Index('idx_core_plugins_status', ['status'])
 export class CorePluginEntity {

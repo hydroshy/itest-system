@@ -10,7 +10,7 @@ import {
 export type UnifiedDeviceProtocol = 'MODBUS_RTU' | 'MODBUS_TCP' | 'MQTT' | 'LORAWAN' | 'SERIAL_UART' | 'CUSTOM';
 export type UnifiedDeviceStatus = 'ONLINE' | 'OFFLINE' | 'UNPROVISIONED' | 'FAULT';
 
-@Entity({ name: 'unified_devices', schema: 'public' })
+@Entity({ name: 'unified_devices' })
 @Index('idx_unified_devices_tenant_id', ['tenantId'])
 @Index('idx_unified_devices_protocol', ['protocolType'])
 @Index('idx_unified_devices_status', ['status'])

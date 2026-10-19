@@ -26,6 +26,7 @@ export interface DbConnectionConfig {
   database: string;
   ssl?: boolean;
   poolSize?: number;
+  schema?: string;
 }
 
 export interface DbRoutingConfig {
@@ -84,6 +85,7 @@ export class DynamicDatabaseService implements OnModuleInit, OnModuleDestroy {
     const username = process.env.DB_USERNAME || config.username;
     const password = process.env.DB_PASSWORD !== undefined ? process.env.DB_PASSWORD : config.password;
     const database = process.env.DB_NAME || config.database;
+    const schema = process.env.DB_SCHEMA || config.schema || 'system_schema';
 
     // Build fallback candidate hosts in case DNS (e.g. mas.local) cannot be resolved inside Docker
     const candidateHosts: string[] = [configuredHost];
@@ -105,6 +107,7 @@ export class DynamicDatabaseService implements OnModuleInit, OnModuleDestroy {
         username,
         password,
         database,
+        schema,
         ssl: config.ssl ? { rejectUnauthorized: false } : false,
         synchronize: false,
         logging: process.env.NODE_ENV === 'development' || process.env.DB_LOGGING === 'true',
@@ -118,7 +121,7 @@ export class DynamicDatabaseService implements OnModuleInit, OnModuleDestroy {
       try {
         await dataSource.initialize();
         this.dataSources.set(key, dataSource);
-        this.logger.log(`✅ Successfully connected to database pool [${key}] -> ${targetHost}:${port}/${database}`);
+        this.logger.log(`✅ Successfully connected to database pool [${key}] -> ${targetHost}:${port}/${database} (schema: ${schema})`);
         return dataSource;
       } catch (error: any) {
         lastError = error;

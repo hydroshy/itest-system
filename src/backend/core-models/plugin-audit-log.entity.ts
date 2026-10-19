@@ -15,7 +15,7 @@ export type PluginAuditAction =
   | 'CONFIG_CHANGE'
   | 'ERROR';
 
-@Entity({ name: 'plugin_audit_logs', schema: 'public' })
+@Entity({ name: 'plugin_audit_logs' })
 @Index('idx_plugin_audit_plugin_id', ['pluginId'])
 @Index('idx_plugin_audit_action', ['action'])
 export class PluginAuditLogEntity {

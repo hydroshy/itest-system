@@ -8,7 +8,7 @@ import {
 
 export type TelemetryQuality = 'GOOD' | 'UNCERTAIN' | 'BAD';
 
-@Entity({ name: 'unified_telemetry', schema: 'public' })
+@Entity({ name: 'unified_telemetry' })
 @Index('idx_unified_telemetry_lookup', ['deviceId', 'metricKey', 'timestamp'])
 @Index('idx_unified_telemetry_device_time', ['deviceId', 'timestamp'])
 @Index('idx_unified_telemetry_metric', ['metricKey'])

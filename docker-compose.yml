@@ -17,6 +17,7 @@ services:
       - DB_USERNAME=${DB_USERNAME:-itest_system_user}
       - DB_PASSWORD=${DB_PASSWORD:-system_secret_2026}
       - DB_NAME=${DB_NAME:-itest_platform}
+      - DB_SCHEMA=${DB_SCHEMA:-system_schema}
       - DB_SYNCHRONIZE=false
       - JWT_SECRET=${JWT_SECRET:-Production_Super_Secret_Key_Change_Me_2026!}
       - DB_ROUTING_CONFIG_PATH=/app/config/db-routing.config.json
