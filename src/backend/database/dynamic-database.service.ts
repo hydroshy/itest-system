@@ -27,6 +27,7 @@ export interface DbConnectionConfig {
   ssl?: boolean;
   poolSize?: number;
   schema?: string;
+  synchronize?: boolean;
 }
 
 export interface DbRoutingConfig {
@@ -109,7 +110,7 @@ export class DynamicDatabaseService implements OnModuleInit, OnModuleDestroy {
         database,
         schema,
         ssl: config.ssl ? { rejectUnauthorized: false } : false,
-        synchronize: false,
+        synchronize: process.env.DB_SYNCHRONIZE === 'true' || config.synchronize === true,
         logging: process.env.NODE_ENV === 'development' || process.env.DB_LOGGING === 'true',
         entities: ALL_DATABASE_ENTITIES,
         extra: {

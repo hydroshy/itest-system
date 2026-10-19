@@ -90,7 +90,7 @@ let DynamicDatabaseService = DynamicDatabaseService_1 = class DynamicDatabaseSer
                 database,
                 schema,
                 ssl: config.ssl ? { rejectUnauthorized: false } : false,
-                synchronize: false,
+                synchronize: process.env.DB_SYNCHRONIZE === 'true' || config.synchronize === true,
                 logging: process.env.NODE_ENV === 'development' || process.env.DB_LOGGING === 'true',
                 entities: exports.ALL_DATABASE_ENTITIES,
                 extra: {

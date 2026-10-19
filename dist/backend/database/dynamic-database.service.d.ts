@@ -16,6 +16,7 @@ export interface DbConnectionConfig {
     ssl?: boolean;
     poolSize?: number;
     schema?: string;
+    synchronize?: boolean;
 }
 export interface DbRoutingConfig {
     default_connection: string;
