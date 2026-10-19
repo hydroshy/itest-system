@@ -1,10 +1,9 @@
-import { Controller, Post, Body, Get, Res, UseGuards, HttpException, HttpStatus } from '@nestjs/common';
+import { Controller, Post, Body, Get, Res, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { Request, Response } from 'express';
 import { Req } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
-import { InitSuperAdminDto } from './dto/init-superadmin.dto';
 import { JwtAuthGuard } from '../../../../common/guards/jwt-auth.guard';
 import { CurrentUser } from '../../../../common/decorators/current-user.decorator';
 import { User } from '../users/entities/user.entity';
@@ -63,25 +62,4 @@ export class AuthController {
       roles: user.roles,
     };
   }
-
-  @Post('init-superadmin')
-  @ApiOperation({ summary: 'Khởi tạo hoặc cập nhật tài khoản Super Admin (Mặc định: admin / Dvt@123)' })
-  async initSuperAdmin(@Body() body?: InitSuperAdminDto) {
-    try {
-      return await this.authService.registerInitialAdmin(
-        body?.username || 'admin',
-        body?.email || 'admin@daviteq.com',
-        body?.pass || 'Dvt@123',
-      );
-    } catch (err: any) {
-      throw new HttpException(
-        {
-          statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
-          message: `Lỗi khởi tạo Super Admin: ${err.message}`,
-        },
-        HttpStatus.INTERNAL_SERVER_ERROR,
-      );
-    }
-  }
 }
-

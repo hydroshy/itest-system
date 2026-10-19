@@ -61,13 +61,36 @@ export class DynamicDatabaseService implements OnModuleInit, OnModuleDestroy {
   }
 
   public async loadConfigAndInitializeDataSources(): Promise<void> {
-    this.logger.log(`Loading dynamic database routing config from: ${this.configPath}`);
-    if (!fs.existsSync(this.configPath)) {
-      throw new Error(`Database routing config file not found at ${this.configPath}`);
+    // 1. If routing file exists, load it; otherwise initialize default core_db configuration directly
+    if (fs.existsSync(this.configPath)) {
+      try {
+        this.logger.log(`Loading database routing config from: ${this.configPath}`);
+        const fileContent = fs.readFileSync(this.configPath, 'utf8');
+        this.routingConfig = JSON.parse(fileContent) as DbRoutingConfig;
+      } catch (e: any) {
+        this.logger.warn(`Could not parse ${this.configPath}: ${e.message}. Using default environment config.`);
+      }
     }
 
-    const fileContent = fs.readFileSync(this.configPath, 'utf8');
-    this.routingConfig = JSON.parse(fileContent) as DbRoutingConfig;
+    if (!this.routingConfig) {
+      this.routingConfig = {
+        default_connection: 'core_db',
+        connections: {
+          core_db: {
+            host: process.env.DB_HOST || '127.0.0.1',
+            port: process.env.DB_PORT ? parseInt(process.env.DB_PORT, 10) : 5432,
+            username: process.env.DB_USERNAME || 'itest_system_user',
+            password: process.env.DB_PASSWORD !== undefined ? process.env.DB_PASSWORD : 'system_secret_2026',
+            database: process.env.DB_NAME || 'itest_platform',
+            schema: process.env.DB_SCHEMA || 'system_schema',
+            ssl: process.env.DB_SSL === 'true',
+            poolSize: process.env.DB_POOL_SIZE ? parseInt(process.env.DB_POOL_SIZE, 10) : 10,
+            synchronize: process.env.DB_SYNCHRONIZE === 'true',
+          },
+        },
+        table_routes: {},
+      };
+    }
 
     for (const [connKey, connDetails] of Object.entries(this.routingConfig.connections)) {
       if (!this.dataSources.has(connKey) || !this.dataSources.get(connKey).isInitialized) {
@@ -81,61 +104,42 @@ export class DynamicDatabaseService implements OnModuleInit, OnModuleDestroy {
   }
 
   private async createAndRegisterDataSource(key: string, config: DbConnectionConfig): Promise<DataSource> {
-    const configuredHost = process.env.DB_HOST || config.host || 'postgres_db';
+    const targetHost = process.env.DB_HOST || config.host || '127.0.0.1';
     const port = process.env.DB_PORT ? parseInt(process.env.DB_PORT, 10) : (config.port || 5432);
     const username = process.env.DB_USERNAME || config.username;
     const password = process.env.DB_PASSWORD !== undefined ? process.env.DB_PASSWORD : config.password;
     const database = process.env.DB_NAME || config.database;
     const schema = process.env.DB_SCHEMA || config.schema || 'system_schema';
+    const ssl = process.env.DB_SSL !== undefined ? process.env.DB_SSL === 'true' : (config.ssl ? { rejectUnauthorized: false } : false);
+    const synchronize = process.env.DB_SYNCHRONIZE === 'true' || config.synchronize === true;
 
-    // Build fallback candidate hosts in case DNS (e.g. mas.local) cannot be resolved inside Docker
-    const candidateHosts: string[] = [configuredHost];
-    const standardFallbacks = ['172.21.0.1', 'postgres_db', 'postgres', 'postgresql', 'host.docker.internal', 'localhost', '127.0.0.1'];
-    for (const fb of standardFallbacks) {
-      if (!candidateHosts.includes(fb)) {
-        candidateHosts.push(fb);
-      }
+    const options: DataSourceOptions = {
+      type: 'postgres',
+      host: targetHost,
+      port,
+      username,
+      password,
+      database,
+      schema,
+      ssl,
+      synchronize,
+      logging: process.env.NODE_ENV === 'development' || process.env.DB_LOGGING === 'true',
+      entities: ALL_DATABASE_ENTITIES,
+      extra: {
+        max: process.env.DB_POOL_SIZE ? parseInt(process.env.DB_POOL_SIZE, 10) : (config.poolSize || 10),
+      },
+    };
+
+    const dataSource = new DataSource(options);
+    try {
+      await dataSource.initialize();
+      this.dataSources.set(key, dataSource);
+      this.logger.log(`✅ Successfully connected to database pool [${key}] -> ${targetHost}:${port}/${database} (schema: ${schema})`);
+      return dataSource;
+    } catch (error: any) {
+      this.logger.error(`❌ Failed to connect database pool [${key}] at [${targetHost}:${port}/${database}]: ${error.message}`);
+      throw error;
     }
-
-    let lastError: any = null;
-
-    for (let i = 0; i < candidateHosts.length; i++) {
-      const targetHost = candidateHosts[i];
-      const options: DataSourceOptions = {
-        type: 'postgres',
-        host: targetHost,
-        port,
-        username,
-        password,
-        database,
-        schema,
-        ssl: config.ssl ? { rejectUnauthorized: false } : false,
-        synchronize: process.env.DB_SYNCHRONIZE === 'true' || config.synchronize === true,
-        logging: process.env.NODE_ENV === 'development' || process.env.DB_LOGGING === 'true',
-        entities: ALL_DATABASE_ENTITIES,
-        extra: {
-          max: config.poolSize || 10,
-        },
-      };
-
-      const dataSource = new DataSource(options);
-      try {
-        await dataSource.initialize();
-        this.dataSources.set(key, dataSource);
-        this.logger.log(`✅ Successfully connected to database pool [${key}] -> ${targetHost}:${port}/${database} (schema: ${schema})`);
-        return dataSource;
-      } catch (error: any) {
-        lastError = error;
-        if (error.code === 'ENOTFOUND' && i < candidateHosts.length - 1) {
-          this.logger.warn(`⚠️ Host [${targetHost}] not found via DNS in Docker. Trying fallback [${candidateHosts[i + 1]}]...`);
-        } else if (i < candidateHosts.length - 1) {
-          this.logger.warn(`⚠️ Connection to [${targetHost}:${port}/${database}] failed (${error.message}). Trying fallback [${candidateHosts[i + 1]}]...`);
-        }
-      }
-    }
-
-    this.logger.error(`❌ Failed to initialize database pool [${key}] after trying [${candidateHosts.join(', ')}]: ${lastError?.message}`);
-    throw lastError;
   }
 
   public getDataSourceForTable(tableName: string): DataSource {
