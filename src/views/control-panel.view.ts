@@ -61,6 +61,10 @@ import {
   DEVICE_TESTED_MODALS,
   DEVICE_TESTED_SCRIPT,
 } from './control-panel-modules/device-tested.module';
+import {
+  PLUGINS_MANAGEMENT_TEMPLATE,
+  PLUGINS_MANAGEMENT_MODALS,
+} from './control-panel-modules/plugins-management.module';
 
 export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
 <html lang="en">
@@ -1151,12 +1155,10 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
             <div class="px-2 pb-1 text-[10px] font-extrabold uppercase tracking-wider text-slate-500 truncate">
               Core Governance
             </div>
-            
-            
+
             <button
               @click="switchTab('overview')"
               :class="{ active: activeTab === 'overview' }"
-              
               class="nav-item"
             >
               <span class="flex items-center gap-2.5">
@@ -1168,7 +1170,6 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
             <button
               @click="switchTab('modules')"
               :class="{ active: activeTab === 'modules' }"
-              
               class="nav-item"
             >
               <span class="flex items-center gap-2.5">
@@ -1178,9 +1179,25 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
             </button>
 
             <button
+              @click="switchTab('plugins-management')"
+              :class="{ active: activeTab === 'plugins-management' }"
+              class="nav-item"
+            >
+              <span class="flex items-center gap-2.5">
+                <i class="fa-solid fa-puzzle-piece w-4 text-center text-xs text-indigo-400"></i>
+                <span class="truncate">Plugins Management</span>
+              </span>
+              <span
+                v-if="activePluginsCount > 0"
+                class="px-1.5 py-0.2 rounded text-[9px] font-mono font-bold bg-indigo-500/10 text-indigo-400 border border-indigo-500/20"
+              >
+                {{ activePluginsCount }}
+              </span>
+            </button>
+
+            <button
               @click="switchTab('database')"
               :class="{ active: activeTab === 'database' }"
-              
               class="nav-item"
             >
               <span class="flex items-center gap-2.5">
@@ -1190,62 +1207,15 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
             </button>
           </div>
 
-          <!-- GROUP 2: ORDER MANAGEMENT -->
-          <div class="space-y-1">
-            <div class="px-2 pb-1 text-[10px] font-extrabold uppercase tracking-wider text-amber-500/90 flex items-center justify-between">
-              <span class="truncate">Order Management</span>
-              <span class="px-1.5 py-0.2 rounded text-[9px] font-mono font-bold bg-amber-500/10 text-amber-400 border border-amber-500/20">SO</span>
-            </div>
-            
-
-            <button
-              @click="switchTab('sales-orders')"
-              :class="{ active: activeTab === 'sales-orders' }"
-              :title="sidebarCollapsed ? 'Sales Orders & Items' : ''"
-              class="nav-item"
-            >
-              <span class="flex items-center gap-2.5">
-                <i class="fa-solid fa-boxes-stacked w-4 text-center text-xs text-amber-400"></i>
-                <span class="truncate">Sales Orders & Items</span>
-              </span>
-            </button>
-
-            <button
-              @click="switchTab('item-codes')"
-              :class="{ active: activeTab === 'item-codes' }"
-              
-              class="nav-item"
-            >
-              <span class="flex items-center gap-2.5">
-                <i class="fa-solid fa-barcode w-4 text-center text-xs text-cyan-400"></i>
-                <span class="truncate">Item Code Catalog</span>
-              </span>
-            </button>
-
-            <button
-              @click="switchTab('traceability')"
-              :class="{ active: activeTab === 'traceability' }"
-              class="nav-item"
-            >
-              <span class="flex items-center gap-2.5">
-                <i class="fa-solid fa-clipboard-check w-4 text-center text-xs text-emerald-400"></i>
-                <span class="truncate">Traceability (T-Module)</span>
-              </span>
-            </button>
-          </div>
-
-          <!-- GROUP 3: ACCESS & SECURITY -->
+          <!-- GROUP 2: ACCESS & SECURITY -->
           <div class="space-y-1">
             <div class="px-2 pb-1 text-[10px] font-extrabold uppercase tracking-wider text-emerald-500/90 flex items-center justify-between">
               <span class="truncate">Access & Security</span>
-              <span class="px-1.5 py-0.2 rounded text-[9px] font-mono font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">RBAC</span>
             </div>
-            
 
             <button
               @click="switchTab('roles')"
               :class="{ active: activeTab === 'roles' }"
-              
               class="nav-item"
             >
               <span class="flex items-center gap-2.5">
@@ -1257,7 +1227,6 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
             <button
               @click="switchTab('users')"
               :class="{ active: activeTab === 'users' }"
-              
               class="nav-item"
             >
               <span class="flex items-center gap-2.5">
@@ -1267,173 +1236,25 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
             </button>
           </div>
 
-          <!-- GROUP 4: INFRASTRUCTURE & IOT -->
-          <div class="space-y-1">
-            <div class="px-2 pb-1 text-[10px] font-extrabold uppercase tracking-wider text-slate-500 truncate">
-              Infrastructure & IoT
+          <!-- GROUP 3: PLUGINS (DYNAMICALLY LOADED/ACTIVE PLUGINS) -->
+          <div v-if="activePlugins.length > 0" class="space-y-1">
+            <div class="px-2 pb-1 text-[10px] font-extrabold uppercase tracking-wider text-indigo-400/90 flex items-center justify-between">
+              <span class="truncate">Plugins</span>
+              <span class="px-1.5 py-0.2 rounded text-[9px] font-mono font-bold bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
+                {{ activePlugins.length }}
+              </span>
             </div>
-            
 
             <button
-              @click="switchTab('network-servers')"
-              :class="{ active: activeTab === 'network-servers' }"
-              
+              v-for="plugin in activePlugins"
+              :key="plugin.id"
+              @click="openPluginView(plugin)"
+              :class="{ active: activeTab === 'plugin-' + plugin.id }"
               class="nav-item"
             >
-              <span class="flex items-center gap-2.5">
-                <i class="fa-solid fa-tower-broadcast w-4 text-center text-xs text-sky-400"></i>
-                <span class="truncate">Network Servers</span>
-              </span>
-            </button>
-
-            <button
-              @click="switchTab('devices')"
-              :class="{ active: activeTab === 'devices' }"
-              
-              class="nav-item"
-            >
-              <span class="flex items-center gap-2.5">
-                <i class="fa-solid fa-microchip w-4 text-center text-xs text-teal-400"></i>
-                <span class="truncate">Device Fleet</span>
-              </span>
-            </button>
-
-            <button
-              @click="switchTab('sensor-types')"
-              :class="{ active: activeTab === 'sensor-types' }"
-              
-              class="nav-item"
-            >
-              <span class="flex items-center gap-2.5">
-                <i class="fa-solid fa-microchip w-4 text-center text-xs text-sky-400"></i>
-                <span class="truncate">Sensor Types & SKU</span>
-              </span>
-            </button>
-
-            <button
-              @click="switchTab('webhooks')"
-              :class="{ active: activeTab === 'webhooks' }"
-              
-              class="nav-item"
-            >
-              <span class="flex items-center gap-2.5">
-                <i class="fa-solid fa-satellite-dish w-4 text-center text-xs text-sky-400"></i>
-                <span class="truncate">Webhook Manager</span>
-              </span>
-            </button>
-
-            <button
-              @click="switchTab('decoder')"
-              :class="{ active: activeTab === 'decoder' }"
-              
-              class="nav-item"
-            >
-              <span class="flex items-center gap-2.5">
-                <i class="fa-solid fa-code w-4 text-center text-xs text-purple-400"></i>
-                <span class="truncate">Decoder Manager</span>
-              </span>
-            </button>
-
-            <button
-              @click="switchTab('hmi-studio')"
-              :class="{ active: activeTab === 'hmi-studio' }"
-              
-              class="nav-item"
-            >
-              <span class="flex items-center gap-2.5">
-                <i class="fa-solid fa-palette w-4 text-center text-xs text-amber-400"></i>
-                <span class="truncate">HMI SCADA Studio</span>
-              </span>
-            </button>
-
-            <button
-              @click="switchTab('downlink')"
-              :class="{ active: activeTab === 'downlink' }"
-              
-              class="nav-item"
-            >
-              <span class="flex items-center gap-2.5">
-                <i class="fa-solid fa-paper-plane w-4 text-center text-xs text-indigo-400"></i>
-                <span class="truncate">Downlink Actuator</span>
-              </span>
-            </button>
-
-            <button
-              @click="switchTab('modbus-presets')"
-              :class="{ active: activeTab === 'modbus-presets' }"
-              
-              class="nav-item"
-            >
-              <span class="flex items-center gap-2.5">
-                <i class="fa-solid fa-file-excel w-4 text-center text-xs text-emerald-400"></i>
-                <span class="truncate">Modbus Presets</span>
-              </span>
-            </button>
-
-            <button
-              @click="switchTab('memmap-upload')"
-              :class="{ active: activeTab === 'memmap-upload' }"
-              class="nav-item"
-            >
-              <span class="flex items-center gap-2.5">
-                <i class="fa-solid fa-file-csv w-4 text-center text-xs text-amber-400"></i>
-                <span class="truncate">Memory Map Upload</span>
-              </span>
-            </button>
-
-            <button
-              @click="switchTab('memmap-manager')"
-              :class="{ active: activeTab === 'memmap-manager' }"
-              class="nav-item"
-            >
-              <span class="flex items-center gap-2.5">
-                <i class="fa-solid fa-map-location-dot w-4 text-center text-xs text-sky-400"></i>
-                <span class="truncate">Memory Map Manager</span>
-              </span>
-            </button>
-
-            <button
-              @click="switchTab('create-final-config')"
-              :class="{ active: activeTab === 'create-final-config' }"
-              class="nav-item"
-            >
-              <span class="flex items-center gap-2.5">
-                <i class="fa-solid fa-sliders w-4 text-center text-xs text-sky-400"></i>
-                <span class="truncate">Create Final Config</span>
-              </span>
-            </button>
-
-            <button
-              @click="switchTab('final-config-manager')"
-              :class="{ active: activeTab === 'final-config-manager' }"
-              class="nav-item"
-            >
-              <span class="flex items-center gap-2.5">
-                <i class="fa-solid fa-list-check w-4 text-center text-xs text-emerald-400"></i>
-                <span class="truncate">Final Config Manager</span>
-              </span>
-            </button>
-
-            <button
-              @click="switchTab('device-tested')"
-              :class="{ active: activeTab === 'device-tested' }"
-              class="nav-item"
-            >
-              <span class="flex items-center gap-2.5">
-                <i class="fa-solid fa-vial-circle-check w-4 text-center text-xs text-cyan-400"></i>
-                <span class="truncate">Tested Devices (QA)</span>
-              </span>
-            </button>
-
-            <button
-              @click="switchTab('test-builder')"
-              :class="{ active: activeTab === 'test-builder' }"
-              
-              class="nav-item"
-            >
-              <span class="flex items-center gap-2.5">
-                <i class="fa-solid fa-vial-circle-check w-4 text-center text-xs text-indigo-400"></i>
-                <span class="truncate">Test Automation</span>
+              <span class="flex items-center gap-2.5 truncate">
+                <i :class="plugin.manifest?.icon || 'fa-solid fa-puzzle-piece'" class="w-4 text-center text-xs text-indigo-400"></i>
+                <span class="truncate">{{ plugin.name || plugin.id }}</span>
               </span>
             </button>
           </div>
@@ -1604,6 +1425,45 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
           </div>
         </c-module-boundary>
 
+        <!-- TAB: PLUGINS MANAGEMENT -->
+        <c-module-boundary module-id="plugins-management" title="Plugins Management" icon="fa-solid fa-puzzle-piece" :active="activeTab === 'plugins-management'">
+          <div v-if="activeTab === 'plugins-management'" class="space-y-6">
+            ${PLUGINS_MANAGEMENT_TEMPLATE}
+          </div>
+        </c-module-boundary>
+
+        <!-- DYNAMIC TAB: ACTIVE PLUGIN VIEW -->
+        <div v-if="activeTab.startsWith('plugin-')" class="space-y-4">
+          <div class="flex items-center justify-between bg-slate-900 border border-slate-800 rounded-xl px-5 py-3">
+            <div class="flex items-center gap-3">
+              <div class="w-9 h-9 rounded-lg bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400">
+                <i :class="currentActivePlugin?.manifest?.icon || 'fa-solid fa-puzzle-piece'"></i>
+              </div>
+              <div>
+                <h2 class="text-sm font-bold text-white tracking-wide">{{ currentActivePlugin?.name || activeTab }}</h2>
+                <p class="text-xs text-slate-400">{{ currentActivePlugin?.manifest?.description || 'Active System Plugin' }} <span class="font-mono text-slate-500">v{{ currentActivePlugin?.version }}</span></p>
+              </div>
+            </div>
+            <div class="flex items-center gap-2">
+              <button @click="switchTab('plugins-management')" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs text-slate-300 font-medium transition cursor-pointer">
+                <i class="fa-solid fa-arrow-left mr-1.5"></i>Back to Plugins
+              </button>
+            </div>
+          </div>
+          <div class="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden min-h-[650px] relative shadow-xl">
+            <iframe
+              v-if="currentActivePluginEntryUrl"
+              :src="currentActivePluginEntryUrl"
+              class="w-full h-[750px] border-0"
+              title="Plugin Frame"
+            ></iframe>
+            <div v-else class="flex flex-col items-center justify-center h-[500px] text-slate-500">
+              <i class="fa-solid fa-circle-notch fa-spin text-3xl mb-3 text-indigo-400"></i>
+              <span class="text-xs font-mono">Loading plugin entrypoint...</span>
+            </div>
+          </div>
+        </div>
+
       </main>
     </div>
 
@@ -1627,6 +1487,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
     ${CREATE_FINAL_CONFIG_MODALS}
     ${FINAL_CONFIG_MANAGER_MODALS}
     ${DEVICE_TESTED_MODALS}
+    ${PLUGINS_MANAGEMENT_MODALS}
 
     <!-- TOAST NOTIFICATION -->
     <div v-if="toast.show" class="fixed top-4 right-4 z-50 flex items-center gap-2 px-4 py-3 rounded-xl shadow-2xl text-xs font-semibold" :class="toast.type === 'error' ? 'bg-red-950 border border-red-500 text-red-200' : (toast.type === 'success' ? 'bg-emerald-950 border border-emerald-500 text-emerald-200' : 'bg-sky-950 border border-sky-500 text-sky-200')">
@@ -3118,6 +2979,15 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
             case 'create-final-config': return 'Create Final Config';
             case 'final-config-manager': return 'Final Config Manager';
             case 'device-tested': return 'Tested Devices (QA Inspection)';
+            case 'plugins-management': return 'Plugins Management';
+            default: {
+              if (activeTab.value.startsWith('plugin-')) {
+                const pId = activeTab.value.replace('plugin-', '');
+                const found = pluginsList.value.find(p => p.id === pId);
+                return found ? (found.name || found.id) : ('Plugin: ' + pId);
+              }
+              return activeTab.value;
+            }
             default: return activeTab.value;
           }
         });
@@ -6765,6 +6635,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
                     showToast('Backend server restarted successfully and is back ONLINE!', 'success');
                     fetchSystemVersion();
                     initControlPanel();
+          fetchPlugins();
                   }
                 } catch(e) {}
                 if (attempts > 30) {
@@ -7171,6 +7042,304 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
           initControlPanel();
         });
 
+        
+        // ========================================================
+        // PLUGINS MANAGEMENT STATE & LOGIC
+        // ========================================================
+        const pluginsList = ref([]);
+        const loadingPlugins = ref(false);
+        const pluginSearchQuery = ref('');
+        const pluginStatusFilter = ref('all');
+        const uploadPluginDialog = ref(false);
+        const installUrlDialog = ref(false);
+        const configPluginDialog = ref(false);
+        const pluginToConfig = ref(null);
+        const pluginConfigJson = ref('{}');
+        const pluginConfigError = ref('');
+        const pluginInstallUrl = ref('');
+        const selectedPluginFile = ref(null);
+        const uploadAutoEnable = ref(true);
+        const isSubmittingUpload = ref(false);
+        const isSubmittingUrl = ref(false);
+        const isSavingConfig = ref(false);
+        const actionInProgressId = ref(null);
+        const selectedActivePlugin = ref(null);
+
+        const currentActivePlugin = computed(() => {
+          if (!activeTab.value.startsWith('plugin-')) return null;
+          const pId = activeTab.value.replace('plugin-', '');
+          return pluginsList.value.find(p => p.id === pId) || selectedActivePlugin.value;
+        });
+
+        const currentActivePluginEntryUrl = computed(() => {
+          if (!currentActivePlugin.value) return '';
+          const entry = currentActivePlugin.value.manifest?.entry || currentActivePlugin.value.entry || '/index.html';
+          return '/plugins/' + currentActivePlugin.value.id + (entry.startsWith('/') ? entry : '/' + entry);
+        });
+
+        const activePlugins = computed(() => {
+          return pluginsList.value.filter(p => p.status === 'active' || p.enabled === true);
+        });
+
+        const activePluginsCount = computed(() => {
+          return activePlugins.value.length;
+        });
+
+        const filteredPlugins = computed(() => {
+          let list = pluginsList.value || [];
+          if (pluginStatusFilter.value === 'active') {
+            list = list.filter(p => p.status === 'active' || p.enabled === true);
+          } else if (pluginStatusFilter.value === 'inactive') {
+            list = list.filter(p => p.status !== 'active' && p.enabled !== true);
+          }
+          if (pluginSearchQuery.value && pluginSearchQuery.value.trim()) {
+            const q = pluginSearchQuery.value.toLowerCase().trim();
+            list = list.filter(p =>
+              (p.name && p.name.toLowerCase().includes(q)) ||
+              (p.id && p.id.toLowerCase().includes(q)) ||
+              (p.description && p.description.toLowerCase().includes(q))
+            );
+          }
+          return list;
+        });
+
+        const fetchPlugins = async () => {
+          loadingPlugins.value = true;
+          try {
+            const res = await fetch('/api/v1/plugins');
+            if (res.ok) {
+              const data = await res.json();
+              pluginsList.value = Array.isArray(data) ? data : (data.plugins || data.data || []);
+            } else {
+              console.warn('[Plugins] Failed to fetch /api/v1/plugins status:', res.status);
+              // Fallback default sample plugins if empty or mock
+              if (pluginsList.value.length === 0) {
+                pluginsList.value = [];
+              }
+            }
+          } catch (err) {
+            console.error('[Plugins] Error fetching plugins:', err);
+          } finally {
+            loadingPlugins.value = false;
+          }
+        };
+
+        const togglePluginStatus = async (plugin) => {
+          if (!plugin || !plugin.id) return;
+          actionInProgressId.value = plugin.id;
+          const isCurrentlyActive = plugin.status === 'active' || plugin.enabled === true;
+          const targetAction = isCurrentlyActive ? 'disable' : 'enable';
+          try {
+            const res = await fetch('/api/v1/plugins/' + plugin.id + '/' + targetAction, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' }
+            });
+            if (res.ok) {
+              plugin.status = isCurrentlyActive ? 'inactive' : 'active';
+              plugin.enabled = !isCurrentlyActive;
+              if (window.toastNotification) {
+                window.toastNotification('Plugin ' + (plugin.name || plugin.id) + ' đã ' + (isCurrentlyActive ? 'vô hiệu hóa' : 'kích hoạt') + '!', 'success');
+              }
+            } else {
+              const errData = await res.json().catch(() => ({}));
+              alert(errData.message || 'Thao tác thất bại (' + res.status + ')');
+            }
+          } catch (err) {
+            console.error('[Plugins] Error toggling status:', err);
+            // Optimistic update for UI if offline/dev
+            plugin.status = isCurrentlyActive ? 'inactive' : 'active';
+            plugin.enabled = !isCurrentlyActive;
+          } finally {
+            actionInProgressId.value = null;
+          }
+        };
+
+        const reloadPlugin = async (plugin) => {
+          if (!plugin || !plugin.id) return;
+          actionInProgressId.value = plugin.id;
+          try {
+            const res = await fetch('/api/v1/plugins/' + plugin.id + '/reload', {
+              method: 'POST'
+            });
+            if (res.ok) {
+              if (window.toastNotification) {
+                window.toastNotification('Đã nạp lại plugin ' + (plugin.name || plugin.id), 'success');
+              }
+            } else {
+              alert('Không thể nạp lại plugin.');
+            }
+          } catch (err) {
+            console.error('[Plugins] Reload error:', err);
+          } finally {
+            actionInProgressId.value = null;
+          }
+        };
+
+        const openUploadDialog = () => {
+          selectedPluginFile.value = null;
+          uploadAutoEnable.value = true;
+          uploadPluginDialog.value = true;
+        };
+
+        const onPluginFileChange = (e) => {
+          const files = e.target.files;
+          if (files && files.length > 0) {
+            selectedPluginFile.value = files[0];
+          }
+        };
+
+        const onPluginFileDrop = (e) => {
+          const files = e.dataTransfer.files;
+          if (files && files.length > 0) {
+            selectedPluginFile.value = files[0];
+          }
+        };
+
+        const submitUploadPlugin = async () => {
+          if (!selectedPluginFile.value) return;
+          isSubmittingUpload.value = true;
+          try {
+            const formData = new FormData();
+            formData.append('file', selectedPluginFile.value);
+            formData.append('autoEnable', String(uploadAutoEnable.value));
+            const res = await fetch('/api/v1/plugins/upload', {
+              method: 'POST',
+              body: formData
+            });
+            if (res.ok) {
+              uploadPluginDialog.value = false;
+              selectedPluginFile.value = null;
+              if (window.toastNotification) {
+                window.toastNotification('Cài đặt plugin thành công!', 'success');
+              }
+              await fetchPlugins();
+            } else {
+              const err = await res.json().catch(() => ({}));
+              alert(err.message || 'Cài đặt plugin thất bại.');
+            }
+          } catch (err) {
+            console.error('[Plugins] Upload error:', err);
+            alert('Lỗi tải lên tệp plugin.');
+          } finally {
+            isSubmittingUpload.value = false;
+          }
+        };
+
+        const openInstallUrlDialog = () => {
+          pluginInstallUrl.value = '';
+          uploadAutoEnable.value = true;
+          installUrlDialog.value = true;
+        };
+
+        const submitInstallUrl = async () => {
+          if (!pluginInstallUrl.value) return;
+          isSubmittingUrl.value = true;
+          try {
+            const res = await fetch('/api/v1/plugins/install-url', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                url: pluginInstallUrl.value,
+                autoEnable: uploadAutoEnable.value
+              })
+            });
+            if (res.ok) {
+              installUrlDialog.value = false;
+              pluginInstallUrl.value = '';
+              if (window.toastNotification) {
+                window.toastNotification('Cài đặt plugin từ URL thành công!', 'success');
+              }
+              await fetchPlugins();
+            } else {
+              const err = await res.json().catch(() => ({}));
+              alert(err.message || 'Cài đặt plugin từ URL thất bại.');
+            }
+          } catch (err) {
+            console.error('[Plugins] Install URL error:', err);
+            alert('Lỗi kết nối khi cài đặt từ URL.');
+          } finally {
+            isSubmittingUrl.value = false;
+          }
+        };
+
+        const openPluginConfig = (plugin) => {
+          pluginToConfig.value = plugin;
+          pluginConfigError.value = '';
+          try {
+            pluginConfigJson.value = JSON.stringify(plugin.config || plugin.manifest?.config || {}, null, 2);
+          } catch (_) {
+            pluginConfigJson.value = '{}';
+          }
+          configPluginDialog.value = true;
+        };
+
+        const savePluginConfig = async () => {
+          if (!pluginToConfig.value) return;
+          pluginConfigError.value = '';
+          let parsed;
+          try {
+            parsed = JSON.parse(pluginConfigJson.value);
+          } catch (e) {
+            pluginConfigError.value = 'Định dạng JSON không hợp lệ: ' + e.message;
+            return;
+          }
+          isSavingConfig.value = true;
+          try {
+            const res = await fetch('/api/v1/plugins/' + pluginToConfig.value.id + '/config', {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ config: parsed })
+            });
+            if (res.ok) {
+              pluginToConfig.value.config = parsed;
+              configPluginDialog.value = false;
+              if (window.toastNotification) {
+                window.toastNotification('Cập nhật cấu hình plugin thành công!', 'success');
+              }
+            } else {
+              const err = await res.json().catch(() => ({}));
+              pluginConfigError.value = err.message || 'Lưu cấu hình thất bại.';
+            }
+          } catch (err) {
+            pluginConfigError.value = 'Lỗi kết nối khi lưu cấu hình.';
+          } finally {
+            isSavingConfig.value = false;
+          }
+        };
+
+        const confirmUninstallPlugin = async (plugin) => {
+          if (!plugin || !plugin.id) return;
+          if (!confirm('Bạn có chắc chắn muốn gỡ bỏ plugin "' + (plugin.name || plugin.id) + '" khỏi hệ thống không?')) return;
+          actionInProgressId.value = plugin.id;
+          try {
+            const res = await fetch('/api/v1/plugins/' + plugin.id, {
+              method: 'DELETE'
+            });
+            if (res.ok) {
+              if (window.toastNotification) {
+                window.toastNotification('Đã gỡ bỏ plugin ' + (plugin.name || plugin.id), 'success');
+              }
+              if (activeTab.value === 'plugin-' + plugin.id) {
+                switchTab('plugins-management');
+              }
+              await fetchPlugins();
+            } else {
+              const err = await res.json().catch(() => ({}));
+              alert(err.message || 'Không thể gỡ bỏ plugin.');
+            }
+          } catch (err) {
+            console.error('[Plugins] Uninstall error:', err);
+            alert('Lỗi kết nối khi gỡ bỏ plugin.');
+          } finally {
+            actionInProgressId.value = null;
+          }
+        };
+
+        const openPluginView = (plugin) => {
+          selectedActivePlugin.value = plugin;
+          switchTab('plugin-' + plugin.id);
+        };
+
         const modbusPresetsList = (modbusPresetsModule && (modbusPresetsModule.modbusPresetsList || modbusPresetsModule.presetsList)) || ref([]);
 
         return {
@@ -7506,6 +7675,43 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
           loadingDownlinkHistory,
           sendingDownlink,
           downlinkHistoryFilterDevEUI,
+          // Plugins Management
+          pluginsList,
+          loadingPlugins,
+          pluginSearchQuery,
+          pluginStatusFilter,
+          uploadPluginDialog,
+          installUrlDialog,
+          configPluginDialog,
+          pluginToConfig,
+          pluginConfigJson,
+          pluginConfigError,
+          pluginInstallUrl,
+          selectedPluginFile,
+          uploadAutoEnable,
+          isSubmittingUpload,
+          isSubmittingUrl,
+          isSavingConfig,
+          actionInProgressId,
+          selectedActivePlugin,
+          currentActivePlugin,
+          currentActivePluginEntryUrl,
+          activePlugins,
+          activePluginsCount,
+          filteredPlugins,
+          fetchPlugins,
+          togglePluginStatus,
+          reloadPlugin,
+          openUploadDialog,
+          onPluginFileChange,
+          onPluginFileDrop,
+          submitUploadPlugin,
+          openInstallUrlDialog,
+          submitInstallUrl,
+          openPluginConfig,
+          savePluginConfig,
+          confirmUninstallPlugin,
+          openPluginView,
           downlinkConfirmModal,
           filteredDownlinkDevices,
           calculatedHexBytes,
