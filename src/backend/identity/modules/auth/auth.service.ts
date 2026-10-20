@@ -57,7 +57,8 @@ export class AuthService {
   }
 
   async login(loginDto: LoginDto) {
-    const user = await this.validateUser(loginDto.usernameOrEmail, loginDto.password);
+    const identifier = loginDto.usernameOrEmail || loginDto.username || '';
+    const user = await this.validateUser(identifier, loginDto.password);
     const permissions = new Set<string>();
 
     if (user.roles) {

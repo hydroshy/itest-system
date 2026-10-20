@@ -5,9 +5,11 @@ export interface UserProfile {
   id: string;
   username: string;
   email?: string;
+  fullName?: string;
+  userType?: string;
   roles: string[];
   permissions: string[];
-  tenantId: string;
+  tenantId?: string;
   tenantName?: string;
 }
 
@@ -22,30 +24,24 @@ export const useAuthStore = defineStore('auth', () => {
     }
   };
 
-  const token = ref<string | null>(getStoredToken() || 'mock-admin-jwt-token');
-  const user = ref<UserProfile | null>({
-    id: 'user-001',
-    username: 'admin',
-    email: 'admin@universal-iot.local',
-    roles: ['admin', 'engineer'],
-    permissions: [
-      '*',
-      'device:read',
-      'device:write',
-      'telemetry:read',
-      'dashboard:view',
-      'dashboard:edit',
-      'plugin:manage',
-      'serial:access',
-    ],
-    tenantId: 'tenant-default',
-    tenantName: 'Default Production Plant',
-  });
+  const getStoredUser = (): UserProfile | null => {
+    try {
+      const stored = typeof window !== 'undefined' && window.localStorage
+        ? window.localStorage.getItem('auth_user')
+        : null;
+      return stored ? JSON.parse(stored) : null;
+    } catch (_) {
+      return null;
+    }
+  };
+
+  const token = ref<string | null>(getStoredToken());
+  const user = ref<UserProfile | null>(getStoredUser());
 
   const isAuthenticated = computed(() => !!token.value);
   const currentTenant = computed(() => ({
-    id: user.value?.tenantId || 'tenant-default',
-    name: user.value?.tenantName || 'Default Plant',
+    id: user.value?.tenantId || 'system-core',
+    name: user.value?.tenantName || 'ITEST System',
   }));
 
   function setAuth(newToken: string, newUser: UserProfile) {
@@ -54,6 +50,7 @@ export const useAuthStore = defineStore('auth', () => {
     try {
       if (typeof window !== 'undefined' && window.localStorage) {
         window.localStorage.setItem('access_token', newToken);
+        window.localStorage.setItem('auth_user', JSON.stringify(newUser));
       }
     } catch (_) {}
   }
@@ -64,6 +61,7 @@ export const useAuthStore = defineStore('auth', () => {
     try {
       if (typeof window !== 'undefined' && window.localStorage) {
         window.localStorage.removeItem('access_token');
+        window.localStorage.removeItem('auth_user');
       }
     } catch (_) {}
   }
@@ -72,6 +70,11 @@ export const useAuthStore = defineStore('auth', () => {
     if (user.value) {
       user.value.tenantId = tenantId;
       user.value.tenantName = tenantName;
+      try {
+        if (typeof window !== 'undefined' && window.localStorage) {
+          window.localStorage.setItem('auth_user', JSON.stringify(user.value));
+        }
+      } catch (_) {}
     }
   }
 

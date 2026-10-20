@@ -43,7 +43,7 @@ Toàn bộ các giao thức công nghiệp (Modbus RTU/TCP, MQTT, LoRaWAN, v.v.)
    - Ghi nhật ký kiểm toán vòng đời (`plugin_audit_logs`).
    - Cung cấp REST API và WebSocket Event Bus (`plugin:installed`, `plugin:status_changed`, v.v.).
 4. **Quản Trị Thiết Bị Hợp Nhất (Unified Device Model)**: Registry quản lý thông tin thiết bị chuẩn hóa không phụ thuộc giao thức (`unified_devices`).
-5. **Frontend Host Shell (`frontend/`)**: Ứng dụng Vue 3 SPA đóng vai trò Host Shell, cung cấp các `ExtensionSlot` để nạp dynamic micro-frontend plugins.
+5. **Frontend Host Shell (`system-frontend/`)**: Ứng dụng Vue 3 SPA đóng vai trò Host Shell, cung cấp các `ExtensionSlot` để nạp dynamic micro-frontend plugins.
 
 ---
 
@@ -53,7 +53,7 @@ Toàn bộ các giao thức công nghiệp (Modbus RTU/TCP, MQTT, LoRaWAN, v.v.)
 itest-system/
 ├── config/                          # File cấu hình định tuyến động
 │   └── db-routing.config.json       # Table-to-DB routing rules
-├── frontend/                        # Frontend Host Shell (Vue 3 + Vite + TypeScript)
+├── system-frontend/                 # Frontend Host Shell (Vue 3 + Vite + TypeScript)
 │   ├── src/                         # Plugin Registry, Dynamic Loader, Extension Slots
 │   ├── tests/                       # Unit & integration tests (Vitest)
 │   ├── Dockerfile                   # Dockerfile triển khai Nginx Frontend

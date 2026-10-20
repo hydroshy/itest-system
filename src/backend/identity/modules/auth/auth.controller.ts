@@ -9,7 +9,7 @@ import { CurrentUser } from '../../../../common/decorators/current-user.decorato
 import { User } from '../users/entities/user.entity';
 
 @ApiTags('Authentication & Control Panel Access')
-@Controller('auth')
+@Controller(['auth', 'api/v1/auth'])
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 

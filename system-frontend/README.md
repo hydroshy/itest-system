@@ -27,7 +27,7 @@ Kiến trúc Frontend App Shell chuẩn công nghiệp xây dựng trên nền t
 ## 📂 Cấu Trúc Thư Mục (Directory Structure)
 
 ```text
-itest-system/frontend/
+itest-system/system-frontend/
 ├── dist/                      # Thư mục build production sẵn sàng triển khai
 ├── src/
 │   ├── assets/                # CSS, logo, styles chuẩn công nghiệp

@@ -14,11 +14,11 @@ WORKDIR /app/packages/frontend-sdk
 RUN pnpm install && pnpm run build
 
 # Build Frontend
-WORKDIR /app/frontend
-COPY frontend/package.json frontend/pnpm-lock.yaml ./
+WORKDIR /app/system-frontend
+COPY system-frontend/package.json system-frontend/pnpm-lock.yaml ./
 RUN pnpm install --ignore-scripts
 
-COPY frontend/ .
+COPY system-frontend/ .
 RUN pnpm run build
 
 # ==============================================================================
@@ -26,8 +26,8 @@ RUN pnpm run build
 # ==============================================================================
 FROM nginx:alpine AS runner
 
-COPY --from=builder /app/frontend/dist /usr/share/nginx/html
-COPY frontend/nginx.conf /etc/nginx/conf.d/default.conf
+COPY --from=builder /app/system-frontend/dist /usr/share/nginx/html
+COPY system-frontend/nginx.conf /etc/nginx/conf.d/default.conf
 
 EXPOSE 80
 

@@ -1,5 +1,6 @@
 import { Injectable, Logger, OnModuleInit, Optional } from '@nestjs/common';
 import * as crypto from 'crypto';
+import * as fs from 'fs';
 import * as path from 'path';
 import { DynamicDatabaseService } from '../database/dynamic-database.service';
 import { RealtimeService } from '../realtime/modules/realtime/realtime.service';
@@ -12,6 +13,7 @@ import {
   PluginFilterDto,
   PluginLifecycleEvent,
   PluginStatus,
+  PluginType,
 } from './plugin-manifest.interface';
 
 @Injectable()
@@ -30,6 +32,108 @@ export class PluginManagerService implements OnModuleInit {
 
   async onModuleInit() {
     await this.syncPluginsFromDatabase();
+    await this.scanAndSyncLocalPlugins();
+  }
+
+  /**
+   * Scan local plugins directory and synchronize discovered plugins
+   */
+  public async scanAndSyncLocalPlugins(customDir?: string): Promise<CorePluginEntity[]> {
+    const candidateDirs = [
+      customDir,
+      process.env.PLUGINS_DIR,
+      path.resolve(process.cwd(), 'plugins'),
+      path.resolve(process.cwd(), '../plugins'),
+      path.resolve(process.cwd(), '../itest-plugins/plugins'),
+    ].filter(Boolean) as string[];
+
+    let targetDir: string | null = null;
+    for (const dir of candidateDirs) {
+      if (fs.existsSync(dir) && fs.statSync(dir).isDirectory()) {
+        targetDir = dir;
+        break;
+      }
+    }
+
+    if (!targetDir) {
+      this.logger.log('No local plugins directory found for auto-discovery.');
+      return [];
+    }
+
+    this.logger.log(`Scanning local plugins from directory: ${targetDir}`);
+    const discovered: CorePluginEntity[] = [];
+
+    try {
+      const entries = fs.readdirSync(targetDir, { withFileTypes: true });
+      for (const entry of entries) {
+        if (!entry.isDirectory()) continue;
+
+        const pluginDir = path.join(targetDir, entry.name);
+        const manifestPaths = [
+          path.join(pluginDir, 'manifest.json'),
+          path.join(pluginDir, 'plugin-manifest.json'),
+        ];
+
+        let manifestFile = manifestPaths.find((p) => fs.existsSync(p));
+        if (!manifestFile) continue;
+
+        try {
+          const raw = fs.readFileSync(manifestFile, 'utf-8');
+          const data = JSON.parse(raw);
+
+          if (!data.id) continue;
+
+          // Normalize type to uppercase PluginType
+          const rawType = (data.type || 'APPLICATION').toUpperCase();
+          const validTypes: PluginType[] = [
+            'PROTOCOL',
+            'TRANSPORT',
+            'DATA_PROCESSING',
+            'APPLICATION',
+            'UI',
+            'PROCESSOR',
+            'HYBRID',
+          ];
+          const type: PluginType = validTypes.includes(rawType) ? rawType : 'APPLICATION';
+
+          const existing = this.pluginsCache.get(data.id);
+          const entity = existing || new CorePluginEntity();
+
+          entity.id = data.id;
+          entity.name = data.name || data.id;
+          entity.version = data.version || '1.0.0';
+          entity.type = type;
+          entity.status = existing?.status || 'ACTIVE';
+          entity.description = data.description || '';
+          entity.author = data.author || '';
+          entity.license = data.license || 'MIT';
+          entity.repositoryUrl = data.repository?.url || '';
+          entity.bundleUrl = data.entry || entity.bundleUrl || '';
+          entity.bundleType = 'ESM';
+          entity.manifest = data;
+          entity.uiEntry = (data.uiEntry || data.ui || { routes: [], menus: [], widgets: [] }) as any;
+          entity.backendEntry = (data.backendEntry || {}) as any;
+          entity.permissions = Array.isArray(data.permissions)
+            ? data.permissions.map((p: any) => (typeof p === 'string' ? p : `${p.namespace || ''}:${p.resource || ''}:${p.action || ''}`))
+            : [];
+          entity.config = entity.config && Object.keys(entity.config).length > 0
+            ? entity.config
+            : data.defaultConfig || {};
+
+          this.pluginsCache.set(entity.id, entity);
+          await this.persistPlugin(entity);
+          discovered.push(entity);
+        } catch (err: any) {
+          this.logger.warn(`Failed to parse plugin manifest in ${pluginDir}: ${err.message}`);
+        }
+      }
+
+      this.logger.log(`Discovered and synchronized ${discovered.length} local plugin(s).`);
+    } catch (err: any) {
+      this.logger.error(`Error scanning local plugins: ${err.message}`);
+    }
+
+    return discovered;
   }
 
   /**
