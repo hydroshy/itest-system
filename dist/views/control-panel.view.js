@@ -2937,14 +2937,13 @@ exports.CONTROL_PANEL_HTML = `<!DOCTYPE html>
             case 'device-tested': return 'Tested Devices (QA Inspection)';
             case 'plugins-management': return 'Plugins Management';
             default: {
-              if (activeTab.value.startsWith('plugin-')) {
+              if (activeTab.value && activeTab.value.startsWith('plugin-')) {
                 const pId = activeTab.value.replace('plugin-', '');
                 const found = pluginsList.value.find(p => p.id === pId);
                 return found ? (found.name || found.id) : ('Plugin: ' + pId);
               }
               return activeTab.value;
             }
-            default: return activeTab.value;
           }
         });
 

@@ -211,7 +211,7 @@ export const OVERVIEW_TEMPLATE = `
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pt-1">
               
               <!-- Card: Plugins Management -->
-              <div @click="switchTab('plugins')" class="p-4 bg-slate-950/80 hover:bg-slate-900/80 rounded-xl border border-slate-800 hover:border-blue-500/40 transition cursor-pointer space-y-3 group">
+              <div @click="switchTab('plugins-management')" class="p-4 bg-slate-950/80 hover:bg-slate-900/80 rounded-xl border border-slate-800 hover:border-blue-500/40 transition cursor-pointer space-y-3 group">
                 <div class="flex items-center justify-between">
                   <div class="w-10 h-10 rounded-xl bg-blue-500/10 border border-blue-500/30 flex items-center justify-center text-blue-400 text-base shadow-inner group-hover:scale-105 transition">
                     <i class="fa-solid fa-puzzle-piece"></i>
