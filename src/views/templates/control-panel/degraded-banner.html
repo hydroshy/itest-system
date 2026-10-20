@@ -1,0 +1,12 @@
+        <div v-if="hasDegradedModules" class="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-between gap-3 text-xs text-amber-300">
+          <div class="flex items-center gap-2.5">
+            <i class="fa-solid fa-triangle-exclamation text-amber-400 text-sm"></i>
+            <span>
+              <strong>System running in isolated mode:</strong> 
+              Detected {{ degradedModulesList.length }} problematic module(s) isolated safely ({{ degradedModulesList.map(m => m.title).join(", ") }}). Other modules remain unaffected.
+            </span>
+          </div>
+          <button @click="switchTab('overview')" class="px-3 py-1 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-[11px] font-bold text-amber-200 transition cursor-pointer">
+            Return to Overview
+          </button>
+        </div>

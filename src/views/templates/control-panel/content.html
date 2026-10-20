@@ -1,0 +1,153 @@
+        <!-- TAB 1: OVERVIEW & DATABASE -->
+        <c-module-boundary module-id="overview" title="Overview Hub" icon="fa-solid fa-chart-pie" :active="activeTab === 'overview' || activeTab === 'database'">
+          <div v-if="activeTab === 'overview' || activeTab === 'database'">
+            ${OVERVIEW_TEMPLATE}
+          </div>
+        </c-module-boundary>
+
+        <!-- TAB 2: NETWORK SERVERS -->
+        <c-module-boundary module-id="network-servers" title="Network Servers" icon="fa-solid fa-tower-broadcast" :active="activeTab === 'network-servers'">
+          <div v-if="activeTab === 'network-servers'">
+            ${NETWORK_SERVERS_TEMPLATE}
+          </div>
+        </c-module-boundary>
+
+        <!-- TAB 3: SYSTEM MODULES, ROLES, USERS -->
+        <c-module-boundary module-id="modules" title="Dashboard Modules & Governance" icon="fa-solid fa-cubes" :active="activeTab === 'modules' || activeTab === 'roles' || activeTab === 'users'">
+          <div v-if="activeTab === 'modules' || activeTab === 'roles' || activeTab === 'users'">
+            ${SYSTEM_MODULES_TEMPLATE}
+          </div>
+        </c-module-boundary>
+
+        <!-- TAB 7: DEVICES -->
+        <c-module-boundary module-id="devices" title="Device Fleet" icon="fa-solid fa-microchip" :active="activeTab === 'devices'">
+          <div v-if="activeTab === 'devices'">
+            ${DEVICES_TEMPLATE}
+          </div>
+        </c-module-boundary>
+
+        <!-- TAB 8: WEBHOOKS -->
+        <c-module-boundary module-id="webhooks" title="Webhook Manager" icon="fa-solid fa-satellite-dish" :active="activeTab === 'webhooks'">
+          <div v-if="activeTab === 'webhooks'">
+            ${WEBHOOKS_TEMPLATE}
+          </div>
+        </c-module-boundary>
+
+        <!-- TAB 9: DECODER -->
+        <c-module-boundary module-id="decoder" title="Decoder Manager" icon="fa-solid fa-code" :active="activeTab === 'decoder'">
+          <div v-if="activeTab === 'decoder'">
+            ${DECODER_TEMPLATE}
+          </div>
+        </c-module-boundary>
+
+        <!-- TAB 10: HMI STUDIO -->
+        <c-module-boundary module-id="hmi-studio" title="HMI SCADA Studio" icon="fa-solid fa-palette" :active="activeTab === 'hmi-studio'">
+          <div v-if="activeTab === 'hmi-studio'">
+            ${HMI_STUDIO_TEMPLATE}
+          </div>
+        </c-module-boundary>
+
+        <!-- TAB 11: DOWNLINK -->
+        <c-module-boundary module-id="downlink" title="Downlink Controller" icon="fa-solid fa-paper-plane" :active="activeTab === 'downlink'">
+          <div v-if="activeTab === 'downlink'">
+            ${DOWNLINK_TEMPLATE}
+          </div>
+        </c-module-boundary>
+
+        <!-- TAB 12: MODBUS PRESETS & TEMPLATES MANAGER -->
+        <c-module-boundary module-id="modbus-presets" title="Modbus Presets & Templates" icon="fa-solid fa-file-excel" :active="activeTab === 'modbus-presets'">
+          <div v-if="activeTab === 'modbus-presets'" class="space-y-6">
+            ${MODBUS_PRESETS_TEMPLATE}
+          </div>
+        </c-module-boundary>
+
+        <!-- TAB 13: LORAWAN TEST AUTOMATION & SCENARIO BUILDER -->
+        <c-module-boundary module-id="test-builder" title="Test Automation Builder" icon="fa-solid fa-vial-circle-check" :active="activeTab === 'test-builder'">
+          <div v-if="activeTab === 'test-builder'" class="space-y-6">
+            ${TEST_BUILDER_TEMPLATE}
+          </div>
+        </c-module-boundary>
+
+        <!-- TAB 14: MASTER ITEM CODE CATALOG -->
+        <c-module-boundary module-id="item-codes" title="Master Item Codes" icon="fa-solid fa-barcode" :active="activeTab === 'item-codes'">
+          <div v-if="activeTab === 'item-codes'" class="space-y-6">
+            ${ITEM_CODES_TEMPLATE}
+          </div>
+        </c-module-boundary>
+
+        <!-- TAB 15: SALES ORDERS & ITEM CODES -->
+        <c-module-boundary module-id="sales-orders" title="Sales Orders" icon="fa-solid fa-file-invoice-dollar" :active="activeTab === 'sales-orders'">
+          <div v-if="activeTab === 'sales-orders'" class="space-y-6">
+            ${SALES_ORDERS_TEMPLATE}
+          </div>
+        </c-module-boundary>
+
+        <!-- TAB 16: LORAWAN SENSOR TYPES -->
+        <c-module-boundary module-id="sensor-types" title="LoRaWAN Sensor Types" icon="fa-solid fa-microchip" :active="activeTab === 'sensor-types'">
+          <div v-if="activeTab === 'sensor-types'" class="space-y-6">
+            ${SENSOR_TYPES_TEMPLATE}
+          </div>
+        </c-module-boundary>
+
+        <!-- TAB 17: TRACEABILITY (T-MODULE) -->
+        <c-module-boundary module-id="traceability" title="Traceability (T-Module)" icon="fa-solid fa-clipboard-check" :active="activeTab === 'traceability'">
+          <div v-if="activeTab === 'traceability'" class="space-y-6">
+            ${TRACEABILITY_TEMPLATE}
+          </div>
+        </c-module-boundary>
+
+        <!-- TAB 18: MEMORY MAP UPLOAD -->
+        <c-module-boundary module-id="memmap-upload" title="Memory Map Upload" icon="fa-solid fa-file-csv" :active="activeTab === 'memmap-upload'">
+          <div v-if="activeTab === 'memmap-upload'" class="space-y-6">
+            ${MEMMAP_UPLOAD_TEMPLATE}
+          </div>
+        </c-module-boundary>
+
+        <!-- TAB: MEMORY MAP MANAGER -->
+        <c-module-boundary module-id="memmap-manager" title="Memory Map Manager" icon="fa-solid fa-map-location-dot" :active="activeTab === 'memmap-manager'">
+          <div v-if="activeTab === 'memmap-manager'" class="space-y-6">
+            ${MEMMAP_MANAGER_TEMPLATE}
+          </div>
+        </c-module-boundary>
+
+        <!-- TAB 19: CREATE FINAL CONFIG -->
+        <c-module-boundary module-id="create-final-config" title="Create Final Config" icon="fa-solid fa-sliders" :active="activeTab === 'create-final-config'">
+          <div v-if="activeTab === 'create-final-config'" class="space-y-6">
+            ${CREATE_FINAL_CONFIG_TEMPLATE}
+          </div>
+        </c-module-boundary>
+
+        <!-- TAB 20: FINAL CONFIG MANAGER -->
+        <c-module-boundary module-id="final-config-manager" title="Final Config Manager" icon="fa-solid fa-list-check" :active="activeTab === 'final-config-manager'">
+          <div v-if="activeTab === 'final-config-manager'" class="space-y-6">
+            ${FINAL_CONFIG_MANAGER_TEMPLATE}
+          </div>
+        </c-module-boundary>
+
+        <!-- TAB 21: DEVICE TESTED (QA INSPECTION) -->
+        <c-module-boundary module-id="device-tested" title="Tested Devices (QA Inspection)" icon="fa-solid fa-vial-circle-check" :active="activeTab === 'device-tested'">
+          <div v-if="activeTab === 'device-tested'" class="space-y-6">
+            ${DEVICE_TESTED_TEMPLATE}
+          </div>
+        </c-module-boundary>
+
+        <!-- TAB: PLUGINS MANAGEMENT -->
+        <c-module-boundary module-id="plugins-management" title="Plugins Management" icon="fa-solid fa-puzzle-piece" :active="activeTab === 'plugins-management'">
+          <div v-if="activeTab === 'plugins-management'" class="space-y-6">
+            ${PLUGINS_MANAGEMENT_TEMPLATE}
+          </div>
+        </c-module-boundary>
+
+        <!-- DYNAMIC TAB: ACTIVE PLUGIN VIEW -->
+        <div v-if="activeTab.startsWith('plugin-')" class="space-y-4">
+          <div class="flex items-center justify-between bg-slate-900 border border-slate-800 rounded-xl px-5 py-3">
+            <div class="flex items-center gap-3">
+              <div class="w-9 h-9 rounded-lg bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400">
+                <i :class="currentActivePlugin?.manifest?.icon || 'fa-solid fa-puzzle-piece'"></i>
+              </div>
+              <div>
+                <h2 class="text-sm font-bold text-white tracking-wide">{{ currentActivePlugin?.name || activeTab }}</h2>
+                <p class="text-xs text-slate-400">{{ currentActivePlugin?.manifest?.description || 'Active System Plugin' }} <span class="font-mono text-slate-500">v{{ currentActivePlugin?.version }}</span></p>
+              </div>
+            </div>
+            <div class="flex items-center gap-2">

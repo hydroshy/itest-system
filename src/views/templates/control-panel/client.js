@@ -1,0 +1,6264 @@
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/vue/3.4.31/vue.global.prod.min.js"></script>
+  <script>
+    if (typeof Vue === 'undefined') {
+      document.write('<script src="https://cdn.jsdelivr.net/npm/vue@3.4.31/dist/vue.global.prod.js"><\\/script>');
+    }
+  </script>
+  <script>
+    if (typeof Vue === 'undefined') {
+      document.write('<script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"><\\/script>');
+    }
+  </script>
+  <script>
+    // Fail-safe: remove v-cloak if error happens or Vue fails to mount within 1.0s
+    window.addEventListener('error', function(e) {
+      console.error('[Global Page Error]:', e.error || e.message);
+      var appEl = document.getElementById('app');
+      if (appEl && appEl.hasAttribute('v-cloak')) {
+        appEl.removeAttribute('v-cloak');
+      }
+    });
+    setTimeout(function() {
+      var appEl = document.getElementById('app');
+      if (appEl && appEl.hasAttribute('v-cloak')) {
+        console.warn('Vue mounting safety timer triggered: removing v-cloak');
+        appEl.removeAttribute('v-cloak');
+      }
+    }, 1000);
+
+    try {
+      ${MODBUS_PRESETS_SCRIPT}
+    } catch (e) {
+      console.error('[Module Script Load Error: modbus-presets]', e);
+    }
+    try {
+      ${TEST_BUILDER_SCRIPT}
+    } catch (e) {
+      console.error('[Module Script Load Error: test-builder]', e);
+    }
+    try {
+      ${ITEM_CODES_SCRIPT}
+    } catch (e) {
+      console.error('[Module Script Load Error: item-codes]', e);
+    }
+    try {
+      ${SALES_ORDERS_SCRIPT}
+    } catch (e) {
+      console.error('[Module Script Load Error: sales-orders]', e);
+    }
+    try {
+      ${SENSOR_TYPES_SCRIPT}
+    } catch (e) {
+      console.error('[Module Script Load Error: sensor-types]', e);
+    }
+    try {
+      ${TRACEABILITY_SCRIPT}
+    } catch (e) {
+      console.error('[Module Script Load Error: traceability]', e);
+    }
+    try {
+      ${MEMMAP_UPLOAD_SCRIPT}
+    } catch (e) {
+      console.error('[Module Script Load Error: memmap-upload]', e);
+    }
+    try {
+      ${MEMMAP_MANAGER_SCRIPT}
+    } catch (e) {
+      console.error('[Module Script Load Error: memmap-manager]', e);
+    }
+    try {
+      ${CREATE_FINAL_CONFIG_SCRIPT}
+    } catch (e) {
+      console.error('[Module Script Load Error: create-final-config]', e);
+    }
+    try {
+      ${FINAL_CONFIG_MANAGER_SCRIPT}
+    } catch (e) {
+      console.error('[Module Script Load Error: final-config-manager]', e);
+    }
+    try {
+      ${DEVICE_TESTED_SCRIPT}
+    } catch (e) {
+      console.error('[Module Script Load Error: device-tested]', e);
+    }
+
+    // --- TIER 1: SANDBOX LOADER & DEFENSIVE FALLBACK FACTORIES (ADR-0002) ---
+    // ponytail: safeExecuteModuleSetup keeps root setup infallible across all 15 C-Modules
+    function safeExecuteModuleSetup(moduleId, setupFn, ctx, fallbackFactory) {
+      try {
+        if (typeof setupFn !== 'function') {
+          throw new Error("Module '" + moduleId + "' setup function is not defined");
+        }
+        const result = setupFn(ctx);
+        return result || (fallbackFactory ? fallbackFactory() : {});
+      } catch (err) {
+        console.error("[Sandbox Loader CRASH]: Failed to execute setup for module '" + moduleId + "':", err);
+        if (ctx && ctx.moduleStatesRegistry) {
+          ctx.moduleStatesRegistry.setModuleError(moduleId, err, 'setup');
+        } else if (window.__cp_module_states_store) {
+          window.__cp_module_states_store.setModuleError(moduleId, err, 'setup');
+        }
+        return fallbackFactory ? fallbackFactory() : {};
+      }
+    }
+
+    function createModbusPresetsFallback() {
+      const ref = (typeof Vue !== 'undefined' && Vue.ref) ? Vue.ref : function(v) { return { value: v }; };
+      const emptyPresets = ref([]);
+      return {
+        presetsList: emptyPresets,
+        modbusPresetsList: emptyPresets,
+        activePresetId: ref(''),
+        activePreset: ref({ name: 'Fallback Mode', registers: [] }),
+        presetRegisters: ref([]),
+        selectedPresetRowCount: ref(0),
+        checkedRegistersCount: ref(0),
+        isSavingPreset: ref(false),
+        presetFilterQuery: ref(''),
+        showImportExcelModal: ref(false),
+        showCreateTemplateModal: ref(false),
+        showDeletePresetModal: ref(false),
+        showDeleteSelectedModal: ref(false),
+        showAddRegisterModal: ref(false),
+        isProcessingImport: ref(false),
+        newRegisterForm: ref({}),
+        importForm: ref({}),
+        createForm: ref({}),
+        fetchPresets: function() {},
+        selectPreset: function() {},
+        onPresetSelectChange: function() {},
+        addPresetRow: function() {},
+        openAddRegisterModal: function() {},
+        confirmAddRegisterModal: function() {},
+        deleteSelectedPresetRows: function() {},
+        openDeleteSelectedModal: function() {},
+        confirmDeleteSelectedPresetRows: function() {},
+        saveCurrentPreset: function() {},
+        deleteCurrentPreset: function() {},
+        openDeletePresetModal: function() {},
+        confirmDeletePreset: function() {},
+        openImportModal: function() {},
+        openCreateModal: function() {},
+        confirmCreateTemplate: function() {},
+        onExcelFileSelect: function() {},
+        onExcelFileDrop: function() {},
+        clearImportFile: function() {},
+        confirmImportExcel: function() {},
+        exportPresetCSV: function() {},
+        filterPresetsTable: function() {},
+        initPresetsTabulator: function() {},
+      };
+    }
+
+    function createTestBuilderFallback() {
+      const ref = (typeof Vue !== 'undefined' && Vue.ref) ? Vue.ref : function(v) { return { value: v }; };
+      return {
+        testTemplatesList: ref([]),
+        activeTestTemplateId: ref(''),
+        activeTestTemplate: ref(null),
+        testBuilderMode: ref('flow'),
+        testAvailableFields: ref([]),
+        isSavingTestTemplate: ref(false),
+        isCreatingTestTemplate: ref(false),
+        isRunningDryRun: ref(false),
+        showCreateTestTemplateModal: ref(false),
+        showDryRunModal: ref(false),
+        newTestTemplateForm: ref({}),
+        dryRunPayloadRaw: ref(''),
+        dryRunContext: ref({}),
+        dryRunResponse: ref(null),
+        currentFlowNodes: ref([]),
+        currentFlowEdges: ref([]),
+        canvasContainerRef: ref(null),
+        wireDraft: ref(null),
+        draggingNode: ref(null),
+        wireContextMenu: ref({ visible: false, x: 0, y: 0, edgeId: null }),
+        nodeContextMenu: ref({ visible: false, x: 0, y: 0, nodeId: null }),
+        openWireContextMenu: function() {},
+        closeWireContextMenu: function() {},
+        openNodeContextMenu: function() {},
+        closeNodeContextMenu: function() {},
+        editScriptFromNodeMenu: function() {},
+        cloneNodeFromMenu: function() {},
+        disconnectWiresFromNode: function() {},
+        deleteNodeFromMenu: function() {},
+        onCanvasContextMenu: function() {},
+        inspectWireConnection: function() {},
+        deleteWireFromMenu: function() {},
+        formatFirmware: function(fw) {
+          if (!fw) return '';
+          return String(fw).replace(/^[vV]/, '').trim().replace(/(\.0+)+$/, '') || '';
+        },
+        getNodePosX: function() { return 0; },
+        getNodePosY: function() { return 0; },
+        getFieldEnglishLabel: function(f) { return f || ''; },
+        getNodeDisplayName: function() { return ''; },
+        showFunctionScriptModal: ref(false),
+        editingFunctionNode: ref(null),
+        functionScriptBuffer: ref(''),
+        functionScriptTestResult: ref(null),
+        isTestingFunctionScript: ref(false),
+        getNodeBadgeClass: function() { return ''; },
+        getNodeIcon: function() { return ''; },
+        getNodeCardClass: function() { return ''; },
+        getNodeScriptPreview: function() { return ''; },
+        computeWirePath: function() { return ''; },
+        getWirePath: function() { return ''; },
+        getEdgePath: function() { return ''; },
+        getEdgeMidX: function() { return 0; },
+        getEdgeMidY: function() { return 0; },
+        getDraftWirePath: function() { return ''; },
+        onOutputPortClick: function() {},
+        onInputPortClick: function() {},
+        removeFlowEdge: function() {},
+        onCanvasMouseMove: function() {},
+        onCanvasMouseUp: function() {},
+        onCanvasClick: function() {},
+        cancelWireDraft: function() {},
+        onNodeHeaderMouseDown: function() {},
+        autoArrangeNodes: function() {},
+        autoWirePipeline: function() {},
+        clearFlowWires: function() {},
+        openFunctionScriptModal: function() {},
+        saveFunctionScript: function() {},
+        insertScriptVariable: function() {},
+        applyScriptTemplate: function() {},
+        testFunctionScriptInModal: function() {},
+        onTestTemplateSelectChange: function() {},
+        fetchTestAvailableFields: function() {},
+        addFlowNode: function() {},
+        addExtractorNodeForField: function() {},
+        onExtractorFieldChange: function() {},
+        removeFlowNode: function() {},
+        compileFlowToAssertions: function() {},
+        convertFlowToScript: function() {},
+        insertCodeSnippet: function() {},
+        insertSampleScript: function() {},
+        saveCurrentTestTemplate: function() {},
+        openCreateTestTemplateModal: function() {},
+        createTestTemplate: function() {},
+        openDeleteTestTemplateModal: function() {},
+        openDryRunModal: function() {},
+        executeDryRun: function() {},
+        decoderExtractionStatus: ref({}),
+        showQuickTestModal: ref(false),
+        quickTestCode: ref(''),
+        isTestingQuickCode: ref(false),
+        quickTestResult: ref(null),
+        commonTelemetryFields: ref([]),
+        realDecoderFields: ref([]),
+        navigateToDecoderManager: function() {},
+        openQuickTestModal: function() {},
+        loadActiveDecoderCodeIntoQuickTest: function() {},
+        loadSampleQuickTestCode: function() {},
+        runQuickTestExtract: function() {},
+        applyQuickTestFieldsToScenario: function() {},
+      };
+    }
+
+    function createItemCodesFallback() {
+      const ref = (typeof Vue !== 'undefined' && Vue.ref) ? Vue.ref : function(v) { return { value: v }; };
+      return {
+        itemCodesList: ref([]),
+        itemCodesLoading: ref(false),
+        itemCodesSearchQuery: ref(''),
+        itemCodesStatusFilter: ref('all'),
+        itemCodesViewMode: ref('card'),
+        catalogAvailableTemplates: ref([]),
+        isSavingCatalogItem: ref(false),
+        showCreateItemCodeModal: ref(false),
+        showEditItemCodeModal: ref(false),
+        showDeleteItemCodeModal: ref(false),
+        createItemCodeForm: ref({}),
+        editingCatalogItem: ref(null),
+        itemCodeToDelete: ref(null),
+        uniqueCatalogSkusCount: ref(0),
+        filteredItemCodes: ref([]),
+        setCatalogViewMode: function() {},
+        initItemCodesTabulator: function() {},
+        fetchItemCodes: function() {},
+        fetchCatalogAvailableTemplates: function() {},
+        sanitizeFw: function(fw) { return fw || '1.0'; },
+        formatSkuFw: function(sku, fw) { return sku ? sku + '_' + (fw || '1.0') : ''; },
+        copyText: function() {},
+        navigateToTestBuilder: function() {},
+        toggleItemActive: function() {},
+        openCreateItemCodeModal: function() {},
+        submitCreateItemCode: function() {},
+        openEditItemCodeModal: function() {},
+        submitEditItemCode: function() {},
+        openDeleteItemCodeModal: function() {},
+        submitDeleteItemCode: function() {},
+      };
+    }
+
+    function createSalesOrdersFallback() {
+      const ref = (typeof Vue !== 'undefined' && Vue.ref) ? Vue.ref : function(v) { return { value: v }; };
+      return {
+        salesOrdersList: ref([]),
+        soLoading: ref(false),
+        soSearchQuery: ref(''),
+        soStatusFilter: ref('all'),
+        soSourceFilter: ref('all'),
+        soTableViewMode: ref('card'),
+        soPagination: ref({ page: 1, limit: 10, total: 0, pages: 1 }),
+        soStats: ref({ totalOrders: 0, totalItems: 0, totalUnits: 0, testedUnits: 0, passedUnits: 0, passRate: 0 }),
+        expandedSoIds: ref([]),
+        availableTestTemplates: ref([]),
+        showCreateSoModal: ref(false),
+        showEditSoModal: ref(false),
+        showDeleteSoModal: ref(false),
+        showImportSoModal: ref(false),
+        showSoDetailsModal: ref(false),
+        showItemTestStatusModal: ref(false),
+        isSavingSo: ref(false),
+        isImportingSo: ref(false),
+        isDeletingSo: ref(false),
+        editingSo: ref(null),
+        soToDelete: ref(null),
+        selectedSoDetails: ref(null),
+        itemTestStatusData: ref({}),
+        createSoForm: ref({ items: [] }),
+        editSoForm: ref({ items: [] }),
+        importActiveTab: ref('json'),
+        odooJsonPayload: ref(''),
+        odooJsonPreview: ref(null),
+        csvContent: ref(''),
+        csvOverwriteExisting: ref(false),
+        csvPreviewRows: ref([]),
+        odooApiForm: ref({}),
+        isSoExpanded: function() { return false; },
+        toggleSoExpand: function() {},
+        formatDate: function() { return ''; },
+        formatDateTime: function() { return ''; },
+        calculateTotalQuantity: function() { return 0; },
+        calculateProgress: function() { return 0; },
+        getStatusBadgeClass: function() { return ''; },
+        getStatusDotClass: function() { return ''; },
+        getStatusTextColor: function() { return ''; },
+        getItemStatusBadgeClass: function() { return ''; },
+        getSourceBadgeClass: function() { return ''; },
+        getSourceIcon: function() { return ''; },
+        setSoViewMode: function() {},
+        initSoTabulator: function() {},
+        fetchSalesOrders: function() {},
+        onSoSearch: function() {},
+        changeSoPage: function() {},
+        fetchAvailableTemplatesForDropdown: function() {},
+        triggerAutoDetectTemplate: function() {},
+        onSkuOrFwChange: function() {},
+        autoResolveItemTemplate: function() {},
+        openCreateSoModal: function() {},
+        addCreateSoItemRow: function() {},
+        removeCreateSoItemRow: function() {},
+        submitCreateSo: function() {},
+        openEditSoModal: function() {},
+        addEditSoItemRow: function() {},
+        removeEditSoItemRow: function() {},
+        submitEditSo: function() {},
+        openDeleteSoModal: function() {},
+        confirmDeleteSo: function() {},
+        openSoDetails: function() {},
+        inspectItemTestStatus: function() {},
+        navigateToTestBuilder: function() {},
+        openImportSoModal: function() {},
+        loadSampleOdooJson: function() {},
+        previewOdooJson: function() {},
+        submitImportOdooJson: function() {},
+        loadSampleCsv: function() {},
+        clickCsvFileInput: function() {},
+        onCsvFileSelected: function() {},
+        previewCsv: function() {},
+        submitImportCsv: function() {},
+        submitSyncOdooApi: function() {},
+        sanitizeFw: function(fw) { return fw || '1.0'; },
+        formatSkuFw: function(sku, fw) { return sku ? sku + '_' + (fw || '1.0') : ''; },
+        normalizeSoCode: function(code) { return code || ''; },
+        showCatalogPickerModal: ref(false),
+        catalogPickerSearch: ref(''),
+        selectedCatalogItemCodes: ref([]),
+        filteredCatalogForPicker: ref([]),
+        isAllCatalogSelected: ref(false),
+        fetchCatalogItemsForPicker: function() {},
+        toggleSelectAllCatalogItems: function() {},
+        toggleCatalogItemSelection: function() {},
+        openCatalogPickerModal: function() {},
+        openCatalogPickerForRow: function() {},
+        attachSingleCatalogItem: function() {},
+        attachSelectedCatalogItems: function() {},
+      };
+    }
+
+    function createSensorTypesFallback() {
+      const ref = (typeof Vue !== 'undefined' && Vue.ref) ? Vue.ref : function(v) { return { value: v }; };
+      return {
+        sensorTypesList: ref([]),
+        loadingSensorTypes: ref(false),
+        sensorTypeFilter: ref(''),
+        showSensorTypeModal: ref(false),
+        isEditingSensorType: ref(false),
+        isSavingSensorType: ref(false),
+        showDeleteSensorTypeModal: ref(false),
+        deletingSensorType: ref(null),
+        sensorTypeForm: ref({}),
+        filteredSensorTypes: ref([]),
+        fetchSensorTypes: function() {},
+        onSensorTypeFilterChange: function() {},
+        openAddSensorTypeModal: function() {},
+        openEditSensorTypeModal: function() {},
+        closeSensorTypeModal: function() {},
+        saveSensorType: function() {},
+        openDeleteSensorTypeModal: function() {},
+        confirmDeleteSensorType: function() {},
+      };
+    }
+
+    function createTraceabilityFallback() {
+      const ref = (typeof Vue !== 'undefined' && Vue.ref) ? Vue.ref : function(v) { return { value: v }; };
+      return {
+        traceViewMode: ref('catalog'),
+        testResultsList: ref([]),
+        loadingTestResults: ref(false),
+        isSeedingTraceData: ref(false),
+        traceFilters: ref({}),
+        activeTestIdInput: ref(''),
+        loadingDeviceDetails: ref(false),
+        deviceDetails: ref(null),
+        selectedTrendField: ref('com1'),
+        showDecodedConfigModal: ref(false),
+        activeDecodedItem: ref(null),
+        activeDecodedRegisters: ref([]),
+        testResultsSummary: ref({ total: 0, pass: 0, fail: 0, passRate: 0 }),
+        trendChartPoints: ref(''),
+        fetchTestResults: function() {},
+        resetTraceFilters: function() {},
+        seedSampleTraceData: function() {},
+        inspectDeviceTest: function() {},
+        loadDeviceDetails: function() {},
+        openDecodedConfigModal: function() {},
+        isTestPassed: function() { return false; },
+        formatDateTime: function() { return ''; },
+        formatStatNum: function() { return ''; },
+      };
+    }
+
+    function createDeviceTestedFallback() {
+      const ref = (typeof Vue !== 'undefined' && Vue.ref) ? Vue.ref : function(v) { return { value: v }; };
+      return {
+        dtLoading: ref(false),
+        dtTreeGroups: ref([]),
+        dtSearchQuery: ref(''),
+        dtStatusFilter: ref('ALL'),
+        dtExpandedSos: ref({}),
+        dtShowImportModal: ref(false),
+        dtShowDetailModal: ref(false),
+        dtSelectedDevice: ref(null),
+        dtDragOver: ref(false),
+        dtSelectedFileName: ref(''),
+        dtCsvLinesCount: ref(0),
+        dtRawCsvText: ref(''),
+        dtImporting: ref(false),
+        dtImportResult: ref(null),
+        dtKpis: ref({ totalSos: 0, totalDevices: 0, fullyVerified: 0, failed: 0, passRate: 100 }),
+        dtFilteredTreeGroups: ref([]),
+        dtFetchData: function() {},
+        dtToggleSoGroup: function() {},
+        dtExpandAllSos: function() {},
+        dtCollapseAllSos: function() {},
+        dtToggleSoExpand: function() {},
+        dtOpenImportModal: function() {},
+        dtCloseImportModal: function() {},
+        dtClearSelectedFile: function() {},
+        dtHandleFileSelect: function() {},
+        dtHandleFileDrop: function() {},
+        dtSubmitCsvImport: function() {},
+        dtOpenDeviceDetailModal: function() {},
+        dtCloseDeviceDetailModal: function() {},
+      };
+    }
+
+    window.safeExecuteModuleSetup = safeExecuteModuleSetup;
+    window.createModbusPresetsFallback = createModbusPresetsFallback;
+    window.createTestBuilderFallback = createTestBuilderFallback;
+    window.createItemCodesFallback = createItemCodesFallback;
+    window.createSalesOrdersFallback = createSalesOrdersFallback;
+    window.createSensorTypesFallback = createSensorTypesFallback;
+    window.createTraceabilityFallback = createTraceabilityFallback;
+    window.createDeviceTestedFallback = createDeviceTestedFallback;
+
+    const { createApp, ref, computed, onMounted, watch, nextTick } = Vue;
+
+    // --- TIER 3: REACTIVE MODULE STATE REGISTRY (useModuleStates) ---
+    function useModuleStates() {
+      const { reactive, computed } = Vue;
+
+      const states = reactive({
+        'overview': { id: 'c-overview-hub', tabId: 'overview', title: 'Overview Hub', icon: 'fa-solid fa-chart-pie', status: 'READY', error: null, retryCount: 0, lastActive: Date.now(), bypassed: false },
+        'network-servers': { id: 'c-network-servers', tabId: 'network-servers', title: 'Network Servers', icon: 'fa-solid fa-tower-broadcast', status: 'READY', error: null, retryCount: 0, lastActive: 0, bypassed: false },
+        'modules': { id: 'c-d-module-manager', tabId: 'modules', title: 'Dashboard Modules & Governance', icon: 'fa-solid fa-cubes', status: 'READY', error: null, retryCount: 0, lastActive: 0, bypassed: false },
+        'database': { id: 'c-database-routing', tabId: 'database', title: 'Database Manager', icon: 'fa-solid fa-database', status: 'READY', error: null, retryCount: 0, lastActive: 0, bypassed: false },
+        'roles': { id: 'c-roles-rbac', tabId: 'roles', title: 'Roles & RBAC', icon: 'fa-solid fa-shield-halved', status: 'READY', error: null, retryCount: 0, lastActive: 0, bypassed: false },
+        'users': { id: 'c-user-directory', tabId: 'users', title: 'User Directory', icon: 'fa-solid fa-users', status: 'READY', error: null, retryCount: 0, lastActive: 0, bypassed: false },
+        'devices': { id: 'c-device-fleet-admin', tabId: 'devices', title: 'Device Fleet', icon: 'fa-solid fa-microchip', status: 'READY', error: null, retryCount: 0, lastActive: 0, bypassed: false },
+        'webhooks': { id: 'c-webhook-admin', tabId: 'webhooks', title: 'Webhook Manager', icon: 'fa-solid fa-satellite-dish', status: 'READY', error: null, retryCount: 0, lastActive: 0, bypassed: false },
+        'decoder': { id: 'c-decoder-admin', tabId: 'decoder', title: 'Decoder Manager', icon: 'fa-solid fa-code', status: 'READY', error: null, retryCount: 0, lastActive: 0, bypassed: false },
+        'hmi-studio': { id: 'c-hmi-studio', tabId: 'hmi-studio', title: 'HMI SCADA Studio', icon: 'fa-solid fa-palette', status: 'READY', error: null, retryCount: 0, lastActive: 0, bypassed: false },
+        'downlink': { id: 'c-downlink-controller', tabId: 'downlink', title: 'Downlink Controller', icon: 'fa-solid fa-paper-plane', status: 'READY', error: null, retryCount: 0, lastActive: 0, bypassed: false },
+        'modbus-presets': { id: 'c-modbus-presets', tabId: 'modbus-presets', title: 'Modbus Presets & Templates', icon: 'fa-solid fa-file-excel', status: 'READY', error: null, retryCount: 0, lastActive: 0, bypassed: false },
+        'test-builder': { id: 'c-test-builder', tabId: 'test-builder', title: 'Test Automation Builder', icon: 'fa-solid fa-vial-circle-check', status: 'READY', error: null, retryCount: 0, lastActive: 0, bypassed: false },
+        'item-codes': { id: 'c-item-codes', tabId: 'item-codes', title: 'Master Item Codes', icon: 'fa-solid fa-barcode', status: 'READY', error: null, retryCount: 0, lastActive: 0, bypassed: false },
+        'sales-orders': { id: 'c-sales-orders', tabId: 'sales-orders', title: 'Sales Orders', icon: 'fa-solid fa-file-invoice-dollar', status: 'READY', error: null, retryCount: 0, lastActive: 0, bypassed: false },
+        'sensor-types': { id: 'c-sensor-types', tabId: 'sensor-types', title: 'LoRaWAN Sensor Types', icon: 'fa-solid fa-microchip', status: 'READY', error: null, retryCount: 0, lastActive: 0, bypassed: false },
+        'traceability': { id: 'c-traceability', tabId: 'traceability', title: 'Traceability (T-Module)', icon: 'fa-solid fa-clipboard-check', status: 'READY', error: null, retryCount: 0, lastActive: 0, bypassed: false },
+        'memmap-upload': { id: 'c-memmap-upload', tabId: 'memmap-upload', title: 'Memory Map Upload', icon: 'fa-solid fa-file-csv', status: 'READY', error: null, retryCount: 0, lastActive: 0, bypassed: false },
+        'memmap-manager': { id: 'c-memmap-manager', tabId: 'memmap-manager', title: 'Memory Map Manager', icon: 'fa-solid fa-map-location-dot', status: 'READY', error: null, retryCount: 0, lastActive: 0, bypassed: false },
+        'create-final-config': { id: 'c-create-final-config', tabId: 'create-final-config', title: 'Create Final Config', icon: 'fa-solid fa-sliders', status: 'READY', error: null, retryCount: 0, lastActive: 0, bypassed: false },
+        'final-config-manager': { id: 'c-final-config-manager', tabId: 'final-config-manager', title: 'Final Config Manager', icon: 'fa-solid fa-list-check', status: 'READY', error: null, retryCount: 0, lastActive: 0, bypassed: false },
+        'device-tested': { id: 'c-device-tested', tabId: 'device-tested', title: 'Tested Devices (QA Inspection)', icon: 'fa-solid fa-vial-circle-check', status: 'READY', error: null, retryCount: 0, lastActive: 0, bypassed: false },
+      });
+
+      const normalizeKey = (tabOrId) => {
+        if (!tabOrId) return '';
+        if (states[tabOrId]) return tabOrId;
+        const clean = tabOrId.replace(/^c-/, '');
+        if (states[clean]) return clean;
+        const found = Object.values(states).find(m => m.id === tabOrId);
+        return found ? found.tabId : clean;
+      };
+
+      const getModuleState = (tabId) => {
+        const key = normalizeKey(tabId);
+        return states[key] || null;
+      };
+
+      const setModuleError = (tabId, error, phase = 'runtime') => {
+        const key = normalizeKey(tabId);
+        const mod = states[key];
+        if (!mod) return;
+        mod.status = 'ERROR';
+        mod.bypassed = true;
+        mod.error = {
+          message: error?.message || String(error),
+          stack: error?.stack || '',
+          phase: phase,
+          timestamp: Date.now(),
+          time: new Date().toLocaleTimeString(),
+        };
+        console.error("[C-Module Isolation Guard] Module '" + tabId + "' failed during '" + phase + "':", error);
+      };
+
+      const retryModule = (tabId) => {
+        const key = normalizeKey(tabId);
+        const mod = states[key];
+        if (!mod) return;
+        if (mod.retryCount >= 3) {
+          console.warn("[Circuit Breaker] Module '" + tabId + "' exceeded max retries (3). Remains LOCKED in BYPASS.");
+          return;
+        }
+        mod.retryCount += 1;
+        mod.status = 'READY';
+        mod.bypassed = false;
+        mod.error = null;
+        mod.lastActive = Date.now();
+      };
+
+      const bypassModule = (tabId) => {
+        const key = normalizeKey(tabId);
+        const mod = states[key];
+        if (!mod) return;
+        mod.status = 'BYPASS';
+        mod.bypassed = true;
+      };
+
+      const resetModule = (tabId) => {
+        const key = normalizeKey(tabId);
+        const mod = states[key];
+        if (!mod) return;
+        mod.status = 'READY';
+        mod.bypassed = false;
+        mod.error = null;
+        mod.retryCount = 0;
+      };
+
+      const isModuleBypassed = (tabId) => {
+        const key = normalizeKey(tabId);
+        const mod = states[key];
+        return !mod || mod.bypassed || mod.status === 'ERROR' || mod.status === 'BYPASS';
+      };
+
+      const hasDegradedModules = computed(() => {
+        return Object.values(states).some(m => m.status === 'ERROR' || m.bypassed);
+      });
+
+      const degradedModulesList = computed(() => {
+        return Object.values(states).filter(m => m.status === 'ERROR' || m.bypassed);
+      });
+
+      return {
+        moduleStates: states,
+        getModuleState,
+        setModuleError,
+        retryModule,
+        bypassModule,
+        resetModule,
+        isModuleBypassed,
+        hasDegradedModules,
+        degradedModulesList,
+      };
+    }
+
+    const moduleStatesStore = useModuleStates();
+    window.__cp_module_states_store = moduleStatesStore;
+
+    // --- TIER 2: VUE 3 ERROR BOUNDARY COMPONENT (CModuleBoundary) ---
+    const CModuleBoundary = {
+      name: 'CModuleBoundary',
+      props: {
+        moduleId: {
+          type: String,
+          required: true,
+        },
+        title: {
+          type: String,
+          default: 'Subsystem Module',
+        },
+        icon: {
+          type: String,
+          default: 'fa-solid fa-cube',
+        },
+        active: {
+          type: Boolean,
+          default: true,
+        }
+      },
+      setup(props) {
+        const { ref, onErrorCaptured } = Vue;
+
+        const hasError = ref(false);
+        const errorDetails = ref(null);
+        const showTechDetails = ref(false);
+        const copySuccess = ref(false);
+
+        const getStore = () => window.__cp_module_states_store;
+
+        onErrorCaptured((err, instance, info) => {
+          console.error("[C-Module ErrorBoundary Caught: " + props.moduleId + "]", err, info);
+          hasError.value = true;
+          errorDetails.value = {
+            message: err?.message || String(err),
+            stack: err?.stack || 'No stack trace available',
+            info: info || 'Render/Lifecycle Phase',
+            time: new Date().toLocaleTimeString(),
+          };
+
+          const store = getStore();
+          if (store) {
+            store.setModuleError(props.moduleId, err, 'render');
+          }
+
+          // Prevent error propagation to root app
+          return false;
+        });
+
+        const handleRetry = () => {
+          hasError.value = false;
+          errorDetails.value = null;
+          showTechDetails.value = false;
+          const store = getStore();
+          if (store) {
+            store.retryModule(props.moduleId);
+          }
+        };
+
+        const handleGoOverview = () => {
+          window.location.hash = '#overview';
+          if (window.__cp_switch_tab) {
+            window.__cp_switch_tab('overview');
+          }
+        };
+
+        const getErrorMessage = () => {
+          if (errorDetails.value && errorDetails.value.message) return errorDetails.value.message;
+          const store = getStore();
+          if (store) {
+            const st = store.getModuleState(props.moduleId);
+            if (st && st.error && st.error.message) return st.error.message;
+          }
+          return 'Subsystem encountered an internal error during compilation or rendering.';
+        };
+
+        const getErrorTime = () => {
+          if (errorDetails.value && errorDetails.value.time) return errorDetails.value.time;
+          const store = getStore();
+          if (store) {
+            const st = store.getModuleState(props.moduleId);
+            if (st && st.error && st.error.time) return st.error.time;
+          }
+          return 'Just now';
+        };
+
+        const getErrorStack = () => {
+          if (errorDetails.value && errorDetails.value.stack) return errorDetails.value.stack;
+          const store = getStore();
+          if (store) {
+            const st = store.getModuleState(props.moduleId);
+            if (st && st.error && st.error.stack) return st.error.stack;
+          }
+          return 'No stack trace available';
+        };
+
+        const getErrorInfo = () => {
+          if (errorDetails.value && errorDetails.value.info) return errorDetails.value.info;
+          const store = getStore();
+          if (store) {
+            const st = store.getModuleState(props.moduleId);
+            if (st && st.error && st.error.phase) return 'Phase: ' + st.error.phase;
+          }
+          return 'Render/Lifecycle Phase';
+        };
+
+        const isMaxRetriesExceeded = () => {
+          const store = getStore();
+          if (store) {
+            const st = store.getModuleState(props.moduleId);
+            return (st?.retryCount || 0) >= 3;
+          }
+          return false;
+        };
+
+        const copyErrorLog = () => {
+          const msg = getErrorMessage();
+          const stack = getErrorStack();
+          const info = getErrorInfo();
+          const time = getErrorTime();
+          const text = "Module: " + props.moduleId + " (" + props.title + ")\\nTime: " + time + "\\nError: " + msg + "\\nTrace: " + info + "\\nStack: " + stack;
+          try {
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+              navigator.clipboard.writeText(text).then(() => {
+                copySuccess.value = true;
+                setTimeout(() => { copySuccess.value = false; }, 2000);
+              });
+            }
+          } catch(e) {
+            console.warn('Clipboard write failed', e);
+          }
+        };
+
+        const isBypassed = () => {
+          if (hasError.value) return true;
+          const store = getStore();
+          if (store) {
+            return store.isModuleBypassed(props.moduleId);
+          }
+          return false;
+        };
+
+        return {
+          hasError,
+          errorDetails,
+          showTechDetails,
+          copySuccess,
+          isBypassed,
+          getErrorMessage,
+          getErrorTime,
+          getErrorStack,
+          getErrorInfo,
+          isMaxRetriesExceeded,
+          handleRetry,
+          handleGoOverview,
+          copyErrorLog,
+        };
+      },
+      template: \`
+        <div class="c-module-boundary-wrapper w-full" :data-module-id="moduleId">
+          
+          <!-- 1. FALLBACK BANNER -->
+          <div v-if="isBypassed()" class="p-6 sm:p-8 rounded-2xl bg-gradient-to-br from-slate-900/95 via-slate-900/90 to-red-950/30 border border-red-500/30 shadow-2xl space-y-6 my-4 transition-all">
+            
+            <!-- Header Banner -->
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-red-500/20">
+              <div class="flex items-center gap-4">
+                <div class="w-12 h-12 rounded-xl bg-red-500/10 border border-red-500/30 flex items-center justify-center text-red-400 text-xl shadow-inner">
+                  <i class="fa-solid fa-triangle-exclamation animate-pulse"></i>
+                </div>
+                <div>
+                  <div class="flex items-center gap-2.5 flex-wrap">
+                    <h3 class="text-base font-bold text-white tracking-wide">{{ title }}</h3>
+                    <span class="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-red-500/20 text-red-300 border border-red-500/40">
+                      ISOLATED / BYPASSED
+                    </span>
+                  </div>
+                  <p class="text-xs text-slate-400 mt-1">
+                    This subsystem was automatically isolated to protect Control Panel stability.
+                  </p>
+                </div>
+              </div>
+
+              <!-- Quick Actions -->
+              <div class="flex items-center gap-2.5 flex-wrap">
+                <button
+                  type="button"
+                  @click="handleRetry"
+                  :disabled="isMaxRetriesExceeded()"
+                  class="px-4 py-2 rounded-xl bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white text-xs font-bold flex items-center gap-2 shadow-lg shadow-red-600/20 transition active:scale-95 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <i class="fa-solid fa-arrows-rotate"></i>
+                  <span>{{ isMaxRetriesExceeded() ? 'Retry Locked (Max 3 reached)' : 'Retry Loading Module' }}</span>
+                </button>
+
+                <button
+                  type="button"
+                  @click="handleGoOverview"
+                  class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-semibold flex items-center gap-2 transition active:scale-95 cursor-pointer"
+                >
+                  <i class="fa-solid fa-house text-slate-400"></i>
+                  <span>Return to Overview</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Warning if locked -->
+            <div v-if="isMaxRetriesExceeded()" class="p-3 bg-amber-500/10 border border-amber-500/30 rounded-xl text-xs text-amber-300 flex items-center gap-2">
+              <i class="fa-solid fa-lock text-amber-400"></i>
+              <span>Module failed 3 consecutive times. Please check the browser console or contact engineering.</span>
+            </div>
+
+            <!-- Error details -->
+            <div class="p-4 rounded-xl bg-slate-950/70 border border-slate-800 text-xs space-y-2">
+              <div class="flex items-center justify-between text-slate-300 font-semibold">
+                <span class="flex items-center gap-2 text-rose-400">
+                  <i class="fa-solid fa-bug"></i>
+                  <span>Root cause:</span>
+                </span>
+                <span class="text-[11px] font-mono text-slate-500">{{ getErrorTime() }}</span>
+              </div>
+              <div class="font-mono text-rose-300 bg-red-950/30 p-2.5 rounded-lg border border-red-900/40 select-all break-all">
+                {{ getErrorMessage() }}
+              </div>
+            </div>
+
+            <!-- Technical Details Accordion -->
+            <div class="space-y-2">
+              <div class="flex items-center justify-between">
+                <button
+                  type="button"
+                  @click="showTechDetails = !showTechDetails"
+                  class="text-xs text-slate-400 hover:text-slate-200 transition flex items-center gap-1.5 cursor-pointer"
+                >
+                  <i class="fa-solid" :class="showTechDetails ? 'fa-chevron-down' : 'fa-chevron-right'"></i>
+                  <span>{{ showTechDetails ? 'Hide Technical Details' : 'View Technical Details (Stack Trace)' }}</span>
+                </button>
+
+                <button
+                  v-if="showTechDetails"
+                  type="button"
+                  @click="copyErrorLog"
+                  class="text-xs text-sky-400 hover:text-sky-300 transition flex items-center gap-1 cursor-pointer"
+                >
+                  <i class="fa-solid" :class="copySuccess ? 'fa-check text-emerald-400' : 'fa-copy'"></i>
+                  <span>{{ copySuccess ? 'Copied!' : 'Copy Error Log' }}</span>
+                </button>
+              </div>
+
+              <div v-if="showTechDetails" class="p-3.5 rounded-xl bg-slate-950 border border-slate-800 text-[11px] font-mono text-slate-400 overflow-x-auto max-h-56 custom-scroll space-y-1.5">
+                <div><strong class="text-slate-300">Phase:</strong> {{ getErrorInfo() }}</div>
+                <div><strong class="text-slate-300">Stack:</strong></div>
+                <pre class="text-slate-500 whitespace-pre-wrap">{{ getErrorStack() }}</pre>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- 2. NORMAL SLOT -->
+          <div v-else>
+            <slot></slot>
+          </div>
+
+        </div>
+      \`
+    };
+
+    const getStoredUser = () => {
+      try {
+        const u = localStorage.getItem('lorawan_user');
+        return u ? JSON.parse(u) : {};
+      } catch(e) {
+        return {};
+      }
+    };
+
+    const app = createApp({
+      setup() {
+        const activeTab = ref('overview');
+        const sidebarOpen = ref(false);
+        const currentTheme = ref(typeof localStorage !== 'undefined' ? (localStorage.getItem('dvt_theme') === 'dark' ? 'dark' : 'light') : 'light');
+        const setTheme = (theme) => {
+          currentTheme.value = theme;
+          try {
+            localStorage.setItem('dvt_theme', theme);
+          } catch(e) {}
+          if (theme === 'dark') {
+            document.documentElement.classList.remove('theme-light');
+            document.documentElement.classList.add('theme-dark');
+          } else {
+            document.documentElement.classList.remove('theme-dark');
+            document.documentElement.classList.add('theme-light');
+          }
+        };
+        const toggleTheme = () => {
+          setTheme(currentTheme.value === 'light' ? 'dark' : 'light');
+        };
+        const sidebarCollapsed = ref(typeof localStorage !== 'undefined' ? localStorage.getItem('cp_sidebar_collapsed') === 'true' : false);
+        const toggleSidebarCollapse = () => {
+          sidebarCollapsed.value = !sidebarCollapsed.value;
+          try {
+            localStorage.setItem('cp_sidebar_collapsed', String(sidebarCollapsed.value));
+          } catch(e) {}
+        };
+        const userMenuOpen = ref(false);
+        const currentUser = ref(getStoredUser());
+
+        const userInitials = computed(() => {
+          const user = currentUser.value;
+          const name = user.fullName || user.username || 'Admin';
+          return name.substring(0, 2).toUpperCase();
+        });
+
+        const handleGlobalClick = () => {
+          userMenuOpen.value = false;
+          downlinkDeviceDropdownOpen.value = false;
+        };
+
+        const navigateTo = (url) => {
+          userMenuOpen.value = false;
+          document.body.classList.add('page-transitioning');
+          setTimeout(() => {
+            window.location.href = url;
+          }, 120);
+        };
+        const networkServersList = ref([]);
+        const modulesList = ref([]);
+        const usersList = ref([]);
+        const rolesList = ref([]);
+        const allPermissions = ref([]);
+        const dbHealth = ref({ totalConnections: 1, connections: {}, tableStats: {} });
+        const devicesList = ref([]);
+
+        // System Ops & Git Lifecycle State
+        const systemVersionInfo = ref({
+          version: '1.0.0',
+          git: { commitHash: '', shortHash: '', branch: 'main', commitMessage: '', author: '', commitDate: '' },
+          opsAgent: { online: false, url: '', containerStatus: '', dockerAvailable: false },
+          server: { uptimeSeconds: 0, nodeVersion: '', platform: '', environment: '' }
+        });
+        const loadingSystemVersion = ref(false);
+        const restartingServer = ref(false);
+        const restartConfirmDialog = ref(false);
+        const serverLogsDialog = ref(false);
+        const serverLogs = ref('');
+        const loadingServerLogs = ref(false);
+        const restartProgress = ref({ active: false, countdown: 0, message: '' });
+
+        // Dashboard Module Manager State
+        const moduleManagerSubTab = ref('layout'); // 'layout' | 'catalog'
+        const selectedLayoutRole = ref('SUPER_ADMIN');
+        const isEditingRoleLayout = ref(false);
+        const savingRoleLayout = ref(false);
+        const roleLayouts = ref({});
+        const currentRoleModuleList = ref([]);
+        const draggedModuleIndex = ref(null);
+        const dragOverModuleIndex = ref(null);
+
+        const loadingUsers = ref(false);
+        const loadingRoles = ref(false);
+        const savingNetworkServer = ref(false);
+        const savingModule = ref(false);
+        const savingRole = ref(false);
+        const savingUser = ref(false);
+        const savingDevice = ref(false);
+
+        // Modals
+        const networkServerDialog = ref(false);
+        const isEditingNetworkServer = ref(false);
+        const addModuleToLayoutModal = ref(false);
+        const moduleDialog = ref(false);
+        const isEditingModule = ref(false);
+        const roleDialog = ref(false);
+        const isEditingRole = ref(false);
+        const createUserDialog = ref(false);
+        const editUserDialog = ref(false);
+        const registerDeviceDialog = ref(false);
+        const isEditingDevice = ref(false);
+        const deleteConfirmDialog = ref(false);
+        const deviceToDelete = ref(null);
+        const deletingDevice = ref(false);
+
+        // Form Models
+        const currentNetworkServer = ref({
+          id: '',
+          name: '',
+          type: 'THINGPARK',
+          apiUrl: '',
+          apiKey: '',
+          routeRef: '',
+          description: '',
+          isDefault: false,
+          regionProfiles: []
+        });
+
+        const currentModule = ref({
+          id: '',
+          code: '',
+          title: '',
+          description: '',
+          icon: 'fa-solid fa-layer-group',
+          color: 'from-cyan-500 to-blue-600',
+          badge: '',
+          category: 'Monitoring',
+          allowedRoleCodes: [],
+          requiredPermission: '',
+          status: 'active',
+          isActive: true
+        });
+
+        const currentRole = ref({
+          id: '',
+          code: '',
+          name: '',
+          description: '',
+          permissions: []
+        });
+
+        const newUser = ref({ username: '', fullName: '', email: '', password: '', userType: 'USER', roleId: '' });
+        const editUser = ref({ id: '', username: '', roleId: '', isActive: true });
+        const newDevice = ref({
+          name: '',
+          devEUI: '',
+          networkServerId: '',
+          regionProfileId: '',
+          itemCodeId: '',
+          salesOrderId: '',
+          sku: '',
+          firmwareVersion: '',
+          decoderId: '',
+          appEUI: '0102030405060708',
+          appKey: '0102030405060708090A0B0C0D0E0F10',
+          activationType: 'OTAA',
+        });
+
+        const onDeviceSkuOrFwChange = () => {
+          if (newDevice.value.firmwareVersion) {
+            newDevice.value.firmwareVersion = String(newDevice.value.firmwareVersion).replace(/^[vV]/, '').trim();
+          }
+          const cleanSku = (newDevice.value.sku || '').trim().toUpperCase();
+          const cleanFw = (newDevice.value.firmwareVersion || '').trim();
+          if (cleanSku && cleanFw) {
+            newDevice.value.decoderId = cleanSku + '_' + cleanFw;
+          }
+        };
+
+        const onItemCodeSelectedForDevice = (itemCodeId) => {
+          if (!itemCodeId) return;
+          const list = Array.isArray(itemCodesList.value) ? itemCodesList.value : [];
+          const found = list.find(i => i.id === itemCodeId || i.itemCode === itemCodeId);
+          if (found) {
+            newDevice.value.itemCodeId = found.id;
+            newDevice.value.sku = found.sku;
+            newDevice.value.firmwareVersion = found.firmwareVersion;
+            onDeviceSkuOrFwChange();
+          }
+        };
+
+        const sendDownlinkForDevice = (d) => {
+          if (!d) return;
+          if (typeof selectDownlinkDevice === 'function') {
+            selectDownlinkDevice(d);
+          } else {
+            downlinkForm.value.devEUI = d.devEUI;
+            downlinkDeviceSearch.value = d.name ? (d.name + ' - ' + d.devEUI) : d.devEUI;
+          }
+          switchTab('downlink');
+        };
+
+        const viewItemCodeForDevice = (d) => {
+          if (!d) return;
+          if (typeof itemCodesSearchQuery !== 'undefined' && itemCodesSearchQuery?.value !== undefined) {
+            itemCodesSearchQuery.value = d.itemCode?.itemCode || d.sku || '';
+          }
+          switchTab('item-codes');
+        };
+
+        const viewSalesOrderForDevice = (d) => {
+          if (!d) return;
+          if (typeof soSearchQuery !== 'undefined' && soSearchQuery?.value !== undefined) {
+            soSearchQuery.value = d.salesOrder?.soCode || '';
+          }
+          switchTab('sales-orders');
+        };
+
+        const formatFirmware = (fw) => {
+          if (fw === undefined || fw === null || fw === '') return '—';
+          let clean = String(fw).replace(/^[vV]/, '').trim();
+          clean = clean.replace(/(\.0+)+$/, '');
+          return clean || '—';
+        };
+
+        const selectedDeviceNetworkServer = computed(() => {
+          if (!newDevice.value.networkServerId) return null;
+          return networkServersList.value.find(ns => ns.id === newDevice.value.networkServerId) || null;
+        });
+
+        const availableDeviceRegions = computed(() => {
+          const ns = selectedDeviceNetworkServer.value;
+          if (!ns || !Array.isArray(ns.regionProfiles)) return [];
+          return ns.regionProfiles.filter(rp => rp.isActive !== false);
+        });
+
+        const onDeviceNetworkServerChange = () => {
+          const regions = availableDeviceRegions.value;
+          if (regions && regions.length > 0) {
+            newDevice.value.regionProfileId = regions[0].id;
+          } else {
+            newDevice.value.regionProfileId = '';
+          }
+        };
+
+        // Decoder Manager & Sandbox State
+        const decodersList = ref([]);
+        const loadingDecoders = ref(false);
+        const savingDecoder = ref(false);
+        const decoderSearchQuery = ref('');
+        const addDecoderDialog = ref(false);
+        const addDecoderConfirmDialog = ref(false);
+        const editDecoderDialog = ref(false);
+        const deleteDecoderConfirmDialog = ref(false);
+        const decoderToDelete = ref(null);
+        const currentDecoder = ref({ id: '', sku: '', firmwareVersion: 1, decoderCode: '', description: '' });
+        const newDecoder = ref({ sku: '', firmwareVersion: '', decoderCode: '', description: '' });
+        const selectedSandboxDeviceEUI = ref('');
+        const selectedSandboxDevice = computed(() => {
+          if (!selectedSandboxDeviceEUI.value) return null;
+          return devicesList.value.find(d => d.devEUI === selectedSandboxDeviceEUI.value) || null;
+        });
+        const selectedSandboxDecoderId = ref('');
+        const sandboxFPort = ref(1);
+        const sandboxCode = ref("function parseTemperature(raw) {\\n  return raw / 100;\\n}\\n\\nfunction decodeUplink(input) {\\n  var bytes = input.bytes || input;\\n  var temp = parseTemperature((bytes[0] << 8) | bytes[1]);\\n  var hum = bytes[2];\\n  return {\\n    data: {\\n      temperature: temp,\\n      humidity: hum\\n    }\\n  };\\n}");
+        const sandboxHex = ref("09C441");
+        const sandboxResult = ref('{\\n  "ready": true\\n}');
+        const sandboxDecodedObject = ref(null);
+        const sandboxViewMode = ref('tabular');
+        const loadingDeviceTelemetry = ref(false);
+        const sandboxTelemetryList = ref([]);
+        const sandboxActiveMetadata = ref(null);
+        const sandboxDisplayOutput = computed(() => sandboxResult.value || '{\\n  // Decoded JSON output will appear here\\n}');
+
+        const decodedFieldsList = computed(() => {
+          if (!sandboxDecodedObject.value) return [];
+          const res = [];
+          const extractFields = (obj, prefix = '') => {
+            if (!obj || typeof obj !== 'object') return;
+            for (const [k, v] of Object.entries(obj)) {
+              const fullKey = prefix ? prefix + '.' + k : k;
+              if (v === null || v === undefined) {
+                res.push({ key: fullKey, value: 'null', type: 'null' });
+              } else if (typeof v === 'object' && !Array.isArray(v)) {
+                extractFields(v, fullKey);
+              } else if (Array.isArray(v)) {
+                res.push({ key: fullKey, value: JSON.stringify(v), type: 'array' });
+              } else {
+                res.push({ key: fullKey, value: String(v), type: typeof v });
+              }
+            }
+          };
+
+          if (typeof sandboxDecodedObject.value === 'object') {
+            if (sandboxDecodedObject.value.data && typeof sandboxDecodedObject.value.data === 'object') {
+              extractFields(sandboxDecodedObject.value.data);
+              if (sandboxDecodedObject.value.errors) {
+                extractFields({ errors: sandboxDecodedObject.value.errors });
+              }
+              if (sandboxDecodedObject.value.warnings) {
+                extractFields({ warnings: sandboxDecodedObject.value.warnings });
+              }
+            } else {
+              extractFields(sandboxDecodedObject.value);
+            }
+          }
+          return res;
+        });
+
+        const decodeHexPayload = (hex, fPort, code) => {
+          if (!hex) return null;
+          try {
+            const cleanHex = String(hex).trim().replace(/\\s+/g, '');
+            if (!cleanHex || cleanHex.length % 2 !== 0) return null;
+            const bytes = [];
+            for (let c = 0; c < cleanHex.length; c += 2) {
+              bytes.push(parseInt(cleanHex.substr(c, 2), 16));
+            }
+            const port = Number(fPort) || 1;
+            const fullCode = (code || '') + "\\nif (typeof decodeUplink === 'function') { return decodeUplink({ bytes: bytes, fPort: fPort }); } else if (typeof Decoder === 'function') { return Decoder(bytes, fPort); } else { return null; }";
+            const fn = new Function('bytes', 'fPort', fullCode);
+            return fn(bytes, port);
+          } catch(e) {
+            return null;
+          }
+        };
+
+        const flattenFields = (obj, prefix = '') => {
+          const res = {};
+          if (!obj || typeof obj !== 'object') return res;
+          for (const [k, v] of Object.entries(obj)) {
+            const fullKey = prefix ? prefix + '.' + k : k;
+            if (v !== null && typeof v === 'object' && !Array.isArray(v)) {
+              Object.assign(res, flattenFields(v, fullKey));
+            } else {
+              res[fullKey] = v;
+            }
+          }
+          return res;
+        };
+
+        const matrixSensorColumns = computed(() => {
+          const colSet = new Set();
+          const list = sandboxTelemetryList.value || [];
+          for (const pkt of list) {
+            let decoded = pkt.decodedData || pkt.object || null;
+            if (!decoded && (pkt.payloadHex || pkt.data) && sandboxCode.value) {
+              decoded = decodeHexPayload(pkt.payloadHex || pkt.data, pkt.fPort, sandboxCode.value);
+            }
+            if (decoded) {
+              const dataObj = decoded.data && typeof decoded.data === 'object' ? decoded.data : decoded;
+              const flat = flattenFields(dataObj);
+              for (const k of Object.keys(flat)) {
+                if (!['errors', 'warnings', 'fPort', 'fCnt', 'devEUI', 'deviceName', 'gatewayId', 'rssi', 'snr', 'devEui', 'dr', 'adr', 'channel', 'frequency', 'bandwidth', 'spreadingFactor', 'tenantId', 'applicationId', 'serverType'].includes(k)) {
+                  colSet.add(k);
+                }
+              }
+            }
+          }
+          return Array.from(colSet);
+        });
+
+        const matrixRows = computed(() => {
+          const list = sandboxTelemetryList.value || [];
+          const cols = matrixSensorColumns.value;
+          return list.map(pkt => {
+            let decoded = pkt.decodedData || pkt.object || null;
+            if (!decoded && (pkt.payloadHex || pkt.data) && sandboxCode.value) {
+              decoded = decodeHexPayload(pkt.payloadHex || pkt.data, pkt.fPort, sandboxCode.value);
+            }
+            const flat = decoded ? flattenFields(decoded.data && typeof decoded.data === 'object' ? decoded.data : decoded) : {};
+            const sensorValues = {};
+            for (const c of cols) {
+              const val = flat[c];
+              if (val === undefined || val === null) {
+                sensorValues[c] = '—';
+              } else if (typeof val === 'object') {
+                sensorValues[c] = JSON.stringify(val);
+              } else if (typeof val === 'number') {
+                sensorValues[c] = Number.isInteger(val) ? val : Number(val.toFixed(3));
+              } else {
+                sensorValues[c] = String(val);
+              }
+            }
+            return {
+              raw: pkt,
+              time: pkt.timestamp || pkt.receivedAt,
+              fPort: pkt.fPort || 1,
+              fCnt: pkt.fCnt !== undefined && pkt.fCnt !== null ? pkt.fCnt : 0,
+              rssi: pkt.rssi != null ? pkt.rssi : null,
+              snr: pkt.snr != null ? pkt.snr : null,
+              payloadHex: pkt.payloadHex || pkt.data || '—',
+              sensorValues: sensorValues
+            };
+          });
+        });
+
+        const sandboxTimeFilter = ref('ALL');
+        const sandboxSearchQuery = ref('');
+        const sandboxSortKey = ref('time');
+        const sandboxSortOrder = ref('desc');
+        const sandboxAutoSync = ref(false);
+        const sandboxAutoSyncTimer = ref(null);
+
+        const passesTimeFilter = (timestamp, filter) => {
+          if (!filter || filter === 'ALL') return true;
+          if (!timestamp) return false;
+          const time = new Date(timestamp).getTime();
+          if (isNaN(time)) return false;
+          const now = Date.now();
+          const diffMs = now - time;
+          if (filter === '15M') return diffMs <= 15 * 60 * 1000;
+          if (filter === '1H') return diffMs <= 60 * 60 * 1000;
+          if (filter === '24H') return diffMs <= 24 * 60 * 60 * 1000;
+          if (filter === '7D') return diffMs <= 7 * 24 * 60 * 60 * 1000;
+          return true;
+        };
+
+        const filteredMatrixRows = computed(() => {
+          let rows = matrixRows.value || [];
+          if (sandboxTimeFilter.value && sandboxTimeFilter.value !== 'ALL') {
+            rows = rows.filter(r => passesTimeFilter(r.time, sandboxTimeFilter.value));
+          }
+          const q = (sandboxSearchQuery.value || '').trim().toLowerCase();
+          if (q) {
+            rows = rows.filter(r => {
+              if (r.time && String(r.time).toLowerCase().includes(q)) return true;
+              if (formatDateTime(r.time).toLowerCase().includes(q)) return true;
+              if (String(r.fPort).toLowerCase().includes(q)) return true;
+              if (String(r.fCnt).toLowerCase().includes(q) || ('#' + r.fCnt).includes(q)) return true;
+              if (r.rssi != null && String(r.rssi).includes(q)) return true;
+              if (r.snr != null && String(r.snr).includes(q)) return true;
+              if (r.payloadHex && r.payloadHex.toLowerCase().includes(q)) return true;
+              for (const [k, v] of Object.entries(r.sensorValues)) {
+                if (k.toLowerCase().includes(q)) return true;
+                if (String(v).toLowerCase().includes(q)) return true;
+              }
+              return false;
+            });
+          }
+          return rows;
+        });
+
+        const sortedMatrixRows = computed(() => {
+          const list = [...filteredMatrixRows.value];
+          const key = sandboxSortKey.value;
+          const order = sandboxSortOrder.value === 'asc' ? 1 : -1;
+          return list.sort((a, b) => {
+            if (key === 'time') {
+              const tA = a.time ? new Date(a.time).getTime() : 0;
+              const tB = b.time ? new Date(b.time).getTime() : 0;
+              return (tA - tB) * order;
+            }
+            if (key === 'fPort' || key === 'fCnt' || key === 'rssi' || key === 'snr') {
+              const vA = a[key] != null ? Number(a[key]) : (order === 1 ? Infinity : -Infinity);
+              const vB = b[key] != null ? Number(b[key]) : (order === 1 ? Infinity : -Infinity);
+              return (vA - vB) * order;
+            }
+            if (key === 'payloadHex') {
+              return String(a.payloadHex || '').localeCompare(String(b.payloadHex || '')) * order;
+            }
+            if (key.startsWith('sensor:')) {
+              const col = key.replace('sensor:', '');
+              const sA = a.sensorValues[col];
+              const sB = b.sensorValues[col];
+              if (sA === '—' && sB === '—') return 0;
+              if (sA === '—') return 1;
+              if (sB === '—') return -1;
+              const numA = Number(sA);
+              const numB = Number(sB);
+              if (!isNaN(numA) && !isNaN(numB)) {
+                return (numA - numB) * order;
+              }
+              return String(sA).localeCompare(String(sB)) * order;
+            }
+            return 0;
+          });
+        });
+
+        const toggleSandboxSort = (key) => {
+          if (sandboxSortKey.value === key) {
+            sandboxSortOrder.value = sandboxSortOrder.value === 'asc' ? 'desc' : 'asc';
+          } else {
+            sandboxSortKey.value = key;
+            sandboxSortOrder.value = key === 'time' ? 'desc' : 'asc';
+          }
+        };
+
+        const resetSandboxFilters = () => {
+          sandboxTimeFilter.value = 'ALL';
+          sandboxSearchQuery.value = '';
+          sandboxSortKey.value = 'time';
+          sandboxSortOrder.value = 'desc';
+        };
+
+        const isSandboxFilterActive = computed(() => {
+          return (sandboxTimeFilter.value && sandboxTimeFilter.value !== 'ALL') ||
+                 Boolean((sandboxSearchQuery.value || '').trim());
+        });
+
+        const startSandboxAutoSync = () => {
+          stopSandboxAutoSync();
+          sandboxAutoSyncTimer.value = setInterval(() => {
+            if (activeTab.value === 'decoder' && sandboxAutoSync.value) {
+              fetchSandboxTelemetry(true);
+            }
+          }, 3000);
+        };
+
+        const stopSandboxAutoSync = () => {
+          if (sandboxAutoSyncTimer.value) {
+            clearInterval(sandboxAutoSyncTimer.value);
+            sandboxAutoSyncTimer.value = null;
+          }
+        };
+
+        const toggleSandboxAutoSync = () => {
+          sandboxAutoSync.value = !sandboxAutoSync.value;
+          if (sandboxAutoSync.value) {
+            startSandboxAutoSync();
+            fetchSandboxTelemetry(false);
+            showToast("Sandbox auto-sync enabled (3s live poll)", "info");
+          } else {
+            stopSandboxAutoSync();
+            showToast("Sandbox auto-sync paused", "info");
+          }
+        };
+
+        const formatDateTime = (dateStr) => {
+          if (!dateStr) return '—';
+          try {
+            const d = new Date(dateStr);
+            return d.toLocaleString();
+          } catch(e) {
+            return String(dateStr);
+          }
+        };
+
+        const getSubfunctionCount = (code) => {
+          if (!code) return 0;
+          const matches = code.match(/function\\s+[a-zA-Z0-9_$]+\\s*\\(/g);
+          if (!matches) return 0;
+          return Math.max(0, matches.length - 1);
+        };
+
+        const filteredDecoders = computed(() => {
+          const q = (decoderSearchQuery.value || '').trim().toLowerCase();
+          if (!q) return decodersList.value;
+          return decodersList.value.filter(d =>
+            (d.id && d.id.toLowerCase().includes(q)) ||
+            (d.sku && d.sku.toLowerCase().includes(q)) ||
+            (d.description && d.description.toLowerCase().includes(q))
+          );
+        });
+
+        // Toast
+        const toast = ref({ show: false, text: '', type: 'info' });
+        const showToast = (text, type = 'info') => {
+          toast.value = { show: true, text, type };
+          setTimeout(() => { toast.value.show = false; }, 3500);
+        };
+        window.toastNotification = showToast;
+
+        const isSuperAdmin = computed(() => {
+          const user = currentUser.value;
+          if (!user || !user.username) return true;
+          if (user.username === 'admin') return true;
+          if (user.userType === 'ADMIN' || String(user.userType).toUpperCase() === 'ADMIN') return true;
+          if (user.roles && Array.isArray(user.roles)) {
+            return user.roles.some(r => {
+              const code = (typeof r === 'string' ? r : (r.code || r.name || '')).toUpperCase();
+              return code === 'SUPER_ADMIN' || code === 'SUPER ADMINISTRATOR' || code === 'ADMIN';
+            });
+          }
+          return true;
+        });
+
+        const activeTabLabel = computed(() => {
+          switch(activeTab.value) {
+            case 'overview': return 'Overview Hub';
+            case 'network-servers': return 'Network Servers';
+            case 'modules': return 'Dashboard module Manager';
+            case 'roles': return 'Roles & RBAC';
+            case 'users': return 'User Directory';
+            case 'database': return 'Database Manager';
+            case 'devices': return 'Device Fleet';
+            case 'webhooks': return 'Webhook Manager';
+            case 'decoder': return 'Decoder Manager';
+            case 'hmi-studio': return 'HMI SCADA Studio';
+            case 'downlink': return 'Downlink Actuator & Queue';
+            case 'modbus-presets': return 'Modbus Presets & Templates';
+            case 'test-builder': return 'LoRaWAN Test Automation';
+            case 'item-codes': return 'Item Code Catalog';
+            case 'sales-orders': return 'Sales Orders & Item Codes';
+            case 'sensor-types': return 'LoRaWAN Sensor Types';
+            case 'traceability': return 'Traceability (T-Module)';
+            case 'memmap-upload': return 'Memory Map Upload';
+            case 'memmap-manager': return 'Memory Map Manager';
+            case 'create-final-config': return 'Create Final Config';
+            case 'final-config-manager': return 'Final Config Manager';
+            case 'device-tested': return 'Tested Devices (QA Inspection)';
+            case 'plugins-management': return 'Plugins Management';
+            default: {
+              if (activeTab.value && activeTab.value.startsWith('plugin-')) {
+                const pId = activeTab.value.replace('plugin-', '');
+                const found = pluginsList.value.find(p => p.id === pId);
+                return found ? (found.name || found.id) : ('Plugin: ' + pId);
+              }
+              return activeTab.value;
+            }
+          }
+        });
+
+        const switchTab = (tab) => {
+          activeTab.value = tab;
+          sidebarOpen.value = false;
+          window.__cp_current_tab = tab;
+        };
+        window.__cp_switch_tab = switchTab;
+
+        const groupedPermissions = computed(() => {
+          const groups = {
+            '📡 Network Server Management': [],
+            '👥 User Management': [],
+            '🛡️ RBAC Role Management': [],
+            '🗄️ Database Operations': [],
+            '📡 LoRaWAN Fleet & Gateways': [],
+            '🔌 Webhook Manager': [],
+            '💻 Decoder Manager & Sandbox': []
+          };
+          allPermissions.value.forEach(p => {
+            if (p.name.startsWith('network_server:')) groups['📡 Network Server Management'].push(p);
+            else if (p.name.startsWith('users:')) groups['👥 User Management'].push(p);
+            else if (p.name.startsWith('roles:')) groups['🛡️ RBAC Role Management'].push(p);
+            else if (p.name.startsWith('database:')) groups['🗄️ Database Operations'].push(p);
+            else if (p.name.startsWith('lorawan:device:') || p.name.startsWith('lorawan:app:') || p.name.startsWith('lorawan:gateway:')) groups['📡 LoRaWAN Fleet & Gateways'].push(p);
+            else if (p.name.startsWith('lorawan:webhooks:')) groups['🔌 Webhook Manager'].push(p);
+            else if (p.name.startsWith('lorawan:decoder:')) groups['💻 Decoder Manager & Sandbox'].push(p);
+            else groups['📡 LoRaWAN Fleet & Gateways'].push(p);
+          });
+          return groups;
+        });
+
+        const getModulesForRole = (roleCode) => {
+          if (roleCode === 'SUPER_ADMIN') return modulesList.value;
+          return modulesList.value.filter(m => {
+            if (!m.allowedRoleCodes || !m.allowedRoleCodes.length) return true;
+            return m.allowedRoleCodes.includes(roleCode);
+          });
+        };
+
+        const toggleSelectAllRolePermissions = () => {
+          if (currentRole.value.permissions.length === allPermissions.value.length) {
+            currentRole.value.permissions = [];
+          } else {
+            currentRole.value.permissions = allPermissions.value.map(p => p.id);
+          }
+        };
+
+        const toggleGroupPermissions = (groupPerms) => {
+          const groupIds = groupPerms.map(p => p.id);
+          const hasAll = groupIds.every(id => currentRole.value.permissions.includes(id));
+          if (hasAll) {
+            currentRole.value.permissions = currentRole.value.permissions.filter(id => !groupIds.includes(id));
+          } else {
+            const set = new Set([...currentRole.value.permissions, ...groupIds]);
+            currentRole.value.permissions = Array.from(set);
+          }
+        };
+
+        const getAuthToken = () => {
+          let token = localStorage.getItem('lorawan_token');
+          if (!token || token === 'undefined' || token === 'null') {
+            const match = document.cookie.match(/(?:^|;\\s*)access_token=([^;]*)/);
+            if (match && match[1] && match[1] !== 'undefined') {
+              token = decodeURIComponent(match[1]);
+            }
+          }
+          return token;
+        };
+
+        const authHeaders = () => {
+          const headers = { 'Content-Type': 'application/json' };
+          const token = getAuthToken();
+          if (token) headers['Authorization'] = 'Bearer ' + token;
+          return headers;
+        };
+
+        const handleLogout = async () => {
+          try {
+            await fetch('/auth/logout', { method: 'POST', credentials: 'include' });
+          } catch(e) {}
+          try {
+            localStorage.clear();
+            sessionStorage.clear();
+          } catch(e) {}
+          const cookies = ["access_token", "lorawan_token", "session_id", "connect.sid"];
+          cookies.forEach(c => {
+            document.cookie = c + "=; Path=/; Expires=Thu, 01 Jan 1970 00:00:01 GMT; Max-Age=0; SameSite=Lax;";
+            document.cookie = c + "=; Path=/; Expires=Thu, 01 Jan 1970 00:00:01 GMT; Max-Age=0;";
+          });
+          window.location.replace('/login?logout=1');
+        };
+
+        const copyUrl = (path) => {
+          const full = window.location.origin + path;
+          navigator.clipboard.writeText(full).then(() => {
+            showToast("Copied endpoint URL to clipboard!", "success");
+          });
+        };
+
+        // Fetchers
+        const fetchNetworkServers = async () => {
+          try {
+            const res = await fetch('/api/network-servers', { headers: authHeaders(), credentials: 'include' });
+            if (res.ok) networkServersList.value = await res.json();
+          } catch(e) {
+            console.error(e);
+          }
+        };
+
+        const fetchRoleLayouts = async () => {
+          try {
+            const res = await fetch('/api/d-modules/layouts', { headers: authHeaders(), credentials: 'include' });
+            if (res.ok) {
+              roleLayouts.value = await res.json();
+            }
+          } catch(e) {
+            console.error('Error fetching role layouts:', e);
+          }
+        };
+
+        const computeRoleModules = () => {
+          const roleCode = (selectedLayoutRole.value || 'SUPER_ADMIN').toUpperCase();
+          const rawLayout = roleLayouts.value[roleCode];
+
+          let layoutOrder = null;
+          let layoutSpans = {};
+          let disabledIds = [];
+          if (Array.isArray(rawLayout)) {
+            layoutOrder = rawLayout;
+          } else if (rawLayout && typeof rawLayout === 'object') {
+            layoutOrder = rawLayout.moduleOrder || rawLayout.moduleIds || null;
+            layoutSpans = rawLayout.moduleSpans || {};
+            disabledIds = rawLayout.disabledModuleIds || [];
+          }
+
+          if (layoutOrder && Array.isArray(layoutOrder) && layoutOrder.length > 0) {
+            const modulesMap = new Map();
+            modulesList.value.forEach(m => modulesMap.set(m.id, m));
+
+            const orderedList = [];
+            const disabledSet = new Set(disabledIds);
+            layoutOrder.forEach(id => {
+              if (modulesMap.has(id) && !disabledSet.has(id)) {
+                const mod = modulesMap.get(id);
+                orderedList.push({
+                  ...mod,
+                  span: layoutSpans[id] || mod.span || 1
+                });
+              }
+            });
+            currentRoleModuleList.value = orderedList;
+          } else {
+            let filtered = [];
+            if (roleCode === 'SUPER_ADMIN') {
+              filtered = [...modulesList.value];
+            } else {
+              filtered = modulesList.value.filter(m => {
+                if (m.allowedRoleCodes && m.allowedRoleCodes.length > 0) {
+                  return m.allowedRoleCodes.some(c => c.toUpperCase() === roleCode);
+                }
+                if (m.requiredPermission) {
+                  const roleObj = rolesList.value.find(r => (r.code || r.name || '').toUpperCase() === roleCode);
+                  return roleObj && roleObj.permissions && roleObj.permissions.some(p => p.name === m.requiredPermission);
+                }
+                return true;
+              });
+            }
+            currentRoleModuleList.value = filtered.map(m => ({
+              ...m,
+              span: 1
+            }));
+          }
+        };
+
+        const onLayoutRoleChange = () => {
+          if (isEditingRoleLayout.value) {
+            isEditingRoleLayout.value = false;
+          }
+          computeRoleModules();
+        };
+
+        const startEditRoleLayout = () => {
+          isEditingRoleLayout.value = true;
+          showToast("Drag & drop layout edit mode enabled for '" + selectedLayoutRole.value + "'", 'info');
+        };
+
+        const cancelEditRoleLayout = () => {
+          isEditingRoleLayout.value = false;
+          draggedModuleIndex.value = null;
+          dragOverModuleIndex.value = null;
+          computeRoleModules();
+          showToast('Layout changes cancelled', 'info');
+        };
+
+        const isModuleInCurrentLayout = (moduleId) => {
+          if (!moduleId || !currentRoleModuleList.value) return false;
+          return currentRoleModuleList.value.some(m => m.id === moduleId);
+        };
+
+        const openAddModuleToLayoutModal = () => {
+          addModuleToLayoutModal.value = true;
+        };
+
+        const closeAddModuleToLayoutModal = () => {
+          addModuleToLayoutModal.value = false;
+        };
+
+        const addModuleToCurrentRoleLayout = (mod) => {
+          if (!mod || !mod.id) return;
+          if (isModuleInCurrentLayout(mod.id)) {
+            showToast("Module '" + mod.title + "' is already in this role layout!", "info");
+            return;
+          }
+          const cloned = { ...mod, span: 1 };
+          currentRoleModuleList.value.push(cloned);
+          if (!isEditingRoleLayout.value) {
+            isEditingRoleLayout.value = true;
+          }
+          showToast("Added '" + mod.title + "' to layout. Click 'Save' to persist changes.", "success");
+        };
+
+        const removeModuleFromCurrentRoleLayout = (index) => {
+          if (index < 0 || index >= currentRoleModuleList.value.length) return;
+          const removed = currentRoleModuleList.value.splice(index, 1);
+          if (removed && removed[0]) {
+            showToast("Removed '" + removed[0].title + "' from layout. Click 'Save' to persist.", "info");
+          }
+        };
+
+        const toggleModuleSpan = (index) => {
+          if (index < 0 || index >= currentRoleModuleList.value.length) return;
+          const currentSpan = currentRoleModuleList.value[index].span || 1;
+          currentRoleModuleList.value[index].span = currentSpan === 2 ? 1 : 2;
+        };
+
+        const saveRoleLayoutOrder = async () => {
+          savingRoleLayout.value = true;
+          const roleCode = (selectedLayoutRole.value || 'SUPER_ADMIN').toUpperCase();
+          const moduleOrder = currentRoleModuleList.value.map(m => m.id);
+          const moduleSpans = {};
+          currentRoleModuleList.value.forEach(m => {
+            if (m.span && m.span > 1) {
+              moduleSpans[m.id] = m.span;
+            }
+          });
+
+          try {
+            const res = await fetch('/api/d-modules/layouts/' + encodeURIComponent(roleCode), {
+              method: 'PUT',
+              headers: authHeaders(),
+              credentials: 'include',
+              body: JSON.stringify({ moduleOrder, moduleIds: moduleOrder, moduleSpans })
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.message || 'Failed to save layout');
+            roleLayouts.value[roleCode] = { roleCode, moduleOrder, moduleSpans, disabledModuleIds: [] };
+            isEditingRoleLayout.value = false;
+            showToast("Dashboard layout for role '" + roleCode + "' saved successfully!", 'success');
+          } catch(e) {
+            showToast(e.message, 'error');
+          } finally {
+            savingRoleLayout.value = false;
+          }
+        };
+
+        const onDragStart = (index, event) => {
+          if (!isEditingRoleLayout.value) return;
+          draggedModuleIndex.value = index;
+          if (event && event.dataTransfer) {
+            event.dataTransfer.effectAllowed = 'move';
+            event.dataTransfer.setData('text/plain', String(index));
+          }
+        };
+
+        const onDragOver = (index, event) => {
+          if (!isEditingRoleLayout.value) return;
+          if (event) {
+            event.preventDefault();
+            if (event.dataTransfer) {
+              event.dataTransfer.dropEffect = 'move';
+            }
+          }
+          dragOverModuleIndex.value = index;
+        };
+
+        const onDrop = (targetIndex, event) => {
+          if (!isEditingRoleLayout.value) return;
+          if (event) event.preventDefault();
+          const fromIndex = draggedModuleIndex.value;
+          if (fromIndex !== null && fromIndex !== undefined && fromIndex !== targetIndex) {
+            const list = [...currentRoleModuleList.value];
+            const [movedItem] = list.splice(fromIndex, 1);
+            list.splice(targetIndex, 0, movedItem);
+            currentRoleModuleList.value = list;
+          }
+          draggedModuleIndex.value = null;
+          dragOverModuleIndex.value = null;
+        };
+
+        const onDragEnd = () => {
+          draggedModuleIndex.value = null;
+          dragOverModuleIndex.value = null;
+        };
+
+        const moveModuleOrder = (index, direction) => {
+          if (!isEditingRoleLayout.value) return;
+          const targetIndex = index + direction;
+          if (targetIndex < 0 || targetIndex >= currentRoleModuleList.value.length) return;
+          const list = [...currentRoleModuleList.value];
+          const temp = list[index];
+          list[index] = list[targetIndex];
+          list[targetIndex] = temp;
+          currentRoleModuleList.value = list;
+        };
+
+        const fetchModules = async () => {
+          try {
+            const [modRes, layoutRes] = await Promise.all([
+              fetch('/api/features/all', { headers: authHeaders(), credentials: 'include' }),
+              fetch('/api/d-modules/layouts', { headers: authHeaders(), credentials: 'include' })
+            ]);
+            if (modRes.ok) modulesList.value = await modRes.json();
+            if (layoutRes.ok) roleLayouts.value = await layoutRes.json();
+            computeRoleModules();
+          } catch(e) {
+            console.error(e);
+          }
+        };
+
+        const fetchUsers = async () => {
+          loadingUsers.value = true;
+          try {
+            const res = await fetch('/users', { headers: authHeaders(), credentials: 'include' });
+            if (res.ok) usersList.value = await res.json();
+          } catch(e) {
+            console.error(e);
+          } finally {
+            loadingUsers.value = false;
+          }
+        };
+
+        const fetchRoles = async () => {
+          loadingRoles.value = true;
+          try {
+            const [rolesRes, permsRes] = await Promise.all([
+              fetch('/roles', { headers: authHeaders(), credentials: 'include' }),
+              fetch('/roles/permissions', { headers: authHeaders(), credentials: 'include' })
+            ]);
+            if (rolesRes.ok) rolesList.value = await rolesRes.json();
+            if (permsRes.ok) allPermissions.value = await permsRes.json();
+          } catch(e) {
+            console.error(e);
+          } finally {
+            loadingRoles.value = false;
+          }
+        };
+
+        const fetchDbHealth = async () => {
+          try {
+            const res = await fetch('/database/health', { headers: authHeaders(), credentials: 'include' });
+            if (res.ok) dbHealth.value = await res.json();
+          } catch(e) {
+            console.error(e);
+          }
+        };
+
+        const reloadDbConfig = async () => {
+          try {
+            const res = await fetch('/database/reload', { method: 'POST', headers: authHeaders(), credentials: 'include' });
+            const data = await res.json();
+            showToast(data.message || "Database configuration reloaded", "success");
+            fetchDbHealth();
+          } catch(e) {
+            showToast("Reload failed: " + e.message, "error");
+          }
+        };
+
+        const fetchDevices = async () => {
+          try {
+            const res = await fetch('/lorawan/devices', { headers: authHeaders(), credentials: 'include' });
+            if (res.ok) devicesList.value = await res.json();
+          } catch(e) {
+            console.error(e);
+          }
+        };
+
+        const fetchSession = async () => {
+          const token = getAuthToken();
+          if (!token) {
+            localStorage.clear();
+            sessionStorage.clear();
+            window.location.replace('/login');
+            return false;
+          }
+          try {
+            const res = await fetch('/auth/session', { headers: authHeaders(), credentials: 'include' });
+            if (res.ok) {
+              const user = await res.json();
+              currentUser.value = user;
+              const isSuper =
+                user.username === 'admin' ||
+                user.userType === 'ADMIN' ||
+                String(user.userType).toUpperCase() === 'ADMIN' ||
+                (user.roles && Array.isArray(user.roles) && user.roles.some(r => {
+                  const code = (typeof r === 'string' ? r : (r.code || r.name || '')).toUpperCase();
+                  return code === 'SUPER_ADMIN' || code === 'SUPER ADMINISTRATOR' || code === 'ADMIN';
+                }));
+
+              if (!isSuper) {
+                window.location.replace('/dashboard');
+                return false;
+              }
+              return true;
+            } else {
+              localStorage.clear();
+              sessionStorage.clear();
+              window.location.replace('/login');
+              return false;
+            }
+          } catch(e) {
+            localStorage.clear();
+            sessionStorage.clear();
+            window.location.replace('/login');
+            return false;
+          }
+        };
+
+        // Network Server CRUD
+        const openCreateNetworkServerDialog = () => {
+          isEditingNetworkServer.value = false;
+          currentNetworkServer.value = {
+            id: '',
+            name: '',
+            type: 'THINGPARK',
+            apiUrl: '',
+            apiKey: '',
+            routeRef: '',
+            applicationId: '',
+            description: '',
+            isDefault: false,
+            regionProfiles: [
+              { id: 'prof-as923-1', name: 'AS923-1 Regional Plan', region: 'AS923-1', routeRef: 'TP_AS923_1', frequencyBand: '920-925 MHz' }
+            ]
+          };
+          networkServerDialog.value = true;
+        };
+
+        const openEditNetworkServerDialog = (ns) => {
+          isEditingNetworkServer.value = true;
+          currentNetworkServer.value = JSON.parse(JSON.stringify(ns));
+          if (!currentNetworkServer.value.regionProfiles) currentNetworkServer.value.regionProfiles = [];
+          networkServerDialog.value = true;
+        };
+
+        const addRegionRow = () => {
+          const count = (currentNetworkServer.value.regionProfiles || []).length + 1;
+          currentNetworkServer.value.regionProfiles.push({
+            id: 'prof-reg-' + count,
+            name: 'Region Plan ' + count,
+            region: 'AS923-1',
+            routeRef: currentNetworkServer.value.type === 'THINGPARK' ? 'TP_ROUTE_' + count : undefined,
+            profileId: currentNetworkServer.value.type === 'CHIRPSTACK' ? 'cs_profile_' + count : undefined,
+            frequencyBand: '920-925 MHz'
+          });
+        };
+
+        const removeRegionRow = (idx) => {
+          currentNetworkServer.value.regionProfiles.splice(idx, 1);
+        };
+
+        const submitNetworkServerForm = async () => {
+          savingNetworkServer.value = true;
+          try {
+            const url = isEditingNetworkServer.value ? '/api/network-servers/' + currentNetworkServer.value.id : '/api/network-servers';
+            const method = isEditingNetworkServer.value ? 'PUT' : 'POST';
+            const payload = {
+              name: (currentNetworkServer.value.name || '').trim(),
+              type: currentNetworkServer.value.type || 'THINGPARK',
+              description: (currentNetworkServer.value.description || '').trim(),
+              apiUrl: (currentNetworkServer.value.apiUrl || '').trim(),
+              apiKey: (currentNetworkServer.value.apiKey || '').trim(),
+              routeRef: (currentNetworkServer.value.routeRef || '').trim(),
+              applicationId: (currentNetworkServer.value.applicationId || '').trim(),
+              isDefault: Boolean(currentNetworkServer.value.isDefault),
+              status: currentNetworkServer.value.status || 'ONLINE',
+              regionProfiles: (currentNetworkServer.value.regionProfiles || []).map((rp, idx) => ({
+                id: rp.id || ('prof-' + Date.now() + '-' + (idx + 1)),
+                name: (rp.name || '').trim() || ('Region ' + (idx + 1)),
+                region: (rp.region || '').trim() || 'AS923-1',
+                routeRef: rp.routeRef ? String(rp.routeRef).trim() : undefined,
+                profileId: rp.profileId ? String(rp.profileId).trim() : undefined,
+                frequencyBand: rp.frequencyBand ? String(rp.frequencyBand).trim() : '',
+                description: rp.description ? String(rp.description).trim() : '',
+                isActive: rp.isActive !== false
+              }))
+            };
+            const res = await fetch(url, {
+              method,
+              headers: authHeaders(),
+              credentials: 'include',
+              body: JSON.stringify(payload)
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.message || "Failed to save network server");
+            showToast(isEditingNetworkServer.value ? "Network Server updated!" : "Network Server created!", "success");
+            networkServerDialog.value = false;
+            fetchNetworkServers();
+          } catch(e) {
+            showToast(e.message, "error");
+          } finally {
+            savingNetworkServer.value = false;
+          }
+        };
+
+        const testNetworkServer = async (ns) => {
+          try {
+            showToast("Testing connection to " + ns.name + "...", "info");
+            const res = await fetch('/api/network-servers/' + ns.id + '/test', {
+              method: 'POST',
+              headers: authHeaders(),
+              credentials: 'include'
+            });
+            const data = await res.json();
+            if (data.success && (data.details?.httpStatus === undefined || data.details?.httpStatus < 400)) {
+              showToast("✅ " + data.message, "success");
+            } else {
+              showToast("❌ " + (data.message || "Connection test failed (Offline)"), "error");
+            }
+            fetchNetworkServers();
+          } catch(e) {
+            showToast("Connection test error: " + e.message, "error");
+          }
+        };
+
+        const deleteNetworkServer = async (id) => {
+          if (!confirm("Are you sure you want to delete this network server?")) return;
+          try {
+            const res = await fetch('/api/network-servers/' + id, { method: 'DELETE', headers: authHeaders(), credentials: 'include' });
+            if (!res.ok) throw new Error("Delete failed");
+            showToast("Network server removed", "success");
+            fetchNetworkServers();
+          } catch(e) {
+            showToast(e.message, "error");
+          }
+        };
+
+        // Module CRUD
+        const openCreateModuleDialog = () => {
+          isEditingModule.value = false;
+          currentModule.value = {
+            id: '',
+            code: '',
+            title: '',
+            description: '',
+            icon: 'fa-solid fa-layer-group',
+            color: 'from-cyan-500 to-blue-600',
+            badge: 'Feature',
+            category: 'Monitoring',
+            allowedRoleCodes: [],
+            requiredPermission: '',
+            status: 'active',
+            isActive: true
+          };
+          moduleDialog.value = true;
+        };
+
+        const openEditModuleDialog = (mod) => {
+          isEditingModule.value = true;
+          currentModule.value = JSON.parse(JSON.stringify(mod));
+          if (!currentModule.value.allowedRoleCodes) currentModule.value.allowedRoleCodes = [];
+          moduleDialog.value = true;
+        };
+
+        const submitModuleForm = async () => {
+          savingModule.value = true;
+          try {
+            const url = isEditingModule.value ? '/api/features/' + currentModule.value.id : '/api/features';
+            const method = isEditingModule.value ? 'PUT' : 'POST';
+            const res = await fetch(url, {
+              method,
+              headers: authHeaders(),
+              credentials: 'include',
+              body: JSON.stringify(currentModule.value)
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.message || "Failed to save module");
+            showToast(isEditingModule.value ? "Module updated successfully!" : "Module created successfully!", "success");
+            moduleDialog.value = false;
+            fetchModules();
+          } catch(e) {
+            showToast(e.message, "error");
+          } finally {
+            savingModule.value = false;
+          }
+        };
+
+        const toggleModuleActive = async (mod) => {
+          const newStatus = mod.isActive === false ? true : false;
+          try {
+            const res = await fetch('/api/features/' + mod.id, {
+              method: 'PUT',
+              headers: authHeaders(),
+              credentials: 'include',
+              body: JSON.stringify({ isActive: newStatus })
+            });
+            if (!res.ok) throw new Error("Failed to toggle status");
+            mod.isActive = newStatus;
+            showToast("Module " + (newStatus ? "enabled" : "disabled") + " on Dashboard", "success");
+          } catch(e) {
+            showToast(e.message, "error");
+          }
+        };
+
+        const deleteModule = async (id) => {
+          if (!confirm("Are you sure you want to delete this module from dashboard?")) return;
+          try {
+            const res = await fetch('/api/features/' + id, { method: 'DELETE', headers: authHeaders(), credentials: 'include' });
+            if (!res.ok) throw new Error("Delete failed");
+            showToast("Module removed successfully", "success");
+            fetchModules();
+          } catch(e) {
+            showToast(e.message, "error");
+          }
+        };
+
+        const resetModulesDefaults = async () => {
+          if (!confirm("Reset all modules back to standard 8 default modules?")) return;
+          try {
+            const res = await fetch('/api/features/reset-defaults', { method: 'POST', headers: authHeaders(), credentials: 'include' });
+            if (!res.ok) throw new Error("Reset failed");
+            showToast("Modules restored to defaults!", "success");
+            fetchModules();
+          } catch(e) {
+            showToast(e.message, "error");
+          }
+        };
+
+        // Role CRUD
+        const openCreateRoleDialog = () => {
+          isEditingRole.value = false;
+          currentRole.value = { id: '', code: '', name: '', description: '', permissions: [] };
+          roleDialog.value = true;
+        };
+
+        const openEditRoleDialog = (r) => {
+          isEditingRole.value = true;
+          currentRole.value = {
+            id: r.id,
+            code: r.code,
+            name: r.name,
+            description: r.description || '',
+            permissions: (r.permissions || []).map(p => p.id)
+          };
+          roleDialog.value = true;
+        };
+
+        const submitRoleForm = async () => {
+          savingRole.value = true;
+          try {
+            const url = isEditingRole.value ? '/roles/' + currentRole.value.id : '/roles';
+            const method = isEditingRole.value ? 'PUT' : 'POST';
+            const payload = isEditingRole.value ? {
+              name: currentRole.value.name.trim(),
+              description: currentRole.value.description.trim(),
+              permissionIds: currentRole.value.permissions
+            } : {
+              code: currentRole.value.code.trim().toUpperCase(),
+              name: currentRole.value.name.trim(),
+              description: currentRole.value.description.trim(),
+              permissionIds: currentRole.value.permissions
+            };
+            const res = await fetch(url, {
+              method,
+              headers: authHeaders(),
+              credentials: 'include',
+              body: JSON.stringify(payload)
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.message || "Failed to save role");
+            showToast(isEditingRole.value ? "Role updated successfully!" : "Role created successfully!", "success");
+            roleDialog.value = false;
+            fetchRoles();
+          } catch(e) {
+            showToast(e.message, "error");
+          } finally {
+            savingRole.value = false;
+          }
+        };
+
+        const deleteRole = async (id) => {
+          if (!confirm("Are you sure you want to delete this role?")) return;
+          try {
+            const res = await fetch('/roles/' + id, { method: 'DELETE', headers: authHeaders(), credentials: 'include' });
+            if (!res.ok) throw new Error("Delete failed");
+            showToast("Role deleted successfully", "success");
+            fetchRoles();
+          } catch(e) {
+            showToast(e.message, "error");
+          }
+        };
+
+        // User CRUD
+        const openCreateUserDialog = () => {
+          newUser.value = { username: '', fullName: '', email: '', password: '', userType: 'USER', roleId: '' };
+          createUserDialog.value = true;
+        };
+
+        const submitCreateUser = async () => {
+          savingUser.value = true;
+          try {
+            const payload = {
+              username: newUser.value.username.trim(),
+              fullName: newUser.value.fullName?.trim() || newUser.value.username.trim(),
+              password: newUser.value.password,
+              userType: newUser.value.userType,
+              roleIds: newUser.value.roleId ? [newUser.value.roleId] : []
+            };
+            if (newUser.value.email?.trim()) {
+              payload.email = newUser.value.email.trim();
+            }
+            const res = await fetch('/users', {
+              method: 'POST',
+              headers: authHeaders(),
+              credentials: 'include',
+              body: JSON.stringify(payload)
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.message || "Failed to create user");
+            showToast("User account created successfully!", "success");
+            createUserDialog.value = false;
+            fetchUsers();
+          } catch(e) {
+            showToast(e.message, "error");
+          } finally {
+            savingUser.value = false;
+          }
+        };
+
+        const openEditUserDialog = (u) => {
+          editUser.value = {
+            id: u.id,
+            username: u.username,
+            roleId: u.roles && u.roles[0] ? (u.roles[0].id || u.roles[0]) : '',
+            isActive: u.isActive
+          };
+          editUserDialog.value = true;
+        };
+
+        const submitEditUser = async () => {
+          savingUser.value = true;
+          try {
+            const res = await fetch('/users/' + editUser.value.id + '/permissions', {
+              method: 'PUT',
+              headers: authHeaders(),
+              credentials: 'include',
+              body: JSON.stringify({
+                isActive: editUser.value.isActive,
+                roleIds: editUser.value.roleId ? [editUser.value.roleId] : []
+              })
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.message || "Failed to update user");
+            showToast("User updated successfully!", "success");
+            editUserDialog.value = false;
+            fetchUsers();
+          } catch(e) {
+            showToast(e.message, "error");
+          } finally {
+            savingUser.value = false;
+          }
+        };
+
+        const deleteUser = async (id) => {
+          if (!confirm("Are you sure you want to delete this user?")) return;
+          try {
+            const res = await fetch('/users/' + id, { method: 'DELETE', headers: authHeaders(), credentials: 'include' });
+            if (!res.ok) throw new Error("Delete failed");
+            showToast("User removed successfully", "success");
+            fetchUsers();
+          } catch(e) {
+            showToast(e.message, "error");
+          }
+        };
+
+        // Device CRUD
+        const openRegisterDeviceDialog = () => {
+          isEditingDevice.value = false;
+          const defaultNs = networkServersList.value.find(ns => ns.isDefault) || networkServersList.value[0];
+          const defaultNsId = defaultNs ? defaultNs.id : '';
+          const defaultRegionId = defaultNs && Array.isArray(defaultNs.regionProfiles) && defaultNs.regionProfiles.length > 0
+            ? defaultNs.regionProfiles[0].id
+            : '';
+
+          newDevice.value = {
+            name: '',
+            devEUI: '',
+            networkServerId: defaultNsId,
+            regionProfileId: defaultRegionId,
+            itemCodeId: '',
+            salesOrderId: '',
+            sku: '',
+            firmwareVersion: '',
+            decoderId: '',
+            appEUI: '0102030405060708',
+            appKey: '0102030405060708090A0B0C0D0E0F10',
+            activationType: 'OTAA',
+            provisionTarget: 'SERVER',
+            isActive: true,
+          };
+          registerDeviceDialog.value = true;
+        };
+
+        const openEditDeviceDialog = (d) => {
+          isEditingDevice.value = true;
+          const nsId = d.networkServerId || (d.networkServer ? d.networkServer.id : '');
+          let regId = d.regionProfileId || '';
+          if (!regId && nsId) {
+            const ns = networkServersList.value.find(n => n.id === nsId);
+            if (ns && Array.isArray(ns.regionProfiles) && ns.regionProfiles.length > 0) {
+              regId = ns.regionProfiles[0].id;
+            }
+          }
+
+          newDevice.value = {
+            name: d.name || '',
+            devEUI: d.devEUI || '',
+            networkServerId: nsId,
+            regionProfileId: regId,
+            itemCodeId: d.itemCodeId || (d.itemCode ? d.itemCode.id : ''),
+            salesOrderId: d.salesOrderId || (d.salesOrder ? d.salesOrder.id : ''),
+            sku: d.sku || '',
+            firmwareVersion: formatFirmware(d.firmwareVersion) === '—' ? '' : formatFirmware(d.firmwareVersion),
+            decoderId: d.decoderId || '',
+            appEUI: d.appEUI || '0102030405060708',
+            appKey: d.appKey || '0102030405060708090A0B0C0D0E0F10',
+            activationType: d.activationMode || 'OTAA',
+            provisionTarget: d.syncStatus === 'LOCAL' ? 'LOCAL' : 'SERVER',
+            isActive: d.isActive !== undefined ? d.isActive : true,
+          };
+          registerDeviceDialog.value = true;
+        };
+
+        const submitDeviceForm = async () => {
+          if (!newDevice.value.name.trim()) {
+            showToast("Please enter device name", "error");
+            return;
+          }
+          if (!newDevice.value.devEUI.trim()) {
+            showToast("Please enter DevEUI (16 Hex characters)", "error");
+            return;
+          }
+          if (!isEditingDevice.value && newDevice.value.provisionTarget !== 'LOCAL' && !newDevice.value.networkServerId) {
+            showToast("Please select a Network Server or switch to Local Fleet mode", "error");
+            return;
+          }
+
+          savingDevice.value = true;
+          try {
+            const isEdit = isEditingDevice.value;
+            const cleanDevEUI = newDevice.value.devEUI.trim().toUpperCase();
+            const url = isEdit ? '/lorawan/devices/' + cleanDevEUI : '/lorawan/devices';
+            const method = isEdit ? 'PUT' : 'POST';
+
+            const res = await fetch(url, {
+              method,
+              headers: authHeaders(),
+              credentials: 'include',
+              body: JSON.stringify({
+                name: newDevice.value.name.trim(),
+                devEUI: cleanDevEUI,
+                networkServerId: newDevice.value.networkServerId || undefined,
+                regionProfileId: newDevice.value.regionProfileId || undefined,
+                itemCodeId: newDevice.value.itemCodeId || undefined,
+                salesOrderId: newDevice.value.salesOrderId || undefined,
+                sku: newDevice.value.sku ? newDevice.value.sku.trim().toUpperCase() : undefined,
+                firmwareVersion: newDevice.value.firmwareVersion ? String(newDevice.value.firmwareVersion).replace(/^[vV]/, '').trim() : undefined,
+                decoderId: newDevice.value.decoderId || undefined,
+                appEUI: newDevice.value.appEUI ? newDevice.value.appEUI.trim().toUpperCase() : '0102030405060708',
+                appKey: newDevice.value.appKey ? newDevice.value.appKey.trim().toUpperCase() : '0102030405060708090A0B0C0D0E0F10',
+                activationType: newDevice.value.activationType || 'OTAA',
+                provisionTarget: newDevice.value.provisionTarget || 'SERVER',
+                isActive: Boolean(newDevice.value.isActive),
+              })
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.message || (isEdit ? "Failed to update device" : "Failed to register device"));
+            showToast(data.message || (isEdit ? "Device updated successfully!" : "Device registered successfully!"), "success");
+            registerDeviceDialog.value = false;
+            fetchDevices();
+          } catch(e) {
+            showToast(e.message, "error");
+          } finally {
+            savingDevice.value = false;
+          }
+        };
+
+        const deleteDevice = (d) => {
+          deviceToDelete.value = d;
+          deleteConfirmDialog.value = true;
+        };
+
+        const confirmDeleteDevice = async () => {
+          if (!deviceToDelete.value) return;
+          deletingDevice.value = true;
+          try {
+            const res = await fetch('/lorawan/devices/' + deviceToDelete.value.devEUI, {
+              method: 'DELETE',
+              headers: authHeaders(),
+              credentials: 'include'
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.message || "Failed to delete device");
+            showToast(data.message || "Device deleted successfully", "success");
+            deleteConfirmDialog.value = false;
+            deviceToDelete.value = null;
+            fetchDevices();
+          } catch(e) {
+            showToast(e.message, "error");
+          } finally {
+            deletingDevice.value = false;
+          }
+        };
+
+        const checkingHealthDevEUI = ref(null);
+
+        const isDeviceOnline = (d) => {
+          if (!d || d.isActive === false) return false;
+          const lastSeen = d.lastSeenAt || (d.syncDetails && d.syncDetails.lastSeenAt);
+          if (!lastSeen) return false;
+          const t = new Date(lastSeen).getTime();
+          if (isNaN(t)) return false;
+          return (Date.now() - t) < 24 * 60 * 60 * 1000;
+        };
+
+        const checkDeviceHealth = async (device) => {
+          checkingHealthDevEUI.value = device.devEUI;
+          try {
+            const res = await fetch('/lorawan/devices/' + device.devEUI + '/health', {
+              method: 'POST',
+              headers: authHeaders(),
+              credentials: 'include'
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.message || "Health check failed");
+
+            if (data.device) {
+              Object.assign(device, data.device);
+            }
+            if (data.health) {
+              device.lastSeenAt = data.health.lastSeenAt || null;
+              if (device.syncDetails) {
+                device.syncDetails.lastSeenAt = data.health.lastSeenAt || null;
+              }
+              device.isOnline = Boolean(data.health.isOnline);
+            }
+
+            showToast(data.health?.message || "Device health check completed", data.health?.isOnline ? "success" : "info");
+          } catch(e) {
+            showToast(e.message, "error");
+          } finally {
+            checkingHealthDevEUI.value = null;
+          }
+        };
+
+        const formatLastSeen = (ts) => {
+          if (!ts) return 'Never joined';
+          try {
+            const d = new Date(ts);
+            if (isNaN(d.getTime())) return 'Never joined';
+            const diffSec = Math.floor((Date.now() - d.getTime()) / 1000);
+            if (diffSec < 0) return 'Just now';
+            if (diffSec < 60) return 'Just now';
+            if (diffSec < 3600) return Math.floor(diffSec / 60) + 'm ago';
+            if (diffSec < 86400) return Math.floor(diffSec / 3600) + 'h ago';
+            return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+          } catch(e) {
+            return 'Never joined';
+          }
+        };
+
+        const syncDevice = async (d) => {
+          try {
+            showToast("Provisioning " + d.devEUI + " to Network Server...", "info");
+            const res = await fetch('/lorawan/devices/' + d.devEUI + '/sync', {
+              method: 'POST',
+              headers: authHeaders(),
+              credentials: 'include'
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.message || "Sync failed");
+            showToast(data.provisioning?.summaryMessage || ("Device " + d.devEUI + " synced successfully"), "success");
+            fetchDevices();
+          } catch(e) {
+            showToast(e.message, "error");
+          }
+        };
+
+        const testDevice = (d) => {
+          selectedSandboxDeviceEUI.value = d.devEUI;
+          onSelectSandboxDevice();
+          switchTab('decoder');
+          setTimeout(() => {
+            const el = document.getElementById('decoder-sandbox-section');
+            if (el) el.scrollIntoView({ behavior: 'smooth' });
+          }, 100);
+        };
+
+        const fetchDecoders = async () => {
+          loadingDecoders.value = true;
+          try {
+            const res = await fetch('/api/decoders', {
+              headers: authHeaders(),
+              credentials: 'include'
+            });
+            if (res.ok) {
+              decodersList.value = await res.json();
+            } else {
+              const err = await res.json().catch(() => ({}));
+              console.warn("Could not fetch decoders:", err.message);
+            }
+          } catch(e) {
+            console.warn("fetchDecoders error:", e.message);
+          } finally {
+            loadingDecoders.value = false;
+          }
+        };
+
+        const openAddDecoderModal = () => {
+          newDecoder.value = {
+            sku: '',
+            firmwareVersion: '',
+            decoderCode: '',
+            description: ''
+          };
+          addDecoderDialog.value = true;
+        };
+
+        const closeAddDecoderModal = () => {
+          addDecoderDialog.value = false;
+          addDecoderConfirmDialog.value = false;
+          newDecoder.value = {
+            sku: '',
+            firmwareVersion: '',
+            decoderCode: '',
+            description: ''
+          };
+        };
+
+        const loadSampleDecoderTemplate = () => {
+          newDecoder.value.decoderCode = [
+            "// Sub-functions helper",
+            "function parseTemperature(raw) {",
+            "  return ((raw << 16) >> 16) / 100;",
+            "}",
+            "",
+            "function parseHumidity(raw) {",
+            "  return raw / 2;",
+            "}",
+            "",
+            "function parseBattery(raw) {",
+            "  return raw / 10;",
+            "}",
+            "",
+            "// Main decoder entry function",
+            "function decodeUplink(input) {",
+            "  var bytes = input.bytes || input;",
+            "  var fPort = input.fPort || 1;",
+            "  if (bytes.length < 3) {",
+            "    return { errors: ['Payload too short'] };",
+            "  }",
+            "  var tempRaw = (bytes[0] << 8) | bytes[1];",
+            "  var humRaw = bytes[2];",
+            "  var batRaw = bytes.length > 3 ? bytes[3] : 30;",
+            "  return {",
+            "    data: {",
+            "      temperature: parseTemperature(tempRaw),",
+            "      humidity: parseHumidity(humRaw),",
+            "      battery: parseBattery(batRaw)",
+            "    }",
+            "  };",
+            "}"
+          ].join("\\n");
+          showToast("Sample decoder template loaded!", "info");
+        };
+
+        const validateDecoderCode = (code) => {
+          const trimmed = (code || '').trim();
+          if (!trimmed) {
+            return { valid: false, message: 'Please enter JavaScript code for the Decoder!' };
+          }
+          try {
+            new Function(trimmed);
+            return { valid: true };
+          } catch(e) {
+            return { valid: false, message: 'JavaScript syntax error in decoder code: ' + e.message };
+          }
+        };
+
+        const promptSubmitAddDecoder = () => {
+          const sku = (newDecoder.value.sku || '').trim();
+          if (!sku) {
+            showToast("Please enter Product SKU!", "error");
+            return;
+          }
+          const fw = parseInt(newDecoder.value.firmwareVersion, 10);
+          if (isNaN(fw) || fw < 1 || fw > 32) {
+            showToast("Please select Firmware Version from 1 to 32!", "error");
+            return;
+          }
+          const val = validateDecoderCode(newDecoder.value.decoderCode);
+          if (!val.valid) {
+            showToast(val.message, "error");
+            return;
+          }
+
+          // Open confirmation dialog asking user to confirm adding to DB
+          addDecoderConfirmDialog.value = true;
+        };
+
+        const submitAddDecoder = async () => {
+          savingDecoder.value = true;
+          try {
+            const sku = newDecoder.value.sku.trim();
+            const firmwareVersion = parseInt(newDecoder.value.firmwareVersion, 10);
+            const decoderCode = newDecoder.value.decoderCode;
+            const description = (newDecoder.value.description || '').trim() || undefined;
+
+            const res = await fetch('/api/decoders', {
+              method: 'POST',
+              headers: {
+                ...authHeaders(),
+                'Content-Type': 'application/json'
+              },
+              credentials: 'include',
+              body: JSON.stringify({
+                sku,
+                firmwareVersion,
+                decoderCode,
+                description
+              })
+            });
+
+            const data = await res.json();
+            if (!res.ok) {
+              throw new Error(data.message || 'Failed to create decoder');
+            }
+
+            showToast('Decoder ' + data.id + ' was added successfully to database!', 'success');
+            addDecoderConfirmDialog.value = false;
+            addDecoderDialog.value = false;
+            newDecoder.value = { sku: '', firmwareVersion: '', decoderCode: '', description: '' };
+            fetchDecoders();
+          } catch(err) {
+            showToast(err.message, 'error');
+          } finally {
+            savingDecoder.value = false;
+          }
+        };
+
+        const openEditDecoderModal = (dec) => {
+          currentDecoder.value = {
+            id: dec.id,
+            sku: dec.sku,
+            firmwareVersion: dec.firmwareVersion,
+            decoderCode: dec.decoderCode,
+            description: dec.description || ''
+          };
+          editDecoderDialog.value = true;
+        };
+
+        const submitEditDecoder = async () => {
+          const val = validateDecoderCode(currentDecoder.value.decoderCode);
+          if (!val.valid) {
+            showToast(val.message, "error");
+            return;
+          }
+          savingDecoder.value = true;
+          try {
+            const res = await fetch('/api/decoders/' + encodeURIComponent(currentDecoder.value.id), {
+              method: 'PUT',
+              headers: {
+                ...authHeaders(),
+                'Content-Type': 'application/json'
+              },
+              credentials: 'include',
+              body: JSON.stringify({
+                decoderCode: currentDecoder.value.decoderCode,
+                description: currentDecoder.value.description
+              })
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.message || 'Failed to update decoder');
+            showToast('Decoder ' + currentDecoder.value.id + ' updated successfully!', 'success');
+            editDecoderDialog.value = false;
+            fetchDecoders();
+          } catch(err) {
+            showToast(err.message, 'error');
+          } finally {
+            savingDecoder.value = false;
+          }
+        };
+
+        const confirmDeleteDecoder = (dec) => {
+          decoderToDelete.value = dec;
+          deleteDecoderConfirmDialog.value = true;
+        };
+
+        const submitDeleteDecoder = async () => {
+          if (!decoderToDelete.value) return;
+          savingDecoder.value = true;
+          try {
+            const res = await fetch('/api/decoders/' + encodeURIComponent(decoderToDelete.value.id), {
+              method: 'DELETE',
+              headers: authHeaders(),
+              credentials: 'include'
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.message || 'Failed to delete decoder');
+            showToast('Decoder ' + decoderToDelete.value.id + ' was deleted successfully!', 'success');
+            deleteDecoderConfirmDialog.value = false;
+            decoderToDelete.value = null;
+            fetchDecoders();
+          } catch(err) {
+            showToast(err.message, 'error');
+          } finally {
+            savingDecoder.value = false;
+          }
+        };
+
+        const loadDecoderIntoSandbox = (dec) => {
+          sandboxCode.value = dec.decoderCode;
+          selectedSandboxDecoderId.value = dec.id;
+          showToast('Loaded decoder ' + dec.id + ' into Sandbox!', 'info');
+          const el = document.getElementById('decoder-sandbox-section');
+          if (el) el.scrollIntoView({ behavior: 'smooth' });
+        };
+
+        const fetchSandboxTelemetry = async (silent = false) => {
+          if (!silent) loadingDeviceTelemetry.value = true;
+          try {
+            const url = selectedSandboxDeviceEUI.value
+              ? '/lorawan/telemetry?devEUI=' + encodeURIComponent(selectedSandboxDeviceEUI.value) + '&limit=50'
+              : '/lorawan/telemetry?limit=50';
+            const res = await fetch(url, { headers: authHeaders(), credentials: 'include' });
+            if (res.ok) {
+              const data = await res.json();
+              sandboxTelemetryList.value = Array.isArray(data) ? data : [];
+              if (sandboxTelemetryList.value.length > 0 && !sandboxHex.value) {
+                const latest = sandboxTelemetryList.value[0];
+                sandboxHex.value = latest.payloadHex || latest.data || '09C441';
+                sandboxFPort.value = latest.fPort || 1;
+              }
+            }
+          } catch(err) {
+            if (!silent) showToast('Failed to fetch telemetry: ' + err.message, 'error');
+          } finally {
+            if (!silent) loadingDeviceTelemetry.value = false;
+          }
+        };
+
+        const onSelectSandboxDevice = async () => {
+          if (!selectedSandboxDeviceEUI.value) {
+            sandboxActiveMetadata.value = null;
+            await fetchSandboxTelemetry(false);
+            return;
+          }
+          const dev = devicesList.value.find(d => d.devEUI === selectedSandboxDeviceEUI.value);
+          if (!dev) return;
+
+          if (dev.decoderId) {
+            selectedSandboxDecoderId.value = dev.decoderId;
+            const found = decodersList.value.find(d => d.id === dev.decoderId);
+            if (found && found.decoderCode) {
+              sandboxCode.value = found.decoderCode;
+            }
+          } else if (dev.payloadFormatterScript) {
+            sandboxCode.value = dev.payloadFormatterScript;
+          }
+
+          await fetchSandboxTelemetry(false);
+          if (sandboxTelemetryList.value.length > 0) {
+            const latest = sandboxTelemetryList.value[0];
+            sandboxHex.value = latest.payloadHex || latest.data || '09C441';
+            sandboxFPort.value = latest.fPort || 1;
+            sandboxActiveMetadata.value = {
+              deviceName: dev.name || latest.deviceName || dev.devEUI,
+              devEui: dev.devEUI,
+              fPort: latest.fPort || 1,
+              fCnt: latest.fCnt || 0,
+              rssi: latest.rssi,
+              snr: latest.snr,
+              gatewayId: latest.gatewayId,
+              timestamp: latest.timestamp || latest.receivedAt
+            };
+            if (sandboxHex.value) {
+              runSandboxDecode();
+            }
+          } else {
+            sandboxActiveMetadata.value = {
+              deviceName: dev.name,
+              devEui: dev.devEUI,
+              fPort: 1,
+              fCnt: 0,
+              rssi: null,
+              snr: null,
+              gatewayId: null,
+              timestamp: null
+            };
+          }
+        };
+
+        const loadHistoricalTelemetryPacket = (pkt) => {
+          if (!pkt) return;
+          sandboxHex.value = pkt.payloadHex || pkt.data || '';
+          sandboxFPort.value = pkt.fPort || 1;
+          if (sandboxActiveMetadata.value) {
+            sandboxActiveMetadata.value = {
+              ...sandboxActiveMetadata.value,
+              fPort: pkt.fPort || 1,
+              fCnt: pkt.fCnt || 0,
+              rssi: pkt.rssi,
+              snr: pkt.snr,
+              gatewayId: pkt.gatewayId,
+              timestamp: pkt.timestamp || pkt.receivedAt
+            };
+          }
+          runSandboxDecode();
+          showToast('Loaded packet from ' + formatDateTime(pkt.timestamp || pkt.receivedAt), 'info');
+        };
+
+        const onSelectSandboxDecoder = () => {
+          if (!selectedSandboxDecoderId.value) return;
+          const found = decodersList.value.find(d => d.id === selectedSandboxDecoderId.value);
+          if (found) {
+            sandboxCode.value = found.decoderCode;
+            showToast('Loaded ' + found.id + ' code into sandbox', 'info');
+          }
+        };
+
+        const runSandboxDecode = () => {
+          try {
+            const hex = sandboxHex.value.trim().replace(/\\s+/g, "");
+            if (!hex) {
+              sandboxDecodedObject.value = null;
+              sandboxResult.value = '';
+              throw new Error("Hex payload is empty");
+            }
+            if (hex.length % 2 !== 0) throw new Error("Hex payload length must be even");
+            const bytes = [];
+            for (let c = 0; c < hex.length; c += 2) {
+              bytes.push(parseInt(hex.substr(c, 2), 16));
+            }
+            const fPort = sandboxFPort.value || 1;
+            const fullCode = sandboxCode.value + "\\nif (typeof decodeUplink === 'function') { return decodeUplink({ bytes: bytes, fPort: fPort }); } else if (typeof Decoder === 'function') { return Decoder(bytes, fPort); } else { throw new Error('No entry function found. Please define decodeUplink(input) or Decoder(bytes, fPort)'); }";
+            const fn = new Function("bytes", "fPort", fullCode);
+            const output = fn(bytes, fPort);
+            sandboxDecodedObject.value = output;
+            sandboxResult.value = JSON.stringify(output, null, 2);
+            showToast("Decoder executed successfully!", "success");
+          } catch(e) {
+            sandboxDecodedObject.value = null;
+            sandboxResult.value = "Decoder Error: " + e.message;
+            showToast("Decoder Error: " + e.message, "error");
+          }
+        };
+
+        // ==================== WEBHOOK MANAGER LOGIC ====================
+        const webhookLogs = ref([]);
+        const webhookStats = ref({
+          totalCount: 0,
+          chirpstackCount: 0,
+          thingparkCount: 0,
+          genericCount: 0,
+          retentionLimit: 200
+        });
+        const loadingWebhookLogs = ref(false);
+        const webhookServerFilter = ref('ALL');
+        const webhookSearchQuery = ref('');
+        let webhookPollingTimer = null;
+
+        const rawPayloadModal = ref(false);
+        const inspectedWebhookLog = ref(null);
+        const simulatePacketModal = ref(false);
+        const simulatingPacket = ref(false);
+        const simulatePacketForm = ref({
+          serverType: 'CHIRPSTACK',
+          devEUI: '0018B20000000001',
+          payloadHex: '09C441',
+          fPort: 1,
+          fCnt: 1
+        });
+        const retentionModal = ref(false);
+        const savingRetention = ref(false);
+        const newRetentionLimit = ref(200);
+        const clearLogsConfirmModal = ref(false);
+
+        const filteredWebhookLogs = computed(() => {
+          let list = webhookLogs.value || [];
+          if (webhookServerFilter.value && webhookServerFilter.value !== 'ALL') {
+            list = list.filter(l => (l.serverType || '').toUpperCase() === webhookServerFilter.value.toUpperCase());
+          }
+          if (webhookSearchQuery.value && webhookSearchQuery.value.trim()) {
+            const q = webhookSearchQuery.value.trim().toLowerCase();
+            list = list.filter(l => 
+              (l.devEUI && l.devEUI.toLowerCase().includes(q)) ||
+              (l.payloadHex && l.payloadHex.toLowerCase().includes(q)) ||
+              (l.rawPayload && JSON.stringify(l.rawPayload).toLowerCase().includes(q))
+            );
+          }
+          return list;
+        });
+
+        const fetchWebhookLogs = async (silent = false) => {
+          if (!silent) loadingWebhookLogs.value = true;
+          try {
+            const res = await fetch('/api/webhooks/logs?limit=200', {
+              headers: authHeaders(),
+              credentials: 'include'
+            });
+            const data = await res.json();
+            if (res.ok && Array.isArray(data.logs)) {
+              webhookLogs.value = data.logs;
+              webhookStats.value.totalCount = data.total || data.logs.length;
+              webhookStats.value.chirpstackCount = data.chirpstackCount || 0;
+              webhookStats.value.thingparkCount = data.thingparkCount || 0;
+              webhookStats.value.genericCount = data.genericCount || 0;
+              if (data.retentionLimit) webhookStats.value.retentionLimit = data.retentionLimit;
+            }
+          } catch(e) {
+            // silent during background AJAX polling
+          } finally {
+            if (!silent) loadingWebhookLogs.value = false;
+          }
+        };
+
+        const fetchWebhookStats = async () => {
+          try {
+            const res = await fetch('/api/webhooks/stats', {
+              headers: authHeaders(),
+              credentials: 'include'
+            });
+            const data = await res.json();
+            if (res.ok) {
+              webhookStats.value = { ...webhookStats.value, ...data };
+              if (data.retentionLimit) newRetentionLimit.value = data.retentionLimit;
+            }
+          } catch(e) {}
+        };
+
+        const startWebhookPolling = () => {
+          stopWebhookPolling();
+          fetchWebhookLogs(false);
+          fetchWebhookStats();
+          webhookPollingTimer = setInterval(() => {
+            if (activeTab.value === 'webhooks') {
+              fetchWebhookLogs(true);
+              fetchWebhookStats();
+            } else {
+              stopWebhookPolling();
+            }
+          }, 2500);
+        };
+
+        const stopWebhookPolling = () => {
+          if (webhookPollingTimer) {
+            clearInterval(webhookPollingTimer);
+            webhookPollingTimer = null;
+          }
+        };
+
+        const inspectWebhookLog = (log) => {
+          inspectedWebhookLog.value = log;
+          rawPayloadModal.value = true;
+        };
+
+        const copyJson = async (payload) => {
+          try {
+            const text = typeof payload === 'string' ? payload : JSON.stringify(payload, null, 2);
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+              await navigator.clipboard.writeText(text);
+            } else {
+              const ta = document.createElement('textarea');
+              ta.value = text;
+              document.body.appendChild(ta);
+              ta.select();
+              document.execCommand('copy');
+              document.body.removeChild(ta);
+            }
+            showToast("JSON copied to clipboard!", "success");
+          } catch(e) {
+            showToast("Failed to copy JSON", "error");
+          }
+        };
+
+        const formatRawJson = (payload) => {
+          if (!payload) return '{}';
+          if (typeof payload === 'string') return payload;
+          try {
+            return JSON.stringify(payload, null, 2);
+          } catch(e) {
+            return String(payload);
+          }
+        };
+
+        const openSimulatePacketModal = () => {
+          simulatePacketModal.value = true;
+        };
+
+        const submitSimulatePacket = async () => {
+          simulatingPacket.value = true;
+          try {
+            const res = await fetch('/api/webhooks/simulate', {
+              method: 'POST',
+              headers: {
+                ...authHeaders(),
+                'Content-Type': 'application/json'
+              },
+              credentials: 'include',
+              body: JSON.stringify(simulatePacketForm.value)
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.message || "Failed to simulate packet");
+            
+            showToast(data.message || "Simulated packet logged successfully!", "success");
+            simulatePacketModal.value = false;
+            await fetchWebhookLogs(false);
+            await fetchWebhookStats();
+          } catch(e) {
+            showToast(e.message, "error");
+          } finally {
+            simulatingPacket.value = false;
+          }
+        };
+
+        const openRetentionModal = () => {
+          newRetentionLimit.value = webhookStats.value.retentionLimit || 200;
+          retentionModal.value = true;
+        };
+
+        const submitUpdateRetention = async () => {
+          savingRetention.value = true;
+          try {
+            const res = await fetch('/api/webhooks/retention', {
+              method: 'PUT',
+              headers: {
+                ...authHeaders(),
+                'Content-Type': 'application/json'
+              },
+              credentials: 'include',
+              body: JSON.stringify({ limit: newRetentionLimit.value })
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.message || "Failed to update retention limit");
+            
+            showToast(data.message || "Retention limit updated", "success");
+            webhookStats.value.retentionLimit = data.retentionLimit;
+            retentionModal.value = false;
+            await fetchWebhookLogs(false);
+            await fetchWebhookStats();
+          } catch(e) {
+            showToast(e.message, "error");
+          } finally {
+            savingRetention.value = false;
+          }
+        };
+
+        const openClearLogsModal = () => {
+          clearLogsConfirmModal.value = true;
+        };
+
+        const submitClearLogs = async () => {
+          try {
+            const target = webhookServerFilter.value && webhookServerFilter.value !== 'ALL' ? webhookServerFilter.value : 'ALL';
+            const res = await fetch('/api/webhooks/logs?serverType=' + target, {
+              method: 'DELETE',
+              headers: authHeaders(),
+              credentials: 'include'
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.message || "Failed to clear logs");
+            
+            showToast(data.message || "Logs cleared", "success");
+            clearLogsConfirmModal.value = false;
+            await fetchWebhookLogs(false);
+            await fetchWebhookStats();
+          } catch(e) {
+            showToast(e.message, "error");
+          }
+        };
+
+        const standaloneOpsUrl = computed(() => {
+          const host = (typeof window !== 'undefined' && window.location.hostname) ? window.location.hostname : 'localhost';
+          return 'http://' + host + ':3099/manager';
+        });
+
+        const formatLogTime = (ts) => {
+          if (!ts) return '--';
+          try {
+            const d = new Date(ts);
+            return d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', second: '2-digit', fractionalSecondDigits: 3 });
+          } catch(e) {
+            return String(ts);
+          }
+        };
+
+        const formatUptime = (sec) => {
+          if (!sec || isNaN(sec)) return '0m';
+          const h = Math.floor(sec / 3600);
+          const m = Math.floor((sec % 3600) / 60);
+          const s = Math.floor(sec % 60);
+          if (h > 0) return h + 'h ' + m + 'm ' + s + 's';
+          if (m > 0) return m + 'm ' + s + 's';
+          return s + 's';
+        };
+
+        const copyCommitHash = (hash) => {
+          if (!hash) return;
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(hash);
+            showToast('Git commit hash copied to clipboard!', 'success');
+          } else {
+            showToast('Commit: ' + hash, 'info');
+          }
+        };
+
+        const fetchSystemVersion = async () => {
+          loadingSystemVersion.value = true;
+          try {
+            const res = await fetch('/api/system/version', { credentials: 'include' });
+            if (res.ok) {
+              const data = await res.json();
+              if (data && data.success) {
+                systemVersionInfo.value = data;
+              }
+            }
+          } catch(e) {
+            console.warn('Could not fetch system version:', e);
+          } finally {
+            loadingSystemVersion.value = false;
+          }
+        };
+
+        const openRestartConfirmDialog = () => {
+          restartConfirmDialog.value = true;
+        };
+
+        const openServerLogsDialog = async () => {
+          serverLogsDialog.value = true;
+          loadingServerLogs.value = true;
+          try {
+            const res = await fetch('/api/system/logs?tail=80', {
+              headers: authHeaders(),
+              credentials: 'include'
+            });
+            if (res.ok) {
+              const data = await res.json();
+              serverLogs.value = data.logs || 'No log output returned from container.';
+            } else {
+              serverLogs.value = 'Failed to fetch logs: HTTP ' + res.status;
+            }
+          } catch(e) {
+            serverLogs.value = 'Error fetching container logs: ' + e.message;
+          } finally {
+            loadingServerLogs.value = false;
+          }
+        };
+
+        // --- C-MODULE: HMI SCADA STUDIO STATE & METHODS ---
+        const hmiScreensList = ref([]);
+        const selectedHmiScreenId = ref('');
+        const currentHmiScreen = ref(null);
+        const savingHmiScreen = ref(false);
+        const hmiEditorMode = ref('design'); // 'design' | 'run'
+        const selectedWidgetId = ref(null);
+        const hmiZoom = ref(100);
+        const hmiGridSize = ref(10);
+        const canvasPreset = ref('1280x720');
+        const hmiTelemetryMap = ref({});
+        const hmiTrendHistory = ref([]);
+        const trendPointsMap = ref({});
+        const trendHoverState = ref({});
+        const trendSeriesModal = ref(false);
+        const trendTargetWidget = ref(null);
+        const trendSeriesForm = ref({ devEUI: '', field: '', label: '', color: '#38bdf8', unit: '' });
+        const detectedTrendFields = ref([]);
+        const loadingTrendFields = ref(false);
+        const hmiTelemetryTimer = ref(null);
+        const createHmiModal = ref(false);
+        const newHmiScreenForm = ref({
+          name: '',
+          description: '',
+          width: 1280,
+          height: 720,
+          background: '#0b0f19'
+        });
+        const hmiRbacModal = ref(false);
+        const selectedScreenRoles = ref([]);
+        const widgetSwitchStates = ref({});
+
+        const selectedWidget = computed(() => {
+          if (!currentHmiScreen.value || !selectedWidgetId.value) return null;
+          return currentHmiScreen.value.widgets?.find(w => w.id === selectedWidgetId.value) || null;
+        });
+
+        const selectedWidgetBinding = computed(() => {
+          if (!selectedWidget.value) return { devEUI: '', field: '', formula: 'val * 1.0', decimalPlaces: 1 };
+          if (!selectedWidget.value.bindings) selectedWidget.value.bindings = {};
+          if (!selectedWidget.value.bindings.value) {
+            selectedWidget.value.bindings.value = { devEUI: '', field: '', formula: 'val * 1.0', decimalPlaces: 1 };
+          }
+          return selectedWidget.value.bindings.value;
+        });
+
+        const selectedWidgetAction = computed(() => {
+          if (!selectedWidget.value) return { type: 'downlink', fPort: 1, payloadHex: '01' };
+          if (!selectedWidget.value.action) {
+            selectedWidget.value.action = { type: 'downlink', fPort: 1, payloadHex: '01', confirmMessage: '' };
+          }
+          return selectedWidget.value.action;
+        });
+
+        const fetchHmiScreens = async () => {
+          try {
+            const res = await fetch('/api/hmi/screens', { headers: authHeaders(), credentials: 'include' });
+            if (res.ok) {
+              const data = await res.json();
+              hmiScreensList.value = Array.isArray(data) ? data : [];
+              if (hmiScreensList.value.length > 0) {
+                if (!selectedHmiScreenId.value || !hmiScreensList.value.some(s => s.id === selectedHmiScreenId.value)) {
+                  selectedHmiScreenId.value = hmiScreensList.value[0].id;
+                  onSelectHmiScreen();
+                }
+              }
+            }
+          } catch(e) {
+            console.error('Error fetching HMI screens:', e);
+          }
+        };
+
+        const onSelectHmiScreen = () => {
+          const found = hmiScreensList.value.find(s => s.id === selectedHmiScreenId.value);
+          if (found) {
+            currentHmiScreen.value = JSON.parse(JSON.stringify(found));
+            selectedWidgetId.value = null;
+            canvasPreset.value = (currentHmiScreen.value.canvasConfig?.width || 1280) + 'x' + (currentHmiScreen.value.canvasConfig?.height || 720);
+            currentHmiScreen.value.widgets?.forEach(w => {
+              if (w.type === 'realtime-trend') {
+                fetchTrendHistoryForWidget(w);
+              }
+            });
+          }
+        };
+
+        const saveCurrentHmiScreen = async () => {
+          if (!currentHmiScreen.value) return;
+          savingHmiScreen.value = true;
+          try {
+            const payload = {
+              name: currentHmiScreen.value.name,
+              description: currentHmiScreen.value.description,
+              canvasConfig: currentHmiScreen.value.canvasConfig,
+              widgets: currentHmiScreen.value.widgets,
+              isPublished: currentHmiScreen.value.isPublished,
+              allowedRoles: currentHmiScreen.value.allowedRoles
+            };
+            const res = await fetch('/api/hmi/screens/' + encodeURIComponent(currentHmiScreen.value.id), {
+              method: 'PUT',
+              headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+              credentials: 'include',
+              body: JSON.stringify(payload)
+            });
+            if (res.ok) {
+              const updated = await res.json();
+              const idx = hmiScreensList.value.findIndex(s => s.id === updated.id);
+              if (idx !== -1) hmiScreensList.value[idx] = updated;
+              showToast('HMI Screen saved successfully', 'success');
+            } else {
+              const err = await res.json();
+              showToast('Save failed: ' + (err.message || 'Unknown error'), 'error');
+            }
+          } catch(e) {
+            showToast('Network error saving screen: ' + e.message, 'error');
+          } finally {
+            savingHmiScreen.value = false;
+          }
+        };
+
+        const openCreateHmiScreenModal = () => {
+          newHmiScreenForm.value = {
+            name: 'New HMI Screen',
+            description: 'Industrial SCADA monitoring screen',
+            width: 1280,
+            height: 720,
+            background: '#0b0f19'
+          };
+          createHmiModal.value = true;
+        };
+
+        const submitCreateHmiScreen = async () => {
+          if (!newHmiScreenForm.value.name) return;
+          try {
+            const payload = {
+              name: newHmiScreenForm.value.name,
+              description: newHmiScreenForm.value.description,
+              canvasConfig: {
+                width: Number(newHmiScreenForm.value.width) || 1280,
+                height: Number(newHmiScreenForm.value.height) || 720,
+                background: newHmiScreenForm.value.background || '#0b0f19',
+                grid: 10,
+                showGrid: true
+              },
+              widgets: [],
+              isPublished: false,
+              allowedRoles: ['ADMIN', 'SUPER_ADMIN', 'OPERATOR', 'VIEWER']
+            };
+            const res = await fetch('/api/hmi/screens', {
+              method: 'POST',
+              headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+              credentials: 'include',
+              body: JSON.stringify(payload)
+            });
+            if (res.ok) {
+              const created = await res.json();
+              hmiScreensList.value.unshift(created);
+              selectedHmiScreenId.value = created.id;
+              currentHmiScreen.value = JSON.parse(JSON.stringify(created));
+              createHmiModal.value = false;
+              showToast('Screen ' + created.name + ' created', 'success');
+            } else {
+              const err = await res.json();
+              showToast('Create failed: ' + (err.message || 'Error'), 'error');
+            }
+          } catch(e) {
+            showToast('Failed to create screen: ' + e.message, 'error');
+          }
+        };
+
+        const cloneCurrentHmiScreen = async () => {
+          if (!currentHmiScreen.value) return;
+          try {
+            const res = await fetch('/api/hmi/screens/' + encodeURIComponent(currentHmiScreen.value.id) + '/clone', {
+              method: 'POST',
+              headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+              credentials: 'include',
+              body: JSON.stringify({ name: currentHmiScreen.value.name + ' (Copy)' })
+            });
+            if (res.ok) {
+              const cloned = await res.json();
+              hmiScreensList.value.unshift(cloned);
+              selectedHmiScreenId.value = cloned.id;
+              currentHmiScreen.value = JSON.parse(JSON.stringify(cloned));
+              showToast('Duplicated as ' + cloned.name, 'success');
+            }
+          } catch(e) {
+            showToast('Failed to duplicate screen', 'error');
+          }
+        };
+
+        const togglePublishHmiScreen = async () => {
+          if (!currentHmiScreen.value) return;
+          const nextState = !currentHmiScreen.value.isPublished;
+          try {
+            const res = await fetch('/api/hmi/screens/' + encodeURIComponent(currentHmiScreen.value.id) + '/publish', {
+              method: 'POST',
+              headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+              credentials: 'include',
+              body: JSON.stringify({ isPublished: nextState })
+            });
+            if (res.ok) {
+              const updated = await res.json();
+              currentHmiScreen.value.isPublished = updated.isPublished;
+              const idx = hmiScreensList.value.findIndex(s => s.id === updated.id);
+              if (idx !== -1) hmiScreensList.value[idx].isPublished = updated.isPublished;
+              showToast(updated.isPublished ? 'Screen published to Operators' : 'Screen moved to Draft', 'success');
+            }
+          } catch(e) {
+            showToast('Failed to toggle publish status', 'error');
+          }
+        };
+
+        const deleteCurrentHmiScreen = async () => {
+          if (!currentHmiScreen.value) return;
+          if (!confirm('Are you sure you want to permanently delete ' + currentHmiScreen.value.name + '?')) return;
+          try {
+            const res = await fetch('/api/hmi/screens/' + encodeURIComponent(currentHmiScreen.value.id), {
+              method: 'DELETE',
+              headers: authHeaders(),
+              credentials: 'include'
+            });
+            if (res.ok) {
+              hmiScreensList.value = hmiScreensList.value.filter(s => s.id !== currentHmiScreen.value.id);
+              if (hmiScreensList.value.length > 0) {
+                selectedHmiScreenId.value = hmiScreensList.value[0].id;
+                onSelectHmiScreen();
+              } else {
+                currentHmiScreen.value = null;
+                selectedHmiScreenId.value = '';
+              }
+              showToast('Screen deleted', 'success');
+            }
+          } catch(e) {
+            showToast('Failed to delete screen', 'error');
+          }
+        };
+
+        const openHmiRbacModal = () => {
+          if (!currentHmiScreen.value) return;
+          selectedScreenRoles.value = [...(currentHmiScreen.value.allowedRoles || ['ADMIN'])];
+          hmiRbacModal.value = true;
+        };
+
+        const saveHmiRbac = () => {
+          if (!currentHmiScreen.value) return;
+          currentHmiScreen.value.allowedRoles = [...selectedScreenRoles.value];
+          hmiRbacModal.value = false;
+          saveCurrentHmiScreen();
+        };
+
+        const onCanvasPresetChange = () => {
+          if (!currentHmiScreen.value) return;
+          const parts = canvasPreset.value.split('x');
+          if (parts.length === 2) {
+            currentHmiScreen.value.canvasConfig.width = Number(parts[0]);
+            currentHmiScreen.value.canvasConfig.height = Number(parts[1]);
+          }
+        };
+
+        const addWidgetToCanvas = (type) => {
+          if (!currentHmiScreen.value) return;
+          if (!currentHmiScreen.value.widgets) currentHmiScreen.value.widgets = [];
+
+          const id = 'w-' + type + '-' + Date.now().toString(36);
+          let defaultProps = {};
+          let defaultW = 160;
+          let defaultH = 80;
+          let bindings = { value: { devEUI: '', field: '', formula: 'val * 1.0', decimalPlaces: 1 } };
+          let states = [];
+          let action = null;
+
+          switch (type) {
+            case 'bit-lamp':
+              defaultW = 140;
+              defaultH = 40;
+              defaultProps = { title: 'MOTOR STATUS', labelOn: 'RUNNING', labelOff: 'STOPPED', colorOn: '#10b981', colorOff: '#475569' };
+              bindings.value.field = 'relay_1';
+              break;
+            case 'multi-state-lamp':
+              defaultW = 160;
+              defaultH = 46;
+              defaultProps = { title: 'CHILLER PUMP', state0: 'OFF', state1: 'RUN', state2: 'WARN', state3: 'FAULT' };
+              bindings.value.field = 'status';
+              break;
+            case 'alarm-banner':
+              defaultW = 420;
+              defaultH = 40;
+              defaultProps = { title: 'PROCESS ALARMS', idleMessage: 'All systems operating within nominal parameters.' };
+              states = [{ condition: 'val > 80', alarmText: 'CRITICAL HIGH THRESHOLD EXCEEDED!' }];
+              break;
+            case 'linear-tank':
+              defaultW = 200;
+              defaultH = 300;
+              defaultProps = { title: 'STORAGE TANK', min: 0, max: 100, unit: 'm³', liquidColor: '#0284c7' };
+              bindings.value.field = 'water_level';
+              states = [
+                { condition: 'val < 20', color: '#ef4444', alarmText: 'Tank Level Critical Low' },
+                { condition: 'val >= 20 && val <= 80', color: '#0284c7' },
+                { condition: 'val > 80', color: '#f59e0b', alarmText: 'Tank Level High Alert' }
+              ];
+              break;
+            case 'silo-vessel':
+              defaultW = 180;
+              defaultH = 260;
+              defaultProps = { title: 'SILO HOPPER', min: 0, max: 100, unit: '%', liquidColor: '#6366f1' };
+              bindings.value.field = 'silo_fill';
+              break;
+            case 'dial-gauge':
+              defaultW = 240;
+              defaultH = 240;
+              defaultProps = { title: 'LINE PRESSURE', min: 0, max: 16, unit: 'Bar' };
+              bindings.value.field = 'pressure';
+              break;
+            case 'led-numeric':
+              defaultW = 220;
+              defaultH = 70;
+              defaultProps = { title: 'FLOW RATE', unit: 'm³/h', color: '#38bdf8' };
+              bindings.value.field = 'flow_rate';
+              break;
+            case 'mono-box':
+              defaultW = 180;
+              defaultH = 76;
+              defaultProps = { title: 'TEMPERATURE', unit: '°C', icon: 'fa-solid fa-temperature-half' };
+              bindings.value.field = 'temperature';
+              break;
+            case 'static-label':
+              defaultW = 320;
+              defaultH = 40;
+              defaultProps = { text: 'SECTION HEADER TITLE', subText: 'Operational Substation 01', fontSize: 16, textColor: '#38bdf8' };
+              break;
+            case 'toggle-switch':
+              defaultW = 180;
+              defaultH = 64;
+              defaultProps = { title: 'VALVE 01 ACTUATOR', labelOn: 'OPEN', labelOff: 'CLOSED' };
+              action = { type: 'downlink', fPort: 1, payloadHex: '0101', confirmMessage: 'Toggle Valve Actuator state?' };
+              break;
+            case 'action-button':
+              defaultW = 160;
+              defaultH = 50;
+              defaultProps = { label: 'EMERGENCY SHUTDOWN', buttonColor: '#e11d48', icon: 'fa-solid fa-power-off' };
+              action = { type: 'downlink', fPort: 1, payloadHex: 'FFFF', confirmMessage: 'Trigger emergency shutdown command?' };
+              break;
+            case 'realtime-trend':
+              defaultW = 500;
+              defaultH = 260;
+              const seedDev = (devicesList.value && devicesList.value.length > 0) ? devicesList.value[0].devEUI : '';
+              defaultProps = {
+                title: 'REALTIME TELEMETRY TREND',
+                timeRange: '1h',
+                series: seedDev ? [{
+                  id: 'ser_' + Date.now().toString(36),
+                  devEUI: seedDev,
+                  field: 'HUMIDITY',
+                  label: (devicesList.value[0].name || seedDev) + ' - HUMIDITY',
+                  color: '#38bdf8',
+                  unit: '%RH',
+                  visible: true
+                }] : []
+              };
+              break;
+          }
+
+          const maxW = currentHmiScreen.value.canvasConfig?.width || 1280;
+          const maxH = currentHmiScreen.value.canvasConfig?.height || 720;
+          const x = Math.min(80 + (currentHmiScreen.value.widgets.length % 5) * 30, maxW - defaultW);
+          const y = Math.min(80 + (currentHmiScreen.value.widgets.length % 5) * 30, maxH - defaultH);
+          const grid = hmiGridSize.value || 10;
+
+          const newWidget = {
+            id,
+            type,
+            x: Math.round(x / grid) * grid,
+            y: Math.round(y / grid) * grid,
+            w: defaultW,
+            h: defaultH,
+            zIndex: currentHmiScreen.value.widgets.length + 1,
+            props: defaultProps,
+            bindings,
+            states,
+            action
+          };
+
+          currentHmiScreen.value.widgets.push(newWidget);
+          selectedWidgetId.value = id;
+        };
+
+        const removeSelectedWidget = () => {
+          if (!currentHmiScreen.value || !selectedWidgetId.value) return;
+          currentHmiScreen.value.widgets = currentHmiScreen.value.widgets.filter(w => w.id !== selectedWidgetId.value);
+          selectedWidgetId.value = null;
+        };
+
+        const duplicateSelectedWidget = () => {
+          if (!currentHmiScreen.value || !selectedWidget.value) return;
+          const copy = JSON.parse(JSON.stringify(selectedWidget.value));
+          copy.id = 'w-' + copy.type + '-' + Date.now().toString(36);
+          copy.x += 20;
+          copy.y += 20;
+          copy.zIndex = (currentHmiScreen.value.widgets.length || 1) + 1;
+          currentHmiScreen.value.widgets.push(copy);
+          selectedWidgetId.value = copy.id;
+        };
+
+        const moveWidgetLayer = (dir) => {
+          if (!selectedWidget.value) return;
+          selectedWidget.value.zIndex = Math.max(1, (selectedWidget.value.zIndex || 1) + dir);
+        };
+
+        const onWidgetMouseDown = (e, widget) => {
+          if (hmiEditorMode.value !== 'design') return;
+          selectedWidgetId.value = widget.id;
+          const startMouseX = e.clientX;
+          const startMouseY = e.clientY;
+          const startX = widget.x;
+          const startY = widget.y;
+          const grid = hmiGridSize.value || 1;
+
+          const onMouseMove = (moveEvent) => {
+            const scale = (hmiZoom.value || 100) / 100;
+            const dx = (moveEvent.clientX - startMouseX) / scale;
+            const dy = (moveEvent.clientY - startMouseY) / scale;
+            let newX = Math.round((startX + dx) / grid) * grid;
+            let newY = Math.round((startY + dy) / grid) * grid;
+            const maxW = currentHmiScreen.value?.canvasConfig?.width || 1920;
+            const maxH = currentHmiScreen.value?.canvasConfig?.height || 1080;
+            widget.x = Math.max(0, Math.min(newX, maxW - widget.w));
+            widget.y = Math.max(0, Math.min(newY, maxH - widget.h));
+          };
+
+          const onMouseUp = () => {
+            window.removeEventListener('mousemove', onMouseMove);
+            window.removeEventListener('mouseup', onMouseUp);
+          };
+
+          window.addEventListener('mousemove', onMouseMove);
+          window.addEventListener('mouseup', onMouseUp);
+        };
+
+        const detectedTelemetryFields = ref([]);
+        const loadingDetectedFields = ref(false);
+        const hmiTagFilterQuery = ref('');
+
+        const filteredDetectedTelemetryFields = computed(() => {
+          if (!hmiTagFilterQuery.value || !hmiTagFilterQuery.value.trim()) {
+            return detectedTelemetryFields.value;
+          }
+          const q = hmiTagFilterQuery.value.trim().toLowerCase();
+          return detectedTelemetryFields.value.filter(f =>
+            (f.key && f.key.toLowerCase().includes(q)) ||
+            (f.label && f.label.toLowerCase().includes(q))
+          );
+        });
+
+        const fetchDetectedFieldsForSelectedDevice = async () => {
+          const devEUI = selectedWidgetBinding.value?.devEUI;
+          if (!devEUI) {
+            detectedTelemetryFields.value = [];
+            return;
+          }
+          loadingDetectedFields.value = true;
+          try {
+            const res = await fetch('/lorawan/devices/' + encodeURIComponent(devEUI) + '/telemetry-fields', {
+              headers: authHeaders(),
+              credentials: 'include',
+            });
+            if (res.ok) {
+              const data = await res.json();
+              detectedTelemetryFields.value = Array.isArray(data?.fields) ? data.fields : [];
+            } else {
+              detectedTelemetryFields.value = [];
+            }
+          } catch (e) {
+            detectedTelemetryFields.value = [];
+          } finally {
+            loadingDetectedFields.value = false;
+          }
+        };
+
+        const applyDetectedField = (fieldObj) => {
+          if (!selectedWidgetBinding.value || !fieldObj) return;
+          selectedWidgetBinding.value.field = fieldObj.key;
+          if (selectedWidget.value?.props) {
+            if (fieldObj.unit && selectedWidget.value.props.unit !== undefined && !selectedWidget.value.props.unit) {
+              selectedWidget.value.props.unit = fieldObj.unit;
+            }
+            if (selectedWidget.value.props.title !== undefined && (!selectedWidget.value.props.title || selectedWidget.value.props.title === 'Lamp' || selectedWidget.value.props.title === 'Storage Tank' || selectedWidget.value.props.title === 'Sensor' || selectedWidget.value.props.title === 'TEMPERATURE' || selectedWidget.value.props.title === 'FLOW RATE')) {
+              selectedWidget.value.props.title = fieldObj.label;
+            }
+          }
+          showToast('Selected Tag: ' + fieldObj.key + ' (' + fieldObj.latestValue + (fieldObj.unit ? ' ' + fieldObj.unit : '') + ')', 'info');
+        };
+
+        const getTagTooltip = (f) => {
+          if (!f) return '';
+          return ['Field: ' + (f.key || ''), 'Label: ' + (f.label || ''), 'Latest Value: ' + (f.latestValue ?? '') + (f.unit ? ' ' + f.unit : ''), 'Type: ' + (f.dataType || '')].join(String.fromCharCode(10));
+        };
+
+        watch(() => selectedWidgetId.value, () => {
+          if (selectedWidgetBinding.value?.devEUI) {
+            fetchDetectedFieldsForSelectedDevice();
+          } else {
+            detectedTelemetryFields.value = [];
+          }
+        });
+
+        const stretchWidgetWidth = (widget, amount) => {
+          if (!widget) return;
+          const maxW = currentHmiScreen.value?.canvasConfig?.width || 1920;
+          if (amount === 'full') {
+            widget.x = 0;
+            widget.w = maxW;
+          } else {
+            widget.w = Math.max(40, Math.min(maxW - widget.x, (widget.w || 100) + amount));
+          }
+        };
+
+        const stretchWidgetHeight = (widget, amount) => {
+          if (!widget) return;
+          const maxH = currentHmiScreen.value?.canvasConfig?.height || 1080;
+          widget.h = Math.max(30, Math.min(maxH - widget.y, (widget.h || 60) + amount));
+        };
+
+        const setWidgetPresetSize = (widget, w, h) => {
+          if (!widget) return;
+          const maxW = currentHmiScreen.value?.canvasConfig?.width || 1920;
+          const maxH = currentHmiScreen.value?.canvasConfig?.height || 1080;
+          widget.w = Math.min(w, maxW - widget.x);
+          widget.h = Math.min(h, maxH - widget.y);
+        };
+
+        const setHmiEditorMode = (mode) => {
+          hmiEditorMode.value = mode;
+          if (mode === 'design') {
+            stopHmiTelemetryPolling();
+            showToast('Design Mode: live simulation paused for precise editing', 'info');
+          } else {
+            selectedWidgetId.value = null;
+            startHmiTelemetryPolling();
+            showToast('Runtime View: live telemetry streaming active', 'success');
+          }
+        };
+
+        const handleHmiKeydown = (e) => {
+          if (activeTab.value !== 'hmi-studio' || hmiEditorMode.value !== 'design') return;
+          const tag = (e.target && e.target.tagName) ? e.target.tagName.toLowerCase() : '';
+          if (tag === 'input' || tag === 'textarea' || tag === 'select' || (e.target && e.target.isContentEditable)) {
+            return;
+          }
+
+          if (!selectedWidget.value) return;
+
+          if (e.key === 'Delete' || e.key === 'Backspace') {
+            e.preventDefault();
+            removeSelectedWidget();
+            showToast('Widget deleted', 'info');
+          } else if (e.key === 'd' && (e.ctrlKey || e.metaKey)) {
+            e.preventDefault();
+            duplicateSelectedWidget();
+            showToast('Widget duplicated', 'info');
+          } else if (e.key === 'Escape') {
+            selectedWidgetId.value = null;
+          } else if (e.key === 'ArrowLeft') {
+            e.preventDefault();
+            const step = e.shiftKey ? 10 : (hmiGridSize.value || 1);
+            selectedWidget.value.x = Math.max(0, selectedWidget.value.x - step);
+          } else if (e.key === 'ArrowRight') {
+            e.preventDefault();
+            const step = e.shiftKey ? 10 : (hmiGridSize.value || 1);
+            const maxW = currentHmiScreen.value?.canvasConfig?.width || 1920;
+            selectedWidget.value.x = Math.min(maxW - selectedWidget.value.w, selectedWidget.value.x + step);
+          } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            const step = e.shiftKey ? 10 : (hmiGridSize.value || 1);
+            selectedWidget.value.y = Math.max(0, selectedWidget.value.y - step);
+          } else if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            const step = e.shiftKey ? 10 : (hmiGridSize.value || 1);
+            const maxH = currentHmiScreen.value?.canvasConfig?.height || 1080;
+            selectedWidget.value.y = Math.min(maxH - selectedWidget.value.h, selectedWidget.value.y + step);
+          }
+        };
+
+        const onResizeMouseDown = (e, widget, handle = 'se') => {
+          if (hmiEditorMode.value !== 'design') return;
+          const startMouseX = e.clientX;
+          const startMouseY = e.clientY;
+          const startX = widget.x;
+          const startY = widget.y;
+          const startW = widget.w;
+          const startH = widget.h;
+          const grid = hmiGridSize.value || 1;
+          const maxCanvasW = currentHmiScreen.value?.canvasConfig?.width || 1920;
+          const maxCanvasH = currentHmiScreen.value?.canvasConfig?.height || 1080;
+
+          const onMouseMove = (moveEvent) => {
+            const scale = (hmiZoom.value || 100) / 100;
+            const dx = (moveEvent.clientX - startMouseX) / scale;
+            const dy = (moveEvent.clientY - startMouseY) / scale;
+
+            let newX = startX;
+            let newY = startY;
+            let newW = startW;
+            let newH = startH;
+
+            // Width & X adjustments
+            if (handle.includes('e')) {
+              newW = Math.max(40, Math.round((startW + dx) / grid) * grid);
+              newW = Math.min(newW, maxCanvasW - startX);
+            } else if (handle.includes('w')) {
+              const snappedDx = Math.round(dx / grid) * grid;
+              const proposedW = startW - snappedDx;
+              if (proposedW >= 40) {
+                newX = Math.max(0, startX + snappedDx);
+                newW = proposedW;
+              }
+            }
+
+            // Height & Y adjustments
+            if (handle.includes('s')) {
+              newH = Math.max(30, Math.round((startH + dy) / grid) * grid);
+              newH = Math.min(newH, maxCanvasH - startY);
+            } else if (handle.includes('n')) {
+              const snappedDy = Math.round(dy / grid) * grid;
+              const proposedH = startH - snappedDy;
+              if (proposedH >= 30) {
+                newY = Math.max(0, startY + snappedDy);
+                newH = proposedH;
+              }
+            }
+
+            widget.x = newX;
+            widget.y = newY;
+            widget.w = newW;
+            widget.h = newH;
+          };
+
+          const onMouseUp = () => {
+            window.removeEventListener('mousemove', onMouseMove);
+            window.removeEventListener('mouseup', onMouseUp);
+          };
+
+          window.addEventListener('mousemove', onMouseMove);
+          window.addEventListener('mouseup', onMouseUp);
+        };
+
+
+        const getWidgetTelemetryValue = (widget) => {
+          if (!widget) return '--';
+          const binding = widget.bindings?.value || widget.bindings?.level || widget.bindings?.status;
+          let raw = undefined;
+
+          if (binding?.devEUI && binding?.field) {
+            const dev = binding.devEUI.trim().toUpperCase();
+            const f = binding.field.trim();
+            const key = dev + '.' + f;
+            raw = hmiTelemetryMap.value[key];
+            if (raw === undefined) {
+              raw = hmiTelemetryMap.value[f];
+            }
+            if (raw === undefined && !f.startsWith('data.')) {
+              raw = hmiTelemetryMap.value[dev + '.data.' + f] ?? hmiTelemetryMap.value['data.' + f];
+            }
+            if (raw === undefined && f.startsWith('data.')) {
+              const stripped = f.substring(5);
+              raw = hmiTelemetryMap.value[dev + '.' + stripped] ?? hmiTelemetryMap.value[stripped];
+            }
+            if (raw === undefined) {
+              for (const k of Object.keys(hmiTelemetryMap.value)) {
+                if (k.endsWith('.' + f) || (dev && k.startsWith(dev) && k.endsWith(f))) {
+                  raw = hmiTelemetryMap.value[k];
+                  break;
+                }
+              }
+            }
+          } else if (binding?.field) {
+            const f = binding.field.trim();
+            raw = hmiTelemetryMap.value[f];
+            if (raw === undefined) {
+              for (const k of Object.keys(hmiTelemetryMap.value)) {
+                if (k.endsWith('.' + f)) {
+                  raw = hmiTelemetryMap.value[k];
+                  break;
+                }
+              }
+            }
+          }
+
+          if (raw === undefined || raw === null) {
+            if (widget.type === 'linear-tank') raw = 64.5;
+            else if (widget.type === 'silo-vessel') raw = 82.0;
+            else if (widget.type === 'dial-gauge') raw = 8.6;
+            else if (widget.type === 'led-numeric') raw = 142.8;
+            else if (widget.type === 'mono-box') raw = 28.4;
+            else if (widget.type === 'bit-lamp') raw = 1;
+            else if (widget.type === 'multi-state-lamp') raw = 1;
+            else raw = 0;
+          }
+
+          let val = Number(raw);
+          if (isNaN(val)) return String(raw);
+
+          if (binding?.formula && binding.formula.trim()) {
+            try {
+              const fn = new Function('val', 'return (' + binding.formula + ')');
+              val = fn(val);
+            } catch(e) {}
+          }
+
+          const dec = binding?.decimalPlaces !== undefined ? binding.decimalPlaces : 1;
+          return Number(val).toFixed(dec);
+        };
+
+        const getWidgetTankHeightPercent = (widget) => {
+          const val = Number(getWidgetTelemetryValue(widget)) || 0;
+          const min = widget.props?.min !== undefined ? widget.props.min : 0;
+          const max = widget.props?.max !== undefined ? widget.props.max : 100;
+          if (max <= min) return 0;
+          const pct = ((val - min) / (max - min)) * 100;
+          return Math.min(100, Math.max(0, Math.round(pct)));
+        };
+
+        const getWidgetLiquidColor = (widget) => {
+          const val = Number(getWidgetTelemetryValue(widget)) || 0;
+          if (widget.states && widget.states.length > 0) {
+            for (const st of widget.states) {
+              if (st.condition && st.color) {
+                try {
+                  const fn = new Function('val', 'return (' + st.condition + ')');
+                  if (fn(val)) return st.color;
+                } catch(e) {}
+              }
+            }
+          }
+          return widget.props?.liquidColor || '#0284c7';
+        };
+
+        const getWidgetGaugeAngle = (widget) => {
+          const val = Number(getWidgetTelemetryValue(widget)) || 0;
+          const min = widget.props?.min !== undefined ? widget.props.min : 0;
+          const max = widget.props?.max !== undefined ? widget.props.max : 100;
+          if (max <= min) return -135;
+          const ratio = Math.min(1, Math.max(0, (val - min) / (max - min)));
+          return Math.round(-135 + ratio * 270);
+        };
+
+        const isWidgetBitOn = (widget) => {
+          const v = getWidgetTelemetryValue(widget);
+          return v === '1' || v === 1 || String(v).toLowerCase() === 'true' || Number(v) > 0;
+        };
+
+        const getWidgetBitLampStyle = (widget) => {
+          const on = isWidgetBitOn(widget);
+          const colOn = widget.props?.colorOn || '#10b981';
+          const colOff = widget.props?.colorOff || '#475569';
+          return {
+            backgroundColor: on ? colOn : colOff,
+            borderColor: on ? '#ffffff' : '#334155',
+            boxShadow: on ? '0 0 14px ' + colOn : 'none'
+          };
+        };
+
+        const getWidgetMultiStateLabel = (widget) => {
+          const v = Math.round(Number(getWidgetTelemetryValue(widget)) || 0);
+          if (v === 0) return widget.props?.state0 || 'STOPPED';
+          if (v === 1) return widget.props?.state1 || 'RUNNING';
+          if (v === 2) return widget.props?.state2 || 'WARNING';
+          return widget.props?.state3 || 'FAULT';
+        };
+
+        const getWidgetMultiStateColor = (widget) => {
+          const v = Math.round(Number(getWidgetTelemetryValue(widget)) || 0);
+          if (v === 0) return '#94a3b8';
+          if (v === 1) return '#10b981';
+          if (v === 2) return '#f59e0b';
+          return '#ef4444';
+        };
+
+        const getWidgetMultiStateStyle = (widget) => {
+          const c = getWidgetMultiStateColor(widget);
+          return {
+            backgroundColor: c + '22',
+            borderColor: c,
+            color: c,
+            boxShadow: '0 0 10px ' + c + '44'
+          };
+        };
+
+        const getWidgetMultiStateIcon = (widget) => {
+          const v = Math.round(Number(getWidgetTelemetryValue(widget)) || 0);
+          if (v === 0) return 'fa-solid fa-stop';
+          if (v === 1) return 'fa-solid fa-play';
+          if (v === 2) return 'fa-solid fa-triangle-exclamation';
+          return 'fa-solid fa-radiation';
+        };
+
+        const isWidgetAlarmActive = (widget) => {
+          const val = Number(getWidgetTelemetryValue(widget)) || 0;
+          if (widget.states && widget.states.length > 0) {
+            for (const st of widget.states) {
+              if (st.alarmText && st.condition) {
+                try {
+                  const fn = new Function('val', 'return (' + st.condition + ')');
+                  if (fn(val)) return true;
+                } catch(e) {}
+              }
+            }
+          }
+          return false;
+        };
+
+        const getWidgetAlarmText = (widget) => {
+          const val = Number(getWidgetTelemetryValue(widget)) || 0;
+          if (widget.states && widget.states.length > 0) {
+            for (const st of widget.states) {
+              if (st.alarmText && st.condition) {
+                try {
+                  const fn = new Function('val', 'return (' + st.condition + ')');
+                  if (fn(val)) return st.alarmText;
+                } catch(e) {}
+              }
+            }
+          }
+          return '';
+        };
+
+        const getWidgetAlarmClass = (widget) => {
+          if (isWidgetAlarmActive(widget)) {
+            return 'bg-red-950/80 border-red-500 shadow-[0_0_15px_rgba(239,68,68,0.4)] animate-pulse';
+          }
+          return 'bg-slate-900/90 border-slate-700/80 shadow-inner';
+        };
+
+        const isWidgetSwitchOn = (widget) => {
+          if (widgetSwitchStates.value[widget.id] !== undefined) {
+            return widgetSwitchStates.value[widget.id];
+          }
+          return isWidgetBitOn(widget);
+        };
+
+        const triggerWidgetToggleSwitch = async (widget) => {
+          if (hmiEditorMode.value === 'design') return;
+          const current = isWidgetSwitchOn(widget);
+          const next = !current;
+          const action = widget.action;
+
+          if (action?.confirmMessage) {
+            if (!confirm(action.confirmMessage)) return;
+          }
+
+          widgetSwitchStates.value[widget.id] = next;
+          try {
+            const res = await fetch('/api/hmi/screens/downlink', {
+              method: 'POST',
+              headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+              credentials: 'include',
+              body: JSON.stringify({
+                devEUI: action?.devEUI || widget.bindings?.value?.devEUI || '',
+                fPort: action?.fPort || 1,
+                payloadHex: next ? (action?.payloadHex || '0101') : '0100',
+                actionType: 'toggle'
+              })
+            });
+            if (res.ok) {
+              showToast('Switch ' + (next ? 'ON' : 'OFF') + ' command sent', 'success');
+            }
+          } catch(e) {
+            showToast('Failed to send switch command', 'error');
+          }
+        };
+
+        const triggerWidgetActionButton = async (widget) => {
+          if (hmiEditorMode.value === 'design') return;
+          const action = widget.action;
+          if (action?.confirmMessage) {
+            if (!confirm(action.confirmMessage)) return;
+          }
+          try {
+            const res = await fetch('/api/hmi/screens/downlink', {
+              method: 'POST',
+              headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+              credentials: 'include',
+              body: JSON.stringify({
+                devEUI: action?.devEUI || '',
+                fPort: action?.fPort || 1,
+                payloadHex: action?.payloadHex || '01',
+                actionType: 'pushbutton'
+              })
+            });
+            if (res.ok) {
+              showToast('Action ' + (widget.props.label || 'COMMAND') + ' dispatched', 'success');
+            }
+          } catch(e) {
+            showToast('Failed to dispatch action command', 'error');
+          }
+        };
+
+        // REALTIME TREND FUNCTIONS (Metabase style with multi-sensor series & timestamp X-axis)
+        const getTrendSeries = (widget) => {
+          if (!widget) return [];
+          if (Array.isArray(widget.props?.series) && widget.props.series.length > 0) {
+            return widget.props.series;
+          }
+          const bindDev = widget.bindings?.value?.devEUI;
+          const bindField = widget.bindings?.value?.field;
+          if (bindDev && bindField) {
+            return [{
+              id: 'ser_bind',
+              devEUI: bindDev,
+              field: bindField,
+              label: bindField,
+              color: '#38bdf8',
+              unit: '',
+              visible: true
+            }];
+          }
+          if (Array.isArray(widget.props?.tags) && widget.props.tags.length > 0) {
+            const colors = ['#38bdf8', '#10b981', '#f59e0b', '#ec4899', '#a855f7'];
+            return widget.props.tags.map((t, i) => ({
+              id: 'ser_tag_' + i,
+              devEUI: '',
+              field: t,
+              label: t,
+              color: colors[i % colors.length],
+              unit: '',
+              visible: true
+            }));
+          }
+          return [];
+        };
+
+        const getTrendYBounds = (widget) => {
+          const points = trendPointsMap.value[widget.id] || hmiTrendHistory.value || [];
+          const series = getTrendSeries(widget).filter(s => s.visible !== false);
+          const plotY0 = 16;
+          const ph = 176;
+
+          let allVals = [];
+          if (points.length > 0 && series.length > 0) {
+            for (const pt of points) {
+              for (const s of series) {
+                let v = pt[s.devEUI ? s.devEUI + '.' + s.field : s.field];
+                if (v === undefined) v = pt[s.field];
+                if (v === undefined) {
+                  for (const k of Object.keys(pt)) {
+                    if (k.endsWith('.' + s.field)) { v = pt[k]; break; }
+                  }
+                }
+                if (v !== undefined && v !== null && !isNaN(Number(v))) {
+                  allVals.push(Number(v));
+                }
+              }
+            }
+          }
+
+          let minVal = 0;
+          let maxVal = 100;
+          if (allVals.length > 0) {
+            minVal = Math.min(...allVals);
+            maxVal = Math.max(...allVals);
+            if (minVal === maxVal) {
+              minVal = Math.max(0, minVal - 10);
+              maxVal = maxVal + 10;
+            } else {
+              const pad = (maxVal - minVal) * 0.1;
+              minVal = Math.floor(minVal - pad);
+              maxVal = Math.ceil(maxVal + pad);
+            }
+          }
+
+          const valRange = Math.max(1, maxVal - minVal);
+          const ticks = [];
+          const steps = 4;
+          for (let i = 0; i <= steps; i++) {
+            const ratio = i / steps;
+            const y = plotY0 + ph - ratio * ph;
+            const v = minVal + ratio * valRange;
+            ticks.push({
+              y,
+              val: v,
+              label: v.toFixed(v % 1 === 0 ? 0 : 1)
+            });
+          }
+
+          return { minVal, maxVal, valRange, ticks, plotY0, ph };
+        };
+
+        const getTrendXTicks = (widget) => {
+          const points = trendPointsMap.value[widget.id] || hmiTrendHistory.value || [];
+          const range = widget.props?.timeRange || '1h';
+          const now = Date.now();
+          let durationMs = 60 * 60 * 1000;
+          if (range === '15m') durationMs = 15 * 60 * 1000;
+          else if (range === '6h') durationMs = 6 * 3600 * 1000;
+          else if (range === '24h') durationMs = 24 * 3600 * 1000;
+          else if (range === '7d') durationMs = 7 * 86400 * 1000;
+          else if (range === '30d') durationMs = 30 * 86400 * 1000;
+
+          let minT = now - durationMs;
+          let maxT = now;
+          if (points.length > 1) {
+            const firstT = new Date(points[0].timestamp).getTime();
+            const lastT = new Date(points[points.length - 1].timestamp).getTime();
+            if (!isNaN(firstT) && !isNaN(lastT)) {
+              minT = Math.min(minT, firstT);
+              maxT = Math.max(maxT, lastT);
+            }
+          }
+
+          const timeRange = Math.max(1000, maxT - minT);
+          const plotX0 = 45;
+          const pw = 440;
+          const ticks = [];
+          const steps = 4;
+
+          for (let i = 0; i <= steps; i++) {
+            const ratio = i / steps;
+            const x = Math.round(plotX0 + ratio * pw);
+            const tickT = new Date(minT + ratio * timeRange);
+            let label = '';
+            if (timeRange > 24 * 3600 * 1000) {
+              label = tickT.toLocaleDateString([], { month: 'numeric', day: 'numeric' }) + ' ' +
+                      tickT.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            } else {
+              label = tickT.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            }
+            ticks.push({ x, label });
+          }
+
+          return ticks;
+        };
+
+        const getWidgetTrendPath = (widget, tagIndex) => {
+          const series = getTrendSeries(widget);
+          if (series && series.length > 0) {
+            const s = series[tagIndex || 0] || series[0];
+            return getTrendSeriesPath(widget, s);
+          }
+          return '';
+        };
+
+        const getTrendSeriesPath = (widget, series) => {
+          const points = trendPointsMap.value[widget.id] || hmiTrendHistory.value || [];
+          if (!points || points.length === 0) return '';
+
+          const { minVal, valRange, plotY0, ph } = getTrendYBounds(widget);
+          const plotX0 = 45;
+          const pw = 440;
+
+          const range = widget.props?.timeRange || '1h';
+          const now = Date.now();
+          let durationMs = 60 * 60 * 1000;
+          if (range === '15m') durationMs = 15 * 60 * 1000;
+          else if (range === '6h') durationMs = 6 * 3600 * 1000;
+          else if (range === '24h') durationMs = 24 * 3600 * 1000;
+          else if (range === '7d') durationMs = 7 * 86400 * 1000;
+          else if (range === '30d') durationMs = 30 * 86400 * 1000;
+
+          let minT = now - durationMs;
+          let maxT = now;
+          const firstT = new Date(points[0].timestamp).getTime();
+          const lastT = new Date(points[points.length - 1].timestamp).getTime();
+          if (!isNaN(firstT) && !isNaN(lastT)) {
+            minT = Math.min(minT, firstT);
+            maxT = Math.max(maxT, lastT);
+          }
+          const timeRange = Math.max(1000, maxT - minT);
+
+          const seriesKey = series.devEUI ? series.devEUI + '.' + series.field : series.field;
+          const validPoints = [];
+
+          for (const pt of points) {
+            let v = pt[seriesKey];
+            if (v === undefined) v = pt[series.field];
+            if (v === undefined) {
+              for (const k of Object.keys(pt)) {
+                if (k.endsWith('.' + series.field)) { v = pt[k]; break; }
+              }
+            }
+            if (v !== undefined && v !== null && !isNaN(Number(v))) {
+              const t = new Date(pt.timestamp).getTime();
+              const x = plotX0 + Math.max(0, Math.min(1, (t - minT) / timeRange)) * pw;
+              const ratio = (Number(v) - minVal) / valRange;
+              const y = plotY0 + ph - Math.max(0, Math.min(1, ratio)) * ph;
+              validPoints.push({ x, y, val: Number(v), t });
+            }
+          }
+
+          if (validPoints.length === 0) return '';
+          if (validPoints.length === 1) {
+            return 'M ' + (validPoints[0].x - 5).toFixed(1) + ' ' + validPoints[0].y.toFixed(1) + ' L ' + (validPoints[0].x + 5).toFixed(1) + ' ' + validPoints[0].y.toFixed(1);
+          }
+
+          let d = 'M ' + validPoints[0].x.toFixed(1) + ' ' + validPoints[0].y.toFixed(1);
+          for (let i = 1; i < validPoints.length; i++) {
+            d += ' L ' + validPoints[i].x.toFixed(1) + ' ' + validPoints[i].y.toFixed(1);
+          }
+          return d;
+        };
+
+        const getTrendSeriesAreaPath = (widget, series) => {
+          const lineD = getTrendSeriesPath(widget, series);
+          if (!lineD || !lineD.startsWith('M')) return '';
+          const { plotY0, ph } = getTrendYBounds(widget);
+          const bottomY = (plotY0 + ph).toFixed(1);
+
+          const points = trendPointsMap.value[widget.id] || hmiTrendHistory.value || [];
+          if (!points || points.length === 0) return '';
+
+          const plotX0 = 45;
+          const pw = 440;
+          const range = widget.props?.timeRange || '1h';
+          const now = Date.now();
+          let durationMs = 60 * 60 * 1000;
+          if (range === '15m') durationMs = 15 * 60 * 1000;
+          else if (range === '6h') durationMs = 6 * 3600 * 1000;
+          else if (range === '24h') durationMs = 24 * 3600 * 1000;
+          else if (range === '7d') durationMs = 7 * 86400 * 1000;
+          else if (range === '30d') durationMs = 30 * 86400 * 1000;
+
+          let minT = now - durationMs;
+          let maxT = now;
+          const firstT = new Date(points[0].timestamp).getTime();
+          const lastT = new Date(points[points.length - 1].timestamp).getTime();
+          if (!isNaN(firstT) && !isNaN(lastT)) {
+            minT = Math.min(minT, firstT);
+            maxT = Math.max(maxT, lastT);
+          }
+          const timeRange = Math.max(1000, maxT - minT);
+
+          const seriesKey = series.devEUI ? series.devEUI + '.' + series.field : series.field;
+          const validX = [];
+          for (const pt of points) {
+            let v = pt[seriesKey];
+            if (v === undefined) v = pt[series.field];
+            if (v === undefined) {
+              for (const k of Object.keys(pt)) {
+                if (k.endsWith('.' + series.field)) { v = pt[k]; break; }
+              }
+            }
+            if (v !== undefined && v !== null && !isNaN(Number(v))) {
+              const t = new Date(pt.timestamp).getTime();
+              const x = plotX0 + Math.max(0, Math.min(1, (t - minT) / timeRange)) * pw;
+              validX.push(x);
+            }
+          }
+          if (validX.length === 0) return '';
+          const firstX = validX[0].toFixed(1);
+          const lastX = validX[validX.length - 1].toFixed(1);
+
+          return lineD + ' L ' + lastX + ' ' + bottomY + ' L ' + firstX + ' ' + bottomY + ' Z';
+        };
+
+        const getTrendLatestPoint = (widget, series) => {
+          const points = trendPointsMap.value[widget.id] || hmiTrendHistory.value || [];
+          if (!points || points.length === 0) return null;
+
+          const { minVal, valRange, plotY0, ph } = getTrendYBounds(widget);
+          const plotX0 = 45;
+          const pw = 440;
+
+          const range = widget.props?.timeRange || '1h';
+          const now = Date.now();
+          let durationMs = 60 * 60 * 1000;
+          if (range === '15m') durationMs = 15 * 60 * 1000;
+          else if (range === '6h') durationMs = 6 * 3600 * 1000;
+          else if (range === '24h') durationMs = 24 * 3600 * 1000;
+          else if (range === '7d') durationMs = 7 * 86400 * 1000;
+          else if (range === '30d') durationMs = 30 * 86400 * 1000;
+
+          let minT = now - durationMs;
+          let maxT = now;
+          const firstT = new Date(points[0].timestamp).getTime();
+          const lastT = new Date(points[points.length - 1].timestamp).getTime();
+          if (!isNaN(firstT) && !isNaN(lastT)) {
+            minT = Math.min(minT, firstT);
+            maxT = Math.max(maxT, lastT);
+          }
+          const timeRange = Math.max(1000, maxT - minT);
+
+          const seriesKey = series.devEUI ? series.devEUI + '.' + series.field : series.field;
+          for (let i = points.length - 1; i >= 0; i--) {
+            const pt = points[i];
+            let v = pt[seriesKey];
+            if (v === undefined) v = pt[series.field];
+            if (v === undefined) {
+              for (const k of Object.keys(pt)) {
+                if (k.endsWith('.' + series.field)) { v = pt[k]; break; }
+              }
+            }
+            if (v !== undefined && v !== null && !isNaN(Number(v))) {
+              const t = new Date(pt.timestamp).getTime();
+              const x = plotX0 + Math.max(0, Math.min(1, (t - minT) / timeRange)) * pw;
+              const ratio = (Number(v) - minVal) / valRange;
+              const y = plotY0 + ph - Math.max(0, Math.min(1, ratio)) * ph;
+              return { x, y, value: Number(v) };
+            }
+          }
+          return null;
+        };
+
+        const getTrendSeriesLatestVal = (widget, series) => {
+          const k1 = series.devEUI ? series.devEUI + '.' + series.field : series.field;
+          if (hmiTelemetryMap.value[k1] !== undefined) {
+            const v = hmiTelemetryMap.value[k1];
+            return typeof v === 'number' ? (v % 1 === 0 ? v : v.toFixed(2)) : v;
+          }
+          if (hmiTelemetryMap.value[series.field] !== undefined) {
+            const v = hmiTelemetryMap.value[series.field];
+            return typeof v === 'number' ? (v % 1 === 0 ? v : v.toFixed(2)) : v;
+          }
+          const latestPt = getTrendLatestPoint(widget, series);
+          if (latestPt && latestPt.value !== undefined) {
+            return latestPt.value % 1 === 0 ? latestPt.value : latestPt.value.toFixed(2);
+          }
+          return '--';
+        };
+
+        const handleTrendMouseMove = (event, widget) => {
+          const points = trendPointsMap.value[widget.id] || hmiTrendHistory.value || [];
+          if (points.length === 0) return;
+          const rect = event.currentTarget.getBoundingClientRect();
+          const pixelX = event.clientX - rect.left;
+          const normX = Math.max(0, Math.min(1, pixelX / rect.width));
+          const svgX = normX * 500;
+
+          if (svgX < 45 || svgX > 485) {
+            trendHoverState.value[widget.id] = { visible: false };
+            return;
+          }
+
+          const plotX0 = 45;
+          const pw = 440;
+          const range = widget.props?.timeRange || '1h';
+          const now = Date.now();
+          let durationMs = 60 * 60 * 1000;
+          if (range === '15m') durationMs = 15 * 60 * 1000;
+          else if (range === '6h') durationMs = 6 * 3600 * 1000;
+          else if (range === '24h') durationMs = 24 * 3600 * 1000;
+          else if (range === '7d') durationMs = 7 * 86400 * 1000;
+          else if (range === '30d') durationMs = 30 * 86400 * 1000;
+
+          let minT = now - durationMs;
+          let maxT = now;
+          const firstT = new Date(points[0].timestamp).getTime();
+          const lastT = new Date(points[points.length - 1].timestamp).getTime();
+          if (!isNaN(firstT) && !isNaN(lastT)) {
+            minT = Math.min(minT, firstT);
+            maxT = Math.max(maxT, lastT);
+          }
+          const timeRange = Math.max(1000, maxT - minT);
+
+          const hoverT = minT + ((svgX - plotX0) / pw) * timeRange;
+
+          let closestPt = points[0];
+          let minDiff = Infinity;
+          for (const pt of points) {
+            const diff = Math.abs(new Date(pt.timestamp).getTime() - hoverT);
+            if (diff < minDiff) {
+              minDiff = diff;
+              closestPt = pt;
+            }
+          }
+
+          if (!closestPt) return;
+
+          const series = getTrendSeries(widget).filter(s => s.visible !== false);
+          const values = series.map(s => {
+            let v = closestPt[s.devEUI ? s.devEUI + '.' + s.field : s.field];
+            if (v === undefined) v = closestPt[s.field];
+            if (v === undefined) {
+              for (const k of Object.keys(closestPt)) {
+                if (k.endsWith('.' + s.field)) { v = closestPt[k]; break; }
+              }
+            }
+            return {
+              label: s.label || s.field,
+              color: s.color || '#38bdf8',
+              value: v !== undefined ? (typeof v === 'number' ? (v % 1 === 0 ? v : v.toFixed(2)) : v) : '--',
+              unit: s.unit || ''
+            };
+          });
+
+          const ptT = new Date(closestPt.timestamp);
+          const timeStr = ptT.toLocaleDateString([], { month: '2-digit', day: '2-digit' }) + ' ' +
+                          ptT.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+
+          trendHoverState.value[widget.id] = {
+            visible: true,
+            x: svgX,
+            pixelX,
+            timeStr,
+            values
+          };
+        };
+
+        const handleTrendMouseLeave = (widget) => {
+          trendHoverState.value[widget.id] = { visible: false };
+        };
+
+        const setTrendTimeRange = (widget, range) => {
+          if (!widget) return;
+          if (!widget.props) widget.props = {};
+          widget.props.timeRange = range;
+          fetchTrendHistoryForWidget(widget);
+        };
+
+        const fetchTrendHistoryForWidget = async (widget) => {
+          if (!widget || widget.type !== 'realtime-trend') return;
+          const series = getTrendSeries(widget);
+          const devEUIs = [...new Set(series.map(s => s.devEUI).filter(Boolean))];
+
+          const range = widget.props?.timeRange || '1h';
+          const now = Date.now();
+          let durationMs = 60 * 60 * 1000;
+          if (range === '15m') durationMs = 15 * 60 * 1000;
+          else if (range === '6h') durationMs = 6 * 3600 * 1000;
+          else if (range === '24h') durationMs = 24 * 3600 * 1000;
+          else if (range === '7d') durationMs = 7 * 86400 * 1000;
+          else if (range === '30d') durationMs = 30 * 86400 * 1000;
+
+          const fromIso = new Date(now - durationMs).toISOString();
+
+          let url = '/api/hmi/screens/telemetry/trend?from=' + encodeURIComponent(fromIso) + '&limit=500';
+          if (devEUIs.length > 0) {
+            url += '&devEUIs=' + encodeURIComponent(devEUIs.join(','));
+          }
+
+          try {
+            const res = await fetch(url, { headers: authHeaders(), credentials: 'include' });
+            if (res.ok) {
+              const records = await res.json();
+              if (Array.isArray(records)) {
+                const points = records.map(rec => {
+                  const { dev, flat } = extractFlattenedTelemetryHmi(rec);
+                  const t = rec.timestamp ? new Date(rec.timestamp) : new Date();
+                  const pt = {
+                    timestamp: t,
+                    timeStr: t.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+                    devEUI: dev,
+                    ...flat
+                  };
+                  if (dev) {
+                    for (const [k, v] of Object.entries(flat)) {
+                      pt[dev + '.' + k] = v;
+                    }
+                  }
+                  return pt;
+                });
+                trendPointsMap.value[widget.id] = points;
+              }
+            }
+          } catch(err) {
+            console.error('Failed to fetch trend history for widget:', err);
+          }
+        };
+
+        const openAddTrendSeriesModal = (widget) => {
+          trendTargetWidget.value = widget;
+          const firstDev = (devicesList.value && devicesList.value.length > 0) ? devicesList.value[0].devEUI : '';
+          const palette = ['#38bdf8', '#10b981', '#f59e0b', '#f43f5e', '#a855f7', '#06b6d4', '#eab308'];
+          const curSeriesCount = getTrendSeries(widget).length;
+          const pickColor = palette[curSeriesCount % palette.length];
+
+          trendSeriesForm.value = {
+            devEUI: firstDev,
+            field: '',
+            label: '',
+            color: pickColor,
+            unit: '',
+          };
+          detectedTrendFields.value = [];
+          if (firstDev) {
+            fetchDetectedTrendFields(firstDev);
+          }
+          trendSeriesModal.value = true;
+        };
+
+        const fetchDetectedTrendFields = async (devEUI) => {
+          if (!devEUI) return;
+          loadingTrendFields.value = true;
+          try {
+            const res = await fetch('/api/hmi/screens/devices/' + encodeURIComponent(devEUI) + '/telemetry-fields', {
+              headers: authHeaders(),
+              credentials: 'include'
+            });
+            if (res.ok) {
+              const data = await res.json();
+              detectedTrendFields.value = data.fields || [];
+            }
+          } catch(err) {
+            console.error('Failed to scan fields for trend:', err);
+          } finally {
+            loadingTrendFields.value = false;
+          }
+        };
+
+        const selectTrendTagPill = (field) => {
+          trendSeriesForm.value.field = field.key;
+          if (!trendSeriesForm.value.label) {
+            const devObj = devicesList.value.find(d => d.devEUI === trendSeriesForm.value.devEUI);
+            const devName = devObj ? (devObj.name || devObj.devEUI.substring(devObj.devEUI.length - 4)) : '';
+            trendSeriesForm.value.label = devName ? (devName + ' - ' + field.key) : field.key;
+          }
+          if (field.unit) {
+            trendSeriesForm.value.unit = field.unit;
+          }
+        };
+
+        const saveTrendSeries = () => {
+          const widget = trendTargetWidget.value;
+          if (!widget) return;
+          if (!trendSeriesForm.value.field) {
+            showToast('Please select or enter telemetry tag', 'warning');
+            return;
+          }
+          if (!widget.props) widget.props = {};
+          if (!Array.isArray(widget.props.series)) {
+            widget.props.series = [];
+          }
+          const id = 'ser_' + Date.now().toString(36);
+          const newSeries = {
+            id,
+            devEUI: trendSeriesForm.value.devEUI || '',
+            field: trendSeriesForm.value.field.trim(),
+            label: trendSeriesForm.value.label.trim() || trendSeriesForm.value.field.trim(),
+            color: trendSeriesForm.value.color || '#38bdf8',
+            unit: trendSeriesForm.value.unit || '',
+            visible: true,
+          };
+          widget.props.series.push(newSeries);
+          trendSeriesModal.value = false;
+          fetchTrendHistoryForWidget(widget);
+          showToast('Added sensor ' + newSeries.label + ' to chart', 'success');
+        };
+
+        const removeTrendSeries = (widget, seriesId) => {
+          if (!widget || !Array.isArray(widget.props?.series)) return;
+          widget.props.series = widget.props.series.filter(s => s.id !== seriesId);
+          fetchTrendHistoryForWidget(widget);
+        };
+
+        const toggleTrendSeriesVisible = (widget, seriesId) => {
+          const series = getTrendSeries(widget);
+          const s = series.find(x => x.id === seriesId);
+          if (s) {
+            s.visible = s.visible === false ? true : false;
+          }
+        };
+
+        const extractFlattenedTelemetryHmi = (rec) => {
+          if (!rec) return { dev: '', flat: {} };
+          const dev = (rec.devEUI || rec.devEui || '').trim().toUpperCase();
+          const flat = {};
+
+          if (rec.rssi !== undefined && rec.rssi !== null) flat['rssi'] = rec.rssi;
+          if (rec.snr !== undefined && rec.snr !== null) flat['snr'] = rec.snr;
+          if (rec.fCnt !== undefined && rec.fCnt !== null) flat['fCnt'] = rec.fCnt;
+          if (rec.fPort !== undefined && rec.fPort !== null) flat['fPort'] = rec.fPort;
+          if (rec.dr !== undefined && rec.dr !== null) flat['dr'] = rec.dr;
+          if (rec.frequency !== undefined && rec.frequency !== null) flat['frequency'] = rec.frequency;
+          if (rec.battery !== undefined && rec.battery !== null) flat['battery'] = rec.battery;
+
+          const flattenObject = (obj, prefix = '') => {
+            if (!obj || typeof obj !== 'object') return;
+            for (const [k, v] of Object.entries(obj)) {
+              if (k === 'error' || k === 'errors' || k === 'warnings') continue;
+              const fullKey = prefix ? prefix + '.' + k : k;
+              if (v !== null && typeof v === 'object' && !Array.isArray(v)) {
+                flattenObject(v, fullKey);
+              } else if (v !== null && v !== undefined) {
+                flat[fullKey] = v;
+                if (prefix && flat[k] === undefined) flat[k] = v;
+                if (fullKey.startsWith('data.')) {
+                  const leaf = fullKey.substring(5);
+                  if (flat[leaf] === undefined) flat[leaf] = v;
+                }
+              }
+            }
+          };
+
+          if (rec.object && typeof rec.object === 'object') flattenObject(rec.object);
+          if (rec.decodedData && typeof rec.decodedData === 'object') flattenObject(rec.decodedData);
+
+          return { dev, flat };
+        };
+
+        const updateHmiTelemetryFromData = (records) => {
+          if (!Array.isArray(records)) return;
+          const newMap = { ...hmiTelemetryMap.value };
+          records.forEach(rec => {
+            const { dev, flat } = extractFlattenedTelemetryHmi(rec);
+            for (const [k, v] of Object.entries(flat)) {
+              if (dev) newMap[dev + '.' + k] = v;
+              newMap[k] = v;
+            }
+          });
+          hmiTelemetryMap.value = newMap;
+
+          if (records.length > 0) {
+            const sortedAsc = [...records].reverse();
+            sortedAsc.forEach(rec => {
+              const { dev, flat } = extractFlattenedTelemetryHmi(rec);
+              const t = rec.timestamp ? new Date(rec.timestamp) : new Date();
+              const pt = {
+                timestamp: t,
+                timeStr: t.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+                ...flat
+              };
+              if (dev) {
+                for (const [k, v] of Object.entries(flat)) {
+                  pt[dev + '.' + k] = v;
+                }
+              }
+              hmiTrendHistory.value.push(pt);
+              if (hmiTrendHistory.value.length > 100) {
+                hmiTrendHistory.value.shift();
+              }
+
+              // Update trendPointsMap for active trend widgets
+              if (currentHmiScreen.value?.widgets) {
+                currentHmiScreen.value.widgets.forEach(w => {
+                  if (w.type === 'realtime-trend') {
+                    if (!trendPointsMap.value[w.id]) trendPointsMap.value[w.id] = [];
+                    trendPointsMap.value[w.id].push(pt);
+                    if (trendPointsMap.value[w.id].length > 1000) {
+                      trendPointsMap.value[w.id].shift();
+                    }
+                  }
+                });
+              }
+            });
+          }
+        };
+
+        let hmiSocketClient = null;
+        let hmiSseSource = null;
+
+        const initHmiRealtimeStream = () => {
+          if (hmiSocketClient || hmiSseSource) return;
+          if (typeof io !== 'undefined') {
+            try {
+              hmiSocketClient = io('/', { path: '/socket.io', transports: ['websocket', 'polling'] });
+              hmiSocketClient.on('connect', () => {
+                hmiSocketClient.emit('subscribe:telemetry');
+                hmiSocketClient.emit('subscribe:hmi');
+              });
+              hmiSocketClient.on('telemetry:uplink', (pkt) => {
+                updateHmiTelemetryFromData([pkt]);
+              });
+              hmiSocketClient.on('downlink:status', (ev) => {
+                if (ev?.downlinkLog) {
+                  downlinkHistory.value.unshift(ev.downlinkLog);
+                } else if (activeTab.value === 'downlink') {
+                  fetchDownlinkHistory();
+                }
+                if (downlinkForm.value.devEUI) {
+                  fetchDeviceQueue(downlinkForm.value.devEUI);
+                }
+              });
+              return;
+            } catch(e) {}
+          }
+          if (typeof EventSource !== 'undefined') {
+            try {
+              hmiSseSource = new EventSource('/api/realtime/stream');
+              hmiSseSource.onmessage = (e) => {
+                try {
+                  const ev = JSON.parse(e.data);
+                  if (ev.type === 'telemetry') updateHmiTelemetryFromData([ev.data]);
+                  else if (ev.type === 'downlink') {
+                    if (ev.data?.downlinkLog) {
+                      downlinkHistory.value.unshift(ev.data.downlinkLog);
+                    } else if (activeTab.value === 'downlink') {
+                      fetchDownlinkHistory();
+                    }
+                    if (downlinkForm.value.devEUI) {
+                      fetchDeviceQueue(downlinkForm.value.devEUI);
+                    }
+                  }
+                } catch(err) {}
+              };
+            } catch(e) {}
+          }
+        };
+
+        const fetchHmiTelemetryOnce = async () => {
+          try {
+            const res = await fetch('/lorawan/telemetry?limit=50', { headers: authHeaders(), credentials: 'include' });
+            if (res.ok) {
+              const data = await res.json();
+              updateHmiTelemetryFromData(data);
+            }
+          } catch(e) {}
+        };
+
+        const startHmiTelemetryPolling = () => {
+          initHmiRealtimeStream();
+          fetchHmiTelemetryOnce();
+          if (!hmiTelemetryTimer.value) {
+            hmiTelemetryTimer.value = setInterval(fetchHmiTelemetryOnce, 4000);
+          }
+        };
+
+        const stopHmiTelemetryPolling = () => {
+          if (hmiTelemetryTimer.value) {
+            clearInterval(hmiTelemetryTimer.value);
+            hmiTelemetryTimer.value = null;
+          }
+        };
+
+        // ==================== DOWNLINK CONTROLLER & ACTUATOR ====================
+        const downlinkForm = ref({
+          networkServerId: '',
+          devEUI: '',
+          fPort: 1,
+          payloadHex: '',
+          confirmed: false,
+          flushQueue: false,
+        });
+        const downlinkDeviceSearch = ref('');
+        const downlinkDeviceDropdownOpen = ref(false);
+        const downlinkHistory = ref([]);
+        const loadingDownlinkHistory = ref(false);
+        const sendingDownlink = ref(false);
+        const downlinkHistoryFilterDevEUI = ref('');
+        const deviceQueue = ref([]);
+        const loadingDeviceQueue = ref(false);
+        const flushingQueue = ref(false);
+        const deviceQueueServerName = ref('');
+        let deviceQueueTimer = null;
+
+        const downlinkConfirmModal = ref({
+          show: false,
+          targetDevice: null,
+          targetServer: null,
+          devEUI: '',
+          fPort: 1,
+          payloadHex: '',
+          confirmed: false,
+          flushQueue: false,
+        });
+
+        const flushConfirmModal = ref({
+          show: false,
+          devEUI: '',
+          targetDevice: null,
+          targetServer: null,
+        });
+
+        const filteredDownlinkDevices = computed(() => {
+          const q = (downlinkDeviceSearch.value || '').trim().toLowerCase();
+          const selectedLabel = selectedDownlinkDevice.value
+            ? (selectedDownlinkDevice.value.name ? (selectedDownlinkDevice.value.name + ' - ' + selectedDownlinkDevice.value.devEUI) : selectedDownlinkDevice.value.devEUI).toLowerCase()
+            : '';
+          if (!q || q === selectedLabel) {
+            return devicesList.value;
+          }
+          return devicesList.value.filter(d => {
+            const label = (d.name ? d.name + ' - ' + d.devEUI : d.devEUI).toLowerCase();
+            const eui = (d.devEUI || '').toLowerCase();
+            const name = (d.name || '').toLowerCase();
+            return label.includes(q) || eui.includes(q) || name.includes(q);
+          });
+        });
+
+        const onDownlinkSearchFocus = (event) => {
+          downlinkDeviceDropdownOpen.value = true;
+          if (event && event.target && typeof event.target.select === 'function') {
+            event.target.select();
+          }
+        };
+
+        const toggleDownlinkDropdown = () => {
+          downlinkDeviceDropdownOpen.value = !downlinkDeviceDropdownOpen.value;
+        };
+
+        const calculatedHexBytes = computed(() => {
+          const clean = (downlinkForm.value.payloadHex || '').replace(/[^0-9a-fA-F]/g, '');
+          return Math.ceil(clean.length / 2);
+        });
+
+        const calculatedConfirmBytes = computed(() => {
+          const clean = (downlinkConfirmModal.value.payloadHex || '').replace(/[^0-9a-fA-F]/g, '');
+          return Math.ceil(clean.length / 2);
+        });
+
+        const selectedDownlinkDevice = computed(() => {
+          if (!downlinkForm.value.devEUI) return null;
+          return devicesList.value.find(d => d.devEUI && d.devEUI.toUpperCase() === downlinkForm.value.devEUI.toUpperCase()) || null;
+        });
+
+        const selectedDownlinkServer = computed(() => {
+          const dev = selectedDownlinkDevice.value;
+          const devNsId = dev ? (dev.networkServerId || (dev.networkServer ? dev.networkServer.id : '')) : '';
+          if (devNsId) {
+            return networkServersList.value.find(s => s.id === devNsId) || null;
+          }
+          if (downlinkForm.value.networkServerId) {
+            return networkServersList.value.find(s => s.id === downlinkForm.value.networkServerId) || null;
+          }
+          return networkServersList.value.find(s => s.isDefault) || (networkServersList.value.length > 0 ? networkServersList.value[0] : null);
+        });
+
+        const selectDownlinkDevice = (d) => {
+          downlinkForm.value.devEUI = d.devEUI;
+          downlinkDeviceSearch.value = d.name ? d.name + ' - ' + d.devEUI : d.devEUI;
+          const nsId = d.networkServerId || (d.networkServer ? d.networkServer.id : '');
+          if (nsId) {
+            downlinkForm.value.networkServerId = nsId;
+          }
+          downlinkDeviceDropdownOpen.value = false;
+          onDownlinkDeviceSelect();
+        };
+
+        const clearSelectedDownlinkDevice = () => {
+          downlinkForm.value.devEUI = '';
+          downlinkDeviceSearch.value = '';
+          downlinkDeviceDropdownOpen.value = false;
+          deviceQueue.value = [];
+          deviceQueueServerName.value = '';
+        };
+
+        const onDownlinkDeviceSelect = () => {
+          const dev = selectedDownlinkDevice.value;
+          if (dev) {
+            const nsId = dev.networkServerId || (dev.networkServer ? dev.networkServer.id : '');
+            if (nsId) {
+              downlinkForm.value.networkServerId = nsId;
+            }
+            downlinkHistoryFilterDevEUI.value = dev.devEUI;
+            fetchDownlinkHistory(dev.devEUI);
+            fetchDeviceQueue(dev.devEUI);
+          } else {
+            deviceQueue.value = [];
+            deviceQueueServerName.value = '';
+          }
+        };
+
+        const fetchDeviceQueue = async (devEUI = '', silent = false) => {
+          const targetEUI = devEUI || downlinkForm.value.devEUI || '';
+          if (!targetEUI) {
+            deviceQueue.value = [];
+            deviceQueueServerName.value = '';
+            return;
+          }
+          if (!silent && deviceQueue.value.length === 0) {
+            loadingDeviceQueue.value = true;
+          }
+          try {
+            const url = '/api/network-servers/queue?devEUI=' + encodeURIComponent(targetEUI);
+            const res = await fetch(url, { headers: authHeaders(), credentials: 'include' });
+            if (res.ok) {
+              const data = await res.json();
+              const newItems = Array.isArray(data.items) ? data.items : [];
+              const curItems = deviceQueue.value;
+              let hasChanged = curItems.length !== newItems.length;
+              if (!hasChanged) {
+                for (let i = 0; i < curItems.length; i++) {
+                  if (curItems[i].id !== newItems[i].id || curItems[i].payloadHex !== newItems[i].payloadHex || curItems[i].isPending !== newItems[i].isPending) {
+                    hasChanged = true;
+                    break;
+                  }
+                }
+              }
+              if (hasChanged) {
+                deviceQueue.value = newItems;
+              }
+              deviceQueueServerName.value = data.serverName || data.serverType || '';
+            }
+          } catch(e) {
+            console.error('Error fetching device queue:', e);
+          } finally {
+            if (!silent) {
+              loadingDeviceQueue.value = false;
+            }
+          }
+        };
+
+        const startDeviceQueuePolling = () => {
+          stopDeviceQueuePolling();
+          deviceQueueTimer = setInterval(() => {
+            if (activeTab.value === 'downlink' && downlinkForm.value.devEUI) {
+              fetchDeviceQueue(downlinkForm.value.devEUI, true);
+            }
+          }, 6000);
+        };
+
+        const stopDeviceQueuePolling = () => {
+          if (deviceQueueTimer) {
+            clearInterval(deviceQueueTimer);
+            deviceQueueTimer = null;
+          }
+        };
+
+        const fetchDownlinkHistory = async (devEUI = '') => {
+          loadingDownlinkHistory.value = true;
+          try {
+            const filter = devEUI || downlinkHistoryFilterDevEUI.value || '';
+            const url = filter
+              ? '/api/network-servers/downlinks/history?devEUI=' + encodeURIComponent(filter) + '&limit=50'
+              : '/api/network-servers/downlinks/history?limit=50';
+            const res = await fetch(url, { headers: authHeaders(), credentials: 'include' });
+            if (res.ok) {
+              downlinkHistory.value = await res.json();
+            }
+          } catch(e) {
+            console.error('Error fetching downlink history:', e);
+          } finally {
+            loadingDownlinkHistory.value = false;
+          }
+        };
+
+        const openDownlinkConfirm = () => {
+          if (!downlinkForm.value.devEUI) {
+            showToast('Please select a target device', 'error');
+            return;
+          }
+          const cleanHex = (downlinkForm.value.payloadHex || '').replace(/[^0-9a-fA-F]/g, '').toUpperCase();
+          if (!cleanHex) {
+            showToast('Please enter a valid Hex payload', 'error');
+            return;
+          }
+          downlinkForm.value.payloadHex = cleanHex;
+
+          downlinkConfirmModal.value = {
+            show: true,
+            targetDevice: selectedDownlinkDevice.value,
+            targetServer: selectedDownlinkServer.value,
+            devEUI: downlinkForm.value.devEUI,
+            fPort: downlinkForm.value.fPort || 1,
+            payloadHex: cleanHex,
+            confirmed: Boolean(downlinkForm.value.confirmed),
+            flushQueue: Boolean(downlinkForm.value.flushQueue),
+          };
+        };
+
+        const executeConfirmedDownlink = async () => {
+          sendingDownlink.value = true;
+          try {
+            const payload = {
+              devEUI: downlinkConfirmModal.value.devEUI,
+              fPort: downlinkConfirmModal.value.fPort,
+              payloadHex: downlinkConfirmModal.value.payloadHex,
+              confirmed: downlinkConfirmModal.value.confirmed,
+              flushQueue: downlinkConfirmModal.value.flushQueue,
+              networkServerId: downlinkForm.value.networkServerId || undefined,
+            };
+            const res = await fetch('/api/network-servers/downlink', {
+              method: 'POST',
+              headers: {
+                ...authHeaders(),
+                'Content-Type': 'application/json',
+              },
+              credentials: 'include',
+              body: JSON.stringify(payload),
+            });
+            const result = await res.json();
+            downlinkConfirmModal.value.show = false;
+            if (res.ok && result.success) {
+              showToast('Downlink queued successfully', 'success');
+              fetchDownlinkHistory(downlinkForm.value.devEUI);
+              fetchDeviceQueue(downlinkForm.value.devEUI);
+            } else {
+              showToast('Downlink failed: ' + (result.message || 'Transmission error'), 'error');
+              fetchDownlinkHistory(downlinkForm.value.devEUI);
+              fetchDeviceQueue(downlinkForm.value.devEUI);
+            }
+          } catch(e) {
+            showToast('Connection error: ' + e.message, 'error');
+          } finally {
+            sendingDownlink.value = false;
+          }
+        };
+
+        const openFlushConfirm = () => {
+          if (!downlinkForm.value.devEUI) {
+            showToast('Please select a device to flush queue', 'error');
+            return;
+          }
+          flushConfirmModal.value = {
+            show: true,
+            devEUI: downlinkForm.value.devEUI,
+            targetDevice: selectedDownlinkDevice.value,
+            targetServer: selectedDownlinkServer.value,
+          };
+        };
+
+        const executeConfirmedFlush = async () => {
+          const targetEUI = flushConfirmModal.value.devEUI || downlinkForm.value.devEUI;
+          const targetNsId = flushConfirmModal.value.targetServer?.id || downlinkForm.value.networkServerId || undefined;
+          flushingQueue.value = true;
+          try {
+            const res = await fetch('/api/network-servers/flush-queue', {
+              method: 'POST',
+              headers: {
+                ...authHeaders(),
+                'Content-Type': 'application/json',
+              },
+              credentials: 'include',
+              body: JSON.stringify({
+                devEUI: targetEUI,
+                networkServerId: targetNsId,
+              }),
+            });
+            const result = await res.json();
+            flushConfirmModal.value.show = false;
+            if (res.ok && result.success) {
+              showToast('Downlink queue flushed successfully', 'success');
+              fetchDownlinkHistory(targetEUI);
+              fetchDeviceQueue(targetEUI);
+            } else {
+              showToast('Failed to flush queue: ' + (result.message || 'Error'), 'error');
+            }
+          } catch(e) {
+            showToast('Connection error: ' + e.message, 'error');
+          } finally {
+            flushingQueue.value = false;
+          }
+        };
+
+        const flushQueueExplicitly = openFlushConfirm;
+
+        const resendDownlink = (item) => {
+          downlinkForm.value.devEUI = item.devEUI;
+          const matched = devicesList.value.find(d => d.devEUI && d.devEUI.toUpperCase() === item.devEUI.toUpperCase());
+          downlinkDeviceSearch.value = matched ? (matched.name ? matched.name + ' - ' + matched.devEUI : matched.devEUI) : item.devEUI;
+          downlinkForm.value.fPort = item.fPort || 1;
+          downlinkForm.value.payloadHex = item.payloadHex;
+          downlinkForm.value.confirmed = Boolean(item.confirmed);
+          downlinkForm.value.flushQueue = Boolean(item.flushQueue);
+          if (item.networkServerId) {
+            downlinkForm.value.networkServerId = item.networkServerId;
+          }
+          showToast('Loaded downlink parameters for ' + item.devEUI, 'info');
+          fetchDeviceQueue(item.devEUI);
+        };
+
+        const copyText = (txt) => {
+          if (navigator.clipboard) {
+            navigator.clipboard.writeText(txt);
+            showToast('Hex payload copied to clipboard', 'success');
+          }
+        };
+
+
+        const confirmRestartServer = async () => {
+          restartingServer.value = true;
+          try {
+            const res = await fetch('/api/system/restart', {
+              method: 'POST',
+              headers: {
+                ...authHeaders(),
+                'Content-Type': 'application/json'
+              },
+              credentials: 'include'
+            });
+            const data = await res.json();
+            restartConfirmDialog.value = false;
+            
+            if (data && data.success) {
+              showToast('Restart signal sent to NestJS server container!', 'info');
+              restartProgress.value = { active: true, countdown: 1, message: 'Restarting NestJS Backend...' };
+              
+              let attempts = 0;
+              const pollInterval = setInterval(async () => {
+                attempts++;
+                restartProgress.value.countdown = attempts * 2;
+                try {
+                  const check = await fetch('/health?_t=' + Date.now());
+                  if (check.ok) {
+                    clearInterval(pollInterval);
+                    restartProgress.value.active = false;
+                    restartingServer.value = false;
+                    showToast('Backend server restarted successfully and is back ONLINE!', 'success');
+                    fetchSystemVersion();
+                    initControlPanel();
+          fetchPlugins();
+                  }
+                } catch(e) {}
+                if (attempts > 30) {
+                  clearInterval(pollInterval);
+                  restartProgress.value.active = false;
+                  restartingServer.value = false;
+                  showToast('Restart completed. Please refresh the page.', 'info');
+                }
+              }, 2000);
+            } else {
+              showToast(data.message || 'Restart failed: Ops Agent unavailable.', 'error');
+              restartingServer.value = false;
+            }
+          } catch(e) {
+            showToast('Server is restarting...', 'info');
+            restartConfirmDialog.value = false;
+            restartProgress.value = { active: true, countdown: 1, message: 'Restarting...' };
+            setTimeout(() => {
+              window.location.reload();
+            }, 6000);
+          }
+        };
+
+        const modbusPresetsModule = safeExecuteModuleSetup(
+          'c-modbus-presets',
+          typeof useModbusPresetsModule === 'function' ? (ctx => useModbusPresetsModule(ctx)) : null,
+          {
+            showToast,
+            authHeaders,
+            currentUser,
+            activeTab,
+            moduleStatesRegistry: moduleStatesStore,
+          },
+          createModbusPresetsFallback
+        );
+
+        const testBuilderModule = safeExecuteModuleSetup(
+          'c-test-builder',
+          typeof useTestBuilderModule === 'function' ? (ctx => useTestBuilderModule(ctx)) : null,
+          {
+            showToast,
+            authHeaders,
+            currentUser,
+            activeTab,
+            switchTab,
+            decoderSearchQuery,
+            moduleStatesRegistry: moduleStatesStore,
+          },
+          createTestBuilderFallback
+        );
+
+        const itemCodesModule = safeExecuteModuleSetup(
+          'c-item-codes',
+          typeof useItemCodesModule === 'function' ? (ctx => useItemCodesModule(ctx)) : null,
+          {
+            showToast,
+            authHeaders,
+            currentUser,
+            activeTab,
+            switchTab,
+            activeTestTemplateId: testBuilderModule ? testBuilderModule.activeTestTemplateId : undefined,
+            moduleStatesRegistry: moduleStatesStore,
+          },
+          createItemCodesFallback
+        );
+
+        const salesOrdersModule = safeExecuteModuleSetup(
+          'c-sales-orders',
+          typeof useSalesOrdersModule === 'function' ? (ctx => useSalesOrdersModule(ctx)) : null,
+          {
+            showToast,
+            authHeaders,
+            currentUser,
+            activeTab,
+            switchTab,
+            activeTestTemplateId: testBuilderModule ? testBuilderModule.activeTestTemplateId : undefined,
+            moduleStatesRegistry: moduleStatesStore,
+          },
+          createSalesOrdersFallback
+        );
+
+        const sensorTypesModule = safeExecuteModuleSetup(
+          'c-sensor-types',
+          typeof useSensorTypesModule === 'function' ? (ctx => useSensorTypesModule(ctx)) : null,
+          {
+            showToast,
+            authHeaders,
+            currentUser,
+            activeTab,
+            switchTab,
+            moduleStatesRegistry: moduleStatesStore,
+          },
+          createSensorTypesFallback
+        );
+
+        const traceabilityModule = safeExecuteModuleSetup(
+          'c-traceability',
+          typeof useTraceabilityModule === 'function' ? (ctx => useTraceabilityModule(ctx)) : null,
+          {
+            showToast,
+            authHeaders,
+            currentUser,
+            activeTab,
+            switchTab,
+            moduleStatesRegistry: moduleStatesStore,
+          },
+          createTraceabilityFallback
+        );
+
+        const memmapUploadModule = safeExecuteModuleSetup(
+          'c-memmap-upload',
+          typeof useMemmapUploadModule === 'function' ? (ctx => useMemmapUploadModule(ctx)) : null,
+          {
+            showToast,
+            authHeaders,
+            currentUser,
+            activeTab,
+            switchTab,
+            moduleStatesRegistry: moduleStatesStore,
+          },
+          () => ({})
+        );
+
+        const memmapManagerModule = safeExecuteModuleSetup(
+          'c-memmap-manager',
+          typeof useMemmapManagerModule === 'function' ? (ctx => useMemmapManagerModule(ctx)) : null,
+          {
+            showToast,
+            authHeaders,
+            currentUser,
+            activeTab,
+            switchTab,
+            moduleStatesRegistry: moduleStatesStore,
+          },
+          () => ({})
+        );
+
+        const createFinalConfigModule = safeExecuteModuleSetup(
+          'c-create-final-config',
+          typeof useCreateFinalConfigModule === 'function' ? (ctx => useCreateFinalConfigModule(ctx)) : null,
+          {
+            showToast,
+            authHeaders,
+            currentUser,
+            activeTab,
+            switchTab,
+            moduleStatesRegistry: moduleStatesStore,
+          },
+          () => ({})
+        );
+
+        const finalConfigManagerModule = safeExecuteModuleSetup(
+          'c-final-config-manager',
+          typeof useFinalConfigManagerModule === 'function' ? (ctx => useFinalConfigManagerModule(ctx)) : null,
+          {
+            showToast,
+            authHeaders,
+            currentUser,
+            activeTab,
+            switchTab,
+            moduleStatesRegistry: moduleStatesStore,
+          },
+          () => ({})
+        );
+
+        const deviceTestedModule = safeExecuteModuleSetup(
+          'c-device-tested',
+          typeof useDeviceTestedModule === 'function' ? (ctx => useDeviceTestedModule(ctx)) : null,
+          {
+            showToast,
+            authHeaders,
+            currentUser,
+            activeTab,
+            switchTab,
+            moduleStatesRegistry: moduleStatesStore,
+          },
+          createDeviceTestedFallback
+        );
+
+        watch(activeTab, (newTab) => {
+          try {
+            window.history.replaceState(null, null, '#' + newTab);
+          } catch(e) {}
+          if (newTab === 'overview') fetchSystemVersion();
+          if (newTab === 'network-servers') fetchNetworkServers();
+          if (newTab === 'modules') fetchModules();
+          if (newTab === 'roles') fetchRoles();
+          if (newTab === 'users') fetchUsers();
+          if (newTab === 'database') fetchDbHealth();
+          if (newTab === 'devices') fetchDevices();
+          if (newTab === 'decoder') {
+            fetchDecoders();
+            fetchDevices();
+            fetchSandboxTelemetry(false);
+            if (sandboxAutoSync.value) {
+              startSandboxAutoSync();
+            }
+          } else {
+            stopSandboxAutoSync();
+          }
+          if (newTab === 'webhooks') {
+            startWebhookPolling();
+          } else {
+            stopWebhookPolling();
+          }
+          if (newTab === 'hmi-studio') {
+            fetchHmiScreens();
+            fetchDevices();
+            if (hmiEditorMode.value === 'run') {
+              startHmiTelemetryPolling();
+            } else {
+              stopHmiTelemetryPolling();
+            }
+          } else {
+            stopHmiTelemetryPolling();
+          }
+          if (newTab === 'downlink') {
+            fetchNetworkServers();
+            fetchDevices();
+            fetchDownlinkHistory();
+            if (downlinkForm.value.devEUI) {
+              fetchDeviceQueue(downlinkForm.value.devEUI);
+            }
+            startDeviceQueuePolling();
+            initHmiRealtimeStream();
+          } else {
+            stopDeviceQueuePolling();
+          }
+          if (newTab === 'modbus-presets') {
+            if (modbusPresetsModule && typeof modbusPresetsModule.fetchPresets === 'function') {
+              modbusPresetsModule.fetchPresets();
+            }
+            setTimeout(() => {
+              if (modbusPresetsModule && typeof modbusPresetsModule.initPresetsTabulator === 'function') {
+                modbusPresetsModule.initPresetsTabulator();
+              }
+            }, 120);
+          }
+          if (newTab === 'item-codes') {
+            if (itemCodesModule && typeof itemCodesModule.fetchItemCodes === 'function') {
+              itemCodesModule.fetchItemCodes();
+            }
+            if (itemCodesModule && typeof itemCodesModule.fetchCatalogAvailableTemplates === 'function') {
+              itemCodesModule.fetchCatalogAvailableTemplates();
+            }
+            if (itemCodesModule && itemCodesModule.itemCodesViewMode && itemCodesModule.itemCodesViewMode.value === 'tabulator') {
+              setTimeout(() => {
+                if (typeof itemCodesModule.initItemCodesTabulator === 'function') {
+                  itemCodesModule.initItemCodesTabulator();
+                }
+              }, 120);
+            }
+          }
+          if (newTab === 'sales-orders') {
+            if (salesOrdersModule && typeof salesOrdersModule.fetchSalesOrders === 'function') {
+              salesOrdersModule.fetchSalesOrders();
+            }
+            if (salesOrdersModule && typeof salesOrdersModule.fetchAvailableTemplatesForDropdown === 'function') {
+              salesOrdersModule.fetchAvailableTemplatesForDropdown();
+            }
+          }
+          if (newTab === 'sensor-types') {
+            if (sensorTypesModule && typeof sensorTypesModule.fetchSensorTypes === 'function') {
+              sensorTypesModule.fetchSensorTypes();
+            }
+          }
+          if (newTab === 'traceability') {
+            if (traceabilityModule && typeof traceabilityModule.fetchTestResults === 'function') {
+              traceabilityModule.fetchTestResults();
+            }
+          }
+          if (newTab === 'memmap-upload') {
+            if (memmapUploadModule && typeof memmapUploadModule.renderMemmapTabulator === 'function') {
+              setTimeout(() => {
+                memmapUploadModule.renderMemmapTabulator();
+              }, 120);
+            }
+          }
+          if (newTab === 'memmap-manager') {
+            if (memmapManagerModule && typeof memmapManagerModule.fmmFetchData === 'function') {
+              setTimeout(() => {
+                memmapManagerModule.fmmFetchData();
+              }, 120);
+            }
+          }
+          if (newTab === 'create-final-config') {
+            if (createFinalConfigModule && typeof createFinalConfigModule.renderFinalConfigTabulator === 'function') {
+              setTimeout(() => {
+                createFinalConfigModule.renderFinalConfigTabulator();
+              }, 120);
+            }
+          }
+          if (newTab === 'final-config-manager') {
+            if (finalConfigManagerModule && typeof finalConfigManagerModule.onTabActivated === 'function') {
+              setTimeout(() => {
+                finalConfigManagerModule.onTabActivated();
+              }, 120);
+            }
+          }
+          if (newTab === 'device-tested') {
+            if (deviceTestedModule && typeof deviceTestedModule.dtFetchData === 'function') {
+              setTimeout(() => {
+                deviceTestedModule.dtFetchData();
+              }, 120);
+            }
+          }
+        });
+
+        const initControlPanel = async () => {
+          const ok = await fetchSession();
+          if (!ok) return;
+
+          fetchSystemVersion();
+          fetchNetworkServers();
+          fetchModules();
+          fetchRoles();
+          fetchUsers();
+          fetchDbHealth();
+          fetchDevices();
+          fetchDecoders();
+          fetchWebhookStats();
+          if (modbusPresetsModule && typeof modbusPresetsModule.fetchPresets === 'function') {
+            modbusPresetsModule.fetchPresets();
+          }
+          
+          const hash = window.location.hash.replace('#', '').trim();
+          if (hash && hash !== 'telemetry') {
+            activeTab.value = hash;
+            if (hash === 'webhooks') {
+              startWebhookPolling();
+            }
+            if (hash === 'hmi-studio') {
+              fetchHmiScreens();
+              fetchDevices();
+              if (hmiEditorMode.value === 'run') {
+                startHmiTelemetryPolling();
+              } else {
+                stopHmiTelemetryPolling();
+              }
+            }
+            if (hash === 'downlink') {
+              fetchNetworkServers();
+              fetchDevices();
+              fetchDownlinkHistory();
+              startDeviceQueuePolling();
+              initHmiRealtimeStream();
+            }
+            if (hash === 'modbus-presets') {
+              if (modbusPresetsModule && typeof modbusPresetsModule.fetchPresets === 'function') {
+                modbusPresetsModule.fetchPresets();
+              }
+              setTimeout(() => {
+                if (modbusPresetsModule && typeof modbusPresetsModule.initPresetsTabulator === 'function') {
+                  modbusPresetsModule.initPresetsTabulator();
+                }
+              }, 150);
+            }
+            if (hash === 'memmap-upload') {
+              if (memmapUploadModule && typeof memmapUploadModule.renderMemmapTabulator === 'function') {
+                setTimeout(() => {
+                  memmapUploadModule.renderMemmapTabulator();
+                }, 150);
+              }
+            }
+            if (hash === 'memmap-manager') {
+              if (memmapManagerModule && typeof memmapManagerModule.fmmFetchData === 'function') {
+                setTimeout(() => {
+                  memmapManagerModule.fmmFetchData();
+                }, 150);
+              }
+            }
+            if (hash === 'create-final-config') {
+              if (createFinalConfigModule && typeof createFinalConfigModule.renderFinalConfigTabulator === 'function') {
+                setTimeout(() => {
+                  createFinalConfigModule.renderFinalConfigTabulator();
+                }, 150);
+              }
+            }
+            if (hash === 'final-config-manager') {
+              if (finalConfigManagerModule && typeof finalConfigManagerModule.onTabActivated === 'function') {
+                setTimeout(() => {
+                  finalConfigManagerModule.onTabActivated();
+                }, 150);
+              }
+            }
+            if (hash === 'device-tested') {
+              if (deviceTestedModule && typeof deviceTestedModule.dtFetchData === 'function') {
+                setTimeout(() => {
+                  deviceTestedModule.dtFetchData();
+                }, 150);
+              }
+            }
+          } else {
+            activeTab.value = 'overview';
+          }
+        };
+
+        onMounted(() => {
+          initControlPanel();
+          window.addEventListener('keydown', handleHmiKeydown);
+        });
+
+        window.addEventListener('pageshow', (event) => {
+          initControlPanel();
+        });
+
+        
+        // ========================================================
+        // PLUGINS MANAGEMENT STATE & LOGIC
+        // ========================================================
+        const pluginsList = ref([]);
+        const loadingPlugins = ref(false);
+        const pluginSearchQuery = ref('');
+        const pluginStatusFilter = ref('all');
+        const uploadPluginDialog = ref(false);
+        const installUrlDialog = ref(false);
+        const configPluginDialog = ref(false);
+        const pluginToConfig = ref(null);
+        const pluginConfigJson = ref('{}');
+        const pluginConfigError = ref('');
+        const pluginInstallUrl = ref('');
+        const selectedPluginFile = ref(null);
+        const uploadAutoEnable = ref(true);
+        const isSubmittingUpload = ref(false);
+        const isSubmittingUrl = ref(false);
+        const isSavingConfig = ref(false);
+        const actionInProgressId = ref(null);
+        const selectedActivePlugin = ref(null);
+
+        const currentActivePlugin = computed(() => {
+          if (!activeTab.value.startsWith('plugin-')) return null;
+          const pId = activeTab.value.replace('plugin-', '');
+          return pluginsList.value.find(p => p.id === pId) || selectedActivePlugin.value;
+        });
+
+        const currentActivePluginEntryUrl = computed(() => {
+          if (!currentActivePlugin.value) return '';
+          const entry = currentActivePlugin.value.manifest?.entry || currentActivePlugin.value.entry || '/index.html';
+          return '/plugins/' + currentActivePlugin.value.id + (entry.startsWith('/') ? entry : '/' + entry);
+        });
+
+        const activePlugins = computed(() => {
+          return pluginsList.value.filter(p => p.status === 'active' || p.enabled === true);
+        });
+
+        const activePluginsCount = computed(() => {
+          return activePlugins.value.length;
+        });
+
+        const filteredPlugins = computed(() => {
+          let list = pluginsList.value || [];
+          if (pluginStatusFilter.value === 'active') {
+            list = list.filter(p => p.status === 'active' || p.enabled === true);
+          } else if (pluginStatusFilter.value === 'inactive') {
+            list = list.filter(p => p.status !== 'active' && p.enabled !== true);
+          }
+          if (pluginSearchQuery.value && pluginSearchQuery.value.trim()) {
+            const q = pluginSearchQuery.value.toLowerCase().trim();
+            list = list.filter(p =>
+              (p.name && p.name.toLowerCase().includes(q)) ||
+              (p.id && p.id.toLowerCase().includes(q)) ||
+              (p.description && p.description.toLowerCase().includes(q))
+            );
+          }
+          return list;
+        });
+
+        const fetchPlugins = async () => {
+          loadingPlugins.value = true;
+          try {
+            const res = await fetch('/api/v1/plugins');
+            if (res.ok) {
+              const data = await res.json();
+              pluginsList.value = Array.isArray(data) ? data : (data.plugins || data.data || []);
+            } else {
+              console.warn('[Plugins] Failed to fetch /api/v1/plugins status:', res.status);
+              // Fallback default sample plugins if empty or mock
+              if (pluginsList.value.length === 0) {
+                pluginsList.value = [];
+              }
+            }
+          } catch (err) {
+            console.error('[Plugins] Error fetching plugins:', err);
+          } finally {
+            loadingPlugins.value = false;
+          }
+        };
+
+        const togglePluginStatus = async (plugin) => {
+          if (!plugin || !plugin.id) return;
+          actionInProgressId.value = plugin.id;
+          const isCurrentlyActive = plugin.status === 'active' || plugin.enabled === true;
+          const targetAction = isCurrentlyActive ? 'disable' : 'enable';
+          try {
+            const res = await fetch('/api/v1/plugins/' + plugin.id + '/' + targetAction, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' }
+            });
+            if (res.ok) {
+              plugin.status = isCurrentlyActive ? 'inactive' : 'active';
+              plugin.enabled = !isCurrentlyActive;
+              if (window.toastNotification) {
+                window.toastNotification('Plugin ' + (plugin.name || plugin.id) + ' đã ' + (isCurrentlyActive ? 'vô hiệu hóa' : 'kích hoạt') + '!', 'success');
+              }
+            } else {
+              const errData = await res.json().catch(() => ({}));
+              alert(errData.message || 'Thao tác thất bại (' + res.status + ')');
+            }
+          } catch (err) {
+            console.error('[Plugins] Error toggling status:', err);
+            // Optimistic update for UI if offline/dev
+            plugin.status = isCurrentlyActive ? 'inactive' : 'active';
+            plugin.enabled = !isCurrentlyActive;
+          } finally {
+            actionInProgressId.value = null;
+          }
+        };
+
+        const reloadPlugin = async (plugin) => {
+          if (!plugin || !plugin.id) return;
+          actionInProgressId.value = plugin.id;
+          try {
+            const res = await fetch('/api/v1/plugins/' + plugin.id + '/reload', {
+              method: 'POST'
+            });
+            if (res.ok) {
+              if (window.toastNotification) {
+                window.toastNotification('Đã nạp lại plugin ' + (plugin.name || plugin.id), 'success');
+              }
+            } else {
+              alert('Không thể nạp lại plugin.');
+            }
+          } catch (err) {
+            console.error('[Plugins] Reload error:', err);
+          } finally {
+            actionInProgressId.value = null;
+          }
+        };
+
+        const openUploadDialog = () => {
+          selectedPluginFile.value = null;
+          uploadAutoEnable.value = true;
+          uploadPluginDialog.value = true;
+        };
+
+        const onPluginFileChange = (e) => {
+          const files = e.target.files;
+          if (files && files.length > 0) {
+            selectedPluginFile.value = files[0];
+          }
+        };
+
+        const onPluginFileDrop = (e) => {
+          const files = e.dataTransfer.files;
+          if (files && files.length > 0) {
+            selectedPluginFile.value = files[0];
+          }
+        };
+
+        const submitUploadPlugin = async () => {
+          if (!selectedPluginFile.value) return;
+          isSubmittingUpload.value = true;
+          try {
+            const formData = new FormData();
+            formData.append('file', selectedPluginFile.value);
+            formData.append('autoEnable', String(uploadAutoEnable.value));
+            const res = await fetch('/api/v1/plugins/upload', {
+              method: 'POST',
+              body: formData
+            });
+            if (res.ok) {
+              uploadPluginDialog.value = false;
+              selectedPluginFile.value = null;
+              if (window.toastNotification) {
+                window.toastNotification('Cài đặt plugin thành công!', 'success');
+              }
+              await fetchPlugins();
+            } else {
+              const err = await res.json().catch(() => ({}));
+              alert(err.message || 'Cài đặt plugin thất bại.');
+            }
+          } catch (err) {
+            console.error('[Plugins] Upload error:', err);
+            alert('Lỗi tải lên tệp plugin.');
+          } finally {
+            isSubmittingUpload.value = false;
+          }
+        };
+
+        const openInstallUrlDialog = () => {
+          pluginInstallUrl.value = '';
+          uploadAutoEnable.value = true;
+          installUrlDialog.value = true;
+        };
+
+        const submitInstallUrl = async () => {
+          if (!pluginInstallUrl.value) return;
+          isSubmittingUrl.value = true;
+          try {
+            const res = await fetch('/api/v1/plugins/install-url', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                url: pluginInstallUrl.value,
+                autoEnable: uploadAutoEnable.value
+              })
+            });
+            if (res.ok) {
+              installUrlDialog.value = false;
+              pluginInstallUrl.value = '';
+              if (window.toastNotification) {
+                window.toastNotification('Cài đặt plugin từ URL thành công!', 'success');
+              }
+              await fetchPlugins();
+            } else {
+              const err = await res.json().catch(() => ({}));
+              alert(err.message || 'Cài đặt plugin từ URL thất bại.');
+            }
+          } catch (err) {
+            console.error('[Plugins] Install URL error:', err);
+            alert('Lỗi kết nối khi cài đặt từ URL.');
+          } finally {
+            isSubmittingUrl.value = false;
+          }
+        };
+
+        const openPluginConfig = (plugin) => {
+          pluginToConfig.value = plugin;
+          pluginConfigError.value = '';
+          try {
+            pluginConfigJson.value = JSON.stringify(plugin.config || plugin.manifest?.config || {}, null, 2);
+          } catch (_) {
+            pluginConfigJson.value = '{}';
+          }
+          configPluginDialog.value = true;
+        };
+
+        const savePluginConfig = async () => {
+          if (!pluginToConfig.value) return;
+          pluginConfigError.value = '';
+          let parsed;
+          try {
+            parsed = JSON.parse(pluginConfigJson.value);
+          } catch (e) {
+            pluginConfigError.value = 'Định dạng JSON không hợp lệ: ' + e.message;
+            return;
+          }
+          isSavingConfig.value = true;
+          try {
+            const res = await fetch('/api/v1/plugins/' + pluginToConfig.value.id + '/config', {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ config: parsed })
+            });
+            if (res.ok) {
+              pluginToConfig.value.config = parsed;
+              configPluginDialog.value = false;
+              if (window.toastNotification) {
+                window.toastNotification('Cập nhật cấu hình plugin thành công!', 'success');
+              }
+            } else {
+              const err = await res.json().catch(() => ({}));
+              pluginConfigError.value = err.message || 'Lưu cấu hình thất bại.';
+            }
+          } catch (err) {
+            pluginConfigError.value = 'Lỗi kết nối khi lưu cấu hình.';
+          } finally {
+            isSavingConfig.value = false;
+          }
+        };
+
+        const confirmUninstallPlugin = async (plugin) => {
+          if (!plugin || !plugin.id) return;
+          if (!confirm('Bạn có chắc chắn muốn gỡ bỏ plugin "' + (plugin.name || plugin.id) + '" khỏi hệ thống không?')) return;
+          actionInProgressId.value = plugin.id;
+          try {
+            const res = await fetch('/api/v1/plugins/' + plugin.id, {
+              method: 'DELETE'
+            });
+            if (res.ok) {
+              if (window.toastNotification) {
+                window.toastNotification('Đã gỡ bỏ plugin ' + (plugin.name || plugin.id), 'success');
+              }
+              if (activeTab.value === 'plugin-' + plugin.id) {
+                switchTab('plugins-management');
+              }
+              await fetchPlugins();
+            } else {
+              const err = await res.json().catch(() => ({}));
+              alert(err.message || 'Không thể gỡ bỏ plugin.');
+            }
+          } catch (err) {
+            console.error('[Plugins] Uninstall error:', err);
+            alert('Lỗi kết nối khi gỡ bỏ plugin.');
+          } finally {
+            actionInProgressId.value = null;
+          }
+        };
+
+        const openPluginView = (plugin) => {
+          selectedActivePlugin.value = plugin;
+          switchTab('plugin-' + plugin.id);
+        };
+
+        const modbusPresetsList = (modbusPresetsModule && (modbusPresetsModule.modbusPresetsList || modbusPresetsModule.presetsList)) || ref([]);
+
+        return {
+          modbusPresetsList,
+          presetsList: modbusPresetsList,
+          ...modbusPresetsModule,
+          ...testBuilderModule,
+          ...itemCodesModule,
+          ...salesOrdersModule,
+          ...sensorTypesModule,
+          ...traceabilityModule,
+          ...memmapUploadModule,
+          ...memmapManagerModule,
+          ...createFinalConfigModule,
+          ...finalConfigManagerModule,
+          ...deviceTestedModule,
+          activeTab,
+          sidebarOpen,
+          sidebarCollapsed,
+          toggleSidebarCollapse,
+          currentTheme,
+          setTheme,
+          toggleTheme,
+          userMenuOpen,
+          userInitials,
+          handleGlobalClick,
+          navigateTo,
+          activeTabLabel,
+          currentUser,
+          isSuperAdmin,
+          networkServersList,
+          modulesList,
+          rolesList,
+          usersList,
+          allPermissions,
+          groupedPermissions,
+          getModulesForRole,
+          toggleSelectAllRolePermissions,
+          toggleGroupPermissions,
+          dbHealth,
+          devicesList,
+          loadingUsers,
+          loadingRoles,
+          savingNetworkServer,
+          savingModule,
+          savingRole,
+          savingUser,
+          savingDevice,
+          networkServerDialog,
+          isEditingNetworkServer,
+          moduleDialog,
+          isEditingModule,
+          roleDialog,
+          isEditingRole,
+          createUserDialog,
+          editUserDialog,
+          registerDeviceDialog,
+          isEditingDevice,
+          currentNetworkServer,
+          currentModule,
+          currentRole,
+          newUser,
+          editUser,
+          newDevice,
+          selectedDeviceNetworkServer,
+          availableDeviceRegions,
+          onDeviceNetworkServerChange,
+          sandboxCode,
+          sandboxHex,
+          sandboxResult,
+          toast,
+          handleLogout,
+          copyUrl,
+          switchTab,
+          fetchNetworkServers,
+          openCreateNetworkServerDialog,
+          openEditNetworkServerDialog,
+          addRegionRow,
+          removeRegionRow,
+          submitNetworkServerForm,
+          testNetworkServer,
+          deleteNetworkServer,
+          fetchModules,
+          fetchRoles,
+          fetchUsers,
+          fetchDbHealth,
+          reloadDbConfig,
+          fetchDevices,
+          openCreateModuleDialog,
+          openEditModuleDialog,
+          submitModuleForm,
+          toggleModuleActive,
+          deleteModule,
+          resetModulesDefaults,
+          addModuleToLayoutModal,
+          isModuleInCurrentLayout,
+          openAddModuleToLayoutModal,
+          closeAddModuleToLayoutModal,
+          addModuleToCurrentRoleLayout,
+          removeModuleFromCurrentRoleLayout,
+          toggleModuleSpan,
+          moduleManagerSubTab,
+          selectedLayoutRole,
+          isEditingRoleLayout,
+          savingRoleLayout,
+          roleLayouts,
+          currentRoleModuleList,
+          draggedModuleIndex,
+          dragOverModuleIndex,
+          fetchRoleLayouts,
+          computeRoleModules,
+          onLayoutRoleChange,
+          startEditRoleLayout,
+          cancelEditRoleLayout,
+          saveRoleLayoutOrder,
+          onDragStart,
+          onDragOver,
+          onDrop,
+          onDragEnd,
+          moveModuleOrder,
+          openCreateRoleDialog,
+          openEditRoleDialog,
+          submitRoleForm,
+          deleteRole,
+          openCreateUserDialog,
+          submitCreateUser,
+          openEditUserDialog,
+          submitEditUser,
+          deleteUser,
+          openRegisterDeviceDialog,
+          openEditDeviceDialog,
+          submitDeviceForm,
+          deleteConfirmDialog,
+          deviceToDelete,
+          deletingDevice,
+          deleteDevice,
+          confirmDeleteDevice,
+          checkingHealthDevEUI,
+          checkDeviceHealth,
+          formatLastSeen,
+          isDeviceOnline,
+          syncDevice,
+          testDevice,
+          onItemCodeSelectedForDevice,
+          sendDownlinkForDevice,
+          viewItemCodeForDevice,
+          viewSalesOrderForDevice,
+          runSandboxDecode,
+          decodersList,
+          loadingDecoders,
+          savingDecoder,
+          decoderSearchQuery,
+          filteredDecoders,
+          addDecoderDialog,
+          addDecoderConfirmDialog,
+          editDecoderDialog,
+          deleteDecoderConfirmDialog,
+          decoderToDelete,
+          currentDecoder,
+          newDecoder,
+          selectedSandboxDecoderId,
+          selectedSandboxDeviceEUI,
+          selectedSandboxDevice,
+          sandboxTelemetryList,
+          sandboxActiveMetadata,
+          sandboxDecodedObject,
+          sandboxViewMode,
+          loadingDeviceTelemetry,
+          decodedFieldsList,
+          matrixSensorColumns,
+          matrixRows,
+          filteredMatrixRows,
+          sortedMatrixRows,
+          sandboxTimeFilter,
+          sandboxSearchQuery,
+          sandboxSortKey,
+          sandboxSortOrder,
+          sandboxAutoSync,
+          toggleSandboxSort,
+          resetSandboxFilters,
+          isSandboxFilterActive,
+          toggleSandboxAutoSync,
+          fetchSandboxTelemetry,
+          sandboxFPort,
+          formatDateTime,
+          getSubfunctionCount,
+          fetchDecoders,
+          openAddDecoderModal,
+          closeAddDecoderModal,
+          loadSampleDecoderTemplate,
+          promptSubmitAddDecoder,
+          submitAddDecoder,
+          openEditDecoderModal,
+          submitEditDecoder,
+          confirmDeleteDecoder,
+          submitDeleteDecoder,
+          loadDecoderIntoSandbox,
+          onSelectSandboxDecoder,
+          onSelectSandboxDevice,
+          loadHistoricalTelemetryPacket,
+          sandboxDisplayOutput,
+          webhookLogs,
+          webhookStats,
+          loadingWebhookLogs,
+          webhookServerFilter,
+          webhookSearchQuery,
+          filteredWebhookLogs,
+          rawPayloadModal,
+          inspectedWebhookLog,
+          simulatePacketModal,
+          simulatingPacket,
+          simulatePacketForm,
+          retentionModal,
+          savingRetention,
+          newRetentionLimit,
+          clearLogsConfirmModal,
+          fetchWebhookLogs,
+          fetchWebhookStats,
+          inspectWebhookLog,
+          copyJson,
+          formatRawJson,
+          openSimulatePacketModal,
+          submitSimulatePacket,
+          openRetentionModal,
+          submitUpdateRetention,
+          openClearLogsModal,
+          submitClearLogs,
+          formatLogTime,
+          systemVersionInfo,
+          loadingSystemVersion,
+          restartingServer,
+          restartConfirmDialog,
+          serverLogsDialog,
+          serverLogs,
+          loadingServerLogs,
+          restartProgress,
+          formatUptime,
+          copyCommitHash,
+          fetchSystemVersion,
+          openRestartConfirmDialog,
+          openServerLogsDialog,
+          confirmRestartServer,
+          standaloneOpsUrl,
+          hmiScreensList,
+          selectedHmiScreenId,
+          currentHmiScreen,
+          savingHmiScreen,
+          hmiEditorMode,
+          selectedWidgetId,
+          selectedWidget,
+          selectedWidgetBinding,
+          selectedWidgetAction,
+          hmiZoom,
+          hmiGridSize,
+          canvasPreset,
+          createHmiModal,
+          newHmiScreenForm,
+          hmiRbacModal,
+          selectedScreenRoles,
+          fetchHmiScreens,
+          onSelectHmiScreen,
+          saveCurrentHmiScreen,
+          openCreateHmiScreenModal,
+          submitCreateHmiScreen,
+          cloneCurrentHmiScreen,
+          togglePublishHmiScreen,
+          deleteCurrentHmiScreen,
+          openHmiRbacModal,
+          saveHmiRbac,
+          onCanvasPresetChange,
+          addWidgetToCanvas,
+          removeSelectedWidget,
+          duplicateSelectedWidget,
+          moveWidgetLayer,
+          onWidgetMouseDown,
+          onResizeMouseDown,
+          getWidgetTelemetryValue,
+          getWidgetTankHeightPercent,
+          getWidgetLiquidColor,
+          getWidgetGaugeAngle,
+          isWidgetBitOn,
+          getWidgetBitLampStyle,
+          getWidgetMultiStateLabel,
+          getWidgetMultiStateColor,
+          getWidgetMultiStateStyle,
+          getWidgetMultiStateIcon,
+          isWidgetAlarmActive,
+          getWidgetAlarmText,
+          getWidgetAlarmClass,
+          isWidgetSwitchOn,
+          triggerWidgetToggleSwitch,
+          triggerWidgetActionButton,
+          getWidgetTrendPath,
+          trendPointsMap,
+          trendHoverState,
+          trendSeriesModal,
+          trendTargetWidget,
+          trendSeriesForm,
+          detectedTrendFields,
+          loadingTrendFields,
+          getTrendSeries,
+          getTrendYBounds,
+          getTrendXTicks,
+          getTrendSeriesPath,
+          getTrendSeriesAreaPath,
+          getTrendLatestPoint,
+          getTrendSeriesLatestVal,
+          handleTrendMouseMove,
+          handleTrendMouseLeave,
+          setTrendTimeRange,
+          fetchTrendHistoryForWidget,
+          openAddTrendSeriesModal,
+          fetchDetectedTrendFields,
+          selectTrendTagPill,
+          saveTrendSeries,
+          removeTrendSeries,
+          toggleTrendSeriesVisible,
+          detectedTelemetryFields,
+          loadingDetectedFields,
+          hmiTagFilterQuery,
+          filteredDetectedTelemetryFields,
+          fetchDetectedFieldsForSelectedDevice,
+          applyDetectedField,
+          stretchWidgetWidth,
+          stretchWidgetHeight,
+          setWidgetPresetSize,
+          setHmiEditorMode,
+          handleHmiKeydown,
+          getTagTooltip,
+          downlinkForm,
+          downlinkDeviceSearch,
+          downlinkHistory,
+          loadingDownlinkHistory,
+          sendingDownlink,
+          downlinkHistoryFilterDevEUI,
+          // Plugins Management
+          pluginsList,
+          loadingPlugins,
+          pluginSearchQuery,
+          pluginStatusFilter,
+          uploadPluginDialog,
+          installUrlDialog,
+          configPluginDialog,
+          pluginToConfig,
+          pluginConfigJson,
+          pluginConfigError,
+          pluginInstallUrl,
+          selectedPluginFile,
+          uploadAutoEnable,
+          isSubmittingUpload,
+          isSubmittingUrl,
+          isSavingConfig,
+          actionInProgressId,
+          selectedActivePlugin,
+          currentActivePlugin,
+          currentActivePluginEntryUrl,
+          activePlugins,
+          activePluginsCount,
+          filteredPlugins,
+          fetchPlugins,
+          togglePluginStatus,
+          reloadPlugin,
+          openUploadDialog,
+          onPluginFileChange,
+          onPluginFileDrop,
+          submitUploadPlugin,
+          openInstallUrlDialog,
+          submitInstallUrl,
+          openPluginConfig,
+          savePluginConfig,
+          confirmUninstallPlugin,
+          openPluginView,
+          downlinkConfirmModal,
+          filteredDownlinkDevices,
+          calculatedHexBytes,
+          calculatedConfirmBytes,
+          selectedDownlinkDevice,
+          selectedDownlinkServer,
+          downlinkDeviceDropdownOpen,
+          selectDownlinkDevice,
+          clearSelectedDownlinkDevice,
+          onDownlinkDeviceSelect,
+          onDownlinkSearchFocus,
+          toggleDownlinkDropdown,
+          deviceQueue,
+          loadingDeviceQueue,
+          flushingQueue,
+          deviceQueueServerName,
+          fetchDeviceQueue,
+          fetchDownlinkHistory,
+          openDownlinkConfirm,
+          executeConfirmedDownlink,
+          flushConfirmModal,
+          openFlushConfirm,
+          executeConfirmedFlush,
+          flushQueueExplicitly,
+          formatFirmware,
+          onDeviceSkuOrFwChange,
+          resendDownlink,
+          copyText,
+          hasDegradedModules: moduleStatesStore.hasDegradedModules,
+          degradedModulesList: moduleStatesStore.degradedModulesList,
+          moduleStates: moduleStatesStore.moduleStates,
+          isModuleBypassed: moduleStatesStore.isModuleBypassed,
+        };
+      }
+    });
+
+    app.component('c-module-boundary', CModuleBoundary);
+
+    app.config.errorHandler = function(err, vm, info) {
+      console.error('[Vue Error Handler]:', err, info);
+      var appEl = document.getElementById('app');
+      if (appEl && appEl.hasAttribute('v-cloak')) {
+        appEl.removeAttribute('v-cloak');
+      }
+      if (window.__cp_module_states_store && window.__cp_current_tab) {
+        window.__cp_module_states_store.setModuleError(window.__cp_current_tab, err, 'runtime');
+      }
+    };
+
+    app.mount('#app');
+  </script>

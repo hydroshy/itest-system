@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+  <meta http-equiv="Pragma" content="no-cache" />
+  <meta http-equiv="Expires" content="0" />
+  <title>Control Panel - Daviteq LoRaWAN Platform</title>
+  <link rel="icon" type="image/png" href="/images/favicon.png" />
+  <link rel="shortcut icon" href="/images/favicon.png" />
+  <link rel="prefetch" href="/dashboard" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+  <script src="https://cdn.jsdelivr.net/npm/socket.io-client@4.7.4/dist/socket.io.min.js"></script>
+  <!-- Tabulator 6.3.0 & SheetJS (XLSX) -->
+  <link rel="stylesheet" href="/vendor/tabulator/tabulator_midnight.min.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/tabulator-tables/6.3.0/css/tabulator_midnight.min.css">
+  <script src="/vendor/tabulator/tabulator.min.js"></script>
+  <script src="/vendor/xlsx/xlsx.full.min.js"></script>
+  <script>
+    if (typeof Tabulator === 'undefined') {
+      document.write('<script src="https://cdnjs.cloudflare.com/ajax/libs/tabulator-tables/6.3.0/js/tabulator.min.js"><\\/script>');
+    }
+    if (typeof XLSX === 'undefined') {
+      document.write('<script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"><\\/script>');
+    }
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Azeret+Mono:ital,wght@0,300..900;1,300..900&family=Host+Grotesk:ital,wght@0,300..800;1,300..800&family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap" rel="stylesheet">
+  <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+
+  <!-- THEME PRE-INIT -->
+  <script>
+    (function() {
+      try {
+        var saved = localStorage.getItem('dvt_theme');
+        var theme = (saved === 'dark') ? 'dark' : 'light';
+        document.documentElement.classList.add(theme === 'dark' ? 'theme-dark' : 'theme-light');
+      } catch(e) {
+        document.documentElement.classList.add('theme-light');
+      }
+    })();
+  </script>
+  <style>
+<!-- @slot:css -->
+  </style>
+</head>
+<body class="min-h-screen flex flex-col antialiased">
+  <div id="app" v-cloak class="flex-1 flex flex-col min-h-screen" @click="handleGlobalClick">
+
+    <!-- TOP APP BAR -->
+<!-- @slot:header -->
+
+    <!-- BODY CONTAINER WITH SIDEBAR -->
+    <div class="flex-1 flex overflow-hidden">
+      <!-- SIDEBAR -->
+<!-- @slot:sidebar -->
+
+      <!-- MAIN CONTENT AREA -->
+      <main class="flex-1 overflow-y-auto custom-scroll p-4 sm:p-6 lg:p-8 space-y-6">
+        <!-- GLOBAL DEGRADED NOTIFICATION BANNER -->
+<!-- @slot:banner -->
+
+        <!-- TAB MODULE CONTENT -->
+<!-- @slot:content -->
+      </main>
+    </div>
+
+    <!-- GLOBAL DIALOGS & MODALS -->
+<!-- @slot:modals -->
+
+    <!-- TOAST NOTIFICATION -->
+<!-- @slot:toasts -->
+
+  </div>
+
+  <!-- VUE APPLICATION & CLIENT LOGIC SCRIPT -->
+<!-- @slot:scripts -->
+</body>
+</html>

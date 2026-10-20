@@ -1,0 +1,166 @@
+            </div>
+
+            <!-- Logout Button -->
+            <button
+              @click="handleLogout"
+              class="w-full py-2 px-3 rounded-lg text-xs font-bold text-red-400 bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 transition flex items-center justify-center gap-2 cursor-pointer"
+            >
+              <i class="fa-solid fa-right-from-bracket"></i> Sign Out
+            </button>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <!-- WORKSPACE: LEFT SIDEBAR + MAIN CONTENT AREA -->
+    <div class="flex-1 flex overflow-hidden">
+      
+      <!-- MOBILE BACKDROP OVERLAY -->
+      <div v-if="sidebarOpen" @click="sidebarOpen = false" class="fixed inset-0 bg-slate-950/80 z-30 md:hidden backdrop-blur-sm"></div>
+
+      <!-- LEFT SIDEBAR NAVIGATION -->
+      <aside
+        :class="[
+          sidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0',
+          sidebarCollapsed ? 'md:w-0 md:p-0 md:border-r-0 md:overflow-hidden md:opacity-0 md:pointer-events-none' : 'md:w-60 p-3.5'
+        ]"
+        class="fixed md:static inset-y-0 left-0 z-30 glass-sidebar flex flex-col justify-between transition-all duration-200 ease-in-out md:flex-shrink-0 mt-14 md:mt-0"
+      >
+        <!-- Sidebar Collapse Toggle Action Header (Desktop) -->
+        <div class="hidden md:flex items-center pb-2.5 mb-1.5 border-b border-slate-800/80 justify-between px-1">
+          <span class="text-[10px] font-extrabold uppercase tracking-wider text-slate-500">Navigation</span>
+          <button
+            type="button"
+            @click="toggleSidebarCollapse"
+            class="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition cursor-pointer flex items-center justify-center"
+            title="Collapse navigation"
+          >
+            <i class="fa-solid text-xs fa-angles-left text-slate-400"></i>
+          </button>
+        </div>
+
+        <div class="space-y-4 custom-scroll overflow-y-auto flex-1 pr-0.5">
+          <!-- GROUP 1: CORE GOVERNANCE -->
+          <div class="space-y-1">
+            <div class="px-2 pb-1 text-[10px] font-extrabold uppercase tracking-wider text-slate-500 truncate">
+              Core Governance
+            </div>
+
+            <button
+              @click="switchTab('overview')"
+              :class="{ active: activeTab === 'overview' }"
+              class="nav-item"
+            >
+              <span class="flex items-center gap-2.5">
+                <i class="fa-solid fa-chart-pie w-4 text-center text-xs text-sky-400"></i>
+                <span class="truncate">Overview Hub</span>
+              </span>
+            </button>
+
+            <button
+              @click="switchTab('modules')"
+              :class="{ active: activeTab === 'modules' }"
+              class="nav-item"
+            >
+              <span class="flex items-center gap-2.5">
+                <i class="fa-solid fa-cubes w-4 text-center text-xs text-cyan-400"></i>
+                <span class="truncate">Dashboard module Manager</span>
+              </span>
+            </button>
+
+            <button
+              @click="switchTab('plugins-management')"
+              :class="{ active: activeTab === 'plugins-management' }"
+              class="nav-item"
+            >
+              <span class="flex items-center gap-2.5">
+                <i class="fa-solid fa-puzzle-piece w-4 text-center text-xs text-indigo-400"></i>
+                <span class="truncate">Plugins Management</span>
+              </span>
+              <span
+                v-if="activePluginsCount > 0"
+                class="px-1.5 py-0.2 rounded text-[9px] font-mono font-bold bg-indigo-500/10 text-indigo-400 border border-indigo-500/20"
+              >
+                {{ activePluginsCount }}
+              </span>
+            </button>
+
+            <button
+              @click="switchTab('database')"
+              :class="{ active: activeTab === 'database' }"
+              class="nav-item"
+            >
+              <span class="flex items-center gap-2.5">
+                <i class="fa-solid fa-database w-4 text-center text-xs text-indigo-400"></i>
+                <span class="truncate">Database Manager</span>
+              </span>
+            </button>
+          </div>
+
+          <!-- GROUP 2: ACCESS & SECURITY -->
+          <div class="space-y-1">
+            <div class="px-2 pb-1 text-[10px] font-extrabold uppercase tracking-wider text-emerald-500/90 flex items-center justify-between">
+              <span class="truncate">Access & Security</span>
+            </div>
+
+            <button
+              @click="switchTab('roles')"
+              :class="{ active: activeTab === 'roles' }"
+              class="nav-item"
+            >
+              <span class="flex items-center gap-2.5">
+                <i class="fa-solid fa-shield-halved w-4 text-center text-xs text-amber-400"></i>
+                <span class="truncate">Roles & RBAC</span>
+              </span>
+            </button>
+
+            <button
+              @click="switchTab('users')"
+              :class="{ active: activeTab === 'users' }"
+              class="nav-item"
+            >
+              <span class="flex items-center gap-2.5">
+                <i class="fa-solid fa-users w-4 text-center text-xs text-emerald-400"></i>
+                <span class="truncate">User Accounts</span>
+              </span>
+            </button>
+          </div>
+
+          <!-- GROUP 3: PLUGINS (DYNAMICALLY LOADED/ACTIVE PLUGINS) -->
+          <div v-if="activePlugins.length > 0" class="space-y-1">
+            <div class="px-2 pb-1 text-[10px] font-extrabold uppercase tracking-wider text-indigo-400/90 flex items-center justify-between">
+              <span class="truncate">Plugins</span>
+              <span class="px-1.5 py-0.2 rounded text-[9px] font-mono font-bold bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
+                {{ activePlugins.length }}
+              </span>
+            </div>
+
+            <button
+              v-for="plugin in activePlugins"
+              :key="plugin.id"
+              @click="openPluginView(plugin)"
+              :class="{ active: activeTab === 'plugin-' + plugin.id }"
+              class="nav-item"
+            >
+              <span class="flex items-center gap-2.5 truncate">
+                <i :class="plugin.manifest?.icon || 'fa-solid fa-puzzle-piece'" class="w-4 text-center text-xs text-indigo-400"></i>
+                <span class="truncate">{{ plugin.name || plugin.id }}</span>
+              </span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Bottom Section: Quick Collapse Action in Footer (Desktop) -->
+        <div class="hidden md:flex pt-2 mt-2 border-t border-slate-800/80 justify-between items-center px-1 text-xs text-slate-500">
+          <span class="text-[10px] font-mono text-slate-500">Daviteq CP</span>
+          <button
+            type="button"
+            @click="toggleSidebarCollapse"
+            class="p-1 rounded-lg hover:bg-slate-800 hover:text-white text-slate-400 transition cursor-pointer flex items-center gap-1.5 text-xs"
+            title="Collapse navigation"
+          >
+            <i class="fa-solid text-xs fa-angles-left text-slate-400"></i>
+            <span class="text-[10px] font-semibold">Collapse</span>
+          </button>
+        </div>
+      </aside>
