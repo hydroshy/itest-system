@@ -2940,6 +2940,7 @@ export const CONTROL_PANEL_HTML = `<!DOCTYPE html>
           toast.value = { show: true, text, type };
           setTimeout(() => { toast.value.show = false; }, 3500);
         };
+        window.toastNotification = showToast;
 
         const isSuperAdmin = computed(() => {
           const user = currentUser.value;

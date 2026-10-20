@@ -35,7 +35,7 @@ export const PLUGINS_MANAGEMENT_TEMPLATE = `
               <div class="flex items-center gap-2.5 w-full md:w-auto">
                 <button
                   type="button"
-                  @click="openUploadPluginModal"
+                  @click="openUploadDialog"
                   class="flex-1 md:flex-initial px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs transition flex items-center justify-center gap-2 shadow-lg shadow-indigo-600/25 cursor-pointer active:scale-95"
                 >
                   <i class="fa-solid fa-cloud-arrow-up"></i>
@@ -43,7 +43,7 @@ export const PLUGINS_MANAGEMENT_TEMPLATE = `
                 </button>
                 <button
                   type="button"
-                  @click="openInstallUrlModal"
+                  @click="openInstallUrlDialog"
                   class="flex-1 md:flex-initial px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 font-semibold text-xs transition flex items-center justify-center gap-2 cursor-pointer active:scale-95"
                 >
                   <i class="fa-solid fa-globe"></i>
@@ -67,14 +67,14 @@ export const PLUGINS_MANAGEMENT_TEMPLATE = `
             <div class="flex items-center gap-2 flex-1 max-w-md bg-slate-900/90 border border-slate-800 rounded-xl px-3 py-1.5 focus-within:border-indigo-500/60 transition">
               <i class="fa-solid fa-magnifying-glass text-slate-500 text-xs"></i>
               <input
-                v-model="pluginsSearchQuery"
+                v-model="pluginSearchQuery"
                 type="text"
                 placeholder="Search plugins by name, ID, or description..."
                 class="bg-transparent text-white placeholder-slate-500 text-xs w-full focus:outline-none"
               />
               <button
-                v-if="pluginsSearchQuery"
-                @click="pluginsSearchQuery = ''"
+                v-if="pluginSearchQuery"
+                @click="pluginSearchQuery = ''"
                 class="text-slate-500 hover:text-white"
               >
                 <i class="fa-solid fa-xmark text-xs"></i>
@@ -84,22 +84,22 @@ export const PLUGINS_MANAGEMENT_TEMPLATE = `
             <!-- Status Tabs / Type Filter -->
             <div class="flex items-center gap-2 overflow-x-auto pb-1 sm:pb-0">
               <button
-                @click="pluginsStatusFilter = 'ALL'"
-                :class="pluginsStatusFilter === 'ALL' ? 'bg-indigo-500/20 text-indigo-300 border-indigo-500/40 font-bold' : 'bg-slate-900/60 text-slate-400 border-slate-800 hover:text-white'"
+                @click="pluginStatusFilter = 'all'"
+                :class="pluginStatusFilter === 'all' ? 'bg-indigo-500/20 text-indigo-300 border-indigo-500/40 font-bold' : 'bg-slate-900/60 text-slate-400 border-slate-800 hover:text-white'"
                 class="px-3 py-1.5 rounded-lg border text-xs whitespace-nowrap transition cursor-pointer"
               >
                 All ({{ pluginsList.length }})
               </button>
               <button
-                @click="pluginsStatusFilter = 'ACTIVE'"
-                :class="pluginsStatusFilter === 'ACTIVE' ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40 font-bold' : 'bg-slate-900/60 text-slate-400 border-slate-800 hover:text-white'"
+                @click="pluginStatusFilter = 'active'"
+                :class="pluginStatusFilter === 'active' ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40 font-bold' : 'bg-slate-900/60 text-slate-400 border-slate-800 hover:text-white'"
                 class="px-3 py-1.5 rounded-lg border text-xs whitespace-nowrap transition cursor-pointer"
               >
                 <i class="fa-solid fa-circle-check text-[10px] text-emerald-400 mr-1"></i> Active
               </button>
               <button
-                @click="pluginsStatusFilter = 'DISABLED'"
-                :class="pluginsStatusFilter === 'DISABLED' ? 'bg-amber-500/20 text-amber-300 border-amber-500/40 font-bold' : 'bg-slate-900/60 text-slate-400 border-slate-800 hover:text-white'"
+                @click="pluginStatusFilter = 'inactive'"
+                :class="pluginStatusFilter === 'inactive' ? 'bg-amber-500/20 text-amber-300 border-amber-500/40 font-bold' : 'bg-slate-900/60 text-slate-400 border-slate-800 hover:text-white'"
                 class="px-3 py-1.5 rounded-lg border text-xs whitespace-nowrap transition cursor-pointer"
               >
                 <i class="fa-solid fa-pause text-[10px] text-amber-400 mr-1"></i> Disabled
@@ -109,7 +109,7 @@ export const PLUGINS_MANAGEMENT_TEMPLATE = `
 
           <!-- Empty State (No Plugins) -->
           <div
-            v-if="filteredPluginsList.length === 0"
+            v-if="filteredPlugins.length === 0"
             class="glass-card rounded-2xl p-12 text-center space-y-4 border-dashed border-2 border-slate-800"
           >
             <div class="w-16 h-16 rounded-2xl bg-slate-800/60 border border-slate-700/60 flex items-center justify-center text-slate-400 text-2xl mx-auto shadow-inner">
@@ -124,7 +124,7 @@ export const PLUGINS_MANAGEMENT_TEMPLATE = `
             <div class="flex items-center justify-center gap-3 pt-2">
               <button
                 type="button"
-                @click="openUploadPluginModal"
+                @click="openUploadDialog"
                 class="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs transition flex items-center gap-2 cursor-pointer"
               >
                 <i class="fa-solid fa-cloud-arrow-up"></i> Nạp Plugin Ngay
@@ -135,7 +135,7 @@ export const PLUGINS_MANAGEMENT_TEMPLATE = `
           <!-- Plugin Grid Cards -->
           <div v-else class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             <div
-              v-for="plugin in filteredPluginsList"
+              v-for="plugin in filteredPlugins"
               :key="plugin.id"
               class="glass-card rounded-xl p-5 flex flex-col justify-between border border-slate-800 hover:border-slate-700 transition relative group"
             >
@@ -145,7 +145,7 @@ export const PLUGINS_MANAGEMENT_TEMPLATE = `
                   <div class="flex items-center gap-3">
                     <div
                       class="w-10 h-10 rounded-xl flex items-center justify-center text-base font-bold shadow-md"
-                      :class="plugin.status === 'ACTIVE' ? 'bg-indigo-500/20 text-indigo-400 border border-indigo-500/30' : 'bg-slate-800 text-slate-500 border border-slate-700'"
+                      :class="(plugin.status === 'active' || plugin.enabled) ? 'bg-indigo-500/20 text-indigo-400 border border-indigo-500/30' : 'bg-slate-800 text-slate-500 border border-slate-700'"
                     >
                       <i :class="plugin.manifest?.icon || 'fa-solid fa-plug'"></i>
                     </div>
@@ -164,14 +164,14 @@ export const PLUGINS_MANAGEMENT_TEMPLATE = `
                   <!-- Status Badge -->
                   <div>
                     <span
-                      v-if="plugin.status === 'ACTIVE'"
+                      v-if="plugin.status === 'active' || plugin.enabled"
                       class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
                     >
                       <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
                       ACTIVE
                     </span>
                     <span
-                      v-else-if="plugin.status === 'DISABLED'"
+                      v-else-if="plugin.status === 'inactive' || plugin.enabled === false"
                       class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-800 text-slate-400 border border-slate-700"
                     >
                       DISABLED
@@ -215,17 +215,28 @@ export const PLUGINS_MANAGEMENT_TEMPLATE = `
                   @click="togglePluginStatus(plugin)"
                   :disabled="actionInProgressId === plugin.id"
                   class="px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer flex items-center gap-1.5"
-                  :class="plugin.status === 'ACTIVE' ? 'bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30' : 'bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'"
+                  :class="(plugin.status === 'active' || plugin.enabled) ? 'bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30' : 'bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'"
                 >
-                  <i class="fa-solid" :class="plugin.status === 'ACTIVE' ? 'fa-pause' : 'fa-play'"></i>
-                  <span>{{ plugin.status === 'ACTIVE' ? 'Disable' : 'Enable' }}</span>
+                  <i class="fa-solid" :class="(plugin.status === 'active' || plugin.enabled) ? 'fa-pause' : 'fa-play'"></i>
+                  <span>{{ (plugin.status === 'active' || plugin.enabled) ? 'Disable' : 'Enable' }}</span>
                 </button>
 
                 <div class="flex items-center gap-1.5">
+                  <!-- Reload button -->
+                  <button
+                    type="button"
+                    @click="reloadPlugin(plugin)"
+                    :disabled="actionInProgressId === plugin.id"
+                    class="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition cursor-pointer"
+                    title="Nạp lại Plugin"
+                  >
+                    <i class="fa-solid fa-rotate-right text-xs" :class="{ 'fa-spin': actionInProgressId === plugin.id }"></i>
+                  </button>
+
                   <!-- Config button -->
                   <button
                     type="button"
-                    @click="openPluginConfigModal(plugin)"
+                    @click="openPluginConfig(plugin)"
                     class="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition cursor-pointer"
                     title="Cấu hình Plugin"
                   >
@@ -234,7 +245,7 @@ export const PLUGINS_MANAGEMENT_TEMPLATE = `
 
                   <!-- View Detail / Open In Nav -->
                   <button
-                    v-if="plugin.status === 'ACTIVE'"
+                    v-if="plugin.status === 'active' || plugin.enabled"
                     type="button"
                     @click="openPluginView(plugin)"
                     class="px-2.5 py-1.5 rounded-lg bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 border border-indigo-500/30 text-xs font-semibold transition cursor-pointer flex items-center gap-1"
@@ -326,7 +337,7 @@ export const PLUGINS_MANAGEMENT_MODALS = `
               type="file"
               accept=".zip,.tar.gz,.tgz"
               class="hidden"
-              @change="onPluginFileSelected"
+              @change="onPluginFileChange"
             />
             <div class="w-12 h-12 rounded-xl bg-slate-800/80 text-indigo-400 flex items-center justify-center text-xl mx-auto mb-2">
               <i class="fa-solid fa-file-zipper"></i>
@@ -374,7 +385,7 @@ export const PLUGINS_MANAGEMENT_MODALS = `
           <div>
             <label class="block font-semibold text-slate-300 mb-1">URL Gói Plugin</label>
             <input
-              v-model="installUrlInput"
+              v-model="pluginInstallUrl"
               type="url"
               required
               placeholder="https://cdn.example.com/plugins/my-plugin.zip"
@@ -387,8 +398,8 @@ export const PLUGINS_MANAGEMENT_MODALS = `
           </div>
           <div class="flex justify-end gap-2 pt-2">
             <button type="button" @click="installUrlDialog = false" class="px-3.5 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold cursor-pointer">Hủy</button>
-            <button type="submit" :disabled="isSubmittingUpload" class="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-bold cursor-pointer">
-              {{ isSubmittingUpload ? 'Đang cài...' : 'Cài đặt' }}
+            <button type="submit" :disabled="isSubmittingUrl" class="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-bold cursor-pointer">
+              {{ isSubmittingUrl ? 'Đang cài...' : 'Cài đặt' }}
             </button>
           </div>
         </form>
@@ -396,15 +407,18 @@ export const PLUGINS_MANAGEMENT_MODALS = `
     </div>
 
     <!-- MODAL: PLUGIN CONFIGURATION -->
-    <div v-if="pluginConfigDialog" class="fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop">
+    <div v-if="configPluginDialog" class="fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop">
       <div class="w-full max-w-lg bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-4 shadow-2xl">
         <div class="flex items-center justify-between border-b border-slate-800 pb-3">
           <h3 class="text-sm font-bold text-white flex items-center gap-2">
-            <i class="fa-solid fa-gear text-indigo-400"></i> Cấu hình Plugin: {{ editingPlugin?.name || editingPlugin?.id }}
+            <i class="fa-solid fa-gear text-indigo-400"></i> Cấu hình Plugin: {{ pluginToConfig?.name || pluginToConfig?.id }}
           </h3>
-          <button @click="pluginConfigDialog = false" class="text-slate-500 hover:text-white cursor-pointer"><i class="fa-solid fa-xmark"></i></button>
+          <button @click="configPluginDialog = false" class="text-slate-500 hover:text-white cursor-pointer"><i class="fa-solid fa-xmark"></i></button>
         </div>
-        <form @submit.prevent="submitPluginConfig" class="space-y-3 text-xs">
+        <form @submit.prevent="savePluginConfig" class="space-y-3 text-xs">
+          <div v-if="pluginConfigError" class="p-2.5 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs">
+            {{ pluginConfigError }}
+          </div>
           <div>
             <label class="block font-semibold text-slate-300 mb-1">Cấu hình JSON (Runtime Config)</label>
             <textarea
@@ -414,9 +428,9 @@ export const PLUGINS_MANAGEMENT_MODALS = `
             ></textarea>
           </div>
           <div class="flex justify-end gap-2 pt-2">
-            <button type="button" @click="pluginConfigDialog = false" class="px-3.5 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold cursor-pointer">Hủy</button>
-            <button type="submit" class="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-bold cursor-pointer">
-              Lưu Cấu Hình
+            <button type="button" @click="configPluginDialog = false" class="px-3.5 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold cursor-pointer">Hủy</button>
+            <button type="submit" :disabled="isSavingConfig" class="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-bold cursor-pointer">
+              {{ isSavingConfig ? 'Đang lưu...' : 'Lưu Cấu Hình' }}
             </button>
           </div>
         </form>
