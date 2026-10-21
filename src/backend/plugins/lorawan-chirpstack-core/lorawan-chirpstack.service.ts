@@ -14,6 +14,8 @@ import {
 } from './chirpstack.types';
 import { ChirpStackApiClient } from './chirpstack-api.client';
 import { LoRaWanPayloadDecoder } from './payload-decoder';
+import { Repository } from 'typeorm';
+import { ChirpstackNetworkServerEntity } from '../../core-models/chirpstack-network-server.entity';
 
 export class LoRaWanChirpStackService {
   private readonly apiClient: ChirpStackApiClient;
@@ -22,10 +24,37 @@ export class LoRaWanChirpStackService {
   private readonly localDevices = new Map<string, ChirpStackDevice>();
   private readonly uplinkLogs: LoRaWanUplinkEvent[] = [];
   private readonly maxUplinkLogs = 200;
+  private networkServerRepository?: Repository<ChirpstackNetworkServerEntity>;
 
   constructor() {
     this.apiClient = new ChirpStackApiClient(8000);
     this.seedInitialData();
+  }
+
+  setNetworkServerRepository(repository: Repository<ChirpstackNetworkServerEntity>): void {
+    this.networkServerRepository = repository;
+  }
+
+  private toNetworkServer(entity: ChirpstackNetworkServerEntity): ChirpStackNetworkServer {
+    return {
+      id: entity.id,
+      name: entity.name,
+      apiUrl: entity.apiUrl,
+      apiToken: entity.apiToken,
+      tenantId: entity.tenantId || undefined,
+      version: 'ChirpStack v4',
+      status: entity.isActive ? 'untested' : 'offline',
+      lastCheckedAt: entity.updatedAt?.toISOString(),
+      gatewayCount: 0,
+      deviceCount: 0,
+    };
+  }
+
+  private async syncNetworkServers(): Promise<void> {
+    if (!this.networkServerRepository) return;
+    const entities = await this.networkServerRepository.find({ where: { isActive: true } });
+    this.servers.clear();
+    for (const entity of entities) this.servers.set(entity.id, this.toNetworkServer(entity));
   }
 
   private seedInitialData() {
@@ -139,10 +168,12 @@ export class LoRaWanChirpStackService {
   // ==========================================
 
   async getNetworkServers(): Promise<ChirpStackNetworkServer[]> {
+    await this.syncNetworkServers();
     return Array.from(this.servers.values());
   }
 
   async getNetworkServer(id: string): Promise<ChirpStackNetworkServer | null> {
+    await this.syncNetworkServers();
     return this.servers.get(id) || null;
   }
 
@@ -150,10 +181,10 @@ export class LoRaWanChirpStackService {
     const id = `cs-srv-${Date.now().toString(36)}`;
     const server: ChirpStackNetworkServer = {
       id,
-      name: dto.name,
+      name: dto.name.trim(),
       apiUrl: dto.apiUrl.trim(),
       apiToken: dto.apiToken.trim(),
-      tenantId: dto.tenantId.trim(),
+      tenantId: dto.tenantId?.trim(),
       version: 'ChirpStack v4',
       status: 'untested',
       lastCheckedAt: new Date().toISOString(),
@@ -166,15 +197,33 @@ export class LoRaWanChirpStackService {
     server.status = testResult.success ? 'online' : 'offline';
     server.errorMessage = testResult.success ? undefined : testResult.message;
 
-    this.servers.set(id, server);
+    if (this.networkServerRepository) {
+      const entity = this.networkServerRepository.create({
+        name: server.name,
+        apiUrl: server.apiUrl,
+        apiToken: server.apiToken,
+        tenantId: server.tenantId || null,
+        isActive: true,
+      });
+      const saved = await this.networkServerRepository.save(entity);
+      server.id = saved.id;
+    }
+
+    this.servers.set(server.id, server);
     return server;
   }
 
   async deleteNetworkServer(id: string): Promise<boolean> {
+    if (this.networkServerRepository) {
+      const result = await this.networkServerRepository.delete(id);
+      this.servers.delete(id);
+      return (result.affected || 0) > 0;
+    }
     return this.servers.delete(id);
   }
 
   async testServerConnection(id: string): Promise<{ success: boolean; message: string; version?: string }> {
+    await this.syncNetworkServers();
     const server = this.servers.get(id);
     if (!server) {
       return { success: false, message: `Không tìm thấy Network Server ID "${id}"` };

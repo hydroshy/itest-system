@@ -7,19 +7,33 @@ import {
   Query,
   Body,
   Logger,
+  OnModuleInit,
 } from '@nestjs/common';
+import { DynamicDatabaseService } from '../database/dynamic-database.service';
+import { ChirpstackNetworkServerEntity } from '../core-models/chirpstack-network-server.entity';
 import * as path from 'path';
 import * as fs from 'fs';
 import { ChirpStackPlugin } from './lorawan-chirpstack-core';
 
 @Controller()
-export class LorawanChirpstackAdapterController {
+export class LorawanChirpstackAdapterController implements OnModuleInit {
   private readonly logger = new Logger(LorawanChirpstackAdapterController.name);
   private pluginInstance: any = null;
   private controllerInstance: any = null;
 
-  constructor() {
+  constructor(private readonly databaseService: DynamicDatabaseService) {
     this.initPlugin();
+  }
+
+  onModuleInit(): void {
+    try {
+      const service = this.pluginInstance?.getService?.();
+      service?.setNetworkServerRepository?.(
+        this.databaseService.getRepositoryForTable('network_servers', ChirpstackNetworkServerEntity),
+      );
+    } catch (err: any) {
+      this.logger.warn(`ChirpStack Network Server persistence is unavailable: ${err.message}`);
+    }
   }
 
   private initPlugin() {

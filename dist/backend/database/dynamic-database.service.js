@@ -21,6 +21,7 @@ const permission_entity_1 = require("../identity/modules/roles-permissions/entit
 const core_plugin_entity_1 = require("../core-models/core-plugin.entity");
 const plugin_audit_log_entity_1 = require("../core-models/plugin-audit-log.entity");
 const unified_device_entity_1 = require("../core-models/unified-device.entity");
+const chirpstack_network_server_entity_1 = require("../core-models/chirpstack-network-server.entity");
 exports.ALL_DATABASE_ENTITIES = [
     user_entity_1.User,
     role_entity_1.Role,
@@ -28,6 +29,7 @@ exports.ALL_DATABASE_ENTITIES = [
     core_plugin_entity_1.CorePluginEntity,
     plugin_audit_log_entity_1.PluginAuditLogEntity,
     unified_device_entity_1.UnifiedDeviceEntity,
+    chirpstack_network_server_entity_1.ChirpstackNetworkServerEntity,
 ];
 let DynamicDatabaseService = DynamicDatabaseService_1 = class DynamicDatabaseService {
     constructor() {

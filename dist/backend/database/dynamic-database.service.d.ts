@@ -6,7 +6,8 @@ import { Permission } from '../identity/modules/roles-permissions/entities/permi
 import { CorePluginEntity } from '../core-models/core-plugin.entity';
 import { PluginAuditLogEntity } from '../core-models/plugin-audit-log.entity';
 import { UnifiedDeviceEntity } from '../core-models/unified-device.entity';
-export declare const ALL_DATABASE_ENTITIES: (typeof Permission | typeof Role | typeof User | typeof CorePluginEntity | typeof PluginAuditLogEntity | typeof UnifiedDeviceEntity)[];
+import { ChirpstackNetworkServerEntity } from '../core-models/chirpstack-network-server.entity';
+export declare const ALL_DATABASE_ENTITIES: (typeof Permission | typeof Role | typeof User | typeof CorePluginEntity | typeof PluginAuditLogEntity | typeof UnifiedDeviceEntity | typeof ChirpstackNetworkServerEntity)[];
 export interface DbConnectionConfig {
     host: string;
     port: number;

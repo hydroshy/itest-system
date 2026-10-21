@@ -8,6 +8,7 @@ import { Permission } from '../identity/modules/roles-permissions/entities/permi
 import { CorePluginEntity } from '../core-models/core-plugin.entity';
 import { PluginAuditLogEntity } from '../core-models/plugin-audit-log.entity';
 import { UnifiedDeviceEntity } from '../core-models/unified-device.entity';
+import { ChirpstackNetworkServerEntity } from '../core-models/chirpstack-network-server.entity';
 
 export const ALL_DATABASE_ENTITIES = [
   User,
@@ -16,6 +17,7 @@ export const ALL_DATABASE_ENTITIES = [
   CorePluginEntity,
   PluginAuditLogEntity,
   UnifiedDeviceEntity,
+  ChirpstackNetworkServerEntity,
 ];
 
 export interface DbConnectionConfig {
