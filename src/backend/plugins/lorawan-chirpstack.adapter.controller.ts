@@ -162,10 +162,10 @@ export class LorawanChirpstackAdapterController {
   // --- Uplinks & Webhook ---
 
   @Get(['api/plugins/lorawan-chirpstack/uplinks', 'api/v1/plugins/lorawan-chirpstack/uplinks'])
-  async getUplinks(@Query('devEui') devEui?: string, @Query('limit') limit?: string) {
+  async getUplinks(@Query('limit') limit?: string, @Query('devEui') devEui?: string) {
     const ctrl = this.getController();
     const l = limit ? parseInt(limit, 10) : undefined;
-    return ctrl.getUplinks(devEui, l);
+    return ctrl.getUplinks(l, devEui);
   }
 
   @Post(['api/plugins/lorawan-chirpstack/uplinks', 'api/v1/plugins/lorawan-chirpstack/uplinks'])
