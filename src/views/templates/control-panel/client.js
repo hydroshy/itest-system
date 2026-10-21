@@ -1,85 +1,18 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/vue/3.4.31/vue.global.prod.min.js"></script>
   <script>
     if (typeof Vue === 'undefined') {
-      document.write('<script src="https://cdn.jsdelivr.net/npm/vue@3.4.31/dist/vue.global.prod.js"><\\/script>');
+      document.write('<script src="https://cdn.jsdelivr.net/npm/vue@3.4.31/dist/vue.global.prod.js"><\/script>');
     }
   </script>
   <script>
     if (typeof Vue === 'undefined') {
-      document.write('<script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"><\\/script>');
+      document.write('<script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"><\/script>');
     }
   </script>
   <script>
-    // Fail-safe: remove v-cloak if error happens or Vue fails to mount within 1.0s
-    window.addEventListener('error', function(e) {
-      console.error('[Global Page Error]:', e.error || e.message);
-      var appEl = document.getElementById('app');
-      if (appEl && appEl.hasAttribute('v-cloak')) {
-        appEl.removeAttribute('v-cloak');
-      }
-    });
-    setTimeout(function() {
-      var appEl = document.getElementById('app');
-      if (appEl && appEl.hasAttribute('v-cloak')) {
-        console.warn('Vue mounting safety timer triggered: removing v-cloak');
-        appEl.removeAttribute('v-cloak');
-      }
-    }, 1000);
-
-    try {
-      ${MODBUS_PRESETS_SCRIPT}
-    } catch (e) {
-      console.error('[Module Script Load Error: modbus-presets]', e);
-    }
-    try {
-      ${TEST_BUILDER_SCRIPT}
-    } catch (e) {
-      console.error('[Module Script Load Error: test-builder]', e);
-    }
-    try {
-      ${ITEM_CODES_SCRIPT}
-    } catch (e) {
-      console.error('[Module Script Load Error: item-codes]', e);
-    }
-    try {
-      ${SALES_ORDERS_SCRIPT}
-    } catch (e) {
-      console.error('[Module Script Load Error: sales-orders]', e);
-    }
-    try {
-      ${SENSOR_TYPES_SCRIPT}
-    } catch (e) {
-      console.error('[Module Script Load Error: sensor-types]', e);
-    }
-    try {
-      ${TRACEABILITY_SCRIPT}
-    } catch (e) {
-      console.error('[Module Script Load Error: traceability]', e);
-    }
-    try {
-      ${MEMMAP_UPLOAD_SCRIPT}
-    } catch (e) {
-      console.error('[Module Script Load Error: memmap-upload]', e);
-    }
-    try {
-      ${MEMMAP_MANAGER_SCRIPT}
-    } catch (e) {
-      console.error('[Module Script Load Error: memmap-manager]', e);
-    }
-    try {
-      ${CREATE_FINAL_CONFIG_SCRIPT}
-    } catch (e) {
-      console.error('[Module Script Load Error: create-final-config]', e);
-    }
-    try {
-      ${FINAL_CONFIG_MANAGER_SCRIPT}
-    } catch (e) {
-      console.error('[Module Script Load Error: final-config-manager]', e);
-    }
-    try {
-      ${DEVICE_TESTED_SCRIPT}
-    } catch (e) {
-      console.error('[Module Script Load Error: device-tested]', e);
+    if (typeof Vue === 'undefined') {
+      document.getElementById('app').insertAdjacentHTML('afterend', '<div role="alert" class="p-6 text-center text-red-400">Control Panel could not load Vue. Check network access and reload.</div>');
+      throw new Error('Vue runtime unavailable');
     }
 
     // --- TIER 1: SANDBOX LOADER & DEFENSIVE FALLBACK FACTORIES (ADR-0002) ---
@@ -769,7 +702,7 @@
           copyErrorLog,
         };
       },
-      template: \`
+      template: `
         <div class="c-module-boundary-wrapper w-full" :data-module-id="moduleId">
           
           <!-- 1. FALLBACK BANNER -->
@@ -875,7 +808,7 @@
           </div>
 
         </div>
-      \`
+      `
     };
 
     const getStoredUser = () => {
@@ -1097,10 +1030,10 @@
         };
 
         const formatFirmware = (fw) => {
-          if (fw === undefined || fw === null || fw === '') return '—';
+          if (fw === undefined || fw === null || fw === '') return 'â€”';
           let clean = String(fw).replace(/^[vV]/, '').trim();
           clean = clean.replace(/(\.0+)+$/, '');
-          return clean || '—';
+          return clean || 'â€”';
         };
 
         const selectedDeviceNetworkServer = computed(() => {
@@ -1190,7 +1123,7 @@
         const decodeHexPayload = (hex, fPort, code) => {
           if (!hex) return null;
           try {
-            const cleanHex = String(hex).trim().replace(/\\s+/g, '');
+            const cleanHex = String(hex).trim().replace(/\s+/g, '');
             if (!cleanHex || cleanHex.length % 2 !== 0) return null;
             const bytes = [];
             for (let c = 0; c < cleanHex.length; c += 2) {
@@ -1253,7 +1186,7 @@
             for (const c of cols) {
               const val = flat[c];
               if (val === undefined || val === null) {
-                sensorValues[c] = '—';
+                sensorValues[c] = 'â€”';
               } else if (typeof val === 'object') {
                 sensorValues[c] = JSON.stringify(val);
               } else if (typeof val === 'number') {
@@ -1269,7 +1202,7 @@
               fCnt: pkt.fCnt !== undefined && pkt.fCnt !== null ? pkt.fCnt : 0,
               rssi: pkt.rssi != null ? pkt.rssi : null,
               snr: pkt.snr != null ? pkt.snr : null,
-              payloadHex: pkt.payloadHex || pkt.data || '—',
+              payloadHex: pkt.payloadHex || pkt.data || 'â€”',
               sensorValues: sensorValues
             };
           });
@@ -1343,9 +1276,9 @@
               const col = key.replace('sensor:', '');
               const sA = a.sensorValues[col];
               const sB = b.sensorValues[col];
-              if (sA === '—' && sB === '—') return 0;
-              if (sA === '—') return 1;
-              if (sB === '—') return -1;
+              if (sA === 'â€”' && sB === 'â€”') return 0;
+              if (sA === 'â€”') return 1;
+              if (sB === 'â€”') return -1;
               const numA = Number(sA);
               const numB = Number(sB);
               if (!isNaN(numA) && !isNaN(numB)) {
@@ -1407,7 +1340,7 @@
         };
 
         const formatDateTime = (dateStr) => {
-          if (!dateStr) return '—';
+          if (!dateStr) return 'â€”';
           try {
             const d = new Date(dateStr);
             return d.toLocaleString();
@@ -1418,7 +1351,7 @@
 
         const getSubfunctionCount = (code) => {
           if (!code) return 0;
-          const matches = code.match(/function\\s+[a-zA-Z0-9_$]+\\s*\\(/g);
+          const matches = code.match(/function\s+[a-zA-Z0-9_$]+\s*\(/g);
           if (!matches) return 0;
           return Math.max(0, matches.length - 1);
         };
@@ -1500,23 +1433,23 @@
 
         const groupedPermissions = computed(() => {
           const groups = {
-            '📡 Network Server Management': [],
-            '👥 User Management': [],
-            '🛡️ RBAC Role Management': [],
-            '🗄️ Database Operations': [],
-            '📡 LoRaWAN Fleet & Gateways': [],
-            '🔌 Webhook Manager': [],
-            '💻 Decoder Manager & Sandbox': []
+            'ðŸ“¡ Network Server Management': [],
+            'ðŸ‘¥ User Management': [],
+            'ðŸ›¡ï¸ RBAC Role Management': [],
+            'ðŸ—„ï¸ Database Operations': [],
+            'ðŸ“¡ LoRaWAN Fleet & Gateways': [],
+            'ðŸ”Œ Webhook Manager': [],
+            'ðŸ’» Decoder Manager & Sandbox': []
           };
           allPermissions.value.forEach(p => {
-            if (p.name.startsWith('network_server:')) groups['📡 Network Server Management'].push(p);
-            else if (p.name.startsWith('users:')) groups['👥 User Management'].push(p);
-            else if (p.name.startsWith('roles:')) groups['🛡️ RBAC Role Management'].push(p);
-            else if (p.name.startsWith('database:')) groups['🗄️ Database Operations'].push(p);
-            else if (p.name.startsWith('lorawan:device:') || p.name.startsWith('lorawan:app:') || p.name.startsWith('lorawan:gateway:')) groups['📡 LoRaWAN Fleet & Gateways'].push(p);
-            else if (p.name.startsWith('lorawan:webhooks:')) groups['🔌 Webhook Manager'].push(p);
-            else if (p.name.startsWith('lorawan:decoder:')) groups['💻 Decoder Manager & Sandbox'].push(p);
-            else groups['📡 LoRaWAN Fleet & Gateways'].push(p);
+            if (p.name.startsWith('network_server:')) groups['ðŸ“¡ Network Server Management'].push(p);
+            else if (p.name.startsWith('users:')) groups['ðŸ‘¥ User Management'].push(p);
+            else if (p.name.startsWith('roles:')) groups['ðŸ›¡ï¸ RBAC Role Management'].push(p);
+            else if (p.name.startsWith('database:')) groups['ðŸ—„ï¸ Database Operations'].push(p);
+            else if (p.name.startsWith('lorawan:device:') || p.name.startsWith('lorawan:app:') || p.name.startsWith('lorawan:gateway:')) groups['ðŸ“¡ LoRaWAN Fleet & Gateways'].push(p);
+            else if (p.name.startsWith('lorawan:webhooks:')) groups['ðŸ”Œ Webhook Manager'].push(p);
+            else if (p.name.startsWith('lorawan:decoder:')) groups['ðŸ’» Decoder Manager & Sandbox'].push(p);
+            else groups['ðŸ“¡ LoRaWAN Fleet & Gateways'].push(p);
           });
           return groups;
         });
@@ -1551,7 +1484,7 @@
         const getAuthToken = () => {
           let token = localStorage.getItem('lorawan_token');
           if (!token || token === 'undefined' || token === 'null') {
-            const match = document.cookie.match(/(?:^|;\\s*)access_token=([^;]*)/);
+            const match = document.cookie.match(/(?:^|;\s*)access_token=([^;]*)/);
             if (match && match[1] && match[1] !== 'undefined') {
               token = decodeURIComponent(match[1]);
             }
@@ -1594,226 +1527,6 @@
           try {
             const res = await fetch('/api/network-servers', { headers: authHeaders(), credentials: 'include' });
             if (res.ok) networkServersList.value = await res.json();
-          } catch(e) {
-            console.error(e);
-          }
-        };
-
-        const fetchRoleLayouts = async () => {
-          try {
-            const res = await fetch('/api/d-modules/layouts', { headers: authHeaders(), credentials: 'include' });
-            if (res.ok) {
-              roleLayouts.value = await res.json();
-            }
-          } catch(e) {
-            console.error('Error fetching role layouts:', e);
-          }
-        };
-
-        const computeRoleModules = () => {
-          const roleCode = (selectedLayoutRole.value || 'SUPER_ADMIN').toUpperCase();
-          const rawLayout = roleLayouts.value[roleCode];
-
-          let layoutOrder = null;
-          let layoutSpans = {};
-          let disabledIds = [];
-          if (Array.isArray(rawLayout)) {
-            layoutOrder = rawLayout;
-          } else if (rawLayout && typeof rawLayout === 'object') {
-            layoutOrder = rawLayout.moduleOrder || rawLayout.moduleIds || null;
-            layoutSpans = rawLayout.moduleSpans || {};
-            disabledIds = rawLayout.disabledModuleIds || [];
-          }
-
-          if (layoutOrder && Array.isArray(layoutOrder) && layoutOrder.length > 0) {
-            const modulesMap = new Map();
-            modulesList.value.forEach(m => modulesMap.set(m.id, m));
-
-            const orderedList = [];
-            const disabledSet = new Set(disabledIds);
-            layoutOrder.forEach(id => {
-              if (modulesMap.has(id) && !disabledSet.has(id)) {
-                const mod = modulesMap.get(id);
-                orderedList.push({
-                  ...mod,
-                  span: layoutSpans[id] || mod.span || 1
-                });
-              }
-            });
-            currentRoleModuleList.value = orderedList;
-          } else {
-            let filtered = [];
-            if (roleCode === 'SUPER_ADMIN') {
-              filtered = [...modulesList.value];
-            } else {
-              filtered = modulesList.value.filter(m => {
-                if (m.allowedRoleCodes && m.allowedRoleCodes.length > 0) {
-                  return m.allowedRoleCodes.some(c => c.toUpperCase() === roleCode);
-                }
-                if (m.requiredPermission) {
-                  const roleObj = rolesList.value.find(r => (r.code || r.name || '').toUpperCase() === roleCode);
-                  return roleObj && roleObj.permissions && roleObj.permissions.some(p => p.name === m.requiredPermission);
-                }
-                return true;
-              });
-            }
-            currentRoleModuleList.value = filtered.map(m => ({
-              ...m,
-              span: 1
-            }));
-          }
-        };
-
-        const onLayoutRoleChange = () => {
-          if (isEditingRoleLayout.value) {
-            isEditingRoleLayout.value = false;
-          }
-          computeRoleModules();
-        };
-
-        const startEditRoleLayout = () => {
-          isEditingRoleLayout.value = true;
-          showToast("Drag & drop layout edit mode enabled for '" + selectedLayoutRole.value + "'", 'info');
-        };
-
-        const cancelEditRoleLayout = () => {
-          isEditingRoleLayout.value = false;
-          draggedModuleIndex.value = null;
-          dragOverModuleIndex.value = null;
-          computeRoleModules();
-          showToast('Layout changes cancelled', 'info');
-        };
-
-        const isModuleInCurrentLayout = (moduleId) => {
-          if (!moduleId || !currentRoleModuleList.value) return false;
-          return currentRoleModuleList.value.some(m => m.id === moduleId);
-        };
-
-        const openAddModuleToLayoutModal = () => {
-          addModuleToLayoutModal.value = true;
-        };
-
-        const closeAddModuleToLayoutModal = () => {
-          addModuleToLayoutModal.value = false;
-        };
-
-        const addModuleToCurrentRoleLayout = (mod) => {
-          if (!mod || !mod.id) return;
-          if (isModuleInCurrentLayout(mod.id)) {
-            showToast("Module '" + mod.title + "' is already in this role layout!", "info");
-            return;
-          }
-          const cloned = { ...mod, span: 1 };
-          currentRoleModuleList.value.push(cloned);
-          if (!isEditingRoleLayout.value) {
-            isEditingRoleLayout.value = true;
-          }
-          showToast("Added '" + mod.title + "' to layout. Click 'Save' to persist changes.", "success");
-        };
-
-        const removeModuleFromCurrentRoleLayout = (index) => {
-          if (index < 0 || index >= currentRoleModuleList.value.length) return;
-          const removed = currentRoleModuleList.value.splice(index, 1);
-          if (removed && removed[0]) {
-            showToast("Removed '" + removed[0].title + "' from layout. Click 'Save' to persist.", "info");
-          }
-        };
-
-        const toggleModuleSpan = (index) => {
-          if (index < 0 || index >= currentRoleModuleList.value.length) return;
-          const currentSpan = currentRoleModuleList.value[index].span || 1;
-          currentRoleModuleList.value[index].span = currentSpan === 2 ? 1 : 2;
-        };
-
-        const saveRoleLayoutOrder = async () => {
-          savingRoleLayout.value = true;
-          const roleCode = (selectedLayoutRole.value || 'SUPER_ADMIN').toUpperCase();
-          const moduleOrder = currentRoleModuleList.value.map(m => m.id);
-          const moduleSpans = {};
-          currentRoleModuleList.value.forEach(m => {
-            if (m.span && m.span > 1) {
-              moduleSpans[m.id] = m.span;
-            }
-          });
-
-          try {
-            const res = await fetch('/api/d-modules/layouts/' + encodeURIComponent(roleCode), {
-              method: 'PUT',
-              headers: authHeaders(),
-              credentials: 'include',
-              body: JSON.stringify({ moduleOrder, moduleIds: moduleOrder, moduleSpans })
-            });
-            const data = await res.json();
-            if (!res.ok) throw new Error(data.message || 'Failed to save layout');
-            roleLayouts.value[roleCode] = { roleCode, moduleOrder, moduleSpans, disabledModuleIds: [] };
-            isEditingRoleLayout.value = false;
-            showToast("Dashboard layout for role '" + roleCode + "' saved successfully!", 'success');
-          } catch(e) {
-            showToast(e.message, 'error');
-          } finally {
-            savingRoleLayout.value = false;
-          }
-        };
-
-        const onDragStart = (index, event) => {
-          if (!isEditingRoleLayout.value) return;
-          draggedModuleIndex.value = index;
-          if (event && event.dataTransfer) {
-            event.dataTransfer.effectAllowed = 'move';
-            event.dataTransfer.setData('text/plain', String(index));
-          }
-        };
-
-        const onDragOver = (index, event) => {
-          if (!isEditingRoleLayout.value) return;
-          if (event) {
-            event.preventDefault();
-            if (event.dataTransfer) {
-              event.dataTransfer.dropEffect = 'move';
-            }
-          }
-          dragOverModuleIndex.value = index;
-        };
-
-        const onDrop = (targetIndex, event) => {
-          if (!isEditingRoleLayout.value) return;
-          if (event) event.preventDefault();
-          const fromIndex = draggedModuleIndex.value;
-          if (fromIndex !== null && fromIndex !== undefined && fromIndex !== targetIndex) {
-            const list = [...currentRoleModuleList.value];
-            const [movedItem] = list.splice(fromIndex, 1);
-            list.splice(targetIndex, 0, movedItem);
-            currentRoleModuleList.value = list;
-          }
-          draggedModuleIndex.value = null;
-          dragOverModuleIndex.value = null;
-        };
-
-        const onDragEnd = () => {
-          draggedModuleIndex.value = null;
-          dragOverModuleIndex.value = null;
-        };
-
-        const moveModuleOrder = (index, direction) => {
-          if (!isEditingRoleLayout.value) return;
-          const targetIndex = index + direction;
-          if (targetIndex < 0 || targetIndex >= currentRoleModuleList.value.length) return;
-          const list = [...currentRoleModuleList.value];
-          const temp = list[index];
-          list[index] = list[targetIndex];
-          list[targetIndex] = temp;
-          currentRoleModuleList.value = list;
-        };
-
-        const fetchModules = async () => {
-          try {
-            const [modRes, layoutRes] = await Promise.all([
-              fetch('/api/features/all', { headers: authHeaders(), credentials: 'include' }),
-              fetch('/api/d-modules/layouts', { headers: authHeaders(), credentials: 'include' })
-            ]);
-            if (modRes.ok) modulesList.value = await modRes.json();
-            if (layoutRes.ok) roleLayouts.value = await layoutRes.json();
-            computeRoleModules();
           } catch(e) {
             console.error(e);
           }
@@ -2014,9 +1727,9 @@
             });
             const data = await res.json();
             if (data.success && (data.details?.httpStatus === undefined || data.details?.httpStatus < 400)) {
-              showToast("✅ " + data.message, "success");
+              showToast("âœ… " + data.message, "success");
             } else {
-              showToast("❌ " + (data.message || "Connection test failed (Offline)"), "error");
+              showToast("âŒ " + (data.message || "Connection test failed (Offline)"), "error");
             }
             fetchNetworkServers();
           } catch(e) {
@@ -2031,97 +1744,6 @@
             if (!res.ok) throw new Error("Delete failed");
             showToast("Network server removed", "success");
             fetchNetworkServers();
-          } catch(e) {
-            showToast(e.message, "error");
-          }
-        };
-
-        // Module CRUD
-        const openCreateModuleDialog = () => {
-          isEditingModule.value = false;
-          currentModule.value = {
-            id: '',
-            code: '',
-            title: '',
-            description: '',
-            icon: 'fa-solid fa-layer-group',
-            color: 'from-cyan-500 to-blue-600',
-            badge: 'Feature',
-            category: 'Monitoring',
-            allowedRoleCodes: [],
-            requiredPermission: '',
-            status: 'active',
-            isActive: true
-          };
-          moduleDialog.value = true;
-        };
-
-        const openEditModuleDialog = (mod) => {
-          isEditingModule.value = true;
-          currentModule.value = JSON.parse(JSON.stringify(mod));
-          if (!currentModule.value.allowedRoleCodes) currentModule.value.allowedRoleCodes = [];
-          moduleDialog.value = true;
-        };
-
-        const submitModuleForm = async () => {
-          savingModule.value = true;
-          try {
-            const url = isEditingModule.value ? '/api/features/' + currentModule.value.id : '/api/features';
-            const method = isEditingModule.value ? 'PUT' : 'POST';
-            const res = await fetch(url, {
-              method,
-              headers: authHeaders(),
-              credentials: 'include',
-              body: JSON.stringify(currentModule.value)
-            });
-            const data = await res.json();
-            if (!res.ok) throw new Error(data.message || "Failed to save module");
-            showToast(isEditingModule.value ? "Module updated successfully!" : "Module created successfully!", "success");
-            moduleDialog.value = false;
-            fetchModules();
-          } catch(e) {
-            showToast(e.message, "error");
-          } finally {
-            savingModule.value = false;
-          }
-        };
-
-        const toggleModuleActive = async (mod) => {
-          const newStatus = mod.isActive === false ? true : false;
-          try {
-            const res = await fetch('/api/features/' + mod.id, {
-              method: 'PUT',
-              headers: authHeaders(),
-              credentials: 'include',
-              body: JSON.stringify({ isActive: newStatus })
-            });
-            if (!res.ok) throw new Error("Failed to toggle status");
-            mod.isActive = newStatus;
-            showToast("Module " + (newStatus ? "enabled" : "disabled") + " on Dashboard", "success");
-          } catch(e) {
-            showToast(e.message, "error");
-          }
-        };
-
-        const deleteModule = async (id) => {
-          if (!confirm("Are you sure you want to delete this module from dashboard?")) return;
-          try {
-            const res = await fetch('/api/features/' + id, { method: 'DELETE', headers: authHeaders(), credentials: 'include' });
-            if (!res.ok) throw new Error("Delete failed");
-            showToast("Module removed successfully", "success");
-            fetchModules();
-          } catch(e) {
-            showToast(e.message, "error");
-          }
-        };
-
-        const resetModulesDefaults = async () => {
-          if (!confirm("Reset all modules back to standard 8 default modules?")) return;
-          try {
-            const res = await fetch('/api/features/reset-defaults', { method: 'POST', headers: authHeaders(), credentials: 'include' });
-            if (!res.ok) throw new Error("Reset failed");
-            showToast("Modules restored to defaults!", "success");
-            fetchModules();
           } catch(e) {
             showToast(e.message, "error");
           }
@@ -2321,7 +1943,7 @@
             itemCodeId: d.itemCodeId || (d.itemCode ? d.itemCode.id : ''),
             salesOrderId: d.salesOrderId || (d.salesOrder ? d.salesOrder.id : ''),
             sku: d.sku || '',
-            firmwareVersion: formatFirmware(d.firmwareVersion) === '—' ? '' : formatFirmware(d.firmwareVersion),
+            firmwareVersion: formatFirmware(d.firmwareVersion) === 'â€”' ? '' : formatFirmware(d.firmwareVersion),
             decoderId: d.decoderId || '',
             appEUI: d.appEUI || '0102030405060708',
             appKey: d.appKey || '0102030405060708090A0B0C0D0E0F10',
@@ -2831,7 +2453,7 @@
 
         const runSandboxDecode = () => {
           try {
-            const hex = sandboxHex.value.trim().replace(/\\s+/g, "");
+            const hex = sandboxHex.value.trim().replace(/\s+/g, "");
             if (!hex) {
               sandboxDecodedObject.value = null;
               sandboxResult.value = '';
@@ -3451,7 +3073,7 @@
             case 'linear-tank':
               defaultW = 200;
               defaultH = 300;
-              defaultProps = { title: 'STORAGE TANK', min: 0, max: 100, unit: 'm³', liquidColor: '#0284c7' };
+              defaultProps = { title: 'STORAGE TANK', min: 0, max: 100, unit: 'mÂ³', liquidColor: '#0284c7' };
               bindings.value.field = 'water_level';
               states = [
                 { condition: 'val < 20', color: '#ef4444', alarmText: 'Tank Level Critical Low' },
@@ -3474,13 +3096,13 @@
             case 'led-numeric':
               defaultW = 220;
               defaultH = 70;
-              defaultProps = { title: 'FLOW RATE', unit: 'm³/h', color: '#38bdf8' };
+              defaultProps = { title: 'FLOW RATE', unit: 'mÂ³/h', color: '#38bdf8' };
               bindings.value.field = 'flow_rate';
               break;
             case 'mono-box':
               defaultW = 180;
               defaultH = 76;
-              defaultProps = { title: 'TEMPERATURE', unit: '°C', icon: 'fa-solid fa-temperature-half' };
+              defaultProps = { title: 'TEMPERATURE', unit: 'Â°C', icon: 'fa-solid fa-temperature-half' };
               bindings.value.field = 'temperature';
               break;
             case 'static-label':
@@ -5314,234 +4936,27 @@
           createDeviceTestedFallback
         );
 
+        const coreTabs = ['overview', 'database', 'roles', 'users', 'plugins-management'];
         watch(activeTab, (newTab) => {
-          try {
-            window.history.replaceState(null, null, '#' + newTab);
-          } catch(e) {}
-          if (newTab === 'overview') fetchSystemVersion();
-          if (newTab === 'network-servers') fetchNetworkServers();
-          if (newTab === 'modules') fetchModules();
+          window.history.replaceState(null, '', '#' + newTab);
+          if (newTab === 'database') fetchDbHealth();
           if (newTab === 'roles') fetchRoles();
           if (newTab === 'users') fetchUsers();
-          if (newTab === 'database') fetchDbHealth();
-          if (newTab === 'devices') fetchDevices();
-          if (newTab === 'decoder') {
-            fetchDecoders();
-            fetchDevices();
-            fetchSandboxTelemetry(false);
-            if (sandboxAutoSync.value) {
-              startSandboxAutoSync();
-            }
-          } else {
-            stopSandboxAutoSync();
-          }
-          if (newTab === 'webhooks') {
-            startWebhookPolling();
-          } else {
-            stopWebhookPolling();
-          }
-          if (newTab === 'hmi-studio') {
-            fetchHmiScreens();
-            fetchDevices();
-            if (hmiEditorMode.value === 'run') {
-              startHmiTelemetryPolling();
-            } else {
-              stopHmiTelemetryPolling();
-            }
-          } else {
-            stopHmiTelemetryPolling();
-          }
-          if (newTab === 'downlink') {
-            fetchNetworkServers();
-            fetchDevices();
-            fetchDownlinkHistory();
-            if (downlinkForm.value.devEUI) {
-              fetchDeviceQueue(downlinkForm.value.devEUI);
-            }
-            startDeviceQueuePolling();
-            initHmiRealtimeStream();
-          } else {
-            stopDeviceQueuePolling();
-          }
-          if (newTab === 'modbus-presets') {
-            if (modbusPresetsModule && typeof modbusPresetsModule.fetchPresets === 'function') {
-              modbusPresetsModule.fetchPresets();
-            }
-            setTimeout(() => {
-              if (modbusPresetsModule && typeof modbusPresetsModule.initPresetsTabulator === 'function') {
-                modbusPresetsModule.initPresetsTabulator();
-              }
-            }, 120);
-          }
-          if (newTab === 'item-codes') {
-            if (itemCodesModule && typeof itemCodesModule.fetchItemCodes === 'function') {
-              itemCodesModule.fetchItemCodes();
-            }
-            if (itemCodesModule && typeof itemCodesModule.fetchCatalogAvailableTemplates === 'function') {
-              itemCodesModule.fetchCatalogAvailableTemplates();
-            }
-            if (itemCodesModule && itemCodesModule.itemCodesViewMode && itemCodesModule.itemCodesViewMode.value === 'tabulator') {
-              setTimeout(() => {
-                if (typeof itemCodesModule.initItemCodesTabulator === 'function') {
-                  itemCodesModule.initItemCodesTabulator();
-                }
-              }, 120);
-            }
-          }
-          if (newTab === 'sales-orders') {
-            if (salesOrdersModule && typeof salesOrdersModule.fetchSalesOrders === 'function') {
-              salesOrdersModule.fetchSalesOrders();
-            }
-            if (salesOrdersModule && typeof salesOrdersModule.fetchAvailableTemplatesForDropdown === 'function') {
-              salesOrdersModule.fetchAvailableTemplatesForDropdown();
-            }
-          }
-          if (newTab === 'sensor-types') {
-            if (sensorTypesModule && typeof sensorTypesModule.fetchSensorTypes === 'function') {
-              sensorTypesModule.fetchSensorTypes();
-            }
-          }
-          if (newTab === 'traceability') {
-            if (traceabilityModule && typeof traceabilityModule.fetchTestResults === 'function') {
-              traceabilityModule.fetchTestResults();
-            }
-          }
-          if (newTab === 'memmap-upload') {
-            if (memmapUploadModule && typeof memmapUploadModule.renderMemmapTabulator === 'function') {
-              setTimeout(() => {
-                memmapUploadModule.renderMemmapTabulator();
-              }, 120);
-            }
-          }
-          if (newTab === 'memmap-manager') {
-            if (memmapManagerModule && typeof memmapManagerModule.fmmFetchData === 'function') {
-              setTimeout(() => {
-                memmapManagerModule.fmmFetchData();
-              }, 120);
-            }
-          }
-          if (newTab === 'create-final-config') {
-            if (createFinalConfigModule && typeof createFinalConfigModule.renderFinalConfigTabulator === 'function') {
-              setTimeout(() => {
-                createFinalConfigModule.renderFinalConfigTabulator();
-              }, 120);
-            }
-          }
-          if (newTab === 'final-config-manager') {
-            if (finalConfigManagerModule && typeof finalConfigManagerModule.onTabActivated === 'function') {
-              setTimeout(() => {
-                finalConfigManagerModule.onTabActivated();
-              }, 120);
-            }
-          }
-          if (newTab === 'device-tested') {
-            if (deviceTestedModule && typeof deviceTestedModule.dtFetchData === 'function') {
-              setTimeout(() => {
-                deviceTestedModule.dtFetchData();
-              }, 120);
-            }
-          }
+          if (newTab === 'plugins-management') fetchPlugins();
         });
 
         const initControlPanel = async () => {
-          const ok = await fetchSession();
-          if (!ok) return;
-
-          fetchSystemVersion();
-          fetchNetworkServers();
-          fetchModules();
-          fetchRoles();
-          fetchUsers();
-          fetchDbHealth();
-          fetchDevices();
-          fetchDecoders();
-          fetchWebhookStats();
-          if (modbusPresetsModule && typeof modbusPresetsModule.fetchPresets === 'function') {
-            modbusPresetsModule.fetchPresets();
-          }
-          
-          const hash = window.location.hash.replace('#', '').trim();
-          if (hash && hash !== 'telemetry') {
-            activeTab.value = hash;
-            if (hash === 'webhooks') {
-              startWebhookPolling();
-            }
-            if (hash === 'hmi-studio') {
-              fetchHmiScreens();
-              fetchDevices();
-              if (hmiEditorMode.value === 'run') {
-                startHmiTelemetryPolling();
-              } else {
-                stopHmiTelemetryPolling();
-              }
-            }
-            if (hash === 'downlink') {
-              fetchNetworkServers();
-              fetchDevices();
-              fetchDownlinkHistory();
-              startDeviceQueuePolling();
-              initHmiRealtimeStream();
-            }
-            if (hash === 'modbus-presets') {
-              if (modbusPresetsModule && typeof modbusPresetsModule.fetchPresets === 'function') {
-                modbusPresetsModule.fetchPresets();
-              }
-              setTimeout(() => {
-                if (modbusPresetsModule && typeof modbusPresetsModule.initPresetsTabulator === 'function') {
-                  modbusPresetsModule.initPresetsTabulator();
-                }
-              }, 150);
-            }
-            if (hash === 'memmap-upload') {
-              if (memmapUploadModule && typeof memmapUploadModule.renderMemmapTabulator === 'function') {
-                setTimeout(() => {
-                  memmapUploadModule.renderMemmapTabulator();
-                }, 150);
-              }
-            }
-            if (hash === 'memmap-manager') {
-              if (memmapManagerModule && typeof memmapManagerModule.fmmFetchData === 'function') {
-                setTimeout(() => {
-                  memmapManagerModule.fmmFetchData();
-                }, 150);
-              }
-            }
-            if (hash === 'create-final-config') {
-              if (createFinalConfigModule && typeof createFinalConfigModule.renderFinalConfigTabulator === 'function') {
-                setTimeout(() => {
-                  createFinalConfigModule.renderFinalConfigTabulator();
-                }, 150);
-              }
-            }
-            if (hash === 'final-config-manager') {
-              if (finalConfigManagerModule && typeof finalConfigManagerModule.onTabActivated === 'function') {
-                setTimeout(() => {
-                  finalConfigManagerModule.onTabActivated();
-                }, 150);
-              }
-            }
-            if (hash === 'device-tested') {
-              if (deviceTestedModule && typeof deviceTestedModule.dtFetchData === 'function') {
-                setTimeout(() => {
-                  deviceTestedModule.dtFetchData();
-                }, 150);
-              }
-            }
-          } else {
-            activeTab.value = 'overview';
-          }
+          if (!await fetchSession()) return;
+          const hash = window.location.hash.slice(1).trim();
+          activeTab.value = coreTabs.includes(hash) ? hash : 'overview';
+          fetchPlugins();
+          if (activeTab.value === 'overview') return;
+          if (activeTab.value === 'database') fetchDbHealth();
+          if (activeTab.value === 'roles') fetchRoles();
+          if (activeTab.value === 'users') fetchUsers();
         };
 
-        onMounted(() => {
-          initControlPanel();
-          window.addEventListener('keydown', handleHmiKeydown);
-        });
-
-        window.addEventListener('pageshow', (event) => {
-          initControlPanel();
-        });
-
-        
+        onMounted(initControlPanel);
         // ========================================================
         // PLUGINS MANAGEMENT STATE & LOGIC
         // ========================================================
@@ -5562,22 +4977,8 @@
         const isSubmittingUrl = ref(false);
         const isSavingConfig = ref(false);
         const actionInProgressId = ref(null);
-        const selectedActivePlugin = ref(null);
-
-        const currentActivePlugin = computed(() => {
-          if (!activeTab.value.startsWith('plugin-')) return null;
-          const pId = activeTab.value.replace('plugin-', '');
-          return pluginsList.value.find(p => p.id === pId) || selectedActivePlugin.value;
-        });
-
-        const currentActivePluginEntryUrl = computed(() => {
-          if (!currentActivePlugin.value) return '';
-          const entry = currentActivePlugin.value.manifest?.entry || currentActivePlugin.value.entry || '/index.html';
-          return '/plugins/' + currentActivePlugin.value.id + (entry.startsWith('/') ? entry : '/' + entry);
-        });
-
         const activePlugins = computed(() => {
-          return pluginsList.value.filter(p => p.status === 'active' || p.enabled === true);
+          return pluginsList.value.filter(p => p.status === 'ACTIVE');
         });
 
         const activePluginsCount = computed(() => {
@@ -5587,9 +4988,9 @@
         const filteredPlugins = computed(() => {
           let list = pluginsList.value || [];
           if (pluginStatusFilter.value === 'active') {
-            list = list.filter(p => p.status === 'active' || p.enabled === true);
+            list = list.filter(p => p.status === 'ACTIVE');
           } else if (pluginStatusFilter.value === 'inactive') {
-            list = list.filter(p => p.status !== 'active' && p.enabled !== true);
+            list = list.filter(p => p.status !== 'ACTIVE');
           }
           if (pluginSearchQuery.value && pluginSearchQuery.value.trim()) {
             const q = pluginSearchQuery.value.toLowerCase().trim();
@@ -5626,7 +5027,7 @@
         const togglePluginStatus = async (plugin) => {
           if (!plugin || !plugin.id) return;
           actionInProgressId.value = plugin.id;
-          const isCurrentlyActive = plugin.status === 'active' || plugin.enabled === true;
+          const isCurrentlyActive = plugin.status === 'ACTIVE';
           const targetAction = isCurrentlyActive ? 'disable' : 'enable';
           try {
             const res = await fetch('/api/v1/plugins/' + plugin.id + '/' + targetAction, {
@@ -5634,41 +5035,17 @@
               headers: { 'Content-Type': 'application/json' }
             });
             if (res.ok) {
-              plugin.status = isCurrentlyActive ? 'inactive' : 'active';
-              plugin.enabled = !isCurrentlyActive;
+              await fetchPlugins();
               if (window.toastNotification) {
-                window.toastNotification('Plugin ' + (plugin.name || plugin.id) + ' đã ' + (isCurrentlyActive ? 'vô hiệu hóa' : 'kích hoạt') + '!', 'success');
+                window.toastNotification('Plugin ' + (plugin.name || plugin.id) + ' Ä‘Ã£ ' + (isCurrentlyActive ? 'vÃ´ hiá»‡u hÃ³a' : 'kÃ­ch hoáº¡t') + '!', 'success');
               }
             } else {
               const errData = await res.json().catch(() => ({}));
-              alert(errData.message || 'Thao tác thất bại (' + res.status + ')');
+              alert(errData.message || 'Thao tÃ¡c tháº¥t báº¡i (' + res.status + ')');
             }
           } catch (err) {
             console.error('[Plugins] Error toggling status:', err);
-            // Optimistic update for UI if offline/dev
-            plugin.status = isCurrentlyActive ? 'inactive' : 'active';
-            plugin.enabled = !isCurrentlyActive;
-          } finally {
-            actionInProgressId.value = null;
-          }
-        };
-
-        const reloadPlugin = async (plugin) => {
-          if (!plugin || !plugin.id) return;
-          actionInProgressId.value = plugin.id;
-          try {
-            const res = await fetch('/api/v1/plugins/' + plugin.id + '/reload', {
-              method: 'POST'
-            });
-            if (res.ok) {
-              if (window.toastNotification) {
-                window.toastNotification('Đã nạp lại plugin ' + (plugin.name || plugin.id), 'success');
-              }
-            } else {
-              alert('Không thể nạp lại plugin.');
-            }
-          } catch (err) {
-            console.error('[Plugins] Reload error:', err);
+            alert('Không thể cập nhật trạng thái plugin. Vui lòng thử lại.');
           } finally {
             actionInProgressId.value = null;
           }
@@ -5709,16 +5086,16 @@
               uploadPluginDialog.value = false;
               selectedPluginFile.value = null;
               if (window.toastNotification) {
-                window.toastNotification('Cài đặt plugin thành công!', 'success');
+                window.toastNotification('CÃ i Ä‘áº·t plugin thÃ nh cÃ´ng!', 'success');
               }
               await fetchPlugins();
             } else {
               const err = await res.json().catch(() => ({}));
-              alert(err.message || 'Cài đặt plugin thất bại.');
+              alert(err.message || 'CÃ i Ä‘áº·t plugin tháº¥t báº¡i.');
             }
           } catch (err) {
             console.error('[Plugins] Upload error:', err);
-            alert('Lỗi tải lên tệp plugin.');
+            alert('Lá»—i táº£i lÃªn tá»‡p plugin.');
           } finally {
             isSubmittingUpload.value = false;
           }
@@ -5746,16 +5123,16 @@
               installUrlDialog.value = false;
               pluginInstallUrl.value = '';
               if (window.toastNotification) {
-                window.toastNotification('Cài đặt plugin từ URL thành công!', 'success');
+                window.toastNotification('CÃ i Ä‘áº·t plugin tá»« URL thÃ nh cÃ´ng!', 'success');
               }
               await fetchPlugins();
             } else {
               const err = await res.json().catch(() => ({}));
-              alert(err.message || 'Cài đặt plugin từ URL thất bại.');
+              alert(err.message || 'CÃ i Ä‘áº·t plugin tá»« URL tháº¥t báº¡i.');
             }
           } catch (err) {
             console.error('[Plugins] Install URL error:', err);
-            alert('Lỗi kết nối khi cài đặt từ URL.');
+            alert('Lá»—i káº¿t ná»‘i khi cÃ i Ä‘áº·t tá»« URL.');
           } finally {
             isSubmittingUrl.value = false;
           }
@@ -5779,28 +5156,28 @@
           try {
             parsed = JSON.parse(pluginConfigJson.value);
           } catch (e) {
-            pluginConfigError.value = 'Định dạng JSON không hợp lệ: ' + e.message;
+            pluginConfigError.value = 'Äá»‹nh dáº¡ng JSON khÃ´ng há»£p lá»‡: ' + e.message;
             return;
           }
           isSavingConfig.value = true;
           try {
             const res = await fetch('/api/v1/plugins/' + pluginToConfig.value.id + '/config', {
-              method: 'PUT',
+              method: 'PATCH',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ config: parsed })
+              body: JSON.stringify(parsed)
             });
             if (res.ok) {
               pluginToConfig.value.config = parsed;
               configPluginDialog.value = false;
               if (window.toastNotification) {
-                window.toastNotification('Cập nhật cấu hình plugin thành công!', 'success');
+                window.toastNotification('Cáº­p nháº­t cáº¥u hÃ¬nh plugin thÃ nh cÃ´ng!', 'success');
               }
             } else {
               const err = await res.json().catch(() => ({}));
-              pluginConfigError.value = err.message || 'Lưu cấu hình thất bại.';
+              pluginConfigError.value = err.message || 'LÆ°u cáº¥u hÃ¬nh tháº¥t báº¡i.';
             }
           } catch (err) {
-            pluginConfigError.value = 'Lỗi kết nối khi lưu cấu hình.';
+            pluginConfigError.value = 'Lá»—i káº¿t ná»‘i khi lÆ°u cáº¥u hÃ¬nh.';
           } finally {
             isSavingConfig.value = false;
           }
@@ -5808,7 +5185,7 @@
 
         const confirmUninstallPlugin = async (plugin) => {
           if (!plugin || !plugin.id) return;
-          if (!confirm('Bạn có chắc chắn muốn gỡ bỏ plugin "' + (plugin.name || plugin.id) + '" khỏi hệ thống không?')) return;
+          if (!confirm('Báº¡n cÃ³ cháº¯c cháº¯n muá»‘n gá»¡ bá» plugin "' + (plugin.name || plugin.id) + '" khá»i há»‡ thá»‘ng khÃ´ng?')) return;
           actionInProgressId.value = plugin.id;
           try {
             const res = await fetch('/api/v1/plugins/' + plugin.id, {
@@ -5816,7 +5193,7 @@
             });
             if (res.ok) {
               if (window.toastNotification) {
-                window.toastNotification('Đã gỡ bỏ plugin ' + (plugin.name || plugin.id), 'success');
+                window.toastNotification('ÄÃ£ gá»¡ bá» plugin ' + (plugin.name || plugin.id), 'success');
               }
               if (activeTab.value === 'plugin-' + plugin.id) {
                 switchTab('plugins-management');
@@ -5824,19 +5201,14 @@
               await fetchPlugins();
             } else {
               const err = await res.json().catch(() => ({}));
-              alert(err.message || 'Không thể gỡ bỏ plugin.');
+              alert(err.message || 'KhÃ´ng thá»ƒ gá»¡ bá» plugin.');
             }
           } catch (err) {
             console.error('[Plugins] Uninstall error:', err);
-            alert('Lỗi kết nối khi gỡ bỏ plugin.');
+            alert('Lá»—i káº¿t ná»‘i khi gá»¡ bá» plugin.');
           } finally {
             actionInProgressId.value = null;
           }
-        };
-
-        const openPluginView = (plugin) => {
-          selectedActivePlugin.value = plugin;
-          switchTab('plugin-' + plugin.id);
         };
 
         const modbusPresetsList = (modbusPresetsModule && (modbusPresetsModule.modbusPresetsList || modbusPresetsModule.presetsList)) || ref([]);
@@ -6192,15 +5564,11 @@
           isSubmittingUrl,
           isSavingConfig,
           actionInProgressId,
-          selectedActivePlugin,
-          currentActivePlugin,
-          currentActivePluginEntryUrl,
           activePlugins,
           activePluginsCount,
           filteredPlugins,
           fetchPlugins,
           togglePluginStatus,
-          reloadPlugin,
           openUploadDialog,
           onPluginFileChange,
           onPluginFileDrop,
@@ -6210,7 +5578,6 @@
           openPluginConfig,
           savePluginConfig,
           confirmUninstallPlugin,
-          openPluginView,
           downlinkConfirmModal,
           filteredDownlinkDevices,
           calculatedHexBytes,
@@ -6251,14 +5618,11 @@
 
     app.config.errorHandler = function(err, vm, info) {
       console.error('[Vue Error Handler]:', err, info);
-      var appEl = document.getElementById('app');
-      if (appEl && appEl.hasAttribute('v-cloak')) {
-        appEl.removeAttribute('v-cloak');
-      }
       if (window.__cp_module_states_store && window.__cp_current_tab) {
         window.__cp_module_states_store.setModuleError(window.__cp_current_tab, err, 'runtime');
       }
     };
 
     app.mount('#app');
+    document.getElementById('app').removeAttribute('v-cloak');
   </script>

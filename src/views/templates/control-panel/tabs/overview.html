@@ -1,0 +1,223 @@
+<!-- TAB 1: OVERVIEW & CENTRAL MANAGEMENT HUB -->
+        <div v-show="activeTab === 'overview'" class="space-y-6">
+          <!-- Top Stat Metrics: Core Platform Overview -->
+          <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
+            <!-- 1. Platform Engine -->
+            <div class="glass-card rounded-xl p-4 space-y-1">
+              <div class="flex items-center justify-between text-xs text-slate-400 font-medium">
+                <span>Platform Engine</span>
+                <i class="fa-solid fa-server text-sky-400 text-sm"></i>
+              </div>
+              <div class="text-xl font-extrabold text-white flex items-center gap-2 pt-1">
+                <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span> ONLINE
+              </div>
+              <div class="text-[11px] text-slate-500">NestJS Core Runtime</div>
+            </div>
+
+            <!-- 2. Database Health -->
+            <div @click="switchTab('database')" class="glass-card rounded-xl p-4 space-y-1 cursor-pointer hover:border-indigo-500/40 transition">
+              <div class="flex items-center justify-between text-xs text-slate-400 font-medium">
+                <span>Database</span>
+                <i class="fa-solid fa-database text-indigo-400 text-sm"></i>
+              </div>
+              <div class="text-xl font-extrabold text-white pt-1">
+                <span class="text-emerald-400 font-bold">READY</span>
+              </div>
+              <div class="text-[11px] text-slate-500">PostgreSQL Core DB</div>
+            </div>
+
+            <!-- 3. System Roles -->
+            <div @click="switchTab('roles')" class="glass-card rounded-xl p-4 space-y-1 cursor-pointer hover:border-amber-500/40 transition">
+              <div class="flex items-center justify-between text-xs text-slate-400 font-medium">
+                <span>System Roles</span>
+                <i class="fa-solid fa-shield-halved text-amber-400 text-sm"></i>
+              </div>
+              <div class="text-xl font-extrabold text-white pt-1">{{ rolesList?.length || '--' }}</div>
+              <div class="text-[11px] text-slate-500">RBAC Role Definitions</div>
+            </div>
+
+            <!-- 4. User Accounts -->
+            <div @click="switchTab('users')" class="glass-card rounded-xl p-4 space-y-1 cursor-pointer hover:border-emerald-500/40 transition">
+              <div class="flex items-center justify-between text-xs text-slate-400 font-medium">
+                <span>Users</span>
+                <i class="fa-solid fa-users text-emerald-400 text-sm"></i>
+              </div>
+              <div class="text-xl font-extrabold text-white pt-1">{{ usersList?.length || '--' }}</div>
+              <div class="text-[11px] text-slate-500">Active User Accounts</div>
+            </div>
+
+            <!-- 5. Active Plugins -->
+            <div @click="switchTab('plugins-management')" class="glass-card rounded-xl p-4 space-y-1 cursor-pointer hover:border-indigo-500/40 transition">
+              <div class="flex items-center justify-between text-xs text-slate-400 font-medium">
+                <span>Plugins</span>
+                <i class="fa-solid fa-puzzle-piece text-indigo-400 text-sm"></i>
+              </div>
+              <div class="text-xl font-extrabold text-white pt-1">{{ activePlugins?.length ?? pluginsList?.length ?? '--' }}</div>
+              <div class="text-[11px] text-slate-500">Micro-kernel Plugins</div>
+            </div>
+
+          </div>
+
+          <!-- INTERACTIVE MANAGEMENT HUB GRID (Direct access to all sections) -->
+          <div class="glass-card rounded-2xl p-6 space-y-4">
+            <div>
+              <h2 class="text-base font-extrabold text-white flex items-center gap-2">
+                <i class="fa-solid fa-grid-2 text-sky-400"></i> Admin Management Hub
+              </h2>
+              <p class="text-xs text-slate-400 mt-0.5">Quickly jump into any administrative module or system governance function</p>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pt-1">
+              
+              <!-- Card: Plugins Management -->
+              <div @click="switchTab('plugins-management')" class="p-4 bg-slate-950/80 hover:bg-slate-900/80 rounded-xl border border-slate-800 hover:border-blue-500/40 transition cursor-pointer space-y-3 group">
+                <div class="flex items-center justify-between">
+                  <div class="w-10 h-10 rounded-xl bg-blue-500/10 border border-blue-500/30 flex items-center justify-center text-blue-400 text-base shadow-inner group-hover:scale-105 transition">
+                    <i class="fa-solid fa-puzzle-piece"></i>
+                  </div>
+                  <span class="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-blue-500/10 text-blue-300 border border-blue-500/20">
+                    CORE
+                  </span>
+                </div>
+                <div>
+                  <h3 class="text-sm font-bold text-white group-hover:text-blue-400 transition">Plugins Management</h3>
+                  <p class="text-xs text-slate-400 mt-1 leading-relaxed">Manage dynamic backend plugins, view manifests, toggle active status, and configure extensions.</p>
+                </div>
+                <div class="text-xs text-blue-400 font-semibold flex items-center gap-1.5 pt-1">
+                  <span>Manage Plugins</span> <i class="fa-solid fa-arrow-right text-[10px] group-hover:translate-x-1 transition"></i>
+                </div>
+              </div>
+
+              <!-- Card: Database Manager -->
+              <div @click="switchTab('database')" class="p-4 bg-slate-950/80 hover:bg-slate-900/80 rounded-xl border border-slate-800 hover:border-indigo-500/40 transition cursor-pointer space-y-3 group">
+                <div class="flex items-center justify-between">
+                  <div class="w-10 h-10 rounded-xl bg-indigo-500/10 border border-indigo-500/30 flex items-center justify-center text-indigo-400 text-base shadow-inner group-hover:scale-105 transition">
+                    <i class="fa-solid fa-database"></i>
+                  </div>
+                  <span class="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-emerald-500/10 text-emerald-300 border border-emerald-500/20">
+                    ONLINE
+                  </span>
+                </div>
+                <div>
+                  <h3 class="text-sm font-bold text-white group-hover:text-indigo-400 transition">Database Manager</h3>
+                  <p class="text-xs text-slate-400 mt-1 leading-relaxed">PostgreSQL connection health, real-time pool metrics, table stats, and dynamic multi-DB pool routing.</p>
+                </div>
+                <div class="text-xs text-indigo-400 font-semibold flex items-center gap-1.5 pt-1">
+                  <span>Manage Database</span> <i class="fa-solid fa-arrow-right text-[10px] group-hover:translate-x-1 transition"></i>
+                </div>
+              </div>
+
+              <!-- Card: Roles -->
+              <div @click="switchTab('roles')" class="p-4 bg-slate-950/80 hover:bg-slate-900/80 rounded-xl border border-slate-800 hover:border-amber-500/40 transition cursor-pointer space-y-3 group">
+                <div class="flex items-center justify-between">
+                  <div class="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400 text-base shadow-inner group-hover:scale-105 transition">
+                    <i class="fa-solid fa-shield-halved"></i>
+                  </div>
+                  <span class="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-amber-500/10 text-amber-300 border border-amber-500/20">
+                    {{ rolesList?.length || 0 }} Roles
+                  </span>
+                </div>
+                <div>
+                  <h3 class="text-sm font-bold text-white group-hover:text-amber-400 transition">Roles & Permissions (RBAC)</h3>
+                  <p class="text-xs text-slate-400 mt-1 leading-relaxed">Define system roles, group privileges by functional area, and control operational capabilities.</p>
+                </div>
+                <div class="text-xs text-amber-400 font-semibold flex items-center gap-1.5 pt-1">
+                  <span>Configure Roles</span> <i class="fa-solid fa-arrow-right text-[10px] group-hover:translate-x-1 transition"></i>
+                </div>
+              </div>
+
+              <!-- Card: Users -->
+              <div @click="switchTab('users')" class="p-4 bg-slate-950/80 hover:bg-slate-900/80 rounded-xl border border-slate-800 hover:border-emerald-500/40 transition cursor-pointer space-y-3 group">
+                <div class="flex items-center justify-between">
+                  <div class="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 text-base shadow-inner group-hover:scale-105 transition">
+                    <i class="fa-solid fa-users"></i>
+                  </div>
+                  <span class="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-emerald-500/10 text-emerald-300 border border-emerald-500/20">
+                    {{ usersList?.length || 0 }} Users
+                  </span>
+                </div>
+                <div>
+                  <h3 class="text-sm font-bold text-white group-hover:text-emerald-400 transition">User Directory</h3>
+                  <p class="text-xs text-slate-400 mt-1 leading-relaxed">Create and manage accounts, assign roles, toggle account status, and configure credentials.</p>
+                </div>
+                <div class="text-xs text-emerald-400 font-semibold flex items-center gap-1.5 pt-1">
+                  <span>Manage Users</span> <i class="fa-solid fa-arrow-right text-[10px] group-hover:translate-x-1 transition"></i>
+                </div>
+              </div></div>
+
+            </div>
+          </div>
+        </div>
+
+
+        <!-- TAB: DATABASE MANAGER -->
+        <div v-show="activeTab === 'database'" class="space-y-4">
+          <div class="glass-card rounded-xl p-5 space-y-4">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <div class="flex items-center gap-3">
+                  <h2 class="text-sm font-bold text-white flex items-center gap-2">
+                    <i class="fa-solid fa-database text-indigo-400"></i> Database Manager
+                  </h2>
+                  <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/25 text-emerald-400 text-[11px] font-mono font-medium">
+                    <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                    core_db &bull; ONLINE
+                  </span>
+                </div>
+                <p class="text-[11px] text-slate-400 mt-0.5">Real-time status of PostgreSQL connection pools, metrics, and dynamic table routing</p>
+              </div>
+              <div class="flex items-center gap-2">
+                <button @click="fetchDbHealth" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 text-xs font-semibold flex items-center gap-1.5 cursor-pointer">
+                  <i class="fa-solid fa-arrows-rotate"></i> Refresh
+                </button>
+                <button @click="reloadDbConfig" class="px-3 py-1.5 rounded-lg bg-sky-500/10 hover:bg-sky-500/20 text-sky-400 border border-sky-500/30 text-xs font-bold flex items-center gap-1.5 cursor-pointer">
+                  <i class="fa-solid fa-gear"></i> Hot-Reload Config
+                </button>
+              </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <div v-for="(conn, key) in (dbHealth?.connections || {})" :key="key" class="p-4 bg-slate-950/70 rounded-xl border border-slate-800 space-y-2">
+                <div class="flex items-center justify-between">
+                  <span class="font-mono font-bold text-white text-xs">{{ conn.name }}</span>
+                  <span :class="conn.isAlive ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/25' : 'bg-red-500/10 text-red-400 border-red-500/25'" class="px-2 py-0.5 rounded-full text-[10px] font-bold border">
+                    {{ conn.isAlive ? 'CONNECTED' : 'OFFLINE' }}
+                  </span>
+                </div>
+                <div class="text-[11px] text-slate-400 font-mono space-y-1">
+                  <div>Host: <strong class="text-slate-200">{{ conn.host }}:{{ conn.port }}</strong></div>
+                  <div>Database: <strong class="text-slate-200">{{ conn.database }}</strong></div>
+                  <div>Ping Latency: <strong :class="conn.latencyMs < 50 ? 'text-emerald-400' : 'text-amber-400'">{{ conn.latencyMs !== null ? conn.latencyMs + ' ms' : 'N/A' }}</strong></div>
+                  <div>Pool Size: <strong class="text-slate-300">{{ conn.poolSize }} max connections</strong></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="glass-card rounded-xl p-5 space-y-3">
+            <div class="flex items-center justify-between">
+              <h3 class="text-xs font-bold text-white">Active Table Routing & Live Record Counts</h3>
+              <span class="text-[10px] font-mono text-slate-500">config/db-routing.config.json</span>
+            </div>
+            <div class="overflow-x-auto custom-scroll border border-slate-800 rounded-lg">
+              <table class="w-full text-left text-xs font-mono">
+                <thead class="bg-slate-950/80 text-slate-400 border-b border-slate-800 font-sans font-semibold">
+                  <tr>
+                    <th class="py-2.5 px-3.5">Table / Entity</th>
+                    <th class="py-2.5 px-3.5">Assigned Database Pool</th>
+                    <th class="py-2.5 px-3.5">Record Count</th>
+                    <th class="py-2.5 px-3.5">Status</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-800/60">
+                  <tr v-for="(stat, tableName) in (dbHealth?.tableStats || {})" :key="tableName" class="hover:bg-slate-800/30 transition">
+                    <td class="py-2.5 px-3.5 font-bold text-white">{{ tableName }}</td>
+                    <td class="py-2.5 px-3.5 text-sky-400">{{ stat.routedTo }}</td>
+                    <td class="py-2.5 px-3.5 text-emerald-400 font-bold">{{ Number(stat.recordCount).toLocaleString() }} rows</td>
+                    <td class="py-2.5 px-3.5"><span class="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[10px]">{{ stat.status }}</span></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>

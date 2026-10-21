@@ -1,0 +1,83 @@
+<!-- MODAL: RESTART SERVER CONFIRMATION -->
+    <div v-if="restartConfirmDialog" class="fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop" @click="restartConfirmDialog = false">
+      <div class="glass-card rounded-2xl p-6 w-full max-w-md border border-red-500/30 shadow-2xl space-y-4" @click.stop>
+        <div class="flex items-center gap-3">
+          <div class="w-12 h-12 rounded-xl bg-red-500/10 border border-red-500/30 flex items-center justify-center text-red-400 text-xl shadow-inner">
+            <i class="fa-solid fa-rotate"></i>
+          </div>
+          <div>
+            <h3 class="text-base font-bold text-white">Restart NestJS Server</h3>
+            <p class="text-xs text-slate-400">Restart platform backend container</p>
+          </div>
+        </div>
+
+        <div class="p-3.5 bg-red-950/20 border border-red-500/25 rounded-xl text-xs text-red-300 space-y-2">
+          <p><strong>Warning:</strong> Restarting will briefly disconnect active API requests and WebSocket sessions. The NestJS backend container (<code>nest_lorawan_app</code>) will shut down gracefully and restart.</p>
+          <p class="text-[11px] text-slate-400">Current Commit: <span class="font-mono text-cyan-300 font-bold">#{{ systemVersionInfo?.git?.shortHash }}</span> ({{ systemVersionInfo?.git?.branch }})</p>
+        </div>
+
+        <div class="flex items-center justify-end gap-2.5 pt-2">
+          <button
+            @click="restartConfirmDialog = false"
+            :disabled="restartingServer"
+            class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold cursor-pointer transition disabled:opacity-50"
+          >
+            Cancel
+          </button>
+          <button
+            @click="confirmRestartServer"
+            :disabled="restartingServer"
+            class="px-4 py-2 rounded-xl bg-red-500 hover:bg-red-400 text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-lg shadow-red-500/20 transition disabled:opacity-50"
+          >
+            <i :class="restartingServer ? 'fa-solid fa-spinner animate-spin' : 'fa-solid fa-rotate'"></i>
+            <span>{{ restartingServer ? 'Sending Signal...' : 'Confirm Restart' }}</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL: SERVER CONTAINER LOGS -->
+    <div v-if="serverLogsDialog" class="fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop" @click="serverLogsDialog = false">
+      <div class="glass-card rounded-2xl p-6 w-full max-w-3xl border border-slate-700 shadow-2xl space-y-4 max-h-[85vh] flex flex-col" @click.stop>
+        <div class="flex items-center justify-between pb-3 border-b border-slate-800">
+          <div class="flex items-center gap-2.5">
+            <div class="w-8 h-8 rounded-lg bg-sky-500/10 border border-sky-500/30 flex items-center justify-center text-sky-400 text-sm">
+              <i class="fa-solid fa-terminal"></i>
+            </div>
+            <div>
+              <h3 class="text-sm font-bold text-white">Container Logs (nest_lorawan_app)</h3>
+              <p class="text-[11px] text-slate-400">Recent stdout/stderr output stream</p>
+            </div>
+          </div>
+          <div class="flex items-center gap-2">
+            <button
+              @click="openServerLogsDialog"
+              :disabled="loadingServerLogs"
+              class="px-3 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold flex items-center gap-1 cursor-pointer transition"
+            >
+              <i :class="loadingServerLogs ? 'animate-spin' : ''" class="fa-solid fa-arrows-rotate"></i> Refresh
+            </button>
+            <button
+              @click="serverLogsDialog = false"
+              class="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition cursor-pointer"
+            >
+              <i class="fa-solid fa-xmark text-sm"></i>
+            </button>
+          </div>
+        </div>
+
+        <div class="flex-1 overflow-y-auto custom-scroll bg-slate-950 p-4 rounded-xl border border-slate-800 font-mono text-xs text-slate-300 whitespace-pre-wrap leading-relaxed min-h-[300px]">
+          {{ serverLogs || 'Loading logs...' }}
+        </div>
+      </div>
+    </div>
+
+
+    <!-- FLOATING RESTART OVERLAY -->
+    <div v-if="restartProgress?.active" class="fixed bottom-6 right-6 z-50 p-4 rounded-2xl bg-slate-900 border border-sky-500/40 shadow-2xl flex items-center gap-3">
+      <i class="fa-solid fa-spinner fa-spin text-sky-400 text-xl"></i>
+      <div>
+        <div class="text-xs font-bold text-white">{{ restartProgress?.message || 'Restarting Backend Server...' }}</div>
+        <div class="text-[10px] text-slate-400">Reconnecting automatically (Attempt {{ restartProgress?.countdown }}s)...</div>
+      </div>
+    </div>
