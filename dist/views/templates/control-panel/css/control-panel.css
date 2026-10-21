@@ -688,6 +688,13 @@
       box-shadow: 0 0 16px rgba(56, 189, 248, 0.12);
     }
     [v-cloak] { display: none !important; }
+    [v-cloak] .modal-backdrop,
+    [v-cloak] .fixed-modals-root {
+      display: none !important;
+      visibility: hidden !important;
+      opacity: 0 !important;
+      pointer-events: none !important;
+    }
     .modal-backdrop {
       background: rgba(2, 6, 23, 0.85);
       backdrop-filter: blur(6px);
