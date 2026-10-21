@@ -1,6 +1,6 @@
 /**
  * Dashboard User Workbench SPA Presentation Page
- * Re-exports the unified, canonical DASHBOARD_HTML from src/views/dashboard.view
+ * Re-exports the unified, canonical CONTROL_PANEL_HTML as DASHBOARD_HTML
  * to prevent template divergence and guarantee single source of truth.
  */
-export { DASHBOARD_HTML } from '../../views/dashboard.view';
+export { CONTROL_PANEL_HTML as DASHBOARD_HTML } from '../../views/control-panel.view';

@@ -2,7 +2,6 @@ import { Controller, Get, Post, Req, Res } from '@nestjs/common';
 import { ApiExcludeEndpoint } from '@nestjs/swagger';
 import { Request, Response } from 'express';
 import { LOGIN_HTML } from './views/login.view';
-import { DASHBOARD_HTML } from './views/dashboard.view';
 import { CONTROL_PANEL_HTML } from './views/control-panel.view';
 
 @Controller()
@@ -67,7 +66,7 @@ export class AppController {
       return res.redirect('/login');
     }
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
-    res.send(DASHBOARD_HTML);
+    res.send(CONTROL_PANEL_HTML);
   }
 
   @Get('control-panel')

@@ -59,6 +59,7 @@ export class AuthController {
       email: user.email,
       fullName: user.fullName,
       userType: user.userType,
+      isActive: user.isActive,
       roles: user.roles,
     };
   }

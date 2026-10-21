@@ -2,7 +2,6 @@ import { Controller, Get, Post, Req, Res } from '@nestjs/common';
 import { ApiExcludeEndpoint, ApiTags } from '@nestjs/swagger';
 import { Request, Response } from 'express';
 import { LOGIN_HTML } from './pages/login.page';
-import { DASHBOARD_HTML } from './pages/dashboard.page';
 import { CONTROL_PANEL_HTML } from './pages/control-panel.page';
 
 @ApiTags('Frontend Presentation Layer')
@@ -68,7 +67,7 @@ export class FrontendController {
       return res.redirect('/login');
     }
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
-    res.send(DASHBOARD_HTML);
+    res.send(CONTROL_PANEL_HTML);
   }
 
   @Get('control-panel')

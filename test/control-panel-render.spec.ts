@@ -11,13 +11,21 @@ assert.match(html, /module-id="governance"/);
 assert.doesNotMatch(html, /module-id="modules"/);
 assert.match(html, /module-id="plugins-management"/);
 assert.match(html, /configPluginDialog/);
-assert.match(html, /app\.mount\('#app'\)/);
+assert.match(html, /(?:app|createApp\([\s\S]*?\))\.mount\('#app'\)/);
 assert.doesNotMatch(html, /Template file not found:/);
 assert.doesNotMatch(html, /<!--\s*@slot:/);
 assert.doesNotMatch(html, /\$\{[A-Z][A-Z0-9_]*\}/);
 assert.doesNotMatch(html, /module-id="(?:devices|webhooks|decoder|hmi-studio|test-builder)"/);
 assert.ok(!/\b(?:reloadPlugin|currentActivePluginEntryUrl)\b/.test(html), 'Removed plugin actions must not remain in setup return');
 assert.ok(!/\/api\/(?:features\/all|d-modules\/layouts)\b/.test(html), 'Removed module APIs must not remain in client');
+assert.ok(
+  !/\/(?:lorawan(?:\/|\b)|api\/(?:network-servers|decoders|webhooks|hmi|sales-orders)(?:\/|\b))/i.test(html),
+  'Control Panel must not request removed legacy endpoints',
+);
+assert.ok(
+  !/module-id="(?:downlink|sales-orders|network-servers|gateways|telemetry|test-automation)"/.test(html),
+  'Control Panel must not render legacy tabs',
+);
 
 let inlineScripts = 0;
 for (const match of html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/gi)) {
