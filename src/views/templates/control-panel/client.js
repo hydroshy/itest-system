@@ -117,7 +117,7 @@
         const reloadDbConfig = () => run(async () => { const data = await request('/database/reload', { method: 'POST' }); showToast(data.message || 'Database reloaded', 'success'); await fetchDbHealth(); });
         const systemVersionInfo = ref({ git: {} });
         const restartConfirmDialog = ref(false), restartingServer = ref(false), restartProgress = ref({ active: false, message: '', countdown: 0 });
-        const serverLogsDialog = ref(false), serverLogs = ref('');
+        const serverLogsDialog = ref(false), serverLogs = ref(''), loadingServerLogs = ref(false);
         const openServerLogsDialog = () => { showToast('Server logs are unavailable in this deployment', 'info'); };
         const confirmRestartServer = () => { restartConfirmDialog.value = false; showToast('Server restart is unavailable in this deployment', 'info'); };
 
@@ -171,7 +171,7 @@
           if (!sessionExpired.value) await Promise.all([fetchDbHealth(), fetchRoles(), fetchUsers()]);
         });
         return { currentUser, sessionExpired, sessionLoading, activeTab, activeTabLabel, sidebarOpen, sidebarCollapsed, userMenuOpen, currentTheme, userInitials, isSuperAdmin, toast, showToast,
-          switchTab, toggleSidebarCollapse, handleGlobalClick, navigateTo, setTheme, handleLogout, dbHealth, fetchDbHealth, reloadDbConfig, systemVersionInfo, restartConfirmDialog, restartingServer, serverLogsDialog, serverLogs, openServerLogsDialog, confirmRestartServer,
+          switchTab, toggleSidebarCollapse, handleGlobalClick, navigateTo, setTheme, handleLogout, dbHealth, fetchDbHealth, reloadDbConfig, systemVersionInfo, restartConfirmDialog, restartingServer, serverLogsDialog, serverLogs, openServerLogsDialog, confirmRestartServer, loadingServerLogs,
           usersList, rolesList, allPermissions, loadingUsers, loadingRoles, fetchUsers, fetchRoles, roleDialog, isEditingRole, savingRole, currentRole, groupedPermissions, toggleSelectAllRolePermissions, toggleGroupPermissions, openCreateRoleDialog, openEditRoleDialog, submitRoleForm, getModulesForRole,
           createUserDialog, editUserDialog, savingUser, newUser, editUser, openCreateUserDialog, openEditUserDialog, submitCreateUser, submitEditUser, deleteUser,
           degradedModulesList, hasDegradedModules, restartProgress };
@@ -190,11 +190,15 @@
 
     try {
       app.mount('#app');
-    } catch (e) {
-      console.error('[Vue Mount Failed]:', e);
-    } finally {
       const appEl = document.getElementById('app');
       if (appEl && appEl.hasAttribute('v-cloak')) {
+        appEl.removeAttribute('v-cloak');
+      }
+    } catch (e) {
+      console.error('[Vue Mount Failed]:', e);
+      const appEl = document.getElementById('app');
+      if (appEl) {
+        appEl.innerHTML = '<div class="p-8 text-center text-red-400 font-semibold"><i class="fa-solid fa-triangle-exclamation mr-2"></i>Giao diện Control Panel gặp lỗi khi tải. Vui lòng tải lại trang (F5).</div>';
         appEl.removeAttribute('v-cloak');
       }
     }

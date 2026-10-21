@@ -1,5 +1,5 @@
 <!-- MODAL: RESTART SERVER CONFIRMATION -->
-    <div v-if="restartConfirmDialog" class="fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop" @click="restartConfirmDialog = false">
+    <div v-if="restartConfirmDialog" style="display: none"  class="fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop" @click="restartConfirmDialog = false">
       <div class="glass-card rounded-2xl p-6 w-full max-w-md border border-red-500/30 shadow-2xl space-y-4" @click.stop>
         <div class="flex items-center gap-3">
           <div class="w-12 h-12 rounded-xl bg-red-500/10 border border-red-500/30 flex items-center justify-center text-red-400 text-xl shadow-inner">
@@ -37,7 +37,7 @@
     </div>
 
     <!-- MODAL: SERVER CONTAINER LOGS -->
-    <div v-if="serverLogsDialog" class="fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop" @click="serverLogsDialog = false">
+    <div v-if="serverLogsDialog" style="display: none"  class="fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop" @click="serverLogsDialog = false">
       <div class="glass-card rounded-2xl p-6 w-full max-w-3xl border border-slate-700 shadow-2xl space-y-4 max-h-[85vh] flex flex-col" @click.stop>
         <div class="flex items-center justify-between pb-3 border-b border-slate-800">
           <div class="flex items-center gap-2.5">
@@ -74,7 +74,7 @@
 
 
     <!-- FLOATING RESTART OVERLAY -->
-    <div v-if="restartProgress?.active" class="fixed bottom-6 right-6 z-50 p-4 rounded-2xl bg-slate-900 border border-sky-500/40 shadow-2xl flex items-center gap-3">
+    <div v-if="restartProgress?.active" style="display: none"  class="fixed bottom-6 right-6 z-50 p-4 rounded-2xl bg-slate-900 border border-sky-500/40 shadow-2xl flex items-center gap-3">
       <i class="fa-solid fa-spinner fa-spin text-sky-400 text-xl"></i>
       <div>
         <div class="text-xs font-bold text-white">{{ restartProgress?.message || 'Restarting Backend Server...' }}</div>
