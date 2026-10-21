@@ -10,7 +10,7 @@ import { CreateRoleDto, UpdateRoleDto } from './dto/role.dto';
 
 @ApiTags('Roles & Permissions (RBAC)')
 @ApiBearerAuth()
-@Controller('roles')
+@Controller(['roles', 'api/v1/roles'])
 @UseGuards(JwtAuthGuard, PermissionsGuard)
 export class RolesController {
   constructor(private readonly rolesService: RolesService) {}

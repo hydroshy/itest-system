@@ -9,7 +9,7 @@ import { RequirePermissions } from '../../../../common/decorators/permissions.de
 import { CurrentUser } from '../../../../common/decorators/current-user.decorator';
 import { User, UserType } from './entities/user.entity';
 
-@Controller('users')
+@Controller(['users', 'api/v1/users'])
 @UseGuards(JwtAuthGuard, PermissionsGuard)
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
