@@ -21,12 +21,14 @@ export function buildControlPanelHtml(): string {
   // Load pure tab templates from disk/cache
   const overviewTab = TemplateEngine.loadFile(path.join(__dirname, 'templates', 'control-panel', 'tabs', 'overview.html'));
   const governanceTab = TemplateEngine.loadFile(path.join(__dirname, 'templates', 'control-panel', 'tabs', 'governance.html'));
+  const pluginsManagementTab = TemplateEngine.loadFile(path.join(__dirname, 'templates', 'control-panel', 'tabs', 'plugins-management.html'));
 
   // Load pure modal templates from disk/cache
   const overviewModals = TemplateEngine.loadFile(path.join(__dirname, 'templates', 'control-panel', 'modals', 'overview.modal.html'));
   const governanceModals = TemplateEngine.loadFile(path.join(__dirname, 'templates', 'control-panel', 'modals', 'governance.modal.html'));
+  const pluginsManagementModals = TemplateEngine.loadFile(path.join(__dirname, 'templates', 'control-panel', 'modals', 'plugins-management.modal.html'));
 
-  // Core content boundaries: Overview, System Modules (Plugins Management temporarily removed)
+  // Core content boundaries: Overview, System Modules, and Plugins Management (with dynamic plugin slot)
   const content = `
         <!-- TAB 1: OVERVIEW & DATABASE -->
         <c-module-boundary module-id="overview" title="Overview Hub" icon="fa-solid fa-chart-pie" :active="activeTab === 'overview' || activeTab === 'database'">
@@ -41,11 +43,19 @@ export function buildControlPanelHtml(): string {
             ${governanceTab}
           </div>
         </c-module-boundary>
+
+        <!-- TAB 3: PLUGINS MANAGEMENT & DYNAMIC PLUGIN VIEW HOST -->
+        <c-module-boundary module-id="plugins-management" title="Plugins Management" icon="fa-solid fa-puzzle-piece" :active="activeTab === 'plugins-management' || activeTab.startsWith('plugin-')">
+          <div v-if="activeTab === 'plugins-management' || activeTab.startsWith('plugin-')">
+            ${pluginsManagementTab}
+          </div>
+        </c-module-boundary>
   `;
 
   const modals = `
     ${overviewModals}
     ${governanceModals}
+    ${pluginsManagementModals}
   `;
 
   return TemplateEngine.compose(

@@ -13,8 +13,10 @@ function buildControlPanelHtml() {
     const clientScript = template_engine_1.TemplateEngine.loadFile(path.join(__dirname, 'templates', 'control-panel', 'client.js'));
     const overviewTab = template_engine_1.TemplateEngine.loadFile(path.join(__dirname, 'templates', 'control-panel', 'tabs', 'overview.html'));
     const governanceTab = template_engine_1.TemplateEngine.loadFile(path.join(__dirname, 'templates', 'control-panel', 'tabs', 'governance.html'));
+    const pluginsManagementTab = template_engine_1.TemplateEngine.loadFile(path.join(__dirname, 'templates', 'control-panel', 'tabs', 'plugins-management.html'));
     const overviewModals = template_engine_1.TemplateEngine.loadFile(path.join(__dirname, 'templates', 'control-panel', 'modals', 'overview.modal.html'));
     const governanceModals = template_engine_1.TemplateEngine.loadFile(path.join(__dirname, 'templates', 'control-panel', 'modals', 'governance.modal.html'));
+    const pluginsManagementModals = template_engine_1.TemplateEngine.loadFile(path.join(__dirname, 'templates', 'control-panel', 'modals', 'plugins-management.modal.html'));
     const content = `
         <!-- TAB 1: OVERVIEW & DATABASE -->
         <c-module-boundary module-id="overview" title="Overview Hub" icon="fa-solid fa-chart-pie" :active="activeTab === 'overview' || activeTab === 'database'">
@@ -29,10 +31,18 @@ function buildControlPanelHtml() {
             ${governanceTab}
           </div>
         </c-module-boundary>
+
+        <!-- TAB 3: PLUGINS MANAGEMENT & DYNAMIC PLUGIN VIEW HOST -->
+        <c-module-boundary module-id="plugins-management" title="Plugins Management" icon="fa-solid fa-puzzle-piece" :active="activeTab === 'plugins-management' || activeTab.startsWith('plugin-')">
+          <div v-if="activeTab === 'plugins-management' || activeTab.startsWith('plugin-')">
+            ${pluginsManagementTab}
+          </div>
+        </c-module-boundary>
   `;
     const modals = `
     ${overviewModals}
     ${governanceModals}
+    ${pluginsManagementModals}
   `;
     return template_engine_1.TemplateEngine.compose(path.join(__dirname, 'templates', 'control-panel', 'layout.html'), {
         css,

@@ -50,6 +50,23 @@
                 <span class="truncate">Database Manager</span>
               </span>
             </button>
+
+            <button
+              @click="switchTab('plugins-management')"
+              :class="{ active: activeTab === 'plugins-management' }"
+              class="nav-item"
+            >
+              <span class="flex items-center gap-2.5">
+                <i class="fa-solid fa-puzzle-piece w-4 text-center text-xs text-indigo-400"></i>
+                <span class="truncate">Plugins Management</span>
+              </span>
+              <span
+                v-if="activePluginsCount > 0"
+                class="px-1.5 py-0.2 rounded text-[9px] font-mono font-bold bg-indigo-500/10 text-indigo-400 border border-indigo-500/20"
+              >
+                {{ activePluginsCount }}
+              </span>
+            </button>
           </div>
 
           <!-- GROUP 2: ACCESS & SECURITY -->
@@ -77,6 +94,29 @@
               <span class="flex items-center gap-2.5">
                 <i class="fa-solid fa-users w-4 text-center text-xs text-emerald-400"></i>
                 <span class="truncate">User Accounts</span>
+              </span>
+            </button>
+          </div>
+
+          <!-- GROUP 3: PLUGINS (DYNAMICALLY LOADED/ACTIVE PLUGINS) -->
+          <div v-if="activePlugins.length > 0" class="space-y-1">
+            <div class="px-2 pb-1 text-[10px] font-extrabold uppercase tracking-wider text-indigo-400/90 flex items-center justify-between">
+              <span class="truncate">Plugins</span>
+              <span class="px-1.5 py-0.2 rounded text-[9px] font-mono font-bold bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
+                {{ activePlugins.length }}
+              </span>
+            </div>
+
+            <button
+              v-for="plugin in activePlugins"
+              :key="plugin.id"
+              @click="openPluginView(plugin)"
+              :class="{ active: activeTab === 'plugin-' + plugin.id }"
+              class="nav-item"
+            >
+              <span class="flex items-center gap-2.5 truncate">
+                <i :class="plugin.manifest?.icon || 'fa-solid fa-puzzle-piece'" class="w-4 text-center text-xs text-indigo-400"></i>
+                <span class="truncate">{{ plugin.name || plugin.id }}</span>
               </span>
             </button>
           </div>
