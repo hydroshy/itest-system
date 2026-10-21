@@ -4,10 +4,11 @@ import { RealtimeModule } from '../realtime/modules/realtime/realtime.module';
 import { PluginStorageService } from './plugin-storage.service';
 import { PluginManagerService } from './plugin-manager.service';
 import { PluginManagerController } from './plugin-manager.controller';
+import { LorawanChirpstackAdapterController } from './lorawan-chirpstack.adapter.controller';
 
 @Module({
   imports: [DynamicDatabaseModule, RealtimeModule],
-  controllers: [PluginManagerController],
+  controllers: [PluginManagerController, LorawanChirpstackAdapterController],
   providers: [PluginStorageService, PluginManagerService],
   exports: [PluginStorageService, PluginManagerService],
 })

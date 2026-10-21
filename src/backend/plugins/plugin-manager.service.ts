@@ -70,6 +70,7 @@ export class PluginManagerService implements OnModuleInit {
 
         const pluginDir = path.join(targetDir, entry.name);
         const manifestPaths = [
+          path.join(pluginDir, 'plugin.json'),
           path.join(pluginDir, 'manifest.json'),
           path.join(pluginDir, 'plugin-manifest.json'),
         ];
