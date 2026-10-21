@@ -7,11 +7,6 @@
     // Keep the page in place on 401; the user chooses when to sign in again.
     const root = document.getElementById('app');
     if (!root) return;
-    const banner = document.createElement('div');
-    banner.setAttribute('v-if', 'sessionExpired');
-    banner.className = 'bg-amber-950 border-b border-amber-500 px-4 py-3 text-amber-100 text-sm flex items-center justify-between gap-3';
-    banner.innerHTML = '<span>Phiên đăng nhập đã hết hạn hoặc tài khoản không khả dụng. Vui lòng đăng nhập lại.</span><a href="/login" class="font-bold underline">Đăng nhập lại</a>';
-    root.prepend(banner);
     createApp({
       setup() {
         const currentUser = ref({});
