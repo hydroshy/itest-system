@@ -1,20 +1,3 @@
-            </div>
-
-            <!-- Logout Button -->
-            <button
-              @click="handleLogout"
-              class="w-full py-2 px-3 rounded-lg text-xs font-bold text-red-400 bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 transition flex items-center justify-center gap-2 cursor-pointer"
-            >
-              <i class="fa-solid fa-right-from-bracket"></i> Sign Out
-            </button>
-          </div>
-        </div>
-      </div>
-    </header>
-
-    <!-- WORKSPACE: LEFT SIDEBAR + MAIN CONTENT AREA -->
-    <div class="flex-1 flex overflow-hidden">
-      
       <!-- MOBILE BACKDROP OVERLAY -->
       <div v-if="sidebarOpen" @click="sidebarOpen = false" class="fixed inset-0 bg-slate-950/80 z-30 md:hidden backdrop-blur-sm"></div>
 
