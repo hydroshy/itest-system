@@ -16,7 +16,6 @@ exports.AppController = void 0;
 const common_1 = require("@nestjs/common");
 const swagger_1 = require("@nestjs/swagger");
 const login_view_1 = require("./views/login.view");
-const dashboard_view_1 = require("./views/dashboard.view");
 const control_panel_view_1 = require("./views/control-panel.view");
 let AppController = class AppController {
     setNoCacheHeaders(res) {
@@ -67,7 +66,7 @@ let AppController = class AppController {
             return res.redirect('/login');
         }
         res.setHeader('Content-Type', 'text/html; charset=utf-8');
-        res.send(dashboard_view_1.DASHBOARD_HTML);
+        res.send(control_panel_view_1.CONTROL_PANEL_HTML);
     }
     getControlPanelPage(req, res) {
         this.setNoCacheHeaders(res);

@@ -58,23 +58,6 @@
             </button>
 
             <button
-              @click="switchTab('plugins-management')"
-              :class="{ active: activeTab === 'plugins-management' }"
-              class="nav-item"
-            >
-              <span class="flex items-center gap-2.5">
-                <i class="fa-solid fa-puzzle-piece w-4 text-center text-xs text-indigo-400"></i>
-                <span class="truncate">Plugins Management</span>
-              </span>
-              <span
-                v-if="activePluginsCount > 0"
-                class="px-1.5 py-0.2 rounded text-[9px] font-mono font-bold bg-indigo-500/10 text-indigo-400 border border-indigo-500/20"
-              >
-                {{ activePluginsCount }}
-              </span>
-            </button>
-
-            <button
               @click="switchTab('database')"
               :class="{ active: activeTab === 'database' }"
               class="nav-item"

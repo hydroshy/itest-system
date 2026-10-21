@@ -16,7 +16,6 @@ exports.FrontendController = void 0;
 const common_1 = require("@nestjs/common");
 const swagger_1 = require("@nestjs/swagger");
 const login_page_1 = require("./pages/login.page");
-const dashboard_page_1 = require("./pages/dashboard.page");
 const control_panel_page_1 = require("./pages/control-panel.page");
 let FrontendController = class FrontendController {
     setNoCacheHeaders(res) {
@@ -67,7 +66,7 @@ let FrontendController = class FrontendController {
             return res.redirect('/login');
         }
         res.setHeader('Content-Type', 'text/html; charset=utf-8');
-        res.send(dashboard_page_1.DASHBOARD_HTML);
+        res.send(control_panel_page_1.CONTROL_PANEL_HTML);
     }
     getControlPanelPage(req, res) {
         this.setNoCacheHeaders(res);

@@ -46,16 +46,6 @@
               <div class="text-[11px] text-slate-500">Active User Accounts</div>
             </div>
 
-            <!-- 5. Active Plugins -->
-            <div @click="switchTab('plugins-management')" class="glass-card rounded-xl p-4 space-y-1 cursor-pointer hover:border-indigo-500/40 transition">
-              <div class="flex items-center justify-between text-xs text-slate-400 font-medium">
-                <span>Plugins</span>
-                <i class="fa-solid fa-puzzle-piece text-indigo-400 text-sm"></i>
-              </div>
-              <div class="text-xl font-extrabold text-white pt-1">{{ activePlugins?.length ?? pluginsList?.length ?? '--' }}</div>
-              <div class="text-[11px] text-slate-500">Micro-kernel Plugins</div>
-            </div>
-
           </div>
 
           <!-- INTERACTIVE MANAGEMENT HUB GRID (Direct access to all sections) -->
@@ -69,25 +59,6 @@
 
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pt-1">
               
-              <!-- Card: Plugins Management -->
-              <div @click="switchTab('plugins-management')" class="p-4 bg-slate-950/80 hover:bg-slate-900/80 rounded-xl border border-slate-800 hover:border-blue-500/40 transition cursor-pointer space-y-3 group">
-                <div class="flex items-center justify-between">
-                  <div class="w-10 h-10 rounded-xl bg-blue-500/10 border border-blue-500/30 flex items-center justify-center text-blue-400 text-base shadow-inner group-hover:scale-105 transition">
-                    <i class="fa-solid fa-puzzle-piece"></i>
-                  </div>
-                  <span class="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-blue-500/10 text-blue-300 border border-blue-500/20">
-                    CORE
-                  </span>
-                </div>
-                <div>
-                  <h3 class="text-sm font-bold text-white group-hover:text-blue-400 transition">Plugins Management</h3>
-                  <p class="text-xs text-slate-400 mt-1 leading-relaxed">Manage dynamic backend plugins, view manifests, toggle active status, and configure extensions.</p>
-                </div>
-                <div class="text-xs text-blue-400 font-semibold flex items-center gap-1.5 pt-1">
-                  <span>Manage Plugins</span> <i class="fa-solid fa-arrow-right text-[10px] group-hover:translate-x-1 transition"></i>
-                </div>
-              </div>
-
               <!-- Card: Database Manager -->
               <div @click="switchTab('database')" class="p-4 bg-slate-950/80 hover:bg-slate-900/80 rounded-xl border border-slate-800 hover:border-indigo-500/40 transition cursor-pointer space-y-3 group">
                 <div class="flex items-center justify-between">

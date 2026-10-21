@@ -47,11 +47,11 @@
           catch (error) { showToast(error.message || 'Request failed', 'error'); }
         };
         const switchTab = (tab) => {
-          if (!['overview', 'database', 'roles', 'users', 'plugins-management'].includes(tab)) return;
+          if (!['overview', 'database', 'roles', 'users'].includes(tab)) return;
           activeTab.value = tab;
           sidebarOpen.value = false;
         };
-        const activeTabLabel = computed(() => ({ overview: 'Overview', database: 'Database Manager', roles: 'Roles & Permissions', users: 'Users', 'plugins-management': 'Plugins Management' })[activeTab.value]);
+        const activeTabLabel = computed(() => ({ overview: 'Overview', database: 'Database Manager', roles: 'Roles & Permissions', users: 'Users' })[activeTab.value]);
         const userInitials = computed(() => String(currentUser.value.fullName || currentUser.value.username || '?').split(/\s+/).map(x => x[0]).slice(0, 2).join('').toUpperCase());
         const isSuperAdmin = computed(() => (currentUser.value.roles || []).some(r => (typeof r === 'string' ? r : r.code) === 'SUPER_ADMIN'));
         const toggleSidebarCollapse = () => { sidebarCollapsed.value = !sidebarCollapsed.value; };
@@ -126,57 +126,16 @@
         }, 'User updated'); } finally { savingUser.value = false; } };
         const deleteUser = (id) => { if (confirm('Delete this user?')) run(async () => { await request('/users/' + encodeURIComponent(id), { method: 'DELETE' }); await fetchUsers(); }, 'User deleted'); };
 
-        const pluginsList = ref([]), loadingPlugins = ref(false), actionInProgressId = ref(null);
-        const pluginSearchQuery = ref(''), pluginStatusFilter = ref('all');
-        const activePluginsCount = computed(() => pluginsList.value.filter(p => p.status === 'ACTIVE').length);
-        const filteredPlugins = computed(() => pluginsList.value.filter(p => {
-          const status = pluginStatusFilter.value;
-          return (status === 'all' || (p.status === 'ACTIVE') === (status === 'active')) &&
-            [p.name, p.id, p.description].some(v => String(v || '').toLowerCase().includes(pluginSearchQuery.value.trim().toLowerCase()));
-        }));
-        const fetchPlugins = async () => { loadingPlugins.value = true; try { await run(async () => {
-          const result = await request('/api/v1/plugins'); pluginsList.value = Array.isArray(result) ? result : (result.data || []);
-        }); } finally { loadingPlugins.value = false; } };
-        const pluginAction = (plugin, action, method = 'POST') => run(async () => {
-          actionInProgressId.value = plugin.id;
-          try { await request('/api/v1/plugins/' + encodeURIComponent(plugin.id) + action, { method }); await fetchPlugins(); }
-          finally { actionInProgressId.value = null; }
-        }, 'Plugin updated');
-        const togglePluginStatus = (plugin) => pluginAction(plugin, plugin.status === 'ACTIVE' ? '/disable' : '/enable');
-        const confirmUninstallPlugin = (plugin) => { if (confirm('Uninstall ' + (plugin.name || plugin.id) + '?')) pluginAction(plugin, '', 'DELETE'); };
-        const uploadPluginDialog = ref(false), selectedPluginFile = ref(null), uploadAutoEnable = ref(true), isSubmittingUpload = ref(false);
-        const openUploadDialog = () => { selectedPluginFile.value = null; uploadAutoEnable.value = true; uploadPluginDialog.value = true; };
-        const onPluginFileChange = (e) => { selectedPluginFile.value = e.target.files?.[0] || null; };
-        const onPluginFileDrop = (e) => { selectedPluginFile.value = e.dataTransfer.files?.[0] || null; };
-        const submitUploadPlugin = async () => { if (!selectedPluginFile.value) return; isSubmittingUpload.value = true; try { await run(async () => {
-          const body = new FormData(); body.append('file', selectedPluginFile.value); body.append('autoEnable', String(uploadAutoEnable.value));
-          await request('/api/v1/plugins/upload', { method: 'POST', headers: headers(false), body, form: true }); uploadPluginDialog.value = false; await fetchPlugins();
-        }, 'Plugin installed'); } finally { isSubmittingUpload.value = false; } };
-        const installUrlDialog = ref(false), pluginInstallUrl = ref(''), isSubmittingUrl = ref(false);
-        const openInstallUrlDialog = () => { pluginInstallUrl.value = ''; uploadAutoEnable.value = true; installUrlDialog.value = true; };
-        const submitInstallUrl = async () => { isSubmittingUrl.value = true; try { await run(async () => {
-          await request('/api/v1/plugins/install-url', { method: 'POST', body: JSON.stringify({ url: pluginInstallUrl.value.trim(), autoEnable: uploadAutoEnable.value }) });
-          installUrlDialog.value = false; await fetchPlugins();
-        }, 'Plugin installed'); } finally { isSubmittingUrl.value = false; } };
-        const configPluginDialog = ref(false), pluginToConfig = ref(null), pluginConfigJson = ref('{}'), pluginConfigError = ref(''), isSavingConfig = ref(false);
-        const openPluginConfig = (plugin) => { pluginToConfig.value = plugin; pluginConfigJson.value = JSON.stringify(plugin.config || {}, null, 2); pluginConfigError.value = ''; configPluginDialog.value = true; };
-        const savePluginConfig = async () => {
-          let config; try { config = JSON.parse(pluginConfigJson.value); } catch (_) { pluginConfigError.value = 'Invalid JSON'; return; }
-          isSavingConfig.value = true; pluginConfigError.value = '';
-          try { await request('/api/v1/plugins/' + encodeURIComponent(pluginToConfig.value.id) + '/config', { method: 'PATCH', body: JSON.stringify(config) }); configPluginDialog.value = false; await fetchPlugins(); showToast('Configuration saved', 'success'); }
-          catch (error) { pluginConfigError.value = error.message; }
-          finally { isSavingConfig.value = false; }
-        };
         const degradedModulesList = ref([]), hasDegradedModules = computed(() => degradedModulesList.value.length > 0);
         onMounted(async () => {
           await fetchSession();
-          if (!sessionExpired.value) await Promise.all([fetchDbHealth(), fetchRoles(), fetchUsers(), fetchPlugins()]);
+          if (!sessionExpired.value) await Promise.all([fetchDbHealth(), fetchRoles(), fetchUsers()]);
         });
         return { currentUser, sessionExpired, sessionLoading, activeTab, activeTabLabel, sidebarOpen, sidebarCollapsed, userMenuOpen, currentTheme, userInitials, isSuperAdmin, toast,
           switchTab, toggleSidebarCollapse, handleGlobalClick, navigateTo, setTheme, handleLogout, dbHealth, fetchDbHealth, reloadDbConfig, systemVersionInfo, restartConfirmDialog, restartingServer, serverLogsDialog, serverLogs, openServerLogsDialog, confirmRestartServer,
           usersList, rolesList, allPermissions, loadingUsers, loadingRoles, fetchUsers, fetchRoles, roleDialog, isEditingRole, savingRole, currentRole, groupedPermissions, toggleSelectAllRolePermissions, toggleGroupPermissions, openCreateRoleDialog, openEditRoleDialog, submitRoleForm, getModulesForRole,
           createUserDialog, editUserDialog, savingUser, newUser, editUser, openCreateUserDialog, openEditUserDialog, submitCreateUser, submitEditUser, deleteUser,
-          pluginsList, loadingPlugins, actionInProgressId, pluginSearchQuery, pluginStatusFilter, activePluginsCount, filteredPlugins, fetchPlugins, togglePluginStatus, confirmUninstallPlugin, uploadPluginDialog, selectedPluginFile, uploadAutoEnable, isSubmittingUpload, openUploadDialog, onPluginFileChange, onPluginFileDrop, submitUploadPlugin, installUrlDialog, pluginInstallUrl, isSubmittingUrl, openInstallUrlDialog, submitInstallUrl, configPluginDialog, pluginToConfig, pluginConfigJson, pluginConfigError, isSavingConfig, openPluginConfig, savePluginConfig, degradedModulesList, hasDegradedModules };
+          degradedModulesList, hasDegradedModules };
       }
     }).mount('#app');
   }
