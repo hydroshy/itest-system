@@ -687,7 +687,7 @@
       border: 1px solid rgba(56, 189, 248, 0.35) !important;
       box-shadow: 0 0 16px rgba(56, 189, 248, 0.12);
     }
-    [v-cloak] { display: none !important; }
+    [v-cloak], [v-cloak] * { display: none !important; }
     [v-cloak] .modal-backdrop,
     [v-cloak] .fixed-modals-root {
       display: none !important;

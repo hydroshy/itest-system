@@ -116,7 +116,7 @@
         const fetchDbHealth = () => run(async () => { dbHealth.value = await request('/database/health'); });
         const reloadDbConfig = () => run(async () => { const data = await request('/database/reload', { method: 'POST' }); showToast(data.message || 'Database reloaded', 'success'); await fetchDbHealth(); });
         const systemVersionInfo = ref({ git: {} });
-        const restartConfirmDialog = ref(false), restartingServer = ref(false);
+        const restartConfirmDialog = ref(false), restartingServer = ref(false), restartProgress = ref({ active: false, message: '', countdown: 0 });
         const serverLogsDialog = ref(false), serverLogs = ref('');
         const openServerLogsDialog = () => { showToast('Server logs are unavailable in this deployment', 'info'); };
         const confirmRestartServer = () => { restartConfirmDialog.value = false; showToast('Server restart is unavailable in this deployment', 'info'); };
@@ -174,7 +174,7 @@
           switchTab, toggleSidebarCollapse, handleGlobalClick, navigateTo, setTheme, handleLogout, dbHealth, fetchDbHealth, reloadDbConfig, systemVersionInfo, restartConfirmDialog, restartingServer, serverLogsDialog, serverLogs, openServerLogsDialog, confirmRestartServer,
           usersList, rolesList, allPermissions, loadingUsers, loadingRoles, fetchUsers, fetchRoles, roleDialog, isEditingRole, savingRole, currentRole, groupedPermissions, toggleSelectAllRolePermissions, toggleGroupPermissions, openCreateRoleDialog, openEditRoleDialog, submitRoleForm, getModulesForRole,
           createUserDialog, editUserDialog, savingUser, newUser, editUser, openCreateUserDialog, openEditUserDialog, submitCreateUser, submitEditUser, deleteUser,
-          degradedModulesList, hasDegradedModules };
+          degradedModulesList, hasDegradedModules, restartProgress };
       }
     });
 
