@@ -14,6 +14,7 @@ import {
 } from './chirpstack.types';
 import { ChirpStackApiClient } from './chirpstack-api.client';
 import { LoRaWanPayloadDecoder } from './payload-decoder';
+import { BadRequestException } from '@nestjs/common';
 import { Repository } from 'typeorm';
 import { ChirpstackNetworkServerEntity } from '../../core-models/chirpstack-network-server.entity';
 
@@ -178,13 +179,19 @@ export class LoRaWanChirpStackService {
   }
 
   async addNetworkServer(dto: CreateNetworkServerDto): Promise<ChirpStackNetworkServer> {
+    const requireString = (field: string, value: unknown): string => {
+      if (typeof value !== 'string' || !value.trim()) {
+        throw new BadRequestException(`${field} is required and must be a non-empty string`);
+      }
+      return value.trim();
+    };
     const id = `cs-srv-${Date.now().toString(36)}`;
     const server: ChirpStackNetworkServer = {
       id,
-      name: dto.name.trim(),
-      apiUrl: dto.apiUrl.trim(),
-      apiToken: dto.apiToken.trim(),
-      tenantId: dto.tenantId?.trim(),
+      name: requireString('name', dto?.name),
+      apiUrl: requireString('apiUrl', dto?.apiUrl),
+      apiToken: requireString('apiToken', dto?.apiToken),
+      tenantId: typeof dto?.tenantId === 'string' ? dto.tenantId.trim() || undefined : undefined,
       version: 'ChirpStack v4',
       status: 'untested',
       lastCheckedAt: new Date().toISOString(),

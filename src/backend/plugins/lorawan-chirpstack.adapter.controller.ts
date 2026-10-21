@@ -8,6 +8,7 @@ import {
   Body,
   Logger,
   OnModuleInit,
+  BadRequestException,
 } from '@nestjs/common';
 import { DynamicDatabaseService } from '../database/dynamic-database.service';
 import { ChirpstackNetworkServerEntity } from '../core-models/chirpstack-network-server.entity';
@@ -95,9 +96,29 @@ export class LorawanChirpstackAdapterController implements OnModuleInit {
   }
 
   @Post(['api/plugins/lorawan-chirpstack/servers', 'api/v1/plugins/lorawan-chirpstack/servers'])
-  async addServer(@Body() dto: any) {
+  async addServer(@Body() dto: unknown) {
+    if (!dto || typeof dto !== 'object') {
+      throw new BadRequestException('Request body must be an object');
+    }
+
+    const { name, apiUrl, apiToken, tenantId } = dto as Record<string, unknown>;
+    const requireString = (field: string, value: unknown): string => {
+      if (typeof value !== 'string' || !value.trim()) {
+        throw new BadRequestException(`${field} is required and must be a non-empty string`);
+      }
+      return value.trim();
+    };
+    if (tenantId !== undefined && typeof tenantId !== 'string') {
+      throw new BadRequestException('tenantId must be a string when provided');
+    }
+
     const ctrl = this.getController();
-    return ctrl.addServer(dto);
+    return ctrl.addServer({
+      name: requireString('name', name),
+      apiUrl: requireString('apiUrl', apiUrl),
+      apiToken: requireString('apiToken', apiToken),
+      ...(typeof tenantId === 'string' && tenantId.trim() ? { tenantId: tenantId.trim() } : {}),
+    });
   }
 
   @Delete(['api/plugins/lorawan-chirpstack/servers/:id', 'api/v1/plugins/lorawan-chirpstack/servers/:id'])
