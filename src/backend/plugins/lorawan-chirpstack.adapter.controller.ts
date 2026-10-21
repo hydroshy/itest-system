@@ -6,12 +6,11 @@ import {
   Param,
   Query,
   Body,
-  HttpException,
-  HttpStatus,
   Logger,
 } from '@nestjs/common';
 import * as path from 'path';
 import * as fs from 'fs';
+import { ChirpStackPlugin } from './lorawan-chirpstack-core';
 
 @Controller()
 export class LorawanChirpstackAdapterController {
@@ -25,7 +24,7 @@ export class LorawanChirpstackAdapterController {
 
   private initPlugin() {
     try {
-      // Look for the plugin backend dist or source
+      // 1. Try external candidate paths (if mounted in container or development)
       const candidatePaths = [
         path.resolve(process.cwd(), '../itest-plugins/plugins/lorawan-chirpstack/backend/dist/index.js'),
         path.resolve(process.cwd(), 'plugins/lorawan-chirpstack/backend/dist/index.js'),
@@ -42,39 +41,33 @@ export class LorawanChirpstackAdapterController {
       }
 
       if (entryFile) {
-        this.logger.log(`Found lorawan-chirpstack backend runtime at: ${entryFile}`);
-        // Dynamic require
+        this.logger.log(`Found external lorawan-chirpstack backend runtime at: ${entryFile}`);
         const mod = require(entryFile);
-        const ChirpStackPlugin = mod.default || mod.ChirpStackPlugin;
-        if (ChirpStackPlugin) {
-          this.pluginInstance = new ChirpStackPlugin();
+        const ExternalPlugin = mod.default || mod.ChirpStackPlugin;
+        if (ExternalPlugin) {
+          this.pluginInstance = new ExternalPlugin();
           this.controllerInstance = this.pluginInstance.getController();
-          this.logger.log('Successfully initialized ChirpStackPlugin controller runtime');
-        } else {
-          this.logger.warn('ChirpStackPlugin export not found in loaded module');
+          this.logger.log('Successfully initialized external ChirpStackPlugin runtime');
+          return;
         }
-      } else {
-        this.logger.warn(
-          'lorawan-chirpstack dist entry not found in candidate paths. Route adapter will return fallback/mock data until plugin is compiled.',
-        );
       }
+
+      // 2. Fallback to embedded internal core (always packaged & compiled into itest-system)
+      this.logger.log('Initializing embedded internal LoRaWAN ChirpStack core runtime...');
+      this.pluginInstance = new ChirpStackPlugin();
+      this.controllerInstance = this.pluginInstance.getController();
+      this.logger.log('Embedded LoRaWAN ChirpStack core runtime initialized successfully');
     } catch (err: any) {
       this.logger.error(`Failed to initialize ChirpStackPlugin runtime: ${err.message}`, err.stack);
+      // Ensure fallback is initialized even if external require throws
+      this.pluginInstance = new ChirpStackPlugin();
+      this.controllerInstance = this.pluginInstance.getController();
     }
   }
 
   private getController() {
     if (!this.controllerInstance) {
       this.initPlugin();
-    }
-    if (!this.controllerInstance) {
-      throw new HttpException(
-        {
-          success: false,
-          message: 'LoRaWAN ChirpStack Plugin backend runtime is not loaded. Ensure itest-plugins backend is built.',
-        },
-        HttpStatus.SERVICE_UNAVAILABLE,
-      );
     }
     return this.controllerInstance;
   }
