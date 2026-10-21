@@ -15,9 +15,13 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.FrontendController = void 0;
 const common_1 = require("@nestjs/common");
 const swagger_1 = require("@nestjs/swagger");
+const jwt_1 = require("@nestjs/jwt");
 const login_page_1 = require("./pages/login.page");
 const control_panel_page_1 = require("./pages/control-panel.page");
 let FrontendController = class FrontendController {
+    constructor(jwtService) {
+        this.jwtService = jwtService;
+    }
     setNoCacheHeaders(res) {
         res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0');
         res.setHeader('Pragma', 'no-cache');
@@ -33,6 +37,18 @@ let FrontendController = class FrontendController {
             res.clearCookie(name);
         });
     }
+    isValidToken(token) {
+        if (!token || token === 'undefined' || token === 'null' || token.length < 20) {
+            return false;
+        }
+        try {
+            this.jwtService.verify(token);
+            return true;
+        }
+        catch {
+            return false;
+        }
+    }
     root(req, res) {
         this.setNoCacheHeaders(res);
         const isLogout = req.query?.logout === '1' || req.query?.logout === 'true' || req.query?.clear === '1';
@@ -41,7 +57,7 @@ let FrontendController = class FrontendController {
             return res.redirect('/login?cleared=1');
         }
         const token = req.cookies?.['access_token'] || req.cookies?.['lorawan_token'];
-        if (token && token !== 'undefined' && token !== 'null' && token.length > 20) {
+        if (this.isValidToken(token)) {
             return res.redirect('/dashboard');
         }
         return res.redirect('/login');
@@ -56,13 +72,20 @@ let FrontendController = class FrontendController {
         if (isClearing) {
             this.clearAllCookies(res);
         }
+        else {
+            const token = req.cookies?.['access_token'] || req.cookies?.['lorawan_token'];
+            if (this.isValidToken(token)) {
+                return res.redirect('/dashboard');
+            }
+        }
         res.setHeader('Content-Type', 'text/html; charset=utf-8');
         res.send(login_page_1.LOGIN_HTML);
     }
     getDashboardPage(req, res) {
         this.setNoCacheHeaders(res);
         const token = req.cookies?.['access_token'] || req.cookies?.['lorawan_token'];
-        if (!token || token === 'undefined' || token === 'null' || token.length < 20) {
+        if (!this.isValidToken(token)) {
+            this.clearAllCookies(res);
             return res.redirect('/login');
         }
         res.setHeader('Content-Type', 'text/html; charset=utf-8');
@@ -71,7 +94,8 @@ let FrontendController = class FrontendController {
     getControlPanelPage(req, res) {
         this.setNoCacheHeaders(res);
         const token = req.cookies?.['access_token'] || req.cookies?.['lorawan_token'];
-        if (!token || token === 'undefined' || token === 'null' || token.length < 20) {
+        if (!this.isValidToken(token)) {
+            this.clearAllCookies(res);
             return res.redirect('/login');
         }
         res.setHeader('Content-Type', 'text/html; charset=utf-8');
@@ -182,6 +206,7 @@ __decorate([
 ], FrontendController.prototype, "getOpsRedirect", null);
 exports.FrontendController = FrontendController = __decorate([
     (0, swagger_1.ApiTags)('Frontend Presentation Layer'),
-    (0, common_1.Controller)()
+    (0, common_1.Controller)(),
+    __metadata("design:paramtypes", [jwt_1.JwtService])
 ], FrontendController);
 //# sourceMappingURL=frontend.controller.js.map

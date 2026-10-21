@@ -1,5 +1,6 @@
 import { Controller, Get, Post, Req, Res } from '@nestjs/common';
 import { ApiExcludeEndpoint, ApiTags } from '@nestjs/swagger';
+import { JwtService } from '@nestjs/jwt';
 import { Request, Response } from 'express';
 import { LOGIN_HTML } from './pages/login.page';
 import { CONTROL_PANEL_HTML } from './pages/control-panel.page';
@@ -7,6 +8,8 @@ import { CONTROL_PANEL_HTML } from './pages/control-panel.page';
 @ApiTags('Frontend Presentation Layer')
 @Controller()
 export class FrontendController {
+  constructor(private readonly jwtService: JwtService) {}
+
   private setNoCacheHeaders(res: Response) {
     res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0');
     res.setHeader('Pragma', 'no-cache');
@@ -24,6 +27,18 @@ export class FrontendController {
     });
   }
 
+  private isValidToken(token: string | undefined): boolean {
+    if (!token || token === 'undefined' || token === 'null' || token.length < 20) {
+      return false;
+    }
+    try {
+      this.jwtService.verify(token);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
   @Get()
   @ApiExcludeEndpoint()
   root(@Req() req: Request, @Res() res: Response) {
@@ -34,7 +49,7 @@ export class FrontendController {
       return res.redirect('/login?cleared=1');
     }
     const token = req.cookies?.['access_token'] || req.cookies?.['lorawan_token'];
-    if (token && token !== 'undefined' && token !== 'null' && token.length > 20) {
+    if (this.isValidToken(token)) {
       return res.redirect('/dashboard');
     }
     return res.redirect('/login');
@@ -53,6 +68,11 @@ export class FrontendController {
 
     if (isClearing) {
       this.clearAllCookies(res);
+    } else {
+      const token = req.cookies?.['access_token'] || req.cookies?.['lorawan_token'];
+      if (this.isValidToken(token)) {
+        return res.redirect('/dashboard');
+      }
     }
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
     res.send(LOGIN_HTML);
@@ -63,7 +83,8 @@ export class FrontendController {
   getDashboardPage(@Req() req: Request, @Res() res: Response) {
     this.setNoCacheHeaders(res);
     const token = req.cookies?.['access_token'] || req.cookies?.['lorawan_token'];
-    if (!token || token === 'undefined' || token === 'null' || token.length < 20) {
+    if (!this.isValidToken(token)) {
+      this.clearAllCookies(res);
       return res.redirect('/login');
     }
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
@@ -75,7 +96,8 @@ export class FrontendController {
   getControlPanelPage(@Req() req: Request, @Res() res: Response) {
     this.setNoCacheHeaders(res);
     const token = req.cookies?.['access_token'] || req.cookies?.['lorawan_token'];
-    if (!token || token === 'undefined' || token === 'null' || token.length < 20) {
+    if (!this.isValidToken(token)) {
+      this.clearAllCookies(res);
       return res.redirect('/login');
     }
     res.setHeader('Content-Type', 'text/html; charset=utf-8');

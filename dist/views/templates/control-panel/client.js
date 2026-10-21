@@ -7,7 +7,50 @@
     // Keep the page in place on 401; the user chooses when to sign in again.
     const root = document.getElementById('app');
     if (!root) return;
-    createApp({
+    const CModuleBoundary = {
+      name: 'CModuleBoundary',
+      props: {
+        moduleId: { type: String, required: true },
+        title: { type: String, default: 'Subsystem Module' },
+        icon: { type: String, default: 'fa-solid fa-cube' },
+        active: { type: Boolean, default: true }
+      },
+      setup(props) {
+        const hasError = Vue.ref(false);
+        const errorMessage = Vue.ref('');
+        Vue.onErrorCaptured((err, instance, info) => {
+          console.error('[CModuleBoundary error in ' + props.moduleId + ']:', err, info);
+          hasError.value = true;
+          errorMessage.value = err?.message || String(err);
+          return false;
+        });
+        const handleRetry = () => {
+          hasError.value = false;
+          errorMessage.value = '';
+        };
+        return { hasError, errorMessage, handleRetry };
+      },
+      template: `
+        <div class="c-module-boundary-wrapper w-full" :data-module-id="moduleId">
+          <div v-if="hasError" class="p-6 rounded-2xl bg-slate-900 border border-red-500/30 text-red-200 my-4 space-y-3">
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-2 font-bold text-sm text-red-400">
+                <i :class="icon"></i> <span>Module {{ title }} Error</span>
+              </div>
+              <button @click="handleRetry" class="px-3 py-1 bg-red-600 hover:bg-red-500 text-white text-xs font-semibold rounded-lg cursor-pointer">
+                <i class="fa-solid fa-rotate-right mr-1"></i> Retry
+              </button>
+            </div>
+            <div class="text-xs text-slate-400 font-mono bg-slate-950 p-3 rounded-lg border border-slate-800 break-all">
+              {{ errorMessage }}
+            </div>
+          </div>
+          <slot v-else></slot>
+        </div>
+      `
+    };
+
+    const app = createApp({
       setup() {
         const currentUser = ref({});
         const sessionExpired = ref(false);
@@ -24,6 +67,7 @@
           clearTimeout(toastTimer);
           toastTimer = setTimeout(() => { toast.value.show = false; }, 4500);
         };
+        window.showToast = showToast;
         const token = () => { try { return localStorage.getItem('lorawan_token') || localStorage.getItem('access_token') || sessionStorage.getItem('access_token'); } catch (_) { return null; } };
         const headers = (json = true) => {
           const h = json ? { 'Content-Type': 'application/json' } : {};
@@ -126,13 +170,34 @@
           await fetchSession();
           if (!sessionExpired.value) await Promise.all([fetchDbHealth(), fetchRoles(), fetchUsers()]);
         });
-        return { currentUser, sessionExpired, sessionLoading, activeTab, activeTabLabel, sidebarOpen, sidebarCollapsed, userMenuOpen, currentTheme, userInitials, isSuperAdmin, toast,
+        return { currentUser, sessionExpired, sessionLoading, activeTab, activeTabLabel, sidebarOpen, sidebarCollapsed, userMenuOpen, currentTheme, userInitials, isSuperAdmin, toast, showToast,
           switchTab, toggleSidebarCollapse, handleGlobalClick, navigateTo, setTheme, handleLogout, dbHealth, fetchDbHealth, reloadDbConfig, systemVersionInfo, restartConfirmDialog, restartingServer, serverLogsDialog, serverLogs, openServerLogsDialog, confirmRestartServer,
           usersList, rolesList, allPermissions, loadingUsers, loadingRoles, fetchUsers, fetchRoles, roleDialog, isEditingRole, savingRole, currentRole, groupedPermissions, toggleSelectAllRolePermissions, toggleGroupPermissions, openCreateRoleDialog, openEditRoleDialog, submitRoleForm, getModulesForRole,
           createUserDialog, editUserDialog, savingUser, newUser, editUser, openCreateUserDialog, openEditUserDialog, submitCreateUser, submitEditUser, deleteUser,
           degradedModulesList, hasDegradedModules };
       }
-    }).mount('#app');
+    });
+
+    app.component('c-module-boundary', CModuleBoundary);
+
+    app.config.errorHandler = function(err, vm, info) {
+      console.error('[Vue Root ErrorHandler]:', err, info);
+      const appEl = document.getElementById('app');
+      if (appEl && appEl.hasAttribute('v-cloak')) {
+        appEl.removeAttribute('v-cloak');
+      }
+    };
+
+    try {
+      app.mount('#app');
+    } catch (e) {
+      console.error('[Vue Mount Failed]:', e);
+    } finally {
+      const appEl = document.getElementById('app');
+      if (appEl && appEl.hasAttribute('v-cloak')) {
+        appEl.removeAttribute('v-cloak');
+      }
+    }
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init, { once: true });
   else init();

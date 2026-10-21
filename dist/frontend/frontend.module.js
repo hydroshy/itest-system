@@ -8,12 +8,19 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.FrontendModule = void 0;
 const common_1 = require("@nestjs/common");
+const jwt_1 = require("@nestjs/jwt");
 const frontend_controller_1 = require("./frontend.controller");
 let FrontendModule = class FrontendModule {
 };
 exports.FrontendModule = FrontendModule;
 exports.FrontendModule = FrontendModule = __decorate([
     (0, common_1.Module)({
+        imports: [
+            jwt_1.JwtModule.register({
+                secret: process.env.JWT_SECRET || 'super_secret_lorawan_key_2025',
+                signOptions: { expiresIn: '24h' },
+            }),
+        ],
         controllers: [frontend_controller_1.FrontendController],
         exports: [],
     })

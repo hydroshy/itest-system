@@ -1,7 +1,11 @@
+import { JwtService } from '@nestjs/jwt';
 import { Request, Response } from 'express';
 export declare class FrontendController {
+    private readonly jwtService;
+    constructor(jwtService: JwtService);
     private setNoCacheHeaders;
     private clearAllCookies;
+    private isValidToken;
     root(req: Request, res: Response): void;
     getLoginPage(req: Request, res: Response): void;
     getDashboardPage(req: Request, res: Response): void;
