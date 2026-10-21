@@ -9,6 +9,8 @@ import {
   CreateGatewayDto,
   CreateDeviceDto,
   DecodePayloadDto,
+  ChirpStackTenant,
+  CreateTenantDto,
 } from './chirpstack.types';
 import { ChirpStackApiClient } from './chirpstack-api.client';
 import { LoRaWanPayloadDecoder } from './payload-decoder';
@@ -223,7 +225,7 @@ export class LoRaWanChirpStackService {
         name: dto.name,
         description: dto.description || '',
         networkServerId: server.id,
-        tenantId: server.tenantId,
+        tenantId: server.tenantId || '',
         status: 'online',
         lastSeenAt: new Date().toISOString(),
         rxPackets: 0,
@@ -312,6 +314,33 @@ export class LoRaWanChirpStackService {
     const removed = this.localDevices.delete(cleanDevEui);
     if (server && server.deviceCount && server.deviceCount > 0) server.deviceCount--;
     return removed;
+  }
+
+  // ==========================================
+  // TENANTS
+  // ==========================================
+
+  async listTenants(serverId?: string): Promise<ChirpStackTenant[]> {
+    const server = serverId ? this.servers.get(serverId) : this.servers.values().next().value;
+    if (server) {
+      const tenants = await this.apiClient.listTenants(server);
+      if (tenants.length > 0) return tenants;
+    }
+    return [];
+  }
+
+  async createTenant(dto: CreateTenantDto): Promise<ChirpStackTenant> {
+    const server = this.servers.get(dto.serverId);
+    if (!server) {
+      throw new Error(`ChirpStack Network Server ${dto.serverId} not found`);
+    }
+    return this.apiClient.createTenant(server, dto);
+  }
+
+  async deleteTenant(serverId: string, tenantId: string): Promise<boolean> {
+    const server = this.servers.get(serverId);
+    if (!server) return false;
+    return this.apiClient.deleteTenant(server, tenantId);
   }
 
   // ==========================================

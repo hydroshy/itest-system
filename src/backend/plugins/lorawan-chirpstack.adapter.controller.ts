@@ -98,6 +98,26 @@ export class LorawanChirpstackAdapterController {
     return ctrl.testServer(id);
   }
 
+  // --- Tenants ---
+
+  @Get(['api/plugins/lorawan-chirpstack/tenants', 'api/v1/plugins/lorawan-chirpstack/tenants'])
+  async getTenants(@Query('serverId') serverId?: string) {
+    const ctrl = this.getController();
+    return ctrl.getTenants(serverId);
+  }
+
+  @Post(['api/plugins/lorawan-chirpstack/tenants', 'api/v1/plugins/lorawan-chirpstack/tenants'])
+  async addTenant(@Body() dto: any) {
+    const ctrl = this.getController();
+    return ctrl.addTenant(dto);
+  }
+
+  @Delete(['api/plugins/lorawan-chirpstack/tenants/:id', 'api/v1/plugins/lorawan-chirpstack/tenants/:id'])
+  async deleteTenant(@Param('id') id: string, @Query('serverId') serverId?: string) {
+    const ctrl = this.getController();
+    return ctrl.deleteTenant(serverId || '', id);
+  }
+
   // --- Gateways ---
 
   @Get(['api/plugins/lorawan-chirpstack/gateways', 'api/v1/plugins/lorawan-chirpstack/gateways'])
