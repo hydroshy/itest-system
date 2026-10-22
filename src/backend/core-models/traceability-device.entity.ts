@@ -4,83 +4,128 @@ import {
   Column,
   CreateDateColumn,
   UpdateDateColumn,
+  Index,
   ManyToOne,
   JoinColumn,
-  Index,
 } from 'typeorm';
-import { TraceabilityOrderEntity } from './traceability-order.entity';
+import { TraceabilitySoEntity } from './traceability-so.entity';
+import { TraceabilityWaEntity } from './traceability-wa.entity';
 
-@Entity({ name: 'traceability_device', schema: 'traceability_manager' })
+export enum TraceabilityTestResult {
+  PASS = 'PASS',
+  FAIL = 'FAIL',
+  PENDING = 'PENDING',
+}
+
+export enum TraceabilityConfigStatus {
+  PENDING = 'PENDING',
+  CONFIGURED_PASS = 'CONFIGURED_PASS',
+  CONFIGURED_FAIL = 'CONFIGURED_FAIL',
+}
+
+export enum TraceabilityDeviceStatus {
+  TESTED = 'TESTED',
+  TESTED_PASS = 'TESTED_PASS',
+  TESTED_FAIL = 'TESTED_FAIL',
+  CONFIGURED = 'CONFIGURED',
+  SHIPPED = 'SHIPPED',
+}
+
+@Entity({ schema: 'traceability_manager', name: 'traceability_device' })
 export class TraceabilityDeviceEntity {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Index()
-  @Column({ name: 'order_id', type: 'uuid' })
-  order_id: string;
+  @Index('idx_traceability_device_so_id')
+  @Column({ name: 'so_id', type: 'uuid' })
+  so_id: string;
 
-  @Index({ unique: true })
+  @ManyToOne(() => TraceabilitySoEntity, (so) => so.devices, {
+    onDelete: 'CASCADE',
+  })
+  @JoinColumn({ name: 'so_id' })
+  so?: TraceabilitySoEntity;
+
+  @Index('idx_traceability_device_wa_id')
+  @Column({ name: 'wa_id', type: 'uuid', nullable: true })
+  wa_id: string | null;
+
+  @ManyToOne(() => TraceabilityWaEntity, (wa) => wa.devices, {
+    nullable: true,
+    onDelete: 'SET NULL',
+  })
+  @JoinColumn({ name: 'wa_id' })
+  wa?: TraceabilityWaEntity | null;
+
+  @Index('idx_traceability_device_serial', { unique: true })
   @Column({ name: 'serial_number', type: 'varchar', length: 100, unique: true })
   serial_number: string;
 
-  @Column({ name: 'sku', type: 'varchar', length: 100 })
-  sku: string;
+  @Index('idx_traceability_device_eui')
+  @Column({ name: 'dev_eui', type: 'varchar', length: 64, nullable: true })
+  dev_eui: string | null;
 
-  @Column({ name: 'fw_version', type: 'varchar', length: 50 })
-  fw_version: string;
+  @Column({ name: 'item_code', type: 'varchar', length: 100, nullable: true })
+  item_code: string | null;
+
+  @Column({ name: 'sku', type: 'varchar', length: 100, nullable: true })
+  sku: string | null;
 
   @Column({ name: 'hw_version', type: 'varchar', length: 50, nullable: true })
-  hw_version: string;
+  hw_version: string | null;
 
-  @Column({ name: 'me_version', type: 'varchar', length: 50, nullable: true })
-  me_version: string;
+  @Column({ name: 'fw_version', type: 'varchar', length: 50, nullable: true })
+  fw_version: string | null;
 
-  // Telecom attributes
-  @Index()
-  @Column({ name: 'dev_eui', type: 'varchar', length: 32, nullable: true })
-  dev_eui: string;
+  // Test Results from CSV / Hardware Testing
+  @Index('idx_traceability_device_test_result')
+  @Column({
+    name: 'test_result',
+    type: 'varchar',
+    length: 20,
+    default: TraceabilityTestResult.PENDING,
+  })
+  test_result: TraceabilityTestResult;
 
-  @Column({ name: 'app_eui', type: 'varchar', length: 32, nullable: true })
-  app_eui: string;
+  @Column({ name: 'test_id', type: 'varchar', length: 255, nullable: true })
+  test_id: string | null;
 
-  @Column({ name: 'app_key', type: 'varchar', length: 64, nullable: true })
-  app_key: string;
+  @Column({ name: 'test_station', type: 'varchar', length: 100, nullable: true })
+  test_station: string | null;
 
-  @Index()
-  @Column({ name: 'sigfox_id', type: 'varchar', length: 16, nullable: true })
-  sigfox_id: string;
+  @Column({ name: 'test_person', type: 'varchar', length: 100, nullable: true })
+  test_person: string | null;
 
-  @Column({ name: 'sigfox_pac', type: 'varchar', length: 32, nullable: true })
-  sigfox_pac: string;
+  @Column({ name: 'tested_at', type: 'timestamptz', nullable: true })
+  tested_at: Date | null;
 
-  @Column({ name: 'telecom_credentials', type: 'jsonb', default: {} })
-  telecom_credentials: Record<string, any>;
+  @Column({ name: 'test_raw_data', type: 'jsonb', default: {} })
+  test_raw_data: Record<string, any>;
 
-  // Cross-system linkage
-  @Index()
+  // Cross-system link to Final Config
+  @Index('idx_traceability_device_config_session')
   @Column({ name: 'final_config_session_id', type: 'uuid', nullable: true })
   final_config_session_id: string | null;
 
-  @Column({ name: 'config_status', type: 'varchar', length: 20, default: 'PENDING' })
-  config_status: string; // 'PENDING' | 'CONFIGURED_PASS' | 'CONFIGURED_FAIL'
+  @Column({
+    name: 'config_status',
+    type: 'varchar',
+    length: 20,
+    default: TraceabilityConfigStatus.PENDING,
+  })
+  config_status: TraceabilityConfigStatus;
 
-  @Column({ name: 'chirpstack_synced', type: 'boolean', default: false })
-  chirpstack_synced: boolean;
-
-  @Index()
-  @Column({ name: 'status', type: 'varchar', length: 30, default: 'INITIAL' })
-  status: string; // 'INITIAL' | 'CONFIGURED' | 'QA_PASSED' | 'PACKED' | 'SHIPPED'
-
-  @Column({ name: 'notes', type: 'text', nullable: true })
-  notes: string;
+  @Column({
+    name: 'status',
+    type: 'varchar',
+    length: 30,
+    default: TraceabilityDeviceStatus.TESTED,
+  })
+  status: TraceabilityDeviceStatus;
 
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   created_at: Date;
 
   @UpdateDateColumn({ name: 'updated_at', type: 'timestamptz' })
   updated_at: Date;
-
-  @ManyToOne(() => TraceabilityOrderEntity, (order) => order.devices, { onDelete: 'CASCADE' })
-  @JoinColumn({ name: 'order_id' })
-  order?: TraceabilityOrderEntity;
 }

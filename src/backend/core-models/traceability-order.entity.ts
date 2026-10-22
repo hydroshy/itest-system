@@ -46,6 +46,6 @@ export class TraceabilityOrderEntity {
   @UpdateDateColumn({ name: 'updated_at', type: 'timestamptz' })
   updated_at: Date;
 
-  @OneToMany(() => TraceabilityDeviceEntity, (device) => device.order)
+  @OneToMany(() => TraceabilityDeviceEntity, (device) => device.so)
   devices?: TraceabilityDeviceEntity[];
 }

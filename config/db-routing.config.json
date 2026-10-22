@@ -28,6 +28,8 @@
     "finalconfig_regs": "core_db",
     "finalconfig_execution_session": "core_db",
     "finalconfig_execution_log": "core_db",
+    "traceability_so": "core_db",
+    "traceability_wa": "core_db",
     "traceability_order": "core_db",
     "traceability_device": "core_db"
   }
