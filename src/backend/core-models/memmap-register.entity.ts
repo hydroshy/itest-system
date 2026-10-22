@@ -49,6 +49,57 @@ export class MemmapRegisterEntity {
   @Column({ name: 'raw_register', type: 'jsonb', nullable: true, default: () => "'{}'" })
   rawRegister?: Record<string, any> | null;
 
+  @Column({ name: 'no', type: 'integer', nullable: true })
+  no?: number | null;
+
+  @Column({ name: 'modbus_register_dec', type: 'integer', nullable: true })
+  modbusRegisterDec?: number | null;
+
+  @Column({ name: 'modbus_register_hex', type: 'varchar', length: 50, nullable: true })
+  modbusRegisterHex?: string | null;
+
+  @Column({ name: 'fc_read', type: 'varchar', length: 50, nullable: true })
+  fcRead?: string | null;
+
+  @Column({ name: 'fc_write', type: 'varchar', length: 50, nullable: true })
+  fcWrite?: string | null;
+
+  @Column({ name: 'num_registers', type: 'integer', nullable: true, default: 1 })
+  numRegisters?: number | null;
+
+  @Column({ name: 'range', type: 'text', nullable: true })
+  range?: string | null;
+
+  @Column({ name: 'end_user_default', type: 'varchar', length: 255, nullable: true })
+  endUserDefault?: string | null;
+
+  @Column({ name: 'format', type: 'varchar', length: 50, nullable: true })
+  format?: string | null;
+
+  @Column({ name: 'downlink_5', type: 'text', nullable: true })
+  downlink5?: string | null;
+
+  @Column({ name: 'in_rd1_template', type: 'varchar', length: 50, nullable: true })
+  inRd1Template?: string | null;
+
+  @Column({ name: 'comment', type: 'text', nullable: true })
+  comment?: string | null;
+
+  @Column({ name: 'in_engineering_template', type: 'varchar', length: 50, nullable: true })
+  inEngineeringTemplate?: string | null;
+
+  @Column({ name: 'in_end_user_template', type: 'varchar', length: 50, nullable: true })
+  inEndUserTemplate?: string | null;
+
+  @Column({ name: 'in_full_template', type: 'varchar', length: 50, nullable: true })
+  inFullTemplate?: string | null;
+
+  @Column({ name: 'val_dec_ok', type: 'boolean', default: true })
+  valDecOk: boolean;
+
+  @Column({ name: 'val_hex_ok', type: 'boolean', default: true })
+  valHexOk: boolean;
+
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt: Date;
 

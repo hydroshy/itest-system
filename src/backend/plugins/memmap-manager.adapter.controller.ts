@@ -104,11 +104,35 @@ export class MemmapManagerAdapterController {
       name: profile.name,
       description: profile.description,
       sourceFormat: profile.sourceFormat,
+      sku: profile.sku || undefined,
+      longFw: profile.longFw || undefined,
+      shortFw: profile.shortFw || undefined,
+      decCheck: profile.decCheck,
+      hexCheck: profile.hexCheck,
+      dateCreate: profile.dateCreate?.toISOString(),
+      createdBy: profile.createdBy || undefined,
       registersCount: sortedRegisters.length,
       registers: sortedRegisters.map((r) => ({
         id: r.id,
         name: r.name,
+        no: r.no ?? undefined,
+        modbusRegisterDec: r.modbusRegisterDec ?? r.address,
+        modbusRegisterHex: r.modbusRegisterHex || undefined,
+        fcRead: r.fcRead || undefined,
+        fcWrite: r.fcWrite || undefined,
+        numRegisters: r.numRegisters ?? 1,
         description: r.description || undefined,
+        range: r.range || undefined,
+        endUserDefault: r.endUserDefault || r.defaultValue || undefined,
+        format: r.format || r.dataType,
+        downlink5: r.downlink5 || undefined,
+        inRd1Template: r.inRd1Template || undefined,
+        comment: r.comment || undefined,
+        inEngineeringTemplate: r.inEngineeringTemplate || undefined,
+        inEndUserTemplate: r.inEndUserTemplate || undefined,
+        inFullTemplate: r.inFullTemplate || undefined,
+        valDecOk: r.valDecOk,
+        valHexOk: r.valHexOk,
         address: r.address,
         dataType: r.dataType,
         scale: r.scale !== null && r.scale !== undefined ? Number(r.scale) : 1,
@@ -184,6 +208,24 @@ export class MemmapManagerAdapterController {
     throw new BadRequestException('Import preview requires a file or payload body.');
   }
 
+  private profileMetadata(body?: any): Partial<MemmapProfileEntity> {
+    const source = body?.profile || body || {};
+    return {
+      sku: this.optionalText(source.sku ?? source.SKU),
+      longFw: this.optionalText(source.longFw ?? source.long_fw ?? source.LONG_FW),
+      shortFw: this.optionalText(source.shortFw ?? source.short_fw ?? source.SHORT_FW),
+      createdBy: this.optionalText(source.createdBy ?? source.created_by),
+    };
+  }
+
+  private optionalText(value: unknown): string | null {
+    return value === undefined || value === null || value === '' ? null : String(value);
+  }
+
+  private registerValue(register: any, property: string, csvColumn: string): string | number | boolean | undefined {
+    return register[property] ?? register.rawRegister?.[csvColumn];
+  }
+
   @Post(['api/plugins/memmap-manager/import', 'api/v1/plugins/memmap-manager/import'])
   @UseInterceptors(FileInterceptor('file'))
   async importProfile(
@@ -251,6 +293,7 @@ export class MemmapManagerAdapterController {
         name: candidateProfile.name,
         description: candidateProfile.description || null,
         sourceFormat: candidateProfile.sourceFormat || 'json',
+        ...this.profileMetadata(body),
       });
       const savedProfile = await profileRepo.save(profileEntity);
 
@@ -267,6 +310,23 @@ export class MemmapManagerAdapterController {
           defaultValue: r.defaultValue !== undefined && r.defaultValue !== null ? String(r.defaultValue) : null,
           accessMode: r.accessMode || 'read',
           rawRegister: r.rawRegister || {},
+          no: this.numberOrNull(this.registerValue(r, 'no', 'No.')),
+          modbusRegisterDec: this.numberOrNull(this.registerValue(r, 'modbusRegisterDec', 'Modbus Register (Decimal)')) ?? Number(r.address),
+          modbusRegisterHex: this.textOrNull(this.registerValue(r, 'modbusRegisterHex', 'Modbus Register (Hex)')),
+          fcRead: this.textOrNull(this.registerValue(r, 'fcRead', 'Function Code (Read)')),
+          fcWrite: this.textOrNull(this.registerValue(r, 'fcWrite', 'Function Code (Write)')),
+          numRegisters: this.numberOrNull(this.registerValue(r, 'numRegisters', '# of Registers')) ?? 1,
+          range: this.textOrNull(this.registerValue(r, 'range', 'Range')),
+          endUserDefault: this.textOrNull(this.registerValue(r, 'endUserDefault', 'End-user Default')) ?? (r.defaultValue !== undefined ? String(r.defaultValue) : null),
+          format: this.textOrNull(this.registerValue(r, 'format', 'Format')) ?? r.dataType,
+          downlink5: this.textOrNull(this.registerValue(r, 'downlink5', 'Downlink 5')),
+          inRd1Template: this.textOrNull(this.registerValue(r, 'inRd1Template', 'In RD1 Template')),
+          comment: this.textOrNull(this.registerValue(r, 'comment', 'Comment')),
+          inEngineeringTemplate: this.textOrNull(this.registerValue(r, 'inEngineeringTemplate', 'In Engineering Template')),
+          inEndUserTemplate: this.textOrNull(this.registerValue(r, 'inEndUserTemplate', 'In End-user Template')),
+          inFullTemplate: this.textOrNull(this.registerValue(r, 'inFullTemplate', 'In Full Template')),
+          valDecOk: this.booleanOrDefault(this.registerValue(r, 'valDecOk', 'valDecOk'), true),
+          valHexOk: this.booleanOrDefault(this.registerValue(r, 'valHexOk', 'valHexOk'), true),
         }),
       );
 
@@ -289,6 +349,21 @@ export class MemmapManagerAdapterController {
         updatedAt: saved.updatedAt,
       },
     };
+  }
+
+  private textOrNull(value: unknown): string | null {
+    return value === undefined || value === null || value === '' ? null : String(value);
+  }
+
+  private numberOrNull(value: unknown): number | null {
+    if (value === undefined || value === null || value === '') return null;
+    const numeric = Number(value);
+    return Number.isFinite(numeric) ? numeric : null;
+  }
+
+  private booleanOrDefault(value: unknown, fallback: boolean): boolean {
+    if (value === undefined || value === null || value === '') return fallback;
+    return value === true || String(value).toLowerCase() === 'true' || String(value).toLowerCase() === 'yes';
   }
 
   private isExcelFormat(format: string): boolean {
