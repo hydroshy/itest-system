@@ -9,4 +9,6 @@ export * from './finalconfig-profile.entity';
 export * from './finalconfig-register.entity';
 export * from './finalconfig-execution-session.entity';
 export * from './finalconfig-execution-log.entity';
+export * from './traceability-order.entity';
+export * from './traceability-device.entity';
 
