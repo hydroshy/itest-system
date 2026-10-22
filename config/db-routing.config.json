@@ -23,6 +23,8 @@
     "plugin_audit_logs": "core_db",
     "unified_devices": "core_db",
     "memmap_profiles": "core_db",
-    "memmap_registers": "core_db"
+    "memmap_registers": "core_db",
+    "finalconfig_profile": "core_db",
+    "finalconfig_regs": "core_db"
   }
 }

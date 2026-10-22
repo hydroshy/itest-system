@@ -11,6 +11,8 @@ import { UnifiedDeviceEntity } from '../core-models/unified-device.entity';
 import { ChirpstackNetworkServerEntity } from '../core-models/chirpstack-network-server.entity';
 import { MemmapProfileEntity } from '../core-models/memmap-profile.entity';
 import { MemmapRegisterEntity } from '../core-models/memmap-register.entity';
+import { FinalConfigProfileEntity } from '../core-models/finalconfig-profile.entity';
+import { FinalConfigRegisterEntity } from '../core-models/finalconfig-register.entity';
 
 export const ALL_DATABASE_ENTITIES = [
   User,
@@ -22,6 +24,8 @@ export const ALL_DATABASE_ENTITIES = [
   ChirpstackNetworkServerEntity,
   MemmapProfileEntity,
   MemmapRegisterEntity,
+  FinalConfigProfileEntity,
+  FinalConfigRegisterEntity,
 ];
 
 export interface DbConnectionConfig {

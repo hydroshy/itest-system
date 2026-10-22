@@ -5,4 +5,6 @@ export * from './plugin-audit-log.entity';
 export * from './chirpstack-network-server.entity';
 export * from './memmap-profile.entity';
 export * from './memmap-register.entity';
+export * from './finalconfig-profile.entity';
+export * from './finalconfig-register.entity';
 

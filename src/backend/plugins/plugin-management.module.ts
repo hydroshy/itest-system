@@ -6,6 +6,7 @@ import { PluginManagerService } from './plugin-manager.service';
 import { PluginManagerController } from './plugin-manager.controller';
 import { LorawanChirpstackAdapterController } from './lorawan-chirpstack.adapter.controller';
 import { MemmapManagerAdapterController } from './memmap-manager.adapter.controller';
+import { FinalConfigAdapterController } from './final-config.adapter.controller';
 
 @Module({
   imports: [DynamicDatabaseModule, RealtimeModule],
@@ -13,6 +14,7 @@ import { MemmapManagerAdapterController } from './memmap-manager.adapter.control
     PluginManagerController,
     LorawanChirpstackAdapterController,
     MemmapManagerAdapterController,
+    FinalConfigAdapterController,
   ],
   providers: [PluginStorageService, PluginManagerService],
   exports: [PluginStorageService, PluginManagerService],
