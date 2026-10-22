@@ -183,6 +183,10 @@ export class MemmapManagerAdapterController {
         if (body?.description) {
           preview.profile.description = body.description;
         }
+        if (body?.sku) preview.profile.sku = body.sku;
+        if (body?.longFw) preview.profile.longFw = body.longFw;
+        if (body?.shortFw) preview.profile.shortFw = body.shortFw;
+        if (body?.createdBy) preview.profile.createdBy = body.createdBy;
       }
       return preview;
     }
@@ -196,7 +200,16 @@ export class MemmapManagerAdapterController {
       }
 
       if (typeof body.content === 'string') {
-        return this.service.previewImport(body.content, body.format);
+        const preview = this.service.previewImport(body.content, body.format);
+        if (preview.profile) {
+          if (body.name) preview.profile.name = body.name;
+          if (body.description) preview.profile.description = body.description;
+          if (body.sku) preview.profile.sku = body.sku;
+          if (body.longFw) preview.profile.longFw = body.longFw;
+          if (body.shortFw) preview.profile.shortFw = body.shortFw;
+          if (body.createdBy) preview.profile.createdBy = body.createdBy;
+        }
+        return preview;
       }
 
       if (body.registers || body.profile) {
