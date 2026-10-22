@@ -37,6 +37,18 @@ export class MemmapRegisterEntity {
   @Column({ name: 'access_mode', type: 'varchar', length: 20, default: 'RO' })
   accessMode: string;
 
+  @Column({ type: 'text', nullable: true })
+  description?: string | null;
+
+  @Column({ type: 'numeric', nullable: true, default: 0 })
+  offset?: number | null;
+
+  @Column({ name: 'default_value', type: 'varchar', length: 255, nullable: true })
+  defaultValue?: string | null;
+
+  @Column({ name: 'raw_register', type: 'jsonb', nullable: true, default: () => "'{}'" })
+  rawRegister?: Record<string, any> | null;
+
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt: Date;
 

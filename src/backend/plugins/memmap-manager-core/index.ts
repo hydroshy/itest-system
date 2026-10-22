@@ -7,6 +7,7 @@ export const MEMMAP_DATA_TYPES = [
   'float64',
   'boolean',
   'string',
+  'hex',
 ] as const;
 
 export type MemmapDataType = (typeof MEMMAP_DATA_TYPES)[number];
@@ -16,11 +17,15 @@ export type MemmapSourceFormat = 'json' | 'csv';
 export interface MemmapRegister {
   id?: string;
   name: string;
+  description?: string;
   address: number;
   dataType: MemmapDataType;
   scale?: number;
+  offset?: number;
   unit?: string;
+  defaultValue?: string;
   accessMode: MemmapAccessMode;
+  rawRegister?: Record<string, string>;
 }
 
 export interface MemmapProfileInput {
@@ -90,189 +95,209 @@ export class MemmapManagerService {
         ? candidate
         : undefined;
 
-    const profileName = this.asString(source?.name) || 'Imported Profile';
-    const profileDescription = this.asString(source?.description);
-
-    if (!source?.name && !Array.isArray(candidate)) {
-      errors.push({ field: 'name', message: 'Profile name is required' });
+    if (!source || !suppliedRegisters) {
+      return this.invalid([{ message: 'Import must contain a profile object with a registers array' }]);
     }
 
-    if (!suppliedRegisters || suppliedRegisters.length === 0) {
-      errors.push({ field: 'registers', message: 'At least one register is required' });
-      return {
-        valid: false,
-        profile: {
-          name: profileName,
-          description: profileDescription,
-          sourceFormat,
-          registers: [],
-        },
-        registers: [],
-        errors,
-      };
-    }
+    const name = this.asString(source.name);
+    if (!name) errors.push({ field: 'name', message: 'Profile name is required' });
 
-    const seenAddresses = new Map<number, number>();
     const registers: MemmapRegister[] = [];
-
-    suppliedRegisters.forEach((item, index) => {
-      const row = index + 1;
-      const record = this.asRecord(item);
-      if (!record) {
-        errors.push({ row, message: 'Register item must be an object' });
-        return;
-      }
-
-      const name = this.asString(record.name ?? record.parameterName);
-      if (!name) {
-        errors.push({ row, field: 'name', message: 'Register name is required' });
-      }
-
-      const address = this.asFiniteNumber(record.address);
-      if (address === undefined || !Number.isInteger(address) || address < 0) {
-        errors.push({ row, field: 'address', message: 'Address must be a non-negative integer' });
-      } else if (seenAddresses.has(address)) {
+    const addresses = new Set<number>();
+    suppliedRegisters.forEach((value, index) => {
+      const source = this.asRecord(value);
+      const address = this.asFiniteNumber(source?.address);
+      const duplicateAddress = address !== undefined && addresses.has(address);
+      if (duplicateAddress) {
         errors.push({
-          row,
+          row: index + 1,
           field: 'address',
-          message: `Duplicate address ${address} previously declared at row ${seenAddresses.get(address)}`,
+          message: `Duplicate address ${address}: Register address must be unique within a profile`,
         });
-      } else {
-        seenAddresses.set(address, row);
+      } else if (address !== undefined) {
+        addresses.add(address);
       }
 
-      const rawDataType = this.asString(record.dataType ?? record.format)?.toLowerCase();
-      if (!rawDataType || !MEMMAP_DATA_TYPES.includes(rawDataType as MemmapDataType)) {
-        errors.push({
-          row,
-          field: 'dataType',
-          message: `dataType must be one of: ${MEMMAP_DATA_TYPES.join(', ')}`,
-        });
-      }
-
-      const rawAccessMode = this.asString(record.accessMode)?.toLowerCase() ?? 'read';
-      const normalizedAccess =
-        rawAccessMode === 'read' || rawAccessMode === 'ro'
-          ? 'read'
-          : rawAccessMode === 'write' || rawAccessMode === 'wo'
-            ? 'write'
-            : rawAccessMode === 'readwrite' || rawAccessMode === 'rw'
-              ? 'readwrite'
-              : undefined;
-
-      if (!normalizedAccess) {
-        errors.push({
-          row,
-          field: 'accessMode',
-          message: 'accessMode must be one of: read, write, readwrite',
-        });
-      }
-
-      const scale = this.asOptionalFiniteNumber(record.scale);
-      if (record.scale !== undefined && record.scale !== '' && scale === undefined) {
-        errors.push({ row, field: 'scale', message: 'scale must be a finite number' });
-      }
-
-      const unit = this.asString(record.unit);
-
-      if (name && address !== undefined && Number.isInteger(address) && address >= 0 && rawDataType && MEMMAP_DATA_TYPES.includes(rawDataType as MemmapDataType) && normalizedAccess) {
-        registers.push({
-          name,
-          address,
-          dataType: rawDataType as MemmapDataType,
-          accessMode: normalizedAccess,
-          ...(scale !== undefined ? { scale } : {}),
-          ...(unit ? { unit } : {}),
-        });
-      }
+      const register = this.validateRegister(value, index + 1, errors);
+      if (register && !duplicateAddress) registers.push(register);
     });
 
-    const valid = errors.length === 0;
+    if (suppliedRegisters.length === 0) errors.push({ field: 'registers', message: 'At least one register is required' });
+    if (errors.length > 0 || !name) return { valid: false, registers, errors };
+
     return {
-      valid,
+      valid: true,
       profile: {
-        name: profileName,
-        description: profileDescription,
+        id: this.asString(source.id),
+        name,
+        description: this.asString(source.description),
         sourceFormat,
         registers,
       },
       registers,
-      errors,
+      errors: [],
     };
   }
 
-  private parseCsv(content: string): Record<string, unknown>[] {
-    const lines = content
-      .split(/\r?\n/)
-      .map((line) => line.trim())
-      .filter((line) => line.length > 0);
-
-    if (lines.length === 0) {
-      throw new Error('CSV content is empty');
+  private validateRegister(value: unknown, row: number, errors: MemmapImportError[]): MemmapRegister | undefined {
+    const source = this.asRecord(value);
+    if (!source) {
+      errors.push({ row, message: 'Register must be an object' });
+      return undefined;
     }
 
-    const headers = this.parseCsvLine(lines[0]).map((h) => this.normalizeCsvHeader(h));
-    const rows: Record<string, unknown>[] = [];
+    const name = this.asString(source.name) ?? this.asString(source.parameterName);
+    const address = this.asFiniteNumber(source.address);
+    const dataType = this.asString(source.dataType) ?? this.asString(source.format)?.toLowerCase();
+    const accessMode = this.asString(source.accessMode) ?? 'read';
+    const scale = this.asOptionalFiniteNumber(source.scale);
+    const offset = this.asOptionalFiniteNumber(source.offset);
+    const unit = this.asString(source.unit);
+    const description = this.asString(source.description);
+    const defaultValue = this.asString(source.defaultValue);
+    const rawRegister = this.asStringRecord(source.rawRegister);
 
-    for (let i = 1; i < lines.length; i += 1) {
-      const values = this.parseCsvLine(lines[i]);
-      const row: Record<string, unknown> = {};
-      headers.forEach((header, index) => {
-        row[header] = values[index] ?? '';
-      });
-      rows.push(row);
+    if (!name) errors.push({ row, field: 'name', message: 'Register name is required' });
+    if (address === undefined || !Number.isInteger(address) || address < 0) {
+      errors.push({ row, field: 'address', message: 'Address must be a non-negative integer' });
+    }
+    if (!dataType || !MEMMAP_DATA_TYPES.includes(dataType as MemmapDataType)) {
+      errors.push({ row, field: 'dataType', message: `Data type must be one of: ${MEMMAP_DATA_TYPES.join(', ')}` });
+    }
+    if (accessMode !== 'read' && accessMode !== 'write' && accessMode !== 'readwrite') {
+      errors.push({ row, field: 'accessMode', message: 'Access mode must be read, write, or readwrite' });
+    }
+    if (source.scale !== undefined && scale === undefined) {
+      errors.push({ row, field: 'scale', message: 'Scale must be a finite number' });
+    }
+    if (source.offset !== undefined && offset === undefined) {
+      errors.push({ row, field: 'offset', message: 'Offset must be a finite number' });
     }
 
-    return rows;
+    if (
+      !name ||
+      address === undefined ||
+      !Number.isInteger(address) ||
+      address < 0 ||
+      !dataType ||
+      !MEMMAP_DATA_TYPES.includes(dataType as MemmapDataType) ||
+      (accessMode !== 'read' && accessMode !== 'write' && accessMode !== 'readwrite') ||
+      (source.scale !== undefined && scale === undefined) ||
+      (source.offset !== undefined && offset === undefined)
+    ) {
+      return undefined;
+    }
+
+    return {
+      name,
+      description,
+      address,
+      dataType: dataType as MemmapDataType,
+      scale,
+      offset,
+      unit,
+      defaultValue,
+      accessMode,
+      rawRegister,
+    };
   }
 
-  private normalizeCsvHeader(header: string): string {
-    const cleaned = header.trim().replace(/^['"]|['"]$/g, '');
-    switch (cleaned.toLowerCase()) {
-      case 'parametername':
-      case 'register_name':
-      case 'registername':
-        return 'name';
-      case 'format':
-      case 'type':
-      case 'data_type':
-        return 'dataType';
-      case 'access_mode':
-      case 'access':
-        return 'accessMode';
-      default:
-        return cleaned;
+  private parseCsv(content: string): unknown {
+    const rows = this.parseCsvRecords(content.replace(/^\uFEFF/, '')).filter((row) => row.some((value) => value.trim()));
+    if (rows.length < 2) throw new Error('CSV import must include a header and at least one register row');
+
+    const headers = rows[0].map((header) => header.trim());
+    const mappedRows = rows.slice(1).map((values, rowIndex) => {
+      if (values.length !== headers.length) {
+        throw new Error(`CSV row ${rowIndex + 2} has ${values.length} columns; expected ${headers.length}`);
+      }
+      return headers.reduce<Record<string, string>>((result, header, index) => {
+        result[header] = values[index].trim();
+        return result;
+      }, {});
+    });
+
+    if (headers.includes('Modbus Register (Decimal)') && headers.includes('Description') && headers.includes('Format')) {
+      const registers = mappedRows.map((row) => this.mapLegacyIec485Register(row));
+      return { name: 'Imported MemMap', sourceFormat: 'csv', registers };
     }
+
+    const allowed = new Set([
+      'profileName',
+      'name',
+      'description',
+      'address',
+      'dataType',
+      'format',
+      'scale',
+      'offset',
+      'unit',
+      'defaultValue',
+      'accessMode',
+    ]);
+    if (
+      !headers.includes('name') ||
+      !headers.includes('address') ||
+      !(headers.includes('dataType') || headers.includes('format')) ||
+      !headers.every((header) => allowed.has(header))
+    ) {
+      throw new Error('CSV header must include compact MemMap columns or IEC485 Modbus columns');
+    }
+    const profileName = mappedRows[0]?.profileName?.trim() || 'Imported MemMap';
+    const description = mappedRows[0]?.description?.trim() || undefined;
+    return { name: profileName, description, registers: mappedRows };
   }
 
-  private parseCsvLine(line: string): string[] {
-    const cells: string[] = [];
-    let current = '';
+  private mapLegacyIec485Register(row: Record<string, string>): Record<string, unknown> {
+    const readFunction = row['Function Code (Read)']?.trim().toLowerCase();
+    const writeFunction = row['Function Code (Write)']?.trim().toLowerCase();
+    const hasRead = Boolean(readFunction && readFunction !== 'none' && readFunction !== 'n/a');
+    const hasWrite = Boolean(writeFunction && writeFunction !== 'none' && writeFunction !== 'n/a');
+    return {
+      name: row.Description,
+      description: row.Comment || row.Description,
+      address: row['Modbus Register (Decimal)'],
+      dataType: row.Format?.toLowerCase(),
+      defaultValue: row['End-user Default'],
+      accessMode: hasRead && hasWrite ? 'readwrite' : hasWrite ? 'write' : 'read',
+      rawRegister: row,
+    };
+  }
+
+  /** RFC 4180 parser: commas, escaped quotes, CRLF and quoted multi-line cells. */
+  private parseCsvRecords(content: string): string[][] {
+    const rows: string[][] = [];
+    let row: string[] = [];
+    let cell = '';
     let quoted = false;
-
-    for (let i = 0; i < line.length; i += 1) {
-      const char = line[i];
+    for (let index = 0; index < content.length; index += 1) {
+      const char = content[index];
       if (char === '"') {
-        if (quoted && line[i + 1] === '"') {
-          current += '"';
-          i += 1;
+        if (quoted && content[index + 1] === '"') {
+          cell += '"';
+          index += 1;
         } else {
           quoted = !quoted;
         }
       } else if (char === ',' && !quoted) {
-        cells.push(current.trim());
-        current = '';
+        row.push(cell);
+        cell = '';
+      } else if ((char === '\n' || char === '\r') && !quoted) {
+        if (char === '\r' && content[index + 1] === '\n') index += 1;
+        row.push(cell);
+        rows.push(row);
+        row = [];
+        cell = '';
       } else {
-        current += char;
+        cell += char;
       }
     }
-
-    if (quoted) {
-      throw new Error('CSV contains an unclosed quoted value');
+    if (quoted) throw new Error('CSV contains an unclosed quoted value');
+    if (cell.length > 0 || row.length > 0) {
+      row.push(cell);
+      rows.push(row);
     }
-
-    cells.push(current.trim());
-    return cells;
+    return rows;
   }
 
   private resolveFormat(content: string, format?: string): MemmapSourceFormat | undefined {
@@ -296,9 +321,18 @@ export class MemmapManagerService {
     return typeof value === 'string' && value.trim() ? value.trim() : undefined;
   }
 
+  private asStringRecord(value: unknown): Record<string, string> | undefined {
+    const source = this.asRecord(value);
+    if (!source) return undefined;
+    return Object.entries(source).reduce<Record<string, string>>((result, [key, entry]) => {
+      if (typeof entry === 'string') result[key] = entry;
+      return result;
+    }, {});
+  }
+
   private asFiniteNumber(value: unknown): number | undefined {
-    const num = typeof value === 'number' ? value : typeof value === 'string' && value.trim() ? Number(value) : NaN;
-    return Number.isFinite(num) ? num : undefined;
+    const number = typeof value === 'number' ? value : typeof value === 'string' && value.trim() ? Number(value) : NaN;
+    return Number.isFinite(number) ? number : undefined;
   }
 
   private asOptionalFiniteNumber(value: unknown): number | undefined {

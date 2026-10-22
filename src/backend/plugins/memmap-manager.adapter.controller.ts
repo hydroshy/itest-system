@@ -108,11 +108,15 @@ export class MemmapManagerAdapterController {
       registers: sortedRegisters.map((r) => ({
         id: r.id,
         name: r.name,
+        description: r.description || undefined,
         address: r.address,
         dataType: r.dataType,
         scale: r.scale !== null && r.scale !== undefined ? Number(r.scale) : 1,
+        offset: r.offset !== null && r.offset !== undefined ? Number(r.offset) : 0,
+        defaultValue: r.defaultValue || undefined,
         unit: r.unit || undefined,
         accessMode: r.accessMode,
+        rawRegister: r.rawRegister || undefined,
       })),
       createdAt: profile.createdAt ? profile.createdAt.toISOString() : new Date().toISOString(),
       updatedAt: profile.updatedAt ? profile.updatedAt.toISOString() : undefined,
@@ -145,7 +149,18 @@ export class MemmapManagerAdapterController {
       this.assertSupportedFileType(file);
       const content = file.buffer.toString('utf-8');
       const format = this.detectFormatFromFilename(file.originalname) || body?.format;
-      return this.service.previewImport(content, format);
+      const preview = this.service.previewImport(content, format);
+      if (preview.profile) {
+        if (body?.name) {
+          preview.profile.name = body.name;
+        } else if (file.originalname && (!preview.profile.name || preview.profile.name === 'Imported MemMap')) {
+          preview.profile.name = path.parse(file.originalname).name;
+        }
+        if (body?.description) {
+          preview.profile.description = body.description;
+        }
+      }
+      return preview;
     }
 
     if (body) {
@@ -182,6 +197,16 @@ export class MemmapManagerAdapterController {
       const content = file.buffer.toString('utf-8');
       const format = this.detectFormatFromFilename(file.originalname) || body?.format;
       previewResult = this.service.previewImport(content, format);
+      if (previewResult.profile) {
+        if (body?.name) {
+          previewResult.profile.name = body.name;
+        } else if (file.originalname && (!previewResult.profile.name || previewResult.profile.name === 'Imported MemMap')) {
+          previewResult.profile.name = path.parse(file.originalname).name;
+        }
+        if (body?.description) {
+          previewResult.profile.description = body.description;
+        }
+      }
     } else if (body) {
       if (body.format && this.isExcelFormat(body.format)) {
         throw new HttpException(
@@ -192,6 +217,10 @@ export class MemmapManagerAdapterController {
 
       if (typeof body.content === 'string') {
         previewResult = this.service.previewImport(body.content, body.format);
+        if (previewResult.profile) {
+          if (body.name) previewResult.profile.name = body.name;
+          if (body.description) previewResult.profile.description = body.description;
+        }
       } else if (body.registers || body.profile) {
         const candidate = body.profile || body;
         previewResult = this.service.validateProfile(candidate, candidate.sourceFormat || 'json');
@@ -229,11 +258,15 @@ export class MemmapManagerAdapterController {
         registerRepo.create({
           profileId: savedProfile.id,
           name: r.name,
+          description: r.description || null,
           address: Number(r.address),
           dataType: r.dataType,
           scale: r.scale !== undefined && r.scale !== null ? Number(r.scale) : 1,
+          offset: r.offset !== undefined && r.offset !== null ? Number(r.offset) : 0,
           unit: r.unit || null,
+          defaultValue: r.defaultValue !== undefined && r.defaultValue !== null ? String(r.defaultValue) : null,
           accessMode: r.accessMode || 'read',
+          rawRegister: r.rawRegister || {},
         }),
       );
 
