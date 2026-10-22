@@ -9,6 +9,8 @@ import { CorePluginEntity } from '../core-models/core-plugin.entity';
 import { PluginAuditLogEntity } from '../core-models/plugin-audit-log.entity';
 import { UnifiedDeviceEntity } from '../core-models/unified-device.entity';
 import { ChirpstackNetworkServerEntity } from '../core-models/chirpstack-network-server.entity';
+import { MemmapProfileEntity } from '../core-models/memmap-profile.entity';
+import { MemmapRegisterEntity } from '../core-models/memmap-register.entity';
 
 export const ALL_DATABASE_ENTITIES = [
   User,
@@ -18,6 +20,8 @@ export const ALL_DATABASE_ENTITIES = [
   PluginAuditLogEntity,
   UnifiedDeviceEntity,
   ChirpstackNetworkServerEntity,
+  MemmapProfileEntity,
+  MemmapRegisterEntity,
 ];
 
 export interface DbConnectionConfig {
@@ -232,7 +236,14 @@ export class DynamicDatabaseService implements OnModuleInit, OnModuleDestroy {
       try {
         const ds = this.dataSources.get(connKey);
         if (ds && ds.isInitialized) {
-          const countRes = await ds.query(`SELECT count(*)::int as count FROM "${table}"`).catch(() => null);
+          let schemaPrefix = '';
+          try {
+            const meta = ds.entityMetadatas.find((m) => m.tableName === table);
+            if (meta && meta.schema) {
+              schemaPrefix = `"${meta.schema}".`;
+            }
+          } catch {}
+          const countRes = await ds.query(`SELECT count(*)::int as count FROM ${schemaPrefix}"${table}"`).catch(() => null);
           tableStats[table] = {
             routedTo: connKey,
             recordCount: countRes && countRes[0] ? countRes[0].count : 0,

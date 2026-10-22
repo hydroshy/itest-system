@@ -17,7 +17,7 @@
     "start:debug": "nest start --debug --watch",
     "start:prod": "node dist/main.js",
     "check-db": "ts-node src/check-db.ts",
-    "test": "ts-node -r tsconfig-paths/register test/plugin-management-api.spec.ts && ts-node -r tsconfig-paths/register test/control-panel-render.spec.ts",
+    "test": "ts-node -r tsconfig-paths/register test/plugin-management-api.spec.ts && ts-node -r tsconfig-paths/register test/control-panel-render.spec.ts && ts-node -r tsconfig-paths/register test/memmap-manager-adapter.spec.ts",
     "test:entities": "ts-node -r tsconfig-paths/register test/entity-metadata-verification.spec.ts",
     "lint": "eslint \"{src,apps,libs,test}/**/*.ts\" --fix"
   },

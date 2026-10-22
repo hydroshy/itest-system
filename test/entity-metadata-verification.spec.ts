@@ -19,6 +19,8 @@ import { Permission } from '../src/backend/identity/modules/roles-permissions/en
 import { CorePluginEntity } from '../src/backend/core-models/core-plugin.entity';
 import { PluginAuditLogEntity } from '../src/backend/core-models/plugin-audit-log.entity';
 import { UnifiedDeviceEntity } from '../src/backend/core-models/unified-device.entity';
+import { MemmapProfileEntity } from '../src/backend/core-models/memmap-profile.entity';
+import { MemmapRegisterEntity } from '../src/backend/core-models/memmap-register.entity';
 
 class TestDataSource extends DataSource {
   public async build() {
@@ -39,6 +41,8 @@ async function verifyTypeOrmMetadata() {
     'CorePluginEntity',
     'PluginAuditLogEntity',
     'UnifiedDeviceEntity',
+    'MemmapProfileEntity',
+    'MemmapRegisterEntity',
   ];
 
   for (const expected of expectedEntities) {
@@ -71,13 +75,19 @@ async function verifyTypeOrmMetadata() {
   }
   console.log('  -> PASS: All Core entities resolve without EntityMetadataNotFoundError\n');
 
-  // Check 3: Relationship integrity (Role <-> Permission N:M)
+  // Check 3: Relationship integrity (Role <-> Permission N:M and MemmapProfile <-> MemmapRegister 1:N)
   console.log('[Check 3] Core Relationship integrity');
   const roleMeta = testDs.getMetadata(Role);
   const permRelation = roleMeta.relations.find((r) => r.propertyName === 'permissions');
   assert.ok(permRelation, 'Role must have permissions relation');
   assert.strictEqual(permRelation.relationType, 'many-to-many', 'Role-Permission must be many-to-many');
-  console.log('  -> PASS: Role-Permission many-to-many relation verified\n');
+  console.log('  -> PASS: Role-Permission many-to-many relation verified');
+
+  const profileMeta = testDs.getMetadata(MemmapProfileEntity);
+  const registersRelation = profileMeta.relations.find((r) => r.propertyName === 'registers');
+  assert.ok(registersRelation, 'MemmapProfileEntity must have registers relation');
+  assert.strictEqual(registersRelation.relationType, 'one-to-many', 'MemmapProfile-Register must be one-to-many');
+  console.log('  -> PASS: MemmapProfile-MemmapRegister 1:N relation verified\n');
 
   // Check 4: DB routing configuration
   console.log('[Check 4] db-routing.config.json routes all Core tables');
@@ -85,7 +95,16 @@ async function verifyTypeOrmMetadata() {
   assert.ok(fs.existsSync(configPath), 'db-routing.config.json must exist');
   const configContent = JSON.parse(fs.readFileSync(configPath, 'utf8'));
 
-  const coreTables = ['users', 'roles', 'permission', 'core_plugins', 'plugin_audit_logs', 'unified_devices'];
+  const coreTables = [
+    'users',
+    'roles',
+    'permission',
+    'core_plugins',
+    'plugin_audit_logs',
+    'unified_devices',
+    'memmap_profiles',
+    'memmap_registers',
+  ];
   for (const table of coreTables) {
     assert.ok(
       configContent.table_routes[table] !== undefined,

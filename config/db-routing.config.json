@@ -21,6 +21,8 @@
     "permission": "core_db",
     "core_plugins": "core_db",
     "plugin_audit_logs": "core_db",
-    "unified_devices": "core_db"
+    "unified_devices": "core_db",
+    "memmap_profiles": "core_db",
+    "memmap_registers": "core_db"
   }
 }

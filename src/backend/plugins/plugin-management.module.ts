@@ -5,10 +5,15 @@ import { PluginStorageService } from './plugin-storage.service';
 import { PluginManagerService } from './plugin-manager.service';
 import { PluginManagerController } from './plugin-manager.controller';
 import { LorawanChirpstackAdapterController } from './lorawan-chirpstack.adapter.controller';
+import { MemmapManagerAdapterController } from './memmap-manager.adapter.controller';
 
 @Module({
   imports: [DynamicDatabaseModule, RealtimeModule],
-  controllers: [PluginManagerController, LorawanChirpstackAdapterController],
+  controllers: [
+    PluginManagerController,
+    LorawanChirpstackAdapterController,
+    MemmapManagerAdapterController,
+  ],
   providers: [PluginStorageService, PluginManagerService],
   exports: [PluginStorageService, PluginManagerService],
 })
