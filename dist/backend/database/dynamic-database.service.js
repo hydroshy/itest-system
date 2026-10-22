@@ -22,6 +22,8 @@ const core_plugin_entity_1 = require("../core-models/core-plugin.entity");
 const plugin_audit_log_entity_1 = require("../core-models/plugin-audit-log.entity");
 const unified_device_entity_1 = require("../core-models/unified-device.entity");
 const chirpstack_network_server_entity_1 = require("../core-models/chirpstack-network-server.entity");
+const memmap_profile_entity_1 = require("../core-models/memmap-profile.entity");
+const memmap_register_entity_1 = require("../core-models/memmap-register.entity");
 exports.ALL_DATABASE_ENTITIES = [
     user_entity_1.User,
     role_entity_1.Role,
@@ -30,6 +32,8 @@ exports.ALL_DATABASE_ENTITIES = [
     plugin_audit_log_entity_1.PluginAuditLogEntity,
     unified_device_entity_1.UnifiedDeviceEntity,
     chirpstack_network_server_entity_1.ChirpstackNetworkServerEntity,
+    memmap_profile_entity_1.MemmapProfileEntity,
+    memmap_register_entity_1.MemmapRegisterEntity,
 ];
 let DynamicDatabaseService = DynamicDatabaseService_1 = class DynamicDatabaseService {
     constructor() {
@@ -201,7 +205,15 @@ let DynamicDatabaseService = DynamicDatabaseService_1 = class DynamicDatabaseSer
             try {
                 const ds = this.dataSources.get(connKey);
                 if (ds && ds.isInitialized) {
-                    const countRes = await ds.query(`SELECT count(*)::int as count FROM "${table}"`).catch(() => null);
+                    let schemaPrefix = '';
+                    try {
+                        const meta = ds.entityMetadatas.find((m) => m.tableName === table);
+                        if (meta && meta.schema) {
+                            schemaPrefix = `"${meta.schema}".`;
+                        }
+                    }
+                    catch { }
+                    const countRes = await ds.query(`SELECT count(*)::int as count FROM ${schemaPrefix}"${table}"`).catch(() => null);
                     tableStats[table] = {
                         routedTo: connKey,
                         recordCount: countRes && countRes[0] ? countRes[0].count : 0,

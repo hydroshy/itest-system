@@ -7,7 +7,9 @@ import { CorePluginEntity } from '../core-models/core-plugin.entity';
 import { PluginAuditLogEntity } from '../core-models/plugin-audit-log.entity';
 import { UnifiedDeviceEntity } from '../core-models/unified-device.entity';
 import { ChirpstackNetworkServerEntity } from '../core-models/chirpstack-network-server.entity';
-export declare const ALL_DATABASE_ENTITIES: (typeof Permission | typeof Role | typeof User | typeof CorePluginEntity | typeof PluginAuditLogEntity | typeof UnifiedDeviceEntity | typeof ChirpstackNetworkServerEntity)[];
+import { MemmapProfileEntity } from '../core-models/memmap-profile.entity';
+import { MemmapRegisterEntity } from '../core-models/memmap-register.entity';
+export declare const ALL_DATABASE_ENTITIES: (typeof Permission | typeof Role | typeof User | typeof CorePluginEntity | typeof PluginAuditLogEntity | typeof UnifiedDeviceEntity | typeof ChirpstackNetworkServerEntity | typeof MemmapRegisterEntity | typeof MemmapProfileEntity)[];
 export interface DbConnectionConfig {
     host: string;
     port: number;

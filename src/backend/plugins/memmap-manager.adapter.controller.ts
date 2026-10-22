@@ -79,6 +79,13 @@ export class MemmapManagerAdapterController {
       name: p.name,
       description: p.description,
       sourceFormat: p.sourceFormat,
+      sku: p.sku || undefined,
+      longFw: p.longFw || undefined,
+      shortFw: p.shortFw || undefined,
+      decimalCheck: p.decCheck,
+      hexCheck: p.hexCheck,
+      createdBy: p.createdBy || undefined,
+      dateCreate: p.dateCreate ? p.dateCreate.toISOString() : undefined,
       registersCount: p.registers ? p.registers.length : 0,
       createdAt: p.createdAt ? p.createdAt.toISOString() : new Date().toISOString(),
       updatedAt: p.updatedAt ? p.updatedAt.toISOString() : undefined,
@@ -221,15 +228,17 @@ export class MemmapManagerAdapterController {
     throw new BadRequestException('Import preview requires a file or payload body.');
   }
 
-  private profileMetadata(body?: any): Partial<MemmapProfileEntity> {
-    const source = body?.profile || body || {};
+  private profileMetadata(body?: any, candidate?: any): Partial<MemmapProfileEntity> {
+    const b = body || {};
+    const bp = body?.profile || {};
+    const c = candidate || {};
     return {
-      sku: this.optionalText(source.sku ?? source.SKU),
-      longFw: this.optionalText(source.longFw ?? source.long_fw ?? source.LONG_FW),
-      shortFw: this.optionalText(source.shortFw ?? source.short_fw ?? source.SHORT_FW),
-      decCheck: this.booleanOrDefault(source.decimalCheck ?? source.decCheck ?? source.dec_check, true),
-      hexCheck: this.booleanOrDefault(source.hexCheck ?? source.hex_check, true),
-      createdBy: this.optionalText(source.createdBy ?? source.created_by),
+      sku: this.optionalText(b.sku ?? b.SKU ?? bp.sku ?? bp.SKU ?? c.sku ?? c.SKU),
+      longFw: this.optionalText(b.longFw ?? b.long_fw ?? b.LONG_FW ?? bp.longFw ?? bp.long_fw ?? bp.LONG_FW ?? c.longFw ?? c.long_fw ?? c.LONG_FW),
+      shortFw: this.optionalText(b.shortFw ?? b.short_fw ?? b.SHORT_FW ?? bp.shortFw ?? bp.short_fw ?? bp.SHORT_FW ?? c.shortFw ?? c.short_fw ?? c.SHORT_FW),
+      decCheck: this.booleanOrDefault(b.decimalCheck ?? b.decCheck ?? b.dec_check ?? bp.decimalCheck ?? bp.decCheck ?? bp.dec_check ?? c.decimalCheck ?? c.decCheck ?? c.dec_check, true),
+      hexCheck: this.booleanOrDefault(b.hexCheck ?? b.hex_check ?? bp.hexCheck ?? bp.hex_check ?? c.hexCheck ?? c.hex_check, true),
+      createdBy: this.optionalText(b.createdBy ?? b.created_by ?? bp.createdBy ?? bp.created_by ?? c.createdBy ?? c.created_by),
     };
   }
 
@@ -308,7 +317,7 @@ export class MemmapManagerAdapterController {
         name: candidateProfile.name,
         description: candidateProfile.description || null,
         sourceFormat: candidateProfile.sourceFormat || 'json',
-        ...this.profileMetadata(body),
+        ...this.profileMetadata(body, candidateProfile),
       });
       const savedProfile = await profileRepo.save(profileEntity);
 

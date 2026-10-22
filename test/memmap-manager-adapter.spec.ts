@@ -180,6 +180,10 @@ async function runTests() {
 
   // Import profile
   const importRes = await controller.importProfile(undefined, {
+    sku: 'SKU-001',
+    longFw: '5F0820',
+    shortFw: '5',
+    createdBy: 'admin',
     profile: {
       name: 'HVAC Profile',
       description: 'HVAC Registers',
@@ -195,6 +199,10 @@ async function runTests() {
   assert.strictEqual(importRes.data.registersCount, 2);
   assert.strictEqual(mockProfiles.length, 1);
   assert.strictEqual(mockRegisters.length, 2);
+  assert.strictEqual(mockProfiles[0].sku, 'SKU-001');
+  assert.strictEqual(mockProfiles[0].longFw, '5F0820');
+  assert.strictEqual(mockProfiles[0].shortFw, '5');
+  assert.strictEqual(mockProfiles[0].createdBy, 'admin');
 
   // Validation failure import
   try {
@@ -215,6 +223,10 @@ async function runTests() {
   assert.strictEqual(list.length, 1);
   assert.strictEqual(list[0].name, 'HVAC Profile');
   assert.strictEqual(list[0].registersCount, 2);
+  assert.strictEqual(list[0].sku, 'SKU-001');
+  assert.strictEqual(list[0].longFw, '5F0820');
+  assert.strictEqual(list[0].shortFw, '5');
+  assert.strictEqual(list[0].createdBy, 'admin');
 
   // Profile by id
   const profileDetails = await controller.getProfileById(mockProfiles[0].id);
