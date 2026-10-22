@@ -7,4 +7,6 @@ export * from './memmap-profile.entity';
 export * from './memmap-register.entity';
 export * from './finalconfig-profile.entity';
 export * from './finalconfig-register.entity';
+export * from './finalconfig-execution-session.entity';
+export * from './finalconfig-execution-log.entity';
 

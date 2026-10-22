@@ -14,6 +14,15 @@ import {
 import { DynamicDatabaseService } from '../database/dynamic-database.service';
 import { FinalConfigProfileEntity } from '../core-models/finalconfig-profile.entity';
 import { FinalConfigRegisterEntity } from '../core-models/finalconfig-register.entity';
+import {
+  FinalConfigExecutionSessionEntity,
+  FinalConfigSessionStatus,
+} from '../core-models/finalconfig-execution-session.entity';
+import {
+  FinalConfigExecutionLogEntity,
+  FinalConfigExecutionAction,
+  FinalConfigExecutionStatus,
+} from '../core-models/finalconfig-execution-log.entity';
 
 export interface FinalConfigRegisterDto {
   rowNumber?: number;
@@ -40,6 +49,31 @@ export interface CreateFinalConfigProfileDto {
   notes?: string;
   status?: string;
   registers: FinalConfigRegisterDto[];
+}
+
+export interface CreateExecutionSessionDto {
+  deviceId?: string;
+  serialNumber?: string;
+  metadata?: Record<string, any>;
+}
+
+export interface StepExecutionLogDto {
+  modbusRegisterDec: number;
+  modbusRegisterHex?: string;
+  action: 'READ' | 'WRITE' | 'VERIFY';
+  expectedValue?: string;
+  writeValue?: string;
+  readValue?: string;
+  rawHex?: string;
+  status: 'PASS' | 'FAIL' | 'SKIPPED';
+  errorMessage?: string;
+  durationMs?: number;
+}
+
+export interface FinalizeExecutionSessionDto {
+  status: 'COMPLETED' | 'FAILED' | 'ABORTED' | 'PAUSED';
+  errorMessage?: string;
+  metadata?: Record<string, any>;
 }
 
 @Controller()
@@ -294,6 +328,189 @@ export class FinalConfigAdapterController {
       id,
       deleted: true,
       message: `Final config profile "${profile.soNumber}" removed successfully`,
+    };
+  }
+
+  // =========================================================================
+  // EXECUTION SESSIONS & STEP CHECKPOINTS
+  // =========================================================================
+
+  @Post([
+    'api/plugins/final-config/profiles/:id/execution-sessions',
+    'api/v1/plugins/final-config/profiles/:id/execution-sessions',
+  ])
+  async createExecutionSession(
+    @Param('id') profileId: string,
+    @Body() body: CreateExecutionSessionDto,
+  ) {
+    const profileRepo = this.databaseService.getRepositoryForTable(
+      'finalconfig_profile',
+      FinalConfigProfileEntity,
+    );
+    const regRepo = this.databaseService.getRepositoryForTable(
+      'finalconfig_regs',
+      FinalConfigRegisterEntity,
+    );
+    const sessionRepo = this.databaseService.getRepositoryForTable(
+      'finalconfig_execution_session',
+      FinalConfigExecutionSessionEntity,
+    );
+
+    const profile = await profileRepo.findOne({ where: { id: profileId } });
+    if (!profile) {
+      throw new NotFoundException(`Final config profile with ID "${profileId}" not found`);
+    }
+
+    // Only count selected registers as steps
+    const selectedCount = await regRepo.count({
+      where: { profileId, selected: true },
+    });
+
+    const session = sessionRepo.create({
+      profileId,
+      deviceId: body?.deviceId || null,
+      serialNumber: body?.serialNumber || null,
+      status: FinalConfigSessionStatus.IN_PROGRESS,
+      currentStep: 0,
+      totalSteps: selectedCount,
+      passedSteps: 0,
+      failedSteps: 0,
+      startedAt: new Date(),
+      metadata: body?.metadata || null,
+    });
+
+    const saved = await sessionRepo.save(session);
+    return {
+      session: saved,
+      message: 'Execution session initialized successfully',
+    };
+  }
+
+  @Get([
+    'api/plugins/final-config/execution-sessions/:sessionId',
+    'api/v1/plugins/final-config/execution-sessions/:sessionId',
+  ])
+  async getExecutionSession(@Param('sessionId') sessionId: string) {
+    const sessionRepo = this.databaseService.getRepositoryForTable(
+      'finalconfig_execution_session',
+      FinalConfigExecutionSessionEntity,
+    );
+    const logRepo = this.databaseService.getRepositoryForTable(
+      'finalconfig_execution_log',
+      FinalConfigExecutionLogEntity,
+    );
+
+    const session = await sessionRepo.findOne({ where: { id: sessionId } });
+    if (!session) {
+      throw new NotFoundException(`Execution session with ID "${sessionId}" not found`);
+    }
+
+    const logs = await logRepo.find({
+      where: { sessionId },
+      order: { createdAt: 'ASC' },
+    });
+
+    return {
+      session,
+      logs,
+    };
+  }
+
+  @Post([
+    'api/plugins/final-config/execution-sessions/:sessionId/step',
+    'api/v1/plugins/final-config/execution-sessions/:sessionId/step',
+  ])
+  async logExecutionStep(
+    @Param('sessionId') sessionId: string,
+    @Body() body: StepExecutionLogDto,
+  ) {
+    if (!body || body.modbusRegisterDec === undefined || !body.status) {
+      throw new BadRequestException('modbusRegisterDec and status are required');
+    }
+
+    const sessionRepo = this.databaseService.getRepositoryForTable(
+      'finalconfig_execution_session',
+      FinalConfigExecutionSessionEntity,
+    );
+    const logRepo = this.databaseService.getRepositoryForTable(
+      'finalconfig_execution_log',
+      FinalConfigExecutionLogEntity,
+    );
+
+    const session = await sessionRepo.findOne({ where: { id: sessionId } });
+    if (!session) {
+      throw new NotFoundException(`Execution session with ID "${sessionId}" not found`);
+    }
+
+    const log = logRepo.create({
+      sessionId,
+      modbusRegisterDec: body.modbusRegisterDec,
+      modbusRegisterHex: body.modbusRegisterHex || null,
+      action: (body.action as FinalConfigExecutionAction) || FinalConfigExecutionAction.WRITE,
+      expectedValue: body.expectedValue !== undefined ? String(body.expectedValue) : null,
+      writtenValue: body.writeValue !== undefined ? String(body.writeValue) : null,
+      readValue: body.readValue !== undefined ? String(body.readValue) : null,
+      rawHex: body.rawHex || null,
+      status: (body.status as FinalConfigExecutionStatus) || FinalConfigExecutionStatus.PASS,
+      errorMessage: body.errorMessage || null,
+      durationMs: body.durationMs || 0,
+    });
+
+    const savedLog = await logRepo.save(log);
+
+    // Update session step counts
+    session.currentStep = (session.currentStep || 0) + 1;
+    if (log.status === FinalConfigExecutionStatus.PASS) {
+      session.passedSteps = (session.passedSteps || 0) + 1;
+    } else if (log.status === FinalConfigExecutionStatus.FAIL) {
+      session.failedSteps = (session.failedSteps || 0) + 1;
+    }
+
+    const updatedSession = await sessionRepo.save(session);
+
+    return {
+      log: savedLog,
+      session: updatedSession,
+      message: 'Step checkpoint recorded successfully',
+    };
+  }
+
+  @Post([
+    'api/plugins/final-config/execution-sessions/:sessionId/finalize',
+    'api/v1/plugins/final-config/execution-sessions/:sessionId/finalize',
+  ])
+  async finalizeExecutionSession(
+    @Param('sessionId') sessionId: string,
+    @Body() body: FinalizeExecutionSessionDto,
+  ) {
+    const sessionRepo = this.databaseService.getRepositoryForTable(
+      'finalconfig_execution_session',
+      FinalConfigExecutionSessionEntity,
+    );
+
+    const session = await sessionRepo.findOne({ where: { id: sessionId } });
+    if (!session) {
+      throw new NotFoundException(`Execution session with ID "${sessionId}" not found`);
+    }
+
+    if (body?.status) {
+      session.status = body.status as FinalConfigSessionStatus;
+    }
+    if (body?.errorMessage) {
+      session.errorMessage = body.errorMessage;
+    }
+    if (body?.metadata) {
+      session.metadata = {
+        ...(session.metadata || {}),
+        ...body.metadata,
+      };
+    }
+    session.completedAt = new Date();
+
+    const saved = await sessionRepo.save(session);
+    return {
+      session: saved,
+      message: `Execution session finalized with status ${saved.status}`,
     };
   }
 }

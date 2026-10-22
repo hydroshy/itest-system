@@ -25,6 +25,8 @@
     "memmap_profiles": "core_db",
     "memmap_registers": "core_db",
     "finalconfig_profile": "core_db",
-    "finalconfig_regs": "core_db"
+    "finalconfig_regs": "core_db",
+    "finalconfig_execution_session": "core_db",
+    "finalconfig_execution_log": "core_db"
   }
 }

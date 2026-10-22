@@ -13,6 +13,8 @@ import { MemmapProfileEntity } from '../core-models/memmap-profile.entity';
 import { MemmapRegisterEntity } from '../core-models/memmap-register.entity';
 import { FinalConfigProfileEntity } from '../core-models/finalconfig-profile.entity';
 import { FinalConfigRegisterEntity } from '../core-models/finalconfig-register.entity';
+import { FinalConfigExecutionSessionEntity } from '../core-models/finalconfig-execution-session.entity';
+import { FinalConfigExecutionLogEntity } from '../core-models/finalconfig-execution-log.entity';
 
 export const ALL_DATABASE_ENTITIES = [
   User,
@@ -26,6 +28,8 @@ export const ALL_DATABASE_ENTITIES = [
   MemmapRegisterEntity,
   FinalConfigProfileEntity,
   FinalConfigRegisterEntity,
+  FinalConfigExecutionSessionEntity,
+  FinalConfigExecutionLogEntity,
 ];
 
 export interface DbConnectionConfig {
