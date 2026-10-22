@@ -29,7 +29,6 @@ export class LoRaWanChirpStackService {
 
   constructor() {
     this.apiClient = new ChirpStackApiClient(8000);
-    this.seedInitialData();
   }
 
   setNetworkServerRepository(repository: Repository<ChirpstackNetworkServerEntity>): void {
@@ -54,115 +53,18 @@ export class LoRaWanChirpStackService {
   private async syncNetworkServers(): Promise<void> {
     if (!this.networkServerRepository) return;
     const entities = await this.networkServerRepository.find({ where: { isActive: true } });
+    const servers = await Promise.all(entities.map(async (entity) => {
+      const server = this.toNetworkServer(entity);
+      const result = await this.apiClient.testConnection(server);
+      server.status = result.success ? 'online' : 'offline';
+      server.lastCheckedAt = new Date().toISOString();
+      server.errorMessage = result.success ? undefined : result.message;
+      return server;
+    }));
     this.servers.clear();
-    for (const entity of entities) this.servers.set(entity.id, this.toNetworkServer(entity));
+    for (const server of servers) this.servers.set(server.id, server);
   }
 
-  private seedInitialData() {
-    const defaultServerId = 'cs-srv-01';
-    const server: ChirpStackNetworkServer = {
-      id: defaultServerId,
-      name: 'ChirpStack v4 Production Server',
-      apiUrl: 'http://localhost:8080',
-      apiToken: 'cs_token_sample_abc123',
-      tenantId: '52f14fb4-c5a1-4566-9b57-69502b78a9c1',
-      version: 'v4.7.0',
-      status: 'online',
-      lastCheckedAt: new Date().toISOString(),
-      gatewayCount: 2,
-      deviceCount: 3,
-    };
-    this.servers.set(server.id, server);
-
-    // Seed Gateways
-    const gw1: ChirpStackGateway = {
-      gatewayId: 'aa555a0000000001',
-      name: 'Outdoor Gateway 8-CH (Roof A)',
-      description: 'ChirpStack LoRaWAN Gateway RAK7249',
-      networkServerId: defaultServerId,
-      tenantId: server.tenantId,
-      status: 'online',
-      lastSeenAt: new Date().toISOString(),
-      statsInterval: 30,
-      rxPackets: 15420,
-      txPackets: 320,
-      rxPacketsPerMinute: 4.2,
-      location: { latitude: 10.7769, longitude: 106.7009, altitude: 45 },
-    };
-
-    const gw2: ChirpStackGateway = {
-      gatewayId: 'aa555a0000000002',
-      name: 'Indoor Gateway 4-CH (Lab 201)',
-      description: 'ChirpStack Gateway Dragino LPS8',
-      networkServerId: defaultServerId,
-      tenantId: server.tenantId,
-      status: 'online',
-      lastSeenAt: new Date(Date.now() - 120000).toISOString(),
-      statsInterval: 30,
-      rxPackets: 8940,
-      txPackets: 110,
-      rxPacketsPerMinute: 2.1,
-      location: { latitude: 10.7780, longitude: 106.7020, altitude: 12 },
-    };
-    this.localGateways.set(gw1.gatewayId, gw1);
-    this.localGateways.set(gw2.gatewayId, gw2);
-
-    // Seed Devices
-    const dev1: ChirpStackDevice = {
-      devEui: '2cf7f1203230a001',
-      name: 'Temp & Humidity Sensor TH-01',
-      description: 'LoRaWAN Sensor S-TH-01 (Cayenne LPP)',
-      networkServerId: defaultServerId,
-      applicationId: 'app-iot-monitoring',
-      applicationName: 'Smart Environment Monitoring',
-      deviceProfileId: 'dp-as923-otaa',
-      deviceProfileName: 'AS923 Class A OTAA',
-      status: 'active',
-      lastSeenAt: new Date().toISOString(),
-      batteryLevel: 94,
-      margin: 14,
-      fCntUp: 412,
-      rssi: -72,
-      snr: 9.5,
-    };
-
-    const dev2: ChirpStackDevice = {
-      devEui: '2cf7f1203230a002',
-      name: 'CO2 & Air Quality Sensor AQ-02',
-      description: 'Daviteq LoRaWAN Ambient Sensor',
-      networkServerId: defaultServerId,
-      applicationId: 'app-iot-monitoring',
-      applicationName: 'Smart Environment Monitoring',
-      deviceProfileId: 'dp-as923-otaa',
-      deviceProfileName: 'AS923 Class A OTAA',
-      status: 'active',
-      lastSeenAt: new Date(Date.now() - 300000).toISOString(),
-      batteryLevel: 88,
-      margin: 11,
-      fCntUp: 285,
-      rssi: -84,
-      snr: 7.2,
-    };
-    this.localDevices.set(dev1.devEui, dev1);
-    this.localDevices.set(dev2.devEui, dev2);
-
-    // Seed initial decoded uplink
-    this.recordUplink({
-      id: `uplink-${Date.now()}`,
-      time: new Date().toISOString(),
-      devEui: dev1.devEui,
-      deviceName: dev1.name,
-      networkServerId: defaultServerId,
-      applicationId: dev1.applicationId,
-      fPort: 1,
-      fCnt: 412,
-      rssi: -72,
-      snr: 9.5,
-      gatewayId: gw1.gatewayId,
-      rawPayload: '01670118026852', // Cayenne: Ch1 Temp 28.0C, Ch2 Humidity 41.0%
-      decodedPayload: { temperature_1: 28.0, humidity_2: 41.0 },
-    });
-  }
 
   // ==========================================
   // NETWORK SERVERS
