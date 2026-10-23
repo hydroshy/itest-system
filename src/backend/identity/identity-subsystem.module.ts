@@ -5,11 +5,12 @@ import { UsersModule } from './modules/users/users.module';
 import { RolesModule } from './modules/roles-permissions/roles.module';
 import { AdminPanelModule } from './modules/admin-panel/admin-panel.module';
 import { UserPanelModule } from './modules/user-panel/user-panel.module';
+import { MenuModule } from './modules/menu/menu.module';
 import { IdentityDiagnosticService } from './identity-diagnostic.service';
 
 /**
  * Identity & Access Control Subsystem
- * Unifies Authentication, Users, RBAC Permissions, and Administrative management.
+ * Unifies Authentication, Users, RBAC Permissions, Menu Management, and Administrative management.
  */
 @Module({
   imports: [
@@ -19,6 +20,7 @@ import { IdentityDiagnosticService } from './identity-diagnostic.service';
     RolesModule,
     AdminPanelModule,
     UserPanelModule,
+    MenuModule,
   ],
   providers: [IdentityDiagnosticService],
   exports: [
@@ -28,6 +30,7 @@ import { IdentityDiagnosticService } from './identity-diagnostic.service';
     RolesModule,
     AdminPanelModule,
     UserPanelModule,
+    MenuModule,
     IdentityDiagnosticService,
   ],
 })

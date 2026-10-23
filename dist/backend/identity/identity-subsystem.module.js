@@ -14,6 +14,7 @@ const users_module_1 = require("./modules/users/users.module");
 const roles_module_1 = require("./modules/roles-permissions/roles.module");
 const admin_panel_module_1 = require("./modules/admin-panel/admin-panel.module");
 const user_panel_module_1 = require("./modules/user-panel/user-panel.module");
+const menu_module_1 = require("./modules/menu/menu.module");
 const identity_diagnostic_service_1 = require("./identity-diagnostic.service");
 let IdentitySubsystemModule = class IdentitySubsystemModule {
 };
@@ -27,6 +28,7 @@ exports.IdentitySubsystemModule = IdentitySubsystemModule = __decorate([
             roles_module_1.RolesModule,
             admin_panel_module_1.AdminPanelModule,
             user_panel_module_1.UserPanelModule,
+            menu_module_1.MenuModule,
         ],
         providers: [identity_diagnostic_service_1.IdentityDiagnosticService],
         exports: [
@@ -36,6 +38,7 @@ exports.IdentitySubsystemModule = IdentitySubsystemModule = __decorate([
             roles_module_1.RolesModule,
             admin_panel_module_1.AdminPanelModule,
             user_panel_module_1.UserPanelModule,
+            menu_module_1.MenuModule,
             identity_diagnostic_service_1.IdentityDiagnosticService,
         ],
     })
