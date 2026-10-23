@@ -75,7 +75,9 @@ export interface LinkSessionDto {
 
 export interface UpdateDeviceStatusDto {
   statusType?: 'test' | 'final_config' | 'test_result' | 'config_status';
-  status: string; // 'PASS' | 'FAIL' | 'NONE' | 'PENDING'
+  status?: string; // 'PASS' | 'FAIL' | 'NONE' | 'PENDING'
+  testResult?: string;
+  configStatus?: string;
 }
 
 @Controller()
@@ -932,7 +934,8 @@ export class TraceabilityAdapterController {
     @Param('serialNumber') serialNumber?: string,
     @Body() body?: UpdateDeviceStatusDto,
   ) {
-    if (!body || !body.status) {
+    const effectiveStatus = body?.status || body?.testResult || body?.configStatus;
+    if (!body || !effectiveStatus) {
       throw new BadRequestException('A status value ("PASS", "FAIL", "NONE" or "PENDING") is required');
     }
 
@@ -956,20 +959,28 @@ export class TraceabilityAdapterController {
         throw new NotFoundException(`Device ${id || serialNumber} not found`);
       }
 
-      const rawStatus = (body.status || '').toUpperCase().trim();
+      const rawStatus = (body.status || body.testResult || body.configStatus || '').toUpperCase().trim();
       let targetStatus: string = rawStatus;
-      if (targetStatus === 'NONE') {
+      if (targetStatus === 'NONE' || targetStatus === 'UNCONFIGURED') {
         targetStatus = 'PENDING';
       }
 
-      const statusType = (body.statusType || '').toLowerCase();
+      // Infer statusType if not explicitly given
+      let statusType = (body.statusType || '').toLowerCase();
+      if (!statusType) {
+        if (body.configStatus || rawStatus.includes('CONFIG')) {
+          statusType = 'config_status';
+        } else {
+          statusType = 'test_result';
+        }
+      }
 
       if (statusType === 'final_config' || statusType === 'config_status') {
         // Update final config status
-        if (targetStatus === 'PASS') {
+        if (targetStatus === 'PASS' || targetStatus === 'CONFIGURED_PASS') {
           device.config_status = TraceabilityConfigStatus.CONFIGURED_PASS;
           device.status = TraceabilityDeviceStatus.CONFIGURED;
-        } else if (targetStatus === 'FAIL') {
+        } else if (targetStatus === 'FAIL' || targetStatus === 'CONFIG_FAILED' || targetStatus === 'CONFIGURED_FAIL') {
           device.config_status = TraceabilityConfigStatus.CONFIGURED_FAIL;
         } else {
           device.config_status = TraceabilityConfigStatus.PENDING;
