@@ -80,6 +80,20 @@ export interface UpdateDeviceStatusDto {
   configStatus?: string;
 }
 
+export interface UpdateDeviceDetailsDto {
+  testResult?: string;
+  testStation?: string;
+  testPerson?: string;
+  testedAt?: string;
+  itemCode?: string;
+  sku?: string;
+  hwVersion?: string;
+  fwVersion?: string;
+  devEui?: string;
+  configStatus?: string;
+  testRawData?: Record<string, any>;
+}
+
 @Controller()
 export class TraceabilityAdapterController {
   private readonly logger = new Logger(TraceabilityAdapterController.name);
@@ -1062,6 +1076,128 @@ export class TraceabilityAdapterController {
       this.logger.error(`Failed to delete device ${id}: ${error.message}`);
       throw new HttpException(
         `Failed to delete device: ${error.message}`,
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  // ==========================================
+  // DEVICE DETAILS UPDATE (EDIT DIALOG)
+  // ==========================================
+
+  @Put([
+    'api/plugins/device-traceability/devices/:id',
+    'api/v1/plugins/device-traceability/devices/:id',
+    'api/plugins/device-traceability/devices/serial/:serialNumber',
+    'api/v1/plugins/device-traceability/devices/serial/:serialNumber',
+  ])
+  @Patch([
+    'api/plugins/device-traceability/devices/:id/details',
+    'api/v1/plugins/device-traceability/devices/:id/details',
+  ])
+  async updateDeviceDetails(
+    @Param('id') id?: string,
+    @Param('serialNumber') serialNumber?: string,
+    @Body() body?: UpdateDeviceDetailsDto,
+  ) {
+    try {
+      const deviceRepo = this.databaseService.getRepositoryForTable(
+        'traceability_device',
+        TraceabilityDeviceEntity,
+      );
+
+      let device: TraceabilityDeviceEntity | null = null;
+      if (id && id.length >= 32) {
+        device = await deviceRepo.findOne({ where: { id }, relations: ['so', 'wa'] });
+      }
+      if (!device && (serialNumber || id)) {
+        const lookupSn = (serialNumber || id)!.trim();
+        device = await deviceRepo.findOne({ where: { serial_number: lookupSn }, relations: ['so', 'wa'] });
+      }
+
+      if (!device) {
+        throw new NotFoundException(`Device ${id || serialNumber} not found`);
+      }
+
+      if (body) {
+        if (body.testResult !== undefined) {
+          const raw = body.testResult.toUpperCase().trim();
+          if (raw === 'PASS') {
+            device.test_result = TraceabilityTestResult.PASS;
+            device.status = TraceabilityDeviceStatus.TESTED_PASS;
+          } else if (raw === 'FAIL') {
+            device.test_result = TraceabilityTestResult.FAIL;
+            device.status = TraceabilityDeviceStatus.TESTED_FAIL;
+          } else {
+            device.test_result = TraceabilityTestResult.PENDING;
+            device.status = TraceabilityDeviceStatus.TESTED;
+          }
+        }
+        if (body.testStation !== undefined) {
+          device.test_station = body.testStation ? body.testStation.trim() : null;
+        }
+        if (body.testPerson !== undefined) {
+          device.test_person = body.testPerson ? body.testPerson.trim() : null;
+        }
+        if (body.testedAt !== undefined) {
+          device.tested_at = body.testedAt ? new Date(body.testedAt) : null;
+        }
+        if (body.itemCode !== undefined) {
+          device.item_code = body.itemCode ? body.itemCode.trim() : null;
+        }
+        if (body.sku !== undefined) {
+          device.sku = body.sku ? body.sku.trim() : null;
+        }
+        if (body.hwVersion !== undefined) {
+          device.hw_version = body.hwVersion ? body.hwVersion.trim() : null;
+        }
+        if (body.fwVersion !== undefined) {
+          device.fw_version = body.fwVersion ? body.fwVersion.trim() : null;
+        }
+        if (body.devEui !== undefined) {
+          device.dev_eui = body.devEui ? body.devEui.trim() : null;
+        }
+        if (body.configStatus !== undefined) {
+          const cfg = body.configStatus.toUpperCase().trim();
+          if (cfg === 'CONFIGURED_PASS' || cfg === 'PASS') {
+            device.config_status = TraceabilityConfigStatus.CONFIGURED_PASS;
+            device.status = TraceabilityDeviceStatus.CONFIGURED;
+          } else if (cfg === 'CONFIGURED_FAIL' || cfg === 'FAIL' || cfg === 'CONFIG_FAILED') {
+            device.config_status = TraceabilityConfigStatus.CONFIGURED_FAIL;
+          } else {
+            device.config_status = TraceabilityConfigStatus.PENDING;
+          }
+        }
+        if (body.testRawData !== undefined) {
+          device.test_raw_data = body.testRawData || {};
+        }
+      }
+
+      const updated = await deviceRepo.save(device);
+      this.logger.log(`Updated details for device ${updated.serial_number} (ID: ${updated.id})`);
+
+      return {
+        id: updated.id,
+        serialNumber: updated.serial_number,
+        devEui: updated.dev_eui,
+        itemCode: updated.item_code,
+        sku: updated.sku,
+        hwVersion: updated.hw_version,
+        fwVersion: updated.fw_version,
+        testResult: updated.test_result,
+        testStation: updated.test_station,
+        testPerson: updated.test_person,
+        testedAt: updated.tested_at,
+        testRawData: updated.test_raw_data,
+        configStatus: updated.config_status,
+        status: updated.status,
+        updatedAt: updated.updated_at,
+      };
+    } catch (error) {
+      if (error instanceof HttpException) throw error;
+      this.logger.error(`Failed to update device details: ${error.message}`);
+      throw new HttpException(
+        `Failed to update device details: ${error.message}`,
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
