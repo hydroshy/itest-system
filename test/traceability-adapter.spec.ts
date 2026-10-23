@@ -409,6 +409,46 @@ async function runTests() {
   assert.strictEqual(lifecycle.executionLogs.length, 1);
   assert.strictEqual(lifecycle.executionLogs[0].modbusRegisterDec, 100);
 
+  // 9. Test Tree Hierarchy (Tabulator dataTree)
+  console.log('9. Testing Tabulator dataTree hierarchy API...');
+  const tree = await controller.getHierarchyTree();
+  assert.ok(Array.isArray(tree), 'Tree must return an array');
+  assert.strictEqual(tree.length, 1);
+  assert.strictEqual(tree[0].type, 'SO');
+  assert.strictEqual(tree[0].code, 'SO/2026/01855');
+  assert.ok(Array.isArray(tree[0]._children), 'SO node must have _children array');
+  assert.strictEqual(tree[0]._children[0].type, 'WA');
+  assert.strictEqual(tree[0]._children[0].code, 'WA/2026/00412');
+  assert.ok(Array.isArray(tree[0]._children[0]._children), 'WA node must have _children array');
+  assert.strictEqual(tree[0]._children[0]._children[0].type, 'DEVICE');
+
+  // 10. Test Context Menu Status Update & Delete
+  console.log('10. Testing Context Menu Status Update & Delete...');
+  const updateRes = await controller.updateDeviceStatus(passDevice!.id, undefined, {
+    statusType: 'test',
+    status: 'FAIL',
+  });
+  assert.strictEqual(updateRes.testResult, 'FAIL');
+
+  const updateFinalConfigRes = await controller.updateDeviceStatus(undefined, 'LRCR26000093', {
+    statusType: 'final_config',
+    status: 'PASS',
+  });
+  assert.strictEqual(updateFinalConfigRes.finalConfigStatus, 'CONFIGURED_PASS');
+
+  // 11. Test Final Config Devices Listing
+  console.log('11. Testing Final Config Devices Listing...');
+  const finalConfigDevs = await controller.getFinalConfigDevices();
+  assert.ok(Array.isArray(finalConfigDevs.data));
+  assert.ok(finalConfigDevs.data.some((d) => d.serialNumber === 'LRCR26000093'));
+
+  // 12. Test Device Delete
+  console.log('12. Testing Device Deletion...');
+  const delRes = await controller.deleteDevice(failDevice!.id);
+  assert.strictEqual(delRes.success, true);
+  const checkDel = await controller.getDevices(undefined, undefined, 'LRCR26000094');
+  assert.strictEqual(checkDel.data.length, 0);
+
   console.log('--- ALL TRACEABILITY V2 VERIFICATION TESTS PASSED SUCCESSFULLY! ---');
 }
 

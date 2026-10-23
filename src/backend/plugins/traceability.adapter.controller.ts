@@ -9,7 +9,9 @@ import {
   Logger,
   NotFoundException,
   Param,
+  Patch,
   Post,
+  Put,
   Query,
 } from '@nestjs/common';
 import { DynamicDatabaseService } from '../database/dynamic-database.service';
@@ -71,6 +73,11 @@ export interface LinkSessionDto {
   configStatus?: 'PENDING' | 'CONFIGURED_PASS' | 'CONFIGURED_FAIL';
 }
 
+export interface UpdateDeviceStatusDto {
+  statusType?: 'test' | 'final_config' | 'test_result' | 'config_status';
+  status: string; // 'PASS' | 'FAIL' | 'NONE' | 'PENDING'
+}
+
 @Controller()
 export class TraceabilityAdapterController {
   private readonly logger = new Logger(TraceabilityAdapterController.name);
@@ -88,8 +95,170 @@ export class TraceabilityAdapterController {
   }
 
   // ==========================================
-  // SALE ORDERS (SO) MANAGEMENT
+  // SALE ORDERS (SO) MANAGEMENT & TREE HIERARCHY
   // ==========================================
+
+  @Get([
+    'api/plugins/device-traceability/so/tree',
+    'api/v1/plugins/device-traceability/so/tree',
+    'api/plugins/device-traceability/tree',
+    'api/v1/plugins/device-traceability/tree',
+  ])
+  async getHierarchyTree(
+    @Query('soNumber') soNumber?: string,
+    @Query('customerName') customerName?: string,
+  ) {
+    try {
+      const soRepo = this.databaseService.getRepositoryForTable(
+        'traceability_so',
+        TraceabilitySoEntity,
+      );
+      const waRepo = this.databaseService.getRepositoryForTable(
+        'traceability_wa',
+        TraceabilityWaEntity,
+      );
+      const deviceRepo = this.databaseService.getRepositoryForTable(
+        'traceability_device',
+        TraceabilityDeviceEntity,
+      );
+
+      const soQb = soRepo.createQueryBuilder('so');
+      if (soNumber) {
+        soQb.andWhere('so.so_number ILIKE :soNumber', { soNumber: `%${soNumber.trim()}%` });
+      }
+      if (customerName) {
+        soQb.andWhere('so.customer_name ILIKE :customerName', {
+          customerName: `%${customerName.trim()}%`,
+        });
+      }
+      soQb.orderBy('so.created_at', 'DESC');
+      const saleOrders = await soQb.getMany();
+
+      if (saleOrders.length === 0) {
+        return [];
+      }
+
+      const soIds = saleOrders.map((s) => s.id);
+
+      // Fetch all WAs for these SOs
+      const was = await waRepo
+        .createQueryBuilder('wa')
+        .where('wa.so_id IN (:...soIds)', { soIds })
+        .orderBy('wa.created_at', 'ASC')
+        .getMany();
+
+      // Fetch all devices for these SOs
+      const devices = await deviceRepo
+        .createQueryBuilder('dev')
+        .where('dev.so_id IN (:...soIds)', { soIds })
+        .orderBy('dev.created_at', 'ASC')
+        .getMany();
+
+      // Group WAs by SO
+      const waBySo = new Map<string, TraceabilityWaEntity[]>();
+      for (const w of was) {
+        if (!waBySo.has(w.so_id)) waBySo.set(w.so_id, []);
+        waBySo.get(w.so_id)!.push(w);
+      }
+
+      // Group Devices by WA, and Devices directly under SO (wa_id is null)
+      const devicesByWa = new Map<string, TraceabilityDeviceEntity[]>();
+      const directDevicesBySo = new Map<string, TraceabilityDeviceEntity[]>();
+
+      for (const dev of devices) {
+        if (dev.wa_id) {
+          if (!devicesByWa.has(dev.wa_id)) devicesByWa.set(dev.wa_id, []);
+          devicesByWa.get(dev.wa_id)!.push(dev);
+        } else {
+          if (!directDevicesBySo.has(dev.so_id)) directDevicesBySo.set(dev.so_id, []);
+          directDevicesBySo.get(dev.so_id)!.push(dev);
+        }
+      }
+
+      const mapDeviceNode = (dev: TraceabilityDeviceEntity) => ({
+        id: dev.id,
+        type: 'DEVICE',
+        code: dev.serial_number,
+        serialNumber: dev.serial_number,
+        devEui: dev.dev_eui,
+        itemCode: dev.item_code,
+        sku: dev.sku,
+        hwVersion: dev.hw_version,
+        fwVersion: dev.fw_version,
+        testResult: dev.test_result,
+        testStatus: dev.test_result,
+        configStatus: dev.config_status,
+        finalConfigStatus: dev.config_status,
+        status: dev.status,
+        testedAt: dev.tested_at,
+        finalConfigSessionId: dev.final_config_session_id,
+        createdAt: dev.created_at,
+      });
+
+      // Construct Tabulator dataTree structure (_children)
+      const tree = saleOrders.map((so) => {
+        const soWas = waBySo.get(so.id) || [];
+        const directDevs = directDevicesBySo.get(so.id) || [];
+
+        const children: any[] = [];
+
+        // Add WAs with their child devices
+        for (const w of soWas) {
+          const wDevs = devicesByWa.get(w.id) || [];
+          const wPassCount = wDevs.filter((d) => d.test_result === TraceabilityTestResult.PASS).length;
+
+          children.push({
+            id: w.id,
+            soId: so.id,
+            type: 'WA',
+            code: w.wa_number,
+            waNumber: w.wa_number,
+            itemCode: w.item_code,
+            plannedQuantity: w.planned_quantity,
+            totalDevices: wDevs.length,
+            passCount: wPassCount,
+            status: wDevs.length >= (w.planned_quantity || 1) && wPassCount === wDevs.length ? 'COMPLETED' : 'IN_PROGRESS',
+            notes: w.notes,
+            createdAt: w.created_at,
+            _children: wDevs.map(mapDeviceNode),
+          });
+        }
+
+        // Add direct devices (if SO has no WA or devices assigned directly to SO)
+        for (const dev of directDevs) {
+          children.push(mapDeviceNode(dev));
+        }
+
+        const soTotalDevices = (devices.filter((d) => d.so_id === so.id) || []).length;
+        const soPassCount = (
+          devices.filter((d) => d.so_id === so.id && d.test_result === TraceabilityTestResult.PASS) || []
+        ).length;
+
+        return {
+          id: so.id,
+          type: 'SO',
+          code: so.so_number,
+          soNumber: so.so_number,
+          customerName: so.customer_name,
+          name: so.customer_name ? `${so.so_number} - ${so.customer_name}` : so.so_number,
+          totalDevices: soTotalDevices,
+          passCount: soPassCount,
+          status: soTotalDevices > 0 && soPassCount === soTotalDevices ? 'COMPLETED' : 'IN_PROGRESS',
+          notes: so.notes,
+          createdAt: so.created_at,
+          _children: children,
+        };
+      });
+
+      return tree;
+    } catch (error) {
+      this.logger.error(`Failed to construct hierarchy tree: ${error.message}`);
+      throw new HttpException(
+        `Failed to retrieve hierarchy tree: ${error.message}`,
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
 
   @Get(['api/plugins/device-traceability/so', 'api/v1/plugins/device-traceability/so'])
   async getSaleOrders(
@@ -529,6 +698,8 @@ export class TraceabilityAdapterController {
     'api/v1/plugins/device-traceability/devices/import-csv',
     'api/plugins/device-traceability/devices/import-test-results',
     'api/v1/plugins/device-traceability/devices/import-test-results',
+    'api/plugins/device-traceability/import-tests',
+    'api/v1/plugins/device-traceability/import-tests',
   ])
   async importCsvDevices(@Body() body: ImportCsvDevicesDto) {
     if (!body.devices || !Array.isArray(body.devices) || body.devices.length === 0) {
@@ -741,6 +912,277 @@ export class TraceabilityAdapterController {
       this.logger.error(`CSV Import failed: ${error.message}`);
       throw new HttpException(
         `Device CSV import failed: ${error.message}`,
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  // ==========================================
+  // DEVICE STATUS UPDATE & DELETE (CONTEXT MENU)
+  // ==========================================
+
+  @Patch([
+    'api/plugins/device-traceability/devices/:id/status',
+    'api/v1/plugins/device-traceability/devices/:id/status',
+    'api/plugins/device-traceability/devices/serial/:serialNumber/status',
+    'api/v1/plugins/device-traceability/devices/serial/:serialNumber/status',
+  ])
+  async updateDeviceStatus(
+    @Param('id') id?: string,
+    @Param('serialNumber') serialNumber?: string,
+    @Body() body?: UpdateDeviceStatusDto,
+  ) {
+    if (!body || !body.status) {
+      throw new BadRequestException('A status value ("PASS", "FAIL", "NONE" or "PENDING") is required');
+    }
+
+    try {
+      const deviceRepo = this.databaseService.getRepositoryForTable(
+        'traceability_device',
+        TraceabilityDeviceEntity,
+      );
+
+      let device: TraceabilityDeviceEntity | null = null;
+      if (id && id.length >= 32) {
+        // Query by UUID
+        device = await deviceRepo.findOne({ where: { id }, relations: ['so', 'wa'] });
+      }
+      if (!device && (serialNumber || id)) {
+        const lookupSn = (serialNumber || id)!.trim();
+        device = await deviceRepo.findOne({ where: { serial_number: lookupSn }, relations: ['so', 'wa'] });
+      }
+
+      if (!device) {
+        throw new NotFoundException(`Device ${id || serialNumber} not found`);
+      }
+
+      const rawStatus = (body.status || '').toUpperCase().trim();
+      let targetStatus: string = rawStatus;
+      if (targetStatus === 'NONE') {
+        targetStatus = 'PENDING';
+      }
+
+      const statusType = (body.statusType || '').toLowerCase();
+
+      if (statusType === 'final_config' || statusType === 'config_status') {
+        // Update final config status
+        if (targetStatus === 'PASS') {
+          device.config_status = TraceabilityConfigStatus.CONFIGURED_PASS;
+          device.status = TraceabilityDeviceStatus.CONFIGURED;
+        } else if (targetStatus === 'FAIL') {
+          device.config_status = TraceabilityConfigStatus.CONFIGURED_FAIL;
+        } else {
+          device.config_status = TraceabilityConfigStatus.PENDING;
+        }
+      } else {
+        // Default update test status / test_result
+        if (targetStatus === 'PASS') {
+          device.test_result = TraceabilityTestResult.PASS;
+          device.status = TraceabilityDeviceStatus.TESTED_PASS;
+        } else if (targetStatus === 'FAIL') {
+          device.test_result = TraceabilityTestResult.FAIL;
+          device.status = TraceabilityDeviceStatus.TESTED_FAIL;
+        } else {
+          device.test_result = TraceabilityTestResult.PENDING;
+          device.status = TraceabilityDeviceStatus.TESTED;
+        }
+      }
+
+      const updated = await deviceRepo.save(device);
+      this.logger.log(
+        `Updated status for device ${updated.serial_number} (Type: ${statusType || 'test'}, Result: ${targetStatus})`,
+      );
+
+      return {
+        id: updated.id,
+        serialNumber: updated.serial_number,
+        testResult: updated.test_result,
+        testStatus: updated.test_result,
+        configStatus: updated.config_status,
+        finalConfigStatus: updated.config_status,
+        status: updated.status,
+        updatedAt: updated.updated_at,
+      };
+    } catch (error) {
+      if (error instanceof HttpException) throw error;
+      this.logger.error(`Failed to update device status: ${error.message}`);
+      throw new HttpException(
+        `Failed to update device status: ${error.message}`,
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  @Delete([
+    'api/plugins/device-traceability/devices/:id',
+    'api/v1/plugins/device-traceability/devices/:id',
+  ])
+  async deleteDevice(@Param('id') id: string) {
+    try {
+      const deviceRepo = this.databaseService.getRepositoryForTable(
+        'traceability_device',
+        TraceabilityDeviceEntity,
+      );
+
+      let device: TraceabilityDeviceEntity | null = null;
+      if (id && id.length >= 32) {
+        device = await deviceRepo.findOne({ where: { id } });
+      }
+      if (!device) {
+        device = await deviceRepo.findOne({ where: { serial_number: id.trim() } });
+      }
+
+      if (!device) {
+        throw new NotFoundException(`Device ${id} not found`);
+      }
+
+      const serialNumber = device.serial_number;
+      await deviceRepo.remove(device);
+      this.logger.log(`Deleted device record ${serialNumber} (ID: ${id})`);
+
+      return {
+        success: true,
+        message: `Device ${serialNumber} removed successfully`,
+        id,
+        serialNumber,
+      };
+    } catch (error) {
+      if (error instanceof HttpException) throw error;
+      this.logger.error(`Failed to delete device ${id}: ${error.message}`);
+      throw new HttpException(
+        `Failed to delete device: ${error.message}`,
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  // ==========================================
+  // DEVICE FINAL CONFIG LISTING WITH AUDIT
+  // ==========================================
+
+  @Get([
+    'api/plugins/device-traceability/final-config-devices',
+    'api/v1/plugins/device-traceability/final-config-devices',
+  ])
+  async getFinalConfigDevices(
+    @Query('soId') soId?: string,
+    @Query('waId') waId?: string,
+    @Query('status') status?: string,
+    @Query('configStatus') configStatus?: string,
+    @Query('serialNumber') serialNumber?: string,
+    @Query('page') page: string = '1',
+    @Query('limit') limit: string = '50',
+  ) {
+    try {
+      const deviceRepo = this.databaseService.getRepositoryForTable(
+        'traceability_device',
+        TraceabilityDeviceEntity,
+      );
+
+      const qb = deviceRepo
+        .createQueryBuilder('device')
+        .leftJoinAndSelect('device.so', 'so')
+        .leftJoinAndSelect('device.wa', 'wa');
+
+      if (soId) {
+        qb.andWhere('device.so_id = :soId', { soId });
+      }
+      if (waId) {
+        qb.andWhere('device.wa_id = :waId', { waId });
+      }
+      if (serialNumber) {
+        qb.andWhere('device.serial_number ILIKE :serialNumber', {
+          serialNumber: `%${serialNumber.trim()}%`,
+        });
+      }
+
+      const targetStatus = (configStatus || status || '').toUpperCase().trim();
+      if (targetStatus) {
+        if (targetStatus === 'PASS') {
+          qb.andWhere('device.config_status = :cs', { cs: TraceabilityConfigStatus.CONFIGURED_PASS });
+        } else if (targetStatus === 'FAIL') {
+          qb.andWhere('device.config_status = :cs', { cs: TraceabilityConfigStatus.CONFIGURED_FAIL });
+        } else if (targetStatus === 'NONE' || targetStatus === 'PENDING') {
+          qb.andWhere('device.config_status = :cs', { cs: TraceabilityConfigStatus.PENDING });
+        } else {
+          qb.andWhere('device.config_status = :cs', { cs: targetStatus });
+        }
+      }
+
+      const pageNum = Math.max(1, parseInt(page, 10) || 1);
+      const limitNum = Math.min(500, Math.max(1, parseInt(limit, 10) || 50));
+      qb.skip((pageNum - 1) * limitNum).take(limitNum);
+      qb.orderBy('device.updated_at', 'DESC');
+
+      const [devices, total] = await qb.getManyAndCount();
+
+      // Collect session IDs to query audit info
+      const sessionIds = devices
+        .map((d) => d.final_config_session_id)
+        .filter((sid): sid is string => Boolean(sid));
+
+      const sessionsMap = new Map<string, any>();
+      if (sessionIds.length > 0) {
+        try {
+          const sessionRepo = this.databaseService.getRepositoryForTable(
+            'finalconfig_execution_session',
+            FinalConfigExecutionSessionEntity,
+          );
+          const uniqueSessionIds = Array.from(new Set(sessionIds));
+          const sessions = await sessionRepo
+            .createQueryBuilder('sess')
+            .where('sess.id IN (:...uniqueSessionIds)', { uniqueSessionIds })
+            .getMany();
+
+          for (const s of sessions) {
+            sessionsMap.set(s.id, s);
+          }
+        } catch (e: any) {
+          this.logger.warn(`Could not bulk load execution sessions: ${e.message}`);
+        }
+      }
+
+      return {
+        data: devices.map((d) => {
+          const session = d.final_config_session_id
+            ? sessionsMap.get(d.final_config_session_id)
+            : null;
+
+          return {
+            id: d.id,
+            soId: d.so_id,
+            soNumber: d.so?.so_number,
+            waId: d.wa_id,
+            waNumber: d.wa?.wa_number,
+            serialNumber: d.serial_number,
+            devEui: d.dev_eui,
+            itemCode: d.item_code,
+            sku: d.sku,
+            hwVersion: d.hw_version,
+            fwVersion: d.fw_version,
+            testResult: d.test_result,
+            configStatus: d.config_status,
+            finalConfigStatus: d.config_status,
+            finalConfigSessionId: d.final_config_session_id,
+            sessionProfile: session?.profileName,
+            operator: session?.operator,
+            registersVerified: session?.totalVerifiedRegisters,
+            sessionSummary: session?.summary,
+            status: d.status,
+            createdAt: d.created_at,
+            updatedAt: d.updated_at,
+          };
+        }),
+        meta: {
+          total,
+          page: pageNum,
+          limit: limitNum,
+        },
+      };
+    } catch (error) {
+      this.logger.error(`Failed to get final config devices: ${error.message}`);
+      throw new HttpException(
+        `Failed to retrieve final config devices: ${error.message}`,
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
