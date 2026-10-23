@@ -9,7 +9,9 @@ import {
   Logger,
   NotFoundException,
   Param,
+  Patch,
   Post,
+  Query,
 } from '@nestjs/common';
 import { DynamicDatabaseService } from '../database/dynamic-database.service';
 import { FinalConfigProfileEntity } from '../core-models/finalconfig-profile.entity';
@@ -23,6 +25,11 @@ import {
   FinalConfigExecutionAction,
   FinalConfigExecutionStatus,
 } from '../core-models/finalconfig-execution-log.entity';
+import {
+  TraceabilityDeviceEntity,
+  TraceabilityTestResult,
+  TraceabilityConfigStatus,
+} from '../core-models/traceability-device.entity';
 
 export interface FinalConfigRegisterDto {
   rowNumber?: number;
@@ -512,5 +519,288 @@ export class FinalConfigAdapterController {
       session: saved,
       message: `Execution session finalized with status ${saved.status}`,
     };
+  }
+
+  // ==========================================
+  // FINAL CONFIG 4-STAGE ADAPTER & DEVICE QA
+  // ==========================================
+
+  @Get([
+    'api/plugins/final-config/lookup-device-info',
+    'api/v1/plugins/final-config/lookup-device-info',
+    'api/device-tested/verify',
+    'api/v1/device-tested/verify',
+  ])
+  async lookupDeviceInfo(
+    @Query('sn') snQuery?: string,
+    @Query('serial_number') serialNumberQuery?: string,
+    @Query('devEui') devEuiQuery?: string,
+    @Query('dev_eui') devEuiAltQuery?: string,
+    @Query('device_key') deviceKeyQuery?: string,
+    @Query('itemCode') itemCodeQuery?: string,
+    @Query('item_code') itemCodeAltQuery?: string,
+    @Query('so') soQuery?: string,
+  ) {
+    const sn = (snQuery || serialNumberQuery || '').trim();
+    const devEui = (devEuiQuery || devEuiAltQuery || deviceKeyQuery || '').trim();
+
+    if (!sn && !devEui) {
+      throw new BadRequestException('At least "serial_number" (or "sn") or "dev_eui" query param is required');
+    }
+
+    try {
+      const deviceRepo = this.databaseService.getRepositoryForTable(
+        'traceability_device',
+        TraceabilityDeviceEntity,
+      );
+
+      const qb = deviceRepo
+        .createQueryBuilder('device')
+        .leftJoinAndSelect('device.so', 'so')
+        .leftJoinAndSelect('device.wa', 'wa');
+
+      if (sn) {
+        qb.andWhere('device.serial_number = :sn', { sn });
+      } else if (devEui) {
+        qb.andWhere('device.dev_eui ILIKE :devEui', { devEui });
+      }
+
+      const device = await qb.getOne();
+      if (!device) {
+        return {
+          verified: false,
+          tested: false,
+          pass: false,
+          success: false,
+          message: 'Device not found in system',
+        };
+      }
+
+      const isPass = device.test_result === TraceabilityTestResult.PASS;
+
+      return {
+        verified: isPass,
+        tested: true,
+        pass: isPass,
+        success: isPass,
+        message: isPass
+          ? 'Device test verified successfully'
+          : `Device test status is ${device.test_result || 'UNKNOWN'}, required PASS`,
+        record: {
+          id: device.id,
+          serial_number: device.serial_number,
+          dev_eui: device.dev_eui,
+          so: device.so?.so_number || '',
+          so_id: device.so_id,
+          item_code: device.item_code,
+          sku: device.sku,
+          hw_version: device.hw_version,
+          fw_version: device.fw_version,
+          test_result: device.test_result,
+          test_station: device.test_station,
+          tested_at: device.tested_at,
+          app_key: (device.test_raw_data as any)?.app_key || null,
+        },
+      };
+    } catch (error: any) {
+      this.logger.error(`lookupDeviceInfo error: ${error.message}`);
+      throw new HttpException(
+        `Failed to lookup device info: ${error.message}`,
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  @Get([
+    'api/plugins/final-config/check-pass',
+    'api/v1/plugins/final-config/check-pass',
+    'api/c-modules/final-config-manager/check-pass',
+    'api/v1/c-modules/final-config-manager/check-pass',
+  ])
+  async checkFinalConfigPass(
+    @Query('serial_number') snQuery?: string,
+    @Query('sn') snAltQuery?: string,
+    @Query('dev_eui') devEuiQuery?: string,
+    @Query('devEui') devEuiAltQuery?: string,
+  ) {
+    const sn = (snQuery || snAltQuery || '').trim();
+    const devEui = (devEuiQuery || devEuiAltQuery || '').trim();
+
+    if (!sn && !devEui) {
+      throw new BadRequestException('serial_number or dev_eui is required');
+    }
+
+    try {
+      const deviceRepo = this.databaseService.getRepositoryForTable(
+        'traceability_device',
+        TraceabilityDeviceEntity,
+      );
+
+      const qb = deviceRepo.createQueryBuilder('device');
+      if (sn) {
+        qb.andWhere('device.serial_number = :sn', { sn });
+      } else if (devEui) {
+        qb.andWhere('device.dev_eui ILIKE :devEui', { devEui });
+      }
+
+      const device = await qb.getOne();
+      if (!device) {
+        return { passed: false, data: null };
+      }
+
+      const isConfigPass =
+        device.config_status === TraceabilityConfigStatus.CONFIGURED_PASS;
+
+      return {
+        passed: isConfigPass,
+        data: isConfigPass
+          ? {
+              id: device.id,
+              serial_number: device.serial_number,
+              dev_eui: device.dev_eui,
+              config_status: device.config_status,
+              final_config_session_id: device.final_config_session_id,
+            }
+          : null,
+      };
+    } catch (error: any) {
+      this.logger.error(`checkFinalConfigPass error: ${error.message}`);
+      throw new HttpException(
+        `Failed to check final config status: ${error.message}`,
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  @Post([
+    'api/plugins/final-config/devices',
+    'api/v1/plugins/final-config/devices',
+    'api/c-modules/final-config-manager/devices',
+    'api/v1/c-modules/final-config-manager/devices',
+  ])
+  async saveFinalConfigResult(@Body() body: any) {
+    const sn = (body.serial_number || body.serialNumber || '').trim();
+    if (!sn) {
+      throw new BadRequestException('serial_number is required');
+    }
+
+    try {
+      const deviceRepo = this.databaseService.getRepositoryForTable(
+        'traceability_device',
+        TraceabilityDeviceEntity,
+      );
+
+      const device = await deviceRepo.findOne({
+        where: { serial_number: sn },
+      });
+
+      if (!device) {
+        throw new NotFoundException(`Device with serial_number "${sn}" not found`);
+      }
+
+      const isPass =
+        body.status === 'PASS' ||
+        body.verdict === 'PASS' ||
+        body.final_verdict === 'PASS';
+
+      device.config_status = isPass
+        ? TraceabilityConfigStatus.CONFIGURED_PASS
+        : TraceabilityConfigStatus.CONFIGURED_FAIL;
+
+      const rawData: Record<string, any> = {
+        ...(device.test_raw_data || {}),
+        final_config_audit: {
+          saved_at: new Date().toISOString(),
+          status: isPass ? 'PASS' : 'FAIL',
+          app_key: body.app_key || body.appKey || null,
+          registers: body.registers || body.audit_registers || [],
+          sku: body.sku || device.sku,
+          item_code: body.item_code || device.item_code,
+          metadata: body.metadata || {},
+        },
+      };
+
+      if (body.app_key || body.appKey) {
+        rawData.app_key = (body.app_key || body.appKey).toUpperCase();
+      }
+
+      device.test_raw_data = rawData;
+      await deviceRepo.save(device);
+
+      return {
+        success: true,
+        message: 'Final config audit result saved successfully',
+        data: {
+          id: device.id,
+          serial_number: device.serial_number,
+          config_status: device.config_status,
+        },
+      };
+    } catch (error: any) {
+      this.logger.error(`saveFinalConfigResult error: ${error.message}`);
+      throw new HttpException(
+        `Failed to save final config device result: ${error.message}`,
+        error instanceof HttpException
+          ? error.getStatus()
+          : HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  @Patch([
+    'api/device-tested/:sn/app-key',
+    'api/v1/device-tested/:sn/app-key',
+  ])
+  async patchDeviceAppKey(
+    @Param('sn') sn: string,
+    @Body() body: { app_key?: string; appKey?: string },
+  ) {
+    const cleanSn = (sn || '').trim();
+    const appKey = (body.app_key || body.appKey || '').trim().toUpperCase();
+
+    if (!cleanSn) {
+      throw new BadRequestException('Serial number parameter is required');
+    }
+    if (!appKey) {
+      throw new BadRequestException('app_key is required');
+    }
+
+    try {
+      const deviceRepo = this.databaseService.getRepositoryForTable(
+        'traceability_device',
+        TraceabilityDeviceEntity,
+      );
+
+      const device = await deviceRepo.findOne({
+        where: { serial_number: cleanSn },
+      });
+
+      if (!device) {
+        throw new NotFoundException(`Device with serial_number "${cleanSn}" not found`);
+      }
+
+      const rawData = {
+        ...(device.test_raw_data || {}),
+        app_key: appKey,
+      };
+
+      device.test_raw_data = rawData;
+      await deviceRepo.save(device);
+
+      return {
+        success: true,
+        serial_number: cleanSn,
+        app_key: appKey,
+        message: 'Device app_key updated successfully',
+      };
+    } catch (error: any) {
+      this.logger.error(`patchDeviceAppKey error: ${error.message}`);
+      throw new HttpException(
+        `Failed to update device app_key: ${error.message}`,
+        error instanceof HttpException
+          ? error.getStatus()
+          : HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
   }
 }
