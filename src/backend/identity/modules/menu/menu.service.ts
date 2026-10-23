@@ -214,23 +214,21 @@ export class MenuService {
     const isSuperAdmin =
       normalizedRoles.includes('ADMIN') ||
       normalizedRoles.includes('SUPER_ADMIN') ||
-      normalizedRoles.includes('ADMINISTRATOR') ||
-      normalizedRoles.length === 0;
+      normalizedRoles.includes('ADMINISTRATOR');
 
     if (isSuperAdmin) {
       return allItems;
+    }
+
+    // Nếu không có role nào được truyền hoặc token không xác định role
+    if (normalizedRoles.length === 0) {
+      return [];
     }
 
     const allowedIds = new Set<string>();
     for (const r of normalizedRoles) {
       const list = roleMatrix[r] || [];
       list.forEach((id) => allowedIds.add(id));
-    }
-
-    // Nếu role chưa được gán bất cứ gì, mặc định ít nhất có dashboard & final-config:tool
-    if (allowedIds.size === 0) {
-      allowedIds.add('dashboard');
-      allowedIds.add('final-config:tool');
     }
 
     return allItems.filter((item) => allowedIds.has(item.id));

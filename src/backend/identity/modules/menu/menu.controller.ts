@@ -26,12 +26,35 @@ export class MenuController {
   async getMyCards(@Req() req: any) {
     let userRoles: string[] = [];
 
-    // Trích xuất roles từ JWT payload nếu có
+    // 1. Trích xuất roles từ req.user nếu đã qua guard
     if (req.user) {
       if (Array.isArray(req.user.roles)) {
         userRoles = req.user.roles.map((r: any) => (typeof r === 'string' ? r : r.code || r.name));
       } else if (req.user.userType) {
         userRoles = [req.user.userType];
+      }
+    }
+
+    // 2. Nếu req.user chưa có, bóc tách Bearer token từ Authorization header để parse payload JWT
+    if (userRoles.length === 0) {
+      const authHeader = req.headers?.authorization || req.headers?.Authorization;
+      if (authHeader && typeof authHeader === 'string' && authHeader.startsWith('Bearer ')) {
+        const token = authHeader.substring(7).trim();
+        try {
+          const parts = token.split('.');
+          if (parts.length === 3) {
+            const payload = JSON.parse(Buffer.from(parts[1], 'base64').toString('utf8'));
+            if (payload.roles && Array.isArray(payload.roles)) {
+              userRoles = payload.roles.map((r: any) => (typeof r === 'string' ? r : r.code || r.name));
+            } else if (payload.role) {
+              userRoles = [payload.role];
+            } else if (payload.userType) {
+              userRoles = [payload.userType];
+            }
+          }
+        } catch (e) {
+          // Token không giải mã được -> xem như không có role hợp lệ
+        }
       }
     }
 
