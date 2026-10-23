@@ -24,6 +24,14 @@ const unified_device_entity_1 = require("../core-models/unified-device.entity");
 const chirpstack_network_server_entity_1 = require("../core-models/chirpstack-network-server.entity");
 const memmap_profile_entity_1 = require("../core-models/memmap-profile.entity");
 const memmap_register_entity_1 = require("../core-models/memmap-register.entity");
+const finalconfig_profile_entity_1 = require("../core-models/finalconfig-profile.entity");
+const finalconfig_register_entity_1 = require("../core-models/finalconfig-register.entity");
+const finalconfig_execution_session_entity_1 = require("../core-models/finalconfig-execution-session.entity");
+const finalconfig_execution_log_entity_1 = require("../core-models/finalconfig-execution-log.entity");
+const traceability_so_entity_1 = require("../core-models/traceability-so.entity");
+const traceability_wa_entity_1 = require("../core-models/traceability-wa.entity");
+const traceability_order_entity_1 = require("../core-models/traceability-order.entity");
+const traceability_device_entity_1 = require("../core-models/traceability-device.entity");
 exports.ALL_DATABASE_ENTITIES = [
     user_entity_1.User,
     role_entity_1.Role,
@@ -34,6 +42,14 @@ exports.ALL_DATABASE_ENTITIES = [
     chirpstack_network_server_entity_1.ChirpstackNetworkServerEntity,
     memmap_profile_entity_1.MemmapProfileEntity,
     memmap_register_entity_1.MemmapRegisterEntity,
+    finalconfig_profile_entity_1.FinalConfigProfileEntity,
+    finalconfig_register_entity_1.FinalConfigRegisterEntity,
+    finalconfig_execution_session_entity_1.FinalConfigExecutionSessionEntity,
+    finalconfig_execution_log_entity_1.FinalConfigExecutionLogEntity,
+    traceability_so_entity_1.TraceabilitySoEntity,
+    traceability_wa_entity_1.TraceabilityWaEntity,
+    traceability_order_entity_1.TraceabilityOrderEntity,
+    traceability_device_entity_1.TraceabilityDeviceEntity,
 ];
 let DynamicDatabaseService = DynamicDatabaseService_1 = class DynamicDatabaseService {
     constructor() {

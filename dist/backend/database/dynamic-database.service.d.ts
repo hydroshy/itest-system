@@ -9,7 +9,15 @@ import { UnifiedDeviceEntity } from '../core-models/unified-device.entity';
 import { ChirpstackNetworkServerEntity } from '../core-models/chirpstack-network-server.entity';
 import { MemmapProfileEntity } from '../core-models/memmap-profile.entity';
 import { MemmapRegisterEntity } from '../core-models/memmap-register.entity';
-export declare const ALL_DATABASE_ENTITIES: (typeof Permission | typeof Role | typeof User | typeof CorePluginEntity | typeof PluginAuditLogEntity | typeof UnifiedDeviceEntity | typeof ChirpstackNetworkServerEntity | typeof MemmapRegisterEntity | typeof MemmapProfileEntity)[];
+import { FinalConfigProfileEntity } from '../core-models/finalconfig-profile.entity';
+import { FinalConfigRegisterEntity } from '../core-models/finalconfig-register.entity';
+import { FinalConfigExecutionSessionEntity } from '../core-models/finalconfig-execution-session.entity';
+import { FinalConfigExecutionLogEntity } from '../core-models/finalconfig-execution-log.entity';
+import { TraceabilitySoEntity } from '../core-models/traceability-so.entity';
+import { TraceabilityWaEntity } from '../core-models/traceability-wa.entity';
+import { TraceabilityOrderEntity } from '../core-models/traceability-order.entity';
+import { TraceabilityDeviceEntity } from '../core-models/traceability-device.entity';
+export declare const ALL_DATABASE_ENTITIES: (typeof Permission | typeof Role | typeof User | typeof CorePluginEntity | typeof PluginAuditLogEntity | typeof UnifiedDeviceEntity | typeof ChirpstackNetworkServerEntity | typeof MemmapRegisterEntity | typeof MemmapProfileEntity | typeof FinalConfigRegisterEntity | typeof FinalConfigProfileEntity | typeof FinalConfigExecutionSessionEntity | typeof FinalConfigExecutionLogEntity | typeof TraceabilityDeviceEntity | typeof TraceabilitySoEntity | typeof TraceabilityWaEntity | typeof TraceabilityOrderEntity)[];
 export interface DbConnectionConfig {
     host: string;
     port: number;
