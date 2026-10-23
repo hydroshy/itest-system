@@ -511,6 +511,8 @@ export class TraceabilityAdapterController {
   @Post([
     'api/plugins/device-traceability/devices/import-csv',
     'api/v1/plugins/device-traceability/devices/import-csv',
+    'api/plugins/device-traceability/devices/import-test-results',
+    'api/v1/plugins/device-traceability/devices/import-test-results',
   ])
   async importCsvDevices(@Body() body: ImportCsvDevicesDto) {
     if (!body.devices || !Array.isArray(body.devices) || body.devices.length === 0) {
@@ -698,11 +700,17 @@ export class TraceabilityAdapterController {
         }`,
       );
 
+      const passCount = importedDevices.filter((d) => d.test_result === 'PASS').length;
+      const failCount = importedDevices.filter((d) => d.test_result === 'FAIL').length;
+
       return {
         message: 'Imported devices successfully',
         soNumber: resolvedSo.so_number,
         waNumber: resolvedWa?.wa_number || null,
         importedCount: importedDevices.length,
+        totalImported: importedDevices.length,
+        passCount,
+        failCount,
         devices: importedDevices.map((d) => ({
           id: d.id,
           serialNumber: d.serial_number,
