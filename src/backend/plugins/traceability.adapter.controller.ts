@@ -293,13 +293,20 @@ export class TraceabilityAdapterController {
   // WORK AUTHORIZATION (WA) MANAGEMENT
   // ==========================================
 
-  @Get(['api/plugins/device-traceability/wa', 'api/v1/plugins/device-traceability/wa'])
+  @Get([
+    'api/plugins/device-traceability/wa',
+    'api/v1/plugins/device-traceability/wa',
+    'api/plugins/device-traceability/so/:soId/wa',
+    'api/v1/plugins/device-traceability/so/:soId/wa',
+  ])
   async getWorkAuthorizations(
-    @Query('soId') soId?: string,
+    @Param('soId') paramSoId?: string,
+    @Query('soId') querySoId?: string,
     @Query('soNumber') soNumber?: string,
     @Query('waNumber') waNumber?: string,
   ) {
     try {
+      const targetSoId = paramSoId || querySoId;
       const waRepo = this.databaseService.getRepositoryForTable(
         'traceability_wa',
         TraceabilityWaEntity,
@@ -309,8 +316,8 @@ export class TraceabilityAdapterController {
         .leftJoinAndSelect('wa.so', 'so')
         .orderBy('wa.created_at', 'DESC');
 
-      if (soId) {
-        qb.andWhere('wa.so_id = :soId', { soId });
+      if (targetSoId) {
+        qb.andWhere('wa.so_id = :soId', { soId: targetSoId });
       }
       if (soNumber) {
         qb.andWhere('so.so_number ILIKE :soNumber', { soNumber: `%${soNumber.trim()}%` });
@@ -340,17 +347,25 @@ export class TraceabilityAdapterController {
     }
   }
 
-  @Post(['api/plugins/device-traceability/wa', 'api/v1/plugins/device-traceability/wa'])
-  async createWorkAuthorization(@Body() body: CreateWaDto) {
+  @Post([
+    'api/plugins/device-traceability/wa',
+    'api/v1/plugins/device-traceability/wa',
+    'api/plugins/device-traceability/so/:soId/wa',
+    'api/v1/plugins/device-traceability/so/:soId/wa',
+  ])
+  async createWorkAuthorization(
+    @Body() body: CreateWaDto,
+    @Param('soId') paramSoId?: string,
+  ) {
     if (!body.waNumber || !body.waNumber.trim()) {
       throw new BadRequestException('waNumber is required');
     }
 
     const cleanWaNumber = body.waNumber.trim();
-    const waRegex = /^WA\/\d{4}\/\d{5}$/;
+    const waRegex = /^WA\/[A-Za-z0-9_-]+\/[A-Za-z0-9_-]+$/;
     if (!waRegex.test(cleanWaNumber)) {
       throw new BadRequestException(
-        `waNumber must strictly follow the format 'WA/xxxx/xxxxx' (e.g. WA/2026/00412). Received: ${cleanWaNumber}`,
+        `waNumber must strictly follow the format 'WA/xxxx/xxxxx' (e.g. WA/2026/00001). Received: ${cleanWaNumber}`,
       );
     }
 
@@ -364,16 +379,17 @@ export class TraceabilityAdapterController {
         TraceabilityWaEntity,
       );
 
+      const effectiveSoId = paramSoId || body.soId;
       let targetSo: TraceabilitySoEntity | null = null;
-      if (body.soId) {
-        targetSo = await soRepo.findOne({ where: { id: body.soId } });
+      if (effectiveSoId) {
+        targetSo = await soRepo.findOne({ where: { id: effectiveSoId } });
       } else if (body.soNumber) {
         targetSo = await soRepo.findOne({ where: { so_number: body.soNumber.trim() } });
       }
 
       if (!targetSo) {
         throw new BadRequestException(
-          `Parent Sale Order could not be resolved from provided soId or soNumber`,
+          `Parent Sale Order could not be resolved from provided soId (${effectiveSoId}) or soNumber (${body.soNumber})`,
         );
       }
 
