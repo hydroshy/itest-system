@@ -223,14 +223,16 @@ export class DisClientService {
       id: line.id ?? idx + 1,
       sequence: line.sequence ?? idx + 1,
       line_type: line.line_type || 'product',
-      product_id: line.product_id ?? line.product?.id ?? null,
-      product_name: line.product_name ?? line.product?.name ?? line.name ?? '',
-      default_code: line.default_code ?? line.product?.sku ?? line.product?.default_code ?? 'N/A',
+      product_id: line.product_id ?? line.variant_id ?? line.template_id ?? line.product?.id ?? null,
+      product_name: line.product_name ?? line.description ?? line.product?.name ?? line.name ?? '',
+      default_code: line.default_code ?? line.ordering_code ?? line.product?.sku ?? line.product?.default_code ?? 'N/A',
       product_uom_qty: line.product_uom_qty ?? line.quantity ?? 0,
-      qty_delivered: line.qty_delivered ?? line.delivered_quantity ?? 0,
-      qty_invoiced: line.qty_invoiced ?? line.invoiced_quantity ?? 0,
-      price_unit: line.price_unit ?? line.unit_price ?? 0,
-      name: line.name ?? line.product?.name ?? line.notes ?? '',
+      qty_delivered: line.qty_delivered ?? line.delivered_quantity ?? line.delivered_qty ?? 0,
+      qty_invoiced: line.qty_invoiced ?? line.invoiced_quantity ?? line.invoiced_qty ?? 0,
+      price_unit: line.price_unit ?? line.unit_price ?? line.price ?? 0,
+      name: line.name ?? line.description ?? line.product?.name ?? line.notes ?? '',
+      ordering_code: line.ordering_code ?? line.default_code,
+      description: line.description ?? line.product_name,
     }));
 
     const stateCode = typeof item.state === 'object' && item.state !== null
@@ -259,7 +261,7 @@ export class DisClientService {
     return {
       ...item,
       partner_id: data.partner_id ?? data.customer?.id,
-      partner_email: data.partner_email ?? data.customer?.email ?? null,
+      partner_email: data.partner_email ?? data.customer?.email ?? data.contact_person?.email ?? null,
       lines: (item as any).lines || [],
     } as any;
   }

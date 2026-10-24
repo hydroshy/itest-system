@@ -36,15 +36,21 @@ export interface DisSoSearchResponse {
 export interface DisSoOrderLine {
   id: number;
   sequence?: number;
-  line_type: 'product' | 'section' | 'note' | string;
+  line_type: 'product' | 'item' | 'section' | 'note' | string;
   product_id?: number | null;
   product_name?: string | null;
   default_code?: string | null; // SKU / Item Code (e.g. WSLRW-C-RS485-01)
+  ordering_code?: string | null;
   product_uom_qty?: number;
+  quantity?: number;
   qty_delivered?: number;
   qty_invoiced?: number;
   price_unit?: number;
   name?: string; // Description or note content
+  description?: string;
+  template_id?: number;
+  variant_id?: number;
+  uom?: { id?: number; name?: string };
 }
 
 export interface DisSoDetailResponse {
