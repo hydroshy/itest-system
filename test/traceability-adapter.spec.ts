@@ -482,6 +482,9 @@ async function runTests() {
   const managerStatus = disManagerController.getStatus();
   assert.strictEqual(managerStatus.plugin, 'dis-manager');
   assert.strictEqual(managerStatus.status, 'online');
+  assert.strictEqual(managerStatus.isMock, true);
+  assert.strictEqual(managerStatus.tokenConfigured, false);
+  assert.strictEqual(managerStatus.connected, false);
   assert.strictEqual(managerStatus.dis.mockMode, true);
 
   const sandboxSearch = await disManagerController.executeTestQuery({

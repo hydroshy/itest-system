@@ -31,11 +31,17 @@ export class DisManagerAdapterController {
     'api/plugins/dis/status',
   ])
   getStatus() {
+    const disStatus = this.disClientService.getStatus();
     return {
       plugin: 'dis-manager',
       version: '1.0.0',
       status: 'online',
-      dis: this.disClientService.getStatus(),
+      connected: !this.disClientService.isMockMode && disStatus.tokenConfigured,
+      isMock: this.disClientService.isMockMode,
+      tokenConfigured: disStatus.tokenConfigured,
+      tokenMasked: disStatus.tokenMasked,
+      apiUrl: disStatus.apiUrl,
+      dis: disStatus,
       timestamp: new Date().toISOString(),
     };
   }
@@ -52,6 +58,7 @@ export class DisManagerAdapterController {
     @Query('date_from') dateFrom?: string,
     @Query('date_to') dateTo?: string,
     @Query('states') states?: string,
+    @Query('state') state?: string,
     @Query('q') q?: string,
     @Query('limit') limit?: string,
     @Query('cursor') cursor?: string,
@@ -61,7 +68,7 @@ export class DisManagerAdapterController {
       month: month ? Number(month) : undefined,
       date_from: dateFrom,
       date_to: dateTo,
-      states: states || 'sale',
+      states: states || state || 'sale',
       q,
       limit: limit ? Number(limit) : 25,
       cursor,

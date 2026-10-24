@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import {
   DisConfigStatus,
   DisSoDetailResponse,
+  DisSoItemSummary,
   DisSoSearchQuery,
   DisSoSearchResponse,
   DisTestQueryParams,
@@ -134,7 +135,16 @@ export class DisClientService {
         throw new Error(`DIS API Error [${response.status}]: ${errorMsg}`);
       }
 
-      return data as DisSoSearchResponse;
+      const rawItems = Array.isArray(data?.items) ? data.items : (Array.isArray(data) ? data : []);
+      const items = rawItems.map((item: any) => this.normalizeOrderItem(item));
+
+      return {
+        total_matching: data?.total ?? data?.total_matching ?? items.length,
+        has_more: !!data?.has_more,
+        next_cursor: data?.next_cursor ?? null,
+        items,
+        data: items,
+      } as any;
     } catch (err: any) {
       this.logger.error(`Failed to search DIS Sales Orders: ${err.message}`);
       throw err;
@@ -153,9 +163,29 @@ export class DisClientService {
       return detail;
     }
 
+    const idStr = String(id).trim();
+
+    // If id is non-numeric (e.g. "SO/2024/00732"), search by q first to avoid path routing issues with "/"
+    if (!/^\d+$/.test(idStr)) {
+      try {
+        const searchRes = await this.searchOrders({ q: idStr, limit: 10 });
+        const found = searchRes.items?.find(
+          (it: any) =>
+            it.name === idStr ||
+            it.number === idStr ||
+            String(it.id) === idStr,
+        );
+        if (found) {
+          return this.normalizeOrderDetail(found);
+        }
+      } catch (err: any) {
+        this.logger.warn(`Fallback search for ${idStr} failed: ${err.message}`);
+      }
+    }
+
     await this.waitForSlot();
     try {
-      const url = new URL(`/api/v1/sales-orders/${id}`, this.baseUrl);
+      const url = new URL(`/api/v1/sales-orders/${encodeURIComponent(idStr)}`, this.baseUrl);
       this.logger.log(`Calling DIS API: GET ${url.pathname}`);
 
       const response = await fetch(url.toString(), {
@@ -175,13 +205,63 @@ export class DisClientService {
         throw new Error(`DIS API Error [${response.status}]: ${errorMsg}`);
       }
 
-      return data as DisSoDetailResponse;
+      return this.normalizeOrderDetail(data);
     } catch (err: any) {
       this.logger.error(`Failed to get DIS Sales Order detail ${id}: ${err.message}`);
       throw err;
     } finally {
       this.releaseSlot();
     }
+  }
+
+  private normalizeOrderItem(item: any): DisSoItemSummary {
+    const rawLines = Array.isArray(item.lines)
+      ? item.lines
+      : (Array.isArray(item.items) ? item.items : (Array.isArray(item.order_line) ? item.order_line : []));
+
+    const normalizedLines = rawLines.map((line: any, idx: number) => ({
+      id: line.id ?? idx + 1,
+      sequence: line.sequence ?? idx + 1,
+      line_type: line.line_type || 'product',
+      product_id: line.product_id ?? line.product?.id ?? null,
+      product_name: line.product_name ?? line.product?.name ?? line.name ?? '',
+      default_code: line.default_code ?? line.product?.sku ?? line.product?.default_code ?? 'N/A',
+      product_uom_qty: line.product_uom_qty ?? line.quantity ?? 0,
+      qty_delivered: line.qty_delivered ?? line.delivered_quantity ?? 0,
+      qty_invoiced: line.qty_invoiced ?? line.invoiced_quantity ?? 0,
+      price_unit: line.price_unit ?? line.unit_price ?? 0,
+      name: line.name ?? line.product?.name ?? line.notes ?? '',
+    }));
+
+    const stateCode = typeof item.state === 'object' && item.state !== null
+      ? (item.state.code || item.state.label || 'sale')
+      : (item.state || 'sale');
+
+    return {
+      id: item.id ?? item.odoo_id,
+      name: item.name ?? item.number ?? `SO-${item.id}`,
+      number: item.number ?? item.name,
+      date_order: item.date_order ?? item.order_date ?? new Date().toISOString(),
+      partner_name: item.partner_name ?? item.customer?.name ?? (typeof item.customer === 'string' ? item.customer : '—'),
+      state: stateCode,
+      amount_total: item.amount_total ?? item.total_amount ?? 0,
+      currency: item.currency ?? item.currency_id ?? 'VND',
+      commitment_date: item.commitment_date ?? null,
+      lines: normalizedLines,
+      items: normalizedLines,
+      ...(item.customer ? { customer: item.customer } : {}),
+      ...(item.company ? { company: item.company } : {}),
+    } as any;
+  }
+
+  private normalizeOrderDetail(data: any): DisSoDetailResponse {
+    const item = this.normalizeOrderItem(data);
+    return {
+      ...item,
+      partner_id: data.partner_id ?? data.customer?.id,
+      partner_email: data.partner_email ?? data.customer?.email ?? null,
+      lines: (item as any).lines || [],
+    } as any;
   }
 
   public async executeTestQuery(queryParams: DisTestQueryParams): Promise<DisTestQueryResult> {

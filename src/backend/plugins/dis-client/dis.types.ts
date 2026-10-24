@@ -12,16 +12,22 @@ export interface DisSoSearchQuery {
 export interface DisSoItemSummary {
   id: number;
   name: string; // e.g. "SO/2026/01856"
+  number?: string;
   date_order: string;
   partner_name: string;
   state: 'draft' | 'sent' | 'sale' | 'done' | 'cancel' | string;
   amount_total?: number;
   currency?: string;
   commitment_date?: string | null;
+  lines?: DisSoOrderLine[];
+  items?: DisSoOrderLine[];
+  customer?: any;
+  company?: any;
 }
 
 export interface DisSoSearchResponse {
   items: DisSoItemSummary[];
+  data?: DisSoItemSummary[];
   next_cursor?: string | null;
   has_more: boolean;
   total_matching?: number;
