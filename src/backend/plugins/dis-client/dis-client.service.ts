@@ -171,6 +171,8 @@ export class DisClientService {
     } finally {
       this.releaseSlot();
     }
+  }
+
   public async executeTestQuery(queryParams: DisTestQueryParams): Promise<DisTestQueryResult> {
     const startTime = Date.now();
     const endpoint = (queryParams.endpoint || '/api/v1/sales-orders/search').trim();
