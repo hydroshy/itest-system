@@ -15,6 +15,8 @@ import {
   Query,
 } from '@nestjs/common';
 import { DynamicDatabaseService } from '../database/dynamic-database.service';
+import { DisClientService } from './dis-client/dis-client.service';
+import { DisSoSearchQuery } from './dis-client/dis.types';
 import { TraceabilitySoEntity } from '../core-models/traceability-so.entity';
 import { TraceabilityWaEntity } from '../core-models/traceability-wa.entity';
 import { TraceabilityOrderEntity } from '../core-models/traceability-order.entity';
@@ -98,7 +100,10 @@ export interface UpdateDeviceDetailsDto {
 export class TraceabilityAdapterController {
   private readonly logger = new Logger(TraceabilityAdapterController.name);
 
-  constructor(private readonly databaseService: DynamicDatabaseService) {}
+  constructor(
+    private readonly databaseService: DynamicDatabaseService,
+    private readonly disClientService: DisClientService,
+  ) {}
 
   @Get(['api/plugins/device-traceability/status', 'api/v1/plugins/device-traceability/status'])
   getStatus() {
@@ -106,7 +111,180 @@ export class TraceabilityAdapterController {
       status: 'online',
       plugin: 'device-traceability',
       contractVersion: 'v2',
+      disStatus: this.disClientService.getStatus(),
       timestamp: new Date().toISOString(),
+    };
+  }
+
+  // ==========================================
+  // DIS (ODOO) SALES ORDER INTEGRATION
+  // ==========================================
+
+  @Get([
+    'api/plugins/device-traceability/dis/status',
+    'api/v1/plugins/device-traceability/dis/status',
+    'api/dis/status',
+  ])
+  getDisStatus() {
+    return this.disClientService.getStatus();
+  }
+
+  @Get([
+    'api/plugins/device-traceability/dis/so/search',
+    'api/v1/plugins/device-traceability/dis/so/search',
+    'api/dis/so/search',
+  ])
+  async searchDisOrders(
+    @Query('year') year?: string,
+    @Query('month') month?: string,
+    @Query('date_from') dateFrom?: string,
+    @Query('date_to') dateTo?: string,
+    @Query('states') states?: string,
+    @Query('q') q?: string,
+    @Query('limit') limit?: string,
+    @Query('cursor') cursor?: string,
+  ) {
+    const query: DisSoSearchQuery = {
+      year: year ? Number(year) : undefined,
+      month: month ? Number(month) : undefined,
+      date_from: dateFrom,
+      date_to: dateTo,
+      states: states || 'sale',
+      q,
+      limit: limit ? Number(limit) : 25,
+      cursor,
+    };
+    return this.disClientService.searchOrders(query);
+  }
+
+  @Get([
+    'api/plugins/device-traceability/dis/so/:id',
+    'api/v1/plugins/device-traceability/dis/so/:id',
+    'api/dis/so/:id',
+  ])
+  async getDisOrderDetail(@Param('id') id: string) {
+    if (!id || !id.trim()) {
+      throw new BadRequestException('Order id or name is required');
+    }
+    return this.disClientService.getOrderDetail(id.trim());
+  }
+
+  @Post([
+    'api/plugins/device-traceability/dis/so/:id/sync',
+    'api/v1/plugins/device-traceability/dis/so/:id/sync',
+    'api/dis/so/:id/sync',
+  ])
+  async syncDisOrderToTraceability(@Param('id') id: string) {
+    if (!id || !id.trim()) {
+      throw new BadRequestException('Order id or name is required');
+    }
+
+    const orderDetail = await this.disClientService.getOrderDetail(id.trim());
+    if (!orderDetail) {
+      throw new NotFoundException(`Sales Order ${id} not found in DIS`);
+    }
+
+    const soRepo = this.databaseService.getRepositoryForTable(
+      'traceability_so',
+      TraceabilitySoEntity,
+    );
+    const waRepo = this.databaseService.getRepositoryForTable(
+      'traceability_wa',
+      TraceabilityWaEntity,
+    );
+
+    const cleanSoNumber = orderDetail.name.trim();
+
+    // 1. Find or create SO
+    let so = await soRepo.findOne({ where: { so_number: cleanSoNumber } });
+    if (!so) {
+      so = soRepo.create({
+        so_number: cleanSoNumber,
+        customer_name: orderDetail.partner_name ? orderDetail.partner_name.trim() : null,
+        notes: [
+          `DIS SO ID: ${orderDetail.id}`,
+          orderDetail.client_order_ref ? `Ref: ${orderDetail.client_order_ref}` : null,
+          orderDetail.note ? `Note: ${orderDetail.note}` : null,
+        ]
+          .filter(Boolean)
+          .join(' | '),
+      });
+      so = await soRepo.save(so);
+      this.logger.log(`Created new SO ${so.so_number} from DIS sync`);
+    } else {
+      // Update customer name & notes if missing or updated
+      let changed = false;
+      if (orderDetail.partner_name && so.customer_name !== orderDetail.partner_name) {
+        so.customer_name = orderDetail.partner_name;
+        changed = true;
+      }
+      if (changed) {
+        so = await soRepo.save(so);
+      }
+    }
+
+    // 2. Process product lines into Work Authorizations (WA)
+    const productLines = (orderDetail.lines || []).filter(
+      (line) => line.line_type === 'product' && (line.default_code || line.product_name),
+    );
+
+    const createdWas = [];
+    const existingWas = await waRepo.find({ where: { so_id: so.id } });
+
+    for (let i = 0; i < productLines.length; i++) {
+      const line = productLines[i];
+      const itemCode = line.default_code || `PRODUCT-${line.product_id || i + 1}`;
+      const plannedQty = Number(line.product_uom_qty) || 0;
+
+      // Extract numeric suffix from SO number or use index
+      // Format: WA/xxxx/xxxxx (e.g. WA/2026/01856-01)
+      const soNumMatches = cleanSoNumber.match(/(\d{4})\/(\d+)/);
+      const yearStr = soNumMatches ? soNumMatches[1] : new Date().getFullYear().toString();
+      const seqStr = soNumMatches ? soNumMatches[2] : String(orderDetail.id || 1);
+      const lineIndexStr = String(i + 1).padStart(2, '0');
+      const waNumberCandidate = `WA/${yearStr}/${seqStr}-${lineIndexStr}`;
+
+      // Check if WA already exists for this SO and itemCode
+      let wa = existingWas.find(
+        (w) => w.wa_number === waNumberCandidate || (w.item_code === itemCode && w.so_id === so.id),
+      );
+
+      if (!wa) {
+        wa = waRepo.create({
+          so_id: so.id,
+          wa_number: waNumberCandidate,
+          item_code: itemCode,
+          planned_quantity: plannedQty,
+          notes: line.name || line.product_name || `Line #${line.id}`,
+        });
+        wa = await waRepo.save(wa);
+        createdWas.push(wa);
+        this.logger.log(`Created WA ${wa.wa_number} for SO ${so.so_number}`);
+      } else {
+        // Update planned quantity if changed
+        if (plannedQty > 0 && wa.planned_quantity !== plannedQty) {
+          wa.planned_quantity = plannedQty;
+          await waRepo.save(wa);
+        }
+        createdWas.push(wa);
+      }
+    }
+
+    return {
+      message: `Successfully synchronized SO ${cleanSoNumber} from DIS`,
+      so: {
+        id: so.id,
+        soNumber: so.so_number,
+        customerName: so.customer_name,
+        notes: so.notes,
+      },
+      syncedLinesCount: productLines.length,
+      workAuthorizations: createdWas.map((w) => ({
+        id: w.id,
+        waNumber: w.wa_number,
+        itemCode: w.item_code,
+        plannedQuantity: w.planned_quantity,
+      })),
     };
   }
 

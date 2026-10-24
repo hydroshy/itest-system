@@ -15,6 +15,8 @@ import {
 import { FinalConfigExecutionSessionEntity } from '../src/backend/core-models/finalconfig-execution-session.entity';
 import { FinalConfigExecutionLogEntity } from '../src/backend/core-models/finalconfig-execution-log.entity';
 import { TraceabilityAdapterController } from '../src/backend/plugins/traceability.adapter.controller';
+import { DisManagerAdapterController } from '../src/backend/plugins/dis-manager.adapter.controller';
+import { DisClientService } from '../src/backend/plugins/dis-client/dis-client.service';
 
 async function runTests() {
   console.log('--- Starting TraceabilityAdapterController & Entity v2 Verification ---');
@@ -240,7 +242,8 @@ async function runTests() {
     },
   };
 
-  const controller = new TraceabilityAdapterController(mockDbService);
+  const disClientService = new DisClientService();
+  const controller = new TraceabilityAdapterController(mockDbService, disClientService);
 
   // 3. Test SO Creation and Validation
   console.log('3. Testing SO creation and duplicate rejection...');
@@ -449,7 +452,55 @@ async function runTests() {
   const checkDel = await controller.getDevices(undefined, undefined, 'LRCR26000094');
   assert.strictEqual(checkDel.data.length, 0);
 
-  console.log('--- ALL TRACEABILITY V2 VERIFICATION TESTS PASSED SUCCESSFULLY! ---');
+  // 13. Test DIS Sales Order Integration & Sync
+  console.log('13. Testing DIS Sales Order Integration & Sync...');
+  const disStatus = controller.getDisStatus();
+  assert.strictEqual(disStatus.enabled, true);
+  assert.strictEqual(disStatus.mockMode, true);
+
+  const searchRes = await controller.searchDisOrders('2026', '10', undefined, undefined, 'sale', '01856');
+  assert.ok(Array.isArray(searchRes.items));
+  assert.strictEqual(searchRes.items.length, 1);
+  assert.strictEqual(searchRes.items[0].name, 'SO/2026/01856');
+
+  const detailRes = await controller.getDisOrderDetail('101856');
+  assert.strictEqual(detailRes.name, 'SO/2026/01856');
+  assert.ok(detailRes.lines.length >= 2);
+
+  const syncRes = await controller.syncDisOrderToTraceability('101856');
+  assert.strictEqual(syncRes.so.soNumber, 'SO/2026/01856');
+  assert.ok(syncRes.workAuthorizations.length >= 2);
+  assert.strictEqual(syncRes.workAuthorizations[0].itemCode, 'WSLRW-C-RS485-01');
+
+  // Verify synced SO exists in DB
+  const verifySo = await soRepo.findOne({ where: { so_number: 'SO/2026/01856' } });
+  assert.ok(verifySo, 'Synced SO must be saved in database');
+
+  // 14. Test DisManagerAdapterController Endpoints & Sandbox Query
+  console.log('14. Testing DisManagerAdapterController Endpoints & Sandbox Explorer...');
+  const disManagerController = new DisManagerAdapterController(disClientService, mockDbService);
+  const managerStatus = disManagerController.getStatus();
+  assert.strictEqual(managerStatus.plugin, 'dis-manager');
+  assert.strictEqual(managerStatus.status, 'online');
+  assert.strictEqual(managerStatus.dis.mockMode, true);
+
+  const sandboxSearch = await disManagerController.executeTestQuery({
+    endpoint: '/api/v1/sales-orders/search',
+    params: { year: 2026, month: 10, states: 'sale', limit: 5 },
+  });
+  assert.strictEqual(sandboxSearch.success, true);
+  assert.strictEqual(sandboxSearch.statusCode, 200);
+  assert.strictEqual(sandboxSearch.mockMode, true);
+  assert.ok(sandboxSearch.data.items.length >= 1);
+
+  const sandboxDetail = await disManagerController.executeTestQuery({
+    endpoint: '/api/v1/sales-orders/101857',
+    id: '101857',
+  });
+  assert.strictEqual(sandboxDetail.success, true);
+  assert.strictEqual(sandboxDetail.data.name, 'SO/2026/01857');
+
+  console.log('--- ALL TRACEABILITY V2 & DIS INTEGRATION VERIFICATION TESTS PASSED SUCCESSFULLY! ---');
 }
 
 runTests().catch((err) => {

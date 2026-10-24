@@ -8,6 +8,8 @@ import { LorawanChirpstackAdapterController } from './lorawan-chirpstack.adapter
 import { MemmapManagerAdapterController } from './memmap-manager.adapter.controller';
 import { FinalConfigAdapterController } from './final-config.adapter.controller';
 import { TraceabilityAdapterController } from './traceability.adapter.controller';
+import { DisManagerAdapterController } from './dis-manager.adapter.controller';
+import { DisClientService } from './dis-client/dis-client.service';
 
 @Module({
   imports: [DynamicDatabaseModule, RealtimeModule],
@@ -17,9 +19,10 @@ import { TraceabilityAdapterController } from './traceability.adapter.controller
     MemmapManagerAdapterController,
     FinalConfigAdapterController,
     TraceabilityAdapterController,
+    DisManagerAdapterController,
   ],
-  providers: [PluginStorageService, PluginManagerService],
-  exports: [PluginStorageService, PluginManagerService],
+  providers: [PluginStorageService, PluginManagerService, DisClientService],
+  exports: [PluginStorageService, PluginManagerService, DisClientService],
 })
 export class PluginManagementModule {}
 
