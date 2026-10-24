@@ -559,6 +559,8 @@ export class TraceabilityAdapterController {
           soNumber: so.so_number,
           customerName: so.customer_name,
           partnerEmail: so.partner_email || null,
+          partner_email: so.partner_email || null,
+          customer_email: so.partner_email || null,
           name: so.customer_name ? `${so.so_number} - ${so.customer_name}` : so.so_number,
           itemCount: itemCodeNodes.length,
           totalDevices: soTotalDevices,
@@ -638,6 +640,8 @@ export class TraceabilityAdapterController {
             soNumber: so.so_number,
             customerName: so.customer_name,
             partnerEmail: so.partner_email || null,
+            partner_email: so.partner_email || null,
+            customer_email: so.partner_email || null,
             notes: so.notes,
             waCount: was.length,
             workAuthorizations: was.map((w) => ({
@@ -711,6 +715,8 @@ export class TraceabilityAdapterController {
         soNumber: so.so_number,
         customerName: so.customer_name,
         partnerEmail: so.partner_email || null,
+        partner_email: so.partner_email || null,
+        customer_email: so.partner_email || null,
         notes: so.notes,
         workAuthorizations: was.map((w) => ({
           id: w.id,

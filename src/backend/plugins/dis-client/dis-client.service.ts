@@ -243,7 +243,14 @@ export class DisClientService {
       ? (item.state.code || item.state.label || 'sale')
       : (item.state || 'sale');
 
-    const partnerEmail = item.partner_email ?? item.customer?.email ?? item.contact_person?.email ?? null;
+    const partnerEmail =
+      item.partner_email ??
+      item.customer_email ??
+      item.customer?.email ??
+      item.partner_id?.email ??
+      item.contact_person?.email ??
+      item.email ??
+      null;
 
     return {
       id: item.id ?? item.odoo_id,
@@ -264,10 +271,20 @@ export class DisClientService {
 
   private normalizeOrderDetail(data: any): DisSoDetailResponse {
     const item = this.normalizeOrderItem(data);
+    const partnerEmail =
+      data.partner_email ??
+      data.customer_email ??
+      data.customer?.email ??
+      data.partner_id?.email ??
+      data.contact_person?.email ??
+      data.email ??
+      (item as any).partner_email ??
+      null;
+
     return {
       ...item,
       partner_id: data.partner_id ?? data.customer?.id,
-      partner_email: data.partner_email ?? data.customer?.email ?? data.contact_person?.email ?? null,
+      partner_email: partnerEmail,
       lines: (item as any).lines || [],
     } as any;
   }
