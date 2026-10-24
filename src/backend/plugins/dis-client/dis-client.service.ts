@@ -257,7 +257,36 @@ export class DisClientService {
 
     const normalizedLines = rawLines
       .map((line: any, idx: number) => {
-        const defaultCode = (line.default_code ?? line.ordering_code ?? line.product?.sku ?? line.product?.default_code ?? '').trim();
+        // Multi-level item code extraction:
+        // 1. Explicit code fields: default_code, ordering_code, sku, product_code, item_code, product.sku, product.default_code
+        // 2. Regex pattern in name / product_name / description: e.g. "[WSLRW-C-RS485-01] Sensor..." -> "WSLRW-C-RS485-01"
+        const explicitCode = (
+          line.default_code ??
+          line.ordering_code ??
+          line.sku ??
+          line.product_code ??
+          line.item_code ??
+          line.product?.sku ??
+          line.product?.default_code ??
+          line.product?.code ??
+          ''
+        ).trim();
+
+        let extractedCode = explicitCode;
+        if (!extractedCode || extractedCode === 'N/A') {
+          const textSources = [line.name, line.product_name, line.description, line.notes, line.product?.name];
+          for (const text of textSources) {
+            if (typeof text === 'string') {
+              const match = text.match(/\[([A-Za-z0-9_.\-/]+)\]/);
+              if (match && match[1]) {
+                extractedCode = match[1].trim();
+                break;
+              }
+            }
+          }
+        }
+
+        const defaultCode = extractedCode || (line.product_id ? `PRODUCT-${line.product_id}` : '');
         return {
           id: line.id ?? idx + 1,
           sequence: line.sequence ?? idx + 1,

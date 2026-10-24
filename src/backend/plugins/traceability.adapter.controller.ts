@@ -242,14 +242,40 @@ export class TraceabilityAdapterController {
       }
     }
 
+    // Helper to resolve item code with multi-level fallback
+    const resolveItemCode = (line: any): string => {
+      const explicitCode = (
+        line.default_code ??
+        line.ordering_code ??
+        line.sku ??
+        line.product_code ??
+        line.item_code ??
+        line.product?.sku ??
+        line.product?.default_code ??
+        line.product?.code ??
+        ''
+      ).trim();
+
+      if (explicitCode && explicitCode !== 'N/A') return explicitCode;
+
+      const textSources = [line.name, line.product_name, line.description, line.notes, line.product?.name];
+      for (const text of textSources) {
+        if (typeof text === 'string') {
+          const match = text.match(/\[([A-Za-z0-9_.\-/]+)\]/);
+          if (match && match[1]) return match[1].trim();
+        }
+      }
+
+      if (line.product_id) return `PRODUCT-${line.product_id}`;
+      return '';
+    };
+
     // 2. Process product lines into Work Authorizations (WA)
-    // Filter out lines where default_code is 'N/A' or empty
     const productLines = (orderDetail.lines || []).filter((line) => {
-      const code = (line.default_code || '').trim();
+      const code = resolveItemCode(line);
       return (
         (line.line_type === 'product' || line.line_type === 'item' || !line.line_type) &&
-        code &&
-        code !== 'N/A'
+        Boolean(code)
       );
     });
 
@@ -258,7 +284,7 @@ export class TraceabilityAdapterController {
 
     for (let i = 0; i < productLines.length; i++) {
       const line = productLines[i];
-      const itemCode = (line.default_code || '').trim();
+      const itemCode = resolveItemCode(line) || `PRODUCT-LINE-${i + 1}`;
       const plannedQty = Number(line.product_uom_qty || line.quantity) || 0;
 
       // Extract numeric suffix from SO number or use index
