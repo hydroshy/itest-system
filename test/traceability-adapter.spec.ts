@@ -137,10 +137,11 @@ async function runTests() {
             return res;
           },
           createQueryBuilder: () => {
-            return {
-              leftJoinAndSelect: () => this,
-              orderBy: () => this,
-              andWhere: () => this,
+            const qb: any = {
+              leftJoinAndSelect: () => qb,
+              orderBy: () => qb,
+              where: () => qb,
+              andWhere: () => qb,
               getMany: async () => {
                 return Array.from(waStore.values()).map((w) => ({
                   ...w,
@@ -148,6 +149,7 @@ async function runTests() {
                 }));
               },
             };
+            return qb;
           },
         };
       }
@@ -155,7 +157,7 @@ async function runTests() {
       if (tableName === 'traceability_device') {
         return {
           create: (data: any) => ({
-            id: `dev-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
+            id: `dev-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`.padEnd(36, '0'),
             created_at: new Date(),
             updated_at: new Date(),
             test_result: TraceabilityTestResult.PENDING,
@@ -166,6 +168,10 @@ async function runTests() {
           }),
           save: async (entity: any) => {
             deviceStore.set(entity.id, { ...entity });
+            return entity;
+          },
+          remove: async (entity: any) => {
+            deviceStore.delete(entity.id);
             return entity;
           },
           findOne: async ({ where }: any) => {
@@ -196,20 +202,44 @@ async function runTests() {
             return res.length;
           },
           createQueryBuilder: () => {
-            return {
-              leftJoinAndSelect: () => this,
-              andWhere: () => this,
-              skip: () => this,
-              take: () => this,
-              orderBy: () => this,
-              getManyAndCount: async () => [
-                Array.from(deviceStore.values()).map((d) => ({
+            let snFilter: string | null = null;
+            const qb: any = {
+              leftJoinAndSelect: () => qb,
+              where: () => qb,
+              andWhere: (clause: string, params?: any) => {
+                if (params?.serialNumber) {
+                  snFilter = String(params.serialNumber).replace(/%/g, '').trim().toUpperCase();
+                }
+                return qb;
+              },
+              skip: () => qb,
+              take: () => qb,
+              orderBy: () => qb,
+              getMany: async () => {
+                let list = Array.from(deviceStore.values());
+                if (snFilter) {
+                  list = list.filter((d) => (d.serial_number || '').toUpperCase().includes(snFilter!));
+                }
+                return list.map((d) => ({
                   ...d,
                   so: soStore.get(d.so_id),
                   wa: d.wa_id ? waStore.get(d.wa_id) : null,
-                })),
-                deviceStore.size,
-              ],
+                }));
+              },
+              getManyAndCount: async () => {
+                let list = Array.from(deviceStore.values());
+                if (snFilter) {
+                  list = list.filter((d) => (d.serial_number || '').toUpperCase().includes(snFilter!));
+                }
+                return [
+                  list.map((d) => ({
+                    ...d,
+                    so: soStore.get(d.so_id),
+                    wa: d.wa_id ? waStore.get(d.wa_id) : null,
+                  })),
+                  list.length,
+                ];
+              },
               getOne: async () => {
                 const first = Array.from(deviceStore.values())[0];
                 if (!first) return null;
@@ -220,6 +250,7 @@ async function runTests() {
                 };
               },
             };
+            return qb;
           },
         };
       }
@@ -477,7 +508,7 @@ async function runTests() {
   assert.strictEqual(syncRes.workAuthorizations[0].itemCode, 'WSLRW-C-RS485-01');
 
   // Verify synced SO exists in DB with partner_email
-  const testSoRepo = (mockDbService as any).getRepository('traceability_so');
+  const testSoRepo = (mockDbService as any).getRepositoryForTable('traceability_so', TraceabilitySoEntity);
   const verifySo = await testSoRepo.findOne({ where: { so_number: 'SO/2026/01856' } });
   assert.ok(verifySo, 'Synced SO must be saved in database');
   assert.strictEqual(verifySo.partner_email, 'procurement@eco-iot.vn');
