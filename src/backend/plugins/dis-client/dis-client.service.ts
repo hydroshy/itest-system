@@ -165,8 +165,43 @@ export class DisClientService {
 
     const idStr = String(id).trim();
 
-    // If id is non-numeric (e.g. "SO/2024/00732"), search by q first to avoid path routing issues with "/"
+    // If id is non-numeric (e.g. "SO/2026/01856"), resolve to numeric ID via exact lookup or search first
     if (!/^\d+$/.test(idStr)) {
+      // 1. Try exact lookup by number: GET /api/v1/sales-orders?number=...
+      await this.waitForSlot();
+      try {
+        const exactUrl = new URL('/api/v1/sales-orders', this.baseUrl);
+        exactUrl.searchParams.set('number', idStr);
+        this.logger.log(`Calling DIS API exact lookup: GET ${exactUrl.pathname}${exactUrl.search}`);
+        const exactRes = await fetch(exactUrl.toString(), {
+          method: 'GET',
+          headers: {
+            Authorization: this.authHeader,
+            Accept: 'application/json',
+          },
+          signal: AbortSignal.timeout(35000),
+        });
+        if (exactRes.ok) {
+          const exactData = await exactRes.json().catch(() => null);
+          if (exactData) {
+            // If response is the full detail object directly
+            if (exactData.lines || exactData.partner_email || exactData.customer_email || exactData.contact_person) {
+              return this.normalizeOrderDetail(exactData);
+            }
+            // If response has id, fetch the detail by numeric id
+            if (exactData.id && /^\d+$/.test(String(exactData.id))) {
+              this.releaseSlot();
+              return this.getOrderDetail(exactData.id);
+            }
+          }
+        }
+      } catch (err: any) {
+        this.logger.warn(`Exact lookup for ${idStr} failed: ${err.message}`);
+      } finally {
+        this.releaseSlot();
+      }
+
+      // 2. Try search by q to resolve numeric ID
       try {
         const searchRes = await this.searchOrders({ q: idStr, limit: 10 });
         const found = searchRes.items?.find(
@@ -175,8 +210,9 @@ export class DisClientService {
             it.number === idStr ||
             String(it.id) === idStr,
         );
-        if (found) {
-          return this.normalizeOrderDetail(found);
+        if (found && found.id && /^\d+$/.test(String(found.id))) {
+          // If search item found, call getOrderDetail with the numeric ID to fetch full details including partner_email
+          return this.getOrderDetail(found.id);
         }
       } catch (err: any) {
         this.logger.warn(`Fallback search for ${idStr} failed: ${err.message}`);
@@ -249,6 +285,8 @@ export class DisClientService {
       item.customer?.email ??
       item.partner_id?.email ??
       item.contact_person?.email ??
+      item.partner?.email ??
+      item.contact?.email ??
       item.email ??
       null;
 
@@ -270,20 +308,22 @@ export class DisClientService {
   }
 
   private normalizeOrderDetail(data: any): DisSoDetailResponse {
-    const item = this.normalizeOrderItem(data);
+    // If the DIS detail response wraps the order in an inner object or data field
+    const raw = data?.data && typeof data.data === 'object' ? data.data : data;
+    const item = this.normalizeOrderItem(raw);
     const partnerEmail =
-      data.partner_email ??
-      data.customer_email ??
-      data.customer?.email ??
-      data.partner_id?.email ??
-      data.contact_person?.email ??
-      data.email ??
+      raw.partner_email ??
+      raw.customer_email ??
+      raw.customer?.email ??
+      raw.partner_id?.email ??
+      raw.contact_person?.email ??
+      raw.email ??
       (item as any).partner_email ??
       null;
 
     return {
       ...item,
-      partner_id: data.partner_id ?? data.customer?.id,
+      partner_id: raw.partner_id ?? raw.customer?.id,
       partner_email: partnerEmail,
       lines: (item as any).lines || [],
     } as any;
