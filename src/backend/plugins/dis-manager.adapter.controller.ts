@@ -153,18 +153,92 @@ export class DisManagerAdapterController {
       }
     }
 
+    // Helper to resolve item code with multi-level fallback
+    const resolveItemCode = (line: any): string => {
+      const explicitCode = (
+        line.default_code ??
+        line.ordering_code ??
+        line.sku ??
+        line.product_code ??
+        line.item_code ??
+        line.barcode ??
+        line.product?.sku ??
+        line.product?.default_code ??
+        line.product?.code ??
+        line.product?.barcode ??
+        ''
+      ).trim();
+
+      if (explicitCode && explicitCode !== 'N/A') return explicitCode;
+
+      let odooProductName = '';
+      let odooProductId: any = null;
+      if (Array.isArray(line.product_id) && line.product_id.length > 0) {
+        odooProductId = line.product_id[0];
+        if (typeof line.product_id[1] === 'string') {
+          odooProductName = line.product_id[1].trim();
+        }
+      } else if (typeof line.product_id === 'object' && line.product_id !== null) {
+        odooProductId = line.product_id.id;
+        odooProductName = line.product_id.name || line.product_id.display_name || '';
+        if (line.product_id.default_code || line.product_id.code) {
+          const c = String(line.product_id.default_code || line.product_id.code).trim();
+          if (c && c !== 'N/A') return c;
+        }
+      } else {
+        odooProductId = line.product_id;
+      }
+
+      const textSources = [
+        line.name,
+        line.product_name,
+        odooProductName,
+        line.description,
+        line.notes,
+        line.product?.name,
+      ];
+      for (const text of textSources) {
+        if (typeof text === 'string') {
+          const match = text.match(/\[([A-Za-z0-9_.\-/]+)\]/);
+          if (match && match[1]) return match[1].trim();
+        }
+      }
+
+      const rawName = String(line.name || line.product_name || odooProductName || '').trim();
+      const bracketMatch = rawName.match(/^\[(.*?)\]/);
+      if (bracketMatch && bracketMatch[1]) {
+        return bracketMatch[1].trim();
+      } else if (rawName && !rawName.includes(' ') && rawName.length <= 40) {
+        return rawName;
+      }
+
+      if (odooProductId) return `PRODUCT-${odooProductId}`;
+      return '';
+    };
+
     // Process product lines into Work Authorizations (WA)
-    const productLines = (orderDetail.lines || []).filter(
-      (line) => line.line_type === 'product' && (line.default_code || line.product_name),
-    );
+    const detailAny = orderDetail as any;
+    const rawLines = Array.isArray(detailAny.lines) && detailAny.lines.length > 0
+      ? detailAny.lines
+      : (Array.isArray(detailAny.items) && detailAny.items.length > 0
+        ? detailAny.items
+        : (Array.isArray(detailAny.order_line) ? detailAny.order_line : []));
+
+    const productLines = rawLines.filter((line: any) => {
+      const code = resolveItemCode(line);
+      return (
+        (line.line_type === 'product' || line.line_type === 'item' || !line.line_type) &&
+        Boolean(code)
+      );
+    });
 
     const createdWas = [];
     const existingWas = await waRepo.find({ where: { so_id: so.id } });
 
     for (let i = 0; i < productLines.length; i++) {
       const line = productLines[i];
-      const itemCode = line.default_code || `PRODUCT-${line.product_id || i + 1}`;
-      const plannedQty = Number(line.product_uom_qty) || 0;
+      const itemCode = resolveItemCode(line);
+      const plannedQty = Number(line.product_uom_qty ?? line.quantity ?? line.qty) || 0;
 
       const soNumMatches = cleanSoNumber.match(/(\d{4})\/(\d+)/);
       const yearStr = soNumMatches ? soNumMatches[1] : new Date().getFullYear().toString();
@@ -182,13 +256,21 @@ export class DisManagerAdapterController {
           wa_number: waNumberCandidate,
           item_code: itemCode,
           planned_quantity: plannedQty,
-          notes: line.name || line.product_name || `Line #${line.id}`,
+          notes: line.name || line.product_name || `Line #${line.id || i + 1}`,
         });
         wa = await waRepo.save(wa);
         createdWas.push(wa);
       } else {
+        let needsUpdate = false;
         if (plannedQty > 0 && wa.planned_quantity !== plannedQty) {
           wa.planned_quantity = plannedQty;
+          needsUpdate = true;
+        }
+        if (wa.item_code !== itemCode) {
+          wa.item_code = itemCode;
+          needsUpdate = true;
+        }
+        if (needsUpdate) {
           await waRepo.save(wa);
         }
         createdWas.push(wa);

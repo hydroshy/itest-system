@@ -258,23 +258,52 @@ export class DisClientService {
     const normalizedLines = rawLines
       .map((line: any, idx: number) => {
         // Multi-level item code extraction:
-        // 1. Explicit code fields: default_code, ordering_code, sku, product_code, item_code, product.sku, product.default_code
-        // 2. Regex pattern in name / product_name / description: e.g. "[WSLRW-C-RS485-01] Sensor..." -> "WSLRW-C-RS485-01"
+        // 1. Explicit code fields: default_code, ordering_code, sku, product_code, item_code, barcode, product_template_id
+        // 2. Odoo many2one tuple for product_id: [id, "[CODE] Name"] or [id, "Name"]
+        // 3. Regex pattern in name / product_name / description: e.g. "[WSLRW-C-RS485-01] Sensor..." -> "WSLRW-C-RS485-01"
         const explicitCode = (
           line.default_code ??
           line.ordering_code ??
           line.sku ??
           line.product_code ??
           line.item_code ??
+          line.barcode ??
           line.product?.sku ??
           line.product?.default_code ??
           line.product?.code ??
+          line.product?.barcode ??
           ''
         ).trim();
 
         let extractedCode = explicitCode;
+
+        // Check if product_id is an Odoo many2one tuple [id, name]
+        let odooProductName = '';
+        let odooProductId: any = null;
+        if (Array.isArray(line.product_id) && line.product_id.length > 0) {
+          odooProductId = line.product_id[0];
+          if (typeof line.product_id[1] === 'string') {
+            odooProductName = line.product_id[1].trim();
+          }
+        } else if (typeof line.product_id === 'object' && line.product_id !== null) {
+          odooProductId = line.product_id.id;
+          odooProductName = line.product_id.name || line.product_id.display_name || '';
+          if (!extractedCode && (line.product_id.default_code || line.product_id.code)) {
+            extractedCode = String(line.product_id.default_code || line.product_id.code).trim();
+          }
+        } else {
+          odooProductId = line.product_id;
+        }
+
         if (!extractedCode || extractedCode === 'N/A') {
-          const textSources = [line.name, line.product_name, line.description, line.notes, line.product?.name];
+          const textSources = [
+            line.name,
+            line.product_name,
+            odooProductName,
+            line.description,
+            line.notes,
+            line.product?.name,
+          ];
           for (const text of textSources) {
             if (typeof text === 'string') {
               const match = text.match(/\[([A-Za-z0-9_.\-/]+)\]/);
@@ -286,20 +315,38 @@ export class DisClientService {
           }
         }
 
-        const defaultCode = extractedCode || (line.product_id ? `PRODUCT-${line.product_id}` : `ITEM-${idx + 1}`);
+        // If still no extractedCode, check if odooProductName or line.name has a bracket prefix or is a clean code token
+        if (!extractedCode || extractedCode === 'N/A') {
+          const rawName = String(line.name || line.product_name || odooProductName || '').trim();
+          const bracketMatch = rawName.match(/^\[(.*?)\]/);
+          if (bracketMatch && bracketMatch[1]) {
+            extractedCode = bracketMatch[1].trim();
+          } else if (rawName && !rawName.includes(' ') && rawName.length <= 40) {
+            extractedCode = rawName;
+          }
+        }
+
+        // Fallback: If no code could be extracted, do NOT invent synthetic ITEM-1/ITEM-2.
+        // Instead, fallback to PRODUCT-${odooProductId} or empty string
+        const defaultCode = extractedCode && extractedCode !== 'N/A'
+          ? extractedCode
+          : (odooProductId ? `PRODUCT-${odooProductId}` : '');
+
+        const productName = line.product_name ?? line.description ?? odooProductName ?? line.product?.name ?? line.name ?? defaultCode;
+
         return {
           id: line.id ?? idx + 1,
           sequence: line.sequence ?? idx + 1,
           line_type: line.line_type || 'product',
-          product_id: line.product_id ?? line.variant_id ?? line.template_id ?? line.product?.id ?? null,
-          product_name: line.product_name ?? line.description ?? line.product?.name ?? line.name ?? defaultCode,
+          product_id: odooProductId ?? line.variant_id ?? line.template_id ?? line.product?.id ?? null,
+          product_name: productName,
           default_code: defaultCode,
           product_uom_qty: Number(line.product_uom_qty ?? line.quantity ?? line.qty) || 0,
           qty_delivered: Number(line.qty_delivered ?? line.delivered_quantity ?? line.delivered_qty) || 0,
           qty_invoiced: Number(line.qty_invoiced ?? line.invoiced_quantity ?? line.invoiced_qty) || 0,
-          name: line.name ?? line.description ?? line.product?.name ?? line.notes ?? defaultCode,
+          name: line.name ?? odooProductName ?? line.description ?? line.product?.name ?? defaultCode,
           ordering_code: defaultCode,
-          description: line.description ?? line.product_name ?? line.name ?? '',
+          description: line.description ?? line.product_name ?? odooProductName ?? line.name ?? '',
         };
       })
       .filter((line: any) => line.default_code && line.default_code !== 'N/A');

@@ -250,15 +250,42 @@ export class TraceabilityAdapterController {
         line.sku ??
         line.product_code ??
         line.item_code ??
+        line.barcode ??
         line.product?.sku ??
         line.product?.default_code ??
         line.product?.code ??
+        line.product?.barcode ??
         ''
       ).trim();
 
       if (explicitCode && explicitCode !== 'N/A') return explicitCode;
 
-      const textSources = [line.name, line.product_name, line.description, line.notes, line.product?.name];
+      let odooProductName = '';
+      let odooProductId: any = null;
+      if (Array.isArray(line.product_id) && line.product_id.length > 0) {
+        odooProductId = line.product_id[0];
+        if (typeof line.product_id[1] === 'string') {
+          odooProductName = line.product_id[1].trim();
+        }
+      } else if (typeof line.product_id === 'object' && line.product_id !== null) {
+        odooProductId = line.product_id.id;
+        odooProductName = line.product_id.name || line.product_id.display_name || '';
+        if (line.product_id.default_code || line.product_id.code) {
+          const c = String(line.product_id.default_code || line.product_id.code).trim();
+          if (c && c !== 'N/A') return c;
+        }
+      } else {
+        odooProductId = line.product_id;
+      }
+
+      const textSources = [
+        line.name,
+        line.product_name,
+        odooProductName,
+        line.description,
+        line.notes,
+        line.product?.name,
+      ];
       for (const text of textSources) {
         if (typeof text === 'string') {
           const match = text.match(/\[([A-Za-z0-9_.\-/]+)\]/);
@@ -266,7 +293,15 @@ export class TraceabilityAdapterController {
         }
       }
 
-      if (line.product_id) return `PRODUCT-${line.product_id}`;
+      const rawName = String(line.name || line.product_name || odooProductName || '').trim();
+      const bracketMatch = rawName.match(/^\[(.*?)\]/);
+      if (bracketMatch && bracketMatch[1]) {
+        return bracketMatch[1].trim();
+      } else if (rawName && !rawName.includes(' ') && rawName.length <= 40) {
+        return rawName;
+      }
+
+      if (odooProductId) return `PRODUCT-${odooProductId}`;
       return '';
     };
 
