@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import {
   DisConfigStatus,
   DisSoDetailResponse,
@@ -165,6 +165,34 @@ export class DisClientService {
 
     const idStr = String(id).trim();
 
+    // Direct fetch GET /api/v1/sales-orders/{id}
+    await this.waitForSlot();
+    try {
+      const url = new URL(`/api/v1/sales-orders/${encodeURIComponent(idStr)}`, this.baseUrl);
+      this.logger.log(`Calling DIS API: GET ${url.pathname}`);
+
+      const response = await fetch(url.toString(), {
+        method: 'GET',
+        headers: {
+          Authorization: this.authHeader,
+          Accept: 'application/json',
+        },
+        signal: AbortSignal.timeout(35000),
+      });
+
+      const data = await response.json().catch(() => null);
+
+      if (response.ok && data) {
+        return this.normalizeOrderDetail(data);
+      }
+
+      this.logger.warn(`Direct GET /api/v1/sales-orders/${idStr} returned ${response.status}`);
+    } catch (err: any) {
+      this.logger.warn(`Failed direct GET /api/v1/sales-orders/${idStr}: ${err.message}`);
+    } finally {
+      this.releaseSlot();
+    }
+
     // If id is non-numeric (e.g. "SO/2026/01856"), resolve to numeric ID via exact lookup or search first
     if (!/^\d+$/.test(idStr)) {
       // 1. Try exact lookup by number: GET /api/v1/sales-orders?number=...
@@ -219,35 +247,7 @@ export class DisClientService {
       }
     }
 
-    await this.waitForSlot();
-    try {
-      const url = new URL(`/api/v1/sales-orders/${encodeURIComponent(idStr)}`, this.baseUrl);
-      this.logger.log(`Calling DIS API: GET ${url.pathname}`);
-
-      const response = await fetch(url.toString(), {
-        method: 'GET',
-        headers: {
-          Authorization: this.authHeader,
-          Accept: 'application/json',
-        },
-        signal: AbortSignal.timeout(35000),
-      });
-
-      const data = await response.json().catch(() => null);
-
-      if (!response.ok) {
-        const errorMsg = data?.error?.message || data?.message || response.statusText;
-        this.logger.error(`DIS API error ${response.status}: ${errorMsg}`);
-        throw new Error(`DIS API Error [${response.status}]: ${errorMsg}`);
-      }
-
-      return this.normalizeOrderDetail(data);
-    } catch (err: any) {
-      this.logger.error(`Failed to get DIS Sales Order detail ${id}: ${err.message}`);
-      throw err;
-    } finally {
-      this.releaseSlot();
-    }
+    throw new NotFoundException(`Sales Order ${id} not found in DIS`);
   }
 
   private normalizeOrderItem(item: any): DisSoItemSummary {
@@ -286,20 +286,20 @@ export class DisClientService {
           }
         }
 
-        const defaultCode = extractedCode || (line.product_id ? `PRODUCT-${line.product_id}` : '');
+        const defaultCode = extractedCode || (line.product_id ? `PRODUCT-${line.product_id}` : `ITEM-${idx + 1}`);
         return {
           id: line.id ?? idx + 1,
           sequence: line.sequence ?? idx + 1,
           line_type: line.line_type || 'product',
           product_id: line.product_id ?? line.variant_id ?? line.template_id ?? line.product?.id ?? null,
-          product_name: line.product_name ?? line.description ?? line.product?.name ?? line.name ?? '',
-          default_code: defaultCode || 'N/A',
-          product_uom_qty: line.product_uom_qty ?? line.quantity ?? 0,
-          qty_delivered: line.qty_delivered ?? line.delivered_quantity ?? line.delivered_qty ?? 0,
-          qty_invoiced: line.qty_invoiced ?? line.invoiced_quantity ?? line.invoiced_qty ?? 0,
-          name: line.name ?? line.description ?? line.product?.name ?? line.notes ?? '',
-          ordering_code: defaultCode && defaultCode !== 'N/A' ? defaultCode : (line.ordering_code || defaultCode),
-          description: line.description ?? line.product_name,
+          product_name: line.product_name ?? line.description ?? line.product?.name ?? line.name ?? defaultCode,
+          default_code: defaultCode,
+          product_uom_qty: Number(line.product_uom_qty ?? line.quantity ?? line.qty) || 0,
+          qty_delivered: Number(line.qty_delivered ?? line.delivered_quantity ?? line.delivered_qty) || 0,
+          qty_invoiced: Number(line.qty_invoiced ?? line.invoiced_quantity ?? line.invoiced_qty) || 0,
+          name: line.name ?? line.description ?? line.product?.name ?? line.notes ?? defaultCode,
+          ordering_code: defaultCode,
+          description: line.description ?? line.product_name ?? line.name ?? '',
         };
       })
       .filter((line: any) => line.default_code && line.default_code !== 'N/A');

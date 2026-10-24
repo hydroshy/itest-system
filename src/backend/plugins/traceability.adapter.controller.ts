@@ -271,7 +271,14 @@ export class TraceabilityAdapterController {
     };
 
     // 2. Process product lines into Work Authorizations (WA)
-    const productLines = (orderDetail.lines || []).filter((line) => {
+    const detailAny = orderDetail as any;
+    const rawLines = Array.isArray(detailAny.lines) && detailAny.lines.length > 0
+      ? detailAny.lines
+      : (Array.isArray(detailAny.items) && detailAny.items.length > 0
+        ? detailAny.items
+        : (Array.isArray(detailAny.order_line) ? detailAny.order_line : []));
+
+    const productLines = rawLines.filter((line: any) => {
       const code = resolveItemCode(line);
       return (
         (line.line_type === 'product' || line.line_type === 'item' || !line.line_type) &&
@@ -285,7 +292,7 @@ export class TraceabilityAdapterController {
     for (let i = 0; i < productLines.length; i++) {
       const line = productLines[i];
       const itemCode = resolveItemCode(line) || `PRODUCT-LINE-${i + 1}`;
-      const plannedQty = Number(line.product_uom_qty || line.quantity) || 0;
+      const plannedQty = Number(line.product_uom_qty || line.quantity || line.qty) || 0;
 
       // Extract numeric suffix from SO number or use index
       // Format: WA/xxxx/xxxxx (e.g. WA/2026/01856-01)
