@@ -62,6 +62,7 @@ export interface DisConfigStatus {
   mockMode: boolean;
   apiUrl: string;
   tokenConfigured: boolean;
+  tokenMasked?: string;
   rateLimit: number;
   concurrencyLimit: number;
 }

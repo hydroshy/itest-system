@@ -48,11 +48,17 @@ export class DisClientService {
   }
 
   public getStatus(): DisConfigStatus {
+    const rawToken = process.env.DIS_SO_TOKEN || process.env.DIS_API_TOKEN;
+    const tokenPreview = rawToken
+      ? `${rawToken.substring(0, 4)}...${rawToken.substring(rawToken.length - 4)}`
+      : 'NONE';
+
     return {
       enabled: true,
       mockMode: this.isMockMode,
       apiUrl: this.baseUrl,
       tokenConfigured: !!this.token,
+      tokenMasked: tokenPreview,
       rateLimit: this.RATE_LIMIT_PER_MINUTE,
       concurrencyLimit: this.MAX_CONCURRENT,
     };
@@ -116,6 +122,11 @@ export class DisClientService {
       });
 
       const data = await response.json().catch(() => null);
+      this.logger.log(
+        `DIS API Response status=${response.status} ok=${response.ok} itemsCount=${
+          Array.isArray(data?.items) ? data.items.length : 0
+        }`,
+      );
 
       if (!response.ok) {
         const errorMsg = data?.error?.message || data?.message || response.statusText;
