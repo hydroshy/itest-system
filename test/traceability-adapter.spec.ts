@@ -413,17 +413,18 @@ async function runTests() {
   assert.strictEqual(lifecycle.executionLogs[0].modbusRegisterDec, 100);
 
   // 9. Test Tree Hierarchy (Tabulator dataTree)
-  console.log('9. Testing Tabulator dataTree hierarchy API...');
+  console.log('9. Testing Tabulator dataTree hierarchy API (SO -> ITEM_CODE -> SERIAL_NUMBER)...');
   const tree = await controller.getHierarchyTree();
   assert.ok(Array.isArray(tree), 'Tree must return an array');
   assert.strictEqual(tree.length, 1);
   assert.strictEqual(tree[0].type, 'SO');
   assert.strictEqual(tree[0].code, 'SO/2026/01855');
   assert.ok(Array.isArray(tree[0]._children), 'SO node must have _children array');
-  assert.strictEqual(tree[0]._children[0].type, 'WA');
-  assert.strictEqual(tree[0]._children[0].code, 'WA/2026/00412');
-  assert.ok(Array.isArray(tree[0]._children[0]._children), 'WA node must have _children array');
+  assert.strictEqual(tree[0]._children[0].type, 'ITEM_CODE');
+  assert.strictEqual(tree[0]._children[0].itemCode, 'WSLRW-C-RS485-01');
+  assert.ok(Array.isArray(tree[0]._children[0]._children), 'ITEM_CODE node must have _children array');
   assert.strictEqual(tree[0]._children[0]._children[0].type, 'DEVICE');
+  assert.strictEqual(tree[0]._children[0]._children[0].waNumber, 'WA/2026/00412');
 
   // 10. Test Context Menu Status Update & Delete
   console.log('10. Testing Context Menu Status Update & Delete...');

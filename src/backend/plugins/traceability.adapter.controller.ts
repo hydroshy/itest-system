@@ -365,6 +365,12 @@ export class TraceabilityAdapterController {
         .orderBy('dev.created_at', 'ASC')
         .getMany();
 
+      // Map WA id to WA entity for quick lookup
+      const waMap = new Map<string, TraceabilityWaEntity>();
+      for (const w of was) {
+        waMap.set(w.id, w);
+      }
+
       // Group WAs by SO
       const waBySo = new Map<string, TraceabilityWaEntity[]>();
       for (const w of was) {
@@ -372,77 +378,169 @@ export class TraceabilityAdapterController {
         waBySo.get(w.so_id)!.push(w);
       }
 
-      // Group Devices by WA, and Devices directly under SO (wa_id is null)
-      const devicesByWa = new Map<string, TraceabilityDeviceEntity[]>();
-      const directDevicesBySo = new Map<string, TraceabilityDeviceEntity[]>();
-
+      // Group devices by SO
+      const devicesBySo = new Map<string, TraceabilityDeviceEntity[]>();
       for (const dev of devices) {
-        if (dev.wa_id) {
-          if (!devicesByWa.has(dev.wa_id)) devicesByWa.set(dev.wa_id, []);
-          devicesByWa.get(dev.wa_id)!.push(dev);
-        } else {
-          if (!directDevicesBySo.has(dev.so_id)) directDevicesBySo.set(dev.so_id, []);
-          directDevicesBySo.get(dev.so_id)!.push(dev);
-        }
+        if (!devicesBySo.has(dev.so_id)) devicesBySo.set(dev.so_id, []);
+        devicesBySo.get(dev.so_id)!.push(dev);
       }
 
-      const mapDeviceNode = (dev: TraceabilityDeviceEntity) => ({
-        id: dev.id,
-        type: 'DEVICE',
-        code: dev.serial_number,
-        serialNumber: dev.serial_number,
-        devEui: dev.dev_eui,
-        itemCode: dev.item_code,
-        sku: dev.sku,
-        hwVersion: dev.hw_version,
-        fwVersion: dev.fw_version,
-        testResult: dev.test_result,
-        testStatus: dev.test_result,
-        configStatus: dev.config_status,
-        finalConfigStatus: dev.config_status,
-        status: dev.status,
-        testedAt: dev.tested_at,
-        finalConfigSessionId: dev.final_config_session_id,
-        createdAt: dev.created_at,
-      });
+      const mapDeviceNode = (dev: TraceabilityDeviceEntity) => {
+        const devWa = dev.wa_id ? waMap.get(dev.wa_id) : undefined;
+        return {
+          id: dev.id,
+          soId: dev.so_id,
+          waId: dev.wa_id,
+          waNumber: devWa?.wa_number || (dev as any).waNumber || null,
+          waCode: devWa?.wa_number || (dev as any).waNumber || null,
+          type: 'DEVICE',
+          code: dev.serial_number,
+          serialNumber: dev.serial_number,
+          devEui: dev.dev_eui,
+          itemCode: dev.item_code,
+          sku: dev.sku,
+          hwVersion: dev.hw_version,
+          fwVersion: dev.fw_version,
+          testResult: dev.test_result,
+          testStatus: dev.test_result,
+          configStatus: dev.config_status,
+          finalConfigStatus: dev.config_status,
+          status: dev.status,
+          testedAt: dev.tested_at,
+          finalConfigSessionId: dev.final_config_session_id,
+          createdAt: dev.created_at,
+        };
+      };
 
       // Construct Tabulator dataTree structure (_children)
+      // Level 1: SO (Sales Order)
+      // Level 2: ITEM_CODE (Sản phẩm / dòng hàng thuộc SO)
+      // Level 3: SERIAL_NUMBER / DEVICE (Thiết bị test thuộc ITEM_CODE, gắn với WA)
       const tree = saleOrders.map((so) => {
         const soWas = waBySo.get(so.id) || [];
-        const directDevs = directDevicesBySo.get(so.id) || [];
+        const soDevs = devicesBySo.get(so.id) || [];
 
-        const children: any[] = [];
+        // Collect all distinct item_codes from WAs (from DIS sync/creation) and devices
+        const itemCodeMap = new Map<
+          string,
+          {
+            itemCode: string;
+            description?: string;
+            plannedQuantity: number;
+            was: TraceabilityWaEntity[];
+            devices: TraceabilityDeviceEntity[];
+          }
+        >();
 
-        // Add WAs with their child devices
+        // 1. Seed item codes from WAs
         for (const w of soWas) {
-          const wDevs = devicesByWa.get(w.id) || [];
-          const wPassCount = wDevs.filter((d) => d.test_result === TraceabilityTestResult.PASS).length;
+          const codeKey = (w.item_code || 'UNASSIGNED').trim();
+          if (!itemCodeMap.has(codeKey)) {
+            itemCodeMap.set(codeKey, {
+              itemCode: codeKey,
+              description: w.notes || undefined,
+              plannedQuantity: 0,
+              was: [],
+              devices: [],
+            });
+          }
+          const entry = itemCodeMap.get(codeKey)!;
+          entry.plannedQuantity += w.planned_quantity || 0;
+          entry.was.push(w);
+          if (!entry.description && w.notes) {
+            entry.description = w.notes;
+          }
+        }
 
-          children.push({
-            id: w.id,
+        // 2. Associate devices to Item Code
+        for (const dev of soDevs) {
+          let codeKey: string | null = null;
+          if (dev.item_code && dev.item_code.trim()) {
+            codeKey = dev.item_code.trim();
+          } else if (dev.wa_id && waMap.has(dev.wa_id)) {
+            const w = waMap.get(dev.wa_id)!;
+            if (w.item_code && w.item_code.trim()) {
+              codeKey = w.item_code.trim();
+            }
+          } else if (dev.sku && dev.sku.trim()) {
+            codeKey = dev.sku.trim();
+          }
+
+          if (!codeKey) {
+            // If only 1 item code in SO, default to it
+            if (itemCodeMap.size === 1) {
+              codeKey = Array.from(itemCodeMap.keys())[0];
+            } else {
+              codeKey = 'UNASSIGNED';
+            }
+          }
+
+          if (!itemCodeMap.has(codeKey)) {
+            itemCodeMap.set(codeKey, {
+              itemCode: codeKey,
+              plannedQuantity: 0,
+              was: [],
+              devices: [],
+            });
+          }
+          itemCodeMap.get(codeKey)!.devices.push(dev);
+        }
+
+        // Build Level 2 (ITEM_CODE) nodes
+        const itemCodeNodes: any[] = [];
+        for (const [codeKey, entry] of itemCodeMap.entries()) {
+          const itemDevs = entry.devices;
+          const passCount = itemDevs.filter(
+            (d) => d.test_result === TraceabilityTestResult.PASS,
+          ).length;
+          const failCount = itemDevs.filter(
+            (d) => d.test_result === TraceabilityTestResult.FAIL,
+          ).length;
+          const cfgPassCount = itemDevs.filter(
+            (d) => d.config_status === TraceabilityConfigStatus.CONFIGURED_PASS,
+          ).length;
+
+          const defaultWa = entry.was.length > 0 ? entry.was[0] : null;
+          const waNumberStr = entry.was.map((w) => w.wa_number).join(', ');
+
+          itemCodeNodes.push({
+            id: `item-${so.id}-${codeKey}`,
             soId: so.id,
-            type: 'WA',
-            code: w.wa_number,
-            waNumber: w.wa_number,
-            itemCode: w.item_code,
-            plannedQuantity: w.planned_quantity,
-            totalDevices: wDevs.length,
-            passCount: wPassCount,
-            status: wDevs.length >= (w.planned_quantity || 1) && wPassCount === wDevs.length ? 'COMPLETED' : 'IN_PROGRESS',
-            notes: w.notes,
-            createdAt: w.created_at,
-            _children: wDevs.map(mapDeviceNode),
+            soNumber: so.so_number,
+            type: 'ITEM_CODE',
+            code: entry.itemCode,
+            itemCode: entry.itemCode,
+            orderingCode: entry.itemCode,
+            description: entry.description || entry.itemCode,
+            sku: entry.itemCode,
+            waId: defaultWa?.id || null,
+            waNumber: waNumberStr || null,
+            plannedQuantity: entry.plannedQuantity || itemDevs.length,
+            quantity: entry.plannedQuantity || itemDevs.length,
+            totalDevices: itemDevs.length,
+            testedCount: itemDevs.length,
+            passCount,
+            failCount,
+            configPassCount: cfgPassCount,
+            status:
+              itemDevs.length >= (entry.plannedQuantity || 1) && passCount === itemDevs.length
+                ? 'COMPLETED'
+                : 'IN_PROGRESS',
+            notes: entry.description || null,
+            createdAt: entry.was[0]?.created_at || so.created_at,
+            _children: itemDevs.map(mapDeviceNode),
           });
         }
 
-        // Add direct devices (if SO has no WA or devices assigned directly to SO)
-        for (const dev of directDevs) {
-          children.push(mapDeviceNode(dev));
-        }
-
-        const soTotalDevices = (devices.filter((d) => d.so_id === so.id) || []).length;
-        const soPassCount = (
-          devices.filter((d) => d.so_id === so.id && d.test_result === TraceabilityTestResult.PASS) || []
+        const soTotalDevices = soDevs.length;
+        const soPassCount = soDevs.filter(
+          (d) => d.test_result === TraceabilityTestResult.PASS,
+        ).length;
+        const soFailCount = soDevs.filter(
+          (d) => d.test_result === TraceabilityTestResult.FAIL,
+        ).length;
+        const soConfigPassCount = soDevs.filter(
+          (d) => d.config_status === TraceabilityConfigStatus.CONFIGURED_PASS,
         ).length;
 
         return {
@@ -452,12 +550,16 @@ export class TraceabilityAdapterController {
           soNumber: so.so_number,
           customerName: so.customer_name,
           name: so.customer_name ? `${so.so_number} - ${so.customer_name}` : so.so_number,
+          itemCount: itemCodeNodes.length,
           totalDevices: soTotalDevices,
           passCount: soPassCount,
-          status: soTotalDevices > 0 && soPassCount === soTotalDevices ? 'COMPLETED' : 'IN_PROGRESS',
+          failCount: soFailCount,
+          configPassCount: soConfigPassCount,
+          status:
+            soTotalDevices > 0 && soPassCount === soTotalDevices ? 'COMPLETED' : 'IN_PROGRESS',
           notes: so.notes,
           createdAt: so.created_at,
-          _children: children,
+          _children: itemCodeNodes,
         };
       });
 
