@@ -318,7 +318,7 @@ export class DisClientService {
       const response = await fetch(url.toString(), {
         method: queryParams.method || 'GET',
         headers: {
-          Authorization: `Bearer ${this.token}`,
+          Authorization: this.authHeader,
           Accept: 'application/json',
         },
         signal: AbortSignal.timeout(35000),

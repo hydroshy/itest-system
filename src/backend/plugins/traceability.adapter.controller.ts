@@ -130,9 +130,13 @@ export class TraceabilityAdapterController {
   }
 
   @Get([
+    'api/plugins/device-traceability/dis/sales-orders/search',
+    'api/v1/plugins/device-traceability/dis/sales-orders/search',
     'api/plugins/device-traceability/dis/so/search',
     'api/v1/plugins/device-traceability/dis/so/search',
+    'api/dis/sales-orders/search',
     'api/dis/so/search',
+    'api/v1/sales-orders/search',
   ])
   async searchDisOrders(
     @Query('year') year?: string,
@@ -158,9 +162,13 @@ export class TraceabilityAdapterController {
   }
 
   @Get([
+    'api/plugins/device-traceability/dis/sales-orders/:id',
+    'api/v1/plugins/device-traceability/dis/sales-orders/:id',
     'api/plugins/device-traceability/dis/so/:id',
     'api/v1/plugins/device-traceability/dis/so/:id',
+    'api/dis/sales-orders/:id',
     'api/dis/so/:id',
+    'api/v1/sales-orders/:id',
   ])
   async getDisOrderDetail(@Param('id') id: string) {
     if (!id || !id.trim()) {
@@ -170,9 +178,13 @@ export class TraceabilityAdapterController {
   }
 
   @Post([
+    'api/plugins/device-traceability/dis/sales-orders/:id/sync',
+    'api/v1/plugins/device-traceability/dis/sales-orders/:id/sync',
     'api/plugins/device-traceability/dis/so/:id/sync',
     'api/v1/plugins/device-traceability/dis/so/:id/sync',
+    'api/dis/sales-orders/:id/sync',
     'api/dis/so/:id/sync',
+    'api/v1/sales-orders/:id/sync',
   ])
   async syncDisOrderToTraceability(@Param('id') id: string) {
     if (!id || !id.trim()) {

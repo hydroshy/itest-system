@@ -48,6 +48,8 @@ export class DisManagerAdapterController {
 
   // 2. Search DIS Orders
   @Get([
+    'api/plugins/dis-manager/sales-orders/search',
+    'api/plugins/dis-manager/sales-orders',
     'api/plugins/dis-manager/orders',
     'api/v1/plugins/dis-manager/orders',
     'api/plugins/dis/orders',
@@ -78,6 +80,7 @@ export class DisManagerAdapterController {
 
   // 3. Get Detail of single Order
   @Get([
+    'api/plugins/dis-manager/sales-orders/:id',
     'api/plugins/dis-manager/orders/:id',
     'api/v1/plugins/dis-manager/orders/:id',
     'api/plugins/dis/orders/:id',
@@ -101,6 +104,7 @@ export class DisManagerAdapterController {
 
   // 5. Trigger Synchronization of SO into Traceability
   @Post([
+    'api/plugins/dis-manager/sales-orders/:id/sync',
     'api/plugins/dis-manager/sync/:id',
     'api/v1/plugins/dis-manager/sync/:id',
     'api/plugins/dis/sync/:id',
