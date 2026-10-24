@@ -219,25 +219,31 @@ export class DisClientService {
       ? item.lines
       : (Array.isArray(item.items) ? item.items : (Array.isArray(item.order_line) ? item.order_line : []));
 
-    const normalizedLines = rawLines.map((line: any, idx: number) => ({
-      id: line.id ?? idx + 1,
-      sequence: line.sequence ?? idx + 1,
-      line_type: line.line_type || 'product',
-      product_id: line.product_id ?? line.variant_id ?? line.template_id ?? line.product?.id ?? null,
-      product_name: line.product_name ?? line.description ?? line.product?.name ?? line.name ?? '',
-      default_code: line.default_code ?? line.ordering_code ?? line.product?.sku ?? line.product?.default_code ?? 'N/A',
-      product_uom_qty: line.product_uom_qty ?? line.quantity ?? 0,
-      qty_delivered: line.qty_delivered ?? line.delivered_quantity ?? line.delivered_qty ?? 0,
-      qty_invoiced: line.qty_invoiced ?? line.invoiced_quantity ?? line.invoiced_qty ?? 0,
-      price_unit: line.price_unit ?? line.unit_price ?? line.price ?? 0,
-      name: line.name ?? line.description ?? line.product?.name ?? line.notes ?? '',
-      ordering_code: line.ordering_code ?? line.default_code,
-      description: line.description ?? line.product_name,
-    }));
+    const normalizedLines = rawLines
+      .map((line: any, idx: number) => {
+        const defaultCode = (line.default_code ?? line.ordering_code ?? line.product?.sku ?? line.product?.default_code ?? '').trim();
+        return {
+          id: line.id ?? idx + 1,
+          sequence: line.sequence ?? idx + 1,
+          line_type: line.line_type || 'product',
+          product_id: line.product_id ?? line.variant_id ?? line.template_id ?? line.product?.id ?? null,
+          product_name: line.product_name ?? line.description ?? line.product?.name ?? line.name ?? '',
+          default_code: defaultCode || 'N/A',
+          product_uom_qty: line.product_uom_qty ?? line.quantity ?? 0,
+          qty_delivered: line.qty_delivered ?? line.delivered_quantity ?? line.delivered_qty ?? 0,
+          qty_invoiced: line.qty_invoiced ?? line.invoiced_quantity ?? line.invoiced_qty ?? 0,
+          name: line.name ?? line.description ?? line.product?.name ?? line.notes ?? '',
+          ordering_code: defaultCode && defaultCode !== 'N/A' ? defaultCode : (line.ordering_code || defaultCode),
+          description: line.description ?? line.product_name,
+        };
+      })
+      .filter((line: any) => line.default_code && line.default_code !== 'N/A');
 
     const stateCode = typeof item.state === 'object' && item.state !== null
       ? (item.state.code || item.state.label || 'sale')
       : (item.state || 'sale');
+
+    const partnerEmail = item.partner_email ?? item.customer?.email ?? item.contact_person?.email ?? null;
 
     return {
       id: item.id ?? item.odoo_id,
@@ -245,8 +251,8 @@ export class DisClientService {
       number: item.number ?? item.name,
       date_order: item.date_order ?? item.order_date ?? new Date().toISOString(),
       partner_name: item.partner_name ?? item.customer?.name ?? (typeof item.customer === 'string' ? item.customer : '—'),
+      partner_email: partnerEmail,
       state: stateCode,
-      amount_total: item.amount_total ?? item.total_amount ?? 0,
       currency: item.currency ?? item.currency_id ?? 'VND',
       commitment_date: item.commitment_date ?? null,
       lines: normalizedLines,

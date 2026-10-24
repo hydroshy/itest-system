@@ -15,6 +15,7 @@ export interface DisSoItemSummary {
   number?: string;
   date_order: string;
   partner_name: string;
+  partner_email?: string | null;
   state: 'draft' | 'sent' | 'sale' | 'done' | 'cancel' | string;
   amount_total?: number;
   currency?: string;

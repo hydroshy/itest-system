@@ -88,16 +88,18 @@ async function runTests() {
           find: async () => Array.from(soStore.values()),
           createQueryBuilder: () => {
             let filters: any[] = [];
-            return {
+            const qb: any = {
               andWhere: (clause: string, params: any) => {
                 filters.push({ clause, params });
-                return this;
+                return qb;
               },
-              skip: () => this,
-              take: () => this,
-              orderBy: () => this,
+              skip: () => qb,
+              take: () => qb,
+              orderBy: () => qb,
+              getMany: async () => Array.from(soStore.values()),
               getManyAndCount: async () => [Array.from(soStore.values()), soStore.size],
             };
+            return qb;
           },
         };
       }
@@ -470,12 +472,15 @@ async function runTests() {
 
   const syncRes = await controller.syncDisOrderToTraceability('101856');
   assert.strictEqual(syncRes.so.soNumber, 'SO/2026/01856');
+  assert.strictEqual(syncRes.so.partnerEmail, 'procurement@eco-iot.vn');
   assert.ok(syncRes.workAuthorizations.length >= 2);
   assert.strictEqual(syncRes.workAuthorizations[0].itemCode, 'WSLRW-C-RS485-01');
 
-  // Verify synced SO exists in DB
-  const verifySo = await soRepo.findOne({ where: { so_number: 'SO/2026/01856' } });
+  // Verify synced SO exists in DB with partner_email
+  const testSoRepo = (mockDbService as any).getRepository('traceability_so');
+  const verifySo = await testSoRepo.findOne({ where: { so_number: 'SO/2026/01856' } });
   assert.ok(verifySo, 'Synced SO must be saved in database');
+  assert.strictEqual(verifySo.partner_email, 'procurement@eco-iot.vn');
 
   // 14. Test DisManagerAdapterController Endpoints & Sandbox Query
   console.log('14. Testing DisManagerAdapterController Endpoints & Sandbox Explorer...');

@@ -22,6 +22,9 @@ export class TraceabilitySoEntity {
   @Column({ name: 'customer_name', type: 'varchar', length: 255, nullable: true })
   customer_name: string | null;
 
+  @Column({ name: 'partner_email', type: 'varchar', length: 255, nullable: true })
+  partner_email?: string | null;
+
   @Column({ name: 'notes', type: 'text', nullable: true })
   notes: string | null;
 

@@ -209,12 +209,15 @@ export class TraceabilityAdapterController {
 
     // 1. Find or create SO
     let so = await soRepo.findOne({ where: { so_number: cleanSoNumber } });
+    const partnerEmail = orderDetail.partner_email ? orderDetail.partner_email.trim() : null;
     if (!so) {
       so = soRepo.create({
         so_number: cleanSoNumber,
         customer_name: orderDetail.partner_name ? orderDetail.partner_name.trim() : null,
+        partner_email: partnerEmail,
         notes: [
           `DIS SO ID: ${orderDetail.id}`,
+          partnerEmail ? `Email: ${partnerEmail}` : null,
           orderDetail.client_order_ref ? `Ref: ${orderDetail.client_order_ref}` : null,
           orderDetail.note ? `Note: ${orderDetail.note}` : null,
         ]
@@ -230,27 +233,32 @@ export class TraceabilityAdapterController {
         so.customer_name = orderDetail.partner_name;
         changed = true;
       }
+      if (partnerEmail && so.partner_email !== partnerEmail) {
+        so.partner_email = partnerEmail;
+        changed = true;
+      }
       if (changed) {
         so = await soRepo.save(so);
       }
     }
 
     // 2. Process product lines into Work Authorizations (WA)
-    const productLines = (orderDetail.lines || []).filter(
-      (line) =>
+    // Filter out lines where default_code is 'N/A' or empty
+    const productLines = (orderDetail.lines || []).filter((line) => {
+      const code = (line.default_code || '').trim();
+      return (
         (line.line_type === 'product' || line.line_type === 'item' || !line.line_type) &&
-        (line.default_code || line.ordering_code || line.product_name || line.description),
-    );
+        code &&
+        code !== 'N/A'
+      );
+    });
 
     const createdWas = [];
     const existingWas = await waRepo.find({ where: { so_id: so.id } });
 
     for (let i = 0; i < productLines.length; i++) {
       const line = productLines[i];
-      const itemCode =
-        line.default_code && line.default_code !== 'N/A'
-          ? line.default_code
-          : line.ordering_code || `PRODUCT-${line.product_id || i + 1}`;
+      const itemCode = (line.default_code || '').trim();
       const plannedQty = Number(line.product_uom_qty || line.quantity) || 0;
 
       // Extract numeric suffix from SO number or use index
@@ -293,6 +301,7 @@ export class TraceabilityAdapterController {
         id: so.id,
         soNumber: so.so_number,
         customerName: so.customer_name,
+        partnerEmail: so.partner_email,
         notes: so.notes,
       },
       syncedLinesCount: productLines.length,
@@ -549,6 +558,7 @@ export class TraceabilityAdapterController {
           code: so.so_number,
           soNumber: so.so_number,
           customerName: so.customer_name,
+          partnerEmail: so.partner_email || null,
           name: so.customer_name ? `${so.so_number} - ${so.customer_name}` : so.so_number,
           itemCount: itemCodeNodes.length,
           totalDevices: soTotalDevices,
@@ -627,6 +637,7 @@ export class TraceabilityAdapterController {
             id: so.id,
             soNumber: so.so_number,
             customerName: so.customer_name,
+            partnerEmail: so.partner_email || null,
             notes: so.notes,
             waCount: was.length,
             workAuthorizations: was.map((w) => ({
@@ -699,6 +710,7 @@ export class TraceabilityAdapterController {
         id: so.id,
         soNumber: so.so_number,
         customerName: so.customer_name,
+        partnerEmail: so.partner_email || null,
         notes: so.notes,
         workAuthorizations: was.map((w) => ({
           id: w.id,
