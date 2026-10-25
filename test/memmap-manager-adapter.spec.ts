@@ -78,6 +78,15 @@ async function runTests() {
   assert.strictEqual(resInvalid.valid, false);
   assert.ok(resInvalid.errors.some((e) => e.field === 'address' && e.message.includes('Duplicate address')));
   assert.ok(resInvalid.errors.some((e) => e.field === 'dataType'));
+
+  // Test CSV validation with decimal/hex sequence mismatch
+  const invalidIecCsv = `No.,Modbus Register (Decimal),Modbus Register (Hex),Function Code (Read),Function Code (Write),# of Registers,Description,Range,End-user Default,Format,Downlink 5,In RD1 Template,Comment,In Engineering Template,In End-user Template,In Full Template
+1,0,0x0000,0x03,0x06,2,Voltage,,220,uint32,No,Yes,Main voltage,Yes,Yes,Yes
+2,5,0x0005,0x03,0x06,2,Current,,10,uint32,No,Yes,Main current,Yes,Yes,Yes`;
+  const resInvalidCsv = service.previewImport(invalidIecCsv, 'csv');
+  assert.strictEqual(resInvalidCsv.valid, false, 'Invalid decimal/hex sequence in CSV must result in valid=false');
+  assert.ok(resInvalidCsv.errors.some((e) => e.field === 'modbusRegisterDecimal'), 'Must report modbusRegisterDecimal error');
+  assert.ok(resInvalidCsv.errors.some((e) => e.field === 'modbusRegisterHex'), 'Must report modbusRegisterHex error');
   console.log('✓ Core preview and validation verified.');
 
   // 3. Controller API & Persistence

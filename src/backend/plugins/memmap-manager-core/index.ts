@@ -216,6 +216,21 @@ export class MemmapManagerService {
     const decimalValidationMessage = this.asString(source.decimalValidationMessage);
     const hexValidationMessage = this.asString(source.hexValidationMessage);
 
+    if (decimalValid === false) {
+      errors.push({
+        row,
+        field: 'modbusRegisterDecimal',
+        message: decimalValidationMessage || `Row ${row}: Modbus Register Decimal validation failed`,
+      });
+    }
+    if (hexValid === false) {
+      errors.push({
+        row,
+        field: 'modbusRegisterHex',
+        message: hexValidationMessage || `Row ${row}: Modbus Register Hex validation failed`,
+      });
+    }
+
     if (!name) errors.push({ row, field: 'name', message: 'Register name is required' });
     if (address === undefined) {
       errors.push({ row, field: 'address', message: 'Register address must be a number' });
