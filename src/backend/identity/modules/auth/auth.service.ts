@@ -1,9 +1,11 @@
-import { Injectable, UnauthorizedException, Logger } from '@nestjs/common';
+import { Injectable, UnauthorizedException, BadRequestException, Logger } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { DynamicDatabaseService } from '../../../database/dynamic-database.service';
 import { User } from '../users/entities/user.entity';
 import { LoginDto } from './dto/login.dto';
+import { UpdateProfileDto } from './dto/update-profile.dto';
+import { ChangePasswordDto } from './dto/change-password.dto';
 
 @Injectable()
 export class AuthService {
@@ -91,4 +93,54 @@ export class AuthService {
       },
     };
   }
+
+  async updateProfile(userId: string, dto: UpdateProfileDto) {
+    const repo = this.getUserRepository();
+    const user = await repo.findOne({ where: { id: userId } });
+    if (!user) {
+      throw new BadRequestException('User not found');
+    }
+
+    if (dto.fullName !== undefined) {
+      user.fullName = dto.fullName.trim();
+    }
+
+    if (dto.email !== undefined && dto.email.trim()) {
+      const cleanEmail = dto.email.trim().toLowerCase();
+      // Check duplicate email
+      const existing = await repo.findOne({ where: { email: cleanEmail } });
+      if (existing && existing.id !== userId) {
+        throw new BadRequestException('Email already in use by another account');
+      }
+      user.email = cleanEmail;
+    }
+
+    const saved = await repo.save(user);
+    delete saved.passwordHash;
+    return saved;
+  }
+
+  async changePassword(userId: string, dto: ChangePasswordDto) {
+    const repo = this.getUserRepository();
+    const user = await repo
+      .createQueryBuilder('user')
+      .addSelect('user.passwordHash')
+      .where('user.id = :id', { id: userId })
+      .getOne();
+
+    if (!user) {
+      throw new BadRequestException('User not found');
+    }
+
+    const isMatch = await bcrypt.compare(dto.currentPassword, user.passwordHash);
+    if (!isMatch) {
+      throw new BadRequestException('Mật khẩu hiện tại không chính xác');
+    }
+
+    user.passwordHash = await bcrypt.hash(dto.newPassword, 10);
+    await repo.save(user);
+
+    return { success: true, message: 'Đổi mật khẩu thành công' };
+  }
 }
+
