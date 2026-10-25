@@ -7,23 +7,75 @@ export interface DisSoSearchQuery {
   q?: string;
   limit?: number;
   cursor?: string;
+  embed?: string;
+  updated_since?: string;
+}
+
+export interface DisWaLot {
+  id: number;
+  serial_number: string;
+  quantity?: number;
+  product_id?: number;
+  write_date?: string;
+  lot_name?: string;
+}
+
+export interface DisWaLine {
+  id: number;
+  item_code?: string | null;
+  product_name?: string | null;
+  product_uom_qty?: number;
+  quantity?: number;
+  uom?: { id?: number; name?: string } | null;
+  wa_code?: string;
+  state?: { code?: string; label?: string } | string;
+  warranty_status?: { code?: string; label?: string } | string;
+  state_info?: { code?: string; label?: string } | null;
+  lots?: DisWaLot[];
+  description?: string;
+  sequence?: number;
+  line_type?: string;
+  write_date?: string;
+  variant_id?: number | null;
+  template_id?: number | null;
+  ordering_code?: string | null;
+}
+
+export interface DisWaInfo {
+  id: number;
+  wa_code: string;
+  url?: string;
+  state?: { code?: string; label?: string } | string;
+  warranty_status?: { code?: string; label?: string } | string;
+  sales_orders?: Array<{ id: number; number: string; url?: string }>;
+  lines?: DisWaLine[];
+  write_date?: string;
 }
 
 export interface DisSoItemSummary {
   id: number;
   name: string; // e.g. "SO/2026/01856"
   number?: string;
+  url?: string;
   date_order: string;
+  order_date?: string;
   partner_name: string;
   partner_email?: string | null;
-  state: 'draft' | 'sent' | 'sale' | 'done' | 'cancel' | string;
+  technical_contact?: { id?: number; name?: string; email?: string | null } | null;
+  technical_contact_status?: string;
+  contact_person?: { id?: number; name?: string; email?: string | null } | null;
+  contact_status?: string;
+  state: 'draft' | 'sent' | 'sale' | 'done' | 'cancel' | string | { code?: string; label?: string };
   amount_total?: number;
   currency?: string;
   commitment_date?: string | null;
   lines?: DisSoOrderLine[];
   items?: DisSoOrderLine[];
+  wa?: DisWaInfo[];
+  wa_source?: string;
   customer?: any;
   company?: any;
+  write_date?: string;
 }
 
 export interface DisSoSearchResponse {
@@ -32,6 +84,12 @@ export interface DisSoSearchResponse {
   next_cursor?: string | null;
   has_more: boolean;
   total_matching?: number;
+  pagination?: {
+    limit?: number;
+    has_more?: boolean;
+    next_cursor?: string | null;
+    consistency?: string;
+  };
 }
 
 export interface DisSoOrderLine {
@@ -57,10 +115,17 @@ export interface DisSoOrderLine {
 export interface DisSoDetailResponse {
   id: number;
   name: string;
+  number?: string;
+  url?: string;
   date_order: string;
+  order_date?: string;
   partner_name: string;
   partner_id?: number;
   partner_email?: string | null;
+  technical_contact?: { id?: number; name?: string; email?: string | null } | null;
+  technical_contact_status?: string;
+  contact_person?: { id?: number; name?: string; email?: string | null } | null;
+  contact_status?: string;
   state: string;
   amount_total?: number;
   currency?: string;
@@ -68,6 +133,12 @@ export interface DisSoDetailResponse {
   note?: string | null;
   client_order_ref?: string | null;
   lines: DisSoOrderLine[];
+  items?: DisSoOrderLine[];
+  wa?: DisWaInfo[];
+  wa_source?: string;
+  customer?: any;
+  company?: any;
+  write_date?: string;
 }
 
 export interface DisConfigStatus {

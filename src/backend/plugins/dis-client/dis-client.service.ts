@@ -101,7 +101,9 @@ export class DisClientService {
 
     await this.waitForSlot();
     try {
-      const url = new URL('/api/v1/sales-orders/search', this.baseUrl);
+      // Primary OpenAPI 1.3.0 endpoint: GET /api/v1/sales-orders?embed=lines
+      const url = new URL('/api/v1/sales-orders', this.baseUrl);
+      url.searchParams.set('embed', query.embed || 'lines');
       if (query.year) url.searchParams.set('year', String(query.year));
       if (query.month) url.searchParams.set('month', String(query.month));
       if (query.date_from) url.searchParams.set('date_from', String(query.date_from));
@@ -110,10 +112,11 @@ export class DisClientService {
       if (query.q) url.searchParams.set('q', String(query.q));
       if (query.limit) url.searchParams.set('limit', String(query.limit));
       if (query.cursor) url.searchParams.set('cursor', String(query.cursor));
+      if (query.updated_since) url.searchParams.set('updated_since', String(query.updated_since));
 
       this.logger.log(`Calling DIS API: GET ${url.pathname}${url.search}`);
 
-      const response = await fetch(url.toString(), {
+      let response = await fetch(url.toString(), {
         method: 'GET',
         headers: {
           Authorization: this.authHeader,
@@ -121,6 +124,29 @@ export class DisClientService {
         },
         signal: AbortSignal.timeout(35000),
       });
+
+      // Fallback to legacy /api/v1/sales-orders/search if 404
+      if (response.status === 404) {
+        this.logger.warn(`GET /api/v1/sales-orders returned 404, falling back to /api/v1/sales-orders/search`);
+        const fallbackUrl = new URL('/api/v1/sales-orders/search', this.baseUrl);
+        if (query.year) fallbackUrl.searchParams.set('year', String(query.year));
+        if (query.month) fallbackUrl.searchParams.set('month', String(query.month));
+        if (query.date_from) fallbackUrl.searchParams.set('date_from', String(query.date_from));
+        if (query.date_to) fallbackUrl.searchParams.set('date_to', String(query.date_to));
+        if (query.states) fallbackUrl.searchParams.set('states', String(query.states));
+        if (query.q) fallbackUrl.searchParams.set('q', String(query.q));
+        if (query.limit) fallbackUrl.searchParams.set('limit', String(query.limit));
+        if (query.cursor) fallbackUrl.searchParams.set('cursor', String(query.cursor));
+
+        response = await fetch(fallbackUrl.toString(), {
+          method: 'GET',
+          headers: {
+            Authorization: this.authHeader,
+            Accept: 'application/json',
+          },
+          signal: AbortSignal.timeout(35000),
+        });
+      }
 
       const data = await response.json().catch(() => null);
       this.logger.log(
@@ -140,10 +166,11 @@ export class DisClientService {
 
       return {
         total_matching: data?.total ?? data?.total_matching ?? items.length,
-        has_more: !!data?.has_more,
-        next_cursor: data?.next_cursor ?? null,
+        has_more: !!(data?.has_more ?? data?.pagination?.has_more),
+        next_cursor: data?.next_cursor ?? data?.pagination?.next_cursor ?? null,
         items,
         data: items,
+        pagination: data?.pagination,
       } as any;
     } catch (err: any) {
       this.logger.error(`Failed to search DIS Sales Orders: ${err.message}`);
@@ -366,18 +393,97 @@ export class DisClientService {
       item.email ??
       null;
 
+    const technicalContact =
+      item.technical_contact ??
+      item.contact_person ??
+      null;
+
+    const technicalContactStatus =
+      item.technical_contact_status ??
+      item.contact_status ??
+      (technicalContact ? 'active' : undefined);
+
+    const rawWa = Array.isArray(item.wa) ? item.wa : (Array.isArray(item.was) ? item.was : []);
+    const normalizedWa = rawWa.map((waItem: any) => {
+      const rawWaLines = Array.isArray(waItem.lines)
+        ? waItem.lines
+        : (Array.isArray(waItem.items) ? waItem.items : []);
+
+      const normalizedWaLines = rawWaLines.map((wl: any) => {
+        const itemCode = (
+          wl.item_code ??
+          wl.default_code ??
+          wl.sku ??
+          wl.product_code ??
+          ''
+        ).trim();
+
+        const rawLots = Array.isArray(wl.lots)
+          ? wl.lots
+          : (Array.isArray(wl.serials) ? wl.serials : []);
+
+        const normalizedLots = rawLots.map((lot: any) => ({
+          id: lot.id,
+          serial_number: lot.serial_number ?? lot.name ?? lot.lot_name ?? '',
+          quantity: lot.quantity ?? 1,
+          product_id: lot.product_id,
+          write_date: lot.write_date,
+          lot_name: lot.lot_name ?? lot.serial_number,
+        }));
+
+        return {
+          id: wl.id,
+          item_code: itemCode || null,
+          product_name: wl.product_name ?? wl.name ?? null,
+          product_uom_qty: Number(wl.product_uom_qty ?? wl.quantity ?? 0),
+          quantity: Number(wl.quantity ?? wl.product_uom_qty ?? 0),
+          uom: wl.uom ?? null,
+          wa_code: wl.wa_code ?? waItem.wa_code,
+          state: wl.state,
+          warranty_status: wl.warranty_status,
+          state_info: wl.state_info ?? null,
+          lots: normalizedLots,
+          description: wl.description,
+          sequence: wl.sequence,
+          line_type: wl.line_type,
+          write_date: wl.write_date,
+          variant_id: wl.variant_id ?? null,
+          template_id: wl.template_id ?? null,
+          ordering_code: wl.ordering_code ?? itemCode,
+        };
+      });
+
+      return {
+        id: waItem.id,
+        wa_code: waItem.wa_code ?? waItem.name ?? `WA-${waItem.id}`,
+        url: waItem.url,
+        state: waItem.state,
+        warranty_status: waItem.warranty_status,
+        sales_orders: waItem.sales_orders ?? [],
+        lines: normalizedWaLines,
+        write_date: waItem.write_date,
+      };
+    });
+
     return {
       id: item.id ?? item.odoo_id,
       name: item.name ?? item.number ?? `SO-${item.id}`,
       number: item.number ?? item.name,
+      url: item.url,
       date_order: item.date_order ?? item.order_date ?? new Date().toISOString(),
+      order_date: item.order_date ?? item.date_order,
       partner_name: item.partner_name ?? item.customer?.name ?? (typeof item.customer === 'string' ? item.customer : '—'),
       partner_email: partnerEmail,
+      technical_contact: technicalContact,
+      technical_contact_status: technicalContactStatus,
       state: stateCode,
       currency: item.currency ?? item.currency_id ?? 'VND',
       commitment_date: item.commitment_date ?? null,
       lines: normalizedLines,
       items: normalizedLines,
+      wa: normalizedWa,
+      wa_source: item.wa_source,
+      write_date: item.write_date,
       ...(item.customer ? { customer: item.customer } : {}),
       ...(item.company ? { company: item.company } : {}),
     } as any;
@@ -402,6 +508,8 @@ export class DisClientService {
       partner_id: raw.partner_id ?? raw.customer?.id,
       partner_email: partnerEmail,
       lines: (item as any).lines || [],
+      items: (item as any).items || (item as any).lines || [],
+      wa: (item as any).wa || [],
     } as any;
   }
 

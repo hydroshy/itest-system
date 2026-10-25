@@ -210,6 +210,7 @@ export class TraceabilityAdapterController {
     // 1. Find or create SO
     let so = await soRepo.findOne({ where: { so_number: cleanSoNumber } });
     const partnerEmail = orderDetail.partner_email ? orderDetail.partner_email.trim() : null;
+    const techContact = orderDetail.technical_contact ? `${orderDetail.technical_contact.name || ''} (${orderDetail.technical_contact.email || ''})`.trim() : null;
     if (!so) {
       so = soRepo.create({
         so_number: cleanSoNumber,
@@ -217,7 +218,9 @@ export class TraceabilityAdapterController {
         partner_email: partnerEmail,
         notes: [
           `DIS SO ID: ${orderDetail.id}`,
+          orderDetail.url ? `URL: ${orderDetail.url}` : null,
           partnerEmail ? `Email: ${partnerEmail}` : null,
+          techContact ? `Tech Contact: ${techContact}` : null,
           orderDetail.client_order_ref ? `Ref: ${orderDetail.client_order_ref}` : null,
           orderDetail.note ? `Note: ${orderDetail.note}` : null,
         ]
@@ -321,45 +324,121 @@ export class TraceabilityAdapterController {
       );
     });
 
-    const createdWas = [];
+    const createdWas: TraceabilityWaEntity[] = [];
     const existingWas = await waRepo.find({ where: { so_id: so.id } });
 
-    for (let i = 0; i < productLines.length; i++) {
-      const line = productLines[i];
-      const itemCode = resolveItemCode(line) || `PRODUCT-LINE-${i + 1}`;
-      const plannedQty = Number(line.product_uom_qty || line.quantity || line.qty) || 0;
+    // Check if DIS orderDetail already has first-class WAs from OpenAPI 1.3.0
+    const disWas = Array.isArray(orderDetail.wa) ? orderDetail.wa : [];
 
-      // Extract numeric suffix from SO number or use index
-      // Format: WA/xxxx/xxxxx (e.g. WA/2026/01856-01)
-      const soNumMatches = cleanSoNumber.match(/(\d{4})\/(\d+)/);
-      const yearStr = soNumMatches ? soNumMatches[1] : new Date().getFullYear().toString();
-      const seqStr = soNumMatches ? soNumMatches[2] : String(orderDetail.id || 1);
-      const lineIndexStr = String(i + 1).padStart(2, '0');
-      const waNumberCandidate = `WA/${yearStr}/${seqStr}-${lineIndexStr}`;
+    if (disWas.length > 0) {
+      this.logger.log(`Syncing ${disWas.length} first-class WAs from DIS OpenAPI 1.3.0 for SO ${cleanSoNumber}`);
 
-      // Check if WA already exists for this SO and itemCode
-      let wa = existingWas.find(
-        (w) => w.wa_number === waNumberCandidate || (w.item_code === itemCode && w.so_id === so.id),
-      );
+      for (const waItem of disWas) {
+        const rawWaCode = (waItem.wa_code || '').trim();
+        const waNumber = rawWaCode || `WA-${waItem.id}`;
+        const waLines = Array.isArray(waItem.lines) ? waItem.lines : [];
 
-      if (!wa) {
-        wa = waRepo.create({
-          so_id: so.id,
-          wa_number: waNumberCandidate,
-          item_code: itemCode,
-          planned_quantity: plannedQty,
-          notes: line.name || line.product_name || `Line #${line.id}`,
-        });
-        wa = await waRepo.save(wa);
-        createdWas.push(wa);
-        this.logger.log(`Created WA ${wa.wa_number} for SO ${so.so_number}`);
-      } else {
-        // Update planned quantity if changed
-        if (plannedQty > 0 && wa.planned_quantity !== plannedQty) {
-          wa.planned_quantity = plannedQty;
-          await waRepo.save(wa);
+        // If WA has lines, create/update WA for each line or aggregate
+        if (waLines.length > 0) {
+          for (let li = 0; li < waLines.length; li++) {
+            const wLine = waLines[li];
+            const lineItemCode = (wLine.item_code || wLine.ordering_code || '').trim() || null;
+            const lineQty = Number(wLine.product_uom_qty || wLine.quantity || 0);
+
+            // Sub-wa identifier if multiple lines in single WA
+            const effectiveWaNumber = waLines.length === 1 ? waNumber : `${waNumber}-${String(li + 1).padStart(2, '0')}`;
+
+            let wa = existingWas.find((w) => w.wa_number === effectiveWaNumber || (w.item_code === lineItemCode && w.so_id === so.id));
+            const waNotes = [
+              `DIS WA ID: ${waItem.id}`,
+              waItem.url ? `URL: ${waItem.url}` : null,
+              waItem.state ? `State: ${typeof waItem.state === 'object' ? (waItem.state.label || waItem.state.code) : waItem.state}` : null,
+              waItem.warranty_status ? `Warranty: ${typeof waItem.warranty_status === 'object' ? (waItem.warranty_status.label || waItem.warranty_status.code) : waItem.warranty_status}` : null,
+              wLine.product_name ? `Product: ${wLine.product_name}` : null,
+            ].filter(Boolean).join(' | ');
+
+            if (!wa) {
+              wa = waRepo.create({
+                so_id: so.id,
+                wa_number: effectiveWaNumber,
+                item_code: lineItemCode,
+                planned_quantity: lineQty,
+                notes: waNotes,
+              });
+              wa = await waRepo.save(wa);
+              this.logger.log(`Created first-class WA ${wa.wa_number} for SO ${so.so_number}`);
+            } else {
+              let waChanged = false;
+              if (lineQty > 0 && wa.planned_quantity !== lineQty) {
+                wa.planned_quantity = lineQty;
+                waChanged = true;
+              }
+              if (lineItemCode && !wa.item_code) {
+                wa.item_code = lineItemCode;
+                waChanged = true;
+              }
+              if (waChanged) {
+                wa = await waRepo.save(wa);
+              }
+            }
+            createdWas.push(wa);
+          }
+        } else {
+          // WA without lines
+          let wa = existingWas.find((w) => w.wa_number === waNumber);
+          if (!wa) {
+            wa = waRepo.create({
+              so_id: so.id,
+              wa_number: waNumber,
+              item_code: null,
+              planned_quantity: 0,
+              notes: `DIS WA ID: ${waItem.id}` + (waItem.url ? ` | URL: ${waItem.url}` : ''),
+            });
+            wa = await waRepo.save(wa);
+            this.logger.log(`Created WA header ${wa.wa_number} for SO ${so.so_number}`);
+          }
+          createdWas.push(wa);
         }
-        createdWas.push(wa);
+      }
+    } else {
+      // Fallback: derive WAs from SO productLines
+      for (let i = 0; i < productLines.length; i++) {
+        const line = productLines[i];
+        const itemCode = resolveItemCode(line) || `PRODUCT-LINE-${i + 1}`;
+        const plannedQty = Number(line.product_uom_qty || line.quantity || line.qty) || 0;
+
+        // Extract numeric suffix from SO number or use index
+        // Format: WA/xxxx/xxxxx (e.g. WA/2026/01856-01)
+        const soNumMatches = cleanSoNumber.match(/(\d{4})\/(\d+)/);
+        const yearStr = soNumMatches ? soNumMatches[1] : new Date().getFullYear().toString();
+        const seqStr = soNumMatches ? soNumMatches[2] : String(orderDetail.id || 1);
+        const lineIndexStr = String(i + 1).padStart(2, '0');
+        const waNumberCandidate = `WA/${yearStr}/${seqStr}-${lineIndexStr}`;
+
+        // Check if WA already exists for this SO and itemCode
+        let wa = existingWas.find(
+          (w) => w.wa_number === waNumberCandidate || (w.item_code === itemCode && w.so_id === so.id),
+        );
+
+        if (!wa) {
+          wa = waRepo.create({
+            so_id: so.id,
+            wa_number: waNumberCandidate,
+            item_code: itemCode,
+            planned_quantity: plannedQty,
+            notes: line.name || line.product_name || `Line #${line.id}`,
+          });
+          wa = await waRepo.save(wa);
+          createdWas.push(wa);
+          this.logger.log(`Created WA ${wa.wa_number} for SO ${so.so_number}`);
+        } else {
+          // Update planned quantity if changed
+          if (plannedQty > 0 && wa.planned_quantity !== plannedQty) {
+            wa.planned_quantity = plannedQty;
+            await waRepo.save(wa);
+          }
+          createdWas.push(wa);
+        }
       }
     }
 
@@ -373,6 +452,7 @@ export class TraceabilityAdapterController {
         notes: so.notes,
       },
       syncedLinesCount: productLines.length,
+      syncedWaCount: createdWas.length,
       workAuthorizations: createdWas.map((w) => ({
         id: w.id,
         waNumber: w.wa_number,
