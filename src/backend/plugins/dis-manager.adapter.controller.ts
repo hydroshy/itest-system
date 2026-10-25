@@ -234,40 +234,108 @@ export class DisManagerAdapterController {
 
     const createdWas = [];
     const existingWas = await waRepo.find({ where: { so_id: so.id } });
+    const disWas = Array.isArray(orderDetail.wa) ? orderDetail.wa : [];
 
-    for (let i = 0; i < productLines.length; i++) {
-      const line = productLines[i];
-      const itemCode = resolveItemCode(line);
-      const plannedQty = Number(line.product_uom_qty ?? line.quantity ?? line.qty) || 0;
+    if (disWas.length > 0) {
+      for (const waItem of disWas) {
+        const rawWaCode = (waItem.wa_code || '').trim();
+        const waNumber = rawWaCode || `WA-${waItem.id}`;
+        const waLines = Array.isArray(waItem.lines) ? waItem.lines : [];
 
+        // Aggregate planned quantity and collect notes across lines for this WA
+        const totalPlannedQty = waLines.reduce((acc: number, line: any) => acc + Number(line.product_uom_qty || line.quantity || 0), 0);
+        const primaryItemCode = waLines.length > 0 ? ((waLines[0].item_code || waLines[0].ordering_code || '').trim() || null) : null;
+
+        const lineProducts = waLines.map((l: any) => l.product_name).filter(Boolean);
+        const waNotes = [
+          `DIS WA ID: ${waItem.id}`,
+          waItem.url ? `URL: ${waItem.url}` : null,
+          waItem.state ? `State: ${typeof waItem.state === 'object' ? (waItem.state.label || waItem.state.code) : waItem.state}` : null,
+          waItem.warranty_status ? `Warranty: ${typeof waItem.warranty_status === 'object' ? (waItem.warranty_status.label || waItem.warranty_status.code) : waItem.warranty_status}` : null,
+          lineProducts.length > 0 ? `Products: ${lineProducts.join(', ')}` : null,
+        ].filter(Boolean).join(' | ');
+
+        let wa = existingWas.find((w) => w.wa_number === waNumber || (primaryItemCode && w.item_code === primaryItemCode && w.so_id === so.id));
+
+        if (!wa) {
+          wa = waRepo.create({
+            so_id: so.id,
+            wa_number: waNumber,
+            item_code: primaryItemCode,
+            planned_quantity: totalPlannedQty,
+            notes: waNotes,
+          });
+          wa = await waRepo.save(wa);
+        } else {
+          let needsUpdate = false;
+          if (wa.wa_number !== waNumber) {
+            wa.wa_number = waNumber;
+            needsUpdate = true;
+          }
+          if (totalPlannedQty > 0 && wa.planned_quantity !== totalPlannedQty) {
+            wa.planned_quantity = totalPlannedQty;
+            needsUpdate = true;
+          }
+          if (primaryItemCode && !wa.item_code) {
+            wa.item_code = primaryItemCode;
+            needsUpdate = true;
+          }
+          if (waNotes && wa.notes !== waNotes) {
+            wa.notes = waNotes;
+            needsUpdate = true;
+          }
+          if (needsUpdate) {
+            await waRepo.save(wa);
+          }
+        }
+        createdWas.push(wa);
+      }
+    } else {
+      // Fallback: derive WA from SO productLines
+      // Format: WA/xxxx/xxxxx (e.g. WA/2026/01856) strictly without line index suffix
       const soNumMatches = cleanSoNumber.match(/(\d{4})\/(\d+)/);
       const yearStr = soNumMatches ? soNumMatches[1] : new Date().getFullYear().toString();
       const seqStr = soNumMatches ? soNumMatches[2] : String(orderDetail.id || 1);
-      const lineIndexStr = String(i + 1).padStart(2, '0');
-      const waNumberCandidate = `WA/${yearStr}/${seqStr}-${lineIndexStr}`;
+      const waNumberCandidate = `WA/${yearStr}/${seqStr}`;
+
+      const totalPlannedQty = productLines.reduce(
+        (acc: number, l: any) => acc + (Number(l.product_uom_qty || l.quantity || l.qty) || 0),
+        0,
+      );
+      const primaryItemCode = productLines
+        .map((l: any) => resolveItemCode(l))
+        .filter(Boolean)[0] || null;
+
+      const productDescriptions = productLines
+        .map((l: any, idx: number) => l.name || l.product_name || `Line #${l.id || idx + 1}`)
+        .join(', ');
 
       let wa = existingWas.find(
-        (w) => w.wa_number === waNumberCandidate || (w.item_code === itemCode && w.so_id === so.id),
+        (w) => w.wa_number === waNumberCandidate || w.so_id === so.id,
       );
 
       if (!wa) {
         wa = waRepo.create({
           so_id: so.id,
           wa_number: waNumberCandidate,
-          item_code: itemCode,
-          planned_quantity: plannedQty,
-          notes: line.name || line.product_name || `Line #${line.id || i + 1}`,
+          item_code: primaryItemCode,
+          planned_quantity: totalPlannedQty,
+          notes: productDescriptions || `Derived from SO ${cleanSoNumber}`,
         });
         wa = await waRepo.save(wa);
         createdWas.push(wa);
       } else {
         let needsUpdate = false;
-        if (plannedQty > 0 && wa.planned_quantity !== plannedQty) {
-          wa.planned_quantity = plannedQty;
+        if (wa.wa_number !== waNumberCandidate) {
+          wa.wa_number = waNumberCandidate;
           needsUpdate = true;
         }
-        if (wa.item_code !== itemCode) {
-          wa.item_code = itemCode;
+        if (totalPlannedQty > 0 && wa.planned_quantity !== totalPlannedQty) {
+          wa.planned_quantity = totalPlannedQty;
+          needsUpdate = true;
+        }
+        if (primaryItemCode && wa.item_code !== primaryItemCode) {
+          wa.item_code = primaryItemCode;
           needsUpdate = true;
         }
         if (needsUpdate) {

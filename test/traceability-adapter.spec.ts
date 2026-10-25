@@ -504,7 +504,9 @@ async function runTests() {
   const syncRes = await controller.syncDisOrderToTraceability('101856');
   assert.strictEqual(syncRes.so.soNumber, 'SO/2026/01856');
   assert.strictEqual(syncRes.so.partnerEmail, 'procurement@eco-iot.vn');
-  assert.ok(syncRes.workAuthorizations.length >= 2);
+  assert.strictEqual(syncRes.workAuthorizations.length, 1);
+  assert.strictEqual(syncRes.workAuthorizations[0].waNumber, 'WA/2026/01856');
+  assert.strictEqual(syncRes.workAuthorizations[0].plannedQuantity, 70); // 50 + 20
   assert.strictEqual(syncRes.workAuthorizations[0].itemCode, 'WSLRW-C-RS485-01');
 
   // Verify synced SO exists in DB with partner_email

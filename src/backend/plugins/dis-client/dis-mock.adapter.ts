@@ -69,7 +69,7 @@ export class DisMockAdapter {
       wa: [
         {
           id: 201,
-          wa_code: 'WA-2026-0089',
+          wa_code: 'WA/2026/01856',
           url: 'https://dis-so.daviteq.com/mail/view?model=warranty.activation&res_id=201',
           state: 'active',
           warranty_status: 'valid',
@@ -141,7 +141,7 @@ export class DisMockAdapter {
       wa: [
         {
           id: 202,
-          wa_code: 'WA-2026-0090',
+          wa_code: 'WA/2026/01857',
           url: 'https://dis-so.daviteq.com/mail/view?model=warranty.activation&res_id=202',
           state: 'active',
           warranty_status: 'valid',

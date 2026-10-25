@@ -338,107 +338,109 @@ export class TraceabilityAdapterController {
         const waNumber = rawWaCode || `WA-${waItem.id}`;
         const waLines = Array.isArray(waItem.lines) ? waItem.lines : [];
 
-        // If WA has lines, create/update WA for each line or aggregate
-        if (waLines.length > 0) {
-          for (let li = 0; li < waLines.length; li++) {
-            const wLine = waLines[li];
-            const lineItemCode = (wLine.item_code || wLine.ordering_code || '').trim() || null;
-            const lineQty = Number(wLine.product_uom_qty || wLine.quantity || 0);
+        // Aggregate planned quantity and collect notes across lines for this WA
+        const totalPlannedQty = waLines.reduce((acc, line) => acc + Number(line.product_uom_qty || line.quantity || 0), 0);
+        const primaryItemCode = waLines.length > 0 ? ((waLines[0].item_code || waLines[0].ordering_code || '').trim() || null) : null;
 
-            // Sub-wa identifier if multiple lines in single WA
-            const effectiveWaNumber = waLines.length === 1 ? waNumber : `${waNumber}-${String(li + 1).padStart(2, '0')}`;
+        const lineProducts = waLines.map((l) => l.product_name).filter(Boolean);
+        const waNotes = [
+          `DIS WA ID: ${waItem.id}`,
+          waItem.url ? `URL: ${waItem.url}` : null,
+          waItem.state ? `State: ${typeof waItem.state === 'object' ? (waItem.state.label || waItem.state.code) : waItem.state}` : null,
+          waItem.warranty_status ? `Warranty: ${typeof waItem.warranty_status === 'object' ? (waItem.warranty_status.label || waItem.warranty_status.code) : waItem.warranty_status}` : null,
+          lineProducts.length > 0 ? `Products: ${lineProducts.join(', ')}` : null,
+        ].filter(Boolean).join(' | ');
 
-            let wa = existingWas.find((w) => w.wa_number === effectiveWaNumber || (w.item_code === lineItemCode && w.so_id === so.id));
-            const waNotes = [
-              `DIS WA ID: ${waItem.id}`,
-              waItem.url ? `URL: ${waItem.url}` : null,
-              waItem.state ? `State: ${typeof waItem.state === 'object' ? (waItem.state.label || waItem.state.code) : waItem.state}` : null,
-              waItem.warranty_status ? `Warranty: ${typeof waItem.warranty_status === 'object' ? (waItem.warranty_status.label || waItem.warranty_status.code) : waItem.warranty_status}` : null,
-              wLine.product_name ? `Product: ${wLine.product_name}` : null,
-            ].filter(Boolean).join(' | ');
-
-            if (!wa) {
-              wa = waRepo.create({
-                so_id: so.id,
-                wa_number: effectiveWaNumber,
-                item_code: lineItemCode,
-                planned_quantity: lineQty,
-                notes: waNotes,
-              });
-              wa = await waRepo.save(wa);
-              this.logger.log(`Created first-class WA ${wa.wa_number} for SO ${so.so_number}`);
-            } else {
-              let waChanged = false;
-              if (lineQty > 0 && wa.planned_quantity !== lineQty) {
-                wa.planned_quantity = lineQty;
-                waChanged = true;
-              }
-              if (lineItemCode && !wa.item_code) {
-                wa.item_code = lineItemCode;
-                waChanged = true;
-              }
-              if (waChanged) {
-                wa = await waRepo.save(wa);
-              }
-            }
-            createdWas.push(wa);
-          }
-        } else {
-          // WA without lines
-          let wa = existingWas.find((w) => w.wa_number === waNumber);
-          if (!wa) {
-            wa = waRepo.create({
-              so_id: so.id,
-              wa_number: waNumber,
-              item_code: null,
-              planned_quantity: 0,
-              notes: `DIS WA ID: ${waItem.id}` + (waItem.url ? ` | URL: ${waItem.url}` : ''),
-            });
-            wa = await waRepo.save(wa);
-            this.logger.log(`Created WA header ${wa.wa_number} for SO ${so.so_number}`);
-          }
-          createdWas.push(wa);
-        }
-      }
-    } else {
-      // Fallback: derive WAs from SO productLines
-      for (let i = 0; i < productLines.length; i++) {
-        const line = productLines[i];
-        const itemCode = resolveItemCode(line) || `PRODUCT-LINE-${i + 1}`;
-        const plannedQty = Number(line.product_uom_qty || line.quantity || line.qty) || 0;
-
-        // Extract numeric suffix from SO number or use index
-        // Format: WA/xxxx/xxxxx (e.g. WA/2026/01856-01)
-        const soNumMatches = cleanSoNumber.match(/(\d{4})\/(\d+)/);
-        const yearStr = soNumMatches ? soNumMatches[1] : new Date().getFullYear().toString();
-        const seqStr = soNumMatches ? soNumMatches[2] : String(orderDetail.id || 1);
-        const lineIndexStr = String(i + 1).padStart(2, '0');
-        const waNumberCandidate = `WA/${yearStr}/${seqStr}-${lineIndexStr}`;
-
-        // Check if WA already exists for this SO and itemCode
-        let wa = existingWas.find(
-          (w) => w.wa_number === waNumberCandidate || (w.item_code === itemCode && w.so_id === so.id),
-        );
+        let wa = existingWas.find((w) => w.wa_number === waNumber || (primaryItemCode && w.item_code === primaryItemCode && w.so_id === so.id));
 
         if (!wa) {
           wa = waRepo.create({
             so_id: so.id,
-            wa_number: waNumberCandidate,
-            item_code: itemCode,
-            planned_quantity: plannedQty,
-            notes: line.name || line.product_name || `Line #${line.id}`,
+            wa_number: waNumber,
+            item_code: primaryItemCode,
+            planned_quantity: totalPlannedQty,
+            notes: waNotes,
           });
           wa = await waRepo.save(wa);
-          createdWas.push(wa);
-          this.logger.log(`Created WA ${wa.wa_number} for SO ${so.so_number}`);
+          this.logger.log(`Created first-class WA ${wa.wa_number} for SO ${so.so_number}`);
         } else {
-          // Update planned quantity if changed
-          if (plannedQty > 0 && wa.planned_quantity !== plannedQty) {
-            wa.planned_quantity = plannedQty;
-            await waRepo.save(wa);
+          let waChanged = false;
+          if (totalPlannedQty > 0 && wa.planned_quantity !== totalPlannedQty) {
+            wa.planned_quantity = totalPlannedQty;
+            waChanged = true;
           }
-          createdWas.push(wa);
+          if (waNotes && wa.notes !== waNotes) {
+            wa.notes = waNotes;
+            waChanged = true;
+          }
+          if (primaryItemCode && !wa.item_code) {
+            wa.item_code = primaryItemCode;
+            waChanged = true;
+          }
+          if (wa.wa_number !== waNumber) {
+            wa.wa_number = waNumber;
+            waChanged = true;
+          }
+          if (waChanged) {
+            wa = await waRepo.save(wa);
+          }
         }
+        createdWas.push(wa);
+      }
+    } else {
+      // Fallback: derive WA from SO productLines
+      // Format: WA/xxxx/xxxxx (e.g. WA/2026/01856) strictly without line index suffix
+      const soNumMatches = cleanSoNumber.match(/(\d{4})\/(\d+)/);
+      const yearStr = soNumMatches ? soNumMatches[1] : new Date().getFullYear().toString();
+      const seqStr = soNumMatches ? soNumMatches[2] : String(orderDetail.id || 1);
+      const waNumberCandidate = `WA/${yearStr}/${seqStr}`;
+
+      const totalPlannedQty = productLines.reduce(
+        (acc, l) => acc + (Number(l.product_uom_qty || l.quantity || l.qty) || 0),
+        0,
+      );
+      const primaryItemCode = productLines
+        .map((l) => resolveItemCode(l))
+        .filter(Boolean)[0] || null;
+
+      const productDescriptions = productLines
+        .map((l, idx) => l.name || l.product_name || `Line #${l.id || idx + 1}`)
+        .join(', ');
+
+      let wa = existingWas.find(
+        (w) => w.wa_number === waNumberCandidate || w.so_id === so.id,
+      );
+
+      if (!wa) {
+        wa = waRepo.create({
+          so_id: so.id,
+          wa_number: waNumberCandidate,
+          item_code: primaryItemCode,
+          planned_quantity: totalPlannedQty,
+          notes: productDescriptions || `Derived from SO ${cleanSoNumber}`,
+        });
+        wa = await waRepo.save(wa);
+        createdWas.push(wa);
+        this.logger.log(`Created WA ${wa.wa_number} for SO ${so.so_number}`);
+      } else {
+        let needsUpdate = false;
+        if (wa.wa_number !== waNumberCandidate) {
+          wa.wa_number = waNumberCandidate;
+          needsUpdate = true;
+        }
+        if (totalPlannedQty > 0 && wa.planned_quantity !== totalPlannedQty) {
+          wa.planned_quantity = totalPlannedQty;
+          needsUpdate = true;
+        }
+        if (primaryItemCode && wa.item_code !== primaryItemCode) {
+          wa.item_code = primaryItemCode;
+          needsUpdate = true;
+        }
+        if (needsUpdate) {
+          await waRepo.save(wa);
+          this.logger.log(`Updated WA ${wa.wa_number} for SO ${so.so_number}`);
+        }
+        createdWas.push(wa);
       }
     }
 
