@@ -1,7 +1,8 @@
-import { Controller, Get, Post, Put, Delete, Body, Param, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Put, Patch, Delete, Body, Param, UseGuards } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserPermissionsDto } from './dto/update-user-permissions.dto';
+import { UpdateUserDto } from './dto/update-user.dto';
 import { JwtAuthGuard } from '../../../../common/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../../../common/guards/permissions.guard';
 import { Roles } from '../../../../common/decorators/roles.decorator';
@@ -33,6 +34,20 @@ export class UsersController {
   @RequirePermissions('users:read')
   async findOneUser(@Param('id') id: string) {
     return this.usersService.findOneUser(id);
+  }
+
+  @Patch(':id')
+  @Roles(UserType.ADMIN, UserType.SUB_ADMIN)
+  @RequirePermissions('users:update')
+  async updateUser(@Param('id') id: string, @Body() dto: UpdateUserDto) {
+    return this.usersService.updateUser(id, dto);
+  }
+
+  @Put(':id')
+  @Roles(UserType.ADMIN, UserType.SUB_ADMIN)
+  @RequirePermissions('users:update')
+  async replaceUser(@Param('id') id: string, @Body() dto: UpdateUserDto) {
+    return this.usersService.updateUser(id, dto);
   }
 
   @Put(':id/permissions')

@@ -7,6 +7,7 @@ import { Role } from '../roles-permissions/entities/role.entity';
 import { Permission } from '../roles-permissions/entities/permission.entity';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserPermissionsDto } from './dto/update-user-permissions.dto';
+import { UpdateUserDto } from './dto/update-user.dto';
 
 @Injectable()
 export class UsersService {
@@ -105,6 +106,42 @@ export class UsersService {
 
     if (dto.roleIds) {
       user.roles = await this.getRoleRepo().findBy({ id: In(dto.roleIds) });
+    }
+
+    const saved = await repo.save(user);
+    delete saved.passwordHash;
+    return saved;
+  }
+
+  async updateUser(id: string, dto: UpdateUserDto) {
+    const repo = this.getUserRepo();
+    const user = await this.findOneUser(id);
+
+    if (dto.fullName !== undefined) {
+      user.fullName = dto.fullName.trim();
+    }
+
+    if (dto.email !== undefined) {
+      const cleanEmail = dto.email.trim();
+      if (cleanEmail && cleanEmail !== user.email) {
+        const existing = await repo.findOne({ where: { email: cleanEmail } });
+        if (existing && existing.id !== id) {
+          throw new ConflictException(`Email ${cleanEmail} is already in use`);
+        }
+      }
+      user.email = cleanEmail;
+    }
+
+    if (dto.isActive !== undefined) {
+      user.isActive = dto.isActive;
+    }
+
+    if (dto.roleIds !== undefined) {
+      if (dto.roleIds.length > 0) {
+        user.roles = await this.getRoleRepo().findBy({ id: In(dto.roleIds) });
+      } else {
+        user.roles = [];
+      }
     }
 
     const saved = await repo.save(user);
