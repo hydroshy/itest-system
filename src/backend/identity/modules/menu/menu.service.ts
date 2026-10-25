@@ -79,7 +79,7 @@ export const SYSTEM_MENU_ITEMS: MenuItemDto[] = [
     order: 7,
   },
   {
-    id: 'memmap-manager:list',
+    id: 'memmap-payload:manager',
     title: 'Memmap Manager',
     description: 'Quản lý bản đồ bộ nhớ thiết bị Modbus và bảng giải mã Payload LoRaWAN',
     icon: 'Files',
@@ -90,7 +90,7 @@ export const SYSTEM_MENU_ITEMS: MenuItemDto[] = [
     order: 8,
   },
   {
-    id: 'memmap-manager:upload',
+    id: 'memmap-payload:upload',
     title: 'Memmap Upload',
     description: 'Tải lên Memmap Payload và kiểm tra hợp lệ cấu hình thanh ghi thiết bị',
     icon: 'Upload',
@@ -141,7 +141,41 @@ export class MenuService {
            FROM system_menu_items ORDER BY display_order ASC`
         );
         if (Array.isArray(rows) && rows.length > 0) {
-          return rows;
+          const normalizedRows: MenuItemDto[] = rows.map((r: any) => {
+            if (
+              r.id === 'memmap-payload:manager' &&
+              (!r.route || r.route.includes('/memmap-payload') || r.route.includes('tab=memmap'))
+            ) {
+              return {
+                ...r,
+                title: 'Memmap Manager',
+                icon: 'Files',
+                route: '/plugins/memmap-manager?tab=manager',
+                pluginId: 'memmap-manager',
+                tab: 'manager',
+              };
+            }
+            return r;
+          });
+
+          const hasUpload = normalizedRows.some(
+            (r: any) => r.id === 'memmap-payload:upload' || r.id === 'memmap-manager:upload',
+          );
+          if (!hasUpload) {
+            normalizedRows.push({
+              id: 'memmap-payload:upload',
+              title: 'Memmap Upload',
+              description: 'Tải lên Memmap Payload và kiểm tra hợp lệ cấu hình thanh ghi thiết bị',
+              icon: 'Upload',
+              route: '/plugins/memmap-manager?tab=upload',
+              pluginId: 'memmap-manager',
+              tab: 'upload',
+              category: 'plugin',
+              order: 9,
+            });
+            normalizedRows.sort((a, b) => (a.order || 0) - (b.order || 0));
+          }
+          return normalizedRows;
         }
       }
     } catch (err: any) {
@@ -240,6 +274,13 @@ export class MenuService {
     for (const r of normalizedRoles) {
       const list = roleMatrix[r] || [];
       list.forEach((id) => allowedIds.add(id));
+    }
+
+    if (allowedIds.has('memmap-payload:manager') || allowedIds.has('memmap-manager:list')) {
+      allowedIds.add('memmap-payload:manager');
+      allowedIds.add('memmap-payload:upload');
+      allowedIds.add('memmap-manager:list');
+      allowedIds.add('memmap-manager:upload');
     }
 
     return allItems.filter((item) => allowedIds.has(item.id));
