@@ -1,12 +1,14 @@
 import { Module } from '@nestjs/common';
 import { DynamicDatabaseModule } from '../../../database/dynamic-database.module';
+import { MenuModule } from '../menu/menu.module';
 import { RolesService } from './roles.service';
 import { RolesController } from './roles.controller';
 
 @Module({
-  imports: [DynamicDatabaseModule],
+  imports: [DynamicDatabaseModule, MenuModule],
   providers: [RolesService],
   controllers: [RolesController],
   exports: [RolesService],
 })
 export class RolesModule {}
+
