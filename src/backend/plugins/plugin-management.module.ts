@@ -9,6 +9,7 @@ import { MemmapManagerAdapterController } from './memmap-manager.adapter.control
 import { FinalConfigAdapterController } from './final-config.adapter.controller';
 import { TraceabilityAdapterController } from './traceability.adapter.controller';
 import { DisManagerAdapterController } from './dis-manager.adapter.controller';
+import { TestingAdapterController } from './testing.adapter.controller';
 import { DisClientService } from './dis-client/dis-client.service';
 
 @Module({
@@ -20,6 +21,7 @@ import { DisClientService } from './dis-client/dis-client.service';
     FinalConfigAdapterController,
     TraceabilityAdapterController,
     DisManagerAdapterController,
+    TestingAdapterController,
   ],
   providers: [PluginStorageService, PluginManagerService, DisClientService],
   exports: [PluginStorageService, PluginManagerService, DisClientService],

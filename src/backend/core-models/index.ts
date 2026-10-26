@@ -13,4 +13,7 @@ export * from './traceability-so.entity';
 export * from './traceability-wa.entity';
 export * from './traceability-order.entity';
 export * from './traceability-device.entity';
+export * from './testing-device.entity';
+export * from './device-packet.entity';
+export * from './gateway-test-session.entity';
 

@@ -17,7 +17,10 @@ import { TraceabilitySoEntity } from '../core-models/traceability-so.entity';
 import { TraceabilityWaEntity } from '../core-models/traceability-wa.entity';
 import { TraceabilityOrderEntity } from '../core-models/traceability-order.entity';
 import { TraceabilityDeviceEntity } from '../core-models/traceability-device.entity';
-export declare const ALL_DATABASE_ENTITIES: (typeof Permission | typeof Role | typeof User | typeof CorePluginEntity | typeof PluginAuditLogEntity | typeof UnifiedDeviceEntity | typeof ChirpstackNetworkServerEntity | typeof MemmapRegisterEntity | typeof MemmapProfileEntity | typeof FinalConfigRegisterEntity | typeof FinalConfigProfileEntity | typeof FinalConfigExecutionSessionEntity | typeof FinalConfigExecutionLogEntity | typeof TraceabilityDeviceEntity | typeof TraceabilitySoEntity | typeof TraceabilityWaEntity | typeof TraceabilityOrderEntity)[];
+import { TestingDeviceEntity } from '../core-models/testing-device.entity';
+import { DevicePacketEntity } from '../core-models/device-packet.entity';
+import { GatewayTestSessionEntity } from '../core-models/gateway-test-session.entity';
+export declare const ALL_DATABASE_ENTITIES: (typeof Permission | typeof Role | typeof User | typeof CorePluginEntity | typeof PluginAuditLogEntity | typeof UnifiedDeviceEntity | typeof ChirpstackNetworkServerEntity | typeof MemmapRegisterEntity | typeof MemmapProfileEntity | typeof FinalConfigRegisterEntity | typeof FinalConfigProfileEntity | typeof FinalConfigExecutionSessionEntity | typeof FinalConfigExecutionLogEntity | typeof TraceabilityDeviceEntity | typeof TraceabilitySoEntity | typeof TraceabilityWaEntity | typeof TraceabilityOrderEntity | typeof DevicePacketEntity | typeof TestingDeviceEntity | typeof GatewayTestSessionEntity)[];
 export interface DbConnectionConfig {
     host: string;
     port: number;

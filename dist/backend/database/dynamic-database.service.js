@@ -32,6 +32,9 @@ const traceability_so_entity_1 = require("../core-models/traceability-so.entity"
 const traceability_wa_entity_1 = require("../core-models/traceability-wa.entity");
 const traceability_order_entity_1 = require("../core-models/traceability-order.entity");
 const traceability_device_entity_1 = require("../core-models/traceability-device.entity");
+const testing_device_entity_1 = require("../core-models/testing-device.entity");
+const device_packet_entity_1 = require("../core-models/device-packet.entity");
+const gateway_test_session_entity_1 = require("../core-models/gateway-test-session.entity");
 exports.ALL_DATABASE_ENTITIES = [
     user_entity_1.User,
     role_entity_1.Role,
@@ -50,6 +53,9 @@ exports.ALL_DATABASE_ENTITIES = [
     traceability_wa_entity_1.TraceabilityWaEntity,
     traceability_order_entity_1.TraceabilityOrderEntity,
     traceability_device_entity_1.TraceabilityDeviceEntity,
+    testing_device_entity_1.TestingDeviceEntity,
+    device_packet_entity_1.DevicePacketEntity,
+    gateway_test_session_entity_1.GatewayTestSessionEntity,
 ];
 let DynamicDatabaseService = DynamicDatabaseService_1 = class DynamicDatabaseService {
     constructor() {

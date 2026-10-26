@@ -31,6 +31,9 @@
     "traceability_so": "core_db",
     "traceability_wa": "core_db",
     "traceability_order": "core_db",
-    "traceability_device": "core_db"
+    "traceability_device": "core_db",
+    "devices": "core_db",
+    "device_packets": "core_db",
+    "gateway_test_sessions": "core_db"
   }
 }

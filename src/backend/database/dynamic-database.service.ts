@@ -19,6 +19,9 @@ import { TraceabilitySoEntity } from '../core-models/traceability-so.entity';
 import { TraceabilityWaEntity } from '../core-models/traceability-wa.entity';
 import { TraceabilityOrderEntity } from '../core-models/traceability-order.entity';
 import { TraceabilityDeviceEntity } from '../core-models/traceability-device.entity';
+import { TestingDeviceEntity } from '../core-models/testing-device.entity';
+import { DevicePacketEntity } from '../core-models/device-packet.entity';
+import { GatewayTestSessionEntity } from '../core-models/gateway-test-session.entity';
 
 export const ALL_DATABASE_ENTITIES = [
   User,
@@ -38,6 +41,9 @@ export const ALL_DATABASE_ENTITIES = [
   TraceabilityWaEntity,
   TraceabilityOrderEntity,
   TraceabilityDeviceEntity,
+  TestingDeviceEntity,
+  DevicePacketEntity,
+  GatewayTestSessionEntity,
 ];
 
 export interface DbConnectionConfig {
