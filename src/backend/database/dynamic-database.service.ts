@@ -22,6 +22,7 @@ import { TraceabilityDeviceEntity } from '../core-models/traceability-device.ent
 import { TestingDeviceEntity } from '../core-models/testing-device.entity';
 import { DevicePacketEntity } from '../core-models/device-packet.entity';
 import { GatewayTestSessionEntity } from '../core-models/gateway-test-session.entity';
+import { DecoderScriptEntity } from '../core-models/decoder-script.entity';
 
 export const ALL_DATABASE_ENTITIES = [
   User,
@@ -44,6 +45,7 @@ export const ALL_DATABASE_ENTITIES = [
   TestingDeviceEntity,
   DevicePacketEntity,
   GatewayTestSessionEntity,
+  DecoderScriptEntity,
 ];
 
 export interface DbConnectionConfig {

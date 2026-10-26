@@ -34,6 +34,7 @@
     "traceability_device": "core_db",
     "devices": "core_db",
     "device_packets": "core_db",
-    "gateway_test_sessions": "core_db"
+    "gateway_test_sessions": "core_db",
+    "decoder_scripts": "core_db"
   }
 }

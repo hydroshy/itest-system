@@ -16,4 +16,6 @@ export * from './traceability-device.entity';
 export * from './testing-device.entity';
 export * from './device-packet.entity';
 export * from './gateway-test-session.entity';
+export * from './decoder-script.entity';
+
 

@@ -20,7 +20,8 @@ import { TraceabilityDeviceEntity } from '../core-models/traceability-device.ent
 import { TestingDeviceEntity } from '../core-models/testing-device.entity';
 import { DevicePacketEntity } from '../core-models/device-packet.entity';
 import { GatewayTestSessionEntity } from '../core-models/gateway-test-session.entity';
-export declare const ALL_DATABASE_ENTITIES: (typeof Permission | typeof Role | typeof User | typeof CorePluginEntity | typeof PluginAuditLogEntity | typeof UnifiedDeviceEntity | typeof ChirpstackNetworkServerEntity | typeof MemmapRegisterEntity | typeof MemmapProfileEntity | typeof FinalConfigRegisterEntity | typeof FinalConfigProfileEntity | typeof FinalConfigExecutionSessionEntity | typeof FinalConfigExecutionLogEntity | typeof TraceabilityDeviceEntity | typeof TraceabilitySoEntity | typeof TraceabilityWaEntity | typeof TraceabilityOrderEntity | typeof DevicePacketEntity | typeof TestingDeviceEntity | typeof GatewayTestSessionEntity)[];
+import { DecoderScriptEntity } from '../core-models/decoder-script.entity';
+export declare const ALL_DATABASE_ENTITIES: (typeof Permission | typeof Role | typeof User | typeof CorePluginEntity | typeof PluginAuditLogEntity | typeof UnifiedDeviceEntity | typeof ChirpstackNetworkServerEntity | typeof MemmapRegisterEntity | typeof MemmapProfileEntity | typeof FinalConfigRegisterEntity | typeof FinalConfigProfileEntity | typeof FinalConfigExecutionSessionEntity | typeof FinalConfigExecutionLogEntity | typeof TraceabilityDeviceEntity | typeof TraceabilitySoEntity | typeof TraceabilityWaEntity | typeof TraceabilityOrderEntity | typeof DevicePacketEntity | typeof TestingDeviceEntity | typeof GatewayTestSessionEntity | typeof DecoderScriptEntity)[];
 export interface DbConnectionConfig {
     host: string;
     port: number;
