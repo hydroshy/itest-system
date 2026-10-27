@@ -54,6 +54,26 @@ export interface CreateGatewaySessionDto {
   sessionName?: string;
   status?: string;
   summary?: Record<string, any>;
+  soNumber?: string;
+  waNumber?: string;
+  serialNumber?: string;
+  eui?: string;
+  itemCode?: string;
+  sku?: string;
+  gatewayNotes?: string;
+  notes?: string;
+  hardwareVersion?: string;
+  firmwareVersion?: string;
+  mechanicalVersion?: string;
+  lteModuleSerialNumber?: string;
+  lteModuleImei?: string;
+  gatewayIp?: string;
+  internetTestType?: string;
+  regionTest?: string;
+  networkServerId?: string;
+  lorawanFrequencyPlan?: string;
+  configSnapshot?: Record<string, any>;
+  forwarderConfig?: Record<string, any>;
 }
 
 @Controller()
@@ -791,10 +811,16 @@ export class TestingAdapterController {
     }
   }
 
-  @Post(['api/plugins/testing/gateway-sessions', 'api/v1/plugins/testing/gateway-sessions'])
+  @Post([
+    'api/plugins/testing/gateway-sessions',
+    'api/v1/plugins/testing/gateway-sessions',
+    'api/plugins/testing/gateway-sessions/register-and-start',
+    'api/v1/plugins/testing/gateway-sessions/register-and-start',
+  ])
   async createGatewaySession(@Body() body: CreateGatewaySessionDto) {
-    if (!body.gatewayId || !body.gatewayId.trim()) {
-      throw new BadRequestException('gatewayId is required');
+    const gwId = (body.gatewayId || body.eui || body.serialNumber || '').trim();
+    if (!gwId) {
+      throw new BadRequestException('gatewayId or eui is required');
     }
 
     try {
@@ -804,12 +830,31 @@ export class TestingAdapterController {
       );
 
       const session = sessionRepo.create({
-        gateway_id: body.gatewayId.trim(),
-        gateway_name: body.gatewayName?.trim() || null,
-        session_name: body.sessionName?.trim() || null,
+        gateway_id: gwId,
+        gateway_name: body.gatewayName?.trim() || (body.serialNumber ? `GW-${body.serialNumber.trim()}` : null),
+        session_name: body.sessionName?.trim() || (body.serialNumber ? `Session-${body.serialNumber.trim()}` : null),
         status: body.status?.trim() || 'IN_PROGRESS',
         started_at: new Date(),
         summary: body.summary || {},
+        so_number: body.soNumber?.trim() || null,
+        wa_number: body.waNumber?.trim() || null,
+        serial_number: body.serialNumber?.trim() || null,
+        eui: body.eui?.trim() || gwId,
+        item_code: body.itemCode?.trim() || null,
+        sku: body.sku?.trim() || null,
+        gateway_notes: (body.gatewayNotes || body.notes)?.trim() || null,
+        hardware_version: body.hardwareVersion?.trim() || null,
+        firmware_version: body.firmwareVersion?.trim() || null,
+        mechanical_version: body.mechanicalVersion?.trim() || null,
+        lte_module_serial_number: body.lteModuleSerialNumber?.trim() || null,
+        lte_module_imei: body.lteModuleImei?.trim() || null,
+        gateway_ip: body.gatewayIp?.trim() || null,
+        internet_test_type: body.internetTestType?.trim() || 'ETHERNET',
+        region_test: body.regionTest?.trim() || null,
+        network_server_id: body.networkServerId?.trim() || null,
+        lorawan_frequency_plan: body.lorawanFrequencyPlan?.trim() || null,
+        config_snapshot: body.configSnapshot || {},
+        forwarder_config: body.forwarderConfig || {},
       });
 
       const saved = await sessionRepo.save(session);
@@ -881,6 +926,110 @@ export class TestingAdapterController {
       throw new HttpException(
         `Failed to update gateway session: ${error.message}`,
         HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  // ============================================================================
+  // 6. GATEWAY PROXY (Direct Port 4050 Integration)
+  // ============================================================================
+
+  @Get(['api/plugins/testing/gateway-proxy/config', 'api/v1/plugins/testing/gateway-proxy/config'])
+  async getGatewayProxyConfig(@Query('ip') ip?: string) {
+    const gatewayIp = ip?.trim();
+    if (!gatewayIp) {
+      throw new BadRequestException('Query parameter "ip" is required');
+    }
+
+    const targetUrl = `http://${gatewayIp}:4050/api/gateway-config/getGatewayConfigInfo`;
+    this.logger.log(`Proxying gateway config GET request to ${targetUrl}`);
+
+    try {
+      const response = await fetch(targetUrl, {
+        method: 'GET',
+        headers: { Accept: 'application/json' },
+        signal: AbortSignal.timeout(6000),
+      });
+
+      if (!response.ok) {
+        throw new HttpException(
+          `Gateway at ${gatewayIp}:4050 returned status ${response.status}`,
+          response.status,
+        );
+      }
+
+      const data = await response.json();
+      return {
+        success: true,
+        gatewayIp,
+        data: data?.data || data?.config || data,
+      };
+    } catch (error: any) {
+      this.logger.warn(`Gateway proxy config failed for ${gatewayIp}: ${error.message}`);
+      if (error instanceof HttpException) throw error;
+      throw new HttpException(
+        `Failed to reach Gateway at ${gatewayIp}:4050: ${error.message}`,
+        HttpStatus.BAD_GATEWAY,
+      );
+    }
+  }
+
+  @Post(['api/plugins/testing/gateway-proxy/change-config', 'api/v1/plugins/testing/gateway-proxy/change-config'])
+  async changeGatewayProxyConfig(@Body() body: any) {
+    const gatewayIp = (body?.gatewayIp || body?.ip || '').trim();
+    if (!gatewayIp) {
+      throw new BadRequestException('Field "gatewayIp" is required');
+    }
+
+    const targetUrl = `http://${gatewayIp}:4050/api/gateway-config/changeGatewayConfig`;
+    this.logger.log(`Proxying gateway config POST request to ${targetUrl}`);
+
+    const forwarderPayload = {
+      server_address: body.serverAddress || body.server_address || '127.0.0.1',
+      serv_port_up: body.servPortUp || body.serv_port_up || 1700,
+      serv_port_down: body.servPortDown || body.serv_port_down || 1700,
+      region: body.regionTest || body.region || body.frequencyPlan || 'AS923',
+      metrics: body.metrics || (body.internetTestType === 'ETHERNET' ? { eth: 100, lte: 102 } : { eth: 102, lte: 100 }),
+      ...body,
+    };
+
+    try {
+      const response = await fetch(targetUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify(forwarderPayload),
+        signal: AbortSignal.timeout(8000),
+      });
+
+      let resData: any = {};
+      try {
+        resData = await response.json();
+      } catch {
+        resData = { statusText: response.statusText };
+      }
+
+      if (!response.ok) {
+        this.logger.warn(`Gateway returned non-OK status: ${response.status}`);
+        return {
+          success: false,
+          status: response.status,
+          message: `Gateway ${gatewayIp}:4050 responded with error`,
+          data: resData,
+        };
+      }
+
+      return {
+        success: true,
+        gatewayIp,
+        message: 'Gateway configuration changed successfully',
+        data: resData,
+      };
+    } catch (error: any) {
+      this.logger.warn(`Gateway proxy change-config failed for ${gatewayIp}: ${error.message}`);
+      if (error instanceof HttpException) throw error;
+      throw new HttpException(
+        `Failed to send config to Gateway at ${gatewayIp}:4050: ${error.message}`,
+        HttpStatus.BAD_GATEWAY,
       );
     }
   }
