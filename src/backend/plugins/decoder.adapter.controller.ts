@@ -97,7 +97,7 @@ export class DecoderAdapterController {
    * GET /api/plugins/decoder/memmaps
    * Return available memmaps (SKU & LONG_FW) along with whether they have a decoder script configured
    */
-  @Get(['api/plugins/decoder/memmaps', 'api/v1/plugins/decoder/memmaps', 'api/plugins/decode/memmaps'])
+  @Get(['api/plugins/decoder/memmaps', 'api/v1/plugins/decoder/memmaps', 'api/plugins/decode/memmaps', 'api/v1/plugins/decode/memmaps'])
   async getMemmapsWithDecoderStatus(
     @Query('sku') skuQuery?: string,
     @Query('configured') configuredQuery?: string,
@@ -163,7 +163,7 @@ export class DecoderAdapterController {
    * GET /api/plugins/decoder/skus
    * Returns distinct list of SKUs and available LONG_FWs from memmap and decoders
    */
-  @Get(['api/plugins/decoder/skus', 'api/v1/plugins/decoder/skus', 'api/plugins/decode/skus'])
+  @Get(['api/plugins/decoder/skus', 'api/v1/plugins/decoder/skus', 'api/plugins/decode/skus', 'api/v1/plugins/decode/skus'])
   async getAvailableSkus() {
     try {
       const memmapRepo = this.getMemmapRepo();
@@ -227,7 +227,7 @@ export class DecoderAdapterController {
   /**
    * GET /api/plugins/decoder/scripts
    */
-  @Get(['api/plugins/decoder/scripts', 'api/v1/plugins/decoder/scripts', 'api/plugins/decode/scripts'])
+  @Get(['api/plugins/decoder/scripts', 'api/v1/plugins/decoder/scripts', 'api/plugins/decode/scripts', 'api/v1/plugins/decode/scripts'])
   async listDecoderScripts(
     @Query('sku') sku?: string,
     @Query('longFw') longFw?: string,
@@ -275,7 +275,7 @@ export class DecoderAdapterController {
   /**
    * GET /api/plugins/decoder/scripts/:id
    */
-  @Get(['api/plugins/decoder/scripts/:id', 'api/v1/plugins/decoder/scripts/:id', 'api/plugins/decode/scripts/:id'])
+  @Get(['api/plugins/decoder/scripts/:id', 'api/v1/plugins/decoder/scripts/:id', 'api/plugins/decode/scripts/:id', 'api/v1/plugins/decode/scripts/:id'])
   async getDecoderScriptById(@Param('id') id: string) {
     try {
       const repo = this.getDecoderRepo();
@@ -302,7 +302,7 @@ export class DecoderAdapterController {
   /**
    * POST /api/plugins/decoder/scripts
    */
-  @Post(['api/plugins/decoder/scripts', 'api/v1/plugins/decoder/scripts', 'api/plugins/decode/scripts'])
+  @Post(['api/plugins/decoder/scripts', 'api/v1/plugins/decoder/scripts', 'api/plugins/decode/scripts', 'api/v1/plugins/decode/scripts'])
   async createDecoderScript(@Body() dto: CreateDecoderScriptDto) {
     try {
       if (!dto.name || !dto.sku || !dto.longFw || !dto.script) {
@@ -371,7 +371,7 @@ export class DecoderAdapterController {
   /**
    * PUT /api/plugins/decoder/scripts/:id
    */
-  @Put(['api/plugins/decoder/scripts/:id', 'api/v1/plugins/decoder/scripts/:id', 'api/plugins/decode/scripts/:id'])
+  @Put(['api/plugins/decoder/scripts/:id', 'api/v1/plugins/decoder/scripts/:id', 'api/plugins/decode/scripts/:id', 'api/v1/plugins/decode/scripts/:id'])
   async updateDecoderScript(@Param('id') id: string, @Body() dto: UpdateDecoderScriptDto) {
     try {
       const repo = this.getDecoderRepo();
@@ -446,7 +446,7 @@ export class DecoderAdapterController {
   /**
    * DELETE /api/plugins/decoder/scripts/:id
    */
-  @Delete(['api/plugins/decoder/scripts/:id', 'api/v1/plugins/decoder/scripts/:id', 'api/plugins/decode/scripts/:id'])
+  @Delete(['api/plugins/decoder/scripts/:id', 'api/v1/plugins/decoder/scripts/:id', 'api/plugins/decode/scripts/:id', 'api/v1/plugins/decode/scripts/:id'])
   async deleteDecoderScript(@Param('id') id: string) {
     try {
       const repo = this.getDecoderRepo();
@@ -488,7 +488,7 @@ export class DecoderAdapterController {
    * GET /api/plugins/decoder/template
    * Returns standard LoRaWAN decoder templates for frontend editor initialization
    */
-  @Get(['api/plugins/decoder/template', 'api/v1/plugins/decoder/template', 'api/plugins/decode/template'])
+  @Get(['api/plugins/decoder/template', 'api/v1/plugins/decoder/template', 'api/plugins/decode/template', 'api/v1/plugins/decode/template'])
   getStandardTemplate() {
     const templateChirpstackV4 = `/**
  * LoRaWAN Uplink Decoder Script (ChirpStack v4 / LoRaWAN Standard)
@@ -561,7 +561,7 @@ function Decode(fPort, bytes) {
    * POST /api/plugins/decoder/test
    * Safely execute a script with payload in isolate sandbox (supports ad-hoc script or scriptId)
    */
-  @Post(['api/plugins/decoder/test', 'api/v1/plugins/decoder/test', 'api/plugins/decode/test'])
+  @Post(['api/plugins/decoder/test', 'api/v1/plugins/decoder/test', 'api/plugins/decode/test', 'api/v1/plugins/decode/test'])
   async testDecoder(@Body() dto: TestDecoderPayloadDto) {
     try {
       let scriptContent = dto.script;
@@ -629,7 +629,7 @@ function Decode(fPort, bytes) {
    * POST /api/plugins/decoder/decode
    * Core capability: Identify decoder script automatically from SKU and LONG_FW and decode payload
    */
-  @Post(['api/plugins/decoder/decode', 'api/v1/plugins/decoder/decode', 'api/plugins/decode/payload'])
+  @Post(['api/plugins/decoder/decode', 'api/v1/plugins/decoder/decode', 'api/plugins/decode/payload', 'api/v1/plugins/decode/payload', 'api/v1/plugins/decode/decode'])
   async decodeBySkuAndLongFw(@Body() dto: DecodeByProductDto) {
     try {
       if (!dto.sku || !dto.longFw) {
