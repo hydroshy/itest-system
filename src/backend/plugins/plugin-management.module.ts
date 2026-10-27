@@ -10,6 +10,7 @@ import { FinalConfigAdapterController } from './final-config.adapter.controller'
 import { TraceabilityAdapterController } from './traceability.adapter.controller';
 import { DisManagerAdapterController } from './dis-manager.adapter.controller';
 import { TestingAdapterController } from './testing.adapter.controller';
+import { DeviceAdapterController } from './device.adapter.controller';
 import { DecoderAdapterController } from './decoder.adapter.controller';
 import { DisClientService } from './dis-client/dis-client.service';
 
@@ -23,6 +24,7 @@ import { DisClientService } from './dis-client/dis-client.service';
     TraceabilityAdapterController,
     DisManagerAdapterController,
     TestingAdapterController,
+    DeviceAdapterController,
     DecoderAdapterController,
   ],
   providers: [PluginStorageService, PluginManagerService, DisClientService],
