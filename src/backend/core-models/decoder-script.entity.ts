@@ -8,7 +8,7 @@ import {
   Unique,
 } from 'typeorm';
 
-@Entity({ schema: 'plugins_schema', name: 'decoder_scripts' })
+@Entity({ schema: 'decoder', name: 'decoder_scripts' })
 @Unique('UQ_decoder_scripts_sku_long_fw', ['sku', 'long_fw'])
 export class DecoderScriptEntity {
   @PrimaryGeneratedColumn('uuid')

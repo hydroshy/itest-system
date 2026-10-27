@@ -9,7 +9,7 @@ import {
 } from 'typeorm';
 import { TestingDeviceEntity } from './testing-device.entity';
 
-@Entity({ schema: 'system_schema', name: 'device_packets' })
+@Entity({ schema: 'devices', name: 'device_packets' })
 export class DevicePacketEntity {
   @PrimaryGeneratedColumn({ type: 'bigint' })
   id: string;

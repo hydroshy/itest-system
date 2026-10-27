@@ -13,7 +13,7 @@ import { DevicePacketEntity } from './device-packet.entity';
 import { TraceabilitySoEntity } from './traceability-so.entity';
 import { TraceabilityWaEntity } from './traceability-wa.entity';
 
-@Entity({ schema: 'system_schema', name: 'devices' })
+@Entity({ schema: 'devices', name: 'devices' })
 export class TestingDeviceEntity {
   @PrimaryGeneratedColumn('uuid')
   id: string;

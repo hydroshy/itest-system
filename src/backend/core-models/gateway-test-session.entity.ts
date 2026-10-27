@@ -7,7 +7,7 @@ import {
   Index,
 } from 'typeorm';
 
-@Entity({ schema: 'lorawan_chirpstack', name: 'gateway_test_sessions' })
+@Entity({ schema: 'devices', name: 'gateway_test_sessions' })
 export class GatewayTestSessionEntity {
   @PrimaryGeneratedColumn('uuid')
   id: string;
