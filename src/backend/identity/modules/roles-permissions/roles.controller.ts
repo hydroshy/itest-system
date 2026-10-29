@@ -16,7 +16,7 @@ import {
 
 @ApiTags('Roles & Permissions (RBAC)')
 @ApiBearerAuth()
-@Controller(['roles', 'api/v1/roles'])
+@Controller(['roles', 'api/roles', 'api/v1/roles'])
 @UseGuards(JwtAuthGuard, PermissionsGuard)
 export class RolesController {
   constructor(private readonly rolesService: RolesService) {}
@@ -88,6 +88,7 @@ export class RolesController {
 
   @Put(':id/users')
   @Patch(':id/users')
+  @Post([':id/users', ':id/assign-users'])
   @Roles(UserType.ADMIN)
   @ApiOperation({ summary: 'Assign users to role' })
   async assignUsersToRole(@Param('id') id: string, @Body() body: AssignRoleUsersDto) {
@@ -106,6 +107,7 @@ export class RolesController {
 
   @Put(':id/permissions')
   @Patch(':id/permissions')
+  @Post(':id/permissions')
   @Roles(UserType.ADMIN)
   @ApiOperation({ summary: 'Assign permissions to role' })
   async assignPermissionsToRole(@Param('id') id: string, @Body() body: AssignRolePermissionsDto) {
@@ -124,6 +126,7 @@ export class RolesController {
 
   @Put(':id/menus')
   @Patch(':id/menus')
+  @Post(':id/menus')
   @Roles(UserType.ADMIN)
   @ApiOperation({ summary: 'Assign menu views to role' })
   async assignMenusToRole(@Param('id') id: string, @Body() body: AssignRoleMenusDto) {

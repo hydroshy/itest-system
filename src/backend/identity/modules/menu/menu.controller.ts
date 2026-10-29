@@ -18,6 +18,15 @@ export class MenuController {
   constructor(private readonly menuService: MenuService) {}
 
   /**
+   * Endpoint lấy toàn bộ danh mục menu/card items (GET /menu, GET /api/v1/menu)
+   */
+  @Get()
+  @ApiOperation({ summary: 'Get all registered system & plugin menu items' })
+  async getMenuRoot() {
+    return this.menuService.getAllMenuItems();
+  }
+
+  /**
    * Endpoint lấy danh sách thẻ Menu Card theo Role của người dùng đang đăng nhập
    * Hỗ trợ cả trường hợp có hoặc không có Bearer Token (nếu không có thì xem như guest hoặc fallback)
    */
@@ -69,7 +78,7 @@ export class MenuController {
   /**
    * Endpoint lấy toàn bộ danh mục menu/card items (Dành cho Quản trị viên quản lý gán menu)
    */
-  @Get('admin/items')
+  @Get(['admin/items', 'admin/menu-items'])
   @ApiOperation({ summary: 'Get all registered system & plugin menu items' })
   async getAllItems() {
     const items = await this.menuService.getAllMenuItems();
@@ -83,7 +92,7 @@ export class MenuController {
   /**
    * Endpoint lấy ma trận phân quyền hiện tại theo Role
    */
-  @Get('admin/role-assignments')
+  @Get(['admin/role-assignments', 'admin/assignments'])
   @ApiOperation({ summary: 'Get current role menu permission assignments' })
   async getRoleAssignments() {
     const assignments = await this.menuService.getRoleAssignments();
