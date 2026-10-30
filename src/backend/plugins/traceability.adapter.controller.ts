@@ -477,6 +477,7 @@ export class TraceabilityAdapterController {
   async getHierarchyTree(
     @Query('soNumber') soNumber?: string,
     @Query('customerName') customerName?: string,
+    @Query('hierarchy') hierarchy?: string,
   ) {
     try {
       const soRepo = this.databaseService.getRepositoryForTable(
@@ -698,6 +699,84 @@ export class TraceabilityAdapterController {
           });
         }
 
+        // Build Level 2 nodes based on hierarchy mode
+        let childNodes: any[] = [];
+        if (hierarchy === 'wa') {
+          // Hierarchy mode: SO -> WA -> DEVICE
+          const waNodes: any[] = [];
+          const assignedDevIds = new Set<string>();
+
+          for (const wa of soWas) {
+            const waDevs = soDevs.filter((d) => d.wa_id === wa.id);
+            waDevs.forEach((d) => assignedDevIds.add(d.id));
+
+            const passCount = waDevs.filter((d) => d.test_result === TraceabilityTestResult.PASS).length;
+            const failCount = waDevs.filter((d) => d.test_result === TraceabilityTestResult.FAIL).length;
+            const cfgPassCount = waDevs.filter((d) => d.config_status === TraceabilityConfigStatus.CONFIGURED_PASS).length;
+
+            waNodes.push({
+              id: wa.id,
+              soId: so.id,
+              soNumber: so.so_number,
+              type: 'WA',
+              code: wa.wa_number,
+              waNumber: wa.wa_number,
+              itemCode: wa.item_code || '',
+              orderingCode: wa.item_code || '',
+              description: wa.notes || wa.item_code || wa.wa_number,
+              sku: wa.item_code || '',
+              waId: wa.id,
+              plannedQuantity: wa.planned_quantity || waDevs.length,
+              quantity: wa.planned_quantity || waDevs.length,
+              totalDevices: waDevs.length,
+              testedCount: waDevs.length,
+              passCount,
+              failCount,
+              configPassCount: cfgPassCount,
+              status: waDevs.length > 0 && passCount === waDevs.length ? 'COMPLETED' : 'IN_PROGRESS',
+              createdAt: wa.created_at,
+              _children: waDevs.map(mapDeviceNode),
+            });
+          }
+
+          // Any unassigned devices under this SO
+          const unassignedDevs = soDevs.filter((d) => !assignedDevIds.has(d.id));
+          if (unassignedDevs.length > 0) {
+            const passCount = unassignedDevs.filter((d) => d.test_result === TraceabilityTestResult.PASS).length;
+            const failCount = unassignedDevs.filter((d) => d.test_result === TraceabilityTestResult.FAIL).length;
+            const cfgPassCount = unassignedDevs.filter((d) => d.config_status === TraceabilityConfigStatus.CONFIGURED_PASS).length;
+
+            waNodes.push({
+              id: `wa-unassigned-${so.id}`,
+              soId: so.id,
+              soNumber: so.so_number,
+              type: 'WA',
+              code: 'CHƯA GÁN WA',
+              waNumber: 'CHƯA GÁN WA',
+              itemCode: 'UNASSIGNED',
+              orderingCode: 'UNASSIGNED',
+              description: 'Thiết bị chưa gán vào Work Authorization',
+              sku: 'UNASSIGNED',
+              waId: null,
+              plannedQuantity: unassignedDevs.length,
+              quantity: unassignedDevs.length,
+              totalDevices: unassignedDevs.length,
+              testedCount: unassignedDevs.length,
+              passCount,
+              failCount,
+              configPassCount: cfgPassCount,
+              status: 'IN_PROGRESS',
+              createdAt: unassignedDevs[0]?.created_at || so.created_at,
+              _children: unassignedDevs.map(mapDeviceNode),
+            });
+          }
+
+          childNodes = waNodes;
+        } else {
+          // Hierarchy mode: SO -> ITEMCODE -> TESTED DEVICE (default)
+          childNodes = itemCodeNodes;
+        }
+
         const soTotalDevices = soDevs.length;
         const soPassCount = soDevs.filter(
           (d) => d.test_result === TraceabilityTestResult.PASS,
@@ -742,7 +821,7 @@ export class TraceabilityAdapterController {
             soTotalDevices > 0 && soPassCount === soTotalDevices ? 'COMPLETED' : 'IN_PROGRESS',
           notes: so.notes,
           createdAt: so.created_at,
-          _children: itemCodeNodes,
+          _children: childNodes,
         };
       });
 
@@ -1249,15 +1328,41 @@ export class TraceabilityAdapterController {
       if (!resolvedSo) {
         if (body.soId) {
           resolvedSo = await soRepo.findOne({ where: { id: body.soId } });
-        } else if (body.soNumber) {
+        } else if (body.soNumber && body.soNumber.trim()) {
           resolvedSo = await soRepo.findOne({ where: { so_number: body.soNumber.trim() } });
         }
       }
 
       if (!resolvedSo) {
-        throw new BadRequestException(
-          'Target Sale Order (SO) or Work Authorization (WA) must be provided and resolvable',
-        );
+        // Auto-detect SO from devices list or auto-create fallback SO so import succeeds smoothly
+        const devWithSo = body.devices.find((d: any) => d.soNumber || d.so_number || d.so);
+        const autoSoNumber = devWithSo
+          ? (devWithSo.soNumber || devWithSo.so_number || devWithSo.so).trim()
+          : (body.soNumber && body.soNumber.trim()) || null;
+
+        if (autoSoNumber) {
+          resolvedSo = await soRepo.findOne({ where: { so_number: autoSoNumber } });
+          if (!resolvedSo) {
+            resolvedSo = soRepo.create({
+              so_number: autoSoNumber,
+              customer_name: 'Khách hàng mặc định (Import CSV)',
+            });
+            await soRepo.save(resolvedSo);
+          }
+        } else {
+          // Check for latest active SO or create a new one
+          const latestSo = await soRepo.findOne({ where: {}, order: { created_at: 'DESC' } });
+          if (latestSo) {
+            resolvedSo = latestSo;
+          } else {
+            const todayStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+            resolvedSo = soRepo.create({
+              so_number: `SO-IMPORT-${todayStr}`,
+              customer_name: 'Đơn hàng Import CSV Mặc định',
+            });
+            await soRepo.save(resolvedSo);
+          }
+        }
       }
 
       const importedDevices: TraceabilityDeviceEntity[] = [];
