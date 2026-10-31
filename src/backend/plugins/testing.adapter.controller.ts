@@ -76,9 +76,53 @@ export interface CreateGatewaySessionDto {
   forwarderConfig?: Record<string, any>;
 }
 
+export interface RunSimulationDto {
+  devEui: string;
+  serialNumber?: string;
+  soNumber?: string;
+  waNumber?: string;
+  itemCode?: string;
+  name?: string;
+  region?: string;
+  packetType?: string;
+  fPort?: number;
+  fCnt?: number;
+  payloadHex?: string;
+  decodedPayload?: Record<string, any>;
+  intervalMs?: number;
+  burstCount?: number;
+  rfInfo?: {
+    rssi?: number;
+    snr?: number;
+    frequency?: number;
+    gatewayId?: string;
+  };
+}
+
+export interface EvaluateAutoCheckDto {
+  target: {
+    packetId?: string;
+    deviceId?: string;
+    networkId?: string;
+    serialNumber?: string;
+    packet?: any;
+  };
+  criteria?: {
+    minRssi?: number;
+    maxRssi?: number;
+    minSnr?: number;
+    expectedFPort?: number;
+    requiredFields?: string[];
+    fieldRules?: Record<string, { min?: number; max?: number; equals?: any }>;
+  };
+}
+
 @Controller()
 export class TestingAdapterController {
   private readonly logger = new Logger(TestingAdapterController.name);
+  private simulationProfiles: Map<string, any> = new Map();
+  private simulationResults: any[] = [];
+  private autoCheckEvaluations: any[] = [];
 
   constructor(
     private readonly databaseService: DynamicDatabaseService,
@@ -1032,5 +1076,592 @@ export class TestingAdapterController {
         HttpStatus.BAD_GATEWAY,
       );
     }
+  }
+
+  // ============================================================================
+  // 7. DEVICE SIMULATION FLOW
+  // ============================================================================
+
+  @Post(['api/plugins/testing/simulation/run', 'api/v1/plugins/testing/simulation/run'])
+  async runDeviceSimulation(@Body() body: RunSimulationDto) {
+    const devEui = (body.devEui || '').trim().toUpperCase();
+    if (!devEui) {
+      throw new BadRequestException('Field "devEui" is required for simulation');
+    }
+
+    try {
+      const deviceRepo = this.databaseService.getRepositoryForTable(
+        'devices',
+        TestingDeviceEntity,
+      );
+      const packetRepo = this.databaseService.getRepositoryForTable(
+        'device_packets',
+        DevicePacketEntity,
+      );
+
+      // Check or auto-register device
+      let device = await deviceRepo.findOne({
+        where: [{ network_id: devEui }, { serial_number: body.serialNumber?.trim() || devEui }],
+      });
+
+      if (!device && body.serialNumber) {
+        device = deviceRepo.create({
+          serial_number: body.serialNumber.trim(),
+          device_name: body.name || `Simulated-Node-${devEui.slice(-4)}`,
+          device_type: 'lorawan_node',
+          network_id: devEui,
+          plugin_id: 'testing',
+          so_number: body.soNumber || 'SO-SIM-AUTO',
+          wa_number: body.waNumber || 'WA-SIM-AUTO',
+          item_code: body.itemCode || 'ITEM-SIM',
+          status: 'testing',
+          metadata: { simulated: true, region: body.region || 'AS923' },
+        });
+        device = await deviceRepo.save(device);
+      }
+
+      const burstCount = Math.max(1, Math.min(body.burstCount || 1, 50));
+      const packetsGenerated: any[] = [];
+      let currentFCnt = typeof body.fCnt === 'number' ? body.fCnt : 1;
+
+      for (let i = 0; i < burstCount; i++) {
+        const rawPayload = body.payloadHex || '01020304';
+        const baseRssi = body.rfInfo?.rssi ?? -75;
+        const baseSnr = body.rfInfo?.snr ?? 9;
+        const rssi = Math.round(baseRssi + (Math.random() * 4 - 2));
+        const snr = parseFloat((baseSnr + (Math.random() * 2 - 1)).toFixed(1));
+
+        const rfInfo = {
+          rssi,
+          snr,
+          frequency: body.rfInfo?.frequency ?? 868100000,
+          gatewayId: body.rfInfo?.gatewayId ?? 'gw-sim-01',
+        };
+
+        const packetEntity = packetRepo.create({
+          device_id: device?.id || null,
+          packet_type: body.packetType || 'UNCONFIRMED_DATA_UP',
+          f_port: body.fPort ?? 1,
+          f_cnt: currentFCnt++,
+          raw_payload: rawPayload,
+          decoded_payload: body.decodedPayload || {},
+          rf_info: rfInfo,
+        });
+
+        const savedPacket = await packetRepo.save(packetEntity);
+
+        // Update device last seen
+        if (device) {
+          device.metadata = { ...device.metadata, last_seen_at: new Date().toISOString() };
+          device.status = 'testing';
+          await deviceRepo.save(device);
+        }
+
+        // Realtime publish
+        this.realtimeService?.publishTelemetry({
+          deviceId: device?.id,
+          payload: {
+            networkId: devEui,
+            serialNumber: device?.serial_number || body.serialNumber,
+            fPort: savedPacket.f_port,
+            fCnt: savedPacket.f_cnt,
+            rawPayload: savedPacket.raw_payload,
+            decodedPayload: savedPacket.decoded_payload,
+            rfInfo: savedPacket.rf_info,
+            timestamp: savedPacket.created_at,
+          },
+        });
+
+        this.realtimeService?.publishPluginLifecycle('testing:packet_received', {
+          packetId: savedPacket.id,
+          deviceId: device?.id,
+          networkId: devEui,
+          serialNumber: device?.serial_number,
+          rawPayload: savedPacket.raw_payload,
+          decodedPayload: savedPacket.decoded_payload,
+          rfInfo: savedPacket.rf_info,
+          timestamp: savedPacket.created_at,
+        });
+
+        packetsGenerated.push({
+          id: savedPacket.id,
+          deviceId: savedPacket.device_id,
+          packetType: savedPacket.packet_type,
+          fPort: savedPacket.f_port,
+          fCnt: savedPacket.f_cnt,
+          rawPayload: savedPacket.raw_payload,
+          decodedPayload: savedPacket.decoded_payload,
+          rfInfo: savedPacket.rf_info,
+          createdAt: savedPacket.created_at,
+        });
+      }
+
+      const simulationResult = {
+        simulationId: `sim-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+        devEui,
+        serialNumber: device?.serial_number || body.serialNumber,
+        status: 'completed',
+        packetsGenerated,
+        startedAt: new Date().toISOString(),
+        completedAt: new Date().toISOString(),
+      };
+
+      this.simulationResults.unshift(simulationResult);
+      if (this.simulationResults.length > 100) this.simulationResults.length = 100;
+
+      this.realtimeService?.publishPluginLifecycle('testing:simulation_completed', simulationResult);
+
+      return {
+        success: true,
+        message: `Simulation completed: generated ${packetsGenerated.length} packet(s) for DevEUI ${devEui}`,
+        data: simulationResult,
+      };
+    } catch (error: any) {
+      if (error instanceof BadRequestException) throw error;
+      this.logger.error(`Failed to execute device simulation: ${error.message}`);
+      throw new HttpException(
+        `Failed to run simulation: ${error.message}`,
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  @Post(['api/plugins/testing/simulation/profile', 'api/v1/plugins/testing/simulation/profile'])
+  async saveSimulationProfile(@Body() body: any) {
+    const simuId = (body?.simuId || body?.id || `SIMU-${Date.now()}`).trim();
+    const id = simuId;
+    const profile = {
+      ...body,
+      id,
+      simuId,
+      itemCode: (body?.itemCode || '').trim(),
+      longFw: (body?.longFw || '').trim(),
+      profileName: body?.profileName || body?.targetDeviceName || simuId,
+      devEui: (body?.devEui || '').trim().toUpperCase(),
+      flowDurationMinutes: body?.flowDurationMinutes || 30,
+      timedActions: body?.timedActions || [],
+      updatedAt: new Date().toISOString(),
+    };
+    this.simulationProfiles.set(id, profile);
+    return {
+      success: true,
+      message: 'Simulation profile saved',
+      data: profile,
+    };
+  }
+
+  @Get(['api/plugins/testing/simulation/profiles', 'api/v1/plugins/testing/simulation/profiles'])
+  async getSimulationProfiles() {
+    if (this.simulationProfiles.size === 0) {
+      this.seedDefaultSimulationProfiles();
+    }
+    return {
+      success: true,
+      data: Array.from(this.simulationProfiles.values()),
+    };
+  }
+
+  private seedDefaultSimulationProfiles() {
+    const defaults = [
+      {
+        id: 'SIMU-LORA-SP01',
+        simuId: 'SIMU-LORA-SP01',
+        profileName: 'Ổ Cắm Thông Minh & Còi Báo Động (Chuẩn 30 Phút)',
+        itemCode: 'ITEM-9901-SMART-PLUG',
+        longFw: 'v1.2.0-rc3-long-fw-build9482',
+        targetDeviceName: 'Smart Socket Multi-Sensor Node',
+        activation: 'OTAA',
+        devEui: '70B3D57ED005ABCD',
+        appEui: '0000000000000000',
+        appKey: '2B7E151628AED2A6ABF7158809CF4F3C',
+        region: 'AS923-1',
+        sf: 'SF7',
+        bw: 125,
+        fPort: 2,
+        presetId: 'env',
+        flowDurationMinutes: 30,
+        autoTerminate: true,
+        uplinkIntervalSec: 10,
+        timedActions: [
+          {
+            id: 'act-sp-1',
+            triggerMinute: 1,
+            actionType: 'downlink_buzzer',
+            label: 'Downlink bật thiết bị còi giả lập lúc 1 phút',
+            payloadHex: '0101',
+            fPort: 10,
+            executed: false,
+          },
+          {
+            id: 'act-sp-2',
+            triggerMinute: 5,
+            actionType: 'downlink_command',
+            label: 'Downlink cấu hình chu kỳ đo 15s',
+            payloadHex: '02000F',
+            fPort: 10,
+            executed: false,
+          },
+          {
+            id: 'act-sp-3',
+            triggerMinute: 15,
+            actionType: 'downlink_buzzer',
+            label: 'Downlink tắt thiết bị còi giả lập',
+            payloadHex: '0100',
+            fPort: 10,
+            executed: false,
+          },
+          {
+            id: 'act-sp-4',
+            triggerMinute: 30,
+            actionType: 'change_rate',
+            label: 'Tự động kết thúc Flow sau 30 phút',
+            payloadHex: 'FF',
+            fPort: 10,
+            executed: false,
+          },
+        ],
+      },
+      {
+        id: 'SIMU-LORA-WM02',
+        simuId: 'SIMU-LORA-WM02',
+        profileName: 'Đồng Hồ Nước Siêu Âm LoRaWAN DN15',
+        itemCode: 'ITEM-5520-WATER-METER',
+        longFw: 'v2.4.1-long-fw-build1029',
+        targetDeviceName: 'Water Meter Ultrasonic DN15',
+        activation: 'OTAA',
+        devEui: '70B3D57ED0052211',
+        appEui: '0000000000000000',
+        appKey: '0102030405060708090A0B0C0D0E0F10',
+        region: 'VN923',
+        sf: 'SF8',
+        bw: 125,
+        fPort: 1,
+        presetId: 'water',
+        flowDurationMinutes: 30,
+        autoTerminate: true,
+        uplinkIntervalSec: 10,
+        timedActions: [
+          {
+            id: 'act-wm-1',
+            triggerMinute: 1,
+            actionType: 'downlink_buzzer',
+            label: 'Downlink đóng van ngắt nước & bật còi cảnh báo',
+            payloadHex: 'AA000101',
+            fPort: 1,
+            executed: false,
+          },
+          {
+            id: 'act-wm-2',
+            triggerMinute: 10,
+            actionType: 'downlink_command',
+            label: 'Downlink mở lại van cấp nước',
+            payloadHex: 'AA01',
+            fPort: 1,
+            executed: false,
+          },
+          {
+            id: 'act-wm-3',
+            triggerMinute: 30,
+            actionType: 'change_rate',
+            label: 'Tự động kết thúc sau 30 phút',
+            payloadHex: 'FF',
+            fPort: 1,
+            executed: false,
+          },
+        ],
+      },
+      {
+        id: 'SIMU-LORA-ENV03',
+        simuId: 'SIMU-LORA-ENV03',
+        profileName: 'Cảm Biến Khí & Cảnh Báo Khói Cháy',
+        itemCode: 'ITEM-8812-ENV-SENSOR',
+        longFw: 'v1.0.5-long-fw-build3311',
+        targetDeviceName: 'Gas & Smoke Industrial Node',
+        activation: 'OTAA',
+        devEui: '70B3D57ED0059988',
+        appEui: '0000000000000000',
+        appKey: 'A1B2C3D4E5F60102030405060708090A',
+        region: 'AS923-1',
+        sf: 'SF7',
+        bw: 125,
+        fPort: 3,
+        presetId: 'env',
+        flowDurationMinutes: 30,
+        autoTerminate: true,
+        uplinkIntervalSec: 10,
+        timedActions: [
+          {
+            id: 'act-env-1',
+            triggerMinute: 1,
+            actionType: 'downlink_buzzer',
+            label: 'Downlink bật còi báo khói giả lập',
+            payloadHex: '0101',
+            fPort: 10,
+            executed: false,
+          },
+          {
+            id: 'act-env-2',
+            triggerMinute: 12,
+            actionType: 'downlink_buzzer',
+            label: 'Downlink tắt còi báo khói',
+            payloadHex: '0100',
+            fPort: 10,
+            executed: false,
+          },
+          {
+            id: 'act-env-3',
+            triggerMinute: 30,
+            actionType: 'change_rate',
+            label: 'Tự động kết thúc sau 30 phút',
+            payloadHex: 'FF',
+            fPort: 10,
+            executed: false,
+          },
+        ],
+      },
+    ];
+    for (const item of defaults) {
+      this.simulationProfiles.set(item.simuId, item);
+    }
+  }
+
+  @Get(['api/plugins/testing/simulation/results', 'api/v1/plugins/testing/simulation/results'])
+  async getSimulationResults() {
+    return {
+      success: true,
+      data: this.simulationResults,
+    };
+  }
+
+  // ============================================================================
+  // 8. DEVICE AUTO CHECK FLOW
+  // ============================================================================
+
+  @Get(['api/plugins/testing/autocheck/rules', 'api/v1/plugins/testing/autocheck/rules'])
+  getAutoCheckRules() {
+    return {
+      success: true,
+      data: {
+        minRssi: -120,
+        maxRssi: -30,
+        minSnr: -15,
+        expectedFPort: 1,
+        requiredFields: ['dev_eui', 'payload', 'f_port'],
+        fieldRules: {},
+      },
+    };
+  }
+
+  @Post(['api/plugins/testing/autocheck/evaluate', 'api/v1/plugins/testing/autocheck/evaluate'])
+  async evaluateAutoCheck(@Body() body: EvaluateAutoCheckDto) {
+    const target = body?.target || {};
+    const criteria = body?.criteria || {};
+
+    const minRssi = criteria.minRssi ?? -120;
+    const maxRssi = criteria.maxRssi ?? -30;
+    const minSnr = criteria.minSnr ?? -15;
+    const expectedFPort = criteria.expectedFPort;
+    const requiredFields = criteria.requiredFields || ['dev_eui', 'payload'];
+    const fieldRules = criteria.fieldRules || {};
+
+    try {
+      const packetRepo = this.databaseService.getRepositoryForTable(
+        'device_packets',
+        DevicePacketEntity,
+      );
+
+      let packet: any = target.packet;
+
+      if (!packet && target.packetId) {
+        packet = await packetRepo.findOne({
+          where: { id: target.packetId },
+          relations: ['device'],
+        });
+      }
+
+      if (!packet && (target.networkId || target.serialNumber || target.deviceId)) {
+        const qb = packetRepo
+          .createQueryBuilder('p')
+          .leftJoinAndSelect('p.device', 'dev')
+          .orderBy('p.created_at', 'DESC');
+
+        if (target.deviceId) {
+          qb.andWhere('p.device_id = :dId', { dId: target.deviceId });
+        }
+        if (target.networkId) {
+          qb.andWhere('(dev.network_id ILIKE :net OR dev.serial_number ILIKE :net)', {
+            net: `%${target.networkId.trim()}%`,
+          });
+        }
+        if (target.serialNumber) {
+          qb.andWhere('dev.serial_number ILIKE :ser', { ser: `%${target.serialNumber.trim()}%` });
+        }
+
+        packet = await qb.getOne();
+      }
+
+      if (!packet) {
+        throw new NotFoundException(
+          'No packet found for auto-check evaluation. Please run a simulation or ingest a packet first.',
+        );
+      }
+
+      const ruleResults: any[] = [];
+      const rf = packet.rf_info || packet.rfInfo || {};
+      const rssi = rf.rssi;
+      const snr = rf.snr;
+      const fPort = packet.f_port ?? packet.fPort;
+      const fCnt = packet.f_cnt ?? packet.fCnt;
+      const rawPayload = packet.raw_payload || packet.rawPayload || '';
+      const decoded = packet.decoded_payload || packet.decodedPayload || {};
+
+      // 1. RSSI Check
+      const rssiPassed = rssi !== undefined && rssi >= minRssi && rssi <= maxRssi;
+      ruleResults.push({
+        rule: 'RSSI_RANGE_CHECK',
+        passed: rssiPassed,
+        actual: rssi,
+        expected: `Between ${minRssi} and ${maxRssi} dBm`,
+        message: rssiPassed
+          ? `RSSI ${rssi} dBm is acceptable`
+          : `RSSI ${rssi} dBm is outside allowable range [${minRssi}, ${maxRssi}]`,
+      });
+
+      // 2. SNR Check
+      const snrPassed = snr !== undefined && snr >= minSnr;
+      ruleResults.push({
+        rule: 'SNR_MIN_CHECK',
+        passed: snrPassed,
+        actual: snr,
+        expected: `>= ${minSnr} dB`,
+        message: snrPassed
+          ? `SNR ${snr} dB meets link budget threshold`
+          : `SNR ${snr} dB is below threshold ${minSnr} dB`,
+      });
+
+      // 3. fPort Check
+      if (expectedFPort !== undefined) {
+        const portPassed = fPort === expectedFPort;
+        ruleResults.push({
+          rule: 'FPORT_MATCH_CHECK',
+          passed: portPassed,
+          actual: fPort,
+          expected: expectedFPort,
+          message: portPassed
+            ? `fPort ${fPort} matches specification`
+            : `Expected fPort ${expectedFPort}, but packet has ${fPort}`,
+        });
+      }
+
+      // 4. Required Fields Check
+      for (const field of requiredFields) {
+        let actualVal: any;
+        if (field === 'dev_eui' || field === 'network_id') {
+          actualVal = packet.device?.network_id || target.networkId;
+        } else if (field === 'payload' || field === 'raw_payload') {
+          actualVal = rawPayload;
+        } else if (field === 'f_port') {
+          actualVal = fPort;
+        } else if (field === 'f_cnt') {
+          actualVal = fCnt;
+        } else {
+          actualVal = decoded[field];
+        }
+
+        const passed = actualVal !== undefined && actualVal !== null && actualVal !== '';
+        ruleResults.push({
+          rule: `FIELD_REQUIRED_${field.toUpperCase()}`,
+          passed,
+          actual: actualVal ?? null,
+          expected: 'Non-empty value',
+          message: passed ? `Required field '${field}' exists` : `Missing mandatory field '${field}'`,
+        });
+      }
+
+      // 5. Specific Field Rules
+      for (const [field, rule] of Object.entries(fieldRules)) {
+        const actualVal = decoded[field];
+        let passed = true;
+        let failReason = '';
+
+        if (actualVal === undefined || actualVal === null) {
+          passed = false;
+          failReason = `Field '${field}' missing in decoded payload`;
+        } else {
+          if (rule.equals !== undefined && actualVal !== rule.equals) {
+            passed = false;
+            failReason = `Expected ${rule.equals}, received ${actualVal}`;
+          }
+          if (rule.min !== undefined && (typeof actualVal !== 'number' || actualVal < rule.min)) {
+            passed = false;
+            failReason = `Expected >= ${rule.min}, received ${actualVal}`;
+          }
+          if (rule.max !== undefined && (typeof actualVal !== 'number' || actualVal > rule.max)) {
+            passed = false;
+            failReason = `Expected <= ${rule.max}, received ${actualVal}`;
+          }
+        }
+
+        ruleResults.push({
+          rule: `FIELD_VALUE_RULE_${field.toUpperCase()}`,
+          passed,
+          actual: actualVal,
+          expected: rule,
+          message: passed ? `Rule for '${field}' passed` : failReason,
+        });
+      }
+
+      const passedCount = ruleResults.filter((r) => r.passed).length;
+      const failedCount = ruleResults.length - passedCount;
+      const verdict = failedCount === 0 ? 'PASS' : 'FAIL';
+
+      const evaluation = {
+        evaluationId: `eval-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+        packetId: packet.id,
+        deviceId: packet.device_id || packet.device?.id,
+        serialNumber: packet.device?.serial_number || target.serialNumber,
+        networkId: packet.device?.network_id || target.networkId,
+        verdict,
+        totalRules: ruleResults.length,
+        passedRules: passedCount,
+        failedRules: failedCount,
+        ruleResults,
+        evaluatedAt: new Date().toISOString(),
+        packetSummary: {
+          rawPayload,
+          fPort,
+          fCnt,
+          rssi,
+          snr,
+          decoded,
+        },
+      };
+
+      this.autoCheckEvaluations.unshift(evaluation);
+      if (this.autoCheckEvaluations.length > 100) this.autoCheckEvaluations.length = 100;
+
+      this.realtimeService?.publishPluginLifecycle('testing:autocheck_evaluated', evaluation);
+
+      return {
+        success: true,
+        message: `Device Auto Check evaluated with verdict: ${verdict}`,
+        data: evaluation,
+      };
+    } catch (error: any) {
+      if (error instanceof NotFoundException) throw error;
+      this.logger.error(`Failed to evaluate auto check: ${error.message}`);
+      throw new HttpException(
+        `Failed to evaluate auto check: ${error.message}`,
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  @Get(['api/plugins/testing/autocheck/history', 'api/v1/plugins/testing/autocheck/history'])
+  getAutoCheckHistory() {
+    return {
+      success: true,
+      data: this.autoCheckEvaluations,
+    };
   }
 }
