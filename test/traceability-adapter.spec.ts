@@ -278,6 +278,27 @@ async function runTests() {
   const disClientService = new DisClientService();
   const controller = new TraceabilityAdapterController(mockDbService, disClientService);
 
+  // WA route contract: UUID path parameter and slash-bearing business number query are distinct.
+  const waFilters: Array<{ clause: string; params: any }> = [];
+  const waQuery: any = {
+    leftJoinAndSelect: () => waQuery,
+    orderBy: () => waQuery,
+    andWhere: (clause: string, params: any) => { waFilters.push({ clause, params }); return waQuery; },
+    getMany: async () => [],
+  };
+  const queryController = new TraceabilityAdapterController({
+    getRepositoryForTable: () => ({ createQueryBuilder: () => waQuery }),
+  } as any, disClientService);
+  const waRoutes = Reflect.getMetadata('path', TraceabilityAdapterController.prototype.getWorkAuthorizations);
+  assert.ok(waRoutes.includes('api/v1/plugins/device-traceability/wa'));
+  await queryController.getWorkAuthorizations(undefined, undefined, 'SO/2026/01527');
+  assert.deepStrictEqual(waFilters.pop(), {
+    clause: 'so.so_number ILIKE :soNumber', params: { soNumber: '%SO/2026/01527%' },
+  });
+  await queryController.getWorkAuthorizations('so-uuid');
+  assert.deepStrictEqual(waFilters.pop(), { clause: 'wa.so_id = :soId', params: { soId: 'so-uuid' } });
+  assert.strictEqual(waFilters.length, 0);
+
   // 3. Test SO Creation and Validation
   console.log('3. Testing SO creation and duplicate rejection...');
   const so1 = await controller.createSaleOrder({
