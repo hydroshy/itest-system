@@ -111,6 +111,19 @@ export const SYSTEM_MENU_ITEMS: MenuItemDto[] = [
     category: 'plugin',
     order: 10,
   },
+  ...[
+    { tab: 'tenants', title: 'LoRaWAN Tenants', icon: 'User', description: 'Quản lý tenant ChirpStack' },
+    { tab: 'gateways', title: 'LoRaWAN Gateways', icon: 'Connection', description: 'Quản lý gateway LoRaWAN' },
+    { tab: 'devices', title: 'LoRaWAN Devices', icon: 'Cpu', description: 'Quản lý thiết bị LoRaWAN' },
+    { tab: 'telemetry', title: 'LoRaWAN Telemetry', icon: 'DataLine', description: 'Theo dõi uplink telemetry LoRaWAN' },
+  ].map((view, index): MenuItemDto => ({
+    ...view,
+    id: `lorawan-chirpstack:${view.tab}`,
+    route: `/plugins/lorawan-chirpstack?tab=${view.tab}`,
+    pluginId: 'lorawan-chirpstack',
+    category: 'plugin',
+    order: 11 + index,
+  })),
 ];
 
 @Injectable()
@@ -175,6 +188,11 @@ export class MenuService {
             });
             normalizedRows.sort((a, b) => (a.order || 0) - (b.order || 0));
           }
+          // Keep existing IDs/permissions; expose newly introduced view cards even on older databases.
+          for (const item of SYSTEM_MENU_ITEMS.filter((item) => item.pluginId === 'lorawan-chirpstack')) {
+            if (!normalizedRows.some((row) => row.id === item.id)) normalizedRows.push({ ...item });
+          }
+          normalizedRows.sort((a, b) => (a.order || 0) - (b.order || 0));
           return normalizedRows;
         }
       }

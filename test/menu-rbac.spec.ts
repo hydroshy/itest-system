@@ -42,7 +42,24 @@ async function runTests() {
   assert.ok(itemIds.includes('device-traceability:final-config'), 'Should contain device-traceability:final-config');
   assert.ok(itemIds.includes('memmap-payload:manager'), 'Should contain memmap-payload:manager');
   assert.ok(itemIds.includes('lorawan-chirpstack:integration'), 'Should contain lorawan-chirpstack:integration');
-  console.log('✓ All 9 core & plugin granular feature cards properly registered.\n');
+  for (const tab of ['tenants', 'gateways', 'devices', 'telemetry']) {
+    const card = items.find((item) => item.id === `lorawan-chirpstack:${tab}`);
+    assert.strictEqual(card?.route, `/plugins/lorawan-chirpstack?tab=${tab}`);
+    assert.strictEqual(card?.tab, tab);
+  }
+  assert.strictEqual(items.find((item) => item.id === 'lorawan-chirpstack:integration')?.tab, 'overview');
+  await menuService.assignRoleMenu('LORA_LEGACY', ['lorawan-chirpstack:integration']);
+  assert.deepStrictEqual((await menuService.getCardsForRoles(['LORA_LEGACY'])).map((item) => item.id), ['lorawan-chirpstack:integration']);
+  await menuService.assignRoleMenu('LORA_TELEMETRY', ['lorawan-chirpstack:telemetry']);
+  assert.deepStrictEqual((await menuService.getCardsForRoles(['LORA_TELEMETRY'])).map((item) => item.id), ['lorawan-chirpstack:telemetry']);
+  const persistedService = new MenuService({ getDataSourceForTable: () => ({
+    isInitialized: true,
+    query: async () => [SYSTEM_MENU_ITEMS.find((item) => item.id === 'lorawan-chirpstack:integration')],
+  }) } as any);
+  const persistedItems = await persistedService.getAllMenuItems();
+  assert.strictEqual(persistedItems.filter((item) => item.pluginId === 'lorawan-chirpstack').length, 5);
+  assert.strictEqual(new Set(persistedItems.map((item) => item.id)).size, persistedItems.length);
+  console.log('✓ Granular cards, legacy LoRaWAN permission and persisted catalog verified.\n');
 
   // [TEST 2] Role Assignment Matrix & Fallbacks
   console.log('[TEST 2] Verifying Role Assignments & Permissions Filtering...');
