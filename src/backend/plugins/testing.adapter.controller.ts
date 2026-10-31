@@ -1230,22 +1230,93 @@ export class TestingAdapterController {
   async saveSimulationProfile(@Body() body: any) {
     const simuId = (body?.simuId || body?.id || `SIMU-${Date.now()}`).trim();
     const id = simuId;
+    const serialNumber = (body?.serialNumber || body?.serial_number || `SN-TMPL-${Date.now()}`).trim();
+    const networkId = (body?.networkId || body?.network_id || body?.devEui || '').trim().toUpperCase();
+    const deviceName = (body?.deviceName || body?.device_name || body?.targetDeviceName || body?.profileName || simuId).trim();
+    const deviceType = (body?.deviceType || body?.device_type || 'lorawan_node').trim();
+    const pluginId = (body?.pluginId || body?.plugin_id || 'testing').trim();
+    const soNumber = (body?.soNumber || body?.so_number || '').trim();
+    const waNumber = (body?.waNumber || body?.wa_number || '').trim();
+    const itemCode = (body?.itemCode || body?.item_code || '').trim();
+    const longFw = (body?.longFw || body?.long_fw || '').trim();
+    const status = (body?.status || 'template').trim();
+    const flowDurationMinutes = body?.flowDurationMinutes || 30;
+    const timedActions = body?.timedActions || [];
+
     const profile = {
       ...body,
       id,
       simuId,
-      itemCode: (body?.itemCode || '').trim(),
-      longFw: (body?.longFw || '').trim(),
-      profileName: body?.profileName || body?.targetDeviceName || simuId,
-      devEui: (body?.devEui || '').trim().toUpperCase(),
-      flowDurationMinutes: body?.flowDurationMinutes || 30,
-      timedActions: body?.timedActions || [],
+      serialNumber,
+      networkId,
+      deviceName,
+      deviceType,
+      pluginId,
+      soNumber,
+      waNumber,
+      itemCode,
+      status,
+      longFw,
+      profileName: body?.profileName || deviceName,
+      targetDeviceName: deviceName,
+      devEui: networkId,
+      flowDurationMinutes,
+      timedActions,
       updatedAt: new Date().toISOString(),
     };
     this.simulationProfiles.set(id, profile);
+
+    // Sync template device to devices database table
+    try {
+      const deviceRepo = this.databaseService.getRepositoryForTable(
+        'devices',
+        TestingDeviceEntity,
+      );
+      let dev = await deviceRepo.findOne({ where: { serial_number: serialNumber } });
+      if (!dev) {
+        dev = deviceRepo.create({
+          serial_number: serialNumber,
+          network_id: networkId || null,
+          device_name: deviceName,
+          device_type: deviceType,
+          plugin_id: pluginId,
+          so_number: soNumber || null,
+          wa_number: waNumber || null,
+          item_code: itemCode || null,
+          status: 'template',
+          metadata: {
+            simu_id: simuId,
+            long_fw: longFw,
+            flow_duration_minutes: flowDurationMinutes,
+            timed_actions: timedActions,
+            is_template: true,
+          },
+        });
+      } else {
+        dev.device_name = deviceName;
+        dev.device_type = deviceType;
+        if (networkId) dev.network_id = networkId;
+        if (itemCode) dev.item_code = itemCode;
+        if (soNumber) dev.so_number = soNumber;
+        if (waNumber) dev.wa_number = waNumber;
+        dev.status = 'template';
+        dev.metadata = {
+          ...(dev.metadata || {}),
+          simu_id: simuId,
+          long_fw: longFw,
+          flow_duration_minutes: flowDurationMinutes,
+          timed_actions: timedActions,
+          is_template: true,
+        };
+      }
+      await deviceRepo.save(dev);
+    } catch (e: any) {
+      this.logger.warn(`Could not sync template device to DB table: ${e.message}`);
+    }
+
     return {
       success: true,
-      message: 'Simulation profile saved',
+      message: 'Simulation profile and template device saved',
       data: profile,
     };
   }
@@ -1266,8 +1337,16 @@ export class TestingAdapterController {
       {
         id: 'SIMU-LORA-SP01',
         simuId: 'SIMU-LORA-SP01',
-        profileName: 'Ổ Cắm Thông Minh & Còi Báo Động (Chuẩn 30 Phút)',
+        serialNumber: 'SN-TMPL-SP01',
+        networkId: '70B3D57ED005ABCD',
+        deviceName: 'Smart Socket Multi-Sensor Node',
+        deviceType: 'lorawan_node',
+        pluginId: 'testing',
+        soNumber: 'SO-2025-9901',
+        waNumber: 'WA-2025-9901',
         itemCode: 'ITEM-9901-SMART-PLUG',
+        status: 'template',
+        profileName: 'Ổ Cắm Thông Minh & Còi Báo Động (Chuẩn 30 Phút)',
         longFw: 'v1.2.0-rc3-long-fw-build9482',
         targetDeviceName: 'Smart Socket Multi-Sensor Node',
         activation: 'OTAA',
@@ -1324,8 +1403,16 @@ export class TestingAdapterController {
       {
         id: 'SIMU-LORA-WM02',
         simuId: 'SIMU-LORA-WM02',
-        profileName: 'Đồng Hồ Nước Siêu Âm LoRaWAN DN15',
+        serialNumber: 'SN-TMPL-WM02',
+        networkId: '70B3D57ED0052211',
+        deviceName: 'Water Meter Ultrasonic DN15',
+        deviceType: 'lorawan_node',
+        pluginId: 'testing',
+        soNumber: 'SO-2025-5520',
+        waNumber: 'WA-2025-5520',
         itemCode: 'ITEM-5520-WATER-METER',
+        status: 'template',
+        profileName: 'Đồng Hồ Nước Siêu Âm LoRaWAN DN15',
         longFw: 'v2.4.1-long-fw-build1029',
         targetDeviceName: 'Water Meter Ultrasonic DN15',
         activation: 'OTAA',
@@ -1373,8 +1460,16 @@ export class TestingAdapterController {
       {
         id: 'SIMU-LORA-ENV03',
         simuId: 'SIMU-LORA-ENV03',
-        profileName: 'Cảm Biến Khí & Cảnh Báo Khói Cháy',
+        serialNumber: 'SN-TMPL-ENV03',
+        networkId: '70B3D57ED0059988',
+        deviceName: 'Gas & Smoke Industrial Node',
+        deviceType: 'lorawan_node',
+        pluginId: 'testing',
+        soNumber: 'SO-2025-8812',
+        waNumber: 'WA-2025-8812',
         itemCode: 'ITEM-8812-ENV-SENSOR',
+        status: 'template',
+        profileName: 'Cảm Biến Khí & Cảnh Báo Khói Cháy',
         longFw: 'v1.0.5-long-fw-build3311',
         targetDeviceName: 'Gas & Smoke Industrial Node',
         activation: 'OTAA',
