@@ -392,8 +392,13 @@ export class TestingAdapterController {
     }
   }
 
-  @Get(['api/plugins/testing/devices/simulation', 'api/v1/plugins/testing/devices/simulation'])
-  async getSimulationDevices() {
+  @Get([
+    'api/plugins/testing/devices/simulation',
+    'api/v1/plugins/testing/devices/simulation',
+    'api/plugins/testing/simulation/devices',
+    'api/v1/plugins/testing/simulation/devices',
+  ])
+  async getSimulationDevices(@Query('label') label?: string) {
     try {
       const deviceRepo = this.databaseService.getRepositoryForTable(
         'devices',
@@ -1293,7 +1298,12 @@ export class TestingAdapterController {
     }
   }
 
-  @Post(['api/plugins/testing/simulation/profile', 'api/v1/plugins/testing/simulation/profile'])
+  @Post([
+    'api/plugins/testing/simulation/profile',
+    'api/v1/plugins/testing/simulation/profile',
+    'api/plugins/testing/simulation/profiles',
+    'api/v1/plugins/testing/simulation/profiles',
+  ])
   async saveSimulationProfile(@Body() body: any) {
     const simuId = (body?.simuId || body?.id || `SIMU-${Date.now()}`).trim();
     const id = simuId;
