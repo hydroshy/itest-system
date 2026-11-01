@@ -136,6 +136,17 @@ export const SYSTEM_MENU_ITEMS: MenuItemDto[] = [
     order: 15,
   },
   {
+    id: 'testing:create-device-testing',
+    title: 'Create Device Testing',
+    description: 'Tạo và khởi chạy phiên kiểm thử thiết bị LoRaWAN/Sigfox với Flow mô phỏng và Auto Check',
+    icon: 'Plus',
+    route: '/plugins/testing?tab=create-device-testing',
+    pluginId: 'testing',
+    tab: 'create-device-testing',
+    category: 'plugin',
+    order: 16,
+  },
+  {
     id: 'testing:simulation-devices',
     title: 'Simulation Devices',
     description: 'Quản lý danh sách thiết bị kiểm thử được gắn nhãn simulation trong hệ thống',
@@ -144,7 +155,7 @@ export const SYSTEM_MENU_ITEMS: MenuItemDto[] = [
     pluginId: 'testing',
     tab: 'simulation-devices',
     category: 'plugin',
-    order: 16,
+    order: 17,
   },
   {
     id: 'testing:device-simulation',
@@ -155,7 +166,7 @@ export const SYSTEM_MENU_ITEMS: MenuItemDto[] = [
     pluginId: 'testing',
     tab: 'device-simulation',
     category: 'plugin',
-    order: 17,
+    order: 18,
   },
   {
     id: 'testing:device-auto-check',
@@ -166,7 +177,7 @@ export const SYSTEM_MENU_ITEMS: MenuItemDto[] = [
     pluginId: 'testing',
     tab: 'device-auto-check',
     category: 'plugin',
-    order: 18,
+    order: 19,
   },
   {
     id: 'testing:packets',
@@ -177,7 +188,7 @@ export const SYSTEM_MENU_ITEMS: MenuItemDto[] = [
     pluginId: 'testing',
     tab: 'packets',
     category: 'plugin',
-    order: 19,
+    order: 20,
   },
 ];
 
@@ -198,6 +209,7 @@ export class MenuService {
       'device-traceability:so',
       'device-traceability:devices',
       'testing:gateway-sessions',
+      'testing:create-device-testing',
       'testing:simulation-devices',
       'testing:device-simulation',
       'testing:device-auto-check',

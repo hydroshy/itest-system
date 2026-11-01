@@ -42,7 +42,7 @@ async function runTests() {
   assert.ok(itemIds.includes('device-traceability:final-config'), 'Should contain device-traceability:final-config');
   assert.ok(itemIds.includes('memmap-payload:manager'), 'Should contain memmap-payload:manager');
   assert.ok(itemIds.includes('lorawan-chirpstack:integration'), 'Should contain lorawan-chirpstack:integration');
-  for (const tab of ['gateway-sessions', 'device-simulation', 'device-auto-check', 'packets']) {
+  for (const tab of ['gateway-sessions', 'create-device-testing', 'simulation-devices', 'device-simulation', 'device-auto-check', 'packets']) {
     const card = items.find((item) => item.id === `testing:${tab}`);
     assert.ok(card, `Should contain testing:${tab}`);
     assert.strictEqual(card?.route, `/plugins/testing?tab=${tab}`);

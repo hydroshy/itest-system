@@ -370,6 +370,33 @@ async function runTests() {
   }
   console.log('✓ AutoCheck history recorded all evaluations.');
 
+  console.log('9. Testing Create Device Testing Sessions Endpoint...');
+  const createSessionRes = await controller.createDeviceTestSession({
+    serialNumber: 'SN-TEST-DUT-999',
+    devEui: '70B3D57ED0059999',
+    itemCode: 'ITEM-TEST-999',
+    sku: 'WSLRW-TEST',
+    sensorConnectivity: 'LoRaWAN',
+    longFw: '5F1234',
+    simuId: 'SIMU-ITEM-TEST-999-5F1234',
+    flowConfig: [
+      { id: 'b1', functionType: 'downlink', delaySeconds: 10, payloadHex: '0102' },
+    ],
+  });
+  if (!createSessionRes || !createSessionRes.success || createSessionRes.data.status !== 'RUNNING') {
+    throw new Error(`createDeviceTestSession failed: ${JSON.stringify(createSessionRes)}`);
+  }
+  const sessionId = createSessionRes.data.sessionId;
+  const listSessionsRes = await controller.getDeviceTestSessions();
+  if (!listSessionsRes.success || !Array.isArray(listSessionsRes.data) || listSessionsRes.data.length === 0) {
+    throw new Error('getDeviceTestSessions failed');
+  }
+  const sessionDetail = await controller.getDeviceTestSessionById(sessionId);
+  if (!sessionDetail.success || sessionDetail.data.sessionId !== sessionId) {
+    throw new Error(`getDeviceTestSessionById failed for ${sessionId}`);
+  }
+  console.log('✓ Create Device Testing Sessions CRUD verified successfully.');
+
   console.log('\n================================================================');
   console.log('ALL TESTING ADAPTER CONTROLLER VERIFICATION TESTS PASSED 100%!');
   console.log('================================================================\n');

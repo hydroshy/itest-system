@@ -1842,4 +1842,171 @@ export class TestingAdapterController {
       data: this.autoCheckEvaluations,
     };
   }
+
+  // ============================================================================
+  // 7. CREATE DEVICE TESTING & TEST SESSIONS ORCHESTRATION
+  // ============================================================================
+
+  private deviceTestSessions: Map<string, any> = new Map();
+
+  @Post(['api/plugins/testing/device-tests', 'api/v1/plugins/testing/device-tests'])
+  async createDeviceTestSession(@Body() body: any) {
+    try {
+      const sessionId = (body?.sessionId || `DTEST-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`).trim();
+      const serialNumber = (body?.serialNumber || body?.serial_number || '').trim();
+      const devEui = (body?.devEui || body?.networkId || '').trim().toUpperCase();
+      const itemCode = (body?.itemCode || body?.item_code || '').trim();
+      const sku = (body?.sku || '').trim();
+      const sensorConnectivity = (body?.sensorConnectivity || body?.sensor_connectivity || 'LoRaWAN').trim();
+      const longFw = (body?.longFw || body?.long_fw || '').trim();
+      const simuId = (body?.simuId || body?.simu_id || '').trim();
+      const flowConfig = body?.flowConfig || body?.flow_config || body?.flowBlocks || [];
+      const autoCheckCriteria = body?.autoCheckCriteria || body?.auto_check_criteria || this.getAutoCheckRules().data;
+
+      const session = {
+        id: sessionId,
+        sessionId,
+        serialNumber,
+        devEui,
+        itemCode,
+        sku,
+        sensorConnectivity,
+        longFw,
+        simuId,
+        flowConfig,
+        autoCheckCriteria,
+        status: 'RUNNING',
+        verdict: 'PENDING',
+        durationSeconds: body?.durationSeconds || 1800,
+        elapsedSeconds: 0,
+        startedAt: new Date().toISOString(),
+        finishedAt: null,
+        logs: [
+          {
+            timestamp: new Date().toISOString(),
+            level: 'INFO',
+            message: `Khởi tạo phiên kiểm thử thiết bị ${sessionId} cho serial [${serialNumber || devEui}]`,
+          },
+        ],
+      };
+
+      this.deviceTestSessions.set(sessionId, session);
+
+      // Attempt to save to database if table exists
+      try {
+        const ds = this.databaseService.getDataSourceForTable('device_test_sessions');
+        if (ds && ds.isInitialized) {
+          await ds.query(
+            `INSERT INTO system_schema.device_test_sessions
+             (session_id, serial_number, dev_eui, simu_id, status, verdict, duration_seconds, flow_config, auto_check_criteria, logs, started_at)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+             ON CONFLICT (session_id) DO UPDATE SET
+               status = EXCLUDED.status,
+               verdict = EXCLUDED.verdict,
+               flow_config = EXCLUDED.flow_config,
+               auto_check_criteria = EXCLUDED.auto_check_criteria,
+               logs = EXCLUDED.logs`,
+            [
+              sessionId,
+              serialNumber || null,
+              devEui || null,
+              simuId || null,
+              'RUNNING',
+              'PENDING',
+              session.durationSeconds,
+              JSON.stringify(flowConfig),
+              JSON.stringify(autoCheckCriteria),
+              JSON.stringify(session.logs),
+              session.startedAt,
+            ]
+          );
+        }
+      } catch (dbErr: any) {
+        this.logger.warn(`Could not persist device test session to database: ${dbErr.message}`);
+      }
+
+      // Publish Realtime Event
+      this.realtimeService?.publishPluginLifecycle('testing:device_test_created', session);
+
+      return {
+        success: true,
+        message: 'Khởi tạo phiên kiểm thử thiết bị thành công',
+        data: session,
+      };
+    } catch (error: any) {
+      this.logger.error(`Failed to create device test session: ${error.message}`);
+      throw new HttpException(
+        `Failed to create device test session: ${error.message}`,
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  @Get(['api/plugins/testing/device-tests', 'api/v1/plugins/testing/device-tests'])
+  async getDeviceTestSessions() {
+    try {
+      const ds = this.databaseService.getDataSourceForTable('device_test_sessions');
+      if (ds && ds.isInitialized) {
+        const rows = await ds.query(
+          `SELECT session_id as "sessionId", serial_number as "serialNumber", dev_eui as "devEui",
+                  simu_id as "simuId", status, verdict, duration_seconds as "durationSeconds",
+                  started_at as "startedAt", finished_at as "finishedAt", flow_config as "flowConfig",
+                  auto_check_criteria as "autoCheckCriteria", logs
+           FROM system_schema.device_test_sessions
+           ORDER BY started_at DESC LIMIT 50`
+        );
+        if (Array.isArray(rows) && rows.length > 0) {
+          return {
+            success: true,
+            data: rows,
+          };
+        }
+      }
+    } catch (e: any) {
+      this.logger.warn(`Could not query device test sessions from DB: ${e.message}`);
+    }
+
+    return {
+      success: true,
+      data: Array.from(this.deviceTestSessions.values()).sort(
+        (a, b) => new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime()
+      ),
+    };
+  }
+
+  @Get(['api/plugins/testing/device-tests/:sessionId', 'api/v1/plugins/testing/device-tests/:sessionId'])
+  async getDeviceTestSessionById(@Param('sessionId') sessionId: string) {
+    const memorySession = this.deviceTestSessions.get(sessionId);
+    if (memorySession) {
+      return {
+        success: true,
+        data: memorySession,
+      };
+    }
+
+    try {
+      const ds = this.databaseService.getDataSourceForTable('device_test_sessions');
+      if (ds && ds.isInitialized) {
+        const rows = await ds.query(
+          `SELECT session_id as "sessionId", serial_number as "serialNumber", dev_eui as "devEui",
+                  simu_id as "simuId", status, verdict, duration_seconds as "durationSeconds",
+                  started_at as "startedAt", finished_at as "finishedAt", flow_config as "flowConfig",
+                  auto_check_criteria as "autoCheckCriteria", logs
+           FROM system_schema.device_test_sessions
+           WHERE session_id = $1`,
+          [sessionId]
+        );
+        if (Array.isArray(rows) && rows.length > 0) {
+          return {
+            success: true,
+            data: rows[0],
+          };
+        }
+      }
+    } catch (e: any) {
+      this.logger.warn(`Could not query device test session by ID: ${e.message}`);
+    }
+
+    throw new NotFoundException(`Device test session '${sessionId}' not found`);
+  }
 }
