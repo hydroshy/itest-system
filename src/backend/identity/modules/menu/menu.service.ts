@@ -124,6 +124,50 @@ export const SYSTEM_MENU_ITEMS: MenuItemDto[] = [
     category: 'plugin',
     order: 11 + index,
   })),
+  {
+    id: 'testing:gateway-sessions',
+    title: 'Gateway Testing',
+    description: 'Kiểm thử Gateway LoRaWAN, cấu hình packet forwarder và xác thực số serial',
+    icon: 'Connection',
+    route: '/plugins/testing?tab=gateway-sessions',
+    pluginId: 'testing',
+    tab: 'gateway-sessions',
+    category: 'plugin',
+    order: 15,
+  },
+  {
+    id: 'testing:device-simulation',
+    title: 'Device Simulation Flow',
+    description: 'Giả lập thiết bị LoRaWAN uplink/downlink, sinh burst packets và kiểm tra RF/fCnt',
+    icon: 'Cpu',
+    route: '/plugins/testing?tab=device-simulation',
+    pluginId: 'testing',
+    tab: 'device-simulation',
+    category: 'plugin',
+    order: 16,
+  },
+  {
+    id: 'testing:device-auto-check',
+    title: 'Device Auto Check Flow',
+    description: 'Tự động kiểm tra gói tin LoRaWAN, đánh giá ngưỡng RSSI/SNR và payload rules',
+    icon: 'Checked',
+    route: '/plugins/testing?tab=device-auto-check',
+    pluginId: 'testing',
+    tab: 'device-auto-check',
+    category: 'plugin',
+    order: 17,
+  },
+  {
+    id: 'testing:packets',
+    title: 'Live Packet Monitor',
+    description: 'Giám sát luồng gói tin LoRaWAN thời gian thực, payload hex và decoded JSONB',
+    icon: 'DataLine',
+    route: '/plugins/testing?tab=packets',
+    pluginId: 'testing',
+    tab: 'packets',
+    category: 'plugin',
+    order: 18,
+  },
 ];
 
 @Injectable()
@@ -137,7 +181,16 @@ export class MenuService {
     ADMINISTRATOR: SYSTEM_MENU_ITEMS.map((item) => item.id),
     USER: ['dashboard', 'final-config:tool'],
     END_USER: ['dashboard', 'final-config:tool'],
-    OPERATOR: ['dashboard', 'final-config:tool', 'device-traceability:so', 'device-traceability:devices'],
+    OPERATOR: [
+      'dashboard',
+      'final-config:tool',
+      'device-traceability:so',
+      'device-traceability:devices',
+      'testing:gateway-sessions',
+      'testing:device-simulation',
+      'testing:device-auto-check',
+      'testing:packets',
+    ],
   };
 
   constructor(private readonly dbService: DynamicDatabaseService) {}
@@ -189,7 +242,9 @@ export class MenuService {
             normalizedRows.sort((a, b) => (a.order || 0) - (b.order || 0));
           }
           // Keep existing IDs/permissions; expose newly introduced view cards even on older databases.
-          for (const item of SYSTEM_MENU_ITEMS.filter((item) => item.pluginId === 'lorawan-chirpstack')) {
+          for (const item of SYSTEM_MENU_ITEMS.filter(
+            (item) => item.pluginId === 'lorawan-chirpstack' || item.pluginId === 'testing',
+          )) {
             if (!normalizedRows.some((row) => row.id === item.id)) normalizedRows.push({ ...item });
           }
           normalizedRows.sort((a, b) => (a.order || 0) - (b.order || 0));

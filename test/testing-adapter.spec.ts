@@ -79,6 +79,10 @@ function createMockRepository(table: string) {
           const list = (inMemoryData as any)[table] || [];
           return [list.slice(skipCount, skipCount + takeCount), list.length];
         },
+        getOne: async () => {
+          const list = (inMemoryData as any)[table] || [];
+          return list[list.length - 1] || null;
+        },
         getRawMany: async () => {
           if (table === 'was') {
             return inMemoryData.was.map((w) => ({
@@ -254,6 +258,98 @@ async function runTests() {
     throw new Error(`Gateway session lookup failed: ${JSON.stringify(sessionDetails)}`);
   }
   console.log('✓ Gateway test session created and retrieved.');
+
+  console.log('7. Testing Device Simulation Flow...');
+  const profileRes = await controller.saveSimulationProfile({
+    name: 'LoRaWAN Field Node Profile',
+    devEui: '0004A30B001F0001',
+    serialNumber: 'SN-TEST-NODE-001',
+    region: 'AS923',
+    fPort: 2,
+    burstCount: 3,
+    payloadHex: '01020304',
+    decodedPayload: { temperature: 27.2, battery: 92 },
+    rfInfo: { rssi: -70, snr: 9.0 },
+  });
+  if (!profileRes.success || !profileRes.data.id) {
+    throw new Error(`Save simulation profile failed: ${JSON.stringify(profileRes)}`);
+  }
+  const profilesList = await controller.getSimulationProfiles();
+  if (profilesList.data.length < 1) {
+    throw new Error('Simulation profiles list is empty');
+  }
+
+  const simRunRes = await controller.runDeviceSimulation({
+    devEui: '0004A30B001F0001',
+    serialNumber: 'SN-TEST-NODE-001',
+    burstCount: 3,
+    fPort: 2,
+    fCnt: 200,
+    payloadHex: 'A1B2C3D4',
+    decodedPayload: { temperature: 28.0, humidity: 55, battery: 90 },
+    rfInfo: { rssi: -68, snr: 10.0 },
+  });
+
+  if (!simRunRes.success || simRunRes.data.packetsGenerated.length !== 3) {
+    throw new Error(`Simulation run failed: ${JSON.stringify(simRunRes)}`);
+  }
+  if (simRunRes.data.packetsGenerated[0].fCnt !== 200 || simRunRes.data.packetsGenerated[1].fCnt !== 201) {
+    throw new Error(`Simulation fCnt progression failed: ${JSON.stringify(simRunRes.data.packetsGenerated)}`);
+  }
+  console.log('✓ Device simulation generated burst packets with sequential fCnt.');
+
+  console.log('8. Testing Device Auto Check Flow...');
+  const rulesRes = controller.getAutoCheckRules();
+  if (!rulesRes.success || !rulesRes.data.minRssi) {
+    throw new Error(`Failed to get default autocheck rules: ${JSON.stringify(rulesRes)}`);
+  }
+
+  // PASS evaluation
+  const passEvalRes = await controller.evaluateAutoCheck({
+    target: { networkId: '0004A30B001F0001' },
+    criteria: {
+      minRssi: -100,
+      maxRssi: -30,
+      minSnr: -10,
+      expectedFPort: 2,
+      requiredFields: ['dev_eui', 'payload', 'temperature'],
+      fieldRules: {
+        temperature: { min: 20, max: 35 },
+        battery: { min: 80 },
+      },
+    },
+  });
+  if (!passEvalRes.success || passEvalRes.data.verdict !== 'PASS') {
+    throw new Error(`AutoCheck PASS evaluation failed: ${JSON.stringify(passEvalRes)}`);
+  }
+  if (passEvalRes.data.failedRules !== 0) {
+    throw new Error(`Expected 0 failed rules, got ${passEvalRes.data.failedRules}`);
+  }
+  console.log('✓ AutoCheck evaluation passed with 100% compliance.');
+
+  // FAIL evaluation
+  const failEvalRes = await controller.evaluateAutoCheck({
+    target: { networkId: '0004A30B001F0001' },
+    criteria: {
+      minRssi: -40, // actual is -68, should fail
+      fieldRules: {
+        battery: { min: 99 }, // actual is 90, should fail
+      },
+    },
+  });
+  if (!failEvalRes.success || failEvalRes.data.verdict !== 'FAIL') {
+    throw new Error(`AutoCheck FAIL evaluation failed: ${JSON.stringify(failEvalRes)}`);
+  }
+  if (failEvalRes.data.failedRules < 2) {
+    throw new Error(`Expected at least 2 failed rules, got ${failEvalRes.data.failedRules}`);
+  }
+  console.log('✓ AutoCheck evaluation correctly reported FAIL on out-of-range thresholds.');
+
+  const historyRes = controller.getAutoCheckHistory();
+  if (historyRes.data.length < 2) {
+    throw new Error(`AutoCheck history incomplete: ${historyRes.data.length}`);
+  }
+  console.log('✓ AutoCheck history recorded all evaluations.');
 
   console.log('\n================================================================');
   console.log('ALL TESTING ADAPTER CONTROLLER VERIFICATION TESTS PASSED 100%!');
