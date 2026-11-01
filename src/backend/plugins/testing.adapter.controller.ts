@@ -392,8 +392,62 @@ export class TestingAdapterController {
     }
   }
 
+  @Get(['api/plugins/testing/devices/simulation', 'api/v1/plugins/testing/devices/simulation'])
+  async getSimulationDevices() {
+    try {
+      const deviceRepo = this.databaseService.getRepositoryForTable(
+        'devices',
+        TestingDeviceEntity,
+      );
+      const devices = await deviceRepo
+        .createQueryBuilder('device')
+        .where('device.status IN (:...statuses) OR device.plugin_id = :pluginId', {
+          statuses: ['simulation', 'template'],
+          pluginId: 'testing',
+        })
+        .orderBy('device.updated_at', 'DESC')
+        .getMany();
+
+      return {
+        success: true,
+        data: devices.map((d) => ({
+          id: d.id,
+          serialNumber: d.serial_number,
+          networkId: d.network_id,
+          deviceName: d.device_name,
+          deviceType: d.device_type,
+          status: d.status,
+          pluginId: d.plugin_id,
+          soNumber: d.so_number,
+          waNumber: d.wa_number,
+          itemCode: d.item_code,
+          metadata: d.metadata,
+        })),
+      };
+    } catch (error: any) {
+      this.logger.error(`Failed to get simulation devices: ${error.message}`);
+      return {
+        success: true,
+        data: Array.from(this.simulationProfiles.values()).map((p) => ({
+          id: p.id,
+          serialNumber: p.serialNumber,
+          networkId: p.networkId,
+          deviceName: p.deviceName,
+          deviceType: p.deviceType,
+          status: p.status,
+          itemCode: p.itemCode,
+          soNumber: p.soNumber,
+          waNumber: p.waNumber,
+        })),
+      };
+    }
+  }
+
   @Get(['api/plugins/testing/devices/:id', 'api/v1/plugins/testing/devices/:id'])
-  async getDeviceById(@Param('id') id: string) {
+  async getDeviceById(@Param('id') id: string): Promise<any> {
+    if (id === 'simulation') {
+      return this.getSimulationDevices();
+    }
     try {
       const deviceRepo = this.databaseService.getRepositoryForTable(
         'devices',
@@ -404,7 +458,20 @@ export class TestingAdapterController {
         DevicePacketEntity,
       );
 
-      const device = await deviceRepo.findOne({ where: { id } });
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+      let device: any = null;
+      if (isUuid) {
+        device = await deviceRepo.findOne({ where: { id } });
+      } else {
+        device = await deviceRepo
+          .findOne({
+            where: [{ serial_number: id }, { network_id: id }],
+          })
+          .catch(() => null);
+        if (!device) {
+          device = await deviceRepo.findOne({ where: { id } }).catch(() => null);
+        }
+      }
       if (!device) {
         throw new NotFoundException(`Device with ID ${id} not found`);
       }
@@ -1325,55 +1392,6 @@ export class TestingAdapterController {
       message: 'Simulation profile and template device saved',
       data: profile,
     };
-  }
-
-  @Get(['api/plugins/testing/devices/simulation', 'api/v1/plugins/testing/devices/simulation'])
-  async getSimulationDevices() {
-    try {
-      const deviceRepo = this.databaseService.getRepositoryForTable(
-        'devices',
-        TestingDeviceEntity,
-      );
-      const devices = await deviceRepo
-        .createQueryBuilder('device')
-        .where('device.status IN (:...statuses)', { statuses: ['simulation', 'template'] })
-        .orWhere('device.plugin_id = :pluginId', { pluginId: 'testing' })
-        .orderBy('device.updated_at', 'DESC')
-        .getMany();
-
-      return {
-        success: true,
-        data: devices.map((d) => ({
-          id: d.id,
-          serialNumber: d.serial_number,
-          networkId: d.network_id,
-          deviceName: d.device_name,
-          deviceType: d.device_type,
-          status: d.status,
-          pluginId: d.plugin_id,
-          soNumber: d.so_number,
-          waNumber: d.wa_number,
-          itemCode: d.item_code,
-          metadata: d.metadata,
-        })),
-      };
-    } catch (error: any) {
-      this.logger.error(`Failed to get simulation devices: ${error.message}`);
-      return {
-        success: true,
-        data: Array.from(this.simulationProfiles.values()).map((p) => ({
-          id: p.id,
-          serialNumber: p.serialNumber,
-          networkId: p.networkId,
-          deviceName: p.deviceName,
-          deviceType: p.deviceType,
-          status: p.status,
-          itemCode: p.itemCode,
-          soNumber: p.soNumber,
-          waNumber: p.waNumber,
-        })),
-      };
-    }
   }
 
   @Get(['api/plugins/testing/simulation/profiles', 'api/v1/plugins/testing/simulation/profiles'])

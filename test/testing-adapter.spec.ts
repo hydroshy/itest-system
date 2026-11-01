@@ -60,6 +60,10 @@ function createMockRepository(table: string) {
           filters.push({ clause, params });
           return builder;
         },
+        orWhere: (clause: string, params: any) => {
+          filters.push({ clause, params });
+          return builder;
+        },
         leftJoinAndSelect: () => builder,
         select: () => builder,
         addSelect: () => builder,
@@ -74,6 +78,10 @@ function createMockRepository(table: string) {
         take: (val: number) => {
           takeCount = val;
           return builder;
+        },
+        getMany: async () => {
+          const list = (inMemoryData as any)[table] || [];
+          return list.slice(skipCount, skipCount + takeCount);
         },
         getManyAndCount: async () => {
           const list = (inMemoryData as any)[table] || [];
@@ -243,6 +251,17 @@ async function runTests() {
     throw new Error(`Device recent packets retrieval failed: ${JSON.stringify(devDetails)}`);
   }
   console.log('✓ Device details and recent packets retrieved successfully.');
+
+  console.log('5.1. Testing Simulation Devices Endpoint (Conflict Check with :id)...');
+  const simDevs = await controller.getSimulationDevices();
+  if (!simDevs || !simDevs.success || !Array.isArray(simDevs.data)) {
+    throw new Error('getSimulationDevices failed');
+  }
+  const simFromId = await controller.getDeviceById('simulation');
+  if (!simFromId || !simFromId.success || !Array.isArray(simFromId.data)) {
+    throw new Error("getDeviceById('simulation') routing redirect failed");
+  }
+  console.log('✓ Simulation devices endpoint and routing conflict guard verified successfully.');
 
   console.log('6. Testing Gateway Test Sessions CRUD...');
   const sessionRes = await controller.createGatewaySession({
