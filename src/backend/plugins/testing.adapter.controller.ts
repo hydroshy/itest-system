@@ -1239,7 +1239,10 @@ export class TestingAdapterController {
     const waNumber = (body?.waNumber || body?.wa_number || '').trim();
     const itemCode = (body?.itemCode || body?.item_code || '').trim();
     const longFw = (body?.longFw || body?.long_fw || '').trim();
-    const status = (body?.status || 'template').trim();
+    const sensorConnectivity = (body?.sensorConnectivity || body?.sensor_connectivity || 'LoRaWAN').trim();
+    const sku = (body?.sku || '').trim();
+    const flowBlocks = Array.isArray(body?.flowBlocks) ? body.flowBlocks : (Array.isArray(body?.flow_blocks) ? body.flow_blocks : []);
+    const status = (body?.status || 'simulation').trim();
     const flowDurationMinutes = body?.flowDurationMinutes || 30;
     const timedActions = body?.timedActions || [];
 
@@ -1257,6 +1260,9 @@ export class TestingAdapterController {
       itemCode,
       status,
       longFw,
+      sensorConnectivity,
+      sku,
+      flowBlocks,
       profileName: body?.profileName || deviceName,
       targetDeviceName: deviceName,
       devEui: networkId,
@@ -1319,6 +1325,55 @@ export class TestingAdapterController {
       message: 'Simulation profile and template device saved',
       data: profile,
     };
+  }
+
+  @Get(['api/plugins/testing/devices/simulation', 'api/v1/plugins/testing/devices/simulation'])
+  async getSimulationDevices() {
+    try {
+      const deviceRepo = this.databaseService.getRepositoryForTable(
+        'devices',
+        TestingDeviceEntity,
+      );
+      const devices = await deviceRepo
+        .createQueryBuilder('device')
+        .where('device.status IN (:...statuses)', { statuses: ['simulation', 'template'] })
+        .orWhere('device.plugin_id = :pluginId', { pluginId: 'testing' })
+        .orderBy('device.updated_at', 'DESC')
+        .getMany();
+
+      return {
+        success: true,
+        data: devices.map((d) => ({
+          id: d.id,
+          serialNumber: d.serial_number,
+          networkId: d.network_id,
+          deviceName: d.device_name,
+          deviceType: d.device_type,
+          status: d.status,
+          pluginId: d.plugin_id,
+          soNumber: d.so_number,
+          waNumber: d.wa_number,
+          itemCode: d.item_code,
+          metadata: d.metadata,
+        })),
+      };
+    } catch (error: any) {
+      this.logger.error(`Failed to get simulation devices: ${error.message}`);
+      return {
+        success: true,
+        data: Array.from(this.simulationProfiles.values()).map((p) => ({
+          id: p.id,
+          serialNumber: p.serialNumber,
+          networkId: p.networkId,
+          deviceName: p.deviceName,
+          deviceType: p.deviceType,
+          status: p.status,
+          itemCode: p.itemCode,
+          soNumber: p.soNumber,
+          waNumber: p.waNumber,
+        })),
+      };
+    }
   }
 
   @Get(['api/plugins/testing/simulation/profiles', 'api/v1/plugins/testing/simulation/profiles'])
