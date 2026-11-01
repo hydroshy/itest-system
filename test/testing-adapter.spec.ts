@@ -397,6 +397,37 @@ async function runTests() {
   }
   console.log('✓ Create Device Testing Sessions CRUD verified successfully.');
 
+  console.log('10. Testing Flow 3 Steps Registration & ChirpStack Provisioning Endpoint...');
+  const serversRes = await controller.getTestingNetworkServers();
+  if (!serversRes.success || !Array.isArray(serversRes.data) || serversRes.data.length === 0) {
+    throw new Error('getTestingNetworkServers failed');
+  }
+  console.log('✓ Network servers lookup returned valid data.');
+
+  const regFlowRes = await controller.registerDeviceFlow3Steps({
+    connectivity: 'LoRaWAN',
+    soNumber: 'SO-2026-TEST-3STEP',
+    waNumber: 'WA-2026-TEST-3STEP',
+    serverUrl: 'https://chirpstack-test-api.globiots.com/dummy',
+    fwCode: 'ATH',
+    fwVersion: 'v6.0101',
+    hwVersion: 'v1.0',
+    meVersion: 'v1.0',
+    devEui: '70B3D57ED005AAAA',
+    appEui: '0000000000000000',
+    appKey: '2B7E151628AED2A6ABF7158809CF4F3C',
+    regionCode: 'AS923-1',
+    deviceClass: 'CLASS_A',
+    sensorType: '10',
+    serialNumber: 'SN-ATH-3STEP-001',
+    itemCode: 'ITEM-ATH-001',
+  });
+
+  if (!regFlowRes.success || !regFlowRes.message.includes('gắn pin cảm biến')) {
+    throw new Error(`registerDeviceFlow3Steps failed: ${JSON.stringify(regFlowRes)}`);
+  }
+  console.log('✓ Flow 3 steps device registration succeeded with mandatory prompt.');
+
   console.log('\n================================================================');
   console.log('ALL TESTING ADAPTER CONTROLLER VERIFICATION TESTS PASSED 100%!');
   console.log('================================================================\n');

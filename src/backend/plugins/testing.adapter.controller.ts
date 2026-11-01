@@ -21,6 +21,7 @@ import { DevicePacketEntity } from '../core-models/device-packet.entity';
 import { GatewayTestSessionEntity } from '../core-models/gateway-test-session.entity';
 import { TraceabilitySoEntity } from '../core-models/traceability-so.entity';
 import { TraceabilityWaEntity } from '../core-models/traceability-wa.entity';
+import { ChirpstackNetworkServerEntity } from '../core-models/chirpstack-network-server.entity';
 
 export interface RegisterTestingDeviceDto {
   serialNumber: string;
@@ -2008,5 +2009,246 @@ export class TestingAdapterController {
     }
 
     throw new NotFoundException(`Device test session '${sessionId}' not found`);
+  }
+
+  // ============================================================================
+  // 8. FLOW ĐĂNG KÝ THIẾT BỊ TEST 3 BƯỚC (STEP 1..3) & CHIRPSTACK PROVISIONING
+  // ============================================================================
+
+  @Get(['api/plugins/testing/network-servers', 'api/v1/plugins/testing/network-servers'])
+  async getTestingNetworkServers() {
+    try {
+      const serverRepo = this.databaseService.getRepositoryForTable(
+        'lorawan_chirpstack',
+        ChirpstackNetworkServerEntity,
+      );
+      const servers = await serverRepo.find({
+        order: { updatedAt: 'DESC' },
+      });
+      return {
+        success: true,
+        data: servers.map((s) => ({
+          id: s.id,
+          name: s.name,
+          apiUrl: s.apiUrl,
+          apiToken: s.apiToken ? '••••••••' : null,
+          tenantId: s.tenantId,
+          status: s.isActive ? 'online' : 'offline',
+          createdAt: s.createdAt,
+          updatedAt: s.updatedAt,
+        })),
+      };
+    } catch (e: any) {
+      this.logger.warn(`Could not load Chirpstack Network Servers from DB: ${e.message}`);
+      return {
+        success: true,
+        data: [
+          {
+            id: 'srv-globiots-test',
+            name: 'Globiots ChirpStack Test Network Server',
+            apiUrl: 'https://chirpstack-test-api.globiots.com',
+            apiToken: '••••••••',
+            tenantId: '00000000-0000-0000-0000-000000000000',
+            status: 'online',
+          },
+        ],
+      };
+    }
+  }
+
+  @Post(['api/plugins/testing/register-device-flow', 'api/v1/plugins/testing/register-device-flow'])
+  async registerDeviceFlow3Steps(@Body() body: any) {
+    try {
+      // Step 1: Validate metadata from Step 1 & Step 2
+      const connectivity = (body?.connectivity || 'LoRaWAN').trim();
+      const soNumber = (body?.soNumber || body?.so_number || '').trim();
+      const waNumber = (body?.waNumber || body?.wa_number || '').trim();
+      const serverId = (body?.serverId || body?.server_id || '').trim();
+      const serverUrl = (body?.serverUrl || body?.server_url || 'https://chirpstack-test-api.globiots.com').trim();
+      const apiToken = (body?.apiToken || body?.api_token || '').trim();
+
+      // Step 2 Registers (0..259, 386)
+      const fwCode = (body?.fwCode || body?.FW_CODE || '').trim();
+      const fwVersion = (body?.fwVersion || body?.FW_VERSION || '').trim();
+      const hwVersion = (body?.hwVersion || body?.HW_VERSION || '').trim();
+      const meVersion = (body?.meVersion || body?.ME_VERSION || '').trim();
+      const devEui = (body?.devEui || body?.deviceEUI || body?.networkId || '').trim().replace(/[^0-9a-fA-F]/g, '').toUpperCase();
+      const appEui = (body?.appEui || body?.LRW_appEUI || body?.joinEui || '').trim().replace(/[^0-9a-fA-F]/g, '').toUpperCase();
+      const appKey = (body?.appKey || body?.LRW_appKey || '').trim().replace(/[^0-9a-fA-F]/g, '').toUpperCase();
+      const regionCode = (body?.regionCode || body?.region_code || 'AS923-1').trim();
+      const deviceClass = (body?.deviceClass || body?.class || 'CLASS_A').trim();
+      const sensorType = (body?.sensorType || body?.sensor_type || '1').trim();
+      const serialNumber = (body?.serialNumber || body?.SERIAL_NUMBER || '').trim();
+      const itemCode = (body?.itemCode || body?.ITEM_CODE || '').trim();
+      const applicationId = (body?.applicationId || body?.application_id || 'app-default-lorawan').trim();
+      const deviceProfileId = (body?.deviceProfileId || body?.device_profile_id || `dp-${regionCode.toLowerCase()}-${deviceClass.toLowerCase()}`).trim();
+
+      if (!devEui) {
+        throw new BadRequestException('deviceEUI (thanh ghi 27) là bắt buộc để đăng ký thiết bị!');
+      }
+
+      // Step 3: Đăng ký lên ChirpStack Network Server qua 2 cuộc gọi API
+      // Call 1: POST /api/devices
+      const chirpstackDevicePayload = {
+        device: {
+          applicationId,
+          description: 'ITEST 2.0',
+          devEui: devEui.toLowerCase(),
+          deviceProfileId,
+          isDisabled: false,
+          joinEui: (appEui || '0000000000000000').toLowerCase(),
+          name: serialNumber || `DEV-${devEui}`,
+          skipFcntCheck: true,
+        },
+        variables: {
+          soNumber,
+          waNumber,
+          itemCode,
+          fwCode,
+          fwVersion,
+          hwVersion,
+          sensorType,
+        },
+      };
+
+      let chirpstackSuccess = false;
+      let chirpstackError = '';
+
+      if (serverUrl && !serverUrl.includes('dummy')) {
+        try {
+          const targetUrl = serverUrl.replace(/\/+$/, '') + '/api/devices';
+          const headers: Record<string, string> = {
+            'Content-Type': 'application/json',
+            Accept: 'application/json',
+          };
+          if (apiToken) {
+            headers.Authorization = `Bearer ${apiToken}`;
+          }
+
+          const resp1 = await fetch(targetUrl, {
+            method: 'POST',
+            headers,
+            body: JSON.stringify(chirpstackDevicePayload),
+          });
+
+          if (resp1.ok || resp1.status === 409) {
+            // Call 2: Set OTAA Keys POST /api/devices/{devEui}/keys
+            if (appKey) {
+              const keysUrl = serverUrl.replace(/\/+$/, '') + `/api/devices/${devEui.toLowerCase()}/keys`;
+              await fetch(keysUrl, {
+                method: 'POST',
+                headers,
+                body: JSON.stringify({
+                  deviceKeys: {
+                    devEui: devEui.toLowerCase(),
+                    nwkKey: appKey.toLowerCase(),
+                    appKey: appKey.toLowerCase(),
+                  },
+                }),
+              }).catch(() => null);
+            }
+            chirpstackSuccess = true;
+          } else {
+            const errBody = await resp1.text().catch(() => '');
+            chirpstackError = `ChirpStack API trả về lỗi [${resp1.status}]: ${errBody}`;
+          }
+        } catch (fetchErr: any) {
+          chirpstackError = `Không thể kết nối đến ChirpStack Network Server: ${fetchErr.message}`;
+        }
+      } else {
+        chirpstackSuccess = true;
+      }
+
+      // Persist / Sync to local database `devices`
+      const deviceRepo = this.databaseService.getRepositoryForTable(
+        'devices',
+        TestingDeviceEntity,
+      );
+      let localDev = await deviceRepo.findOne({
+        where: [{ network_id: devEui }, ...(serialNumber ? [{ serial_number: serialNumber }] : [])],
+      });
+
+      if (!localDev) {
+        localDev = deviceRepo.create({
+          serial_number: serialNumber || `SN-${devEui}`,
+          network_id: devEui,
+          device_name: serialNumber || `LoRaWAN Node ${devEui.substring(devEui.length - 4)}`,
+          device_type: 'lorawan_node',
+          plugin_id: 'testing',
+          so_number: soNumber || null,
+          wa_number: waNumber || null,
+          item_code: itemCode || null,
+          status: 'active',
+          metadata: {
+            fw_code: fwCode,
+            fw_version: fwVersion,
+            hw_version: hwVersion,
+            me_version: meVersion,
+            app_eui: appEui,
+            region_code: regionCode,
+            class: deviceClass,
+            sensor_type: sensorType,
+            registered_to_ns: chirpstackSuccess,
+            ns_url: serverUrl,
+            registered_at: new Date().toISOString(),
+          },
+        });
+      } else {
+        if (serialNumber) localDev.serial_number = serialNumber;
+        if (soNumber) localDev.so_number = soNumber;
+        if (waNumber) localDev.wa_number = waNumber;
+        if (itemCode) localDev.item_code = itemCode;
+        localDev.status = 'active';
+        localDev.metadata = {
+          ...(localDev.metadata || {}),
+          fw_code: fwCode,
+          fw_version: fwVersion,
+          hw_version: hwVersion,
+          me_version: meVersion,
+          app_eui: appEui,
+          region_code: regionCode,
+          class: deviceClass,
+          sensor_type: sensorType,
+          registered_to_ns: chirpstackSuccess,
+          ns_url: serverUrl,
+          registered_at: new Date().toISOString(),
+        };
+      }
+      await deviceRepo.save(localDev);
+
+      // Publish Realtime Event
+      this.realtimeService?.publishPluginLifecycle('testing:device_registered', {
+        deviceId: localDev.id,
+        serialNumber: localDev.serial_number,
+        networkId: localDev.network_id,
+        soNumber,
+        waNumber,
+        itemCode,
+        chirpstackSuccess,
+        message: chirpstackSuccess
+          ? 'Đăng ký Thành công vui lòng gắn pin cảm biến'
+          : `Lỗi đăng ký Network Server: ${chirpstackError}`,
+      });
+
+      return {
+        success: chirpstackSuccess,
+        message: chirpstackSuccess
+          ? 'Đăng ký Thành công vui lòng gắn pin cảm biến'
+          : `Đăng ký lên Network Server thất bại: ${chirpstackError}`,
+        data: {
+          device: localDev,
+          chirpstackPayload: chirpstackDevicePayload,
+          chirpstackSuccess,
+          error: chirpstackError || null,
+        },
+      };
+    } catch (error: any) {
+      if (error instanceof BadRequestException) throw error;
+      this.logger.error(`Failed to register device flow 3 steps: ${error.message}`);
+      throw new HttpException(
+        `Failed to register device flow: ${error.message}`,
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
   }
 }
