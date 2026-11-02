@@ -2085,6 +2085,7 @@ export class TestingAdapterController {
       const sensorType = (body?.sensorType || body?.sensor_type || '1').trim();
       const serialNumber = (body?.serialNumber || body?.SERIAL_NUMBER || '').trim();
       const itemCode = (body?.itemCode || body?.ITEM_CODE || '').trim();
+      const createdBy = (body?.createdBy || body?.created_by || body?.username || body?.user || 'tester').trim();
       let applicationId = (body?.applicationId || body?.application_id || '').trim();
       let deviceProfileId = (body?.deviceProfileId || body?.device_profile_id || '').trim();
 
@@ -2311,9 +2312,9 @@ export class TestingAdapterController {
               network_server_id, network_server_url, application_id, device_profile_id,
               fw_code, fw_version, hw_version, me_version,
               dev_eui, app_eui, app_key, region_code, class_mode, sensor_type, serial_number,
-              status, message, chirpstack_payload
+              status, message, chirpstack_payload, created_by
             ) VALUES (
-              $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23
+              $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24
             )`,
             [
               regCode, connectivity, soNumber || null, waNumber || null, itemCode || null,
@@ -2323,6 +2324,7 @@ export class TestingAdapterController {
               chirpstackSuccess ? 'SUCCESS_ATTACH_BATTERY' : 'FAILED',
               chirpstackSuccess ? 'Đăng ký Thành công vui lòng gắn pin cảm biến' : (chirpstackError || 'Chirpstack registration failed'),
               JSON.stringify(chirpstackDevicePayload),
+              createdBy,
             ],
           );
           stages.registration = 'success';
@@ -2365,6 +2367,379 @@ export class TestingAdapterController {
       this.logger.error(`Failed to register device flow 3 steps: ${error.message}`);
       throw new HttpException(
         `Failed to register device flow: ${error.message}`,
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  // ============================================================================
+  // 9. LIST & MANAGE TESTING DEVICES (Migration 011 & v_list_device_testing)
+  // ============================================================================
+
+  @Get(['api/plugins/testing/default-application', 'api/v1/plugins/testing/default-application'])
+  async getDefaultTestingApplication() {
+    try {
+      const serverRepo = this.databaseService.getRepositoryForTable('lorawan_chirpstack', ChirpstackNetworkServerEntity);
+      const activeServer = await serverRepo.findOne({ where: { isActive: true } });
+      return {
+        success: true,
+        data: {
+          serverId: activeServer?.id || null,
+          serverName: activeServer?.name || 'ChirpStack Server',
+          tenantId: activeServer?.tenantId || null,
+          applicationId: activeServer?.applicationId || null,
+          deviceProfileId: activeServer?.deviceProfileId || null,
+        },
+      };
+    } catch (err: any) {
+      return {
+        success: false,
+        message: err.message,
+      };
+    }
+  }
+
+  @Get(['api/plugins/testing/device-registrations', 'api/v1/plugins/testing/device-registrations'])
+  async getTestingDeviceRegistrations(@Query() query: any) {
+    try {
+      const ds = this.databaseService.getDataSourceForTable('devices');
+      if (!ds) {
+        return {
+          success: true,
+          data: [],
+          total: 0,
+          page: 1,
+          limit: 20,
+        };
+      }
+
+      const page = Math.max(1, parseInt(query.page, 10) || 1);
+      const limit = Math.min(100, Math.max(1, parseInt(query.limit, 10) || 20));
+      const offset = (page - 1) * limit;
+
+      const user = (query.user || query.username || '').trim();
+      const role = (query.role || '').toUpperCase().trim();
+      const isAdmin = query.isAdmin === true || query.isAdmin === 'true' || query.isAdmin === '1' ||
+                      ['ADMIN', 'SUPER_ADMIN', 'ADMINISTRATOR'].includes(role);
+
+      // Resolve default applicationId if not explicitly provided
+      let applicationId = (query.applicationId || query.application_id || '').trim();
+      let defaultAppId = '';
+      try {
+        const serverRepo = this.databaseService.getRepositoryForTable('lorawan_chirpstack', ChirpstackNetworkServerEntity);
+        const activeServer = await serverRepo.findOne({ where: { isActive: true } });
+        if (activeServer?.applicationId) {
+          defaultAppId = activeServer.applicationId.trim();
+        }
+      } catch (err: any) {
+        this.logger.debug(`Could not resolve default applicationId from active network server: ${err.message}`);
+      }
+
+      // If user did not specify an applicationId (and not asking for ALL), default to the active network server's applicationId
+      const filterAllApps = applicationId.toUpperCase() === 'ALL';
+      if (!applicationId && defaultAppId) {
+        applicationId = defaultAppId;
+      } else if (filterAllApps) {
+        applicationId = '';
+      }
+
+      const whereClauses: string[] = [];
+      const params: any[] = [];
+      let pIdx = 1;
+
+      // Filter by Application ID if active
+      if (applicationId) {
+        whereClauses.push(`v.application_id = $${pIdx++}`);
+        params.push(applicationId);
+      }
+
+      // Role-based visibility:
+      // If not admin, only show devices created by this user
+      if (!isAdmin) {
+        if (user) {
+          whereClauses.push(`(LOWER(v.created_by) = LOWER($${pIdx++}) OR v.created_by = 'tester')`);
+          params.push(user);
+        } else {
+          whereClauses.push(`v.created_by = 'tester'`);
+        }
+      }
+
+      // Search filter across serial_number, dev_eui, item_code, registration_code
+      const search = (query.search || '').trim();
+      if (search) {
+        whereClauses.push(`(
+          v.serial_number ILIKE $${pIdx} OR
+          v.dev_eui ILIKE $${pIdx} OR
+          v.item_code ILIKE $${pIdx} OR
+          v.registration_code ILIKE $${pIdx}
+        )`);
+        params.push(`%${search}%`);
+        pIdx++;
+      }
+
+      const whereSql = whereClauses.length > 0 ? `WHERE ${whereClauses.join(' AND ')}` : '';
+
+      // Count query - try view first, fallback to table if view not yet created
+      let total = 0;
+      let rows: any[] = [];
+      try {
+        const countSql = `SELECT COUNT(*) AS total FROM system_schema.v_list_device_testing v ${whereSql}`;
+        const countResult = await ds.query(countSql, params);
+        total = parseInt(countResult?.[0]?.total || '0', 10);
+
+        const listSql = `
+          SELECT
+            v.id,
+            v.registration_code,
+            v.serial_number,
+            v.item_code,
+            v.fw_version,
+            v.hw_version,
+            v.fw_code,
+            v.me_version,
+            v.dev_eui,
+            v.app_eui,
+            v.app_key,
+            v.class_mode,
+            COALESCE(v.class, v.class_mode, 'A') AS "class",
+            COALESCE(v.region, v.region_code, 'AS923-1') AS "region",
+            v.sensor_type,
+            v.created_by,
+            v.application_id,
+            v.device_profile_id,
+            v.network_server_id,
+            v.network_server_name,
+            v.network_server_url,
+            v.connectivity,
+            v.so_number,
+            v.wa_number,
+            v.status,
+            v.message,
+            v.created_at,
+            v.updated_at
+          FROM system_schema.v_list_device_testing v
+          ${whereSql}
+          ORDER BY v.created_at DESC
+          LIMIT $${pIdx++} OFFSET $${pIdx++}
+        `;
+        rows = await ds.query(listSql, [...params, limit, offset]);
+      } catch (viewErr: any) {
+        this.logger.warn(`View system_schema.v_list_device_testing fallback: ${viewErr.message}`);
+        // Fallback to table directly
+        const countSql = `SELECT COUNT(*) AS total FROM system_schema.device_test_registrations v ${whereSql}`;
+        const countResult = await ds.query(countSql, params);
+        total = parseInt(countResult?.[0]?.total || '0', 10);
+
+        const listSql = `
+          SELECT
+            v.id,
+            v.registration_code,
+            v.serial_number,
+            v.item_code,
+            v.fw_version,
+            v.hw_version,
+            v.fw_code,
+            v.me_version,
+            v.dev_eui,
+            v.app_eui,
+            v.app_key,
+            v.class_mode,
+            v.class_mode AS "class",
+            v.region_code AS "region",
+            v.sensor_type,
+            v.created_by,
+            v.application_id,
+            v.device_profile_id,
+            v.network_server_id,
+            v.network_server_name,
+            v.network_server_url,
+            v.connectivity,
+            v.so_number,
+            v.wa_number,
+            v.status,
+            v.message,
+            v.created_at,
+            v.updated_at
+          FROM system_schema.device_test_registrations v
+          ${whereSql}
+          ORDER BY v.created_at DESC
+          LIMIT $${pIdx++} OFFSET $${pIdx++}
+        `;
+        rows = await ds.query(listSql, [...params, limit, offset]);
+      }
+
+      return {
+        success: true,
+        data: rows.map((r: any) => ({
+          id: r.id,
+          registrationCode: r.registration_code,
+          serialNumber: r.serial_number,
+          itemCode: r.item_code,
+          fwVersion: r.fw_version,
+          hwVersion: r.hw_version,
+          fwCode: r.fw_code,
+          meVersion: r.me_version,
+          devEui: r.dev_eui,
+          appEui: r.app_eui,
+          appKey: r.app_key,
+          class: r.class || r.class_mode || 'A',
+          classMode: r.class_mode || r.class || 'A',
+          region: r.region || r.region_code || 'AS923-1',
+          regionCode: r.region_code || r.region || 'AS923-1',
+          sensorType: r.sensor_type,
+          createdBy: r.created_by,
+          applicationId: r.application_id,
+          deviceProfileId: r.device_profile_id,
+          networkServerId: r.network_server_id,
+          networkServerName: r.network_server_name,
+          networkServerUrl: r.network_server_url,
+          connectivity: r.connectivity,
+          soNumber: r.so_number,
+          waNumber: r.wa_number,
+          status: r.status,
+          message: r.message,
+          createdAt: r.created_at,
+          updatedAt: r.updated_at,
+        })),
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit) || 1,
+        defaultApplicationId: defaultAppId,
+        currentApplicationId: applicationId || null,
+        isAdmin,
+      };
+    } catch (error: any) {
+      this.logger.error(`Error in getTestingDeviceRegistrations: ${error.message}`);
+      throw new HttpException(
+        {
+          success: false,
+          message: `Lỗi khi lấy danh sách thiết bị testing: ${error.message}`,
+        },
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  @Delete([
+    'api/plugins/testing/device-registrations/:id',
+    'api/v1/plugins/testing/device-registrations/:id',
+  ])
+  async deleteTestingDeviceRegistration(
+    @Param('id') id: string,
+    @Query() query: any,
+  ) {
+    try {
+      const ds = this.databaseService.getDataSourceForTable('devices');
+      if (!ds) {
+        throw new NotFoundException('Không thể kết nối đến cơ sở dữ liệu');
+      }
+
+      const rows = await ds.query(
+        `SELECT * FROM system_schema.device_test_registrations WHERE id = $1`,
+        [id],
+      );
+      if (!rows || rows.length === 0) {
+        throw new NotFoundException(`Không tìm thấy thiết bị test với ID ${id}`);
+      }
+      const reg = rows[0];
+
+      // Check permission
+      const user = (query.user || query.username || '').trim();
+      const role = (query.role || '').toUpperCase().trim();
+      const isAdmin = query.isAdmin === true || query.isAdmin === 'true' || query.isAdmin === '1' ||
+                      ['ADMIN', 'SUPER_ADMIN', 'ADMINISTRATOR'].includes(role);
+
+      if (!isAdmin && user && reg.created_by && reg.created_by !== 'tester') {
+        if (reg.created_by.toLowerCase() !== user.toLowerCase()) {
+          throw new HttpException(
+            {
+              success: false,
+              message: 'Bạn không có quyền xóa thiết bị do người dùng khác tạo.',
+            },
+            HttpStatus.FORBIDDEN,
+          );
+        }
+      }
+
+      // Attempt ChirpStack deletion if dev_eui is present
+      let csDeleted = false;
+      let csMessage = '';
+      if (reg.dev_eui) {
+        try {
+          let serverUrl = reg.network_server_url;
+          let apiToken = '';
+          const serverRepo = this.databaseService.getRepositoryForTable('lorawan_chirpstack', ChirpstackNetworkServerEntity);
+          let srv = null;
+          if (reg.network_server_id) {
+            srv = await serverRepo.findOne({ where: { id: reg.network_server_id } }).catch(() => null);
+          }
+          if (!srv) {
+            srv = await serverRepo.findOne({ where: { isActive: true } }).catch(() => null);
+          }
+          if (srv) {
+            serverUrl = srv.apiUrl || srv.api_url || serverUrl;
+            apiToken = srv.apiToken || srv.api_token || '';
+          }
+
+          if (serverUrl && apiToken) {
+            const csUrl = `${serverUrl.replace(/\/+$/, '')}/api/devices/${encodeURIComponent(reg.dev_eui.toLowerCase())}`;
+            const csRes = await fetch(csUrl, {
+              method: 'DELETE',
+              headers: {
+                'Accept': 'application/json',
+                'Grpc-Metadata-Authorization': `Bearer ${apiToken}`,
+              },
+              signal: AbortSignal.timeout(8000),
+            });
+            csDeleted = csRes.ok || csRes.status === 404;
+            csMessage = csRes.ok
+              ? 'Đã xóa thiết bị trên ChirpStack thành công'
+              : csRes.status === 404
+              ? 'Thiết bị không tồn tại trên ChirpStack'
+              : `ChirpStack trả về mã ${csRes.status}`;
+          }
+        } catch (csErr: any) {
+          this.logger.warn(`Could not delete device ${reg.dev_eui} from ChirpStack: ${csErr.message}`);
+          csMessage = `Lỗi kết nối ChirpStack: ${csErr.message}`;
+        }
+      }
+
+      // Delete from devices.devices if present
+      try {
+        const deviceRepo = this.databaseService.getRepositoryForTable('devices', TestingDeviceEntity);
+        if (reg.serial_number) {
+          await deviceRepo.delete({ serial_number: reg.serial_number }).catch(() => null);
+        }
+        if (reg.dev_eui) {
+          await deviceRepo.delete({ network_id: reg.dev_eui.toUpperCase() }).catch(() => null);
+        }
+      } catch (e: any) {
+        this.logger.warn(`Could not delete from devices.devices: ${e.message}`);
+      }
+
+      // Delete from system_schema.device_test_registrations
+      await ds.query(`DELETE FROM system_schema.device_test_registrations WHERE id = $1`, [id]);
+
+      return {
+        success: true,
+        message: `Đã xóa thiết bị ${reg.serial_number || reg.dev_eui} thành công`,
+        data: {
+          id: reg.id,
+          serialNumber: reg.serial_number,
+          devEui: reg.dev_eui,
+          chirpstackDeleted: csDeleted,
+          chirpstackDetail: csMessage,
+        },
+      };
+    } catch (error: any) {
+      if (error instanceof HttpException) throw error;
+      this.logger.error(`Error deleting testing device registration: ${error.message}`);
+      throw new HttpException(
+        {
+          success: false,
+          message: `Không thể xóa thiết bị test: ${error.message}`,
+        },
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
