@@ -1,4 +1,5 @@
 import * as assert from 'assert';
+import { ChirpStackApiClient } from '../src/backend/plugins/lorawan-chirpstack-core/chirpstack-api.client';
 import { TestingAdapterController } from '../src/backend/plugins/testing.adapter.controller';
 
 async function run() {
@@ -25,6 +26,17 @@ async function run() {
     global.fetch = (async () => ({ ok: true, json: async () => ({ result: [{ id: 'a', region: 'EU868' }, { id: 'b', region: 'EU868' }], totalCount: 2 }) })) as any;
     await assert.rejects(() => controller.registerDeviceFlow3Steps({ ...body, devEui: '', deviceProfileId: 'b' }), /deviceEUI/);
     await assert.rejects(() => controller.registerDeviceFlow3Steps({ ...body, deviceClass: 'C' }), /Device Profile phù hợp/);
+    const capabilityProfile = { id: 'au915', name: 'Generic profile', region: 'AU915', supportsClassB: true, supportsClassC: true, supportsOtaa: true };
+    global.fetch = (async () => ({ ok: true, json: async () => ({ result: [capabilityProfile], totalCount: 1 }) })) as any;
+    const mapped = await new ChirpStackApiClient(8000).listDeviceProfiles({ ...server, name: 'Test server', version: 'v4', status: 'online' });
+    assert.strictEqual(mapped[0]?.supportsClassC, true);
+    assert.strictEqual(mapped[0]?.supportsClassB, true);
+    assert.strictEqual(mapped[0]?.supportsOtaa, true);
+    for (const deviceClass of ['CLASS_A', 'CLASS_B', 'CLASS_C', '0', '1', '2']) {
+      await assert.rejects(() => controller.registerDeviceFlow3Steps({ ...body, regionCode: 'AU915', deviceClass, devEui: '' }), /deviceEUI/);
+    }
+    global.fetch = (async () => ({ ok: true, json: async () => ({ result: [{ ...capabilityProfile, name: 'Class C', supportsClassC: false }], totalCount: 1 }) })) as any;
+    await assert.rejects(() => controller.registerDeviceFlow3Steps({ ...body, regionCode: 'AU915', deviceClass: 'CLASS_C' }), /Device Profile phù hợp/);
     assert.strictEqual(posts, 0);
     console.log('Profile resolution rejects empty, wrong/blank region, ambiguous, foreign tenant, API failure and stale ID without provisioning.');
   } finally { global.fetch = originalFetch; }

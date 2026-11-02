@@ -342,7 +342,10 @@ export class ChirpStackApiClient {
         return (data.result || data.deviceProfiles || []).map((dp: any) => ({
           id: dp.id,
           name: dp.name,
-          region: dp.region || 'AS923',
+          region: dp.region || '',
+          supportsClassB: dp.supportsClassB,
+          supportsClassC: dp.supportsClassC,
+          supportsOtaa: dp.supportsOtaa,
           macVersion: dp.macVersion || 'LORAWAN_1_0_3',
           regParamsRevision: dp.regParamsRevision || 'RP002_1_0_3',
           tenantId: dp.tenantId || server.tenantId,

@@ -64,6 +64,9 @@ export interface ChirpStackApplication {
 }
 
 export interface ChirpStackDeviceProfile {
+  supportsClassB?: boolean;
+  supportsClassC?: boolean;
+  supportsOtaa?: boolean;
   id: string;
   name: string;
   region: string;
