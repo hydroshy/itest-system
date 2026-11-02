@@ -151,14 +151,54 @@ export class LorawanChirpstackAdapterController implements OnModuleInit {
     }
     const raw = dto as Record<string, unknown>;
     const ctrl = this.getController();
-    return ctrl.updateServer(id, {
+    const payload = {
       ...(raw.name !== undefined ? { name: String(raw.name).trim() } : {}),
       ...(raw.apiUrl !== undefined ? { apiUrl: String(raw.apiUrl).trim() } : {}),
       ...(raw.apiToken !== undefined ? { apiToken: String(raw.apiToken).trim() } : {}),
       ...(raw.tenantId !== undefined || raw.tenant_id !== undefined ? { tenantId: String(raw.tenantId ?? raw.tenant_id).trim() } : {}),
       ...(raw.applicationId !== undefined || raw.application_id !== undefined ? { applicationId: String(raw.applicationId ?? raw.application_id).trim() } : {}),
       ...(raw.deviceProfileId !== undefined || raw.device_profile_id !== undefined ? { deviceProfileId: String(raw.deviceProfileId ?? raw.device_profile_id).trim() } : {}),
-    });
+    };
+    if (typeof ctrl?.updateServer === 'function') {
+      try {
+        return await ctrl.updateServer(id, payload);
+      } catch (err: any) {
+        this.logger.warn(`ctrl.updateServer failed (${err.message}), falling back to service/DB update`);
+      }
+    }
+    const service = this.pluginInstance?.getService?.();
+    if (typeof service?.updateNetworkServer === 'function') {
+      return await service.updateNetworkServer(id, payload);
+    }
+    try {
+      const repo = this.databaseService.getRepositoryForTable('network_servers', ChirpstackNetworkServerEntity);
+      if (repo) {
+        await repo.update(id, {
+          ...(payload.name !== undefined ? { name: payload.name } : {}),
+          ...(payload.apiUrl !== undefined ? { apiUrl: payload.apiUrl } : {}),
+          ...(payload.apiToken !== undefined ? { apiToken: payload.apiToken } : {}),
+          ...(payload.tenantId !== undefined ? { tenantId: payload.tenantId || null } : {}),
+          ...(payload.applicationId !== undefined ? { applicationId: payload.applicationId || null } : {}),
+          ...(payload.deviceProfileId !== undefined ? { deviceProfileId: payload.deviceProfileId || null } : {}),
+        });
+        const updated = await repo.findOne({ where: { id } });
+        if (updated) {
+          return {
+            id: updated.id,
+            name: updated.name,
+            apiUrl: updated.apiUrl,
+            apiToken: updated.apiToken,
+            tenantId: updated.tenantId || undefined,
+            applicationId: updated.applicationId || undefined,
+            deviceProfileId: updated.deviceProfileId || undefined,
+            status: updated.isActive ? 'online' : 'offline',
+          };
+        }
+      }
+    } catch (e: any) {
+      this.logger.error(`Database direct update failed: ${e.message}`);
+    }
+    throw new BadRequestException('Method updateServer is not supported by plugin runtime');
   }
 
   @Delete(['api/plugins/lorawan-chirpstack/servers/:id', 'api/v1/plugins/lorawan-chirpstack/servers/:id'])
