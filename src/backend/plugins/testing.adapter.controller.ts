@@ -2124,10 +2124,21 @@ export class TestingAdapterController {
       const classCode = deviceClass.toUpperCase().replace(/^CLASS[_\s-]?/, '');
       const matches = profiles.filter((profile) => {
         const profileRegion = normalizeRegion(profile.region);
-        return typeof profile.id === 'string' && profile.id.trim() && region && profileRegion === region &&
-          (!profile.tenantId || profile.tenantId === tenantId) &&
-          (!['B', '1'].includes(classCode) || profile.supportsClassB === true) &&
-          (!['C', '2'].includes(classCode) || profile.supportsClassC === true);
+        const baseReg = region.replace(/[^A-Z0-9]/g, '');
+        const baseProf = profileRegion.replace(/[^A-Z0-9]/g, '');
+        const isRegionMatch = profileRegion === region ||
+          (baseReg.startsWith('AU915') && baseProf.startsWith('AU915')) ||
+          (baseReg.startsWith('AS923') && baseProf.startsWith('AS923')) ||
+          (baseReg.startsWith('US915') && baseProf.startsWith('US915')) ||
+          (baseReg.startsWith('EU868') && baseProf.startsWith('EU868'));
+        const tenantOk = !profile.tenantId || !tenantId ||
+          String(profile.tenantId).trim().toLowerCase() === String(tenantId).trim().toLowerCase();
+        const pSupportsB = Boolean(profile.supportsClassB === true || profile.supportsClassB === 'true');
+        const pSupportsC = Boolean(profile.supportsClassC === true || profile.supportsClassC === 'true');
+
+        return typeof profile.id === 'string' && profile.id.trim() && region && isRegionMatch && tenantOk &&
+          (!['B', '1'].includes(classCode) || pSupportsB) &&
+          (!['C', '2'].includes(classCode) || pSupportsC);
       });
       const selected = deviceProfileId ? matches.find((profile) => profile.id === deviceProfileId) : matches.length === 1 ? matches[0] : undefined;
       if (!selected) throw new BadRequestException('Không xác định được Device Profile phù hợp tenant/region/class; hãy chọn profile hợp lệ');
