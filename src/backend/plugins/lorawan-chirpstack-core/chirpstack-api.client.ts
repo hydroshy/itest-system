@@ -330,9 +330,10 @@ export class ChirpStackApiClient {
   /**
    * Fetch Device Profiles from ChirpStack
    */
-  async listDeviceProfiles(server: ChirpStackNetworkServer): Promise<ChirpStackDeviceProfile[]> {
+  async listDeviceProfiles(server: ChirpStackNetworkServer, tenantId?: string): Promise<ChirpStackDeviceProfile[]> {
     try {
-      const url = this.cleanUrl(server.apiUrl, `/api/device-profiles?limit=100&tenantId=${encodeURIComponent(server.tenantId || '')}`);
+      const targetTenantId = (tenantId || server.tenantId || '').trim();
+      const url = this.cleanUrl(server.apiUrl, `/api/device-profiles?limit=100&tenantId=${encodeURIComponent(targetTenantId)}`);
       const res = await this.safeFetch(url, {
         method: 'GET',
         headers: this.getHeaders(server.apiToken),

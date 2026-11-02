@@ -353,16 +353,14 @@ export class LoRaWanChirpStackService {
     ];
   }
 
-  async listDeviceProfiles(serverId?: string): Promise<ChirpStackDeviceProfile[]> {
+  async listDeviceProfiles(serverId?: string, tenantId?: string): Promise<ChirpStackDeviceProfile[]> {
+    await this.syncNetworkServers();
     const server = serverId ? this.servers.get(serverId) : this.servers.values().next().value;
     if (server) {
-      const profiles = await this.apiClient.listDeviceProfiles(server);
-      if (profiles.length > 0) return profiles;
+      const profiles = await this.apiClient.listDeviceProfiles(server, tenantId);
+      return profiles;
     }
-    return [
-      { id: 'dp-as923-otaa', name: 'AS923 Class A OTAA', region: 'AS923', macVersion: 'LORAWAN_1_0_3', regParamsRevision: 'RP002_1_0_3', tenantId: 'tenant-01' },
-      { id: 'dp-eu868-otaa', name: 'EU868 Class A OTAA', region: 'EU868', macVersion: 'LORAWAN_1_0_3', regParamsRevision: 'RP002_1_0_3', tenantId: 'tenant-01' },
-    ];
+    return [];
   }
 
   // ==========================================

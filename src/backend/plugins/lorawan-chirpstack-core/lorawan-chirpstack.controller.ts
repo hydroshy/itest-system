@@ -71,8 +71,8 @@ export class LoRaWanChirpStackController {
     return this.service.listApplications(serverId);
   }
 
-  async getDeviceProfiles(serverId?: string) {
-    return this.service.listDeviceProfiles(serverId);
+  async getDeviceProfiles(serverId?: string, tenantId?: string) {
+    return this.service.listDeviceProfiles(serverId, tenantId);
   }
 
   async handleUplink(body: any) {

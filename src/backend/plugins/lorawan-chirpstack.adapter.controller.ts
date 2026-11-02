@@ -282,9 +282,9 @@ export class LorawanChirpstackAdapterController implements OnModuleInit {
   }
 
   @Get(['api/plugins/lorawan-chirpstack/device-profiles', 'api/v1/plugins/lorawan-chirpstack/device-profiles'])
-  async getDeviceProfiles(@Query('serverId') serverId?: string) {
+  async getDeviceProfiles(@Query('serverId') serverId?: string, @Query('tenantId') tenantId?: string) {
     const ctrl = this.getController();
-    return ctrl.getDeviceProfiles(serverId);
+    return ctrl.getDeviceProfiles(serverId, tenantId);
   }
 
   // --- Uplinks & Webhook ---
