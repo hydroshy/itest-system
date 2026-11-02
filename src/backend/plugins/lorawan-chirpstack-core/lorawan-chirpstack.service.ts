@@ -42,6 +42,8 @@ export class LoRaWanChirpStackService {
       apiUrl: entity.apiUrl,
       apiToken: entity.apiToken,
       tenantId: entity.tenantId || undefined,
+      applicationId: entity.applicationId || undefined,
+      deviceProfileId: entity.deviceProfileId || undefined,
       version: 'ChirpStack v4',
       status: entity.isActive ? 'untested' : 'offline',
       lastCheckedAt: entity.updatedAt?.toISOString(),
@@ -94,6 +96,8 @@ export class LoRaWanChirpStackService {
       apiUrl: requireString('apiUrl', dto?.apiUrl),
       apiToken: requireString('apiToken', dto?.apiToken),
       tenantId: typeof dto?.tenantId === 'string' ? dto.tenantId.trim() || undefined : undefined,
+      applicationId: typeof dto?.applicationId === 'string' ? dto.applicationId.trim() || undefined : undefined,
+      deviceProfileId: typeof dto?.deviceProfileId === 'string' ? dto.deviceProfileId.trim() || undefined : undefined,
       version: 'ChirpStack v4',
       status: 'untested',
       lastCheckedAt: new Date().toISOString(),
@@ -112,6 +116,8 @@ export class LoRaWanChirpStackService {
         apiUrl: server.apiUrl,
         apiToken: server.apiToken,
         tenantId: server.tenantId || null,
+        applicationId: server.applicationId || null,
+        deviceProfileId: server.deviceProfileId || null,
         isActive: true,
       });
       const saved = await this.networkServerRepository.save(entity);

@@ -101,7 +101,14 @@ export class LorawanChirpstackAdapterController implements OnModuleInit {
       throw new BadRequestException('Request body must be an object');
     }
 
-    const { name, apiUrl, apiToken, tenantId } = dto as Record<string, unknown>;
+    const raw = dto as Record<string, unknown>;
+    const name = raw.name;
+    const apiUrl = raw.apiUrl;
+    const apiToken = raw.apiToken;
+    const tenantId = raw.tenantId ?? raw.tenant_id;
+    const applicationId = raw.applicationId ?? raw.application_id;
+    const deviceProfileId = raw.deviceProfileId ?? raw.device_profile_id;
+
     const requireString = (field: string, value: unknown): string => {
       if (typeof value !== 'string' || !value.trim()) {
         throw new BadRequestException(`${field} is required and must be a non-empty string`);
@@ -111,6 +118,12 @@ export class LorawanChirpstackAdapterController implements OnModuleInit {
     if (tenantId !== undefined && typeof tenantId !== 'string') {
       throw new BadRequestException('tenantId must be a string when provided');
     }
+    if (applicationId !== undefined && typeof applicationId !== 'string') {
+      throw new BadRequestException('applicationId must be a string when provided');
+    }
+    if (deviceProfileId !== undefined && typeof deviceProfileId !== 'string') {
+      throw new BadRequestException('deviceProfileId must be a string when provided');
+    }
 
     const ctrl = this.getController();
     return ctrl.addServer({
@@ -118,6 +131,8 @@ export class LorawanChirpstackAdapterController implements OnModuleInit {
       apiUrl: requireString('apiUrl', apiUrl),
       apiToken: requireString('apiToken', apiToken),
       ...(typeof tenantId === 'string' && tenantId.trim() ? { tenantId: tenantId.trim() } : {}),
+      ...(typeof applicationId === 'string' && applicationId.trim() ? { applicationId: applicationId.trim() } : {}),
+      ...(typeof deviceProfileId === 'string' && deviceProfileId.trim() ? { deviceProfileId: deviceProfileId.trim() } : {}),
     });
   }
 
