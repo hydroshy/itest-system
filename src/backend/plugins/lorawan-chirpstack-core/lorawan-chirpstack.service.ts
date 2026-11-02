@@ -6,6 +6,7 @@ import {
   ChirpStackDeviceProfile,
   LoRaWanUplinkEvent,
   CreateNetworkServerDto,
+  UpdateNetworkServerDto,
   CreateGatewayDto,
   CreateDeviceDto,
   DecodePayloadDto,
@@ -125,6 +126,35 @@ export class LoRaWanChirpStackService {
     }
 
     this.servers.set(server.id, server);
+    return server;
+  }
+
+  async updateNetworkServer(id: string, dto: UpdateNetworkServerDto): Promise<ChirpStackNetworkServer> {
+    await this.syncNetworkServers();
+    const server = this.servers.get(id);
+    if (!server) {
+      throw new BadRequestException(`Không tìm thấy Network Server ID "${id}"`);
+    }
+
+    if (dto.name !== undefined) server.name = String(dto.name).trim();
+    if (dto.apiUrl !== undefined) server.apiUrl = String(dto.apiUrl).trim();
+    if (dto.apiToken !== undefined) server.apiToken = String(dto.apiToken).trim();
+    if (dto.tenantId !== undefined) server.tenantId = String(dto.tenantId).trim() || undefined;
+    if (dto.applicationId !== undefined) server.applicationId = String(dto.applicationId).trim() || undefined;
+    if (dto.deviceProfileId !== undefined) server.deviceProfileId = String(dto.deviceProfileId).trim() || undefined;
+
+    if (this.networkServerRepository) {
+      await this.networkServerRepository.update(id, {
+        ...(dto.name !== undefined ? { name: server.name } : {}),
+        ...(dto.apiUrl !== undefined ? { apiUrl: server.apiUrl } : {}),
+        ...(dto.apiToken !== undefined ? { apiToken: server.apiToken } : {}),
+        ...(dto.tenantId !== undefined ? { tenantId: server.tenantId || null } : {}),
+        ...(dto.applicationId !== undefined ? { applicationId: server.applicationId || null } : {}),
+        ...(dto.deviceProfileId !== undefined ? { deviceProfileId: server.deviceProfileId || null } : {}),
+      });
+    }
+
+    this.servers.set(id, server);
     return server;
   }
 

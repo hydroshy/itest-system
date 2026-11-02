@@ -2,6 +2,8 @@ import {
   Controller,
   Get,
   Post,
+  Put,
+  Patch,
   Delete,
   Param,
   Query,
@@ -133,6 +135,29 @@ export class LorawanChirpstackAdapterController implements OnModuleInit {
       ...(typeof tenantId === 'string' && tenantId.trim() ? { tenantId: tenantId.trim() } : {}),
       ...(typeof applicationId === 'string' && applicationId.trim() ? { applicationId: applicationId.trim() } : {}),
       ...(typeof deviceProfileId === 'string' && deviceProfileId.trim() ? { deviceProfileId: deviceProfileId.trim() } : {}),
+    });
+  }
+
+  @Put(['api/plugins/lorawan-chirpstack/servers/:id', 'api/v1/plugins/lorawan-chirpstack/servers/:id'])
+  @Patch([
+    'api/plugins/lorawan-chirpstack/servers/:id',
+    'api/v1/plugins/lorawan-chirpstack/servers/:id',
+    'api/plugins/lorawan-chirpstack/servers/:id/default-context',
+    'api/v1/plugins/lorawan-chirpstack/servers/:id/default-context',
+  ])
+  async updateServer(@Param('id') id: string, @Body() dto: unknown) {
+    if (!dto || typeof dto !== 'object') {
+      throw new BadRequestException('Request body must be an object');
+    }
+    const raw = dto as Record<string, unknown>;
+    const ctrl = this.getController();
+    return ctrl.updateServer(id, {
+      ...(raw.name !== undefined ? { name: String(raw.name).trim() } : {}),
+      ...(raw.apiUrl !== undefined ? { apiUrl: String(raw.apiUrl).trim() } : {}),
+      ...(raw.apiToken !== undefined ? { apiToken: String(raw.apiToken).trim() } : {}),
+      ...(raw.tenantId !== undefined || raw.tenant_id !== undefined ? { tenantId: String(raw.tenantId ?? raw.tenant_id).trim() } : {}),
+      ...(raw.applicationId !== undefined || raw.application_id !== undefined ? { applicationId: String(raw.applicationId ?? raw.application_id).trim() } : {}),
+      ...(raw.deviceProfileId !== undefined || raw.device_profile_id !== undefined ? { deviceProfileId: String(raw.deviceProfileId ?? raw.device_profile_id).trim() } : {}),
     });
   }
 

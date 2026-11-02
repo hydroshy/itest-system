@@ -120,6 +120,15 @@ export interface CreateNetworkServerDto {
   deviceProfileId?: string;
 }
 
+export interface UpdateNetworkServerDto {
+  name?: string;
+  apiUrl?: string;
+  apiToken?: string;
+  tenantId?: string;
+  applicationId?: string;
+  deviceProfileId?: string;
+}
+
 export interface CreateGatewayDto {
   networkServerId: string;
   gatewayId: string;
