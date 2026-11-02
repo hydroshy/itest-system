@@ -2163,6 +2163,8 @@ export class TestingAdapterController {
 
       let chirpstackSuccess = false;
       let chirpstackError = '';
+      const stages = { device: 'pending', keys: 'pending', local: 'pending', registration: 'pending' };
+      const localWarnings: string[] = [];
 
       if (serverUrl) {
         try {
@@ -2179,13 +2181,15 @@ export class TestingAdapterController {
             method: 'POST',
             headers,
             body: JSON.stringify(chirpstackDevicePayload),
+            signal: AbortSignal.timeout(8000),
           });
 
-          if (resp1.ok || resp1.status === 409) {
+          if (resp1.ok) {
+            stages.device = 'success';
             // Call 2: Set OTAA Keys POST /api/devices/{devEui}/keys
             if (appKey) {
               const keysUrl = serverUrl.replace(/\/+$/, '') + `/api/devices/${devEui.toLowerCase()}/keys`;
-              await fetch(keysUrl, {
+              const keysResponse = await fetch(keysUrl, {
                 method: 'POST',
                 headers,
                 body: JSON.stringify({
@@ -2195,26 +2199,36 @@ export class TestingAdapterController {
                     appKey: appKey.toLowerCase(),
                   },
                 }),
-              }).catch(() => null);
+                signal: AbortSignal.timeout(8000),
+              });
+              stages.keys = keysResponse.ok ? 'success' : 'failed';
+              if (!keysResponse.ok) chirpstackError = `Thiết bị đã tạo trên ChirpStack nhưng ghi OTAA keys thất bại [${keysResponse.status}]`;
+              chirpstackSuccess = keysResponse.ok;
+            } else {
+              stages.keys = 'failed';
+              chirpstackError = 'Thiết bị đã tạo trên ChirpStack nhưng thiếu AppKey để ghi OTAA keys';
             }
-            chirpstackSuccess = true;
           } else {
             const errBody = await resp1.text().catch(() => '');
-            chirpstackError = `ChirpStack API trả về lỗi [${resp1.status}]: ${errBody}`;
+            stages.device = resp1.status === 409 ? 'exists' : 'failed';
+            stages.keys = 'skipped';
+            chirpstackError = resp1.status === 409 ? 'Thiết bị đã tồn tại trên ChirpStack; không ghi đè keys. Kiểm tra thiết bị hiện có trước khi thử lại.' : `Tạo thiết bị trên ChirpStack thất bại [${resp1.status}]: ${errBody}`;
           }
         } catch (fetchErr: any) {
-          chirpstackError = `Không thể kết nối đến ChirpStack Network Server: ${fetchErr.message}`;
+          if (stages.device === 'success') stages.keys = 'unknown';
+          else stages.device = 'unknown';
+          chirpstackError = `${stages.device === 'success' ? 'Thiết bị đã tạo nhưng không xác nhận được bước ghi keys' : 'Không xác nhận được bước tạo thiết bị'}: ${fetchErr.message}`;
         }
-      } else {
-        chirpstackSuccess = true;
       }
 
       // Persist / Sync to local database `devices`
+      let localDev: any;
+      try {
       const deviceRepo = this.databaseService.getRepositoryForTable(
         'devices',
         TestingDeviceEntity,
       );
-      let localDev = await deviceRepo.findOne({
+      localDev = await deviceRepo.findOne({
         where: [{ network_id: devEui }, ...(serialNumber ? [{ serial_number: serialNumber }] : [])],
       });
 
@@ -2269,6 +2283,11 @@ export class TestingAdapterController {
         };
       }
       await deviceRepo.save(localDev);
+      stages.local = 'success';
+      } catch (error: any) {
+        stages.local = 'failed';
+        localWarnings.push(`Không lưu được thiết bị vào hệ thống: ${error.message}`);
+      }
 
       // Persist to system_schema.device_test_registrations (Migration 010)
       try {
@@ -2280,7 +2299,7 @@ export class TestingAdapterController {
               registration_code, connectivity, so_number, wa_number, item_code,
               network_server_id, network_server_url, application_id, device_profile_id,
               fw_code, fw_version, hw_version, me_version,
-              dev_eui, app_eui, app_key, region_code, class, sensor_type, serial_number,
+              dev_eui, app_eui, app_key, region_code, class_mode, sensor_type, serial_number,
               status, message, chirpstack_payload
             ) VALUES (
               $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23
@@ -2294,29 +2313,35 @@ export class TestingAdapterController {
               chirpstackSuccess ? 'Đăng ký Thành công vui lòng gắn pin cảm biến' : (chirpstackError || 'Chirpstack registration failed'),
               JSON.stringify(chirpstackDevicePayload),
             ],
-          ).catch((e: any) => this.logger.debug(`Could not insert device_test_registrations: ${e.message}`));
+          );
+          stages.registration = 'success';
+        } else {
+          throw new Error('Database connection unavailable');
         }
-      } catch (_) {}
+      } catch (error: any) {
+        stages.registration = 'failed';
+        localWarnings.push(`Không lưu được lịch sử đăng ký: ${error.message}`);
+      }
 
+      const message = [chirpstackSuccess ? 'Đăng ký thành công trên ChirpStack; vui lòng gắn pin cảm biến' : chirpstackError, ...localWarnings].filter(Boolean).join('. ');
       // Publish Realtime Event
       this.realtimeService?.publishPluginLifecycle('testing:device_registered', {
-        deviceId: localDev.id,
-        serialNumber: localDev.serial_number,
-        networkId: localDev.network_id,
+        deviceId: localDev?.id,
+        serialNumber: localDev?.serial_number,
+        networkId: localDev?.network_id,
         soNumber,
         waNumber,
         itemCode,
         chirpstackSuccess,
-        message: chirpstackSuccess
-          ? 'Đăng ký Thành công vui lòng gắn pin cảm biến'
-          : `Lỗi đăng ký Network Server: ${chirpstackError}`,
+        message,
+        stages,
       });
 
       return {
         success: chirpstackSuccess,
-        message: chirpstackSuccess
-          ? 'Đăng ký Thành công vui lòng gắn pin cảm biến'
-          : `Đăng ký lên Network Server thất bại: ${chirpstackError}`,
+        message,
+        stages,
+        warnings: localWarnings,
         data: {
           device: localDev,
           chirpstackPayload: chirpstackDevicePayload,
