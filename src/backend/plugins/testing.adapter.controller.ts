@@ -2033,6 +2033,8 @@ export class TestingAdapterController {
           apiUrl: s.apiUrl,
           apiToken: s.apiToken ? '••••••••' : null,
           tenantId: s.tenantId,
+          applicationId: s.applicationId || null,
+          deviceProfileId: s.deviceProfileId || null,
           status: s.isActive ? 'online' : 'offline',
           createdAt: s.createdAt,
           updatedAt: s.updatedAt,
@@ -2048,7 +2050,9 @@ export class TestingAdapterController {
             name: 'Globiots ChirpStack Test Network Server',
             apiUrl: 'https://chirpstack-test-api.globiots.com',
             apiToken: '••••••••',
-            tenantId: '00000000-0000-0000-0000-000000000000',
+            tenantId: '52f14fb4-c5a1-4566-9b57-69502b78a9c1',
+            applicationId: 'app-iot-monitoring',
+            deviceProfileId: 'dp-as923-otaa',
             status: 'online',
           },
         ],
@@ -2080,8 +2084,30 @@ export class TestingAdapterController {
       const sensorType = (body?.sensorType || body?.sensor_type || '1').trim();
       const serialNumber = (body?.serialNumber || body?.SERIAL_NUMBER || '').trim();
       const itemCode = (body?.itemCode || body?.ITEM_CODE || '').trim();
-      const applicationId = (body?.applicationId || body?.application_id || 'app-default-lorawan').trim();
-      const deviceProfileId = (body?.deviceProfileId || body?.device_profile_id || `dp-${regionCode.toLowerCase()}-${deviceClass.toLowerCase()}`).trim();
+      let applicationId = (body?.applicationId || body?.application_id || '').trim();
+      let deviceProfileId = (body?.deviceProfileId || body?.device_profile_id || '').trim();
+
+      // If not passed explicitly in payload, auto-lookup from selected network server
+      if ((!applicationId || !deviceProfileId) && serverId) {
+        try {
+          const serverRepo = this.databaseService.getRepositoryForTable(
+            'lorawan_chirpstack',
+            ChirpstackNetworkServerEntity,
+          );
+          const serverRecord = await serverRepo.findOne({ where: { id: serverId } });
+          if (serverRecord) {
+            if (!applicationId && serverRecord.applicationId) {
+              applicationId = serverRecord.applicationId;
+            }
+            if (!deviceProfileId && serverRecord.deviceProfileId) {
+              deviceProfileId = serverRecord.deviceProfileId;
+            }
+          }
+        } catch (_) {}
+      }
+
+      if (!applicationId) applicationId = 'app-default-lorawan';
+      if (!deviceProfileId) deviceProfileId = `dp-${regionCode.toLowerCase()}-${deviceClass.toLowerCase()}`;
 
       if (!devEui) {
         throw new BadRequestException('deviceEUI (thanh ghi 27) là bắt buộc để đăng ký thiết bị!');
@@ -2188,6 +2214,8 @@ export class TestingAdapterController {
             region_code: regionCode,
             class: deviceClass,
             sensor_type: sensorType,
+            application_id: applicationId,
+            device_profile_id: deviceProfileId,
             registered_to_ns: chirpstackSuccess,
             ns_url: serverUrl,
             registered_at: new Date().toISOString(),
@@ -2209,12 +2237,42 @@ export class TestingAdapterController {
           region_code: regionCode,
           class: deviceClass,
           sensor_type: sensorType,
+          application_id: applicationId,
+          device_profile_id: deviceProfileId,
           registered_to_ns: chirpstackSuccess,
           ns_url: serverUrl,
           registered_at: new Date().toISOString(),
         };
       }
       await deviceRepo.save(localDev);
+
+      // Persist to system_schema.device_test_registrations (Migration 010)
+      try {
+        const ds = this.databaseService.getDataSourceForTable('devices');
+        if (ds) {
+          const regCode = `REG-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
+          await ds.query(
+            `INSERT INTO system_schema.device_test_registrations (
+              registration_code, connectivity, so_number, wa_number, item_code,
+              network_server_id, network_server_url, application_id, device_profile_id,
+              fw_code, fw_version, hw_version, me_version,
+              dev_eui, app_eui, app_key, region_code, class, sensor_type, serial_number,
+              status, message, chirpstack_payload
+            ) VALUES (
+              $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23
+            )`,
+            [
+              regCode, connectivity, soNumber || null, waNumber || null, itemCode || null,
+              serverId || null, serverUrl, applicationId, deviceProfileId,
+              fwCode || null, fwVersion || null, hwVersion || null, meVersion || null,
+              devEui, appEui || null, appKey || null, regionCode, deviceClass, sensorType || null, serialNumber || null,
+              chirpstackSuccess ? 'SUCCESS_ATTACH_BATTERY' : 'FAILED',
+              chirpstackSuccess ? 'Đăng ký Thành công vui lòng gắn pin cảm biến' : (chirpstackError || 'Chirpstack registration failed'),
+              JSON.stringify(chirpstackDevicePayload),
+            ],
+          ).catch((e: any) => this.logger.debug(`Could not insert device_test_registrations: ${e.message}`));
+        }
+      } catch (_) {}
 
       // Publish Realtime Event
       this.realtimeService?.publishPluginLifecycle('testing:device_registered', {
