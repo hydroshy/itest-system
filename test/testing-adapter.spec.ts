@@ -155,6 +155,84 @@ function createMockRepository(table: string) {
   };
 }
 
+const mockRegistrations: any[] = [
+  {
+    id: 'reg-001-uuid',
+    registration_code: 'REG-2026-001',
+    serial_number: 'SN-TEST-ATH-001',
+    item_code: 'LR-SENSOR-TEMP-V1',
+    fw_version: 'v6.0101',
+    hw_version: 'v1.0',
+    fw_code: 'ATH',
+    me_version: 'v1.0',
+    dev_eui: '0004A30B001F0001',
+    app_eui: '0000000000000000',
+    app_key: '0102030405060708090A0B0C0D0E0F10',
+    class_mode: 'A',
+    class: 'A',
+    region_code: 'AS923-1',
+    region: 'AS923-1',
+    sensor_type: '1',
+    created_by: 'tester1',
+    application_id: 'app-iot-monitoring',
+    device_profile_id: 'dp-as923-otaa',
+    network_server_id: 'srv-001',
+    network_server_name: 'ChirpStack Test',
+    network_server_url: 'https://chirpstack.example.com',
+    connectivity: 'LoRaWAN',
+    so_number: 'SO/2026/01855',
+    wa_number: 'WA/2026/00412',
+    status: 'SUCCESS_ATTACH_BATTERY',
+    message: 'Đăng ký Thành công vui lòng gắn pin cảm biến',
+    created_at: new Date('2026-11-01T10:00:00Z'),
+    updated_at: new Date('2026-11-01T10:00:00Z'),
+  },
+  {
+    id: 'reg-002-uuid',
+    registration_code: 'REG-2026-002',
+    serial_number: 'SN-TEST-ATH-002',
+    item_code: 'LR-SENSOR-TEMP-V1',
+    fw_version: 'v6.0101',
+    hw_version: 'v1.0',
+    fw_code: 'ATH',
+    me_version: 'v1.0',
+    dev_eui: '0004A30B001F0002',
+    app_eui: '0000000000000000',
+    app_key: '0102030405060708090A0B0C0D0E0F10',
+    class_mode: 'A',
+    class: 'A',
+    region_code: 'AU915',
+    region: 'AU915',
+    sensor_type: '1',
+    created_by: 'admin_user',
+    application_id: 'app-iot-monitoring',
+    device_profile_id: 'dp-au915-otaa',
+    network_server_id: 'srv-001',
+    network_server_name: 'ChirpStack Test',
+    network_server_url: 'https://chirpstack.example.com',
+    connectivity: 'LoRaWAN',
+    so_number: 'SO/2026/01855',
+    wa_number: 'WA/2026/00412',
+    status: 'SUCCESS_ATTACH_BATTERY',
+    message: 'Đăng ký Thành công vui lòng gắn pin cảm biến',
+    created_at: new Date('2026-11-02T12:00:00Z'),
+    updated_at: new Date('2026-11-02T12:00:00Z'),
+  },
+];
+
+const mockServers: any[] = [
+  {
+    id: 'srv-001',
+    name: 'ChirpStack Main Server',
+    apiUrl: 'https://chirpstack.example.com',
+    apiToken: 'test-token',
+    tenantId: 'tenant-001',
+    applicationId: 'app-iot-monitoring',
+    deviceProfileId: 'dp-as923-otaa',
+    isActive: true,
+  },
+];
+
 const mockDatabaseService: any = {
   getRepositoryForTable: (tableName: string) => {
     if (tableName === 'devices') return createMockRepository('devices');
@@ -162,8 +240,41 @@ const mockDatabaseService: any = {
     if (tableName === 'gateway_test_sessions') return createMockRepository('gatewaySessions');
     if (tableName === 'traceability_so') return createMockRepository('sos');
     if (tableName === 'traceability_wa') return createMockRepository('was');
+    if (tableName === 'lorawan_chirpstack' || tableName === 'network_servers') {
+      return {
+        find: async () => mockServers,
+        findOne: async (opt: any) => mockServers.find((s) => !opt.where || (opt.where.isActive ? s.isActive : true)) || mockServers[0],
+      };
+    }
     throw new Error(`Unknown table: ${tableName}`);
   },
+  getDataSourceForTable: (tableName: string) => ({
+    query: async (sql: string, params: any[]) => {
+      if (sql.includes('COUNT(*)')) {
+        let list = [...mockRegistrations];
+        if (sql.includes('created_by = $')) {
+          list = list.filter((r) => r.created_by.toLowerCase() === params[0].toLowerCase());
+        }
+        return [{ total: list.length }];
+      }
+      if (sql.includes('v_list_device_testing') || sql.includes('device_test_registrations')) {
+        if (sql.includes('WHERE id = $1')) {
+          return mockRegistrations.filter((r) => r.id === params[0]);
+        }
+        if (sql.startsWith('DELETE FROM system_schema.device_test_registrations')) {
+          const idx = mockRegistrations.findIndex((r) => r.id === params[0]);
+          if (idx >= 0) mockRegistrations.splice(idx, 1);
+          return [];
+        }
+        let list = [...mockRegistrations];
+        if (sql.includes('created_by) = LOWER($')) {
+          list = list.filter((r) => r.created_by.toLowerCase() === params[1].toLowerCase());
+        }
+        return list;
+      }
+      return [];
+    },
+  }),
 };
 
 const mockRealtimeService: any = {
@@ -430,6 +541,56 @@ async function runTests() {
   }
   if (!rejectedMissingServer) throw new Error('Registration must reject missing server instead of using dummy URL');
   console.log('✓ Registration rejects missing configured server.');
+
+  console.log('11. Testing Device Testing List & Management Endpoints (11 Fields, User/Admin isolation, Delete)...');
+  const defaultAppRes = await controller.getDefaultTestingApplication();
+  if (!defaultAppRes.success || defaultAppRes.data.applicationId !== 'app-iot-monitoring') {
+    throw new Error(`getDefaultTestingApplication failed: ${JSON.stringify(defaultAppRes)}`);
+  }
+  console.log('✓ Default Application lookup returned active server defaults.');
+
+  // Test admin query: gets all records
+  const adminList = await controller.getTestingDeviceRegistrations({ isAdmin: 'true', role: 'ADMIN' });
+  if (!adminList.success || adminList.total !== 2 || adminList.data.length !== 2) {
+    throw new Error(`Admin list failed: expected 2 devices, got ${adminList.total}`);
+  }
+  const item0 = adminList.data[0];
+  const required11Fields = [
+    'serialNumber', 'itemCode', 'fwVersion', 'hwVersion', 'fwCode',
+    'devEui', 'appEui', 'appKey', 'class', 'region', 'createdBy',
+  ];
+  for (const field of required11Fields) {
+    if (item0[field] === undefined) {
+      throw new Error(`Missing required field '${field}' in device registration list item`);
+    }
+  }
+  console.log('✓ Admin query retrieved all devices with all 11 required fields.');
+
+  // Test user query: gets user's devices
+  const userList = await controller.getTestingDeviceRegistrations({ user: 'tester1', role: 'TESTER', isAdmin: 'false' });
+  if (!userList.success || !userList.data) {
+    throw new Error(`User list query failed: ${JSON.stringify(userList)}`);
+  }
+  console.log('✓ User query filtered by user/tester successfully.');
+
+  // Test non-admin deleting someone else's device
+  let forbiddenDeleteCaught = false;
+  try {
+    await controller.deleteTestingDeviceRegistration('reg-002-uuid', { user: 'tester1', isAdmin: 'false' });
+  } catch (err: any) {
+    forbiddenDeleteCaught = err.status === 403 || err.message?.includes('không có quyền');
+  }
+  if (!forbiddenDeleteCaught) {
+    throw new Error('Non-admin deleting other user device must be rejected with 403 Forbidden');
+  }
+  console.log('✓ Non-admin unauthorized delete prevented correctly.');
+
+  // Test admin deleting device
+  const deleteRes = await controller.deleteTestingDeviceRegistration('reg-001-uuid', { isAdmin: 'true', role: 'ADMIN' });
+  if (!deleteRes.success || deleteRes.data.id !== 'reg-001-uuid') {
+    throw new Error(`Admin delete failed: ${JSON.stringify(deleteRes)}`);
+  }
+  console.log('✓ Admin device delete executed successfully.');
 
   console.log('\n================================================================');
   console.log('ALL TESTING ADAPTER CONTROLLER VERIFICATION TESTS PASSED 100%!');
