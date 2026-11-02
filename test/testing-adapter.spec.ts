@@ -233,6 +233,9 @@ const mockServers: any[] = [
   },
 ];
 
+const mockBatches: any[] = [];
+const mockBatchItems: any[] = [];
+
 const mockDatabaseService: any = {
   getRepositoryForTable: (tableName: string) => {
     if (tableName === 'devices') return createMockRepository('devices');
@@ -270,7 +273,88 @@ const mockDatabaseService: any = {
         if (sql.includes('created_by) = LOWER($')) {
           list = list.filter((r) => r.created_by.toLowerCase() === params[1].toLowerCase());
         }
+        if (sql.includes('v.item_code = $')) {
+          list = list.filter((r) => r.item_code === params[0]);
+        }
         return list;
+      }
+      if (sql.includes('device_test_batches')) {
+        if (sql.includes('INSERT INTO system_schema.device_test_batches')) {
+          const newBatch = {
+            id: `batch-${Date.now()}`,
+            batch_code: params[0],
+            batch_name: params[1],
+            item_code: params[2],
+            long_fw: params[3],
+            fw_version: params[4],
+            simu_id: params[5],
+            simulation_flow: JSON.parse(params[6] || '[]'),
+            flow_duration_seconds: params[7],
+            auto_check_criteria: JSON.parse(params[8] || '{}'),
+            max_devices: params[9],
+            status: 'DRAFT',
+            verdict: 'PENDING',
+            created_by: params[10],
+            created_at: new Date(),
+            updated_at: new Date(),
+          };
+          mockBatches.push(newBatch);
+          return [newBatch];
+        }
+        if (sql.includes('WHERE id = $1')) {
+          return mockBatches.filter((b) => b.id === params[0]);
+        }
+        if (sql.includes('UPDATE system_schema.device_test_batches')) {
+          const b = mockBatches.find((item) => item.id === params[0]);
+          if (b) {
+            b.status = 'RUNNING';
+            b.started_at = params[1];
+          }
+          return [];
+        }
+        if (sql.startsWith('DELETE FROM system_schema.device_test_batches')) {
+          const idx = mockBatches.findIndex((b) => b.id === params[0]);
+          if (idx >= 0) mockBatches.splice(idx, 1);
+          return [];
+        }
+        return mockBatches;
+      }
+      if (sql.includes('device_test_batch_items')) {
+        if (sql.includes('INSERT INTO system_schema.device_test_batch_items')) {
+          const newItem = {
+            id: `item-${Date.now()}-${Math.random().toString(36).substring(2, 5)}`,
+            batch_id: params[0],
+            device_test_registration_id: params[1],
+            serial_number: params[2],
+            dev_eui: params[3],
+            item_code: params[4],
+            fw_version: params[5],
+            reference_device_id: params[6],
+            reference_serial_number: params[7],
+            reference_dev_eui: params[8],
+            reference_device_name: params[9],
+            status: 'RUNNING',
+            verdict: 'PENDING',
+            dut_values: JSON.parse(params[10] || '{}'),
+            reference_values: JSON.parse(params[11] || '{}'),
+            comparison_result: JSON.parse(params[12] || '{}'),
+            packets_received: 0,
+            rules_passed: 0,
+            rules_failed: 0,
+          };
+          mockBatchItems.push(newItem);
+          return [newItem];
+        }
+        if (sql.includes('WHERE batch_id = $1')) {
+          return mockBatchItems.filter((i) => i.batch_id === params[0]);
+        }
+        if (sql.startsWith('DELETE FROM system_schema.device_test_batch_items')) {
+          const remaining = mockBatchItems.filter((i) => i.batch_id !== params[0]);
+          mockBatchItems.length = 0;
+          mockBatchItems.push(...remaining);
+          return [];
+        }
+        return mockBatchItems;
       }
       return [];
     },
@@ -591,6 +675,86 @@ async function runTests() {
     throw new Error(`Admin delete failed: ${JSON.stringify(deleteRes)}`);
   }
   console.log('✓ Admin device delete executed successfully.');
+
+  console.log('12. Testing Test Batch & Create Test Batch Endpoints (Multi-Device, Reference Mapping, Timer)...');
+  const batchMeta = await controller.getTestBatchMetadata();
+  if (!batchMeta.success || !Array.isArray(batchMeta.data.itemCodes) || !Array.isArray(batchMeta.data.defaultFlow)) {
+    throw new Error('getTestBatchMetadata failed');
+  }
+  console.log('✓ Test batch metadata retrieved successfully.');
+
+  const availDevs = await controller.getAvailableDevicesForBatch({ itemCode: 'LR-SENSOR-TEMP-V1' });
+  if (!availDevs.success || !Array.isArray(availDevs.data)) {
+    throw new Error('getAvailableDevicesForBatch failed');
+  }
+  console.log('✓ Available devices for batch filtered by ITEM-CODE.');
+
+  const refDevs = await controller.getReferenceDevices({ itemCode: 'LR-SENSOR-TEMP-V1' });
+  if (!refDevs.success || !Array.isArray(refDevs.data) || refDevs.data.length < 5) {
+    throw new Error('getReferenceDevices failed to return reference device pool');
+  }
+  console.log('✓ Reference standard devices pool retrieved successfully (5 devices for multi-testing).');
+
+  const createdBatch = await controller.createTestBatch({
+    itemCode: 'LR-SENSOR-TEMP-V1',
+    longFw: 'v6.0101',
+    fwVersion: 'v6.0101',
+    simulationFlow: batchMeta.data.defaultFlow,
+    flowDurationSeconds: 60,
+    autoCheckCriteria: batchMeta.data.defaultCriteria,
+    maxDevices: 5,
+  });
+  if (!createdBatch.success || !createdBatch.data.id) {
+    throw new Error('createTestBatch failed');
+  }
+  const batchId = createdBatch.data.id;
+  console.log('✓ Test batch created with ITEM-CODE, LONG_FW, Simulation Flow, and Autocheck Criteria.');
+
+  const batchList = await controller.getTestBatches({});
+  if (!batchList.success || batchList.data.length === 0) {
+    throw new Error('getTestBatches failed');
+  }
+  console.log('✓ Test batches query returned configured batches.');
+
+  // Start test batch with 2 DUTs mapped to 2 distinct reference standard devices
+  const startRes = await controller.startTestBatch(batchId, {
+    devices: [
+      {
+        deviceId: 'dev-001',
+        serialNumber: 'SN-TEST-ATH-001',
+        devEui: '0004A30B001F0001',
+        referenceDeviceId: refDevs.data[0].id,
+        referenceSerialNumber: refDevs.data[0].serialNumber,
+        referenceDevEui: refDevs.data[0].devEui,
+        referenceDeviceName: refDevs.data[0].name,
+      },
+      {
+        deviceId: 'dev-002',
+        serialNumber: 'SN-TEST-ATH-002',
+        devEui: '0004A30B001F0002',
+        referenceDeviceId: refDevs.data[1].id,
+        referenceSerialNumber: refDevs.data[1].serialNumber,
+        referenceDevEui: refDevs.data[1].devEui,
+        referenceDeviceName: refDevs.data[1].name,
+      },
+    ],
+  });
+  if (!startRes.success || startRes.data.status !== 'RUNNING') {
+    throw new Error(`startTestBatch failed: ${JSON.stringify(startRes)}`);
+  }
+  console.log('✓ Test batch started with 1-to-1 reference standard device mapping and timer countdown.');
+
+  const statusRes = await controller.getTestBatchStatus(batchId);
+  if (!statusRes.success || statusRes.data.devices.length !== 2) {
+    throw new Error('getTestBatchStatus failed to return device comparison states');
+  }
+  console.log('✓ Test batch status verified with progress timer and cross-device comparison values.');
+
+  const delBatchRes = await controller.deleteTestBatch(batchId);
+  if (!delBatchRes.success) {
+    throw new Error('deleteTestBatch failed');
+  }
+  console.log('✓ Test batch and item cleanup verified.');
 
   console.log('\n================================================================');
   console.log('ALL TESTING ADAPTER CONTROLLER VERIFICATION TESTS PASSED 100%!');
