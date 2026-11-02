@@ -2067,6 +2067,7 @@ export class TestingAdapterController {
       const connectivity = (body?.connectivity || 'LoRaWAN').trim();
       const soNumber = (body?.soNumber || body?.so_number || '').trim();
       const waNumber = (body?.waNumber || body?.wa_number || '').trim();
+      let tenantId = (body?.tenantId || body?.tenant_id || '').trim();
       const serverId = (body?.serverId || body?.server_id || '').trim();
       const serverUrl = (body?.serverUrl || body?.server_url || 'https://chirpstack-test-api.globiots.com').trim();
       const apiToken = (body?.apiToken || body?.api_token || '').trim();
@@ -2088,7 +2089,7 @@ export class TestingAdapterController {
       let deviceProfileId = (body?.deviceProfileId || body?.device_profile_id || '').trim();
 
       // If not passed explicitly in payload, auto-lookup from selected network server
-      if ((!applicationId || !deviceProfileId) && serverId) {
+      if ((!applicationId || !deviceProfileId || !tenantId) && serverId) {
         try {
           const serverRepo = this.databaseService.getRepositoryForTable(
             'lorawan_chirpstack',
@@ -2096,11 +2097,44 @@ export class TestingAdapterController {
           );
           const serverRecord = await serverRepo.findOne({ where: { id: serverId } });
           if (serverRecord) {
+            if (!tenantId && serverRecord.tenantId) {
+              tenantId = serverRecord.tenantId;
+            }
             if (!applicationId && serverRecord.applicationId) {
               applicationId = serverRecord.applicationId;
             }
             if (!deviceProfileId && serverRecord.deviceProfileId) {
               deviceProfileId = serverRecord.deviceProfileId;
+            }
+          }
+        } catch (_) {}
+      }
+
+      // Dynamic lookup: Query ChirpStack device-profiles based on tenantId and match region code (Reg 69)
+      if (!deviceProfileId && serverUrl) {
+        try {
+          const dpUrl = serverUrl.replace(/\/+$/, '') + `/api/device-profiles?limit=100${tenantId ? `&tenantId=${encodeURIComponent(tenantId)}` : ''}`;
+          const dpRes = await fetch(dpUrl, {
+            method: 'GET',
+            headers: {
+              'Content-Type': 'application/json',
+              Accept: 'application/json',
+              ...(apiToken ? { Authorization: `Bearer ${apiToken}` } : {}),
+            },
+          });
+          if (dpRes.ok) {
+            const dpData: any = await dpRes.json();
+            const list = dpData?.result || dpData?.deviceProfiles || [];
+            const cleanReg = regionCode.toUpperCase().replace(/[^A-Z0-9]/g, '');
+            const matched = list.find((p: any) => {
+              const pReg = String(p.region || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+              const pName = String(p.name || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+              return pReg.includes(cleanReg) || pName.includes(cleanReg) || cleanReg.includes(pReg);
+            });
+            if (matched?.id) {
+              deviceProfileId = matched.id;
+            } else if (list.length > 0 && list[0]?.id) {
+              deviceProfileId = list[0].id;
             }
           }
         } catch (_) {}
