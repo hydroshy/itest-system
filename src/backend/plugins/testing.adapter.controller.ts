@@ -2568,39 +2568,94 @@ export class TestingAdapterController {
         rows = await ds.query(listSql, [...params, limit, offset]);
       }
 
+      // Query ChirpStack for real-time status of returned devices
+      const csStatusMap = new Map<string, { status: string; lastSeenAt: string | null; batteryLevel?: number }>();
+      try {
+        let activeServer = null;
+        const serverRepo = this.databaseService.getRepositoryForTable('lorawan_chirpstack', ChirpstackNetworkServerEntity);
+        if (serverRepo) {
+          activeServer = await serverRepo.findOne({ where: { isActive: true } });
+        }
+        if (activeServer && activeServer.apiUrl && activeServer.apiToken) {
+          const targetApp = applicationId || activeServer.applicationId || '';
+          if (targetApp) {
+            const csUrl = `${activeServer.apiUrl.replace(/\/+$/, '')}/api/devices?limit=100&applicationId=${encodeURIComponent(targetApp)}`;
+            const csRes = await fetch(csUrl, {
+              headers: {
+                'Accept': 'application/json',
+                'Grpc-Metadata-Authorization': `Bearer ${activeServer.apiToken}`,
+                'Authorization': `Bearer ${activeServer.apiToken}`,
+              },
+              signal: AbortSignal.timeout(4000),
+            });
+            if (csRes.ok) {
+              const csData: any = await csRes.json();
+              const items = csData.result || csData.devices || [];
+              for (const it of items) {
+                if (it.devEui) {
+                  const key = String(it.devEui).replace(/[^0-9a-fA-F]/g, '').toLowerCase();
+                  let calculatedStatus = 'NEVER_SEEN';
+                  if (it.isDisabled) {
+                    calculatedStatus = 'DISABLED';
+                  } else if (it.lastSeenAt) {
+                    calculatedStatus = 'ONLINE';
+                  }
+                  csStatusMap.set(key, {
+                    status: calculatedStatus,
+                    lastSeenAt: it.lastSeenAt || null,
+                    batteryLevel: it.deviceStatus?.batteryLevel,
+                  });
+                }
+              }
+            }
+          }
+        }
+      } catch (csErr: any) {
+        this.logger.debug(`Could not fetch real-time device status from ChirpStack: ${csErr.message}`);
+      }
+
       return {
         success: true,
-        data: rows.map((r: any) => ({
-          id: r.id,
-          registrationCode: r.registration_code,
-          serialNumber: r.serial_number,
-          itemCode: r.item_code,
-          fwVersion: r.fw_version,
-          hwVersion: r.hw_version,
-          fwCode: r.fw_code,
-          meVersion: r.me_version,
-          devEui: r.dev_eui,
-          appEui: r.app_eui,
-          appKey: r.app_key,
-          class: r.class || r.class_mode || 'A',
-          classMode: r.class_mode || r.class || 'A',
-          region: r.region || r.region_code || 'AS923-1',
-          regionCode: r.region_code || r.region || 'AS923-1',
-          sensorType: r.sensor_type,
-          createdBy: r.created_by,
-          applicationId: r.application_id,
-          deviceProfileId: r.device_profile_id,
-          networkServerId: r.network_server_id,
-          networkServerName: r.network_server_name,
-          networkServerUrl: r.network_server_url,
-          connectivity: r.connectivity,
-          soNumber: r.so_number,
-          waNumber: r.wa_number,
-          status: r.status,
-          message: r.message,
-          createdAt: r.created_at,
-          updatedAt: r.updated_at,
-        })),
+        data: rows.map((r: any) => {
+          const cleanDev = String(r.dev_eui || '').replace(/[^0-9a-fA-F]/g, '').toLowerCase();
+          const csInfo = csStatusMap.get(cleanDev);
+          const networkStatus = csInfo ? csInfo.status : (r.status === 'SUCCESS_ATTACH_BATTERY' ? 'REGISTERED' : (r.status || 'UNKNOWN'));
+          const lastSeenAt = csInfo?.lastSeenAt || null;
+
+          return {
+            id: r.id,
+            registrationCode: r.registration_code,
+            serialNumber: r.serial_number,
+            itemCode: r.item_code,
+            fwVersion: (r.fw_version || '').replace(/^[vV]/, ''),
+            hwVersion: (r.hw_version || '').replace(/^[vV]/, ''),
+            fwCode: r.fw_code,
+            meVersion: r.me_version,
+            devEui: r.dev_eui,
+            appEui: r.app_eui,
+            appKey: r.app_key,
+            class: r.class || r.class_mode || 'A',
+            classMode: r.class_mode || r.class || 'A',
+            region: r.region || r.region_code || 'AS923-1',
+            regionCode: r.region_code || r.region || 'AS923-1',
+            sensorType: r.sensor_type,
+            createdBy: r.created_by,
+            applicationId: r.application_id,
+            deviceProfileId: r.device_profile_id,
+            networkServerId: r.network_server_id,
+            networkServerName: r.network_server_name,
+            networkServerUrl: r.network_server_url,
+            connectivity: r.connectivity,
+            soNumber: r.so_number,
+            waNumber: r.wa_number,
+            status: networkStatus,
+            networkStatus,
+            lastSeenAt,
+            message: r.message,
+            createdAt: r.created_at,
+            updatedAt: r.updated_at,
+          };
+        }),
         total,
         page,
         limit,
@@ -2683,12 +2738,14 @@ export class TestingAdapterController {
           }
 
           if (serverUrl && apiToken) {
-            const csUrl = `${serverUrl.replace(/\/+$/, '')}/api/devices/${encodeURIComponent(reg.dev_eui.toLowerCase())}`;
+            const cleanDevEui = (reg.dev_eui || '').replace(/[^0-9a-fA-F]/g, '').toLowerCase();
+            const csUrl = `${serverUrl.replace(/\/+$/, '')}/api/devices/${encodeURIComponent(cleanDevEui)}`;
             const csRes = await fetch(csUrl, {
               method: 'DELETE',
               headers: {
                 'Accept': 'application/json',
                 'Grpc-Metadata-Authorization': `Bearer ${apiToken}`,
+                'Authorization': `Bearer ${apiToken}`,
               },
               signal: AbortSignal.timeout(8000),
             });
