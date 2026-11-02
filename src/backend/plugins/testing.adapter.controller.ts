@@ -2069,8 +2069,8 @@ export class TestingAdapterController {
       const waNumber = (body?.waNumber || body?.wa_number || '').trim();
       let tenantId = (body?.tenantId || body?.tenant_id || '').trim();
       const serverId = (body?.serverId || body?.server_id || '').trim();
-      const serverUrl = (body?.serverUrl || body?.server_url || 'https://chirpstack-test-api.globiots.com').trim();
-      const apiToken = (body?.apiToken || body?.api_token || '').trim();
+      let serverUrl = '';
+      let apiToken = '';
 
       // Step 2 Registers (0..259, 386)
       const fwCode = (body?.fwCode || body?.FW_CODE || '').trim();
@@ -2088,60 +2088,50 @@ export class TestingAdapterController {
       let applicationId = (body?.applicationId || body?.application_id || '').trim();
       let deviceProfileId = (body?.deviceProfileId || body?.device_profile_id || '').trim();
 
-      // If not passed explicitly in payload, auto-lookup from selected network server
-      if ((!applicationId || !deviceProfileId || !tenantId) && serverId) {
-        try {
-          const serverRepo = this.databaseService.getRepositoryForTable(
-            'lorawan_chirpstack',
-            ChirpstackNetworkServerEntity,
-          );
-          const serverRecord = await serverRepo.findOne({ where: { id: serverId } });
-          if (serverRecord) {
-            if (!tenantId && serverRecord.tenantId) {
-              tenantId = serverRecord.tenantId;
-            }
-            if (!applicationId && serverRecord.applicationId) {
-              applicationId = serverRecord.applicationId;
-            }
-            if (!deviceProfileId && serverRecord.deviceProfileId) {
-              deviceProfileId = serverRecord.deviceProfileId;
-            }
-          }
-        } catch (_) {}
-      }
+      // Resolve credentials and defaults from the selected server, never client URLs/tokens.
+      if (!serverId) throw new BadRequestException('Network Server là bắt buộc');
+      const serverRepo = this.databaseService.getRepositoryForTable('network_servers', ChirpstackNetworkServerEntity);
+      const serverRecord = await serverRepo.findOne({ where: { id: serverId, isActive: true } });
+      if (!serverRecord) throw new BadRequestException('Network Server không tồn tại hoặc đã tắt');
+      tenantId = serverRecord.tenantId || '';
+      applicationId = serverRecord.applicationId || '';
+      serverUrl = serverRecord.apiUrl;
+      apiToken = serverRecord.apiToken;
+      if (!tenantId || !applicationId || !serverUrl || !apiToken) throw new BadRequestException('Cần cấu hình API URL, token, Default Tenant ID và Default Application ID');
 
-      // Dynamic lookup: Query ChirpStack device-profiles based on tenantId and match region code (Reg 69)
-      if (!deviceProfileId && serverUrl) {
-        try {
-          const dpUrl = serverUrl.replace(/\/+$/, '') + `/api/device-profiles?limit=100${tenantId ? `&tenantId=${encodeURIComponent(tenantId)}` : ''}`;
+      // Only accept real profiles returned for this tenant. Never reuse server defaults.
+      const profiles: any[] = [];
+      try {
+        let offset = 0;
+        do {
+          const dpUrl = serverUrl.replace(/\/+$/, '') + `/api/device-profiles?limit=100&offset=${offset}&tenantId=${encodeURIComponent(tenantId)}`;
           const dpRes = await fetch(dpUrl, {
-            method: 'GET',
-            headers: {
-              'Content-Type': 'application/json',
-              Accept: 'application/json',
-              ...(apiToken ? { Authorization: `Bearer ${apiToken}` } : {}),
-            },
+            headers: { Accept: 'application/json', Authorization: `Bearer ${apiToken}` },
+            signal: AbortSignal.timeout(8000),
           });
-          if (dpRes.ok) {
-            const dpData: any = await dpRes.json();
-            const list = dpData?.result || dpData?.deviceProfiles || [];
-            const cleanReg = regionCode.toUpperCase().replace(/[^A-Z0-9]/g, '');
-            const matched = list.find((p: any) => {
-              const pReg = String(p.region || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
-              const pName = String(p.name || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
-              return pReg.includes(cleanReg) || pName.includes(cleanReg) || cleanReg.includes(pReg);
-            });
-            if (matched?.id) {
-              deviceProfileId = matched.id;
-            } else if (list.length > 0 && list[0]?.id) {
-              deviceProfileId = list[0].id;
-            }
-          }
-        } catch (_) {}
+          if (!dpRes.ok) throw new Error(`HTTP ${dpRes.status}`);
+          const data: any = await dpRes.json();
+          if (!Array.isArray(data.result)) throw new Error('Invalid device-profiles response');
+          profiles.push(...data.result);
+          offset += data.result.length;
+          if (data.result.length === 0 || offset >= Number(data.totalCount ?? offset)) break;
+        } while (true);
+      } catch (error: any) {
+        throw new BadRequestException(`Không lấy được Device Profiles của tenant: ${error.message}`);
       }
-
-      if (!applicationId) applicationId = 'app-default-lorawan';
-      if (!deviceProfileId) deviceProfileId = `dp-${regionCode.toLowerCase()}-${deviceClass.toLowerCase()}`;
+      const normalizeRegion = (value: unknown) => String(value || '').toUpperCase().replace(/[-_\s]/g, '');
+      const region = normalizeRegion(regionCode);
+      const classCode = deviceClass.toUpperCase().replace(/^CLASS[_\s-]?/, '');
+      const matches = profiles.filter((profile) => {
+        const profileRegion = normalizeRegion(profile.region);
+        return typeof profile.id === 'string' && profile.id.trim() && region && profileRegion === region &&
+          (!profile.tenantId || profile.tenantId === tenantId) &&
+          (!['B', '1'].includes(classCode) || profile.supportsClassB === true) &&
+          (!['C', '2'].includes(classCode) || profile.supportsClassC === true);
+      });
+      const selected = deviceProfileId ? matches.find((profile) => profile.id === deviceProfileId) : matches.length === 1 ? matches[0] : undefined;
+      if (!selected) throw new BadRequestException('Không xác định được Device Profile phù hợp tenant/region/class; hãy chọn profile hợp lệ');
+      deviceProfileId = selected.id;
 
       if (!devEui) {
         throw new BadRequestException('deviceEUI (thanh ghi 27) là bắt buộc để đăng ký thiết bị!');
@@ -2174,7 +2164,7 @@ export class TestingAdapterController {
       let chirpstackSuccess = false;
       let chirpstackError = '';
 
-      if (serverUrl && !serverUrl.includes('dummy')) {
+      if (serverUrl) {
         try {
           const targetUrl = serverUrl.replace(/\/+$/, '') + '/api/devices';
           const headers: Record<string, string> = {

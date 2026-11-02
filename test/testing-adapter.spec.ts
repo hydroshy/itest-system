@@ -404,7 +404,9 @@ async function runTests() {
   }
   console.log('✓ Network servers lookup returned valid data.');
 
-  const regFlowRes = await controller.registerDeviceFlow3Steps({
+  let rejectedMissingServer = false;
+  try {
+    await controller.registerDeviceFlow3Steps({
     connectivity: 'LoRaWAN',
     soNumber: 'SO-2026-TEST-3STEP',
     waNumber: 'WA-2026-TEST-3STEP',
@@ -423,10 +425,11 @@ async function runTests() {
     itemCode: 'ITEM-ATH-001',
   });
 
-  if (!regFlowRes.success || !regFlowRes.message.includes('gắn pin cảm biến')) {
-    throw new Error(`registerDeviceFlow3Steps failed: ${JSON.stringify(regFlowRes)}`);
+  } catch (error: any) {
+    rejectedMissingServer = error.message.includes('Network Server là bắt buộc');
   }
-  console.log('✓ Flow 3 steps device registration succeeded with mandatory prompt.');
+  if (!rejectedMissingServer) throw new Error('Registration must reject missing server instead of using dummy URL');
+  console.log('✓ Registration rejects missing configured server.');
 
   console.log('\n================================================================');
   console.log('ALL TESTING ADAPTER CONTROLLER VERIFICATION TESTS PASSED 100%!');
