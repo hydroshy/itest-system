@@ -938,9 +938,22 @@ export class TestingAdapterController {
     @Headers('x-testing-webhook-token') token?: string,
     @Query('event') event?: string,
   ) {
+    const rawDevEui = body?.deviceInfo?.devEui || body?.devEUI || body?.devEui || 'unknown';
+    this.logger.log(
+      `📥 [ChirpStack Webhook] Nhận request tới uplink: event='${event || 'none'}', devEui='${rawDevEui}'`,
+    );
+
     const secret = process.env.TESTING_CHIRPSTACK_WEBHOOK_TOKEN;
-    if (!secret || token !== secret) throw new UnauthorizedException('Invalid webhook token');
-    if (event && event !== 'up') return { success: true, ignored: true };
+    if (!secret || token !== secret) {
+      this.logger.warn(
+        `⛔ [ChirpStack Webhook] Từ chối request do token không khớp! Header nhận: '${token ? '***' : '(trống)'}', yêu cầu: '${secret ? '(đã cấu hình)' : '(chưa cấu hình)'}'`,
+      );
+      throw new UnauthorizedException('Invalid webhook token');
+    }
+    if (event && event !== 'up') {
+      this.logger.log(`ℹ️ [ChirpStack Webhook] Bỏ qua sự kiện không phải uplink: event='${event}'`);
+      return { success: true, ignored: true };
+    }
     const devEui = body?.deviceInfo?.devEui || body?.devEUI || body?.devEui;
     if (typeof devEui !== 'string' || !/^[0-9a-f]{16}$/i.test(devEui)) {
       throw new BadRequestException('A valid devEui is required');
