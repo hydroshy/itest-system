@@ -2167,6 +2167,50 @@ export class TestingAdapterController {
     });
 
     if (!matched) {
+      // Fallback: Try discovering fields from live device packets or registrations for this itemCode
+      let packetFields: Array<{ name: string; label: string; type: string; unit?: string }> = [];
+      try {
+        const ds = this.databaseService.getDataSourceForTable('devices');
+        if (ds) {
+          const liveRows = await ds.query(
+            `SELECT decoded_payload FROM system_schema.v_device_payload_live
+             WHERE (UPPER(item_code) = UPPER($1) OR $1 = '') AND decoded_payload IS NOT NULL
+             ORDER BY created_at DESC LIMIT 3`,
+            [code]
+          ).catch(() => []);
+          for (const r of liveRows) {
+            if (r.decoded_payload && typeof r.decoded_payload === 'object') {
+              for (const [k, v] of Object.entries(r.decoded_payload)) {
+                if (!packetFields.some((f) => f.name === k)) {
+                  packetFields.push({
+                    name: k,
+                    label: k,
+                    type: typeof v === 'number' ? 'number' : typeof v === 'boolean' ? 'boolean' : 'string',
+                  });
+                }
+              }
+            }
+          }
+        }
+      } catch {}
+
+      if (packetFields.length > 0) {
+        return {
+          success: true,
+          data: {
+            itemCode: code,
+            fwVersion: fw,
+            decoderFound: true,
+            decoderId: 'live_packets_discovery',
+            decoderName: `Dynamic Telemetry Discovery (${code})`,
+            matchTier: 'live_packets',
+            fields: packetFields,
+            samplePayload: null,
+            expectedDecoded: null,
+          },
+        };
+      }
+
       return {
         success: true,
         data: {

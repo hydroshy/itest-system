@@ -761,6 +761,35 @@ function Decode(fPort, bytes) {
       if (match) return { matched: match, matchTier: 'tier4_sku_longfw' };
     }
 
+    // Tier 5: fallback by item_code alone (or sku)
+    if (itemCode || sku) {
+      const targetCode = itemCode || sku;
+      const match = await repo
+        .createQueryBuilder('d')
+        .where('d.is_active = true')
+        .andWhere('(LOWER(d.item_code) = LOWER(:code) OR LOWER(d.sku) = LOWER(:code) OR LOWER(d.name) LIKE LOWER(:likeCode))', {
+          code: targetCode,
+          likeCode: `%${targetCode}%`,
+        })
+        .orderBy('d.created_at', 'DESC')
+        .getOne();
+      if (match) return { matched: match, matchTier: 'tier5_item_or_sku' };
+    }
+
+    // Tier 6: fallback by fw_code alone
+    if (fwCode) {
+      const match = await repo
+        .createQueryBuilder('d')
+        .where('d.is_active = true')
+        .andWhere('(LOWER(d.fw_code) = LOWER(:fwCode) OR LOWER(d.name) LIKE LOWER(:likeFw))', {
+          fwCode,
+          likeFw: `%${fwCode}%`,
+        })
+        .orderBy('d.created_at', 'DESC')
+        .getOne();
+      if (match) return { matched: match, matchTier: 'tier6_fw_code' };
+    }
+
     return { matched: null, matchTier: null };
   }
 
