@@ -1816,9 +1816,6 @@ export class TestingAdapterController {
       this.logger.debug(`Could not read simulation profiles from DB: ${err.message}`);
     }
 
-    if (this.simulationProfiles.size === 0) {
-      this.seedDefaultSimulationProfiles();
-    }
     const memList = Array.from(this.simulationProfiles.values());
     return {
       success: true,
@@ -1938,194 +1935,6 @@ export class TestingAdapterController {
       message: `Đã xóa Flow Simulation ${trimmedId}`,
       deleted: deletedFromDb || deletedFromMem,
     };
-  }
-
-  private seedDefaultSimulationProfiles() {
-    const defaults = [
-      {
-        id: 'SIMU-LORA-SP01',
-        simuId: 'SIMU-LORA-SP01',
-        serialNumber: 'SN-TMPL-SP01',
-        networkId: '70B3D57ED005ABCD',
-        deviceName: 'Smart Socket Multi-Sensor Node',
-        deviceType: 'lorawan_node',
-        pluginId: 'testing',
-        soNumber: 'SO-2025-9901',
-        waNumber: 'WA-2025-9901',
-        itemCode: 'ITEM-9901-SMART-PLUG',
-        status: 'template',
-        profileName: 'Ổ Cắm Thông Minh & Còi Báo Động (Chuẩn 30 Phút)',
-        longFw: 'v1.2.0-rc3-long-fw-build9482',
-        targetDeviceName: 'Smart Socket Multi-Sensor Node',
-        activation: 'OTAA',
-        devEui: '70B3D57ED005ABCD',
-        appEui: '0000000000000000',
-        appKey: '2B7E151628AED2A6ABF7158809CF4F3C',
-        region: 'AS923-1',
-        sf: 'SF7',
-        bw: 125,
-        fPort: 2,
-        presetId: 'env',
-        flowDurationMinutes: 30,
-        autoTerminate: true,
-        uplinkIntervalSec: 10,
-        timedActions: [
-          {
-            id: 'act-sp-1',
-            triggerMinute: 1,
-            actionType: 'downlink_buzzer',
-            label: 'Downlink bật thiết bị còi giả lập lúc 1 phút',
-            payloadHex: '0101',
-            fPort: 10,
-            executed: false,
-          },
-          {
-            id: 'act-sp-2',
-            triggerMinute: 5,
-            actionType: 'downlink_command',
-            label: 'Downlink cấu hình chu kỳ đo 15s',
-            payloadHex: '02000F',
-            fPort: 10,
-            executed: false,
-          },
-          {
-            id: 'act-sp-3',
-            triggerMinute: 15,
-            actionType: 'downlink_buzzer',
-            label: 'Downlink tắt thiết bị còi giả lập',
-            payloadHex: '0100',
-            fPort: 10,
-            executed: false,
-          },
-          {
-            id: 'act-sp-4',
-            triggerMinute: 30,
-            actionType: 'change_rate',
-            label: 'Tự động kết thúc Flow sau 30 phút',
-            payloadHex: 'FF',
-            fPort: 10,
-            executed: false,
-          },
-        ],
-      },
-      {
-        id: 'SIMU-LORA-WM02',
-        simuId: 'SIMU-LORA-WM02',
-        serialNumber: 'SN-TMPL-WM02',
-        networkId: '70B3D57ED0052211',
-        deviceName: 'Water Meter Ultrasonic DN15',
-        deviceType: 'lorawan_node',
-        pluginId: 'testing',
-        soNumber: 'SO-2025-5520',
-        waNumber: 'WA-2025-5520',
-        itemCode: 'ITEM-5520-WATER-METER',
-        status: 'template',
-        profileName: 'Đồng Hồ Nước Siêu Âm LoRaWAN DN15',
-        longFw: 'v2.4.1-long-fw-build1029',
-        targetDeviceName: 'Water Meter Ultrasonic DN15',
-        activation: 'OTAA',
-        devEui: '70B3D57ED0052211',
-        appEui: '0000000000000000',
-        appKey: '0102030405060708090A0B0C0D0E0F10',
-        region: 'VN923',
-        sf: 'SF8',
-        bw: 125,
-        fPort: 1,
-        presetId: 'water',
-        flowDurationMinutes: 30,
-        autoTerminate: true,
-        uplinkIntervalSec: 10,
-        timedActions: [
-          {
-            id: 'act-wm-1',
-            triggerMinute: 1,
-            actionType: 'downlink_buzzer',
-            label: 'Downlink đóng van ngắt nước & bật còi cảnh báo',
-            payloadHex: 'AA000101',
-            fPort: 1,
-            executed: false,
-          },
-          {
-            id: 'act-wm-2',
-            triggerMinute: 10,
-            actionType: 'downlink_command',
-            label: 'Downlink mở lại van cấp nước',
-            payloadHex: 'AA01',
-            fPort: 1,
-            executed: false,
-          },
-          {
-            id: 'act-wm-3',
-            triggerMinute: 30,
-            actionType: 'change_rate',
-            label: 'Tự động kết thúc sau 30 phút',
-            payloadHex: 'FF',
-            fPort: 1,
-            executed: false,
-          },
-        ],
-      },
-      {
-        id: 'SIMU-LORA-ENV03',
-        simuId: 'SIMU-LORA-ENV03',
-        serialNumber: 'SN-TMPL-ENV03',
-        networkId: '70B3D57ED0059988',
-        deviceName: 'Gas & Smoke Industrial Node',
-        deviceType: 'lorawan_node',
-        pluginId: 'testing',
-        soNumber: 'SO-2025-8812',
-        waNumber: 'WA-2025-8812',
-        itemCode: 'ITEM-8812-ENV-SENSOR',
-        status: 'template',
-        profileName: 'Cảm Biến Khí & Cảnh Báo Khói Cháy',
-        longFw: 'v1.0.5-long-fw-build3311',
-        targetDeviceName: 'Gas & Smoke Industrial Node',
-        activation: 'OTAA',
-        devEui: '70B3D57ED0059988',
-        appEui: '0000000000000000',
-        appKey: 'A1B2C3D4E5F60102030405060708090A',
-        region: 'AS923-1',
-        sf: 'SF7',
-        bw: 125,
-        fPort: 3,
-        presetId: 'env',
-        flowDurationMinutes: 30,
-        autoTerminate: true,
-        uplinkIntervalSec: 10,
-        timedActions: [
-          {
-            id: 'act-env-1',
-            triggerMinute: 1,
-            actionType: 'downlink_buzzer',
-            label: 'Downlink bật còi báo khói giả lập',
-            payloadHex: '0101',
-            fPort: 10,
-            executed: false,
-          },
-          {
-            id: 'act-env-2',
-            triggerMinute: 12,
-            actionType: 'downlink_buzzer',
-            label: 'Downlink tắt còi báo khói',
-            payloadHex: '0100',
-            fPort: 10,
-            executed: false,
-          },
-          {
-            id: 'act-env-3',
-            triggerMinute: 30,
-            actionType: 'change_rate',
-            label: 'Tự động kết thúc sau 30 phút',
-            payloadHex: 'FF',
-            fPort: 10,
-            executed: false,
-          },
-        ],
-      },
-    ];
-    for (const item of defaults) {
-      this.simulationProfiles.set(item.simuId, item);
-    }
   }
 
   @Get(['api/plugins/testing/simulation/results', 'api/v1/plugins/testing/simulation/results'])
@@ -4018,68 +3827,86 @@ export class TestingAdapterController {
   @Get(['api/plugins/testing/test-batches/reference-devices', 'api/v1/plugins/testing/test-batches/reference-devices'])
   async getReferenceDevices(@Query() query: any) {
     try {
+      const ds = this.databaseService.getDataSourceForTable('devices');
       const itemCode = (query.itemCode || query.item_code || '').trim();
-      const referencePool = [
-        {
-          id: 'ref-std-001',
-          serialNumber: 'REF-STD-001',
-          devEui: 'AA555A0000000001',
-          name: 'Thiết Bị Chuẩn Calibrated Lab A1',
-          itemCode: itemCode || 'LR-SENSOR-TEMP-V1',
-          calibratedAt: '2026-10-15',
-          accuracyGrade: 'Class 0.2',
-          nominalValues: { temperature: 25.0, humidity: 60.0, battery: 100 },
-        },
-        {
-          id: 'ref-std-002',
-          serialNumber: 'REF-STD-002',
-          devEui: 'AA555A0000000002',
-          name: 'Thiết Bị Chuẩn Calibrated Lab A2',
-          itemCode: itemCode || 'LR-SENSOR-TEMP-V1',
-          calibratedAt: '2026-10-15',
-          accuracyGrade: 'Class 0.2',
-          nominalValues: { temperature: 25.1, humidity: 59.8, battery: 99 },
-        },
-        {
-          id: 'ref-std-003',
-          serialNumber: 'REF-STD-003',
-          devEui: 'AA555A0000000003',
-          name: 'Thiết Bị Chuẩn Calibrated Lab A3',
-          itemCode: itemCode || 'LR-SENSOR-TEMP-V1',
-          calibratedAt: '2026-10-20',
-          accuracyGrade: 'Class 0.2',
-          nominalValues: { temperature: 24.9, humidity: 60.2, battery: 100 },
-        },
-        {
-          id: 'ref-std-004',
-          serialNumber: 'REF-STD-004',
-          devEui: 'AA555A0000000004',
-          name: 'Thiết Bị Chuẩn Calibrated Lab A4',
-          itemCode: itemCode || 'LR-SENSOR-TEMP-V1',
-          calibratedAt: '2026-10-20',
-          accuracyGrade: 'Class 0.2',
-          nominalValues: { temperature: 25.2, humidity: 60.5, battery: 98 },
-        },
-        {
-          id: 'ref-std-005',
-          serialNumber: 'REF-STD-005',
-          devEui: 'AA555A0000000005',
-          name: 'Thiết Bị Chuẩn Calibrated Lab A5',
-          itemCode: itemCode || 'LR-SENSOR-TEMP-V1',
-          calibratedAt: '2026-10-25',
-          accuracyGrade: 'Class 0.2',
-          nominalValues: { temperature: 25.0, humidity: 60.0, battery: 100 },
-        },
-      ];
+
+      if (!ds) {
+        return { success: true, data: [], items: [], total: 0 };
+      }
+
+      let rows: any[] = [];
+      try {
+        let sql = `
+          SELECT
+            r.id,
+            r.serial_number,
+            r.dev_eui,
+            r.item_code,
+            r.fw_version,
+            COALESCE(r.long_fw, r.fw_version) AS long_fw,
+            r.hw_version,
+            r.status,
+            r.created_at
+          FROM system_schema.v_reference_devices r
+        `;
+        const params: any[] = [];
+        if (itemCode) {
+          sql += ` WHERE UPPER(r.item_code) = UPPER($1)`;
+          params.push(itemCode);
+        }
+        sql += ` ORDER BY r.created_at DESC LIMIT 50`;
+        rows = await ds.query(sql, params);
+      } catch {
+        // Fallback directly to device_test_registrations
+        try {
+          let sql = `
+            SELECT
+              r.id,
+              r.serial_number,
+              r.dev_eui,
+              r.item_code,
+              r.fw_version,
+              r.status,
+              r.created_at
+            FROM system_schema.device_test_registrations r
+            WHERE (r.status ILIKE '%ref%' OR r.status ILIKE '%calibrat%' OR r.serial_number ILIKE 'REF-%' OR r.serial_number ILIKE 'STD-%')
+          `;
+          const params: any[] = [];
+          if (itemCode) {
+            sql += ` AND UPPER(r.item_code) = UPPER($1)`;
+            params.push(itemCode);
+          }
+          sql += ` ORDER BY r.created_at DESC LIMIT 50`;
+          rows = await ds.query(sql, params);
+        } catch {}
+      }
+
+      const mapped = rows.map((r: any) => ({
+        id: r.id,
+        serialNumber: r.serial_number,
+        devEui: r.dev_eui,
+        name: `Thiết Bị Chuẩn ${r.serial_number || r.dev_eui}`,
+        itemCode: r.item_code,
+        fwVersion: r.fw_version,
+        longFw: r.long_fw || r.fw_version,
+        calibratedAt: r.created_at ? new Date(r.created_at).toISOString().split('T')[0] : '2026-10-15',
+        accuracyGrade: 'Class 0.2',
+        status: r.status,
+      }));
 
       return {
         success: true,
-        data: referencePool,
+        data: mapped,
+        items: mapped,
+        total: mapped.length,
       };
     } catch (error: any) {
       return {
         success: false,
         message: error.message,
+        data: [],
+        items: [],
+        total: 0,
       };
     }
   }
@@ -4351,21 +4178,41 @@ export class TestingAdapterController {
       for (const d of devices) {
         const dutSerial = d.serialNumber || d.serial_number || 'DUT-UNKNOWN';
         const dutDevEui = d.devEui || d.dev_eui || '';
-        const refSerial = d.referenceSerialNumber || d.reference_serial_number || 'REF-STD-DEFAULT';
-        const refDevEui = d.referenceDevEui || d.reference_dev_eui || 'AA555A0000000001';
-        const refName = d.referenceDeviceName || d.reference_device_name || 'Thiết bị chuẩn đối chiếu';
+        const refSerial = d.referenceSerialNumber || d.reference_serial_number || '';
+        const refDevEui = d.referenceDevEui || d.reference_dev_eui || '';
+        const refName = d.referenceDeviceName || d.reference_device_name || '';
         const refId = d.referenceDeviceId || d.reference_device_id || null;
 
-        const dutTemp = 25.0 + (Math.random() * 0.8 - 0.4);
-        const refTemp = 25.0;
-        const dutHumidity = 60.0 + (Math.random() * 2.0 - 1.0);
-        const refHumidity = 60.0;
-        const dutBattery = 95 + Math.floor(Math.random() * 5);
+        // Query real live telemetry from database if available
+        let dutTelemetry: any = {};
+        let refTelemetry: any = {};
+        if (dutDevEui) {
+          try {
+            const livePackets = await ds.query(
+              `SELECT decoded_payload FROM system_schema.v_device_payload_live WHERE LOWER(dev_eui) = LOWER($1) LIMIT 1`,
+              [dutDevEui]
+            );
+            if (livePackets && livePackets.length > 0) {
+              dutTelemetry = livePackets[0].decoded_payload || {};
+            }
+          } catch {}
+        }
+        if (refDevEui) {
+          try {
+            const refPackets = await ds.query(
+              `SELECT decoded_payload FROM system_schema.v_device_payload_live WHERE LOWER(dev_eui) = LOWER($1) LIMIT 1`,
+              [refDevEui]
+            );
+            if (refPackets && refPackets.length > 0) {
+              refTelemetry = refPackets[0].decoded_payload || {};
+            }
+          } catch {}
+        }
 
         const comparison = {
-          temperature_diff: Math.abs(dutTemp - refTemp).toFixed(2),
-          humidity_diff: Math.abs(dutHumidity - refHumidity).toFixed(2),
-          tolerance_pass: true,
+          status: Object.keys(dutTelemetry).length > 0 ? 'ACTIVE' : 'AWAITING_CHIRPSTACK_UPLINK',
+          dut_has_data: Object.keys(dutTelemetry).length > 0,
+          ref_has_data: Object.keys(refTelemetry).length > 0,
         };
 
         await ds.query(`
@@ -4390,8 +4237,8 @@ export class TestingAdapterController {
           refSerial,
           refDevEui,
           refName,
-          JSON.stringify({ temperature: Number(dutTemp.toFixed(2)), humidity: Number(dutHumidity.toFixed(2)), battery: dutBattery }),
-          JSON.stringify({ temperature: refTemp, humidity: refHumidity, battery: 100 }),
+          JSON.stringify(dutTelemetry),
+          JSON.stringify(refTelemetry),
           JSON.stringify(comparison),
         ]);
       }
@@ -4462,7 +4309,7 @@ export class TestingAdapterController {
             if (!isPass) allPass = false;
             await ds.query(`
               UPDATE system_schema.device_test_batch_items
-              SET status = $2, verdict = $2, packets_received = 5, rules_passed = 3, rules_failed = 0
+              SET status = $2, verdict = $2
               WHERE id = $1
             `, [item.id, isPass ? 'PASS' : 'FAIL']).catch(() => {});
           }
