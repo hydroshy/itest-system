@@ -4269,6 +4269,23 @@ export class TestingAdapterController {
     }
   }
 
+  @Get(['api/plugins/testing/test-batches/running', 'api/v1/plugins/testing/test-batches/running'])
+  async getRunningTestBatch() {
+    try {
+      const ds = this.databaseService.getDataSourceForTable('devices');
+      if (!ds) return { success: true, data: null };
+      const rows = await ds.query(
+        `SELECT id, batch_code, status, started_at, flow_duration_seconds FROM system_schema.device_test_batches WHERE status = 'RUNNING' ORDER BY started_at DESC LIMIT 1`
+      ).catch(() => []);
+      return {
+        success: true,
+        data: rows && rows.length > 0 ? rows[0] : null,
+      };
+    } catch {
+      return { success: true, data: null };
+    }
+  }
+
   @Get(['api/plugins/testing/test-batches/:id/status', 'api/v1/plugins/testing/test-batches/:id/status'])
   async getTestBatchStatus(@Param('id') id: string) {
     try {
@@ -4301,21 +4318,161 @@ export class TestingAdapterController {
         remainingSeconds = Math.max(0, flowDuration - elapsedSeconds);
         progressPercent = Math.min(100, Math.round((elapsedSeconds / flowDuration) * 100));
 
+        // Evaluate live telemetry with started_at baseline
+        for (const item of items) {
+          const dutEui = item.dev_eui;
+          const refEui = item.reference_dev_eui;
+          let dutPackets: any[] = [];
+          let refPackets: any[] = [];
+
+          if (dutEui) {
+            dutPackets = await ds.query(
+              `SELECT payload, decoded_payload, f_port, f_cnt, rssi, snr, created_at
+               FROM system_schema.device_packets
+               WHERE LOWER(dev_eui) = LOWER($1) AND created_at >= $2
+               ORDER BY created_at DESC`,
+              [dutEui, batch.started_at]
+            ).catch(() => []);
+          }
+
+          if (refEui) {
+            refPackets = await ds.query(
+              `SELECT payload, decoded_payload, f_port, f_cnt, rssi, snr, created_at
+               FROM system_schema.device_packets
+               WHERE LOWER(dev_eui) = LOWER($1) AND created_at >= $2
+               ORDER BY created_at DESC`,
+              [refEui, batch.started_at]
+            ).catch(() => []);
+          }
+
+          const latestDut = dutPackets[0];
+          const latestRef = refPackets[0];
+          const packetsCount = dutPackets.length;
+
+          let dutValues = item.dut_values || {};
+          let refValues = item.reference_values || {};
+          let comparison = item.comparison_result || {};
+
+          if (latestDut?.decoded_payload && Object.keys(latestDut.decoded_payload).length > 0) {
+            dutValues = latestDut.decoded_payload;
+          }
+          if (latestRef?.decoded_payload && Object.keys(latestRef.decoded_payload).length > 0) {
+            refValues = latestRef.decoded_payload;
+          }
+
+          const dutT = dutValues.temperature ?? dutValues.temp;
+          const refT = refValues.temperature ?? refValues.temp;
+          const dutH = dutValues.humidity ?? dutValues.hum;
+          const refH = refValues.humidity ?? refValues.hum;
+
+          let tolerancePass = true;
+          let tempDelta: number | null = null;
+          let humDelta: number | null = null;
+
+          if (dutT != null && refT != null) {
+            tempDelta = +(Math.abs(Number(dutT) - Number(refT))).toFixed(2);
+            if (tempDelta > 1.0) tolerancePass = false;
+          }
+          if (dutH != null && refH != null) {
+            humDelta = +(Math.abs(Number(dutH) - Number(refH))).toFixed(2);
+            if (humDelta > 5.0) tolerancePass = false;
+          }
+
+          comparison = {
+            status: packetsCount > 0 ? 'ACTIVE_RECEIVING' : 'AWAITING_UPLINK',
+            packets_since_start: packetsCount,
+            dut_temp: dutT,
+            ref_temp: refT,
+            temp_delta: tempDelta,
+            temp_pass: tempDelta != null ? tempDelta <= 1.0 : true,
+            dut_hum: dutH,
+            ref_hum: refH,
+            hum_delta: humDelta,
+            hum_pass: humDelta != null ? humDelta <= 5.0 : true,
+            tolerance_pass: tolerancePass,
+            rssi: latestDut?.rssi,
+            snr: latestDut?.snr,
+            last_packet_at: latestDut?.created_at,
+          };
+
+          item.dut_values = dutValues;
+          item.reference_values = refValues;
+          item.comparison_result = comparison;
+          item.packets_received = packetsCount;
+
+          await ds.query(
+            `UPDATE system_schema.device_test_batch_items
+             SET dut_values = $2, reference_values = $3, comparison_result = $4, packets_received = $5
+             WHERE id = $1`,
+            [item.id, JSON.stringify(dutValues), JSON.stringify(refValues), JSON.stringify(comparison), packetsCount]
+          ).catch(() => {});
+        }
+
         if (remainingSeconds === 0) {
           let allPass = true;
+          const finished = new Date();
           for (const item of items) {
             const comp = item.comparison_result || {};
-            const isPass = comp.tolerance_pass !== false;
+            const isPass = (item.packets_received || 0) > 0 && comp.tolerance_pass !== false;
             if (!isPass) allPass = false;
+            const itemVerdict = isPass ? 'PASS' : 'FAIL';
+            item.status = itemVerdict;
+            item.verdict = itemVerdict;
+
             await ds.query(`
               UPDATE system_schema.device_test_batch_items
               SET status = $2, verdict = $2
               WHERE id = $1
-            `, [item.id, isPass ? 'PASS' : 'FAIL']).catch(() => {});
+            `, [item.id, itemVerdict]).catch(() => {});
+
+            // Sync to traceability_manager.traceability_device
+            try {
+              await ds.query(`
+                UPDATE traceability_manager.traceability_device
+                SET test_result = $2, tested_at = $3, test_raw_data = jsonb_build_object(
+                  'batch_code', $4,
+                  'started_at', $5,
+                  'finished_at', $3,
+                  'duration_seconds', $6,
+                  'packets_received', $7,
+                  'verdict', $2,
+                  'comparison', $8::jsonb
+                )
+                WHERE serial_number = $1
+              `, [
+                item.serial_number,
+                itemVerdict,
+                finished,
+                batch.batch_code,
+                batch.started_at,
+                elapsedSeconds,
+                item.packets_received || 0,
+                JSON.stringify(comp),
+              ]);
+            } catch (traceErr: any) {
+              this.logger.debug(`Traceability sync skip: ${traceErr.message}`);
+            }
+
+            // Sync status to system_schema.device_test_registrations
+            try {
+              const regStatus = itemVerdict === 'PASS' ? 'TEST_PASSED' : 'TEST_FAILED';
+              await ds.query(`
+                UPDATE system_schema.device_test_registrations
+                SET status = $2,
+                    message = $3,
+                    updated_at = NOW()
+                WHERE serial_number = $1
+              `, [
+                item.serial_number,
+                regStatus,
+                `Test Batch ${batch.batch_code} hoàn tất: ${itemVerdict} (${new Date(batch.started_at).toISOString()} -> ${finished.toISOString()})`,
+              ]);
+            } catch (regErr: any) {
+              this.logger.debug(`Registration status sync skip: ${regErr.message}`);
+            }
           }
 
           const finalVerdict = allPass ? 'PASS' : 'FAIL';
-          const finished = new Date();
           await ds.query(`
             UPDATE system_schema.device_test_batches
             SET status = 'COMPLETED', verdict = $2, finished_at = $3, duration_seconds = $4, updated_at = $3
