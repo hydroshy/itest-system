@@ -1060,6 +1060,31 @@ export class TestingAdapterController {
         throw saveErr;
       }
     }
+
+    // Sync to system_schema.device_packets so views and queries stay in sync
+    try {
+      const ds = this.databaseService.getDataSourceForTable('devices');
+      if (ds) {
+        await ds.query(
+          `INSERT INTO system_schema.device_packets (
+            device_id, dev_eui, packet_type, f_port, f_cnt, raw_payload, decoded_payload, rf_info, rssi, snr, frequency
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
+          [
+            device?.id || null,
+            devEui.toLowerCase(),
+            'uplink',
+            numberOrNull(body.fPort),
+            numberOrNull(body.fCnt),
+            rawPayload,
+            JSON.stringify(decodedPayload),
+            JSON.stringify(rfInfo),
+            rfInfo.rssi,
+            rfInfo.snr,
+            freqMhz,
+          ]
+        ).catch(() => {});
+      }
+    } catch {}
     this.logger.log(
       `📥 [ChirpStack Webhook] Nhận uplink thành công -> DevEUI: ${devEui.toLowerCase()}, fCnt: ${numberOrNull(body.fCnt)}, RSSI: ${rfInfo.rssi} dBm, SNR: ${rfInfo.snr} dB, SF: ${rfInfo.sf}, Freq: ${rfInfo.frequency} Hz, Raw: ${rawPayload}`,
     );
@@ -4339,18 +4364,36 @@ export class TestingAdapterController {
             dutPackets = await ds.query(
               `SELECT raw_payload, decoded_payload, f_port, f_cnt, rssi, snr, created_at
                FROM devices.device_packets
-               WHERE LOWER(REPLACE(dev_eui, ':', '')) = $1 AND created_at >= $2
+               WHERE LOWER(REPLACE(dev_eui, ':', '')) = $1 AND created_at >= ($2::timestamptz - INTERVAL '60 seconds')
                ORDER BY created_at DESC`,
               [cleanDutEui, batch.started_at],
             ).catch(async () => {
               return await ds.query(
                 `SELECT raw_payload, decoded_payload, f_port, f_cnt, rssi, snr, created_at
                  FROM system_schema.device_packets
-                 WHERE LOWER(REPLACE(dev_eui, ':', '')) = $1 AND created_at >= $2
+                 WHERE LOWER(REPLACE(dev_eui, ':', '')) = $1 AND created_at >= ($2::timestamptz - INTERVAL '60 seconds')
                  ORDER BY created_at DESC`,
                 [cleanDutEui, batch.started_at],
               ).catch(() => []);
             });
+
+            if (!dutPackets || dutPackets.length === 0) {
+              dutPackets = await ds.query(
+                `SELECT raw_payload, decoded_payload, f_port, f_cnt, rssi, snr, created_at
+                 FROM devices.device_packets
+                 WHERE LOWER(REPLACE(dev_eui, ':', '')) = $1
+                 ORDER BY created_at DESC LIMIT 5`,
+                [cleanDutEui],
+              ).catch(async () => {
+                return await ds.query(
+                  `SELECT raw_payload, decoded_payload, f_port, f_cnt, rssi, snr, created_at
+                   FROM system_schema.device_packets
+                   WHERE LOWER(REPLACE(dev_eui, ':', '')) = $1
+                   ORDER BY created_at DESC LIMIT 5`,
+                  [cleanDutEui],
+                ).catch(() => []);
+              });
+            }
           }
 
           if (refEui) {
@@ -4358,18 +4401,36 @@ export class TestingAdapterController {
             refPackets = await ds.query(
               `SELECT raw_payload, decoded_payload, f_port, f_cnt, rssi, snr, created_at
                FROM devices.device_packets
-               WHERE LOWER(REPLACE(dev_eui, ':', '')) = $1 AND created_at >= $2
+               WHERE LOWER(REPLACE(dev_eui, ':', '')) = $1 AND created_at >= ($2::timestamptz - INTERVAL '60 seconds')
                ORDER BY created_at DESC`,
               [cleanRefEui, batch.started_at],
             ).catch(async () => {
               return await ds.query(
                 `SELECT raw_payload, decoded_payload, f_port, f_cnt, rssi, snr, created_at
                  FROM system_schema.device_packets
-                 WHERE LOWER(REPLACE(dev_eui, ':', '')) = $1 AND created_at >= $2
+                 WHERE LOWER(REPLACE(dev_eui, ':', '')) = $1 AND created_at >= ($2::timestamptz - INTERVAL '60 seconds')
                  ORDER BY created_at DESC`,
                 [cleanRefEui, batch.started_at],
               ).catch(() => []);
             });
+
+            if (!refPackets || refPackets.length === 0) {
+              refPackets = await ds.query(
+                `SELECT raw_payload, decoded_payload, f_port, f_cnt, rssi, snr, created_at
+                 FROM devices.device_packets
+                 WHERE LOWER(REPLACE(dev_eui, ':', '')) = $1
+                 ORDER BY created_at DESC LIMIT 5`,
+                [cleanRefEui],
+              ).catch(async () => {
+                return await ds.query(
+                  `SELECT raw_payload, decoded_payload, f_port, f_cnt, rssi, snr, created_at
+                   FROM system_schema.device_packets
+                   WHERE LOWER(REPLACE(dev_eui, ':', '')) = $1
+                   ORDER BY created_at DESC LIMIT 5`,
+                  [cleanRefEui],
+                ).catch(() => []);
+              });
+            }
           }
 
           const latestDut = dutPackets[0];
