@@ -245,6 +245,10 @@ async function runTests() {
           if (params?.longFw) filterLongFw = params.longFw.toLowerCase();
           if (params?.itemCode) filterItemCode = params.itemCode.toLowerCase();
           if (params?.fwCode) filterFwCode = params.fwCode.toLowerCase();
+          if (params?.code) {
+            filterItemCode = params.code.toLowerCase();
+            filterSku = params.code.toLowerCase();
+          }
           if (params?.id) excludeId = params.id;
           return qb;
         },
@@ -253,6 +257,10 @@ async function runTests() {
           if (params?.longFw) filterLongFw = params.longFw.toLowerCase();
           if (params?.itemCode) filterItemCode = params.itemCode.toLowerCase();
           if (params?.fwCode) filterFwCode = params.fwCode.toLowerCase();
+          if (params?.code) {
+            filterItemCode = params.code.toLowerCase();
+            filterSku = params.code.toLowerCase();
+          }
           if (params?.id) excludeId = params.id;
           return qb;
         },
@@ -262,9 +270,13 @@ async function runTests() {
           return (
             inMemoryDecoders.find((d) => {
               if (excludeId && d.id === excludeId) return false;
-              if (filterSku && d.sku.toLowerCase() !== filterSku) return false;
+              if (filterSku && filterItemCode && filterSku === filterItemCode) {
+                if (d.sku.toLowerCase() !== filterSku && (!d.item_code || d.item_code.toLowerCase() !== filterItemCode)) return false;
+              } else {
+                if (filterSku && d.sku.toLowerCase() !== filterSku) return false;
+                if (filterItemCode && (!d.item_code || d.item_code.toLowerCase() !== filterItemCode)) return false;
+              }
               if (filterLongFw && d.long_fw.toLowerCase() !== filterLongFw) return false;
-              if (filterItemCode && (!d.item_code || d.item_code.toLowerCase() !== filterItemCode)) return false;
               if (filterFwCode && (!d.fw_code || d.fw_code.toLowerCase() !== filterFwCode)) return false;
               return true;
             }) || null

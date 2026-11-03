@@ -55,9 +55,11 @@ async function run() {
               andWhere: function (cond: string, params: any) {
                 if (params?.itemCode) filterCode = params.itemCode;
                 if (params?.sku) filterCode = params.sku;
+                if (params?.code) filterCode = params.code;
                 if (params?.fwCode) filterFw = params.fwCode;
                 return this;
               },
+              orderBy: function () { return this; },
               getOne: async () => {
                 if (filterCode === 'UNKNOWN_PRODUCT' || filterFw === '9.9') return null;
                 return mockDecoderScripts[0] || null;
