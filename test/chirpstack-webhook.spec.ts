@@ -29,7 +29,13 @@ async function run() {
     assert.strictEqual(saved[0].sf, 7);
     assert.strictEqual(saved[0].rf_info.decodeError, 'No active decoder matched');
     assert.strictEqual(events[0][0], 'testing:packet:received');
-    console.log('Webhook auth, validation, unknown device persistence, RF metadata and realtime passed');
+
+    const status = await controller.getChirpstackIntegrationStatus();
+    assert.strictEqual(status.success, true);
+    assert.strictEqual(status.data.webhookListening, true);
+    assert.ok(status.data.supportedUplinkRoutes.includes('/lorawan/chirpstack/uplink'));
+
+    console.log('Webhook auth, validation, unknown device persistence, RF metadata, status and realtime passed');
   } finally {
     if (oldToken === undefined) delete process.env.TESTING_CHIRPSTACK_WEBHOOK_TOKEN;
     else process.env.TESTING_CHIRPSTACK_WEBHOOK_TOKEN = oldToken;

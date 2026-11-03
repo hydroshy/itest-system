@@ -885,7 +885,54 @@ export class TestingAdapterController {
     return { success: true, data: { applicationId: server.applicationId, callbackUrl, updated: existing.ok } };
   }
 
-  @Post(['api/plugins/testing/integrations/chirpstack/uplink', 'api/v1/plugins/testing/integrations/chirpstack/uplink'])
+  @Get([
+    'lorawan/chirpstack/status',
+    'api/lorawan/chirpstack/status',
+    'api/plugins/testing/integrations/chirpstack/status',
+    'api/v1/plugins/testing/integrations/chirpstack/status',
+  ])
+  async getChirpstackIntegrationStatus() {
+    const ds = this.databaseService.getDataSourceForTable('devices');
+    const recentPackets = await ds.query(
+      `SELECT id, dev_eui, packet_type, f_port, f_cnt, raw_payload, decoded_payload, rf_info, created_at
+       FROM devices.device_packets
+       ORDER BY created_at DESC
+       LIMIT 5`,
+    ).catch(() => []);
+
+    return {
+      success: true,
+      data: {
+        webhookListening: true,
+        supportedUplinkRoutes: [
+          '/lorawan/chirpstack/uplink',
+          '/api/lorawan/chirpstack/uplink',
+          '/api/plugins/testing/integrations/chirpstack/uplink',
+          '/api/v1/plugins/testing/integrations/chirpstack/uplink',
+        ],
+        tokenConfigured: Boolean(process.env.TESTING_CHIRPSTACK_WEBHOOK_TOKEN),
+        webhookUrlEnv: process.env.TESTING_CHIRPSTACK_WEBHOOK_URL || null,
+        recentUplinkCount: recentPackets.length,
+        recentPackets: recentPackets.map((p: any) => ({
+          id: p.id,
+          devEui: p.dev_eui,
+          fCnt: p.f_cnt,
+          rawPayload: p.raw_payload,
+          decodedPayload: p.decoded_payload,
+          rfInfo: p.rf_info,
+          createdAt: p.created_at,
+        })),
+      },
+    };
+  }
+
+  @Post([
+    'lorawan/chirpstack/uplink',
+    'api/lorawan/chirpstack/uplink',
+    'api/v1/lorawan/chirpstack/uplink',
+    'api/plugins/testing/integrations/chirpstack/uplink',
+    'api/v1/plugins/testing/integrations/chirpstack/uplink',
+  ])
   async ingestChirpstackUplink(
     @Body() body: any,
     @Headers('x-testing-webhook-token') token?: string,
@@ -955,6 +1002,16 @@ export class TestingAdapterController {
       } else {
         throw saveErr;
       }
+    }
+    this.logger.log(
+      `📥 [ChirpStack Webhook] Nhận uplink thành công -> DevEUI: ${devEui.toLowerCase()}, fCnt: ${numberOrNull(body.fCnt)}, RSSI: ${rfInfo.rssi} dBm, SNR: ${rfInfo.snr} dB, SF: ${rfInfo.sf}, Freq: ${rfInfo.frequency} Hz, Raw: ${rawPayload}`,
+    );
+    if (decodeError) {
+      this.logger.warn(`⚠️ [ChirpStack Webhook] DevEUI: ${devEui.toLowerCase()} - Ghi chú giải mã: ${decodeError}`);
+    } else {
+      this.logger.log(
+        `✅ [ChirpStack Webhook] DevEUI: ${devEui.toLowerCase()} - Giải mã sensor thành công: ${JSON.stringify(decodedPayload)}`,
+      );
     }
     this.realtimeService?.publishPluginLifecycle('testing:packet:received', {
       deviceId: device?.id || null, packetId: packet.id, devEui: devEui.toLowerCase(),
