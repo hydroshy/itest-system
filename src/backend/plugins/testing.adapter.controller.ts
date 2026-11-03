@@ -752,10 +752,17 @@ export class TestingAdapterController {
   // 3. PACKET INGESTION & QUERYING
   // ============================================================================
 
-  @Get(['api/plugins/testing/packets', 'api/v1/plugins/testing/packets'])
+  @Get([
+    'api/plugins/testing/packets',
+    'api/v1/plugins/testing/packets',
+    'api/plugins/testing/device-payloads',
+    'api/v1/plugins/testing/device-payloads',
+  ])
   async getPackets(
     @Query('deviceId') deviceId?: string,
     @Query('networkId') networkId?: string,
+    @Query('dev_eui') devEui?: string,
+    @Query('devEui') devEuiCamel?: string,
     @Query('packetType') packetType?: string,
     @Query('fPort') fPort?: string,
     @Query('search') search?: string,
@@ -774,6 +781,12 @@ export class TestingAdapterController {
 
       if (deviceId) {
         qb.andWhere('p.device_id = :deviceId', { deviceId });
+      }
+      const targetDevEui = devEui || devEuiCamel;
+      if (targetDevEui) {
+        qb.andWhere('(p.dev_eui ILIKE :targetDevEui OR dev.network_id ILIKE :targetDevEui)', {
+          targetDevEui: `%${targetDevEui.trim()}%`,
+        });
       }
       if (networkId) {
         qb.andWhere('(dev.network_id ILIKE :networkId OR dev.serial_number ILIKE :networkId)', {
