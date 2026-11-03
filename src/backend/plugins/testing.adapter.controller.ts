@@ -4177,6 +4177,9 @@ export class TestingAdapterController {
 
   @Post(['api/plugins/testing/test-batches/:id/start', 'api/v1/plugins/testing/test-batches/:id/start'])
   async startTestBatch(@Param('id') id: string, @Body() body: any) {
+    if (!id || id === 'undefined' || id === 'null' || !id.trim()) {
+      throw new BadRequestException('Vui lòng chọn Test Batch trước khi bắt đầu kiểm thử');
+    }
     try {
       const ds = this.databaseService.getDataSourceForTable('devices');
       if (!ds) throw new Error('Database unavailable');
@@ -4463,20 +4466,21 @@ export class TestingAdapterController {
             return null;
           };
 
+          const hasRef = Boolean(item.reference_serial_number || item.reference_dev_eui);
           const dutT = extractSensorVal(dutValues, ['temperature', 'temp', 'TEMPERATURE', 'TEMP', 't']);
-          const refT = extractSensorVal(refValues, ['temperature', 'temp', 'TEMPERATURE', 'TEMP', 't']) ?? 27.5;
+          const refT = hasRef ? extractSensorVal(refValues, ['temperature', 'temp', 'TEMPERATURE', 'TEMP', 't']) : null;
           const dutH = extractSensorVal(dutValues, ['humidity', 'hum', 'HUMIDITY', 'HUM', 'h']);
-          const refH = extractSensorVal(refValues, ['humidity', 'hum', 'HUMIDITY', 'HUM', 'h']) ?? 62.0;
+          const refH = hasRef ? extractSensorVal(refValues, ['humidity', 'hum', 'HUMIDITY', 'HUM', 'h']) : null;
 
           let tolerancePass = true;
           let tempDelta: number | null = null;
           let humDelta: number | null = null;
 
-          if (dutT != null && refT != null) {
+          if (hasRef && dutT != null && refT != null) {
             tempDelta = +(Math.abs(Number(dutT) - Number(refT))).toFixed(2);
             if (tempDelta > 1.0) tolerancePass = false;
           }
-          if (dutH != null && refH != null) {
+          if (hasRef && dutH != null && refH != null) {
             humDelta = +(Math.abs(Number(dutH) - Number(refH))).toFixed(2);
             if (humDelta > 5.0) tolerancePass = false;
           }
@@ -4528,8 +4532,43 @@ export class TestingAdapterController {
               WHERE id = $1
             `, [item.id, itemVerdict]).catch(() => {});
 
-            // Sync to traceability_manager.traceability_device
+            // Sync to traceability_manager.traceability_device with SO, WA, and tester name
             try {
+              // 1. Lookup SO, WA, and creator from device_test_registrations
+              const regRows = await ds.query(
+                `SELECT r.so_id, r.so_number, r.wa_id, r.wa_number, r.created_by, r.item_code
+                 FROM system_schema.device_test_registrations r
+                 WHERE LOWER(r.serial_number) = LOWER($1) OR LOWER(REPLACE(COALESCE(r.dev_eui, ''), ':', '')) = LOWER(REPLACE($2, ':', ''))
+                 ORDER BY r.created_at DESC LIMIT 1`,
+                [item.serial_number || '', item.dev_eui || ''],
+              ).catch(() => []);
+              const reg = regRows[0] || {};
+
+              let soId = reg.so_id || null;
+              let waId = reg.wa_id || null;
+              const testerName = batch.created_by || reg.created_by || 'tester';
+
+              if (!soId && reg.so_number) {
+                const soRows = await ds.query(
+                  `SELECT id FROM traceability_manager.traceability_so WHERE so_number = $1 LIMIT 1`,
+                  [reg.so_number],
+                ).catch(() => []);
+                soId = soRows[0]?.id || null;
+              }
+              if (!waId && reg.wa_number) {
+                const waRows = await ds.query(
+                  `SELECT id FROM traceability_manager.traceability_wa WHERE wa_number = $1 LIMIT 1`,
+                  [reg.wa_number],
+                ).catch(() => []);
+                waId = waRows[0]?.id || null;
+              }
+              if (!soId) {
+                const fallbackSo = await ds.query(
+                  `SELECT id FROM traceability_manager.traceability_so ORDER BY created_at DESC LIMIT 1`,
+                ).catch(() => []);
+                soId = fallbackSo[0]?.id || null;
+              }
+
               const testRawData = JSON.stringify({
                 batch_code: batch.batch_code,
                 started_at: batch.started_at,
@@ -4538,6 +4577,9 @@ export class TestingAdapterController {
                 packets_received: item.packets_received || 0,
                 verdict: itemVerdict,
                 comparison: comp,
+                so_number: reg.so_number || null,
+                wa_number: reg.wa_number || null,
+                test_person: testerName,
               });
               const statusStr = itemVerdict === 'PASS' ? 'TESTED_PASS' : 'TESTED_FAIL';
               const targetIdentifier = item.serial_number || item.dev_eui;
@@ -4547,7 +4589,11 @@ export class TestingAdapterController {
                 SET test_result = $2,
                     tested_at = $3,
                     test_raw_data = $4::jsonb,
-                    status = $5
+                    status = $5,
+                    test_person = COALESCE($6, test_person),
+                    so_id = COALESCE($7, so_id),
+                    wa_id = COALESCE($8, wa_id),
+                    item_code = COALESCE($9, item_code)
                 WHERE LOWER(serial_number) = LOWER($1) OR LOWER(REPLACE(COALESCE(dev_eui, ''), ':', '')) = LOWER(REPLACE($1, ':', ''))
               `, [
                 targetIdentifier,
@@ -4555,30 +4601,35 @@ export class TestingAdapterController {
                 finished,
                 testRawData,
                 statusStr,
+                testerName,
+                soId,
+                waId,
+                reg.item_code || batch.item_code,
               ]);
 
-              // If record doesn't exist yet in traceability_device, auto create with active SO
+              // If record doesn't exist yet in traceability_device, auto create with resolved SO, WA, and test_person
               if (!updateRes || updateRes.length === 0 || (updateRes as any)[1] === 0) {
-                const existingSos = await ds.query(
-                  `SELECT id FROM traceability_manager.traceability_so ORDER BY created_at DESC LIMIT 1`,
-                ).catch(() => []);
-                const soId = existingSos[0]?.id || null;
                 if (soId) {
                   await ds.query(`
                     INSERT INTO traceability_manager.traceability_device
-                      (so_id, serial_number, dev_eui, item_code, test_result, tested_at, test_raw_data, status)
-                    VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8)
+                      (so_id, wa_id, serial_number, dev_eui, item_code, test_result, test_person, tested_at, test_raw_data, status)
+                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, $10)
                     ON CONFLICT (serial_number) DO UPDATE
                     SET test_result = EXCLUDED.test_result,
+                        test_person = EXCLUDED.test_person,
                         tested_at = EXCLUDED.tested_at,
                         test_raw_data = EXCLUDED.test_raw_data,
-                        status = EXCLUDED.status
+                        status = EXCLUDED.status,
+                        wa_id = COALESCE(EXCLUDED.wa_id, traceability_device.wa_id),
+                        so_id = COALESCE(EXCLUDED.so_id, traceability_device.so_id)
                   `, [
                     soId,
+                    waId,
                     item.serial_number || item.dev_eui,
                     item.dev_eui,
-                    batch.item_code,
+                    reg.item_code || batch.item_code,
                     itemVerdict,
+                    testerName,
                     finished,
                     testRawData,
                     statusStr,
