@@ -25,6 +25,7 @@ import { TraceabilitySoEntity } from '../core-models/traceability-so.entity';
 import { TraceabilityWaEntity } from '../core-models/traceability-wa.entity';
 import { ChirpstackNetworkServerEntity } from '../core-models/chirpstack-network-server.entity';
 import { DecoderAdapterController } from './decoder.adapter.controller';
+import { DeviceAutoCheckProfileEntity } from '../core-models/device-autocheck-profile.entity';
 
 export interface RegisterTestingDeviceDto {
   serialNumber: string;
@@ -104,12 +105,15 @@ export interface RunSimulationDto {
 }
 
 export interface EvaluateAutoCheckDto {
-  target: {
+  target?: {
     packetId?: string;
     deviceId?: string;
     networkId?: string;
     serialNumber?: string;
     packet?: any;
+    packets?: any[];
+    referencePackets?: any[];
+    reference_packets?: any[];
   };
   criteria?: {
     minRssi?: number;
@@ -118,7 +122,25 @@ export interface EvaluateAutoCheckDto {
     expectedFPort?: number;
     requiredFields?: string[];
     fieldRules?: Record<string, { min?: number; max?: number; equals?: any }>;
+    dut?: {
+      item_code?: string;
+      fw_version?: string;
+      rules?: Array<{ field: string; count?: number; min?: number; max?: number; equals?: any }>;
+    };
+    reference?: {
+      item_code?: string;
+      fw_version?: string;
+      rules?: Array<{ field: string; count?: number; min?: number; max?: number; equals?: any }>;
+    };
+    comparisons?: Array<{
+      dut_field?: string;
+      dutField?: string;
+      reference_field?: string;
+      referenceField?: string;
+      tolerance?: number;
+    }>;
   };
+  profileId?: string;
 }
 
 @Controller()
@@ -898,12 +920,28 @@ export class TestingAdapterController {
       decodeError,
     };
     const repo = this.databaseService.getRepositoryForTable('device_packets', DevicePacketEntity);
-    const packet = await repo.save(repo.create({
-      device_id: device?.id || null, dev_eui: devEui.toLowerCase(), packet_type: 'uplink',
-      f_port: numberOrNull(body.fPort), f_cnt: numberOrNull(body.fCnt),
-      raw_payload: rawPayload, decoded_payload: decodedPayload, rf_info: rfInfo,
-      rssi: rfInfo.rssi, snr: rfInfo.snr, sf: rfInfo.sf, frequency: rfInfo.frequency,
-    }));
+    let packet: any;
+    try {
+      packet = await repo.save(repo.create({
+        device_id: device?.id || null, dev_eui: devEui.toLowerCase(), packet_type: 'uplink',
+        f_port: numberOrNull(body.fPort), f_cnt: numberOrNull(body.fCnt),
+        raw_payload: rawPayload, decoded_payload: decodedPayload, rf_info: rfInfo,
+        rssi: rfInfo.rssi, snr: rfInfo.snr, sf: rfInfo.sf, frequency: rfInfo.frequency,
+      }));
+    } catch (saveErr: any) {
+      if (saveErr?.message?.includes('sf') || saveErr?.code === '42703') {
+        const ds = this.databaseService.getDataSourceForTable('devices');
+        const inserted = await ds.query(
+          `INSERT INTO devices.device_packets (device_id, dev_eui, packet_type, f_port, f_cnt, raw_payload, decoded_payload, rf_info, rssi, snr, frequency)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+           RETURNING *`,
+          [device?.id || null, devEui.toLowerCase(), 'uplink', numberOrNull(body.fPort), numberOrNull(body.fCnt), rawPayload, JSON.stringify(decodedPayload), JSON.stringify(rfInfo), rfInfo.rssi, rfInfo.snr, rfInfo.frequency],
+        );
+        packet = inserted[0];
+      } else {
+        throw saveErr;
+      }
+    }
     this.realtimeService?.publishPluginLifecycle('testing:packet:received', {
       deviceId: device?.id || null, packetId: packet.id, devEui: devEui.toLowerCase(),
       packetType: 'uplink', fPort: packet.f_port, fCnt: packet.f_cnt,
@@ -1715,8 +1753,290 @@ export class TestingAdapterController {
   }
 
   // ============================================================================
-  // 8. DEVICE AUTO CHECK FLOW
+  // 8. DEVICE AUTO CHECK FLOW & PROFILES
   // ============================================================================
+
+  @Post(['api/plugins/testing/autocheck/profiles', 'api/v1/plugins/testing/autocheck/profiles'])
+  async createAutoCheckProfile(@Body() body: any) {
+    const name = (body?.name || '').trim();
+    const itemCode = (body?.itemCode || body?.item_code || '').trim();
+    const fwVersion = (body?.fwVersion || body?.fw_version || '').trim();
+    const referenceItemCode = (body?.referenceItemCode || body?.reference_item_code || '').trim() || null;
+    const referenceFwVersion = (body?.referenceFwVersion || body?.reference_fw_version || '').trim() || null;
+    const criteria = body?.criteria || {};
+    const createdBy = (body?.createdBy || body?.created_by || 'tester').trim();
+
+    if (!name) throw new BadRequestException('Tên cấu hình autocheck (name) không được để trống');
+    if (!itemCode) throw new BadRequestException('ITEM_CODE không được để trống');
+    if (!fwVersion) throw new BadRequestException('FW_VERSION không được để trống');
+    if ((referenceItemCode && !referenceFwVersion) || (!referenceItemCode && referenceFwVersion)) {
+      throw new BadRequestException('Thiết bị tham chiếu yêu cầu cả referenceItemCode và referenceFwVersion hoặc cùng để trống');
+    }
+
+    const ds = this.databaseService.getDataSourceForTable('system');
+    const inserted = await ds.query(
+      `INSERT INTO system_schema.device_autocheck_profiles
+       (name, item_code, fw_version, reference_item_code, reference_fw_version, criteria, created_by)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
+       RETURNING *`,
+      [name, itemCode, fwVersion, referenceItemCode, referenceFwVersion, JSON.stringify(criteria), createdBy],
+    );
+
+    return {
+      success: true,
+      message: 'Tạo cấu hình AutoCheck profile thành công',
+      data: this.mapAutoCheckProfileRow(inserted[0]),
+    };
+  }
+
+  @Get(['api/plugins/testing/autocheck/profiles', 'api/v1/plugins/testing/autocheck/profiles'])
+  async getAutoCheckProfiles(
+    @Query('itemCode') itemCode?: string,
+    @Query('fwVersion') fwVersion?: string,
+    @Query('search') search?: string,
+    @Query('page') page: string = '1',
+    @Query('limit') limit: string = '50',
+  ) {
+    const ds = this.databaseService.getDataSourceForTable('system');
+    let sql = `SELECT * FROM system_schema.device_autocheck_profiles WHERE 1=1`;
+    const params: any[] = [];
+    let idx = 1;
+
+    if (itemCode && itemCode.trim()) {
+      sql += ` AND LOWER(item_code) = LOWER($${idx++})`;
+      params.push(itemCode.trim());
+    }
+    if (fwVersion && fwVersion.trim()) {
+      sql += ` AND LOWER(fw_version) = LOWER($${idx++})`;
+      params.push(fwVersion.trim());
+    }
+    if (search && search.trim()) {
+      sql += ` AND (name ILIKE $${idx} OR autocheck_id ILIKE $${idx} OR item_code ILIKE $${idx})`;
+      params.push(`%${search.trim()}%`);
+      idx++;
+    }
+
+    const countRes = await ds.query(`SELECT COUNT(*)::int AS count FROM (${sql}) sub`, params).catch(() => [{ count: 0 }]);
+    const total = countRes[0]?.count || 0;
+
+    const pageNum = Math.max(1, parseInt(page, 10) || 1);
+    const limitNum = Math.min(200, Math.max(1, parseInt(limit, 10) || 50));
+    sql += ` ORDER BY created_at DESC LIMIT $${idx++} OFFSET $${idx++}`;
+    params.push(limitNum, (pageNum - 1) * limitNum);
+
+    const rows = await ds.query(sql, params).catch(() => []);
+    return {
+      success: true,
+      data: rows.map((r: any) => this.mapAutoCheckProfileRow(r)),
+      total,
+      page: pageNum,
+      limit: limitNum,
+    };
+  }
+
+  @Get(['api/plugins/testing/autocheck/profiles/:id', 'api/v1/plugins/testing/autocheck/profiles/:id'])
+  async getAutoCheckProfileById(@Param('id') id: string) {
+    const ds = this.databaseService.getDataSourceForTable('system');
+    const isAcId = (id || '').toUpperCase().startsWith('AC-');
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id || '');
+
+    let rows: any[] = [];
+    if (isAcId) {
+      rows = await ds.query(
+        `SELECT * FROM system_schema.device_autocheck_profiles WHERE LOWER(autocheck_id) = LOWER($1) LIMIT 1`,
+        [id.trim()],
+      );
+    } else if (isUuid) {
+      rows = await ds.query(
+        `SELECT * FROM system_schema.device_autocheck_profiles WHERE id = $1 LIMIT 1`,
+        [id.trim()],
+      );
+    } else {
+      rows = await ds.query(
+        `SELECT * FROM system_schema.device_autocheck_profiles WHERE id::text = $1 OR LOWER(autocheck_id) = LOWER($1) LIMIT 1`,
+        [id.trim()],
+      );
+    }
+
+    if (!rows || rows.length === 0) {
+      throw new NotFoundException(`Không tìm thấy cấu hình AutoCheck với ID '${id}'`);
+    }
+
+    return {
+      success: true,
+      data: this.mapAutoCheckProfileRow(rows[0]),
+    };
+  }
+
+  @Put(['api/plugins/testing/autocheck/profiles/:id', 'api/v1/plugins/testing/autocheck/profiles/:id'])
+  async updateAutoCheckProfile(@Param('id') id: string, @Body() body: any) {
+    const existing = await this.getAutoCheckProfileById(id);
+    const profileId = existing.data.id;
+
+    const name = body?.name !== undefined ? String(body.name).trim() : existing.data.name;
+    const itemCode = body?.itemCode !== undefined ? String(body.itemCode).trim() : existing.data.itemCode;
+    const fwVersion = body?.fwVersion !== undefined ? String(body.fwVersion).trim() : existing.data.fwVersion;
+    const referenceItemCode = body?.referenceItemCode !== undefined ? (String(body.referenceItemCode).trim() || null) : existing.data.referenceItemCode;
+    const referenceFwVersion = body?.referenceFwVersion !== undefined ? (String(body.referenceFwVersion).trim() || null) : existing.data.referenceFwVersion;
+    const criteria = body?.criteria !== undefined ? body.criteria : existing.data.criteria;
+
+    if (!name) throw new BadRequestException('Tên cấu hình autocheck (name) không được để trống');
+    if (!itemCode) throw new BadRequestException('ITEM_CODE không được để trống');
+    if (!fwVersion) throw new BadRequestException('FW_VERSION không được để trống');
+    if ((referenceItemCode && !referenceFwVersion) || (!referenceItemCode && referenceFwVersion)) {
+      throw new BadRequestException('Thiết bị tham chiếu yêu cầu cả referenceItemCode và referenceFwVersion hoặc cùng để trống');
+    }
+
+    const ds = this.databaseService.getDataSourceForTable('system');
+    const updated = await ds.query(
+      `UPDATE system_schema.device_autocheck_profiles
+       SET name = $1, item_code = $2, fw_version = $3, reference_item_code = $4, reference_fw_version = $5, criteria = $6, updated_at = CURRENT_TIMESTAMP
+       WHERE id = $7
+       RETURNING *`,
+      [name, itemCode, fwVersion, referenceItemCode, referenceFwVersion, JSON.stringify(criteria), profileId],
+    );
+
+    return {
+      success: true,
+      message: 'Cập nhật cấu hình AutoCheck profile thành công',
+      data: this.mapAutoCheckProfileRow(updated[0]),
+    };
+  }
+
+  @Delete(['api/plugins/testing/autocheck/profiles/:id', 'api/v1/plugins/testing/autocheck/profiles/:id'])
+  async deleteAutoCheckProfile(@Param('id') id: string) {
+    const existing = await this.getAutoCheckProfileById(id);
+    const profileId = existing.data.id;
+    const ds = this.databaseService.getDataSourceForTable('system');
+    await ds.query(`DELETE FROM system_schema.device_autocheck_profiles WHERE id = $1`, [profileId]);
+    return {
+      success: true,
+      message: `Đã xóa cấu hình AutoCheck profile [${existing.data.autocheckId}]`,
+    };
+  }
+
+  @Get(['api/plugins/testing/autocheck/fields', 'api/v1/plugins/testing/autocheck/fields'])
+  async getAutoCheckFields(
+    @Query('itemCode') itemCode?: string,
+    @Query('fwVersion') fwVersion?: string,
+    @Query('longFw') longFw?: string,
+  ) {
+    const code = (itemCode || '').trim();
+    const fw = (fwVersion || longFw || '').trim();
+
+    if (!code && !fw) {
+      return {
+        success: true,
+        data: {
+          itemCode: '',
+          fwVersion: '',
+          decoderFound: false,
+          fields: [],
+          message: 'Cung cấp itemCode hoặc fwVersion để tra cứu fields giải mã',
+        },
+      };
+    }
+
+    const decoderController = new DecoderAdapterController(this.databaseService);
+    const { matched, matchTier } = await decoderController.resolveDecoderScript({
+      itemCode: code,
+      fwCode: fw,
+      sku: code,
+      longFw: fw,
+    });
+
+    if (!matched) {
+      return {
+        success: true,
+        data: {
+          itemCode: code,
+          fwVersion: fw,
+          decoderFound: false,
+          fields: [],
+          message: `Không tìm thấy decoder script phù hợp cho itemCode='${code}', fwVersion='${fw}'`,
+        },
+      };
+    }
+
+    let fields: Array<{ name: string; label: string; type: string; unit?: string }> = [];
+    const expected = matched.sample_decoded || (matched as any).expected_decoded;
+    if (expected && typeof expected === 'object' && Object.keys(expected).length > 0) {
+      fields = Object.entries(expected).map(([k, v]) => ({
+        name: k,
+        label: k,
+        type: typeof v === 'number' ? 'number' : typeof v === 'boolean' ? 'boolean' : 'string',
+      }));
+    } else if (matched.sample_payload) {
+      try {
+        const testResult = await decoderController.testDecoder({
+          script: matched.script,
+          fPort: 1,
+          payload: matched.sample_payload,
+        });
+        if (testResult?.success && testResult?.data?.decoded && typeof testResult.data.decoded === 'object') {
+          fields = Object.entries(testResult.data.decoded).map(([k, v]) => ({
+            name: k,
+            label: k,
+            type: typeof v === 'number' ? 'number' : typeof v === 'boolean' ? 'boolean' : 'string',
+          }));
+        }
+      } catch (_) {}
+    }
+
+    if (fields.length === 0) {
+      const script = matched.script || '';
+      const fieldNames = new Set<string>();
+      const matches = script.matchAll(/(?:data|telemetry|decoded|output|result)\.([a-zA-Z0-9_]+)\s*=/g);
+      for (const m of matches) {
+        if (m[1] && !['length', 'push', 'prototype'].includes(m[1])) {
+          fieldNames.add(m[1]);
+        }
+      }
+      const propMatches = script.matchAll(/([a-zA-Z0-9_]+)\s*:\s*(?:UINT8|UINT16|UINT32|HEX|bytes|data|input)/g);
+      for (const m of propMatches) {
+        if (m[1]) fieldNames.add(m[1]);
+      }
+      if (fieldNames.size > 0) {
+        fields = Array.from(fieldNames).map((f) => ({
+          name: f,
+          label: f,
+          type: 'number',
+        }));
+      }
+    }
+
+    return {
+      success: true,
+      data: {
+        itemCode: code,
+        fwVersion: fw,
+        decoderFound: true,
+        decoderId: matched.id,
+        decoderName: matched.name,
+        matchTier,
+        fields,
+        samplePayload: matched.sample_payload,
+        expectedDecoded: matched.sample_decoded || (matched as any).expected_decoded || null,
+      },
+    };
+  }
+
+  private mapAutoCheckProfileRow(row: any) {
+    if (!row) return null;
+    return {
+      id: row.id,
+      autocheckId: row.autocheck_id,
+      name: row.name,
+      itemCode: row.item_code,
+      fwVersion: row.fw_version,
+      referenceItemCode: row.reference_item_code,
+      referenceFwVersion: row.reference_fw_version,
+      criteria: typeof row.criteria === 'string' ? JSON.parse(row.criteria) : (row.criteria || {}),
+      createdBy: row.created_by,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+    };
+  }
 
   @Get(['api/plugins/testing/autocheck/rules', 'api/v1/plugins/testing/autocheck/rules'])
   getAutoCheckRules() {
@@ -1736,13 +2056,22 @@ export class TestingAdapterController {
   @Post(['api/plugins/testing/autocheck/evaluate', 'api/v1/plugins/testing/autocheck/evaluate'])
   async evaluateAutoCheck(@Body() body: EvaluateAutoCheckDto) {
     const target = body?.target || {};
-    const criteria = body?.criteria || {};
+    let criteria: any = body?.criteria || {};
+
+    if (body?.profileId) {
+      try {
+        const profileRes = await this.getAutoCheckProfileById(body.profileId);
+        if (profileRes?.data?.criteria) {
+          criteria = { ...profileRes.data.criteria, ...criteria };
+        }
+      } catch (_) {}
+    }
 
     const minRssi = criteria.minRssi ?? -120;
     const maxRssi = criteria.maxRssi ?? -30;
     const minSnr = criteria.minSnr ?? -15;
     const expectedFPort = criteria.expectedFPort;
-    const requiredFields = criteria.requiredFields || ['dev_eui', 'payload'];
+    const requiredFields = criteria.requiredFields;
     const fieldRules = criteria.fieldRules || {};
 
     try {
@@ -1752,6 +2081,10 @@ export class TestingAdapterController {
       );
 
       let packet: any = target.packet;
+
+      if (!packet && Array.isArray(target.packets) && target.packets.length > 0) {
+        packet = target.packets[0];
+      }
 
       if (!packet && target.packetId) {
         packet = await packetRepo.findOne({
@@ -1781,44 +2114,50 @@ export class TestingAdapterController {
         packet = await qb.getOne();
       }
 
-      if (!packet) {
+      if (!packet && (!Array.isArray(target.packets) || target.packets.length === 0)) {
         throw new NotFoundException(
           'No packet found for auto-check evaluation. Please run a simulation or ingest a packet first.',
         );
       }
 
       const ruleResults: any[] = [];
-      const rf = packet.rf_info || packet.rfInfo || {};
-      const rssi = rf.rssi;
-      const snr = rf.snr;
-      const fPort = packet.f_port ?? packet.fPort;
-      const fCnt = packet.f_cnt ?? packet.fCnt;
-      const rawPayload = packet.raw_payload || packet.rawPayload || '';
-      const decoded = packet.decoded_payload || packet.decodedPayload || {};
+      const rf = packet?.rf_info || packet?.rfInfo || {};
+      const rssi = rf.rssi ?? packet?.rssi;
+      const snr = rf.snr ?? packet?.snr;
+      const fPort = packet?.f_port ?? packet?.fPort;
+      const fCnt = packet?.f_cnt ?? packet?.fCnt;
+      const rawPayload = packet?.raw_payload || packet?.rawPayload || '';
+      const decoded = packet?.decoded_payload || packet?.decodedPayload || {};
+
+      const isProductCriteria = Boolean(criteria.dut || criteria.reference || criteria.comparisons);
 
       // 1. RSSI Check
-      const rssiPassed = rssi !== undefined && rssi >= minRssi && rssi <= maxRssi;
-      ruleResults.push({
-        rule: 'RSSI_RANGE_CHECK',
-        passed: rssiPassed,
-        actual: rssi,
-        expected: `Between ${minRssi} and ${maxRssi} dBm`,
-        message: rssiPassed
-          ? `RSSI ${rssi} dBm is acceptable`
-          : `RSSI ${rssi} dBm is outside allowable range [${minRssi}, ${maxRssi}]`,
-      });
+      if (!isProductCriteria || criteria.minRssi !== undefined || criteria.maxRssi !== undefined) {
+        const rssiPassed = rssi !== undefined && rssi !== null && rssi >= minRssi && rssi <= maxRssi;
+        ruleResults.push({
+          rule: 'RSSI_RANGE_CHECK',
+          passed: Boolean(rssiPassed),
+          actual: rssi,
+          expected: `Between ${minRssi} and ${maxRssi} dBm`,
+          message: rssiPassed
+            ? `RSSI ${rssi} dBm is acceptable`
+            : `RSSI ${rssi} dBm is outside allowable range [${minRssi}, ${maxRssi}]`,
+        });
+      }
 
       // 2. SNR Check
-      const snrPassed = snr !== undefined && snr >= minSnr;
-      ruleResults.push({
-        rule: 'SNR_MIN_CHECK',
-        passed: snrPassed,
-        actual: snr,
-        expected: `>= ${minSnr} dB`,
-        message: snrPassed
-          ? `SNR ${snr} dB meets link budget threshold`
-          : `SNR ${snr} dB is below threshold ${minSnr} dB`,
-      });
+      if (!isProductCriteria || criteria.minSnr !== undefined) {
+        const snrPassed = snr !== undefined && snr !== null && snr >= minSnr;
+        ruleResults.push({
+          rule: 'SNR_MIN_CHECK',
+          passed: Boolean(snrPassed),
+          actual: snr,
+          expected: `>= ${minSnr} dB`,
+          message: snrPassed
+            ? `SNR ${snr} dB meets link budget threshold`
+            : `SNR ${snr} dB is below threshold ${minSnr} dB`,
+        });
+      }
 
       // 3. fPort Check
       if (expectedFPort !== undefined) {
@@ -1835,32 +2174,35 @@ export class TestingAdapterController {
       }
 
       // 4. Required Fields Check
-      for (const field of requiredFields) {
-        let actualVal: any;
-        if (field === 'dev_eui' || field === 'network_id') {
-          actualVal = packet.device?.network_id || target.networkId;
-        } else if (field === 'payload' || field === 'raw_payload') {
-          actualVal = rawPayload;
-        } else if (field === 'f_port') {
-          actualVal = fPort;
-        } else if (field === 'f_cnt') {
-          actualVal = fCnt;
-        } else {
-          actualVal = decoded[field];
-        }
+      if (requiredFields && Array.isArray(requiredFields)) {
+        for (const field of requiredFields) {
+          let actualVal: any;
+          if (field === 'dev_eui' || field === 'network_id') {
+            actualVal = packet?.device?.network_id || target.networkId;
+          } else if (field === 'payload' || field === 'raw_payload') {
+            actualVal = rawPayload;
+          } else if (field === 'f_port') {
+            actualVal = fPort;
+          } else if (field === 'f_cnt') {
+            actualVal = fCnt;
+          } else {
+            actualVal = decoded[field];
+          }
 
-        const passed = actualVal !== undefined && actualVal !== null && actualVal !== '';
-        ruleResults.push({
-          rule: `FIELD_REQUIRED_${field.toUpperCase()}`,
-          passed,
-          actual: actualVal ?? null,
-          expected: 'Non-empty value',
-          message: passed ? `Required field '${field}' exists` : `Missing mandatory field '${field}'`,
-        });
+          const passed = actualVal !== undefined && actualVal !== null && actualVal !== '';
+          ruleResults.push({
+            rule: `FIELD_REQUIRED_${field.toUpperCase()}`,
+            passed,
+            actual: actualVal ?? null,
+            expected: 'Non-empty value',
+            message: passed ? `Required field '${field}' exists` : `Missing mandatory field '${field}'`,
+          });
+        }
       }
 
       // 5. Specific Field Rules
-      for (const [field, rule] of Object.entries(fieldRules)) {
+      for (const [field, rawRule] of Object.entries(fieldRules)) {
+        const rule = (rawRule || {}) as { equals?: any; min?: number; max?: number };
         const actualVal = decoded[field];
         let passed = true;
         let failReason = '';
@@ -1892,16 +2234,143 @@ export class TestingAdapterController {
         });
       }
 
+      // 6. DUT Rules Evaluation (supports count, min, max, equals)
+      if (criteria.dut?.rules && Array.isArray(criteria.dut.rules)) {
+        const dutPackets = Array.isArray(target.packets) && target.packets.length > 0
+          ? target.packets
+          : (packet ? [packet] : []);
+
+        for (const rule of criteria.dut.rules) {
+          const field = rule.field;
+          const requiredCount = typeof rule.count === 'number' && rule.count > 0 ? rule.count : 1;
+          let matchCount = 0;
+
+          for (const p of dutPackets) {
+            const pDecoded = p?.decoded_payload || p?.decodedPayload || {};
+            const val = pDecoded[field];
+            if (val === undefined || val === null || val === '') continue;
+
+            let valid = true;
+            if (rule.equals !== undefined && val !== rule.equals) valid = false;
+            if (rule.min !== undefined && (typeof val !== 'number' || val < rule.min)) valid = false;
+            if (rule.max !== undefined && (typeof val !== 'number' || val > rule.max)) valid = false;
+
+            if (valid) matchCount++;
+          }
+
+          const passed = matchCount >= requiredCount;
+          ruleResults.push({
+            rule: `DUT_FIELD_${(field || '').toUpperCase()}`,
+            passed,
+            actual: matchCount,
+            expected: requiredCount,
+            message: passed
+              ? `Trường '${field}' đạt điều kiện trên ${matchCount}/${requiredCount} mẫu`
+              : `Trường '${field}' chỉ đạt trên ${matchCount}/${requiredCount} mẫu (yêu cầu tối thiểu ${requiredCount})`,
+          });
+        }
+      }
+
+      // 7. Reference Rules Evaluation
+      if (criteria.reference?.rules && Array.isArray(criteria.reference.rules)) {
+        const refPackets = Array.isArray(target.referencePackets || target.reference_packets)
+          ? (target.referencePackets || target.reference_packets)
+          : [];
+
+        for (const rule of criteria.reference.rules) {
+          const field = rule.field;
+          const requiredCount = typeof rule.count === 'number' && rule.count > 0 ? rule.count : 1;
+          let matchCount = 0;
+
+          for (const p of refPackets) {
+            const pDecoded = p?.decoded_payload || p?.decodedPayload || {};
+            const val = pDecoded[field];
+            if (val === undefined || val === null || val === '') continue;
+
+            let valid = true;
+            if (rule.equals !== undefined && val !== rule.equals) valid = false;
+            if (rule.min !== undefined && (typeof val !== 'number' || val < rule.min)) valid = false;
+            if (rule.max !== undefined && (typeof val !== 'number' || val > rule.max)) valid = false;
+
+            if (valid) matchCount++;
+          }
+
+          const passed = matchCount >= requiredCount;
+          ruleResults.push({
+            rule: `REFERENCE_FIELD_${(field || '').toUpperCase()}`,
+            passed,
+            actual: matchCount,
+            expected: requiredCount,
+            message: passed
+              ? `Thiết bị tham chiếu: trường '${field}' đạt ${matchCount}/${requiredCount} mẫu`
+              : `Thiết bị tham chiếu: trường '${field}' chỉ đạt ${matchCount}/${requiredCount} mẫu`,
+          });
+        }
+      }
+
+      // 8. Comparisons Evaluation (DUT vs Reference)
+      if (criteria.comparisons && Array.isArray(criteria.comparisons)) {
+        const dutPackets = Array.isArray(target.packets) && target.packets.length > 0
+          ? target.packets
+          : (packet ? [packet] : []);
+        const refPackets = Array.isArray(target.referencePackets || target.reference_packets)
+          ? (target.referencePackets || target.reference_packets)
+          : [];
+
+        const latestDut = dutPackets[0];
+        const latestRef = refPackets[0];
+
+        for (const comp of criteria.comparisons) {
+          const dutField = comp.dut_field || comp.dutField;
+          const refField = comp.reference_field || comp.referenceField;
+          const tolerance = typeof comp.tolerance === 'number' ? comp.tolerance : 0;
+
+          const dutDecoded = latestDut ? (latestDut.decoded_payload || latestDut.decodedPayload || {}) : {};
+          const refDecoded = latestRef ? (latestRef.decoded_payload || latestRef.decodedPayload || {}) : {};
+
+          const dutVal = dutDecoded[dutField];
+          const refVal = refDecoded[refField];
+
+          let passed = false;
+          let message = '';
+
+          if (dutVal === undefined || dutVal === null) {
+            message = `DUT thiếu trường so sánh '${dutField}'`;
+          } else if (refVal === undefined || refVal === null) {
+            message = `Thiết bị tham chiếu thiếu trường so sánh '${refField}'`;
+          } else if (typeof dutVal !== 'number' || typeof refVal !== 'number') {
+            passed = dutVal === refVal;
+            message = passed
+              ? `Giá trị DUT '${dutField}' (${dutVal}) khớp tham chiếu '${refField}'`
+              : `Giá trị DUT '${dutField}' (${dutVal}) khác tham chiếu '${refField}' (${refVal})`;
+          } else {
+            const diff = Math.abs(dutVal - refVal);
+            passed = diff <= tolerance;
+            message = passed
+              ? `Độ lệch |${dutVal} - ${refVal}| = ${diff.toFixed(2)} nằm trong ngưỡng dung sai ${tolerance}`
+              : `Độ lệch |${dutVal} - ${refVal}| = ${diff.toFixed(2)} vượt ngưỡng dung sai ${tolerance}`;
+          }
+
+          ruleResults.push({
+            rule: `COMPARE_${(dutField || '').toUpperCase()}_VS_${(refField || '').toUpperCase()}`,
+            passed,
+            actual: { dut: dutVal, reference: refVal },
+            expected: { tolerance },
+            message,
+          });
+        }
+      }
+
       const passedCount = ruleResults.filter((r) => r.passed).length;
       const failedCount = ruleResults.length - passedCount;
       const verdict = failedCount === 0 ? 'PASS' : 'FAIL';
 
       const evaluation = {
         evaluationId: `eval-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
-        packetId: packet.id,
-        deviceId: packet.device_id || packet.device?.id,
-        serialNumber: packet.device?.serial_number || target.serialNumber,
-        networkId: packet.device?.network_id || target.networkId,
+        packetId: packet?.id || null,
+        deviceId: packet?.device_id || packet?.device?.id || null,
+        serialNumber: packet?.device?.serial_number || target.serialNumber,
+        networkId: packet?.device?.network_id || target.networkId,
         verdict,
         totalRules: ruleResults.length,
         passedRules: passedCount,

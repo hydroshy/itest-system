@@ -27,7 +27,7 @@ export class DevicePacketEntity {
   @Column({ type: 'double precision', nullable: true })
   snr?: number | null;
 
-  @Column({ type: 'integer', nullable: true })
+  @Column({ type: 'integer', nullable: true, select: false })
   sf?: number | null;
 
   @Column({ type: 'numeric', precision: 20, scale: 3, nullable: true })
