@@ -2816,15 +2816,26 @@ export class TestingAdapterController {
       if (ds) {
         try {
           const rows = await ds.query(`
-            SELECT DISTINCT item_code, fw_version
+            SELECT DISTINCT item_code, fw_version, COALESCE(long_fw, fw_version) AS long_fw
             FROM system_schema.device_test_registrations
             WHERE item_code IS NOT NULL AND item_code != ''
             ORDER BY item_code ASC
           `);
           itemCodes = Array.from(new Set(rows.map((r: any) => r.item_code).filter(Boolean)));
-          fwVersions = Array.from(new Set(rows.map((r: any) => r.fw_version).filter(Boolean)));
-        } catch (err: any) {
-          this.logger.debug(`Could not load item_codes from DB: ${err.message}`);
+          fwVersions = Array.from(new Set(rows.map((r: any) => r.long_fw || r.fw_version).filter(Boolean)));
+        } catch {
+          try {
+            const rows = await ds.query(`
+              SELECT DISTINCT item_code, fw_version
+              FROM system_schema.device_test_registrations
+              WHERE item_code IS NOT NULL AND item_code != ''
+              ORDER BY item_code ASC
+            `);
+            itemCodes = Array.from(new Set(rows.map((r: any) => r.item_code).filter(Boolean)));
+            fwVersions = Array.from(new Set(rows.map((r: any) => r.fw_version).filter(Boolean)));
+          } catch (err: any) {
+            this.logger.debug(`Could not load item_codes from DB: ${err.message}`);
+          }
         }
       }
 
@@ -2877,30 +2888,41 @@ export class TestingAdapterController {
     try {
       const ds = this.databaseService.getDataSourceForTable('devices');
       const itemCode = (query.itemCode || query.item_code || '').trim();
-      const fwVersion = (query.fwVersion || query.fw_version || '').trim();
+      const fwVersion = (query.fwVersion || query.fw_version || query.longFw || query.long_fw || '').trim();
 
       if (!ds) {
         return { success: true, data: [] };
       }
 
-      const whereClauses: string[] = [];
-      const params: any[] = [];
-      let pIdx = 1;
+      const buildWhere = (tableAlias: 'v' | 'r', hasLongFw: boolean) => {
+        const clauses: string[] = [];
+        const params: any[] = [];
+        let pIdx = 1;
 
-      if (itemCode) {
-        whereClauses.push(`v.item_code = $${pIdx++}`);
-        params.push(itemCode);
-      }
-      if (fwVersion) {
-        whereClauses.push(`(v.fw_version = $${pIdx} OR COALESCE(v.long_fw, v.fw_version) ILIKE $${pIdx})`);
-        params.push(fwVersion);
-        pIdx++;
-      }
-
-      const whereSql = whereClauses.length > 0 ? `WHERE ${whereClauses.join(' AND ')}` : '';
+        if (itemCode) {
+          clauses.push(`${tableAlias}.item_code = $${pIdx++}`);
+          params.push(itemCode);
+        }
+        if (fwVersion) {
+          if (hasLongFw) {
+            clauses.push(`(${tableAlias}.fw_version = $${pIdx} OR ${tableAlias}.long_fw ILIKE $${pIdx})`);
+          } else {
+            clauses.push(`${tableAlias}.fw_version = $${pIdx}`);
+          }
+          params.push(fwVersion);
+          pIdx++;
+        }
+        return {
+          whereSql: clauses.length > 0 ? `WHERE ${clauses.join(' AND ')}` : '',
+          params,
+        };
+      };
 
       let rows: any[] = [];
+
+      // 1. Primary: View v_list_device_testing with long_fw column
       try {
+        const { whereSql, params } = buildWhere('v', true);
         rows = await ds.query(`
           SELECT
             v.id,
@@ -2923,56 +2945,84 @@ export class TestingAdapterController {
           ORDER BY v.created_at DESC
           LIMIT 50
         `, params);
-      } catch {
-        const safeFallbackWhere = whereSql
-          .replace(/v\.long_fw/g, 'r.fw_version')
-          .replace(/v\./g, 'r.');
+      } catch (errViewLongFw) {
+        // 2. View v_list_device_testing without long_fw (fallback to fw_version)
         try {
+          const { whereSql, params } = buildWhere('v', false);
           rows = await ds.query(`
             SELECT
-              r.id,
-              r.registration_code,
-              r.serial_number,
-              r.item_code,
-              r.fw_version,
-              COALESCE(r.long_fw, r.fw_version) AS "long_fw",
-              r.hw_version,
-              r.fw_code,
-              r.dev_eui,
-              r.app_eui,
-              r.class_mode AS "class",
-              r.region_code AS "region",
-              r.status,
-              r.created_by,
-              r.created_at
-            FROM system_schema.device_test_registrations r
-            ${safeFallbackWhere}
-            ORDER BY r.created_at DESC
+              v.id,
+              v.registration_code,
+              v.serial_number,
+              v.item_code,
+              v.fw_version,
+              v.fw_version AS "long_fw",
+              v.hw_version,
+              v.fw_code,
+              v.dev_eui,
+              v.app_eui,
+              COALESCE(v.class, v.class_mode, 'A') AS "class",
+              COALESCE(v.region, v.region_code, 'AS923-1') AS "region",
+              v.status,
+              v.created_by,
+              v.created_at
+            FROM system_schema.v_list_device_testing v
+            ${whereSql}
+            ORDER BY v.created_at DESC
             LIMIT 50
           `, params);
-        } catch {
-          rows = await ds.query(`
-            SELECT
-              r.id,
-              r.registration_code,
-              r.serial_number,
-              r.item_code,
-              r.fw_version,
-              r.fw_version AS "long_fw",
-              r.hw_version,
-              r.fw_code,
-              r.dev_eui,
-              r.app_eui,
-              r.class_mode AS "class",
-              r.region_code AS "region",
-              r.status,
-              r.created_by,
-              r.created_at
-            FROM system_schema.device_test_registrations r
-            ${safeFallbackWhere}
-            ORDER BY r.created_at DESC
-            LIMIT 50
-          `, params);
+        } catch (errView) {
+          // 3. Fallback table device_test_registrations with long_fw
+          try {
+            const { whereSql, params } = buildWhere('r', true);
+            rows = await ds.query(`
+              SELECT
+                r.id,
+                r.registration_code,
+                r.serial_number,
+                r.item_code,
+                r.fw_version,
+                COALESCE(r.long_fw, r.fw_version) AS "long_fw",
+                r.hw_version,
+                r.fw_code,
+                r.dev_eui,
+                r.app_eui,
+                r.class_mode AS "class",
+                r.region_code AS "region",
+                r.status,
+                r.created_by,
+                r.created_at
+              FROM system_schema.device_test_registrations r
+              ${whereSql}
+              ORDER BY r.created_at DESC
+              LIMIT 50
+            `, params);
+          } catch (errTableLongFw) {
+            // 4. Fallback table device_test_registrations without long_fw
+            const { whereSql, params } = buildWhere('r', false);
+            rows = await ds.query(`
+              SELECT
+                r.id,
+                r.registration_code,
+                r.serial_number,
+                r.item_code,
+                r.fw_version,
+                r.fw_version AS "long_fw",
+                r.hw_version,
+                r.fw_code,
+                r.dev_eui,
+                r.app_eui,
+                r.class_mode AS "class",
+                r.region_code AS "region",
+                r.status,
+                r.created_by,
+                r.created_at
+              FROM system_schema.device_test_registrations r
+              ${whereSql}
+              ORDER BY r.created_at DESC
+              LIMIT 50
+            `, params);
+          }
         }
       }
 
@@ -2983,7 +3033,8 @@ export class TestingAdapterController {
           serialNumber: r.serial_number,
           itemCode: r.item_code,
           fwVersion: r.fw_version,
-          longFw: r.long_fw || r.fw_version,
+          longFw: r.long_fw || r.fw_version || '',
+          long_fw: r.long_fw || r.fw_version || '',
           hwVersion: r.hw_version,
           fwCode: r.fw_code,
           devEui: r.dev_eui,
