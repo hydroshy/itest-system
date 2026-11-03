@@ -15,8 +15,23 @@ export class DevicePacketEntity {
   id: string;
 
   @Index('idx_packets_device_id')
-  @Column({ name: 'device_id', type: 'uuid' })
-  device_id: string;
+  @Column({ name: 'device_id', type: 'uuid', nullable: true })
+  device_id: string | null;
+
+  @Column({ name: 'dev_eui', type: 'varchar', length: 100, nullable: true })
+  dev_eui?: string | null;
+
+  @Column({ type: 'double precision', nullable: true })
+  rssi?: number | null;
+
+  @Column({ type: 'double precision', nullable: true })
+  snr?: number | null;
+
+  @Column({ type: 'integer', nullable: true })
+  sf?: number | null;
+
+  @Column({ type: 'numeric', precision: 20, scale: 3, nullable: true })
+  frequency?: number | string | null;
 
   @Index('idx_packets_type')
   @Column({ name: 'packet_type', type: 'varchar', length: 50, default: 'uplink' })

@@ -13,6 +13,8 @@ import {
   Put,
   Query,
   Optional,
+  Headers,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { DynamicDatabaseService } from '../database/dynamic-database.service';
 import { RealtimeService } from '../realtime/modules/realtime/realtime.service';
@@ -22,6 +24,7 @@ import { GatewayTestSessionEntity } from '../core-models/gateway-test-session.en
 import { TraceabilitySoEntity } from '../core-models/traceability-so.entity';
 import { TraceabilityWaEntity } from '../core-models/traceability-wa.entity';
 import { ChirpstackNetworkServerEntity } from '../core-models/chirpstack-network-server.entity';
+import { DecoderAdapterController } from './decoder.adapter.controller';
 
 export interface RegisterTestingDeviceDto {
   serialNumber: string;
@@ -513,6 +516,11 @@ export class TestingAdapterController {
           rawPayload: p.raw_payload,
           decodedPayload: p.decoded_payload || {},
           rfInfo: p.rf_info || {},
+          devEui: p.dev_eui || p.device?.network_id,
+          rssi: p.rssi ?? p.rf_info?.rssi,
+          snr: p.snr ?? p.rf_info?.snr,
+          sf: p.sf ?? p.rf_info?.sf,
+          frequency: p.frequency ?? p.rf_info?.frequency,
           createdAt: p.created_at,
         })),
       };
@@ -795,6 +803,11 @@ export class TestingAdapterController {
           rawPayload: p.raw_payload,
           decodedPayload: p.decoded_payload || {},
           rfInfo: p.rf_info || {},
+          devEui: p.dev_eui || p.device?.network_id,
+          rssi: p.rssi ?? p.rf_info?.rssi,
+          snr: p.snr ?? p.rf_info?.snr,
+          sf: p.sf ?? p.rf_info?.sf,
+          frequency: p.frequency ?? p.rf_info?.frequency,
           createdAt: p.created_at,
         })),
         total,
@@ -808,6 +821,95 @@ export class TestingAdapterController {
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
+  }
+
+  @Post(['api/plugins/testing/integrations/chirpstack/register', 'api/v1/plugins/testing/integrations/chirpstack/register'])
+  async registerChirpstackHttpIntegration() {
+    const callbackUrl = process.env.TESTING_CHIRPSTACK_WEBHOOK_URL;
+    const secret = process.env.TESTING_CHIRPSTACK_WEBHOOK_TOKEN;
+    if (!callbackUrl || !secret) throw new BadRequestException('Configure TESTING_CHIRPSTACK_WEBHOOK_URL and TESTING_CHIRPSTACK_WEBHOOK_TOKEN');
+    const parsed = new URL(callbackUrl);
+    if (!['http:', 'https:'].includes(parsed.protocol)) throw new BadRequestException('Webhook URL must use HTTP or HTTPS');
+    const repo = this.databaseService.getRepositoryForTable('lorawan_chirpstack', ChirpstackNetworkServerEntity);
+    const server = await repo.findOne({ where: { isActive: true } });
+    if (!server?.applicationId || !server.apiToken) throw new BadRequestException('Active server requires default applicationId and apiToken');
+    const url = `${server.apiUrl.replace(/\/$/, '')}/api/applications/${encodeURIComponent(server.applicationId)}/integrations/http`;
+    const headers = { 'Content-Type': 'application/json', Authorization: `Bearer ${server.apiToken}`, 'Grpc-Metadata-Authorization': `Bearer ${server.apiToken}` };
+    const existing = await fetch(url, { headers, signal: AbortSignal.timeout(10000) });
+    if (!existing.ok && existing.status !== 404) throw new BadRequestException(`Integration lookup failed: HTTP ${existing.status}`);
+    if (existing.ok) {
+      const config = await existing.json() as any;
+      if (config.integration?.eventEndpointUrl !== callbackUrl) throw new BadRequestException('Existing HTTP integration uses another callback; refusing to overwrite');
+    }
+    const response = await fetch(url, {
+      method: existing.ok ? 'PUT' : 'POST', headers, signal: AbortSignal.timeout(10000),
+      body: JSON.stringify({ integration: { applicationId: server.applicationId, encoding: 'JSON', eventEndpointUrl: callbackUrl, headers: { 'x-testing-webhook-token': secret } } }),
+    });
+    if (!response.ok) throw new BadRequestException(`Integration registration failed: HTTP ${response.status}`);
+    return { success: true, data: { applicationId: server.applicationId, callbackUrl } };
+  }
+
+  @Post(['api/plugins/testing/integrations/chirpstack/uplink', 'api/v1/plugins/testing/integrations/chirpstack/uplink'])
+  async ingestChirpstackUplink(
+    @Body() body: any,
+    @Headers('x-testing-webhook-token') token?: string,
+    @Query('event') event?: string,
+  ) {
+    const secret = process.env.TESTING_CHIRPSTACK_WEBHOOK_TOKEN;
+    if (!secret || token !== secret) throw new UnauthorizedException('Invalid webhook token');
+    if (event && event !== 'up') return { success: true, ignored: true };
+    const devEui = body?.deviceInfo?.devEui || body?.devEUI || body?.devEui;
+    if (typeof devEui !== 'string' || !/^[0-9a-f]{16}$/i.test(devEui)) {
+      throw new BadRequestException('A valid devEui is required');
+    }
+    if (typeof body.data !== 'string' || !/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(body.data)) {
+      throw new BadRequestException('data must be base64');
+    }
+    const rawPayload = Buffer.from(body.data, 'base64').toString('hex').toUpperCase();
+    const deviceRepo = this.databaseService.getRepositoryForTable('devices', TestingDeviceEntity);
+    const device = await deviceRepo.createQueryBuilder('d')
+      .where('LOWER(d.network_id) = LOWER(:devEui)', { devEui }).getOne();
+    const ds = this.databaseService.getDataSourceForTable('devices');
+    const registrations = await ds.query(`SELECT r.item_code, r.fw_code, r.fw_version, COALESCE(to_jsonb(r)->>'long_fw', r.fw_version) AS long_fw FROM system_schema.device_test_registrations r WHERE LOWER(r.dev_eui) = LOWER($1) ORDER BY r.created_at DESC LIMIT 1`, [devEui]);
+    const registration = registrations[0] || {};
+    let decodedPayload: Record<string, any> = {};
+    let decodeError: string | null = null;
+    const decoder = new DecoderAdapterController(this.databaseService);
+    const resolved = await decoder.resolveDecoderScript({
+      itemCode: registration.item_code || device?.item_code,
+      fwCode: registration.fw_code,
+      sku: device?.metadata?.sku,
+      longFw: registration.long_fw || registration.fw_version || device?.metadata?.longFw,
+    });
+    if (resolved.matched) {
+      const result = await decoder.testDecoder({ script: resolved.matched.script, payload: rawPayload, inputFormat: 'hex', fPort: body.fPort });
+      decodedPayload = result.success ? result.data : {};
+      if (!result.success) decodeError = result.errors.join('; ');
+    } else {
+      decodeError = 'No active decoder matched';
+    }
+    const rx = body.rxInfo?.[0] || {};
+    const numberOrNull = (value: any) => value !== undefined && value !== null && Number.isFinite(Number(value)) ? Number(value) : null;
+    const rfInfo = {
+      rssi: numberOrNull(rx.rssi), snr: numberOrNull(rx.snr ?? rx.loRaSNR),
+      sf: numberOrNull(body.txInfo?.modulation?.lora?.spreadingFactor ?? body.txInfo?.dataRate?.spreadFactor),
+      frequency: numberOrNull(body.txInfo?.frequency), devEui: devEui.toLowerCase(),
+      itemCode: registration.item_code || device?.item_code, fwCode: registration.fw_code,
+      decodeError,
+    };
+    const repo = this.databaseService.getRepositoryForTable('device_packets', DevicePacketEntity);
+    const packet = await repo.save(repo.create({
+      device_id: device?.id || null, dev_eui: devEui.toLowerCase(), packet_type: 'uplink',
+      f_port: numberOrNull(body.fPort), f_cnt: numberOrNull(body.fCnt),
+      raw_payload: rawPayload, decoded_payload: decodedPayload, rf_info: rfInfo,
+      rssi: rfInfo.rssi, snr: rfInfo.snr, sf: rfInfo.sf, frequency: rfInfo.frequency,
+    }));
+    this.realtimeService?.publishPluginLifecycle('testing:packet:received', {
+      deviceId: device?.id || null, packetId: packet.id, devEui: devEui.toLowerCase(),
+      packetType: 'uplink', fPort: packet.f_port, fCnt: packet.f_cnt,
+      rawPayload, decodedPayload, rfInfo, ...rfInfo,
+    });
+    return { success: true, data: { id: packet.id, decodeError } };
   }
 
   @Post(['api/plugins/testing/packets', 'api/v1/plugins/testing/packets'])
