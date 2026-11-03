@@ -2892,8 +2892,9 @@ export class TestingAdapterController {
         params.push(itemCode);
       }
       if (fwVersion) {
-        whereClauses.push(`(v.fw_version = $${pIdx++} OR v.long_fw ILIKE $${pIdx - 1})`);
+        whereClauses.push(`(v.fw_version = $${pIdx} OR COALESCE(v.long_fw, v.fw_version) ILIKE $${pIdx})`);
         params.push(fwVersion);
+        pIdx++;
       }
 
       const whereSql = whereClauses.length > 0 ? `WHERE ${whereClauses.join(' AND ')}` : '';
@@ -2907,6 +2908,7 @@ export class TestingAdapterController {
             v.serial_number,
             v.item_code,
             v.fw_version,
+            COALESCE(v.long_fw, v.fw_version) AS "long_fw",
             v.hw_version,
             v.fw_code,
             v.dev_eui,
@@ -2922,27 +2924,56 @@ export class TestingAdapterController {
           LIMIT 50
         `, params);
       } catch {
-        rows = await ds.query(`
-          SELECT
-            r.id,
-            r.registration_code,
-            r.serial_number,
-            r.item_code,
-            r.fw_version,
-            r.hw_version,
-            r.fw_code,
-            r.dev_eui,
-            r.app_eui,
-            r.class_mode AS "class",
-            r.region_code AS "region",
-            r.status,
-            r.created_by,
-            r.created_at
-          FROM system_schema.device_test_registrations r
-          ${whereSql.replace(/v\./g, 'r.')}
-          ORDER BY r.created_at DESC
-          LIMIT 50
-        `, params);
+        const safeFallbackWhere = whereSql
+          .replace(/v\.long_fw/g, 'r.fw_version')
+          .replace(/v\./g, 'r.');
+        try {
+          rows = await ds.query(`
+            SELECT
+              r.id,
+              r.registration_code,
+              r.serial_number,
+              r.item_code,
+              r.fw_version,
+              COALESCE(r.long_fw, r.fw_version) AS "long_fw",
+              r.hw_version,
+              r.fw_code,
+              r.dev_eui,
+              r.app_eui,
+              r.class_mode AS "class",
+              r.region_code AS "region",
+              r.status,
+              r.created_by,
+              r.created_at
+            FROM system_schema.device_test_registrations r
+            ${safeFallbackWhere}
+            ORDER BY r.created_at DESC
+            LIMIT 50
+          `, params);
+        } catch {
+          rows = await ds.query(`
+            SELECT
+              r.id,
+              r.registration_code,
+              r.serial_number,
+              r.item_code,
+              r.fw_version,
+              r.fw_version AS "long_fw",
+              r.hw_version,
+              r.fw_code,
+              r.dev_eui,
+              r.app_eui,
+              r.class_mode AS "class",
+              r.region_code AS "region",
+              r.status,
+              r.created_by,
+              r.created_at
+            FROM system_schema.device_test_registrations r
+            ${safeFallbackWhere}
+            ORDER BY r.created_at DESC
+            LIMIT 50
+          `, params);
+        }
       }
 
       return {
@@ -2952,6 +2983,7 @@ export class TestingAdapterController {
           serialNumber: r.serial_number,
           itemCode: r.item_code,
           fwVersion: r.fw_version,
+          longFw: r.long_fw || r.fw_version,
           hwVersion: r.hw_version,
           fwCode: r.fw_code,
           devEui: r.dev_eui,
