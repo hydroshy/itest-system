@@ -859,10 +859,14 @@ export class TestingAdapterController {
   }
 
   @Post(['api/plugins/testing/integrations/chirpstack/register', 'api/v1/plugins/testing/integrations/chirpstack/register'])
-  async registerChirpstackHttpIntegration() {
-    const callbackUrl = process.env.TESTING_CHIRPSTACK_WEBHOOK_URL;
-    const secret = process.env.TESTING_CHIRPSTACK_WEBHOOK_TOKEN;
-    if (!callbackUrl || !secret) throw new BadRequestException('Configure TESTING_CHIRPSTACK_WEBHOOK_URL and TESTING_CHIRPSTACK_WEBHOOK_TOKEN');
+  async registerChirpstackHttpIntegration(@Body() body?: any) {
+    const callbackUrl = (body?.webhookUrl || body?.callbackUrl || body?.eventEndpointUrl || process.env.TESTING_CHIRPSTACK_WEBHOOK_URL || '').trim();
+    const secret = (body?.webhookToken || body?.token || process.env.TESTING_CHIRPSTACK_WEBHOOK_TOKEN || '').trim();
+    if (!callbackUrl || !secret) {
+      throw new BadRequestException(
+        'Configure TESTING_CHIRPSTACK_WEBHOOK_URL and TESTING_CHIRPSTACK_WEBHOOK_TOKEN or provide webhookUrl & webhookToken in body',
+      );
+    }
     const parsed = new URL(callbackUrl);
     if (!['http:', 'https:'].includes(parsed.protocol)) throw new BadRequestException('Webhook URL must use HTTP or HTTPS');
     const repo = this.databaseService.getRepositoryForTable('lorawan_chirpstack', ChirpstackNetworkServerEntity);
@@ -872,16 +876,13 @@ export class TestingAdapterController {
     const headers = { 'Content-Type': 'application/json', Authorization: `Bearer ${server.apiToken}`, 'Grpc-Metadata-Authorization': `Bearer ${server.apiToken}` };
     const existing = await fetch(url, { headers, signal: AbortSignal.timeout(10000) });
     if (!existing.ok && existing.status !== 404) throw new BadRequestException(`Integration lookup failed: HTTP ${existing.status}`);
-    if (existing.ok) {
-      const config = await existing.json() as any;
-      if (config.integration?.eventEndpointUrl !== callbackUrl) throw new BadRequestException('Existing HTTP integration uses another callback; refusing to overwrite');
-    }
+
     const response = await fetch(url, {
       method: existing.ok ? 'PUT' : 'POST', headers, signal: AbortSignal.timeout(10000),
       body: JSON.stringify({ integration: { applicationId: server.applicationId, encoding: 'JSON', eventEndpointUrl: callbackUrl, headers: { 'x-testing-webhook-token': secret } } }),
     });
     if (!response.ok) throw new BadRequestException(`Integration registration failed: HTTP ${response.status}`);
-    return { success: true, data: { applicationId: server.applicationId, callbackUrl } };
+    return { success: true, data: { applicationId: server.applicationId, callbackUrl, updated: existing.ok } };
   }
 
   @Post(['api/plugins/testing/integrations/chirpstack/uplink', 'api/v1/plugins/testing/integrations/chirpstack/uplink'])
