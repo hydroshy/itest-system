@@ -986,10 +986,14 @@ export class TestingAdapterController {
     }
     const rx = body.rxInfo?.[0] || {};
     const numberOrNull = (value: any) => value !== undefined && value !== null && Number.isFinite(Number(value)) ? Number(value) : null;
+    const rawFreq = numberOrNull(body.txInfo?.frequency);
+    const freqMhz = (rawFreq && rawFreq > 1000000) ? Number((rawFreq / 1000000).toFixed(3)) : rawFreq;
     const rfInfo = {
       rssi: numberOrNull(rx.rssi), snr: numberOrNull(rx.snr ?? rx.loRaSNR),
       sf: numberOrNull(body.txInfo?.modulation?.lora?.spreadingFactor ?? body.txInfo?.dataRate?.spreadFactor),
-      frequency: numberOrNull(body.txInfo?.frequency), devEui: devEui.toLowerCase(),
+      frequency: rawFreq,
+      frequencyMhz: freqMhz,
+      devEui: devEui.toLowerCase(),
       itemCode: registration.item_code || device?.item_code, fwCode: registration.fw_code,
       decodeError,
     };
@@ -1000,16 +1004,18 @@ export class TestingAdapterController {
         device_id: device?.id || null, dev_eui: devEui.toLowerCase(), packet_type: 'uplink',
         f_port: numberOrNull(body.fPort), f_cnt: numberOrNull(body.fCnt),
         raw_payload: rawPayload, decoded_payload: decodedPayload, rf_info: rfInfo,
-        rssi: rfInfo.rssi, snr: rfInfo.snr, sf: rfInfo.sf, frequency: rfInfo.frequency,
+        rssi: rfInfo.rssi, snr: rfInfo.snr, sf: rfInfo.sf, frequency: freqMhz,
       }));
     } catch (saveErr: any) {
-      if (saveErr?.message?.includes('sf') || saveErr?.code === '42703') {
+      const isSfError = saveErr?.message?.includes('sf') || saveErr?.code === '42703';
+      const isOverflow = saveErr?.message?.includes('overflow') || saveErr?.code === '22003';
+      if (isSfError || isOverflow) {
         const ds = this.databaseService.getDataSourceForTable('devices');
         const inserted = await ds.query(
           `INSERT INTO devices.device_packets (device_id, dev_eui, packet_type, f_port, f_cnt, raw_payload, decoded_payload, rf_info, rssi, snr, frequency)
            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
            RETURNING *`,
-          [device?.id || null, devEui.toLowerCase(), 'uplink', numberOrNull(body.fPort), numberOrNull(body.fCnt), rawPayload, JSON.stringify(decodedPayload), JSON.stringify(rfInfo), rfInfo.rssi, rfInfo.snr, rfInfo.frequency],
+          [device?.id || null, devEui.toLowerCase(), 'uplink', numberOrNull(body.fPort), numberOrNull(body.fCnt), rawPayload, JSON.stringify(decodedPayload), JSON.stringify(rfInfo), rfInfo.rssi, rfInfo.snr, freqMhz],
         );
         packet = inserted[0];
       } else {
