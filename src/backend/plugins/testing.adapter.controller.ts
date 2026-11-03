@@ -426,21 +426,66 @@ export class TestingAdapterController {
   ])
   async getSimulationDevices(@Query('label') label?: string) {
     try {
+      const ds = this.databaseService.getDataSourceForTable('devices');
+      if (ds) {
+        try {
+          const rows = await ds.query(`
+            SELECT
+              id,
+              serial_number,
+              network_id,
+              device_name,
+              device_type,
+              status,
+              plugin_id,
+              so_number,
+              wa_number,
+              item_code,
+              metadata,
+              created_at,
+              updated_at
+            FROM system_schema.v_simulation_devices
+            ORDER BY updated_at DESC
+          `);
+          if (Array.isArray(rows)) {
+            return {
+              success: true,
+              total: rows.length,
+              data: rows.map((d: any) => ({
+                id: d.id,
+                serialNumber: d.serial_number,
+                networkId: d.network_id,
+                deviceName: d.device_name,
+                deviceType: d.device_type,
+                status: d.status,
+                pluginId: d.plugin_id,
+                soNumber: d.so_number,
+                waNumber: d.wa_number,
+                itemCode: d.item_code,
+                metadata: d.metadata,
+                createdAt: d.created_at,
+                updatedAt: d.updated_at,
+              })),
+            };
+          }
+        } catch {}
+      }
+
       const deviceRepo = this.databaseService.getRepositoryForTable(
         'devices',
         TestingDeviceEntity,
       );
       const devices = await deviceRepo
         .createQueryBuilder('device')
-        .where('device.status IN (:...statuses) OR device.plugin_id = :pluginId', {
-          statuses: ['simulation', 'template'],
-          pluginId: 'testing',
+        .where('device.status = :status', {
+          status: 'simulation',
         })
         .orderBy('device.updated_at', 'DESC')
         .getMany();
 
       return {
         success: true,
+        total: devices.length,
         data: devices.map((d) => ({
           id: d.id,
           serialNumber: d.serial_number,
@@ -453,23 +498,16 @@ export class TestingAdapterController {
           waNumber: d.wa_number,
           itemCode: d.item_code,
           metadata: d.metadata,
+          createdAt: d.created_at,
+          updatedAt: d.updated_at,
         })),
       };
     } catch (error: any) {
       this.logger.error(`Failed to get simulation devices: ${error.message}`);
       return {
         success: true,
-        data: Array.from(this.simulationProfiles.values()).map((p) => ({
-          id: p.id,
-          serialNumber: p.serialNumber,
-          networkId: p.networkId,
-          deviceName: p.deviceName,
-          deviceType: p.deviceType,
-          status: p.status,
-          itemCode: p.itemCode,
-          soNumber: p.soNumber,
-          waNumber: p.waNumber,
-        })),
+        data: [],
+        total: 0,
       };
     }
   }
@@ -1571,6 +1609,9 @@ export class TestingAdapterController {
       sensorConnectivity,
       sku,
       flowBlocks,
+      blocksCount: flowBlocks.length,
+      duration: flowDurationMinutes * 60,
+      name: body?.name || body?.profileName || deviceName,
       profileName: body?.profileName || deviceName,
       targetDeviceName: deviceName,
       devEui: networkId,
@@ -1580,69 +1621,322 @@ export class TestingAdapterController {
     };
     this.simulationProfiles.set(id, profile);
 
-    // Sync template device to devices database table
+    // Persist to simulation_profiles table in system_schema if table exists
     try {
-      const deviceRepo = this.databaseService.getRepositoryForTable(
-        'devices',
-        TestingDeviceEntity,
-      );
-      let dev = await deviceRepo.findOne({ where: { serial_number: serialNumber } });
-      if (!dev) {
-        dev = deviceRepo.create({
-          serial_number: serialNumber,
-          network_id: networkId || null,
-          device_name: deviceName,
-          device_type: deviceType,
-          plugin_id: pluginId,
-          so_number: soNumber || null,
-          wa_number: waNumber || null,
-          item_code: itemCode || null,
-          status: 'template',
-          metadata: {
+      const ds = this.databaseService.getDataSourceForTable('system_schema.simulation_profiles') ||
+                 this.databaseService.getDataSourceForTable('devices');
+      if (ds) {
+        await ds.query(
+          `INSERT INTO system_schema.simulation_profiles
+           (simu_id, profile_name, name, item_code, long_fw, sensor_connectivity, sku, flow_blocks, timed_actions, flow_duration_minutes, is_flow_template, updated_at)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, TRUE, NOW())
+           ON CONFLICT (simu_id)
+           DO UPDATE SET
+             profile_name = EXCLUDED.profile_name,
+             name = EXCLUDED.name,
+             item_code = EXCLUDED.item_code,
+             long_fw = EXCLUDED.long_fw,
+             sensor_connectivity = EXCLUDED.sensor_connectivity,
+             sku = EXCLUDED.sku,
+             flow_blocks = EXCLUDED.flow_blocks,
+             timed_actions = EXCLUDED.timed_actions,
+             flow_duration_minutes = EXCLUDED.flow_duration_minutes,
+             is_flow_template = TRUE,
+             updated_at = NOW()`,
+          [
+            simuId,
+            body?.name || body?.profileName || deviceName,
+            body?.name || body?.profileName || deviceName,
+            itemCode || null,
+            longFw || null,
+            sensorConnectivity || 'LoRaWAN',
+            sku || null,
+            JSON.stringify(flowBlocks),
+            JSON.stringify(timedActions),
+            flowDurationMinutes,
+          ]
+        );
+      }
+    } catch (e: any) {
+      this.logger.debug(`Could not persist simulation_profiles to system_schema: ${e.message}`);
+    }
+
+    // Only sync template device to devices database table if explicitly requested (decoupled)
+    if (body?.createDevice === true || body?.syncDevice === true) {
+      try {
+        const deviceRepo = this.databaseService.getRepositoryForTable(
+          'devices',
+          TestingDeviceEntity,
+        );
+        let dev = await deviceRepo.findOne({ where: { serial_number: serialNumber } });
+        if (!dev) {
+          dev = deviceRepo.create({
+            serial_number: serialNumber,
+            network_id: networkId || null,
+            device_name: deviceName,
+            device_type: deviceType,
+            plugin_id: pluginId,
+            so_number: soNumber || null,
+            wa_number: waNumber || null,
+            item_code: itemCode || null,
+            status: 'template',
+            metadata: {
+              simu_id: simuId,
+              long_fw: longFw,
+              flow_duration_minutes: flowDurationMinutes,
+              timed_actions: timedActions,
+              is_template: true,
+            },
+          });
+        } else {
+          dev.device_name = deviceName;
+          dev.device_type = deviceType;
+          if (networkId) dev.network_id = networkId;
+          if (itemCode) dev.item_code = itemCode;
+          if (soNumber) dev.so_number = soNumber;
+          if (waNumber) dev.wa_number = waNumber;
+          dev.status = 'template';
+          dev.metadata = {
+            ...(dev.metadata || {}),
             simu_id: simuId,
             long_fw: longFw,
             flow_duration_minutes: flowDurationMinutes,
             timed_actions: timedActions,
             is_template: true,
-          },
-        });
-      } else {
-        dev.device_name = deviceName;
-        dev.device_type = deviceType;
-        if (networkId) dev.network_id = networkId;
-        if (itemCode) dev.item_code = itemCode;
-        if (soNumber) dev.so_number = soNumber;
-        if (waNumber) dev.wa_number = waNumber;
-        dev.status = 'template';
-        dev.metadata = {
-          ...(dev.metadata || {}),
-          simu_id: simuId,
-          long_fw: longFw,
-          flow_duration_minutes: flowDurationMinutes,
-          timed_actions: timedActions,
-          is_template: true,
-        };
+          };
+        }
+        await deviceRepo.save(dev);
+      } catch (e: any) {
+        this.logger.warn(`Could not sync template device to DB table: ${e.message}`);
       }
-      await deviceRepo.save(dev);
-    } catch (e: any) {
-      this.logger.warn(`Could not sync template device to DB table: ${e.message}`);
     }
 
     return {
       success: true,
-      message: 'Simulation profile and template device saved',
+      message: 'Simulation flow profile saved successfully',
       data: profile,
     };
   }
 
   @Get(['api/plugins/testing/simulation/profiles', 'api/v1/plugins/testing/simulation/profiles'])
   async getSimulationProfiles() {
+    try {
+      const ds =
+        this.databaseService.getDataSourceForTable('system_schema.simulation_profiles') ||
+        this.databaseService.getDataSourceForTable('devices');
+      if (ds) {
+        let dbRows: any[] = [];
+        try {
+          dbRows = await ds.query(`
+            SELECT
+              id,
+              simu_id,
+              COALESCE(name, profile_name, simu_id) AS "name",
+              COALESCE(profile_name, name, simu_id) AS "profile_name",
+              item_code,
+              long_fw,
+              sensor_connectivity,
+              sku,
+              flow_blocks,
+              flow_duration_minutes,
+              timed_actions,
+              created_by,
+              created_at,
+              updated_at
+            FROM system_schema.v_simulation_flows
+            ORDER BY updated_at DESC
+          `);
+        } catch {
+          dbRows = await ds.query(`
+            SELECT
+              id,
+              simu_id,
+              COALESCE(name, profile_name, simu_id) AS "name",
+              COALESCE(profile_name, name, simu_id) AS "profile_name",
+              item_code,
+              long_fw,
+              sensor_connectivity,
+              sku,
+              flow_blocks,
+              flow_duration_minutes,
+              timed_actions,
+              created_by,
+              created_at,
+              updated_at
+            FROM system_schema.simulation_profiles
+            WHERE is_flow_template = TRUE OR is_flow_template IS NULL OR status = 'template'
+            ORDER BY updated_at DESC
+          `);
+        }
+
+        if (Array.isArray(dbRows) && dbRows.length > 0) {
+          const mapped = dbRows.map((r: any) => {
+            const blocks = Array.isArray(r.flow_blocks)
+              ? r.flow_blocks
+              : typeof r.flow_blocks === 'string'
+              ? JSON.parse(r.flow_blocks)
+              : [];
+            const durationMin = Number(r.flow_duration_minutes) || 5;
+            return {
+              id: r.id || r.simu_id,
+              simuId: r.simu_id,
+              name: r.name || r.simu_id,
+              profileName: r.profile_name || r.name || r.simu_id,
+              itemCode: r.item_code,
+              longFw: r.long_fw,
+              sensorConnectivity: r.sensor_connectivity,
+              sku: r.sku,
+              flowBlocks: blocks,
+              blocksCount: blocks.length,
+              duration: durationMin * 60,
+              flowDurationMinutes: durationMin,
+              timedActions: r.timed_actions || [],
+              createdBy: r.created_by,
+              createdAt: r.created_at,
+              updatedAt: r.updated_at,
+            };
+          });
+
+          // Merge memory profiles if not already present
+          for (const mem of this.simulationProfiles.values()) {
+            if (!mapped.some((m) => m.simuId === mem.simuId)) {
+              mapped.push(mem);
+            }
+          }
+
+          return {
+            success: true,
+            total: mapped.length,
+            data: mapped,
+            items: mapped,
+          };
+        }
+      }
+    } catch (err: any) {
+      this.logger.debug(`Could not read simulation profiles from DB: ${err.message}`);
+    }
+
     if (this.simulationProfiles.size === 0) {
       this.seedDefaultSimulationProfiles();
     }
+    const memList = Array.from(this.simulationProfiles.values());
     return {
       success: true,
-      data: Array.from(this.simulationProfiles.values()),
+      total: memList.length,
+      data: memList,
+      items: memList,
+    };
+  }
+
+  @Get([
+    'api/plugins/testing/simulation/profiles/:id',
+    'api/v1/plugins/testing/simulation/profiles/:id',
+  ])
+  async getSimulationProfileById(@Param('id') id: string) {
+    const trimmedId = (id || '').trim();
+    if (!trimmedId) {
+      throw new BadRequestException('ID is required');
+    }
+
+    try {
+      const ds =
+        this.databaseService.getDataSourceForTable('system_schema.simulation_profiles') ||
+        this.databaseService.getDataSourceForTable('devices');
+      if (ds) {
+        const rows = await ds.query(
+          `SELECT
+            id,
+            simu_id,
+            COALESCE(name, profile_name, simu_id) AS "name",
+            COALESCE(profile_name, name, simu_id) AS "profile_name",
+            item_code,
+            long_fw,
+            sensor_connectivity,
+            sku,
+            flow_blocks,
+            flow_duration_minutes,
+            timed_actions,
+            created_by,
+            created_at,
+            updated_at
+          FROM system_schema.simulation_profiles
+          WHERE id::text = $1 OR simu_id = $1
+          LIMIT 1`,
+          [trimmedId],
+        );
+        if (rows && rows.length > 0) {
+          const r = rows[0];
+          const blocks = Array.isArray(r.flow_blocks)
+            ? r.flow_blocks
+            : typeof r.flow_blocks === 'string'
+            ? JSON.parse(r.flow_blocks)
+            : [];
+          const durationMin = Number(r.flow_duration_minutes) || 5;
+          return {
+            success: true,
+            data: {
+              id: r.id || r.simu_id,
+              simuId: r.simu_id,
+              name: r.name || r.simu_id,
+              profileName: r.profile_name || r.name || r.simu_id,
+              itemCode: r.item_code,
+              longFw: r.long_fw,
+              sensorConnectivity: r.sensor_connectivity,
+              sku: r.sku,
+              flowBlocks: blocks,
+              blocksCount: blocks.length,
+              duration: durationMin * 60,
+              flowDurationMinutes: durationMin,
+              timedActions: r.timed_actions || [],
+              createdBy: r.created_by,
+              createdAt: r.created_at,
+              updatedAt: r.updated_at,
+            },
+          };
+        }
+      }
+    } catch {}
+
+    const mem = this.simulationProfiles.get(trimmedId);
+    if (mem) {
+      return { success: true, data: mem };
+    }
+
+    throw new NotFoundException(`Simulation profile not found: ${trimmedId}`);
+  }
+
+  @Delete([
+    'api/plugins/testing/simulation/profiles/:id',
+    'api/v1/plugins/testing/simulation/profiles/:id',
+  ])
+  async deleteSimulationProfile(@Param('id') id: string) {
+    const trimmedId = (id || '').trim();
+    if (!trimmedId) {
+      throw new BadRequestException('ID is required');
+    }
+
+    let deletedFromDb = false;
+    try {
+      const ds =
+        this.databaseService.getDataSourceForTable('system_schema.simulation_profiles') ||
+        this.databaseService.getDataSourceForTable('devices');
+      if (ds) {
+        const res = await ds.query(
+          `DELETE FROM system_schema.simulation_profiles WHERE id::text = $1 OR simu_id = $1`,
+          [trimmedId],
+        );
+        deletedFromDb = (res?.[1] || 0) > 0;
+      }
+    } catch (e: any) {
+      this.logger.debug(`Could not delete simulation profile from DB: ${e.message}`);
+    }
+
+    const deletedFromMem = this.simulationProfiles.delete(trimmedId);
+
+    return {
+      success: true,
+      message: `Đã xóa Flow Simulation ${trimmedId}`,
+      deleted: deletedFromDb || deletedFromMem,
     };
   }
 
@@ -3550,9 +3844,10 @@ export class TestingAdapterController {
       const ds = this.databaseService.getDataSourceForTable('devices');
       const itemCode = (query.itemCode || query.item_code || '').trim();
       const fwVersion = (query.fwVersion || query.fw_version || query.longFw || query.long_fw || '').trim();
+      const limit = Math.min(200, Math.max(1, parseInt(query.limit, 10) || 100));
 
       if (!ds) {
-        return { success: true, data: [] };
+        return { success: true, data: [], items: [], total: 0 };
       }
 
       const buildWhere = (tableAlias: 'v' | 'r', hasLongFw: boolean) => {
@@ -3561,14 +3856,14 @@ export class TestingAdapterController {
         let pIdx = 1;
 
         if (itemCode) {
-          clauses.push(`${tableAlias}.item_code = $${pIdx++}`);
+          clauses.push(`UPPER(${tableAlias}.item_code) = UPPER($${pIdx++})`);
           params.push(itemCode);
         }
         if (fwVersion) {
           if (hasLongFw) {
-            clauses.push(`(${tableAlias}.fw_version = $${pIdx} OR ${tableAlias}.long_fw ILIKE $${pIdx})`);
+            clauses.push(`(UPPER(${tableAlias}.fw_version) = UPPER($${pIdx}) OR ${tableAlias}.long_fw ILIKE $${pIdx})`);
           } else {
-            clauses.push(`${tableAlias}.fw_version = $${pIdx}`);
+            clauses.push(`UPPER(${tableAlias}.fw_version) = UPPER($${pIdx})`);
           }
           params.push(fwVersion);
           pIdx++;
@@ -3604,7 +3899,7 @@ export class TestingAdapterController {
           FROM system_schema.v_list_device_testing v
           ${whereSql}
           ORDER BY v.created_at DESC
-          LIMIT 50
+          LIMIT ${limit}
         `, params);
       } catch (errViewLongFw) {
         // 2. View v_list_device_testing without long_fw (fallback to fw_version)
@@ -3630,7 +3925,7 @@ export class TestingAdapterController {
             FROM system_schema.v_list_device_testing v
             ${whereSql}
             ORDER BY v.created_at DESC
-            LIMIT 50
+            LIMIT ${limit}
           `, params);
         } catch (errView) {
           // 3. Fallback table device_test_registrations with long_fw
@@ -3656,7 +3951,7 @@ export class TestingAdapterController {
               FROM system_schema.device_test_registrations r
               ${whereSql}
               ORDER BY r.created_at DESC
-              LIMIT 50
+              LIMIT ${limit}
             `, params);
           } catch (errTableLongFw) {
             // 4. Fallback table device_test_registrations without long_fw
@@ -3681,31 +3976,34 @@ export class TestingAdapterController {
               FROM system_schema.device_test_registrations r
               ${whereSql}
               ORDER BY r.created_at DESC
-              LIMIT 50
+              LIMIT ${limit}
             `, params);
           }
         }
       }
 
+      const mapped = rows.map((r: any) => ({
+        id: r.id,
+        serialNumber: r.serial_number,
+        itemCode: r.item_code,
+        fwVersion: r.fw_version,
+        longFw: r.long_fw || r.fw_version || '',
+        long_fw: r.long_fw || r.fw_version || '',
+        hwVersion: r.hw_version,
+        fwCode: r.fw_code,
+        devEui: r.dev_eui,
+        appEui: r.app_eui,
+        class: r.class || 'A',
+        region: r.region || 'AS923-1',
+        status: r.status,
+        createdBy: r.created_by,
+        createdAt: r.created_at,
+      }));
+
       return {
         success: true,
-        data: rows.map((r: any) => ({
-          id: r.id,
-          serialNumber: r.serial_number,
-          itemCode: r.item_code,
-          fwVersion: r.fw_version,
-          longFw: r.long_fw || r.fw_version || '',
-          long_fw: r.long_fw || r.fw_version || '',
-          hwVersion: r.hw_version,
-          fwCode: r.fw_code,
-          devEui: r.dev_eui,
-          appEui: r.app_eui,
-          class: r.class || 'A',
-          region: r.region || 'AS923-1',
-          status: r.status,
-          createdBy: r.created_by,
-          createdAt: r.created_at,
-        })),
+        data: mapped,
+        items: mapped,
         total: rows.length,
       };
     } catch (error: any) {

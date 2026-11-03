@@ -190,6 +190,28 @@ export const SYSTEM_MENU_ITEMS: MenuItemDto[] = [
     category: 'plugin',
     order: 20,
   },
+  {
+    id: 'testing:list-flow-simulation',
+    title: 'List Flow Simulation',
+    description: 'Quản lý danh sách kịch bản mô phỏng kiểm thử (Simulation Flow Templates)',
+    icon: 'Cpu',
+    route: '/plugins/testing?tab=list-flow-simulation',
+    pluginId: 'testing',
+    tab: 'list-flow-simulation',
+    category: 'plugin',
+    order: 21,
+  },
+  {
+    id: 'testing:list-device-simulation',
+    title: 'List Device Simulation',
+    description: 'Quản lý danh sách thiết bị simulation độc lập',
+    icon: 'Radio',
+    route: '/plugins/testing?tab=list-device-simulation',
+    pluginId: 'testing',
+    tab: 'list-device-simulation',
+    category: 'plugin',
+    order: 22,
+  },
 ];
 
 @Injectable()
@@ -214,6 +236,8 @@ export class MenuService {
       'testing:device-simulation',
       'testing:device-auto-check',
       'testing:packets',
+      'testing:list-flow-simulation',
+      'testing:list-device-simulation',
     ],
   };
 
