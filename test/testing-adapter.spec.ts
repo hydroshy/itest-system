@@ -687,7 +687,26 @@ async function runTests() {
   if (!availDevs.success || !Array.isArray(availDevs.data)) {
     throw new Error('getAvailableDevicesForBatch failed');
   }
+  if (availDevs.data.length > 0 && (!availDevs.data[0].longFw || !availDevs.data[0].fwVersion)) {
+    throw new Error('getAvailableDevicesForBatch item missing longFw or fwVersion mapping');
+  }
   console.log('✓ Available devices for batch filtered by ITEM-CODE.');
+
+  const availDevsByFw = await controller.getAvailableDevicesForBatch({
+    itemCode: 'LR-SENSOR-TEMP-V1',
+    fwVersion: 'v6.0101',
+  });
+  if (!availDevsByFw.success || !Array.isArray(availDevsByFw.data)) {
+    throw new Error('getAvailableDevicesForBatch with fwVersion failed');
+  }
+  const availDevsByLongFw = await controller.getAvailableDevicesForBatch({
+    itemCode: 'LR-SENSOR-TEMP-V1',
+    longFw: 'v6.0101',
+  });
+  if (!availDevsByLongFw.success || !Array.isArray(availDevsByLongFw.data)) {
+    throw new Error('getAvailableDevicesForBatch with longFw failed');
+  }
+  console.log('✓ Available devices for batch with fwVersion / longFw fallback verified.');
 
   const refDevs = await controller.getReferenceDevices({ itemCode: 'LR-SENSOR-TEMP-V1' });
   if (!refDevs.success || !Array.isArray(refDevs.data) || refDevs.data.length < 5) {
