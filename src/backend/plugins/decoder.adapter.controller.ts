@@ -26,6 +26,8 @@ export interface CreateDecoderScriptDto {
   name: string;
   sku: string;
   longFw: string;
+  itemCode?: string;
+  fwCode?: string;
   script: string;
   protocol?: string;
   description?: string;
@@ -41,6 +43,8 @@ export interface UpdateDecoderScriptDto {
   name?: string;
   sku?: string;
   longFw?: string;
+  itemCode?: string;
+  fwCode?: string;
   script?: string;
   protocol?: string;
   description?: string;
@@ -57,6 +61,8 @@ export interface TestDecoderPayloadDto {
   scriptId?: string;
   sku?: string;
   longFw?: string;
+  itemCode?: string;
+  fwCode?: string;
   payload: string | number[];
   fPort?: number;
   inputFormat?: 'hex' | 'base64' | 'bytes';
@@ -64,8 +70,10 @@ export interface TestDecoderPayloadDto {
 }
 
 export interface DecodeByProductDto {
-  sku: string;
-  longFw: string;
+  sku?: string;
+  longFw?: string;
+  itemCode?: string;
+  fwCode?: string;
   payload: string | number[];
   fPort?: number;
   inputFormat?: 'hex' | 'base64' | 'bytes';
@@ -231,6 +239,8 @@ export class DecoderAdapterController {
   async listDecoderScripts(
     @Query('sku') sku?: string,
     @Query('longFw') longFw?: string,
+    @Query('itemCode') itemCode?: string,
+    @Query('fwCode') fwCode?: string,
     @Query('isActive') isActive?: string,
     @Query('search') search?: string,
   ) {
@@ -244,13 +254,19 @@ export class DecoderAdapterController {
       if (longFw) {
         qb.andWhere('LOWER(d.long_fw) = LOWER(:longFw)', { longFw: longFw.trim() });
       }
+      if (itemCode) {
+        qb.andWhere('LOWER(d.item_code) = LOWER(:itemCode)', { itemCode: itemCode.trim() });
+      }
+      if (fwCode) {
+        qb.andWhere('LOWER(d.fw_code) = LOWER(:fwCode)', { fwCode: fwCode.trim() });
+      }
       if (isActive !== undefined && isActive !== '') {
         const activeBool = isActive === 'true' || isActive === '1';
         qb.andWhere('d.is_active = :isActive', { isActive: activeBool });
       }
       if (search) {
         qb.andWhere(
-          '(LOWER(d.name) LIKE LOWER(:search) OR LOWER(d.sku) LIKE LOWER(:search) OR LOWER(d.long_fw) LIKE LOWER(:search) OR LOWER(d.description) LIKE LOWER(:search))',
+          '(LOWER(d.name) LIKE LOWER(:search) OR LOWER(d.sku) LIKE LOWER(:search) OR LOWER(d.long_fw) LIKE LOWER(:search) OR LOWER(COALESCE(d.item_code, \'\')) LIKE LOWER(:search) OR LOWER(COALESCE(d.fw_code, \'\')) LIKE LOWER(:search) OR LOWER(COALESCE(d.description, \'\')) LIKE LOWER(:search))',
           { search: `%${search.trim()}%` },
         );
       }
@@ -332,6 +348,8 @@ export class DecoderAdapterController {
         name: dto.name.trim(),
         sku: cleanSku,
         long_fw: cleanLongFw,
+        item_code: (dto.itemCode || '').trim() || null,
+        fw_code: (dto.fwCode || '').trim() || null,
         script: dto.script,
         protocol: dto.protocol || 'lorawan',
         description: dto.description || null,
@@ -408,6 +426,8 @@ export class DecoderAdapterController {
       if (dto.name !== undefined) existing.name = dto.name.trim();
       if (dto.sku !== undefined) existing.sku = targetSku;
       if (dto.longFw !== undefined) existing.long_fw = targetLongFw;
+      if (dto.itemCode !== undefined) existing.item_code = dto.itemCode ? dto.itemCode.trim() : null;
+      if (dto.fwCode !== undefined) existing.fw_code = dto.fwCode ? dto.fwCode.trim() : null;
       if (dto.script !== undefined) existing.script = dto.script;
       if (dto.protocol !== undefined) existing.protocol = dto.protocol;
       if (dto.description !== undefined) existing.description = dto.description;
@@ -539,10 +559,54 @@ function Decode(fPort, bytes) {
 }
 `;
 
+    const templateDaviteqWSLRW_DI = `// JavaScript Decoder for SKU WSLRW-DI firmware 3 on Things Stack (TTN)/Chirpstack Network Server
+function decodeUplink(input) {
+  var byte = input.bytes;
+  var data = {};
+  if (byte.length == 10 || byte.length == 11 || byte.length == 8) {
+    data = {
+      EVENT_ID: (byte[0] >> 4) === 0 ? UINT8((byte[0]) >> 4) : (byte[0] >> 4) === 1 ? UINT8((byte[0]) >> 4) : (byte[0] >> 4) === 2 ? UINT8((byte[0]) >> 4) : (byte[0] >> 4) === 3 ? UINT8((byte[0]) >> 4) : (byte[0] >> 4) === 4 ? UINT8((byte[0]) >> 4) : (byte[0] >> 4) === 5 ? UINT8((byte[0]) >> 4) : (byte[0] >> 4) === 15 ? UINT8((byte[0]) >> 4) : (byte[0] >> 4) === 13 ? UINT8((byte[0]) >> 4) : "NULL",
+      HW_VERSION: (byte[0] >> 4) === 0 ? UINT8((byte[0] & 0x0F)) : (byte[0] >> 4) === 1 ? UINT8((byte[0] & 0x0F)) : (byte[0] >> 4) === 5 ? UINT8((byte[0] & 0x0F)) : (byte[0] >> 4) === 15 ? UINT8((byte[0] & 0x0F)) : (byte[0] >> 4) === 13 ? UINT8((byte[0] & 0x0F)) : (byte[0] >> 4) === 2 ? UINT8((byte[0] & 0x0F)) : (byte[0] >> 4) === 3 ? UINT8((byte[0] & 0x0F)) : (byte[0] >> 4) === 4 ? UINT8((byte[0] & 0x0F)) : "NULL",
+      FW_VERSION: (byte[0] >> 4) === 0 ? UINT8(byte[1]) : (byte[0] >> 4) === 1 ? UINT8(byte[1]) : (byte[0] >> 4) === 5 ? UINT8(byte[1]) : (byte[0] >> 4) === 15 ? UINT8(byte[1]) : (byte[0] >> 4) === 13 ? UINT8(byte[1]) : (byte[0] >> 4) === 2 ? UINT8(byte[1]) : (byte[0] >> 4) === 3 ? UINT8(byte[1]) : (byte[0] >> 4) === 4 ? UINT8(byte[1]) : "NULL",
+      VOLTAGE_VALUE: (byte[0] >> 4) === 0 ? UINT8(byte[2]) / 10 : (byte[0] >> 4) === 1 ? UINT8(byte[2]) / 10 : (byte[0] >> 4) === 5 ? UINT8(byte[2]) / 10 : (byte[0] >> 4) === 15 ? UINT8(byte[2]) / 10 : (byte[0] >> 4) === 13 ? UINT8(byte[2]) / 10 : (byte[0] >> 4) === 2 ? UINT8(byte[2]) / 10 : (byte[0] >> 4) === 3 ? UINT8(byte[2]) / 10 : (byte[0] >> 4) === 4 ? UINT8(byte[2]) / 10 : "NULL",
+      INPUT_VALUE: (byte[0] >> 4) === 0 ? UINT8((byte[3] >> 7) & 0x01) : (byte[0] >> 4) === 1 ? UINT8((byte[3] >> 7) & 0x01) : (byte[0] >> 4) === 5 ? UINT8((byte[3] >> 7) & 0x01) : (byte[0] >> 4) === 15 ? UINT8((byte[3] >> 7) & 0x01) : (byte[0] >> 4) === 13 ? UINT8((byte[3] >> 7) & 0x01) : (byte[0] >> 4) === 2 ? UINT8((byte[3] >> 7) & 0x01) : (byte[0] >> 4) === 3 ? UINT8((byte[3] >> 7) & 0x01) : (byte[0] >> 4) === 4 ? UINT8((byte[3] >> 7) & 0x01) : "NULL",
+      PULSE_LEAK_DETECTOR_VALUE: (byte[0] >> 4) === 0 ? UINT8((byte[3] >> 6) & 0x01) : (byte[0] >> 4) === 1 ? UINT8((byte[3] >> 6) & 0x01) : (byte[0] >> 4) === 5 ? UINT8((byte[3] >> 6) & 0x01) : (byte[0] >> 4) === 15 ? UINT8((byte[3] >> 6) & 0x01) : (byte[0] >> 4) === 13 ? UINT8((byte[3] >> 6) & 0x01) : (byte[0] >> 4) === 2 ? UINT8((byte[3] >> 6) & 0x01) : (byte[0] >> 4) === 3 ? UINT8((byte[3] >> 6) & 0x01) : (byte[0] >> 4) === 4 ? UINT8((byte[3] >> 6) & 0x01) : "NULL",
+      PULSE_FORWARD_COUNTER_VALUE: (byte[0] >> 4) === 0 ? UINT32((byte[4] << 24) | (byte[5] << 16) | (byte[6] << 8) | byte[7]) : (byte[0] >> 4) === 1 ? UINT32((byte[4] << 24) | (byte[5] << 16) | (byte[6] << 8) | byte[7]) : (byte[0] >> 4) === 5 ? UINT32((byte[4] << 24) | (byte[5] << 16) | (byte[6] << 8) | byte[7]) : (byte[0] >> 4) === 15 ? UINT32((byte[4] << 24) | (byte[5] << 16) | (byte[6] << 8) | byte[7]) : (byte[0] >> 4) === 13 ? UINT32((byte[4] << 24) | (byte[5] << 16) | (byte[6] << 8) | byte[7]) : (byte[0] >> 4) === 2 ? UINT32((byte[4] << 24) | (byte[5] << 16) | (byte[6] << 8) | byte[7]) : (byte[0] >> 4) === 3 ? UINT32((byte[4] << 24) | (byte[5] << 16) | (byte[6] << 8) | byte[7]) : (byte[0] >> 4) === 4 ? UINT32((byte[4] << 24) | (byte[5] << 16) | (byte[6] << 8) | byte[7]) : "NULL",
+      TAMPER_DETECT_EVENT: (byte[0] >> 4) === 1 ? UINT8((byte[8] >> 7) & 0x01) : "NULL",
+      SWITCH_STATE: (byte[0] >> 4) === 1 ? UINT8((byte[8] >> 6) & 0x01) : "NULL",
+      INTERNAL_LOG_ID: (byte[0] >> 4) === 5 ? UINT16((byte[8] << 8) | byte[9]) : "NULL",
+      LAST_FORWARD_PULSE_TIME: (byte[0] >> 4) === 13 ? UINT16((byte[8] << 8) | byte[9]) : "NULL",
+      FIRST_FORWARD_PULSE_TIME: (byte[0] >> 4) === 15 ? UINT16((byte[8] << 8) | byte[9]) : "NULL",
+      LEAK_DURATION_TOTAL: (byte[0] >> 4) === 15 ? UINT8(byte[10]) : "NULL",
+      CONFIGURATION_CHECK_SUM: (byte[0] >> 4) === 0 ? HEX(UINT16((byte[8] << 8) | byte[9])) : (byte[0] >> 4) === 2 ? HEX(UINT16((byte[8] << 8) | byte[9])) : (byte[0] >> 4) === 3 ? HEX(UINT16((byte[8] << 8) | byte[9])) : (byte[0] >> 4) === 4 ? HEX(UINT16((byte[8] << 8) | byte[9])) : "NULL"
+    };
+  }
+  return {
+    data: data
+  };
+}
+
+// Backward compatibility with TTN v3 / ChirpStack v3
+function Decode(fPort, bytes) {
+  var res = decodeUplink({ bytes: bytes, fPort: fPort });
+  return res.data;
+}
+`;
+
     return {
       success: true,
-      template: templateChirpstackV4,
-      standards: ['ChirpStack v4 (decodeUplink)', 'TTN v3 / ChirpStack v3 (Decode)', 'TTN v2 (Decoder)'],
+      template: templateDaviteqWSLRW_DI,
+      defaultTemplate: templateDaviteqWSLRW_DI,
+      templates: {
+        daviteqWSLRW_DI: templateDaviteqWSLRW_DI,
+        chirpstackV4: templateChirpstackV4,
+      },
+      standards: [
+        'Daviteq WSLRW-DI (decodeUplink)',
+        'ChirpStack v4 (decodeUplink)',
+        'TTN v3 / ChirpStack v3 (Decode)',
+        'TTN v2 (Decoder)',
+      ],
       samplePayloadHex: '0A2813880D1A',
       sampleFport: 1,
       expectedDecoded: {
@@ -626,38 +690,139 @@ function Decode(fPort, bytes) {
   }
 
   /**
+   * 4-tier resolution algorithm for device testing & products:
+   * Tier 1: (item_code, fw_code, long_fw)
+   * Tier 2: (fw_code, long_fw)
+   * Tier 3: (item_code, long_fw)
+   * Tier 4: (sku, long_fw)
+   */
+  async resolveDecoderScript(params: {
+    itemCode?: string;
+    fwCode?: string;
+    sku?: string;
+    longFw?: string;
+  }): Promise<{ matched: DecoderScriptEntity | null; matchTier: string | null }> {
+    const repo = this.getDecoderRepo();
+    const itemCode = (params.itemCode || '').trim();
+    const fwCode = (params.fwCode || '').trim();
+    const sku = (params.sku || '').trim();
+    const longFw = (params.longFw || '').trim();
+
+    // Tier 1: (item_code, fw_code, long_fw)
+    if (itemCode && fwCode && longFw) {
+      const match = await repo
+        .createQueryBuilder('d')
+        .where('d.is_active = true')
+        .andWhere('LOWER(d.item_code) = LOWER(:itemCode) AND LOWER(d.fw_code) = LOWER(:fwCode) AND LOWER(d.long_fw) = LOWER(:longFw)', {
+          itemCode,
+          fwCode,
+          longFw,
+        })
+        .getOne();
+      if (match) return { matched: match, matchTier: 'tier1_item_fw_longfw' };
+    }
+
+    // Tier 2: (fw_code, long_fw)
+    if (fwCode && longFw) {
+      const match = await repo
+        .createQueryBuilder('d')
+        .where('d.is_active = true')
+        .andWhere('LOWER(d.fw_code) = LOWER(:fwCode) AND LOWER(d.long_fw) = LOWER(:longFw)', {
+          fwCode,
+          longFw,
+        })
+        .getOne();
+      if (match) return { matched: match, matchTier: 'tier2_fw_longfw' };
+    }
+
+    // Tier 3: (item_code, long_fw)
+    if (itemCode && longFw) {
+      const match = await repo
+        .createQueryBuilder('d')
+        .where('d.is_active = true')
+        .andWhere('LOWER(d.item_code) = LOWER(:itemCode) AND LOWER(d.long_fw) = LOWER(:longFw)', {
+          itemCode,
+          longFw,
+        })
+        .getOne();
+      if (match) return { matched: match, matchTier: 'tier3_item_longfw' };
+    }
+
+    // Tier 4: (sku, long_fw)
+    if (sku && longFw) {
+      const match = await repo
+        .createQueryBuilder('d')
+        .where('d.is_active = true')
+        .andWhere('LOWER(d.sku) = LOWER(:sku) AND LOWER(d.long_fw) = LOWER(:longFw)', {
+          sku,
+          longFw,
+        })
+        .getOne();
+      if (match) return { matched: match, matchTier: 'tier4_sku_longfw' };
+    }
+
+    return { matched: null, matchTier: null };
+  }
+
+  /**
+   * POST /api/plugins/decoder/resolve
+   * Resolve matching decoder script given testing device identifiers (item_code, fw_code, sku, long_fw)
+   */
+  @Post(['api/plugins/decoder/resolve', 'api/v1/plugins/decoder/resolve', 'api/plugins/decode/resolve', 'api/v1/plugins/decode/resolve'])
+  async resolveDecoderEndpoint(@Body() body: any) {
+    const { matched, matchTier } = await this.resolveDecoderScript({
+      itemCode: body.itemCode || body.item_code,
+      fwCode: body.fwCode || body.fw_code,
+      sku: body.sku,
+      longFw: body.longFw || body.long_fw || body.fwVersion || body.fw_version,
+    });
+
+    if (!matched) {
+      return {
+        success: false,
+        message: 'No active decoder matched for provided identifiers',
+        matched: null,
+      };
+    }
+
+    return {
+      success: true,
+      matchTier,
+      data: matched,
+    };
+  }
+
+  /**
    * POST /api/plugins/decoder/decode
-   * Core capability: Identify decoder script automatically from SKU and LONG_FW and decode payload
+   * Core capability: Identify decoder script automatically from SKU, ITEM_CODE, FW_CODE, and LONG_FW and decode payload
    */
   @Post(['api/plugins/decoder/decode', 'api/v1/plugins/decoder/decode', 'api/plugins/decode/payload', 'api/v1/plugins/decode/payload', 'api/v1/plugins/decode/decode'])
   async decodeBySkuAndLongFw(@Body() dto: DecodeByProductDto) {
     try {
-      if (!dto.sku || !dto.longFw) {
-        throw new BadRequestException('sku and longFw are required to identify product decoder');
+      if (!dto.itemCode && !dto.fwCode && (!dto.sku || !dto.longFw)) {
+        throw new BadRequestException('itemCode, fwCode, or (sku and longFw) are required to identify product decoder');
       }
 
       if (dto.payload === undefined || dto.payload === null) {
         throw new BadRequestException('payload is required');
       }
 
-      const repo = this.getDecoderRepo();
-      const matched = await repo
-        .createQueryBuilder('d')
-        .where('LOWER(d.sku) = LOWER(:sku) AND LOWER(d.long_fw) = LOWER(:longFw)', {
-          sku: dto.sku.trim(),
-          longFw: dto.longFw.trim(),
-        })
-        .getOne();
+      const { matched, matchTier } = await this.resolveDecoderScript({
+        itemCode: dto.itemCode,
+        fwCode: dto.fwCode,
+        sku: dto.sku,
+        longFw: dto.longFw,
+      });
 
       if (!matched) {
         throw new NotFoundException(
-          `No registered decoder script found for SKU '${dto.sku}' and LONG_FW '${dto.longFw}'`,
+          `No registered decoder script found for itemCode='${dto.itemCode || ''}', fwCode='${dto.fwCode || ''}', sku='${dto.sku || ''}' and LONG_FW='${dto.longFw || ''}'`,
         );
       }
 
       if (!matched.is_active) {
         throw new BadRequestException(
-          `Decoder script '${matched.name}' for SKU '${dto.sku}' is currently disabled (inactive)`,
+          `Decoder script '${matched.name}' for SKU '${matched.sku}' is currently disabled (inactive)`,
         );
       }
 
@@ -675,7 +840,10 @@ function Decode(fPort, bytes) {
           name: matched.name,
           sku: matched.sku,
           longFw: matched.long_fw,
+          itemCode: matched.item_code,
+          fwCode: matched.fw_code,
           protocol: matched.protocol,
+          matchTier,
         },
         data: result.data,
         warnings: result.warnings,
@@ -776,11 +944,43 @@ function Decode(fPort, bytes) {
         logs.push('[INFO] ' + args.map((a) => (typeof a === 'object' ? JSON.stringify(a) : String(a))).join(' ')),
     };
 
+    const uint8Fn = (byte: any) => ((Number(byte) || 0) & 0xFF);
+    const uint16Fn = (byte1: any, byte2?: any) => {
+      if (byte2 === undefined) return ((Number(byte1) || 0) & 0xFFFF);
+      return (((Number(byte1) || 0) & 0xFF) << 8) | ((Number(byte2) || 0) & 0xFF);
+    };
+    const uint32Fn = (byte1: any, byte2?: any, byte3?: any, byte4?: any) => {
+      if (byte2 === undefined) return (Number(byte1) || 0) >>> 0;
+      return (
+        (((Number(byte1) || 0) & 0xFF) * Math.pow(2, 24)) +
+        (((Number(byte2) || 0) & 0xFF) * Math.pow(2, 16)) +
+        (((Number(byte3) || 0) & 0xFF) * Math.pow(2, 8)) +
+        ((Number(byte4) || 0) & 0xFF)
+      );
+    };
+    const hexFn = (...bytes: any[]) => {
+      if (bytes.length === 1 && typeof bytes[0] === 'number') {
+        return Number(bytes[0]).toString(16).toUpperCase();
+      }
+      let hex = '';
+      for (let i = 0; i < bytes.length; i++) {
+        if (bytes[i] === undefined || bytes[i] === null || isNaN(bytes[i]) || bytes[i] === 'na') continue;
+        let hexByte = (Number(bytes[i]) & 0xFF).toString(16);
+        if (hexByte.length < 2) hexByte = '0' + hexByte;
+        hex += hexByte;
+      }
+      return hex.toUpperCase();
+    };
+
     const sandbox: Record<string, any> = {
       console: sandboxConsole,
       bytes: parsed.bytes,
       fPort,
       variables,
+      UINT8: uint8Fn,
+      UINT16: uint16Fn,
+      UINT32: uint32Fn,
+      HEX: hexFn,
       Math,
       Number,
       String,
@@ -801,6 +1001,27 @@ function Decode(fPort, bytes) {
     const context = vm.createContext(sandbox);
 
     const runnerScript = `
+      var UINT8 = typeof UINT8 === 'function' ? UINT8 : function(b) { return ((Number(b) || 0) & 0xFF); };
+      var UINT16 = typeof UINT16 === 'function' ? UINT16 : function(b1, b2) {
+        if (b2 === undefined) return ((Number(b1) || 0) & 0xFFFF);
+        return (((Number(b1) || 0) & 0xFF) << 8) | ((Number(b2) || 0) & 0xFF);
+      };
+      var UINT32 = typeof UINT32 === 'function' ? UINT32 : function(b1, b2, b3, b4) {
+        if (b2 === undefined) return (Number(b1) || 0) >>> 0;
+        return (((Number(b1) || 0) & 0xFF) * Math.pow(2, 24)) + (((Number(b2) || 0) & 0xFF) * Math.pow(2, 16)) + (((Number(b3) || 0) & 0xFF) * Math.pow(2, 8)) + ((Number(b4) || 0) & 0xFF);
+      };
+      var HEX = typeof HEX === 'function' ? HEX : function() {
+        if (arguments.length === 1 && typeof arguments[0] === 'number') return Number(arguments[0]).toString(16).toUpperCase();
+        var h = '';
+        for (var i = 0; i < arguments.length; i++) {
+          if (arguments[i] === undefined || arguments[i] === null || isNaN(arguments[i])) continue;
+          var hb = (Number(arguments[i]) & 0xFF).toString(16);
+          if (hb.length < 2) hb = '0' + hb;
+          h += hb;
+        }
+        return h.toUpperCase();
+      };
+
       ${scriptContent}
 
       (function() {

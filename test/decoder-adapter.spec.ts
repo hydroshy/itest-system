@@ -235,19 +235,25 @@ async function runTests() {
     createQueryBuilder: () => {
       let filterSku: string | null = null;
       let filterLongFw: string | null = null;
+      let filterItemCode: string | null = null;
+      let filterFwCode: string | null = null;
       let excludeId: string | null = null;
 
       const qb: any = {
         where: (expr: string, params: any) => {
-          if (params.sku) filterSku = params.sku.toLowerCase();
-          if (params.longFw) filterLongFw = params.longFw.toLowerCase();
-          if (params.id) excludeId = params.id;
+          if (params?.sku) filterSku = params.sku.toLowerCase();
+          if (params?.longFw) filterLongFw = params.longFw.toLowerCase();
+          if (params?.itemCode) filterItemCode = params.itemCode.toLowerCase();
+          if (params?.fwCode) filterFwCode = params.fwCode.toLowerCase();
+          if (params?.id) excludeId = params.id;
           return qb;
         },
         andWhere: (expr: string, params: any) => {
-          if (params.sku) filterSku = params.sku.toLowerCase();
-          if (params.longFw) filterLongFw = params.longFw.toLowerCase();
-          if (params.id) excludeId = params.id;
+          if (params?.sku) filterSku = params.sku.toLowerCase();
+          if (params?.longFw) filterLongFw = params.longFw.toLowerCase();
+          if (params?.itemCode) filterItemCode = params.itemCode.toLowerCase();
+          if (params?.fwCode) filterFwCode = params.fwCode.toLowerCase();
+          if (params?.id) excludeId = params.id;
           return qb;
         },
         orderBy: () => qb,
@@ -258,6 +264,8 @@ async function runTests() {
               if (excludeId && d.id === excludeId) return false;
               if (filterSku && d.sku.toLowerCase() !== filterSku) return false;
               if (filterLongFw && d.long_fw.toLowerCase() !== filterLongFw) return false;
+              if (filterItemCode && (!d.item_code || d.item_code.toLowerCase() !== filterItemCode)) return false;
+              if (filterFwCode && (!d.fw_code || d.fw_code.toLowerCase() !== filterFwCode)) return false;
               return true;
             }) || null
           );
@@ -266,6 +274,8 @@ async function runTests() {
           return inMemoryDecoders.filter((d) => {
             if (filterSku && d.sku.toLowerCase() !== filterSku) return false;
             if (filterLongFw && d.long_fw.toLowerCase() !== filterLongFw) return false;
+            if (filterItemCode && (!d.item_code || d.item_code.toLowerCase() !== filterItemCode)) return false;
+            if (filterFwCode && (!d.fw_code || d.fw_code.toLowerCase() !== filterFwCode)) return false;
             return true;
           });
         },
@@ -357,6 +367,65 @@ async function runTests() {
   assert.strictEqual(decodeResult.data.battery_mv, 3354);
   console.log('✓ Automatic product identification & payload decoding verified!');
 
+  // 4e-2. Testing Multi-tier resolution (item_code, fw_code, sku, long_fw)
+  console.log('4e-2. Testing multi-tier device testing decoder resolution...');
+  const daviteqScript = templateResult.templates.daviteqWSLRW_DI;
+  const createdTestingDecoder = await adapter.createDecoderScript({
+    name: 'Daviteq WSLRW-DI Decoder',
+    sku: 'WSLRW-DI',
+    longFw: 'v3.0.0',
+    itemCode: 'LR-SENSOR-TEMP-V1',
+    fwCode: 'ATH',
+    script: daviteqScript,
+    protocol: 'lorawan',
+    inputFormat: 'hex',
+  });
+  assert.strictEqual(createdTestingDecoder.success, true);
+  assert.strictEqual(createdTestingDecoder.data.item_code, 'LR-SENSOR-TEMP-V1');
+  assert.strictEqual(createdTestingDecoder.data.fw_code, 'ATH');
+
+  // Tier 1 resolution: item_code + fw_code + long_fw
+  const tier1Res = await adapter.decodeBySkuAndLongFw({
+    itemCode: 'LR-SENSOR-TEMP-V1',
+    fwCode: 'ATH',
+    longFw: 'v3.0.0',
+    payload: '010321010000000A0102',
+  });
+  assert.strictEqual(tier1Res.success, true);
+  assert.strictEqual(tier1Res.decoder.matchTier, 'tier1_item_fw_longfw');
+  assert.strictEqual(tier1Res.data.EVENT_ID, 0);
+  console.log('✓ Tier 1 (item_code + fw_code + long_fw) match verified.');
+
+  // Tier 2 resolution: fw_code + long_fw
+  const tier2Res = await adapter.decodeBySkuAndLongFw({
+    fwCode: 'ATH',
+    longFw: 'v3.0.0',
+    payload: '010321010000000A0102',
+  });
+  assert.strictEqual(tier2Res.success, true);
+  assert.strictEqual(tier2Res.decoder.matchTier, 'tier2_fw_longfw');
+  console.log('✓ Tier 2 (fw_code + long_fw) match verified.');
+
+  // Tier 3 resolution: item_code + long_fw
+  const tier3Res = await adapter.decodeBySkuAndLongFw({
+    itemCode: 'LR-SENSOR-TEMP-V1',
+    longFw: 'v3.0.0',
+    payload: '010321010000000A0102',
+  });
+  assert.strictEqual(tier3Res.success, true);
+  assert.strictEqual(tier3Res.decoder.matchTier, 'tier3_item_longfw');
+  console.log('✓ Tier 3 (item_code + long_fw) match verified.');
+
+  // resolveDecoderEndpoint test
+  const resolveEndpointRes = await adapter.resolveDecoderEndpoint({
+    itemCode: 'LR-SENSOR-TEMP-V1',
+    fwCode: 'ATH',
+    longFw: 'v3.0.0',
+  });
+  assert.strictEqual(resolveEndpointRes.success, true);
+  assert.strictEqual(resolveEndpointRes.matchTier, 'tier1_item_fw_longfw');
+  console.log('✓ resolveDecoderEndpoint API verified.');
+
   // 4f. Test unknown SKU/LONG_FW returns NotFoundException
   try {
     await adapter.decodeBySkuAndLongFw({
@@ -382,6 +451,7 @@ async function runTests() {
   // 4h. Delete Script
   const deleteResult = await adapter.deleteDecoderScript(created.data.id);
   assert.strictEqual(deleteResult.success, true);
+  await adapter.deleteDecoderScript(createdTestingDecoder.data.id);
   assert.strictEqual(inMemoryDecoders.length, 0);
   console.log('✓ Decoder script deletion verified.');
 

@@ -25,6 +25,14 @@ export class DecoderScriptEntity {
   @Column({ name: 'long_fw', type: 'varchar', length: 100 })
   long_fw: string;
 
+  @Index('idx_decoder_scripts_item_code')
+  @Column({ name: 'item_code', type: 'varchar', length: 100, nullable: true })
+  item_code?: string | null;
+
+  @Index('idx_decoder_scripts_fw_code')
+  @Column({ name: 'fw_code', type: 'varchar', length: 50, nullable: true })
+  fw_code?: string | null;
+
   @Column({ name: 'script', type: 'text' })
   script: string;
 
