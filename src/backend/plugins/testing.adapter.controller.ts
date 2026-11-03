@@ -139,6 +139,9 @@ export interface EvaluateAutoCheckDto {
       referenceField?: string;
       tolerance?: number;
     }>;
+    functionRules?: any[];
+    rules?: any[];
+    [key: string]: any;
   };
   profileId?: string;
 }
@@ -2347,10 +2350,10 @@ export class TestingAdapterController {
       const rawPayload = packet?.raw_payload || packet?.rawPayload || '';
       const decoded = packet?.decoded_payload || packet?.decodedPayload || {};
 
-      const isProductCriteria = Boolean(criteria.dut || criteria.reference || criteria.comparisons);
+      const isProductCriteria = Boolean(criteria.dut || criteria.reference || criteria.comparisons || criteria.functionRules || criteria.rules);
 
       // 1. RSSI Check
-      if (!isProductCriteria || criteria.minRssi !== undefined || criteria.maxRssi !== undefined) {
+      if (criteria.minRssi !== undefined || criteria.maxRssi !== undefined || (!isProductCriteria && rssi !== undefined)) {
         const rssiPassed = rssi !== undefined && rssi !== null && rssi >= minRssi && rssi <= maxRssi;
         ruleResults.push({
           rule: 'RSSI_RANGE_CHECK',
@@ -2364,7 +2367,7 @@ export class TestingAdapterController {
       }
 
       // 2. SNR Check
-      if (!isProductCriteria || criteria.minSnr !== undefined) {
+      if (criteria.minSnr !== undefined || (!isProductCriteria && snr !== undefined)) {
         const snrPassed = snr !== undefined && snr !== null && snr >= minSnr;
         ruleResults.push({
           rule: 'SNR_MIN_CHECK',
@@ -2576,6 +2579,228 @@ export class TestingAdapterController {
             expected: { tolerance },
             message,
           });
+        }
+      }
+
+      // 8. Standard FUNC_AUTOCHECK Rules Evaluation (from template/FUNC_AUTOCHECK.xlsx)
+      // Supports: CHECKVALUE, CHECKAVG, CHECKCOUNT, FUNC_AVG, FUNC_OFFSET_AVGZERO, CHECKVALUE_PERIOD, CHECKAVG_PERIOD
+      const functionRules: any[] = Array.isArray(criteria.functionRules)
+        ? criteria.functionRules
+        : (Array.isArray(criteria.rules) ? criteria.rules : []);
+
+      if (functionRules.length > 0) {
+        const packetsList: any[] = Array.isArray(target.packets) && target.packets.length > 0
+          ? target.packets
+          : (packet ? [packet] : []);
+
+        const parseTimestamp = (val: any): number => {
+          if (!val) return Date.now();
+          if (typeof val === 'number') return val;
+          const t = new Date(val).getTime();
+          return isNaN(t) ? Date.now() : t;
+        };
+
+        const sortedPackets = [...packetsList].sort((a, b) => {
+          const ta = parseTimestamp(a.created_at || a.createdAt);
+          const tb = parseTimestamp(b.created_at || b.createdAt);
+          return ta - tb;
+        });
+
+        const baseTime = sortedPackets.length > 0
+          ? parseTimestamp(sortedPackets[0].created_at || sortedPackets[0].createdAt)
+          : Date.now();
+
+        for (const fRule of functionRules) {
+          const fnName = (fRule.function_name || fRule.functionName || fRule.func || '').toUpperCase().trim();
+          const paramKey = fRule.uplink_parameter || fRule.uplinkParameter || fRule.field || fRule.parameter;
+          const lowThreshold = fRule.low_threshold !== undefined ? Number(fRule.low_threshold) : (fRule.lowThreshold !== undefined ? Number(fRule.lowThreshold) : -Infinity);
+          const highThreshold = fRule.high_threshold !== undefined ? Number(fRule.high_threshold) : (fRule.highThreshold !== undefined ? Number(fRule.highThreshold) : Infinity);
+
+          const extractVal = (p: any): number | null => {
+            const dec = p?.decoded_payload || p?.decodedPayload || {};
+            if (dec[paramKey] !== undefined && dec[paramKey] !== null) return Number(dec[paramKey]);
+            // Case-insensitive lookup
+            const foundKey = Object.keys(dec).find((k) => k.toLowerCase() === (paramKey || '').toLowerCase());
+            if (foundKey && dec[foundKey] !== undefined && dec[foundKey] !== null) return Number(dec[foundKey]);
+            return null;
+          };
+
+          if (fnName === 'CHECKVALUE') {
+            let pass = sortedPackets.length > 0;
+            const failedValues: number[] = [];
+            for (const p of sortedPackets) {
+              const v = extractVal(p);
+              if (v === null || isNaN(v) || v < lowThreshold || v > highThreshold) {
+                pass = false;
+                if (v !== null && !isNaN(v)) failedValues.push(v);
+              }
+            }
+            ruleResults.push({
+              rule: `CHECKVALUE_${paramKey}`,
+              functionName: 'CHECKVALUE',
+              parameter: paramKey,
+              passed: pass,
+              expected: `${lowThreshold} <= ${paramKey} <= ${highThreshold}`,
+              actual: failedValues.length > 0 ? `Failed at: ${failedValues.join(', ')}` : 'All packets within threshold',
+              message: pass
+                ? `Hàm CHECKVALUE: Toàn bộ ${sortedPackets.length} gói tin của '${paramKey}' nằm trong khoảng [${lowThreshold}, ${highThreshold}]`
+                : `Hàm CHECKVALUE: Có gói tin của '${paramKey}' nằm ngoài ngưỡng [${lowThreshold}, ${highThreshold}]`,
+            });
+          } else if (fnName === 'CHECKAVG') {
+            const validVals: number[] = [];
+            for (const p of sortedPackets) {
+              const v = extractVal(p);
+              if (v !== null && !isNaN(v)) validVals.push(v);
+            }
+            const avg = validVals.length > 0 ? validVals.reduce((a, b) => a + b, 0) / validVals.length : 0;
+            const pass = validVals.length > 0 && avg >= lowThreshold && avg <= highThreshold;
+            ruleResults.push({
+              rule: `CHECKAVG_${paramKey}`,
+              functionName: 'CHECKAVG',
+              parameter: paramKey,
+              passed: pass,
+              expected: `${lowThreshold} <= AVG <= ${highThreshold}`,
+              actual: Number(avg.toFixed(2)),
+              message: pass
+                ? `Hàm CHECKAVG: Giá trị trung bình của '${paramKey}' (${avg.toFixed(2)}) đạt ngưỡng [${lowThreshold}, ${highThreshold}]`
+                : `Hàm CHECKAVG: Giá trị trung bình của '${paramKey}' (${avg.toFixed(2)}) không đạt ngưỡng [${lowThreshold}, ${highThreshold}]`,
+            });
+          } else if (fnName === 'CHECKCOUNT') {
+            const minCount = Number(fRule.min_count ?? fRule.minCount ?? 1);
+            const maxCount = Number(fRule.max_count ?? fRule.maxCount ?? Infinity);
+            let counter = 0;
+            for (const p of sortedPackets) {
+              const v = extractVal(p);
+              if (v !== null && !isNaN(v) && v >= lowThreshold && v <= highThreshold) {
+                counter++;
+              }
+            }
+            const pass = counter >= minCount && counter <= maxCount;
+            ruleResults.push({
+              rule: `CHECKCOUNT_${paramKey}`,
+              functionName: 'CHECKCOUNT',
+              parameter: paramKey,
+              passed: pass,
+              expected: `${minCount} <= count <= ${maxCount}`,
+              actual: counter,
+              message: pass
+                ? `Hàm CHECKCOUNT: Số lần '${paramKey}' thoả ngưỡng là ${counter} (trong khoảng [${minCount}, ${maxCount}])`
+                : `Hàm CHECKCOUNT: Số lần '${paramKey}' thoả ngưỡng là ${counter} (ngoài khoảng [${minCount}, ${maxCount}])`,
+            });
+          } else if (fnName === 'FUNC_AVG') {
+            const startSec = Number(fRule.start_time ?? fRule.startTime ?? 0);
+            const durationSec = Number(fRule.duration ?? 0);
+            const windowStart = baseTime + startSec * 1000;
+            const windowEnd = durationSec > 0 ? windowStart + durationSec * 1000 : Infinity;
+
+            const inWindow = sortedPackets.filter((p) => {
+              const pt = parseTimestamp(p.created_at || p.createdAt);
+              return pt >= windowStart && pt <= windowEnd;
+            });
+            const validVals: number[] = [];
+            for (const p of inWindow) {
+              const v = extractVal(p);
+              if (v !== null && !isNaN(v)) validVals.push(v);
+            }
+            const avg = validVals.length > 0 ? validVals.reduce((a, b) => a + b, 0) / validVals.length : 0;
+            ruleResults.push({
+              rule: `FUNC_AVG_${paramKey}`,
+              functionName: 'FUNC_AVG',
+              parameter: paramKey,
+              passed: validVals.length > 0,
+              actual: Number(avg.toFixed(2)),
+              expected: `AVG in window [${startSec}s, ${startSec + durationSec}s]`,
+              message: `Hàm FUNC_AVG: Giá trị trung bình của '${paramKey}' là ${avg.toFixed(2)} (${validVals.length} mẫu trong window)`,
+            });
+          } else if (fnName === 'FUNC_OFFSET_AVGZERO') {
+            const stdZero = Number(fRule.standard_zero ?? fRule.standardZero ?? 0);
+            const offsetStartSec = Number(fRule.start_offset_time_for_avg_zero ?? fRule.startOffsetTimeForAvgZero ?? 0);
+            const durationSec = Number(fRule.duration_for_avg_zero ?? fRule.durationForAvgZero ?? 0);
+
+            const windowStart = baseTime + offsetStartSec * 1000;
+            const windowEnd = durationSec > 0 ? windowStart + durationSec * 1000 : Infinity;
+
+            const inWindow = sortedPackets.filter((p) => {
+              const pt = parseTimestamp(p.created_at || p.createdAt);
+              return pt >= windowStart && pt <= windowEnd;
+            });
+            const validVals: number[] = [];
+            for (const p of inWindow) {
+              const v = extractVal(p);
+              if (v !== null && !isNaN(v)) validVals.push(v);
+            }
+            const avgZero = validVals.length > 0 ? validVals.reduce((a, b) => a + b, 0) / validVals.length : 0;
+            const constantB = stdZero - avgZero;
+            const hexFormat = Math.round(constantB).toString(16).toUpperCase();
+
+            ruleResults.push({
+              rule: `FUNC_OFFSET_AVGZERO_${paramKey}`,
+              functionName: 'FUNC_OFFSET_AVGZERO',
+              parameter: paramKey,
+              passed: validVals.length > 0,
+              actual: { constantB: Number(constantB.toFixed(4)), hexFormat: `0x${hexFormat}` },
+              expected: { standardZero: stdZero, avgZero: Number(avgZero.toFixed(4)) },
+              message: `Hàm FUNC_OFFSET_AVGZERO: CONSTANT_B = ${stdZero} - ${avgZero.toFixed(4)} = ${constantB.toFixed(4)} (HEX: 0x${hexFormat})`,
+            });
+          } else if (fnName === 'CHECKVALUE_PERIOD') {
+            const startOffset = Number(fRule.period_start_offset_time ?? fRule.periodStartOffsetTime ?? 0);
+            const duration = Number(fRule.period_duration_time ?? fRule.periodDurationTime ?? 0);
+            const windowStart = baseTime + startOffset * 1000;
+            const windowEnd = duration > 0 ? windowStart + duration * 1000 : Infinity;
+
+            const inWindow = sortedPackets.filter((p) => {
+              const pt = parseTimestamp(p.created_at || p.createdAt);
+              return pt >= windowStart && pt <= windowEnd;
+            });
+
+            let pass = inWindow.length > 0;
+            for (const p of inWindow) {
+              const v = extractVal(p);
+              if (v === null || isNaN(v) || v < lowThreshold || v > highThreshold) {
+                pass = false;
+                break;
+              }
+            }
+            ruleResults.push({
+              rule: `CHECKVALUE_PERIOD_${paramKey}`,
+              functionName: 'CHECKVALUE_PERIOD',
+              parameter: paramKey,
+              passed: pass,
+              expected: `${lowThreshold} <= ${paramKey} <= ${highThreshold} in period`,
+              actual: `${inWindow.length} packets checked`,
+              message: pass
+                ? `Hàm CHECKVALUE_PERIOD: Toàn bộ mẫu của '${paramKey}' trong chu kỳ đạt ngưỡng [${lowThreshold}, ${highThreshold}]`
+                : `Hàm CHECKVALUE_PERIOD: Có mẫu của '${paramKey}' trong chu kỳ không đạt ngưỡng [${lowThreshold}, ${highThreshold}]`,
+            });
+          } else if (fnName === 'CHECKAVG_PERIOD') {
+            const startOffset = Number(fRule.period_start_offset_time ?? fRule.periodStartOffsetTime ?? 0);
+            const duration = Number(fRule.period_duration_time ?? fRule.periodDurationTime ?? 0);
+            const windowStart = baseTime + startOffset * 1000;
+            const windowEnd = duration > 0 ? windowStart + duration * 1000 : Infinity;
+
+            const inWindow = sortedPackets.filter((p) => {
+              const pt = parseTimestamp(p.created_at || p.createdAt);
+              return pt >= windowStart && pt <= windowEnd;
+            });
+            const validVals: number[] = [];
+            for (const p of inWindow) {
+              const v = extractVal(p);
+              if (v !== null && !isNaN(v)) validVals.push(v);
+            }
+            const avg = validVals.length > 0 ? validVals.reduce((a, b) => a + b, 0) / validVals.length : 0;
+            const pass = validVals.length > 0 && avg >= lowThreshold && avg <= highThreshold;
+            ruleResults.push({
+              rule: `CHECKAVG_PERIOD_${paramKey}`,
+              functionName: 'CHECKAVG_PERIOD',
+              parameter: paramKey,
+              passed: pass,
+              expected: `${lowThreshold} <= AVG <= ${highThreshold} in period`,
+              actual: Number(avg.toFixed(2)),
+              message: pass
+                ? `Hàm CHECKAVG_PERIOD: AVG của '${paramKey}' trong chu kỳ là ${avg.toFixed(2)} đạt ngưỡng [${lowThreshold}, ${highThreshold}]`
+                : `Hàm CHECKAVG_PERIOD: AVG của '${paramKey}' trong chu kỳ là ${avg.toFixed(2)} không đạt ngưỡng [${lowThreshold}, ${highThreshold}]`,
+            });
+          }
         }
       }
 

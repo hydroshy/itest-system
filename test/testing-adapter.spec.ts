@@ -655,6 +655,36 @@ async function runTests() {
   }
   console.log('✓ AutoCheck evaluation correctly reported FAIL on out-of-range thresholds.');
 
+  // 8.1 Testing Standard FUNC_AUTOCHECK Rules (from template/FUNC_AUTOCHECK.xlsx)
+  const testPackets = [
+    { created_at: new Date('2026-11-03T10:00:00Z'), decoded_payload: { temperature: 25.0, humidity: 60.0 } },
+    { created_at: new Date('2026-11-03T10:00:10Z'), decoded_payload: { temperature: 25.5, humidity: 61.0 } },
+    { created_at: new Date('2026-11-03T10:00:20Z'), decoded_payload: { temperature: 26.0, humidity: 59.0 } },
+  ];
+
+  const funcAutoCheckRes = await controller.evaluateAutoCheck({
+    target: { packets: testPackets },
+    criteria: {
+      functionRules: [
+        { function_name: 'CHECKVALUE', uplink_parameter: 'temperature', low_threshold: 20, high_threshold: 30 },
+        { function_name: 'CHECKAVG', uplink_parameter: 'temperature', low_threshold: 25.0, high_threshold: 26.0 },
+        { function_name: 'CHECKCOUNT', uplink_parameter: 'humidity', low_threshold: 58, high_threshold: 62, min_count: 2, max_count: 5 },
+        { function_name: 'FUNC_AVG', uplink_parameter: 'temperature', start_time: 0, duration: 30 },
+        { function_name: 'FUNC_OFFSET_AVGZERO', uplink_parameter: 'temperature', standard_zero: 25.0, start_offset_time_for_avg_zero: 0, duration_for_avg_zero: 30 },
+        { function_name: 'CHECKVALUE_PERIOD', uplink_parameter: 'temperature', period_start_offset_time: 0, period_duration_time: 30, low_threshold: 24, high_threshold: 27 },
+        { function_name: 'CHECKAVG_PERIOD', uplink_parameter: 'humidity', period_start_offset_time: 0, period_duration_time: 30, low_threshold: 55, high_threshold: 65 },
+      ],
+    },
+  });
+
+  if (!funcAutoCheckRes.success || funcAutoCheckRes.data.verdict !== 'PASS') {
+    throw new Error(`Standard FUNC_AUTOCHECK evaluation failed: ${JSON.stringify(funcAutoCheckRes)}`);
+  }
+  if (funcAutoCheckRes.data.passedRules !== 7) {
+    throw new Error(`Expected all 7 standard functions to pass, got ${funcAutoCheckRes.data.passedRules}/${funcAutoCheckRes.data.totalRules}`);
+  }
+  console.log('✓ All 7 FUNC_AUTOCHECK standard function rules evaluated and passed successfully.');
+
   const historyRes = controller.getAutoCheckHistory();
   if (historyRes.data.length < 2) {
     throw new Error(`AutoCheck history incomplete: ${historyRes.data.length}`);
