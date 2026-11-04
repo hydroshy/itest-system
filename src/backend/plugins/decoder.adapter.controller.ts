@@ -851,7 +851,8 @@ function Decode(fPort, bytes) {
     if (codeIdent && fwIdent) {
       const match = await repo
         .createQueryBuilder('d')
-        .where('(LOWER(d.item_code) = LOWER(:code) OR LOWER(d.sku) = LOWER(:code) OR LOWER(d.name) LIKE LOWER(:likeCode)) AND (LOWER(d.long_fw) = LOWER(:fw) OR LOWER(d.fw_code) = LOWER(:fw) OR LOWER(d.long_fw) LIKE LOWER(:likeFw) OR LOWER(d.fw_code) LIKE LOWER(:likeFw))', {
+        .where('1=1')
+        .andWhere('(LOWER(d.item_code) = LOWER(:code) OR LOWER(d.sku) = LOWER(:code) OR LOWER(d.name) LIKE LOWER(:likeCode)) AND (LOWER(d.long_fw) = LOWER(:fw) OR LOWER(d.fw_code) = LOWER(:fw) OR LOWER(d.long_fw) LIKE LOWER(:likeFw) OR LOWER(d.fw_code) LIKE LOWER(:likeFw))', {
           code: codeIdent,
           likeCode: `%${codeIdent}%`,
           fw: fwIdent,
@@ -865,7 +866,8 @@ function Decode(fPort, bytes) {
     if (codeIdent) {
       const match = await repo
         .createQueryBuilder('d')
-        .where('(LOWER(d.item_code) = LOWER(:code) OR LOWER(d.sku) = LOWER(:code) OR LOWER(d.name) LIKE LOWER(:likeCode))', {
+        .where('1=1')
+        .andWhere('(LOWER(d.item_code) = LOWER(:code) OR LOWER(d.sku) = LOWER(:code) OR LOWER(d.name) LIKE LOWER(:likeCode))', {
           code: codeIdent,
           likeCode: `%${codeIdent}%`,
         })
