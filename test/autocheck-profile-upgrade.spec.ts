@@ -20,6 +20,27 @@ async function run() {
       sample_decoded: { temperature: 25.5, humidity: 60.2, battery: 100 },
       is_active: true,
     },
+    {
+      id: 'd9b31e1c-7cbf-4abe-a1fe-0e50443cd50c',
+      name: 'WSLRW-ATH Decoder',
+      item_code: 'WSLRW-ATH-06',
+      fw_code: 'SATH',
+      long_fw: '6F0627',
+      sku: 'WSLRW-ATH',
+      script: `function decodeUplink(input) {
+        var byte = input.bytes || [];
+        var data = {
+          EVENT_ID: byte.length > 0 ? (byte[0] >> 4) : 0,
+          TEMPERATURE: byte.length >= 2 ? (((byte[0] << 8) | byte[1]) / 100.0) : 0,
+          HUMIDITY: byte.length >= 3 ? (byte[2] * 0.5) : 0,
+          BATTERY: byte.length >= 4 ? byte[3] : 100
+        };
+        return { data: data };
+      }`,
+      sample_payload: null,
+      sample_decoded: null,
+      is_active: true,
+    },
   ];
 
   const db: any = {
@@ -57,12 +78,18 @@ async function run() {
                 if (params?.sku) filterCode = params.sku;
                 if (params?.code) filterCode = params.code;
                 if (params?.fwCode) filterFw = params.fwCode;
+                if (params?.fw) filterFw = params.fw;
                 return this;
               },
               orderBy: function () { return this; },
               getOne: async () => {
                 if (filterCode === 'UNKNOWN_PRODUCT' || filterFw === '9.9') return null;
-                return mockDecoderScripts[0] || null;
+                const found = mockDecoderScripts.find((d) => {
+                  if (filterCode && d.item_code.toLowerCase() !== filterCode.toLowerCase() && d.sku.toLowerCase() !== filterCode.toLowerCase()) return false;
+                  if (filterFw && d.long_fw.toLowerCase() !== filterFw.toLowerCase() && d.fw_code.toLowerCase() !== filterFw.toLowerCase()) return false;
+                  return true;
+                });
+                return found || mockDecoderScripts[0] || null;
               },
             };
           },
@@ -243,6 +270,18 @@ async function run() {
   assert.ok(fieldsRes.data.fields.some((f) => f.name === 'humidity'));
   assert.ok(fieldsRes.data.fields.some((f) => f.name === 'battery'));
   console.log(`✓ Fields discovered from decoder script: ${fieldsRes.data.fields.map((f) => f.name).join(', ')}`);
+
+  // 6b. Test WSLRW-ATH with null sample_decoded / sample_payload using static parsing and dynamic execution
+  console.log('[TEST 6b] WSLRW-ATH Decoder resolution and field extraction (null sample_decoded/payload)');
+  const athRes = await controller.getAutoCheckFields('WSLRW-ATH-06', '6F0627');
+  assert.strictEqual(athRes.success, true);
+  assert.strictEqual(athRes.data.decoderFound, true);
+  assert.ok(Array.isArray(athRes.data.fields));
+  assert.ok(athRes.data.fields.some((f) => f.name === 'EVENT_ID'));
+  assert.ok(athRes.data.fields.some((f) => f.name === 'TEMPERATURE'));
+  assert.ok(athRes.data.fields.some((f) => f.name === 'HUMIDITY'));
+  assert.ok(athRes.data.fields.some((f) => f.name === 'BATTERY'));
+  console.log(`✓ Fields discovered from WSLRW-ATH: ${athRes.data.fields.map((f) => f.name).join(', ')}`);
 
   // Non-existent decoder
   const noDecoderRes = await controller.getAutoCheckFields('UNKNOWN_PRODUCT', '9.9');

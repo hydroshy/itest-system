@@ -249,6 +249,10 @@ async function runTests() {
             filterItemCode = params.code.toLowerCase();
             filterSku = params.code.toLowerCase();
           }
+          if (params?.fw) {
+            filterLongFw = params.fw.toLowerCase();
+            filterFwCode = params.fw.toLowerCase();
+          }
           if (params?.id) excludeId = params.id;
           return qb;
         },
@@ -260,6 +264,10 @@ async function runTests() {
           if (params?.code) {
             filterItemCode = params.code.toLowerCase();
             filterSku = params.code.toLowerCase();
+          }
+          if (params?.fw) {
+            filterLongFw = params.fw.toLowerCase();
+            filterFwCode = params.fw.toLowerCase();
           }
           if (params?.id) excludeId = params.id;
           return qb;
@@ -276,8 +284,12 @@ async function runTests() {
                 if (filterSku && d.sku.toLowerCase() !== filterSku) return false;
                 if (filterItemCode && (!d.item_code || d.item_code.toLowerCase() !== filterItemCode)) return false;
               }
-              if (filterLongFw && d.long_fw.toLowerCase() !== filterLongFw) return false;
-              if (filterFwCode && (!d.fw_code || d.fw_code.toLowerCase() !== filterFwCode)) return false;
+              if (filterLongFw && filterFwCode && filterLongFw === filterFwCode) {
+                if (d.long_fw.toLowerCase() !== filterLongFw && (!d.fw_code || d.fw_code.toLowerCase() !== filterFwCode)) return false;
+              } else {
+                if (filterLongFw && d.long_fw.toLowerCase() !== filterLongFw) return false;
+                if (filterFwCode && (!d.fw_code || d.fw_code.toLowerCase() !== filterFwCode)) return false;
+              }
               return true;
             }) || null
           );

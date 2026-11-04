@@ -2161,7 +2161,6 @@ export class TestingAdapterController {
     const decoderController = new DecoderAdapterController(this.databaseService);
     const { matched, matchTier } = await decoderController.resolveDecoderScript({
       itemCode: code,
-      fwCode: fw,
       sku: code,
       longFw: fw,
     });
@@ -2248,19 +2247,81 @@ export class TestingAdapterController {
       } catch (_) {}
     }
 
+    // Try executing testDecoder with standard payloads if sample_payload was absent or failed
+    if (fields.length === 0 && matched.script) {
+      for (const trialPayload of ['0102030405060708090A0B0C0D0E0F10', '00000000000000000000', '0100', '01']) {
+        try {
+          const testResult = await decoderController.testDecoder({
+            script: matched.script,
+            fPort: 1,
+            payload: trialPayload,
+          });
+          if (testResult?.success && testResult?.data?.decoded && typeof testResult.data.decoded === 'object') {
+            const decodedEntries = Object.entries(testResult.data.decoded);
+            if (decodedEntries.length > 0) {
+              fields = decodedEntries.map(([k, v]) => ({
+                name: k,
+                label: k,
+                type: typeof v === 'number' ? 'number' : typeof v === 'boolean' ? 'boolean' : 'string',
+              }));
+              break;
+            }
+          }
+        } catch (_) {}
+      }
+    }
+
     if (fields.length === 0) {
       const script = matched.script || '';
       const fieldNames = new Set<string>();
-      const matches = script.matchAll(/(?:data|telemetry|decoded|output|result)\.([a-zA-Z0-9_]+)\s*=/g);
-      for (const m of matches) {
-        if (m[1] && !['length', 'push', 'prototype'].includes(m[1])) {
+      const jsKeywords = new Set([
+        'var', 'let', 'const', 'function', 'if', 'else', 'return', 'true', 'false',
+        'null', 'undefined', 'length', 'push', 'prototype', 'for', 'while', 'switch',
+        'case', 'break', 'new', 'try', 'catch', 'finally', 'typeof', 'instanceof',
+        'data', 'decoded', 'telemetry', 'result', 'output', 'input', 'warnings', 'errors',
+        'byte', 'bytes', 'fport', 'fPort'
+      ]);
+
+      // 1. Match keys in object literal assigned to data / telemetry / decoded
+      const objBlocks = script.matchAll(/(?:data|telemetry|decoded|output|result)\s*=\s*\{([\s\S]*?)\}/g);
+      for (const b of objBlocks) {
+        const keys = b[1].matchAll(/([a-zA-Z0-9_]+)\s*:/g);
+        for (const k of keys) {
+          if (!jsKeywords.has(k[1])) fieldNames.add(k[1]);
+        }
+      }
+
+      // 2. Match keys in return { data: { ... } }
+      const returnDataBlocks = script.matchAll(/(?:return\s*\{\s*data\s*:\s*\{)([\s\S]*?)\}/g);
+      for (const b of returnDataBlocks) {
+        const keys = b[1].matchAll(/([a-zA-Z0-9_]+)\s*:/g);
+        for (const k of keys) {
+          if (!jsKeywords.has(k[1])) fieldNames.add(k[1]);
+        }
+      }
+
+      // 3. Match data.field = ...
+      const dotMatches = script.matchAll(/(?:data|telemetry|decoded|output|result)\.([a-zA-Z0-9_]+)\s*=/g);
+      for (const m of dotMatches) {
+        if (m[1] && !jsKeywords.has(m[1])) {
           fieldNames.add(m[1]);
         }
       }
-      const propMatches = script.matchAll(/([a-zA-Z0-9_]+)\s*:\s*(?:UINT8|UINT16|UINT32|HEX|bytes|data|input)/g);
-      for (const m of propMatches) {
-        if (m[1]) fieldNames.add(m[1]);
+
+      // 4. Match data['field'] = ...
+      const bracketMatches = script.matchAll(/(?:data|telemetry|decoded|output|result)\[['"]([a-zA-Z0-9_]+)['"]\]\s*=/g);
+      for (const m of bracketMatches) {
+        if (m[1] && !jsKeywords.has(m[1])) {
+          fieldNames.add(m[1]);
+        }
       }
+
+      // 5. Match prop definitions like FIELD: UINT8(...) or FIELD: byte[...]
+      const propMatches = script.matchAll(/([a-zA-Z0-9_]+)\s*:\s*(?:UINT8|UINT16|UINT32|HEX|bytes|data|input|\(|byte)/g);
+      for (const m of propMatches) {
+        if (m[1] && !jsKeywords.has(m[1])) fieldNames.add(m[1]);
+      }
+
       if (fieldNames.size > 0) {
         fields = Array.from(fieldNames).map((f) => ({
           name: f,
@@ -2268,6 +2329,34 @@ export class TestingAdapterController {
           type: 'number',
         }));
       }
+    }
+
+    // Fallback: If decoder script yielded no fields, check live telemetry packets
+    if (fields.length === 0) {
+      try {
+        const ds = this.databaseService.getDataSourceForTable('devices');
+        if (ds) {
+          const liveRows = await ds.query(
+            `SELECT decoded_payload FROM system_schema.v_device_payload_live
+             WHERE (UPPER(item_code) = UPPER($1) OR UPPER(sku) = UPPER($1) OR $1 = '') AND decoded_payload IS NOT NULL
+             ORDER BY created_at DESC LIMIT 3`,
+            [code]
+          ).catch(() => []);
+          for (const r of liveRows) {
+            if (r.decoded_payload && typeof r.decoded_payload === 'object') {
+              for (const [k, v] of Object.entries(r.decoded_payload)) {
+                if (!fields.some((f) => f.name === k)) {
+                  fields.push({
+                    name: k,
+                    label: k,
+                    type: typeof v === 'number' ? 'number' : typeof v === 'boolean' ? 'boolean' : 'string',
+                  });
+                }
+              }
+            }
+          }
+        }
+      } catch {}
     }
 
     return {

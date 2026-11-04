@@ -761,6 +761,62 @@ function Decode(fPort, bytes) {
       if (match) return { matched: match, matchTier: 'tier4_sku_longfw' };
     }
 
+    // Tier 4b: (item_code, fw_code)
+    if (itemCode && fwCode) {
+      const match = await repo
+        .createQueryBuilder('d')
+        .where('d.is_active = true')
+        .andWhere('LOWER(d.item_code) = LOWER(:itemCode) AND LOWER(d.fw_code) = LOWER(:fwCode)', {
+          itemCode,
+          fwCode,
+        })
+        .getOne();
+      if (match) return { matched: match, matchTier: 'tier4b_item_fwcode' };
+    }
+
+    // Tier 4c: (sku, fw_code)
+    if (sku && fwCode) {
+      const match = await repo
+        .createQueryBuilder('d')
+        .where('d.is_active = true')
+        .andWhere('LOWER(d.sku) = LOWER(:sku) AND LOWER(d.fw_code) = LOWER(:fwCode)', {
+          sku,
+          fwCode,
+        })
+        .getOne();
+      if (match) return { matched: match, matchTier: 'tier4c_sku_fwcode' };
+    }
+
+    // Tier 4d: Cross-combination (item_code or sku) with (long_fw or fw_code)
+    const codeIdent = itemCode || sku;
+    const fwIdent = fwCode || longFw;
+    if (codeIdent && fwIdent) {
+      const match = await repo
+        .createQueryBuilder('d')
+        .where('d.is_active = true')
+        .andWhere('(LOWER(d.item_code) = LOWER(:code) OR LOWER(d.sku) = LOWER(:code)) AND (LOWER(d.long_fw) = LOWER(:fw) OR LOWER(d.fw_code) = LOWER(:fw))', {
+          code: codeIdent,
+          fw: fwIdent,
+        })
+        .getOne();
+      if (match) return { matched: match, matchTier: 'tier4d_code_fw_cross' };
+    }
+
+    // Tier 4e: Fuzzy / prefix match between code and fw
+    if (codeIdent && fwIdent) {
+      const match = await repo
+        .createQueryBuilder('d')
+        .where('d.is_active = true')
+        .andWhere('(LOWER(d.item_code) LIKE LOWER(:likeCode) OR LOWER(d.sku) LIKE LOWER(:likeCode) OR LOWER(:code) LIKE CONCAT(\'%\', LOWER(d.item_code), \'%\') OR LOWER(:code) LIKE CONCAT(\'%\', LOWER(d.sku), \'%\')) AND (LOWER(d.long_fw) LIKE LOWER(:likeFw) OR LOWER(d.fw_code) LIKE LOWER(:likeFw) OR LOWER(:fw) LIKE CONCAT(\'%\', LOWER(d.long_fw), \'%\') OR LOWER(:fw) LIKE CONCAT(\'%\', LOWER(d.fw_code), \'%\'))', {
+          code: codeIdent,
+          likeCode: `%${codeIdent}%`,
+          fw: fwIdent,
+          likeFw: `%${fwIdent}%`,
+        })
+        .getOne();
+      if (match) return { matched: match, matchTier: 'tier4e_code_fw_fuzzy' };
+    }
+
     // Tier 5: fallback by item_code alone (or sku)
     if (itemCode || sku) {
       const targetCode = itemCode || sku;
@@ -776,14 +832,15 @@ function Decode(fPort, bytes) {
       if (match) return { matched: match, matchTier: 'tier5_item_or_sku' };
     }
 
-    // Tier 6: fallback by fw_code alone
-    if (fwCode) {
+    // Tier 6: fallback by fw_code or long_fw alone
+    if (fwCode || longFw) {
+      const targetFw = fwCode || longFw;
       const match = await repo
         .createQueryBuilder('d')
         .where('d.is_active = true')
-        .andWhere('(LOWER(d.fw_code) = LOWER(:fwCode) OR LOWER(d.name) LIKE LOWER(:likeFw))', {
-          fwCode,
-          likeFw: `%${fwCode}%`,
+        .andWhere('(LOWER(d.fw_code) = LOWER(:fw) OR LOWER(d.long_fw) = LOWER(:fw) OR LOWER(d.name) LIKE LOWER(:likeFw))', {
+          fw: targetFw,
+          likeFw: `%${targetFw}%`,
         })
         .orderBy('d.created_at', 'DESC')
         .getOne();
