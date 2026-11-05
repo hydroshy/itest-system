@@ -4880,7 +4880,26 @@ export class TestingAdapterController {
             if (humDelta > 5.0) tolerancePass = false;
           }
 
+          // Keep every packet in the batch window, not only the latest sensor values.
+          const windowEnd = Math.min(now, started + flowDuration * 1000);
+          const packetTimeline = (packets: any[]) => packets
+            .filter(p => {
+              const timestamp = new Date(p.created_at).getTime();
+              return timestamp >= started && timestamp <= windowEnd;
+            })
+            .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
+            .map(p => ({
+              timestamp: p.created_at,
+              data: p.decoded_payload ?? {},
+              raw_payload: p.raw_payload,
+              f_port: p.f_port,
+              f_cnt: p.f_cnt,
+              rssi: p.rssi,
+              snr: p.snr,
+            }));
           comparison = {
+            dut_packets: packetTimeline(dutPackets),
+            reference_packets: packetTimeline(refPackets),
             status: packetsCount > 0 ? 'ACTIVE_RECEIVING' : 'AWAITING_UPLINK',
             packets_since_start: packetsCount,
             dut_temp: dutT,
@@ -4907,7 +4926,7 @@ export class TestingAdapterController {
              SET dut_values = $2, reference_values = $3, comparison_result = $4, packets_received = $5
              WHERE id = $1`,
             [item.id, JSON.stringify(dutValues), JSON.stringify(refValues), JSON.stringify(comparison), packetsCount]
-          ).catch(() => {});
+          );
         }
 
         if (remainingSeconds === 0) {

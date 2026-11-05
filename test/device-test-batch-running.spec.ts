@@ -73,7 +73,47 @@ async function run() {
   await assert.rejects(() => controller.startTestBatch('a2', { devices: [{ serialNumber: 'new-dut' }] }, owner), (e: any) => e.getStatus() === 409);
   assert.strictEqual(writes.length, writeCount, 'Restarting running batch must not replace devices');
 
-  console.log('PASS: multiple owned batches, owner-only status/cancel, isolated cancellation, stopped status, and restart conflict');
+  const started = new Date(Date.now() - 10000);
+  const packet = (seconds: number, data: any) => ({
+    created_at: new Date(started.getTime() + seconds * 1000).toISOString(),
+    decoded_payload: data, raw_payload: 'abcd', f_cnt: seconds,
+  });
+  const dutPackets = [packet(8, { temperature: 25, battery: 90 }), packet(2, { temperature: 24, custom: false }), packet(-2, { old: true }), packet(4000, { outside: true })];
+  const refPackets = [packet(3, { temperature: 24, humidity: 50 })];
+  let stored: any;
+  let failWrite = false;
+  let withReference = true;
+  const telemetryDs = {
+    transaction: async (work: any) => work(telemetryDs),
+    query: async (sql: string, params: any[]) => {
+      if (sql.includes('SELECT * FROM system_schema.device_test_batches')) return [{
+        id: 'timeline', created_by: 'alice', status: 'RUNNING', started_at: started, flow_duration_seconds: 3600,
+      }];
+      if (sql.includes('SELECT * FROM system_schema.device_test_batch_items')) return [{
+        id: 'dut', serial_number: 'serial', dev_eui: 'aa', reference_dev_eui: withReference ? 'bb' : null,
+      }];
+      if (sql.includes('FROM devices.device_packets')) return params[0] === 'aa' ? dutPackets : refPackets;
+      if (sql.includes('UPDATE system_schema.device_test_batch_items')) {
+        if (failWrite) throw new Error('archive write failed');
+        stored = JSON.parse(params[3]);
+        return [];
+      }
+      throw new Error(`Unexpected telemetry SQL: ${sql}`);
+    },
+  };
+  const telemetry = new TestingAdapterController({ getDataSourceForTable: () => telemetryDs } as any, {} as any);
+  await telemetry.getTestBatchStatus('timeline', owner);
+  assert.deepStrictEqual(stored.dut_packets.map((p: any) => p.data), [{ temperature: 24, custom: false }, { temperature: 25, battery: 90 }]);
+  assert.strictEqual(stored.dut_packets[0].timestamp, dutPackets[1].created_at);
+  assert.deepStrictEqual(stored.reference_packets[0].data, refPackets[0].decoded_payload);
+  assert.strictEqual(stored.dut_packets[1].raw_payload, 'abcd');
+  withReference = false;
+  await telemetry.getTestBatchStatus('timeline', owner);
+  assert.deepStrictEqual(stored.reference_packets, []);
+  failWrite = true;
+  await assert.rejects(() => telemetry.getTestBatchStatus('timeline', owner), /archive write failed/);
+
+  console.log('PASS: owned batches, cancellation, restart conflict, timestamped DUT/reference packet archive, and write failure propagation');
 }
 
 run().catch(error => { console.error(error); process.exitCode = 1; });
