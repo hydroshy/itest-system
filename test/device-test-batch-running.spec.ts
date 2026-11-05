@@ -16,6 +16,7 @@ async function run() {
   const ds = {
     transaction: async (work: (manager: any) => Promise<any>) => work(ds),
     query: async (sql: string, params: any[] = []) => {
+      if (/^(SAVEPOINT|RELEASE SAVEPOINT|ROLLBACK TO SAVEPOINT)/.test(sql)) return [];
       if (sql.includes('SELECT') && sql.includes('device_test_batches')) {
         if (sql.includes('LOWER(created_by)') || sql.includes('LOWER(b.created_by)')) {
           assert.strictEqual(params[0], 'alice');
@@ -83,16 +84,26 @@ async function run() {
   let stored: any;
   let failWrite = false;
   let withReference = true;
+  let primaryMissing = false;
+  let aborted = false;
+  let rollbacks = 0;
   const telemetryDs = {
     transaction: async (work: any) => work(telemetryDs),
     query: async (sql: string, params: any[]) => {
+      if (sql.startsWith('ROLLBACK TO SAVEPOINT')) { aborted = false; rollbacks++; return []; }
+      if (aborted) throw new Error('current transaction is aborted, commands ignored until end of transaction block');
+      if (sql.startsWith('SAVEPOINT') || sql.startsWith('RELEASE SAVEPOINT')) return [];
       if (sql.includes('SELECT * FROM system_schema.device_test_batches')) return [{
         id: 'timeline', created_by: 'alice', status: 'RUNNING', started_at: started, flow_duration_seconds: 3600,
       }];
       if (sql.includes('SELECT * FROM system_schema.device_test_batch_items')) return [{
         id: 'dut', serial_number: 'serial', dev_eui: 'aa', reference_dev_eui: withReference ? 'bb' : null,
       }];
-      if (sql.includes('FROM devices.device_packets')) return params[0] === 'aa' ? dutPackets : refPackets;
+      if (sql.includes('FROM devices.device_packets')) {
+        if (primaryMissing) { aborted = true; throw new Error('relation devices.device_packets does not exist'); }
+        return params[0] === 'aa' ? dutPackets : refPackets;
+      }
+      if (sql.includes('FROM system_schema.device_packets')) return params[0] === 'aa' ? dutPackets : refPackets;
       if (sql.includes('UPDATE system_schema.device_test_batch_items')) {
         if (failWrite) throw new Error('archive write failed');
         stored = JSON.parse(params[3]);
@@ -107,6 +118,13 @@ async function run() {
   assert.strictEqual(stored.dut_packets[0].timestamp, dutPackets[1].created_at);
   assert.deepStrictEqual(stored.reference_packets[0].data, refPackets[0].decoded_payload);
   assert.strictEqual(stored.dut_packets[1].raw_payload, 'abcd');
+  primaryMissing = true;
+  await telemetry.getTestBatchStatus('timeline', owner);
+  assert.strictEqual(rollbacks, 2, 'Each failed primary packet query must roll back before schema fallback');
+  assert.strictEqual(aborted, false);
+  assert.strictEqual(stored.dut_packets.length, 2);
+  assert.strictEqual(stored.reference_packets.length, 1);
+  primaryMissing = false;
   withReference = false;
   await telemetry.getTestBatchStatus('timeline', owner);
   assert.deepStrictEqual(stored.reference_packets, []);

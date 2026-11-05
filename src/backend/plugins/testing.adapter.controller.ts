@@ -4579,6 +4579,21 @@ export class TestingAdapterController {
     }
   }
 
+  // PostgreSQL needs a savepoint rollback before a caught query error can fall back.
+  private async queryBatchTransaction(manager: any, sql: string, params?: any[]) {
+    await manager.query('SAVEPOINT batch_query');
+    try {
+      const result = await manager.query(sql, params);
+      await manager.query('RELEASE SAVEPOINT batch_query');
+      return result;
+    } catch (error) {
+      await manager.query('ROLLBACK TO SAVEPOINT batch_query');
+      await manager.query('RELEASE SAVEPOINT batch_query');
+      this.logger.warn(`Batch SQL failed: ${error.message}`);
+      throw error;
+    }
+  }
+
   @Post(['api/plugins/testing/test-batches/:id/start', 'api/v1/plugins/testing/test-batches/:id/start'])
   @UseGuards(JwtAuthGuard)
   async startTestBatch(@Param('id') id: string, @Body() body: any, @Req() request: any) {
@@ -4590,7 +4605,7 @@ export class TestingAdapterController {
       if (!ds) throw new Error('Database unavailable');
 
       return await ds.transaction(async (ds: any) => {
-      const batches = await ds.query(
+      const batches = await this.queryBatchTransaction(ds,
         `SELECT * FROM system_schema.device_test_batches WHERE id = $1 FOR UPDATE`,
         [id],
       );
@@ -4609,7 +4624,7 @@ export class TestingAdapterController {
         throw new BadRequestException(`Số lượng thiết bị (${devices.length}) vượt quá giới hạn cho phép (${batch.max_devices})`);
       }
 
-      await ds.query(`DELETE FROM system_schema.device_test_batch_items WHERE batch_id = $1`, [id]);
+      await this.queryBatchTransaction(ds, `DELETE FROM system_schema.device_test_batch_items WHERE batch_id = $1`, [id]);
 
       for (const d of devices) {
         const dutSerial = d.serialNumber || d.serial_number || 'DUT-UNKNOWN';
@@ -4624,7 +4639,7 @@ export class TestingAdapterController {
         let refTelemetry: any = {};
         if (dutDevEui) {
           try {
-            const livePackets = await ds.query(
+            const livePackets = await this.queryBatchTransaction(ds,
               `SELECT decoded_payload FROM system_schema.v_device_payload_live WHERE LOWER(dev_eui) = LOWER($1) LIMIT 1`,
               [dutDevEui]
             );
@@ -4635,7 +4650,7 @@ export class TestingAdapterController {
         }
         if (refDevEui) {
           try {
-            const refPackets = await ds.query(
+            const refPackets = await this.queryBatchTransaction(ds,
               `SELECT decoded_payload FROM system_schema.v_device_payload_live WHERE LOWER(dev_eui) = LOWER($1) LIMIT 1`,
               [refDevEui]
             );
@@ -4651,7 +4666,7 @@ export class TestingAdapterController {
           ref_has_data: Object.keys(refTelemetry).length > 0,
         };
 
-        await ds.query(`
+        await this.queryBatchTransaction(ds, `
           INSERT INTO system_schema.device_test_batch_items (
             batch_id, device_test_registration_id, serial_number, dev_eui,
             item_code, fw_version, reference_device_id, reference_serial_number,
@@ -4680,7 +4695,7 @@ export class TestingAdapterController {
       }
 
       const now = new Date();
-      await ds.query(`
+      await this.queryBatchTransaction(ds, `
         UPDATE system_schema.device_test_batches
         SET status = 'RUNNING', verdict = 'PENDING', started_at = $2, finished_at = NULL, updated_at = $2
         WHERE id = $1
@@ -4714,7 +4729,7 @@ export class TestingAdapterController {
       if (!source) throw new NotFoundException('Database unavailable');
 
       return await source.transaction(async (ds: any) => {
-      const batches = await ds.query(
+      const batches = await this.queryBatchTransaction(ds,
         `SELECT * FROM system_schema.device_test_batches WHERE id = $1 FOR UPDATE`,
         [id],
       );
@@ -4724,7 +4739,7 @@ export class TestingAdapterController {
       const batch = batches[0];
       this.assertTestBatchOwner(batch, request);
 
-      const items = await ds.query(
+      const items = await this.queryBatchTransaction(ds,
         `SELECT * FROM system_schema.device_test_batch_items WHERE batch_id = $1 ORDER BY serial_number ASC`,
         [id],
       ).catch(() => []);
@@ -4747,7 +4762,7 @@ export class TestingAdapterController {
           let refEui = item.reference_dev_eui;
 
           if (!dutEui && item.serial_number) {
-            const reg = await ds.query(
+            const reg = await this.queryBatchTransaction(ds,
               `SELECT dev_eui FROM system_schema.device_test_registrations WHERE serial_number = $1 OR registration_code = $1 LIMIT 1`,
               [item.serial_number],
             ).catch(() => []);
@@ -4759,14 +4774,14 @@ export class TestingAdapterController {
 
           if (dutEui) {
             const cleanDutEui = dutEui.replace(/[^a-fA-F0-9]/g, '').toLowerCase();
-            dutPackets = await ds.query(
+            dutPackets = await this.queryBatchTransaction(ds,
               `SELECT raw_payload, decoded_payload, f_port, f_cnt, rssi, snr, created_at
                FROM devices.device_packets
                WHERE LOWER(REPLACE(dev_eui, ':', '')) = $1 AND created_at >= ($2::timestamptz - INTERVAL '60 seconds')
                ORDER BY created_at DESC`,
               [cleanDutEui, batch.started_at],
             ).catch(async () => {
-              return await ds.query(
+              return await this.queryBatchTransaction(ds,
                 `SELECT raw_payload, decoded_payload, f_port, f_cnt, rssi, snr, created_at
                  FROM system_schema.device_packets
                  WHERE LOWER(REPLACE(dev_eui, ':', '')) = $1 AND created_at >= ($2::timestamptz - INTERVAL '60 seconds')
@@ -4776,14 +4791,14 @@ export class TestingAdapterController {
             });
 
             if (!dutPackets || dutPackets.length === 0) {
-              dutPackets = await ds.query(
+              dutPackets = await this.queryBatchTransaction(ds,
                 `SELECT raw_payload, decoded_payload, f_port, f_cnt, rssi, snr, created_at
                  FROM devices.device_packets
                  WHERE LOWER(REPLACE(dev_eui, ':', '')) = $1
                  ORDER BY created_at DESC LIMIT 5`,
                 [cleanDutEui],
               ).catch(async () => {
-                return await ds.query(
+                return await this.queryBatchTransaction(ds,
                   `SELECT raw_payload, decoded_payload, f_port, f_cnt, rssi, snr, created_at
                    FROM system_schema.device_packets
                    WHERE LOWER(REPLACE(dev_eui, ':', '')) = $1
@@ -4796,14 +4811,14 @@ export class TestingAdapterController {
 
           if (refEui) {
             const cleanRefEui = refEui.replace(/[^a-fA-F0-9]/g, '').toLowerCase();
-            refPackets = await ds.query(
+            refPackets = await this.queryBatchTransaction(ds,
               `SELECT raw_payload, decoded_payload, f_port, f_cnt, rssi, snr, created_at
                FROM devices.device_packets
                WHERE LOWER(REPLACE(dev_eui, ':', '')) = $1 AND created_at >= ($2::timestamptz - INTERVAL '60 seconds')
                ORDER BY created_at DESC`,
               [cleanRefEui, batch.started_at],
             ).catch(async () => {
-              return await ds.query(
+              return await this.queryBatchTransaction(ds,
                 `SELECT raw_payload, decoded_payload, f_port, f_cnt, rssi, snr, created_at
                  FROM system_schema.device_packets
                  WHERE LOWER(REPLACE(dev_eui, ':', '')) = $1 AND created_at >= ($2::timestamptz - INTERVAL '60 seconds')
@@ -4813,14 +4828,14 @@ export class TestingAdapterController {
             });
 
             if (!refPackets || refPackets.length === 0) {
-              refPackets = await ds.query(
+              refPackets = await this.queryBatchTransaction(ds,
                 `SELECT raw_payload, decoded_payload, f_port, f_cnt, rssi, snr, created_at
                  FROM devices.device_packets
                  WHERE LOWER(REPLACE(dev_eui, ':', '')) = $1
                  ORDER BY created_at DESC LIMIT 5`,
                 [cleanRefEui],
               ).catch(async () => {
-                return await ds.query(
+                return await this.queryBatchTransaction(ds,
                   `SELECT raw_payload, decoded_payload, f_port, f_cnt, rssi, snr, created_at
                    FROM system_schema.device_packets
                    WHERE LOWER(REPLACE(dev_eui, ':', '')) = $1
@@ -4921,7 +4936,7 @@ export class TestingAdapterController {
           item.comparison_result = comparison;
           item.packets_received = packetsCount;
 
-          await ds.query(
+          await this.queryBatchTransaction(ds,
             `UPDATE system_schema.device_test_batch_items
              SET dut_values = $2, reference_values = $3, comparison_result = $4, packets_received = $5
              WHERE id = $1`,
@@ -4940,7 +4955,7 @@ export class TestingAdapterController {
             item.status = itemVerdict;
             item.verdict = itemVerdict;
 
-            await ds.query(`
+            await this.queryBatchTransaction(ds, `
               UPDATE system_schema.device_test_batch_items
               SET status = $2, verdict = $2
               WHERE id = $1
@@ -4949,7 +4964,7 @@ export class TestingAdapterController {
             // Sync to traceability_manager.traceability_device with SO, WA, and tester name
             try {
               // 1. Lookup SO, WA, and creator from device_test_registrations
-              const regRows = await ds.query(
+              const regRows = await this.queryBatchTransaction(ds,
                 `SELECT r.so_id, r.so_number, r.wa_id, r.wa_number, r.created_by, r.item_code
                  FROM system_schema.device_test_registrations r
                  WHERE LOWER(r.serial_number) = LOWER($1) OR LOWER(REPLACE(COALESCE(r.dev_eui, ''), ':', '')) = LOWER(REPLACE($2, ':', ''))
@@ -4963,21 +4978,21 @@ export class TestingAdapterController {
               const testerName = batch.created_by || reg.created_by || 'tester';
 
               if (!soId && reg.so_number) {
-                const soRows = await ds.query(
+                const soRows = await this.queryBatchTransaction(ds,
                   `SELECT id FROM traceability_manager.traceability_so WHERE so_number = $1 LIMIT 1`,
                   [reg.so_number],
                 ).catch(() => []);
                 soId = soRows[0]?.id || null;
               }
               if (!waId && reg.wa_number) {
-                const waRows = await ds.query(
+                const waRows = await this.queryBatchTransaction(ds,
                   `SELECT id FROM traceability_manager.traceability_wa WHERE wa_number = $1 LIMIT 1`,
                   [reg.wa_number],
                 ).catch(() => []);
                 waId = waRows[0]?.id || null;
               }
               if (!soId) {
-                const fallbackSo = await ds.query(
+                const fallbackSo = await this.queryBatchTransaction(ds,
                   `SELECT id FROM traceability_manager.traceability_so ORDER BY created_at DESC LIMIT 1`,
                 ).catch(() => []);
                 soId = fallbackSo[0]?.id || null;
@@ -4998,7 +5013,7 @@ export class TestingAdapterController {
               const statusStr = itemVerdict === 'PASS' ? 'TESTED_PASS' : 'TESTED_FAIL';
               const targetIdentifier = item.serial_number || item.dev_eui;
 
-              const updateRes = await ds.query(`
+              const updateRes = await this.queryBatchTransaction(ds, `
                 UPDATE traceability_manager.traceability_device
                 SET test_result = $2,
                     tested_at = $3,
@@ -5024,7 +5039,7 @@ export class TestingAdapterController {
               // If record doesn't exist yet in traceability_device, auto create with resolved SO, WA, and test_person
               if (!updateRes || updateRes.length === 0 || (updateRes as any)[1] === 0) {
                 if (soId) {
-                  await ds.query(`
+                  await this.queryBatchTransaction(ds, `
                     INSERT INTO traceability_manager.traceability_device
                       (so_id, wa_id, serial_number, dev_eui, item_code, test_result, test_person, tested_at, test_raw_data, status)
                     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, $10)
@@ -5059,7 +5074,7 @@ export class TestingAdapterController {
             // Sync status to system_schema.device_test_registrations
             try {
               const regStatus = itemVerdict === 'PASS' ? 'TEST_PASSED' : 'TEST_FAILED';
-              await ds.query(`
+              await this.queryBatchTransaction(ds, `
                 UPDATE system_schema.device_test_registrations
                 SET status = $2,
                     message = $3,
@@ -5076,7 +5091,7 @@ export class TestingAdapterController {
           }
 
           const finalVerdict = allPass ? 'PASS' : 'FAIL';
-          await ds.query(`
+          await this.queryBatchTransaction(ds, `
             UPDATE system_schema.device_test_batches
             SET status = 'COMPLETED', verdict = $2, finished_at = $3, duration_seconds = $4, updated_at = $3
             WHERE id = $1
