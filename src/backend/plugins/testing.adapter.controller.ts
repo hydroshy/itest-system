@@ -15,7 +15,12 @@ import {
   Optional,
   Headers,
   UnauthorizedException,
+  ForbiddenException,
+  ConflictException,
+  Req,
+  UseGuards,
 } from '@nestjs/common';
+import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { DynamicDatabaseService } from '../database/dynamic-database.service';
 import { RealtimeService } from '../realtime/modules/realtime/realtime.service';
 import { TestingDeviceEntity } from '../core-models/testing-device.entity';
@@ -4295,7 +4300,8 @@ export class TestingAdapterController {
   }
 
   @Post(['api/plugins/testing/test-batches', 'api/v1/plugins/testing/test-batches'])
-  async createTestBatch(@Body() body: any) {
+  @UseGuards(JwtAuthGuard)
+  async createTestBatch(@Body() body: any, @Req() request: any) {
     try {
       const ds = this.databaseService.getDataSourceForTable('devices');
       if (!ds) throw new Error('Database connection unavailable');
@@ -4320,7 +4326,7 @@ export class TestingAdapterController {
 
       const autoCheckCriteria = body.autoCheckCriteria || body.auto_check_criteria || {};
       const maxDevices = parseInt(body.maxDevices || body.max_devices, 10) || 10;
-      const createdBy = (body.createdBy || body.created_by || body.username || 'tester').trim();
+      const createdBy = request.user.username;
 
       const result = await ds.query(`
         INSERT INTO system_schema.device_test_batches (
@@ -4376,7 +4382,8 @@ export class TestingAdapterController {
   }
 
   @Get(['api/plugins/testing/test-batches', 'api/v1/plugins/testing/test-batches'])
-  async getTestBatches(@Query() query: any) {
+  @UseGuards(JwtAuthGuard)
+  async getTestBatches(@Query() query: any, @Req() request: any) {
     try {
       const ds = this.databaseService.getDataSourceForTable('devices');
       if (!ds) return { success: true, data: [], total: 0 };
@@ -4386,9 +4393,9 @@ export class TestingAdapterController {
       const status = (query.status || '').trim();
       const search = (query.search || '').trim();
 
-      const whereClauses: string[] = [];
-      const params: any[] = [];
-      let pIdx = 1;
+      const whereClauses: string[] = ['LOWER(b.created_by) = LOWER($1)'];
+      const params: any[] = [request.user.username];
+      let pIdx = 2;
 
       if (itemCode) {
         whereClauses.push(`b.item_code = $${pIdx++}`);
@@ -4463,8 +4470,46 @@ export class TestingAdapterController {
     }
   }
 
+  private assertTestBatchOwner(batch: any, request: any) {
+    if (!request?.user?.username) throw new UnauthorizedException();
+    if (batch.created_by?.toLowerCase() !== request.user.username.toLowerCase()) {
+      throw new ForbiddenException('Test Batch không thuộc user hiện tại');
+    }
+  }
+
+  @Get(['api/plugins/testing/test-batches/running', 'api/v1/plugins/testing/test-batches/running'])
+  @UseGuards(JwtAuthGuard)
+  async getRunningTestBatch(@Req() request: any) {
+    const ds = this.databaseService.getDataSourceForTable('devices');
+    if (!ds) throw new HttpException('Database unavailable', HttpStatus.SERVICE_UNAVAILABLE);
+    const rows = await ds.query(
+      `SELECT id, batch_code, batch_name, status, started_at, flow_duration_seconds
+       FROM system_schema.device_test_batches
+       WHERE status = 'RUNNING' AND LOWER(created_by) = LOWER($1) ORDER BY started_at DESC`,
+      [request.user.username],
+    );
+    return { success: true, data: rows };
+  }
+
+  @Post(['api/plugins/testing/test-batches/:id/cancel', 'api/v1/plugins/testing/test-batches/:id/cancel'])
+  @UseGuards(JwtAuthGuard)
+  async cancelTestBatch(@Param('id') id: string, @Req() request: any) {
+    const ds = this.databaseService.getDataSourceForTable('devices');
+    if (!ds) throw new HttpException('Database unavailable', HttpStatus.SERVICE_UNAVAILABLE);
+    await ds.transaction(async (manager: any) => {
+      const rows = await manager.query(`SELECT * FROM system_schema.device_test_batches WHERE id = $1 FOR UPDATE`, [id]);
+      if (!rows.length) throw new NotFoundException('Không tìm thấy Test Batch');
+      this.assertTestBatchOwner(rows[0], request);
+      if (rows[0].status !== 'RUNNING') throw new ConflictException('Test Batch không đang chạy');
+      await manager.query(`UPDATE system_schema.device_test_batches SET status = 'STOPPED', finished_at = NOW(), updated_at = NOW() WHERE id = $1`, [id]);
+      await manager.query(`UPDATE system_schema.device_test_batch_items SET status = 'STOPPED', updated_at = NOW() WHERE batch_id = $1 AND status = 'RUNNING'`, [id]);
+    });
+    return { success: true, data: { batchId: id, status: 'STOPPED' } };
+  }
+
   @Get(['api/plugins/testing/test-batches/:id', 'api/v1/plugins/testing/test-batches/:id'])
-  async getTestBatchById(@Param('id') id: string) {
+  @UseGuards(JwtAuthGuard)
+  async getTestBatchById(@Param('id') id: string, @Req() request: any) {
     try {
       const ds = this.databaseService.getDataSourceForTable('devices');
       if (!ds) throw new NotFoundException('Database unavailable');
@@ -4477,6 +4522,7 @@ export class TestingAdapterController {
         throw new NotFoundException(`Không tìm thấy Test Batch với ID ${id}`);
       }
       const batch = batches[0];
+      this.assertTestBatchOwner(batch, request);
 
       const items = await ds.query(
         `SELECT * FROM system_schema.device_test_batch_items WHERE batch_id = $1 ORDER BY serial_number ASC`,
@@ -4534,7 +4580,8 @@ export class TestingAdapterController {
   }
 
   @Post(['api/plugins/testing/test-batches/:id/start', 'api/v1/plugins/testing/test-batches/:id/start'])
-  async startTestBatch(@Param('id') id: string, @Body() body: any) {
+  @UseGuards(JwtAuthGuard)
+  async startTestBatch(@Param('id') id: string, @Body() body: any, @Req() request: any) {
     if (!id || id === 'undefined' || id === 'null' || !id.trim()) {
       throw new BadRequestException('Vui lòng chọn Test Batch trước khi bắt đầu kiểm thử');
     }
@@ -4542,14 +4589,17 @@ export class TestingAdapterController {
       const ds = this.databaseService.getDataSourceForTable('devices');
       if (!ds) throw new Error('Database unavailable');
 
+      return await ds.transaction(async (ds: any) => {
       const batches = await ds.query(
-        `SELECT * FROM system_schema.device_test_batches WHERE id = $1`,
+        `SELECT * FROM system_schema.device_test_batches WHERE id = $1 FOR UPDATE`,
         [id],
       );
       if (!batches || batches.length === 0) {
         throw new NotFoundException(`Không tìm thấy Test Batch với ID ${id}`);
       }
       const batch = batches[0];
+      this.assertTestBatchOwner(batch, request);
+      if (batch.status === 'RUNNING') throw new ConflictException('Test Batch đang chạy');
 
       const devices = Array.isArray(body.devices) ? body.devices : [];
       if (devices.length === 0) {
@@ -4559,7 +4609,7 @@ export class TestingAdapterController {
         throw new BadRequestException(`Số lượng thiết bị (${devices.length}) vượt quá giới hạn cho phép (${batch.max_devices})`);
       }
 
-      await ds.query(`DELETE FROM system_schema.device_test_batch_items WHERE batch_id = $1`, [id]).catch(() => {});
+      await ds.query(`DELETE FROM system_schema.device_test_batch_items WHERE batch_id = $1`, [id]);
 
       for (const d of devices) {
         const dutSerial = d.serialNumber || d.serial_number || 'DUT-UNKNOWN';
@@ -4648,44 +4698,31 @@ export class TestingAdapterController {
           totalDevices: devices.length,
         },
       };
+      });
     } catch (error: any) {
-      if (error instanceof BadRequestException || error instanceof NotFoundException) throw error;
+      if (error instanceof HttpException) throw error;
       this.logger.error(`Error starting test batch: ${error.message}`);
       throw new HttpException({ success: false, message: error.message }, HttpStatus.INTERNAL_SERVER_ERROR);
     }
   }
 
-  @Get(['api/plugins/testing/test-batches/running', 'api/v1/plugins/testing/test-batches/running'])
-  async getRunningTestBatch() {
-    try {
-      const ds = this.databaseService.getDataSourceForTable('devices');
-      if (!ds) return { success: true, data: null };
-      const rows = await ds.query(
-        `SELECT id, batch_code, status, started_at, flow_duration_seconds FROM system_schema.device_test_batches WHERE status = 'RUNNING' ORDER BY started_at DESC LIMIT 1`
-      ).catch(() => []);
-      return {
-        success: true,
-        data: rows && rows.length > 0 ? rows[0] : null,
-      };
-    } catch {
-      return { success: true, data: null };
-    }
-  }
-
   @Get(['api/plugins/testing/test-batches/:id/status', 'api/v1/plugins/testing/test-batches/:id/status'])
-  async getTestBatchStatus(@Param('id') id: string) {
+  @UseGuards(JwtAuthGuard)
+  async getTestBatchStatus(@Param('id') id: string, @Req() request: any) {
     try {
-      const ds = this.databaseService.getDataSourceForTable('devices');
-      if (!ds) throw new NotFoundException('Database unavailable');
+      const source = this.databaseService.getDataSourceForTable('devices');
+      if (!source) throw new NotFoundException('Database unavailable');
 
+      return await source.transaction(async (ds: any) => {
       const batches = await ds.query(
-        `SELECT * FROM system_schema.device_test_batches WHERE id = $1`,
+        `SELECT * FROM system_schema.device_test_batches WHERE id = $1 FOR UPDATE`,
         [id],
       );
       if (!batches || batches.length === 0) {
         throw new NotFoundException(`Không tìm thấy Test Batch với ID ${id}`);
       }
       const batch = batches[0];
+      this.assertTestBatchOwner(batch, request);
 
       const items = await ds.query(
         `SELECT * FROM system_schema.device_test_batch_items WHERE batch_id = $1 ORDER BY serial_number ASC`,
@@ -5067,6 +5104,7 @@ export class TestingAdapterController {
           })),
         },
       };
+      });
     } catch (error: any) {
       if (error instanceof HttpException) throw error;
       throw new HttpException({ success: false, message: error.message }, HttpStatus.INTERNAL_SERVER_ERROR);
@@ -5074,13 +5112,20 @@ export class TestingAdapterController {
   }
 
   @Delete(['api/plugins/testing/test-batches/:id', 'api/v1/plugins/testing/test-batches/:id'])
-  async deleteTestBatch(@Param('id') id: string) {
+  @UseGuards(JwtAuthGuard)
+  async deleteTestBatch(@Param('id') id: string, @Req() request: any) {
     try {
       const ds = this.databaseService.getDataSourceForTable('devices');
       if (!ds) throw new NotFoundException('Database unavailable');
 
-      await ds.query(`DELETE FROM system_schema.device_test_batch_items WHERE batch_id = $1`, [id]).catch(() => {});
-      await ds.query(`DELETE FROM system_schema.device_test_batches WHERE id = $1`, [id]);
+      await ds.transaction(async (manager: any) => {
+        const rows = await manager.query(`SELECT * FROM system_schema.device_test_batches WHERE id = $1 FOR UPDATE`, [id]);
+        if (!rows.length) throw new NotFoundException('Không tìm thấy Test Batch');
+        this.assertTestBatchOwner(rows[0], request);
+        if (rows[0].status === 'RUNNING') throw new ConflictException('Hủy Test Batch trước khi xóa');
+        await manager.query(`DELETE FROM system_schema.device_test_batch_items WHERE batch_id = $1`, [id]);
+        await manager.query(`DELETE FROM system_schema.device_test_batches WHERE id = $1`, [id]);
+      });
 
       return {
         success: true,

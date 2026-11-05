@@ -348,6 +348,7 @@ const mockDatabaseService: any = {
     throw new Error(`Unknown table: ${tableName}`);
   },
   getDataSourceForTable: (tableName: string) => ({
+    transaction: async (work: (manager: any) => Promise<any>) => work(mockDatabaseService.getDataSourceForTable(tableName)),
     query: async (sql: string, params: any[]) => {
       if (sql.includes('COUNT(*)')) {
         let list = [...mockRegistrations];
@@ -397,13 +398,13 @@ const mockDatabaseService: any = {
           mockBatches.push(newBatch);
           return [newBatch];
         }
-        if (sql.includes('WHERE id = $1')) {
+        if (sql.trimStart().startsWith('SELECT') && sql.includes('WHERE id = $1')) {
           return mockBatches.filter((b) => b.id === params[0]);
         }
         if (sql.includes('UPDATE system_schema.device_test_batches')) {
           const b = mockBatches.find((item) => item.id === params[0]);
           if (b) {
-            b.status = 'RUNNING';
+            b.status = sql.includes("status = 'STOPPED'") ? 'STOPPED' : 'RUNNING';
             b.started_at = params[1];
           }
           return [];
@@ -848,14 +849,14 @@ async function runTests() {
     flowDurationSeconds: 60,
     autoCheckCriteria: batchMeta.data.defaultCriteria,
     maxDevices: 5,
-  });
+  }, { user: { username: 'test-user' } });
   if (!createdBatch.success || !createdBatch.data.id) {
     throw new Error('createTestBatch failed');
   }
   const batchId = createdBatch.data.id;
   console.log('✓ Test batch created with ITEM-CODE, LONG_FW, Simulation Flow, and Autocheck Criteria.');
 
-  const batchList = await controller.getTestBatches({});
+  const batchList = await controller.getTestBatches({}, { user: { username: 'test-user' } });
   if (!batchList.success || batchList.data.length === 0) {
     throw new Error('getTestBatches failed');
   }
@@ -883,19 +884,20 @@ async function runTests() {
         referenceDeviceName: refDevs.data[1].name,
       },
     ],
-  });
+  }, { user: { username: 'test-user' } });
   if (!startRes.success || startRes.data.status !== 'RUNNING') {
     throw new Error(`startTestBatch failed: ${JSON.stringify(startRes)}`);
   }
   console.log('✓ Test batch started with 1-to-1 reference standard device mapping and timer countdown.');
 
-  const statusRes = await controller.getTestBatchStatus(batchId);
+  const statusRes = await controller.getTestBatchStatus(batchId, { user: { username: 'test-user' } });
   if (!statusRes.success || statusRes.data.devices.length !== 2) {
     throw new Error('getTestBatchStatus failed to return device comparison states');
   }
   console.log('✓ Test batch status verified with progress timer and cross-device comparison values.');
 
-  const delBatchRes = await controller.deleteTestBatch(batchId);
+  await controller.cancelTestBatch(batchId, { user: { username: 'test-user' } });
+  const delBatchRes = await controller.deleteTestBatch(batchId, { user: { username: 'test-user' } });
   if (!delBatchRes.success) {
     throw new Error('deleteTestBatch failed');
   }
