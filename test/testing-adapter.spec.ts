@@ -8,6 +8,7 @@ import { TraceabilityWaEntity } from '../src/backend/core-models/traceability-wa
 console.log('--- Starting TestingAdapterController & Testing Subsystem Verification ---');
 
 // In-memory data store for tests
+const mockSimulationProfiles: any[] = [];
 const inMemoryData: {
   devices: any[];
   packets: any[];
@@ -350,6 +351,11 @@ const mockDatabaseService: any = {
   getDataSourceForTable: (tableName: string) => ({
     transaction: async (work: (manager: any) => Promise<any>) => work(mockDatabaseService.getDataSourceForTable(tableName)),
     query: async (sql: string, params: any[]) => {
+      if (sql.includes('INSERT INTO system_schema.simulation_profiles')) {
+        mockSimulationProfiles.push({ id: params[0], simu_id: params[0], name: params[1], flow_blocks: JSON.parse(params[7]) });
+        return [];
+      }
+      if (sql.includes('v_simulation_flows') || sql.includes('FROM system_schema.simulation_profiles')) return mockSimulationProfiles;
       if (sql.includes('COUNT(*)')) {
         let list = [...mockRegistrations];
         if (sql.includes('created_by = $')) {

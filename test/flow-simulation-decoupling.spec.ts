@@ -11,6 +11,11 @@ class MockDataSource {
 
   async query(sql: string, params: any[] = []) {
     this.queries.push({ sql, params });
+    if (sql.includes('SELECT b.batch_code')) return [];
+    if (sql.includes('INSERT INTO system_schema.simulation_profiles')) {
+      this.rows.push({ id: params[0], simu_id: params[0], name: params[1], flow_blocks: JSON.parse(params[7]) });
+      return [];
+    }
     if (sql.includes('v_simulation_flows') || sql.includes('system_schema.simulation_profiles')) {
       if (sql.startsWith('DELETE')) {
         const idToDelete = params[0];
@@ -88,8 +93,8 @@ class MockDynamicDbService {
       sensor_connectivity: 'LoRaWAN',
       sku: 'WSSFC-ATH01',
       flow_blocks: JSON.stringify([
-        { id: 'b1', name: 'Init', type: 'command' },
-        { id: 'b2', name: 'Telemetry', type: 'uplink' },
+        { id: 'b1', functionType: 'downlink', targetDevice: 'DUT', fPort: 1, payloadHex: '01' },
+        { id: 'b2', functionType: 'delay', delaySeconds: 60 },
       ]),
       flow_duration_minutes: 10,
       timed_actions: [],
@@ -125,8 +130,8 @@ async function runVerification() {
     sensorConnectivity: 'LoRaWAN',
     sku: 'WSSFC-ATH-01',
     flowBlocks: [
-      { id: 'blk-1', name: 'Start OTAA', type: 'command' },
-      { id: 'blk-2', name: 'Periodic Burst', type: 'burst' },
+      { id: 'blk-1', functionType: 'downlink', targetDevice: 'DUT', payloadHex: '01' },
+      { id: 'blk-2', functionType: 'delay', delaySeconds: 30 },
     ],
   });
 
@@ -145,7 +150,7 @@ async function runVerification() {
   const foundFlow = profilesRes.data.find((f: any) => f.simuId === 'SIMU-MY-CUSTOM-FLOW');
   assert.ok(foundFlow, 'Newly saved flow must exist in list');
   assert.strictEqual(foundFlow.blocksCount, 2);
-  assert.strictEqual(foundFlow.duration, 1800); // 30 min * 60
+  assert.strictEqual(foundFlow.duration, 30); // Only delay blocks contribute
   console.log('✓ Verified getSimulationProfiles returns formatted flow profiles.');
 
   // [TEST 3] getSimulationProfileById

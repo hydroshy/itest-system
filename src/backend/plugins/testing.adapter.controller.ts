@@ -154,7 +154,6 @@ export interface EvaluateAutoCheckDto {
 @Controller()
 export class TestingAdapterController {
   private readonly logger = new Logger(TestingAdapterController.name);
-  private simulationProfiles: Map<string, any> = new Map();
   private simulationResults: any[] = [];
   private autoCheckEvaluations: any[] = [];
 
@@ -453,6 +452,7 @@ export class TestingAdapterController {
               created_at,
               updated_at
             FROM system_schema.v_simulation_devices
+            WHERE status = 'simulation'
             ORDER BY updated_at DESC
           `);
           if (Array.isArray(rows)) {
@@ -1622,7 +1622,8 @@ export class TestingAdapterController {
     const sku = (body?.sku || '').trim();
     const flowBlocks = Array.isArray(body?.flowBlocks) ? body.flowBlocks : (Array.isArray(body?.flow_blocks) ? body.flow_blocks : []);
     const status = (body?.status || 'simulation').trim();
-    const flowDurationMinutes = body?.flowDurationMinutes || 30;
+    const durationSeconds = this.simulationDuration(flowBlocks);
+    const flowDurationMinutes = durationSeconds / 60;
     const timedActions = body?.timedActions || [];
 
     const profile = {
@@ -1652,12 +1653,12 @@ export class TestingAdapterController {
       timedActions,
       updatedAt: new Date().toISOString(),
     };
-    this.simulationProfiles.set(id, profile);
 
-    // Persist to simulation_profiles table in system_schema if table exists
+    // Persist before reporting success; memory must not hide failed database writes.
     try {
       const ds = this.databaseService.getDataSourceForTable('system_schema.simulation_profiles') ||
                  this.databaseService.getDataSourceForTable('devices');
+      if (!ds) throw new Error('Database unavailable');
       if (ds) {
         await ds.query(
           `INSERT INTO system_schema.simulation_profiles
@@ -1689,59 +1690,30 @@ export class TestingAdapterController {
             flowDurationMinutes,
           ]
         );
+
+        // Cascade sync updated flow and duration to non-completed test batches referencing this profile
+        try {
+          await ds.query(
+            `UPDATE system_schema.device_test_batches
+             SET simulation_flow = $1,
+                 flow_duration_seconds = $2,
+                 updated_at = NOW()
+             WHERE (simu_id = $3 OR simu_id IN (
+               SELECT id::text FROM system_schema.simulation_profiles WHERE simu_id = $3
+             ))
+               AND status NOT IN ('COMPLETED', 'FINISHED')`,
+            [
+              JSON.stringify(flowBlocks),
+              durationSeconds,
+              simuId,
+            ]
+          );
+        } catch (cascadeErr: any) {
+          this.logger.warn(`Could not cascade update flow to test batches: ${cascadeErr.message}`);
+        }
       }
     } catch (e: any) {
-      this.logger.debug(`Could not persist simulation_profiles to system_schema: ${e.message}`);
-    }
-
-    // Only sync template device to devices database table if explicitly requested (decoupled)
-    if (body?.createDevice === true || body?.syncDevice === true) {
-      try {
-        const deviceRepo = this.databaseService.getRepositoryForTable(
-          'devices',
-          TestingDeviceEntity,
-        );
-        let dev = await deviceRepo.findOne({ where: { serial_number: serialNumber } });
-        if (!dev) {
-          dev = deviceRepo.create({
-            serial_number: serialNumber,
-            network_id: networkId || null,
-            device_name: deviceName,
-            device_type: deviceType,
-            plugin_id: pluginId,
-            so_number: soNumber || null,
-            wa_number: waNumber || null,
-            item_code: itemCode || null,
-            status: 'template',
-            metadata: {
-              simu_id: simuId,
-              long_fw: longFw,
-              flow_duration_minutes: flowDurationMinutes,
-              timed_actions: timedActions,
-              is_template: true,
-            },
-          });
-        } else {
-          dev.device_name = deviceName;
-          dev.device_type = deviceType;
-          if (networkId) dev.network_id = networkId;
-          if (itemCode) dev.item_code = itemCode;
-          if (soNumber) dev.so_number = soNumber;
-          if (waNumber) dev.wa_number = waNumber;
-          dev.status = 'template';
-          dev.metadata = {
-            ...(dev.metadata || {}),
-            simu_id: simuId,
-            long_fw: longFw,
-            flow_duration_minutes: flowDurationMinutes,
-            timed_actions: timedActions,
-            is_template: true,
-          };
-        }
-        await deviceRepo.save(dev);
-      } catch (e: any) {
-        this.logger.warn(`Could not sync template device to DB table: ${e.message}`);
-      }
+      throw new HttpException(`Không thể lưu Flow Simulation: ${e.message}`, HttpStatus.INTERNAL_SERVER_ERROR);
     }
 
     return {
@@ -1749,6 +1721,33 @@ export class TestingAdapterController {
       message: 'Simulation flow profile saved successfully',
       data: profile,
     };
+  }
+
+  private simulationDuration(blocks: any[]): number {
+    if (!Array.isArray(blocks)) throw new BadRequestException('flowBlocks must be an array');
+    return blocks.reduce((total, block) => {
+      if (!block || !['downlink', 'clear_downlink', 'delay'].includes(block.functionType)) {
+        throw new BadRequestException('Chỉ hỗ trợ Downlink, Clear Downlink và Delay');
+      }
+      if (block.functionType === 'delay') {
+        const seconds = Number(block.delaySeconds);
+        if (!Number.isFinite(seconds) || seconds < 0) throw new BadRequestException('Delay phải là số giây không âm');
+        return total + seconds;
+      }
+      if (!['DUT', 'REF'].includes(block.targetDevice)) throw new BadRequestException('Target phải là DUT hoặc REF');
+      if (block.functionType === 'downlink') {
+        block.fPort ??= 1;
+        if (!Number.isInteger(block.fPort) || block.fPort < 1 || block.fPort > 223) throw new BadRequestException('fPort phải từ 1 đến 223');
+        if (typeof block.payloadHex !== 'string' || !/^(?:[0-9a-fA-F]{2})+$/.test(block.payloadHex)) throw new BadRequestException('Payload phải là chuỗi hex chẵn');
+      }
+      return total;
+    }, 0);
+  }
+
+  @Put(['api/plugins/testing/simulation/profiles/:id', 'api/v1/plugins/testing/simulation/profiles/:id'])
+  async updateSimulationProfile(@Param('id') id: string, @Body() body: any) {
+    const existing = await this.getSimulationProfileById(id);
+    return this.saveSimulationProfile({ ...existing.data, ...body, simuId: existing.data.simuId });
   }
 
   @Get(['api/plugins/testing/simulation/profiles', 'api/v1/plugins/testing/simulation/profiles'])
@@ -1802,14 +1801,14 @@ export class TestingAdapterController {
           `);
         }
 
-        if (Array.isArray(dbRows) && dbRows.length > 0) {
+        if (Array.isArray(dbRows)) {
           const mapped = dbRows.map((r: any) => {
             const blocks = Array.isArray(r.flow_blocks)
               ? r.flow_blocks
               : typeof r.flow_blocks === 'string'
               ? JSON.parse(r.flow_blocks)
               : [];
-            const durationMin = Number(r.flow_duration_minutes) || 5;
+            const durationMin = blocks.reduce((sum: number, b: any) => sum + (b.functionType === 'delay' ? Number(b.delaySeconds) || 0 : 0), 0) / 60;
             return {
               id: r.id || r.simu_id,
               simuId: r.simu_id,
@@ -1830,13 +1829,6 @@ export class TestingAdapterController {
             };
           });
 
-          // Merge memory profiles if not already present
-          for (const mem of this.simulationProfiles.values()) {
-            if (!mapped.some((m) => m.simuId === mem.simuId)) {
-              mapped.push(mem);
-            }
-          }
-
           return {
             success: true,
             total: mapped.length,
@@ -1846,16 +1838,10 @@ export class TestingAdapterController {
         }
       }
     } catch (err: any) {
-      this.logger.debug(`Could not read simulation profiles from DB: ${err.message}`);
+      throw new HttpException('Không thể tải Flow Simulation', HttpStatus.INTERNAL_SERVER_ERROR);
     }
 
-    const memList = Array.from(this.simulationProfiles.values());
-    return {
-      success: true,
-      total: memList.length,
-      data: memList,
-      items: memList,
-    };
+    throw new HttpException('Database unavailable', HttpStatus.SERVICE_UNAVAILABLE);
   }
 
   @Get([
@@ -1901,7 +1887,7 @@ export class TestingAdapterController {
             : typeof r.flow_blocks === 'string'
             ? JSON.parse(r.flow_blocks)
             : [];
-          const durationMin = Number(r.flow_duration_minutes) || 5;
+          const durationMin = blocks.reduce((sum: number, b: any) => sum + (b.functionType === 'delay' ? Number(b.delaySeconds) || 0 : 0), 0) / 60;
           return {
             success: true,
             data: {
@@ -1927,11 +1913,6 @@ export class TestingAdapterController {
       }
     } catch {}
 
-    const mem = this.simulationProfiles.get(trimmedId);
-    if (mem) {
-      return { success: true, data: mem };
-    }
-
     throw new NotFoundException(`Simulation profile not found: ${trimmedId}`);
   }
 
@@ -1950,23 +1931,31 @@ export class TestingAdapterController {
       const ds =
         this.databaseService.getDataSourceForTable('system_schema.simulation_profiles') ||
         this.databaseService.getDataSourceForTable('devices');
+      if (!ds) throw new Error('Database unavailable');
       if (ds) {
+        const linked = await ds.query(
+          `SELECT b.batch_code FROM system_schema.device_test_batches b
+           WHERE b.simu_id = $1 OR b.simu_id IN
+             (SELECT simu_id FROM system_schema.simulation_profiles WHERE id::text = $1 OR simu_id = $1)
+           LIMIT 1`, [trimmedId],
+        );
+        if (linked.length) throw new ConflictException(`Không thể xóa Flow Simulation đang liên kết Test Batch ${linked[0].batch_code}`);
         const res = await ds.query(
-          `DELETE FROM system_schema.simulation_profiles WHERE id::text = $1 OR simu_id = $1`,
+          `DELETE FROM system_schema.simulation_profiles WHERE id::text = $1 OR simu_id = $1 RETURNING id, simu_id`,
           [trimmedId],
         );
-        deletedFromDb = (res?.[1] || 0) > 0;
+        deletedFromDb = Array.isArray(res) && res.length > 0;
       }
     } catch (e: any) {
-      this.logger.debug(`Could not delete simulation profile from DB: ${e.message}`);
+      if (e instanceof HttpException) throw e;
+      if (e.code === '23503') throw new ConflictException('Không thể xóa Flow Simulation đang được sử dụng');
+      throw new HttpException(`Không thể xóa Flow Simulation: ${e.message}`, HttpStatus.INTERNAL_SERVER_ERROR);
     }
-
-    const deletedFromMem = this.simulationProfiles.delete(trimmedId);
 
     return {
       success: true,
       message: `Đã xóa Flow Simulation ${trimmedId}`,
-      deleted: deletedFromDb || deletedFromMem,
+      deleted: deletedFromDb,
     };
   }
 
@@ -3999,13 +3988,7 @@ export class TestingAdapterController {
       }
 
       // Default simulation flow blocks
-      const defaultFlow = [
-        { id: 'step-1', functionType: 'delay', delaySeconds: 5, description: 'Khởi tạo kết nối & ổn định nguồn' },
-        { id: 'step-2', functionType: 'downlink', delaySeconds: 10, payloadHex: '0102', description: 'Gửi cấu hình đo đạc ban đầu' },
-        { id: 'step-3', functionType: 'delay', delaySeconds: 15, description: 'Thu thập cảm biến tại DUT & thiết bị chuẩn' },
-        { id: 'step-4', functionType: 'downlink', delaySeconds: 10, payloadHex: '0304', description: 'Kích hoạt đọc burst telemetry' },
-        { id: 'step-5', functionType: 'delay', delaySeconds: 20, description: 'Chờ đối chiếu kết quả Autocheck' },
-      ];
+      const defaultFlow = [];
 
       // Default autocheck criteria
       const defaultCriteria = {
@@ -4315,14 +4298,16 @@ export class TestingAdapterController {
 
       const batchCode = `BATCH-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
       const batchName = (body.batchName || body.name || `Batch ${itemCode} - ${fwVersion}`).trim();
-      const simuId = (body.simuId || body.simu_id || '').trim();
-      const simulationFlow = body.simulationFlow || body.simulation_flow || [];
-      
-      let flowDuration = parseInt(body.flowDurationSeconds || body.flow_duration_seconds, 10) || 0;
-      if (!flowDuration && Array.isArray(simulationFlow)) {
-        flowDuration = simulationFlow.reduce((acc: number, step: any) => acc + (parseInt(step.delaySeconds, 10) || 5), 0);
+      let simuId = (body.simuId || body.simu_id || '').trim();
+      let simulationFlow = body.simulationFlow || body.simulation_flow || [];
+      if (simuId) {
+        const flow = await this.getSimulationProfileById(simuId);
+        simuId = flow.data.simuId;
+        simulationFlow = flow.data.flowBlocks;
       }
-      if (flowDuration <= 0) flowDuration = 60;
+
+      const flowDuration = this.simulationDuration(simulationFlow);
+
 
       const autoCheckCriteria = body.autoCheckCriteria || body.auto_check_criteria || {};
       const maxDevices = parseInt(body.maxDevices || body.max_devices, 10) || 10;
@@ -4597,6 +4582,38 @@ export class TestingAdapterController {
     }
   }
 
+  private async executeSimulationFlow(id: string, blocks: any[], devices: any[], startedAt?: string) {
+    if (!blocks.length) return;
+    const ds = this.databaseService.getDataSourceForTable('devices');
+    const repo = this.databaseService.getRepositoryForTable('network_servers', ChirpstackNetworkServerEntity);
+    const server = blocks.some(b => b.functionType !== 'delay')
+      ? await repo.findOne({ where: { isActive: true } }) : null;
+    for (const block of blocks) {
+      const rows = await ds.query('SELECT status, started_at FROM system_schema.device_test_batches WHERE id = $1', [id]);
+      if (rows[0]?.status !== 'RUNNING' || (startedAt && new Date(rows[0].started_at).toISOString() !== startedAt)) return;
+      if (block.functionType === 'delay') {
+        await new Promise(resolve => setTimeout(resolve, block.delaySeconds * 1000));
+        continue;
+      }
+      if (!server?.apiUrl || !server.apiToken) throw new Error('Chưa cấu hình ChirpStack đang hoạt động');
+      const targets = new Set<string>(devices.map(d => block.targetDevice === 'REF'
+        ? d.referenceDevEui || d.reference_dev_eui || '' : d.devEui || d.dev_eui || ''));
+      for (const devEui of targets) {
+        if (!/^[0-9a-fA-F]{16}$/.test(devEui)) throw new Error(`DevEUI ${block.targetDevice} không hợp lệ`);
+        const response = await fetch(`${server.apiUrl.replace(/\/$/, '')}/api/devices/${encodeURIComponent(devEui)}/queue`, {
+          method: block.functionType === 'clear_downlink' ? 'DELETE' : 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${server.apiToken}` },
+          signal: AbortSignal.timeout(10000),
+          ...(block.functionType === 'downlink' ? { body: JSON.stringify({ queueItem: {
+            devEui, fPort: block.fPort ?? 1, confirmed: !!block.isConfirmed,
+            data: Buffer.from(block.payloadHex, 'hex').toString('base64'),
+          } }) } : {}),
+        });
+        if (!response.ok) throw new Error(`ChirpStack ${block.functionType}: HTTP ${response.status}`);
+      }
+    }
+  }
+
   @Post(['api/plugins/testing/test-batches/:id/start', 'api/v1/plugins/testing/test-batches/:id/start'])
   @UseGuards(JwtAuthGuard)
   async startTestBatch(@Param('id') id: string, @Body() body: any, @Req() request: any) {
@@ -4607,7 +4624,8 @@ export class TestingAdapterController {
       const ds = this.databaseService.getDataSourceForTable('devices');
       if (!ds) throw new Error('Database unavailable');
 
-      return await ds.transaction(async (ds: any) => {
+      let flowBlocks: any[] = [];
+      const result = await ds.transaction(async (ds: any) => {
       const batches = await this.queryBatchTransaction(ds,
         `SELECT * FROM system_schema.device_test_batches WHERE id = $1 FOR UPDATE`,
         [id],
@@ -4618,6 +4636,9 @@ export class TestingAdapterController {
       const batch = batches[0];
       this.assertTestBatchOwner(batch, request);
       if (batch.status === 'RUNNING') throw new ConflictException('Test Batch đang chạy');
+      const storedFlow = typeof batch.simulation_flow === 'string' ? JSON.parse(batch.simulation_flow) : batch.simulation_flow;
+      flowBlocks = Array.isArray(storedFlow) ? storedFlow : storedFlow?.flowBlocks || [];
+      this.simulationDuration(flowBlocks);
 
       const devices = Array.isArray(body.devices) ? body.devices : [];
       if (devices.length === 0) {
@@ -4627,6 +4648,9 @@ export class TestingAdapterController {
         throw new BadRequestException(`Số lượng thiết bị (${devices.length}) vượt quá giới hạn cho phép (${batch.max_devices})`);
       }
 
+      if (flowBlocks.some(b => b.targetDevice === 'REF') && devices.some(d => !/^[0-9a-fA-F]{16}$/.test(d.referenceDevEui || d.reference_dev_eui || ''))) {
+        throw new BadRequestException('Flow có REF: mỗi DUT phải chọn thiết bị tham chiếu với DevEUI hợp lệ');
+      }
       await this.queryBatchTransaction(ds, `DELETE FROM system_schema.device_test_batch_items WHERE batch_id = $1`, [id]);
 
       for (const d of devices) {
@@ -4690,6 +4714,11 @@ export class TestingAdapterController {
         },
       };
       });
+      void this.executeSimulationFlow(id, flowBlocks, body.devices, result.data.startedAt).catch(async error => {
+        this.logger.error(`Flow Simulation failed: ${error.message}`);
+        await ds.query(`UPDATE system_schema.device_test_batches SET status = 'STOPPED', verdict = 'FAIL', finished_at = NOW(), updated_at = NOW() WHERE id = $1 AND status = 'RUNNING' AND started_at = $2`, [id, result.data.startedAt]);
+      }).catch(error => this.logger.error(`Could not record flow failure: ${error.message}`));
+      return result;
     } catch (error: any) {
       if (error instanceof HttpException) throw error;
       this.logger.error(`Error starting test batch: ${error.message}`);
