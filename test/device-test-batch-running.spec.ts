@@ -75,11 +75,11 @@ async function run() {
   assert.strictEqual(writes.length, writeCount, 'Restarting running batch must not replace devices');
 
   const started = new Date(Date.now() - 10000);
-  const packet = (seconds: number, data: any) => ({
+  const packet = (seconds: number, data: any, rssi = -50, snr = 8) => ({
     created_at: new Date(started.getTime() + seconds * 1000).toISOString(),
-    decoded_payload: data, raw_payload: 'abcd', f_cnt: seconds,
+    decoded_payload: data, raw_payload: 'abcd', f_cnt: seconds, rssi, snr,
   });
-  const dutPackets = [packet(8, { temperature: 25, battery: 90 }), packet(2, { temperature: 24, custom: false }), packet(-2, { old: true }), packet(4000, { outside: true })];
+  const dutPackets = [packet(8, { temperature: 25, battery: 90 }, -60, 6), packet(2, { temperature: 24, custom: false }, -40, 10), packet(-2, { old: true }), packet(4000, { outside: true })];
   const refPackets = [packet(3, { temperature: 24, humidity: 50 })];
   let stored: any;
   let failWrite = false;
@@ -124,6 +124,9 @@ async function run() {
   assert.strictEqual(aborted, false);
   assert.strictEqual(stored.dut_packets.length, 2);
   assert.strictEqual(stored.reference_packets.length, 1);
+  assert.strictEqual(stored.avg_cycle, 0.1);
+  assert.strictEqual(stored.avg_rssi, -50.0);
+  assert.strictEqual(stored.avg_snr, 8.0);
   primaryMissing = false;
   withReference = false;
   await telemetry.getTestBatchStatus('timeline', owner);
@@ -166,6 +169,9 @@ async function run() {
   assert.strictEqual(stored.snr, null);
   assert.strictEqual(stored.last_packet_at, null);
   assert.strictEqual(stored.tolerance_pass, null);
+  assert.strictEqual(stored.avg_cycle, null);
+  assert.strictEqual(stored.avg_rssi, null);
+  assert.strictEqual(stored.avg_snr, null);
   assert.deepStrictEqual(stored.dut_packets, []);
   assert.deepStrictEqual(stored.reference_packets, []);
 

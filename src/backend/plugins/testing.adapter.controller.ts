@@ -4568,6 +4568,9 @@ export class TestingAdapterController {
             referenceValues: i.reference_values,
             comparisonResult: i.comparison_result,
             packetsReceived: i.packets_received,
+            avgCycle: i.comparison_result?.avg_cycle ?? null,
+            avgRssi: i.comparison_result?.avg_rssi ?? null,
+            avgSnr: i.comparison_result?.avg_snr ?? null,
             rulesPassed: i.rules_passed,
             rulesFailed: i.rules_failed,
           })),
@@ -4856,11 +4859,44 @@ export class TestingAdapterController {
               rssi: p.rssi,
               snr: p.snr,
             }));
+
+          const dutTimeline = packetTimeline(dutPackets);
+          let avgCycle: number | null = null;
+          if (dutTimeline.length >= 2) {
+            const firstTime = new Date(dutTimeline[0].timestamp).getTime();
+            const lastTime = new Date(dutTimeline[dutTimeline.length - 1].timestamp).getTime();
+            const totalMinutes = (lastTime - firstTime) / 60000;
+            const intervals = dutTimeline.length - 1;
+            avgCycle = +(totalMinutes / intervals).toFixed(1);
+          }
+
+          let avgRssi: number | null = null;
+          const rssiList = dutTimeline
+            .map(p => p.rssi)
+            .filter(r => r !== null && r !== undefined && !isNaN(Number(r)))
+            .map(r => Number(r));
+          if (rssiList.length > 0) {
+            avgRssi = +(rssiList.reduce((acc, v) => acc + v, 0) / rssiList.length).toFixed(1);
+          }
+
+          let avgSnr: number | null = null;
+          const snrList = dutTimeline
+            .map(p => p.snr)
+            .filter(s => s !== null && s !== undefined && !isNaN(Number(s)))
+            .map(s => Number(s));
+          if (snrList.length > 0) {
+            avgSnr = +(snrList.reduce((acc, v) => acc + v, 0) / snrList.length).toFixed(1);
+          }
+
           comparison = {
-            dut_packets: packetTimeline(dutPackets),
+            dut_packets: dutTimeline,
             reference_packets: packetTimeline(refPackets),
             status: packetsCount > 0 ? 'ACTIVE_RECEIVING' : 'AWAITING_UPLINK',
             packets_since_start: packetsCount,
+            packets_received: packetsCount,
+            avg_cycle: avgCycle,
+            avg_rssi: avgRssi,
+            avg_snr: avgSnr,
             dut_temp: dutT,
             ref_temp: refT,
             temp_delta: tempDelta,
@@ -5078,6 +5114,9 @@ export class TestingAdapterController {
             referenceValues: i.reference_values,
             comparisonResult: i.comparison_result,
             packetsReceived: i.packets_received,
+            avgCycle: i.comparison_result?.avg_cycle ?? null,
+            avgRssi: i.comparison_result?.avg_rssi ?? null,
+            avgSnr: i.comparison_result?.avg_snr ?? null,
             rulesPassed: i.rules_passed,
             rulesFailed: i.rules_failed,
           })),
