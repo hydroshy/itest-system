@@ -23,7 +23,7 @@ async function run() {
   const saved = await controller.saveSimulationProfile({ simuId: 'SIMU-1', flowBlocks: blocks });
   assert.strictEqual(saved.data.duration, 15);
   assert.strictEqual(saved.data.flowBlocks[0].fPort, 1);
-  assert.strictEqual(queries.find(q => q.sql.includes('INSERT')).params[9], 0.25);
+  assert.strictEqual(queries.find(q => q.sql.includes('INSERT')).params[9], 1);
   const updated = await controller.updateSimulationProfile('uuid', { flowBlocks: [{ functionType: 'delay', delaySeconds: 30 }] });
   assert.strictEqual(updated.data.simuId, 'SIMU-1');
   assert.strictEqual(updated.data.duration, 30);

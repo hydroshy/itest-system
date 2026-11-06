@@ -1623,7 +1623,7 @@ export class TestingAdapterController {
     const flowBlocks = Array.isArray(body?.flowBlocks) ? body.flowBlocks : (Array.isArray(body?.flow_blocks) ? body.flow_blocks : []);
     const status = (body?.status || 'simulation').trim();
     const durationSeconds = this.simulationDuration(flowBlocks);
-    const flowDurationMinutes = durationSeconds / 60;
+    const flowDurationMinutes = Math.max(1, Math.ceil(durationSeconds / 60));
     const timedActions = body?.timedActions || [];
 
     const profile = {
@@ -1644,7 +1644,7 @@ export class TestingAdapterController {
       sku,
       flowBlocks,
       blocksCount: flowBlocks.length,
-      duration: flowDurationMinutes * 60,
+      duration: durationSeconds,
       name: body?.name || body?.profileName || deviceName,
       profileName: body?.profileName || deviceName,
       targetDeviceName: deviceName,
