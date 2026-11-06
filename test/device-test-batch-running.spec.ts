@@ -128,10 +128,51 @@ async function run() {
   withReference = false;
   await telemetry.getTestBatchStatus('timeline', owner);
   assert.deepStrictEqual(stored.reference_packets, []);
+
+  // Verify no fallback to historical packets when no packets arrive after batch started
+  let zeroPackets = true;
+  const noUplinkDs = {
+    transaction: async (work: any) => work(noUplinkDs),
+    query: async (sql: string, params: any[]) => {
+      if (/^(SAVEPOINT|RELEASE SAVEPOINT|ROLLBACK TO SAVEPOINT)/.test(sql)) return [];
+      if (sql.includes('SELECT * FROM system_schema.device_test_batches')) return [{
+        id: 'no-uplink', created_by: 'alice', status: 'RUNNING', started_at: started, flow_duration_seconds: 3600,
+      }];
+      if (sql.includes('SELECT * FROM system_schema.device_test_batch_items')) return [{
+        id: 'dut-zero', serial_number: 'serial-zero', dev_eui: 'aa', reference_dev_eui: 'bb',
+      }];
+      if (sql.includes('FROM devices.device_packets') || sql.includes('FROM system_schema.device_packets')) {
+        // Query must use created_at >= started_at filter and never LIMIT 5 without date filter
+        assert(sql.includes('created_at >= $2::timestamptz'), 'Must query strictly with created_at >= started_at');
+        assert(!sql.includes('LIMIT 5'), 'Must never fallback to LIMIT 5 historical packets');
+        return []; // No packets after started_at
+      }
+      if (sql.includes('UPDATE system_schema.device_test_batch_items')) {
+        stored = JSON.parse(params[3]);
+        return [];
+      }
+      throw new Error(`Unexpected SQL in no-uplink test: ${sql}`);
+    },
+  };
+  const noUplinkController = new TestingAdapterController({ getDataSourceForTable: () => noUplinkDs } as any, {} as any);
+  await noUplinkController.getTestBatchStatus('no-uplink', owner);
+  assert.strictEqual(stored.packets_since_start, 0);
+  assert.strictEqual(stored.status, 'AWAITING_UPLINK');
+  assert.strictEqual(stored.dut_temp, null);
+  assert.strictEqual(stored.ref_temp, null);
+  assert.strictEqual(stored.dut_hum, null);
+  assert.strictEqual(stored.ref_hum, null);
+  assert.strictEqual(stored.rssi, null);
+  assert.strictEqual(stored.snr, null);
+  assert.strictEqual(stored.last_packet_at, null);
+  assert.strictEqual(stored.tolerance_pass, null);
+  assert.deepStrictEqual(stored.dut_packets, []);
+  assert.deepStrictEqual(stored.reference_packets, []);
+
   failWrite = true;
   await assert.rejects(() => telemetry.getTestBatchStatus('timeline', owner), /archive write failed/);
 
-  console.log('PASS: owned batches, cancellation, restart conflict, timestamped DUT/reference packet archive, and write failure propagation');
+  console.log('PASS: owned batches, cancellation, restart conflict, timestamped DUT/reference packet archive, no historical fallback, and write failure propagation');
 }
 
 run().catch(error => { console.error(error); process.exitCode = 1; });

@@ -4634,36 +4634,11 @@ export class TestingAdapterController {
         const refName = d.referenceDeviceName || d.reference_device_name || '';
         const refId = d.referenceDeviceId || d.reference_device_id || null;
 
-        // Query real live telemetry from database if available
-        let dutTelemetry: any = {};
-        let refTelemetry: any = {};
-        if (dutDevEui) {
-          try {
-            const livePackets = await this.queryBatchTransaction(ds,
-              `SELECT decoded_payload FROM system_schema.v_device_payload_live WHERE LOWER(dev_eui) = LOWER($1) LIMIT 1`,
-              [dutDevEui]
-            );
-            if (livePackets && livePackets.length > 0) {
-              dutTelemetry = livePackets[0].decoded_payload || {};
-            }
-          } catch {}
-        }
-        if (refDevEui) {
-          try {
-            const refPackets = await this.queryBatchTransaction(ds,
-              `SELECT decoded_payload FROM system_schema.v_device_payload_live WHERE LOWER(dev_eui) = LOWER($1) LIMIT 1`,
-              [refDevEui]
-            );
-            if (refPackets && refPackets.length > 0) {
-              refTelemetry = refPackets[0].decoded_payload || {};
-            }
-          } catch {}
-        }
-
         const comparison = {
-          status: Object.keys(dutTelemetry).length > 0 ? 'ACTIVE' : 'AWAITING_CHIRPSTACK_UPLINK',
-          dut_has_data: Object.keys(dutTelemetry).length > 0,
-          ref_has_data: Object.keys(refTelemetry).length > 0,
+          status: 'AWAITING_UPLINK',
+          packets_since_start: 0,
+          dut_has_data: false,
+          ref_has_data: false,
         };
 
         await this.queryBatchTransaction(ds, `
@@ -4675,7 +4650,7 @@ export class TestingAdapterController {
             rules_passed, rules_failed
           ) VALUES (
             $1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
-            'RUNNING', 'PENDING', $11, $12, $13, 0, 0, 0
+            'RUNNING', 'PENDING', '{}'::jsonb, '{}'::jsonb, $11::jsonb, 0, 0, 0
           )
         `, [
           id,
@@ -4688,8 +4663,6 @@ export class TestingAdapterController {
           refSerial,
           refDevEui,
           refName,
-          JSON.stringify(dutTelemetry),
-          JSON.stringify(refTelemetry),
           JSON.stringify(comparison),
         ]);
       }
@@ -4777,36 +4750,18 @@ export class TestingAdapterController {
             dutPackets = await this.queryBatchTransaction(ds,
               `SELECT raw_payload, decoded_payload, f_port, f_cnt, rssi, snr, created_at
                FROM devices.device_packets
-               WHERE LOWER(REPLACE(dev_eui, ':', '')) = $1 AND created_at >= ($2::timestamptz - INTERVAL '60 seconds')
+               WHERE LOWER(REPLACE(dev_eui, ':', '')) = $1 AND created_at >= $2::timestamptz
                ORDER BY created_at DESC`,
               [cleanDutEui, batch.started_at],
             ).catch(async () => {
               return await this.queryBatchTransaction(ds,
                 `SELECT raw_payload, decoded_payload, f_port, f_cnt, rssi, snr, created_at
                  FROM system_schema.device_packets
-                 WHERE LOWER(REPLACE(dev_eui, ':', '')) = $1 AND created_at >= ($2::timestamptz - INTERVAL '60 seconds')
+                 WHERE LOWER(REPLACE(dev_eui, ':', '')) = $1 AND created_at >= $2::timestamptz
                  ORDER BY created_at DESC`,
                 [cleanDutEui, batch.started_at],
               ).catch(() => []);
             });
-
-            if (!dutPackets || dutPackets.length === 0) {
-              dutPackets = await this.queryBatchTransaction(ds,
-                `SELECT raw_payload, decoded_payload, f_port, f_cnt, rssi, snr, created_at
-                 FROM devices.device_packets
-                 WHERE LOWER(REPLACE(dev_eui, ':', '')) = $1
-                 ORDER BY created_at DESC LIMIT 5`,
-                [cleanDutEui],
-              ).catch(async () => {
-                return await this.queryBatchTransaction(ds,
-                  `SELECT raw_payload, decoded_payload, f_port, f_cnt, rssi, snr, created_at
-                   FROM system_schema.device_packets
-                   WHERE LOWER(REPLACE(dev_eui, ':', '')) = $1
-                   ORDER BY created_at DESC LIMIT 5`,
-                  [cleanDutEui],
-                ).catch(() => []);
-              });
-            }
           }
 
           if (refEui) {
@@ -4814,45 +4769,27 @@ export class TestingAdapterController {
             refPackets = await this.queryBatchTransaction(ds,
               `SELECT raw_payload, decoded_payload, f_port, f_cnt, rssi, snr, created_at
                FROM devices.device_packets
-               WHERE LOWER(REPLACE(dev_eui, ':', '')) = $1 AND created_at >= ($2::timestamptz - INTERVAL '60 seconds')
+               WHERE LOWER(REPLACE(dev_eui, ':', '')) = $1 AND created_at >= $2::timestamptz
                ORDER BY created_at DESC`,
               [cleanRefEui, batch.started_at],
             ).catch(async () => {
               return await this.queryBatchTransaction(ds,
                 `SELECT raw_payload, decoded_payload, f_port, f_cnt, rssi, snr, created_at
                  FROM system_schema.device_packets
-                 WHERE LOWER(REPLACE(dev_eui, ':', '')) = $1 AND created_at >= ($2::timestamptz - INTERVAL '60 seconds')
+                 WHERE LOWER(REPLACE(dev_eui, ':', '')) = $1 AND created_at >= $2::timestamptz
                  ORDER BY created_at DESC`,
                 [cleanRefEui, batch.started_at],
               ).catch(() => []);
             });
-
-            if (!refPackets || refPackets.length === 0) {
-              refPackets = await this.queryBatchTransaction(ds,
-                `SELECT raw_payload, decoded_payload, f_port, f_cnt, rssi, snr, created_at
-                 FROM devices.device_packets
-                 WHERE LOWER(REPLACE(dev_eui, ':', '')) = $1
-                 ORDER BY created_at DESC LIMIT 5`,
-                [cleanRefEui],
-              ).catch(async () => {
-                return await this.queryBatchTransaction(ds,
-                  `SELECT raw_payload, decoded_payload, f_port, f_cnt, rssi, snr, created_at
-                   FROM system_schema.device_packets
-                   WHERE LOWER(REPLACE(dev_eui, ':', '')) = $1
-                   ORDER BY created_at DESC LIMIT 5`,
-                  [cleanRefEui],
-                ).catch(() => []);
-              });
-            }
           }
 
           const latestDut = dutPackets[0];
           const latestRef = refPackets[0];
           const packetsCount = dutPackets.length;
 
-          let dutValues = item.dut_values || {};
-          let refValues = item.reference_values || {};
-          let comparison = item.comparison_result || {};
+          let dutValues: any = {};
+          let refValues: any = {};
+          let comparison: any = {};
 
           if (latestDut?.decoded_payload && Object.keys(latestDut.decoded_payload).length > 0) {
             dutValues = latestDut.decoded_payload;
@@ -4882,17 +4819,24 @@ export class TestingAdapterController {
           const dutH = extractSensorVal(dutValues, ['humidity', 'hum', 'HUMIDITY', 'HUM', 'h']);
           const refH = hasRef ? extractSensorVal(refValues, ['humidity', 'hum', 'HUMIDITY', 'HUM', 'h']) : null;
 
-          let tolerancePass = true;
+          let tolerancePass: boolean | null = null;
           let tempDelta: number | null = null;
           let humDelta: number | null = null;
 
-          if (hasRef && dutT != null && refT != null) {
-            tempDelta = +(Math.abs(Number(dutT) - Number(refT))).toFixed(2);
-            if (tempDelta > 1.0) tolerancePass = false;
-          }
-          if (hasRef && dutH != null && refH != null) {
-            humDelta = +(Math.abs(Number(dutH) - Number(refH))).toFixed(2);
-            if (humDelta > 5.0) tolerancePass = false;
+          if (hasRef) {
+            if (dutT != null && refT != null) {
+              tempDelta = +(Math.abs(Number(dutT) - Number(refT))).toFixed(2);
+            }
+            if (dutH != null && refH != null) {
+              humDelta = +(Math.abs(Number(dutH) - Number(refH))).toFixed(2);
+            }
+            if (dutT != null && refT != null) {
+              tolerancePass = (tempDelta != null ? tempDelta <= 1.0 : true) && (humDelta != null ? humDelta <= 5.0 : true);
+            } else {
+              tolerancePass = null;
+            }
+          } else {
+            tolerancePass = true;
           }
 
           // Keep every packet in the batch window, not only the latest sensor values.
@@ -4920,15 +4864,15 @@ export class TestingAdapterController {
             dut_temp: dutT,
             ref_temp: refT,
             temp_delta: tempDelta,
-            temp_pass: tempDelta != null ? tempDelta <= 1.0 : true,
+            temp_pass: tempDelta != null ? tempDelta <= 1.0 : (hasRef ? null : true),
             dut_hum: dutH,
             ref_hum: refH,
             hum_delta: humDelta,
-            hum_pass: humDelta != null ? humDelta <= 5.0 : true,
+            hum_pass: humDelta != null ? humDelta <= 5.0 : (hasRef ? null : true),
             tolerance_pass: tolerancePass,
-            rssi: latestDut?.rssi,
-            snr: latestDut?.snr,
-            last_packet_at: latestDut?.created_at,
+            rssi: latestDut?.rssi ?? null,
+            snr: latestDut?.snr ?? null,
+            last_packet_at: latestDut?.created_at ?? null,
           };
 
           item.dut_values = dutValues;
@@ -4949,7 +4893,8 @@ export class TestingAdapterController {
           const finished = new Date();
           for (const item of items) {
             const comp = item.comparison_result || {};
-            const isPass = (item.packets_received || 0) > 0 && comp.tolerance_pass !== false;
+            const hasRef = Boolean(item.reference_serial_number || item.reference_dev_eui);
+            const isPass = (item.packets_received || 0) > 0 && (hasRef ? comp.tolerance_pass === true : comp.tolerance_pass !== false);
             if (!isPass) allPass = false;
             const itemVerdict = isPass ? 'PASS' : 'FAIL';
             item.status = itemVerdict;
