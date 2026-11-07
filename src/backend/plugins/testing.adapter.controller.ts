@@ -4715,7 +4715,7 @@ export class TestingAdapterController {
       const now = new Date();
       await this.queryBatchTransaction(ds, `
         UPDATE system_schema.device_test_batches
-        SET status = 'RUNNING', verdict = 'PENDING', started_at = $2, finished_at = NULL, updated_at = $2
+        SET status = 'RUNNING', verdict = 'PENDING', started_at = $2, finished_at = NULL, duration_seconds = NULL, updated_at = $2
         WHERE id = $1
       `, [id, now]);
 
