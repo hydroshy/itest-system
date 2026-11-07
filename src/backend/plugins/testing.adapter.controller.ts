@@ -3202,7 +3202,7 @@ export class TestingAdapterController {
   }
 
   @Post(['api/plugins/testing/register-device-flow', 'api/v1/plugins/testing/register-device-flow'])
-  async registerDeviceFlow3Steps(@Body() body: any) {
+  async registerDeviceFlow3Steps(@Body() body: any, @Req() request?: any) {
     try {
       // Step 1: Validate metadata from Step 1 & Step 2
       const connectivity = (body?.connectivity || 'LoRaWAN').trim();
@@ -3226,7 +3226,7 @@ export class TestingAdapterController {
       const sensorType = (body?.sensorType || body?.sensor_type || '1').trim();
       const serialNumber = (body?.serialNumber || body?.SERIAL_NUMBER || '').trim();
       const itemCode = (body?.itemCode || body?.ITEM_CODE || '').trim();
-      const createdBy = (body?.createdBy || body?.created_by || body?.username || body?.user || 'tester').trim();
+      const createdBy = (request?.user?.username || body?.createdBy || body?.created_by || body?.username || body?.user || 'tester').trim();
       let applicationId = (body?.applicationId || body?.application_id || '').trim();
       let deviceProfileId = (body?.deviceProfileId || body?.device_profile_id || '').trim();
 
@@ -3541,7 +3541,7 @@ export class TestingAdapterController {
   }
 
   @Get(['api/plugins/testing/device-registrations', 'api/v1/plugins/testing/device-registrations'])
-  async getTestingDeviceRegistrations(@Query() query: any) {
+  async getTestingDeviceRegistrations(@Query() query: any, @Req() request?: any) {
     try {
       const ds = this.databaseService.getDataSourceForTable('devices');
       if (!ds) {
@@ -3558,8 +3558,8 @@ export class TestingAdapterController {
       const limit = Math.min(100, Math.max(1, parseInt(query.limit, 10) || 20));
       const offset = (page - 1) * limit;
 
-      const user = (query.user || query.username || '').trim();
-      const role = (query.role || '').toUpperCase().trim();
+      const user = (request?.user?.username || query.user || query.username || '').trim();
+      const role = (request?.user?.role || request?.user?.roles?.[0] || query.role || '').toUpperCase().trim();
       const isAdmin = query.isAdmin === true || query.isAdmin === 'true' || query.isAdmin === '1' ||
                       ['ADMIN', 'SUPER_ADMIN', 'ADMINISTRATOR'].includes(role);
 
@@ -3598,11 +3598,14 @@ export class TestingAdapterController {
       // If not admin, only show devices created by this user
       if (!isAdmin) {
         if (user) {
-          whereClauses.push(`(LOWER(v.created_by) = LOWER($${pIdx++}) OR v.created_by = 'tester')`);
+          whereClauses.push(`LOWER(v.created_by) = LOWER($${pIdx++})`);
           params.push(user);
         } else {
-          whereClauses.push(`v.created_by = 'tester'`);
+          whereClauses.push(`1 = 0`);
         }
+      } else if (user && (query.mine === true || query.mine === 'true' || query.filterMode === 'mine')) {
+        whereClauses.push(`LOWER(v.created_by) = LOWER($${pIdx++})`);
+        params.push(user);
       }
 
       // Search filter across serial_number, dev_eui, item_code, registration_code
@@ -3846,7 +3849,7 @@ export class TestingAdapterController {
       const isAdmin = query.isAdmin === true || query.isAdmin === 'true' || query.isAdmin === '1' ||
                       ['ADMIN', 'SUPER_ADMIN', 'ADMINISTRATOR'].includes(role);
 
-      if (!isAdmin && user && reg.created_by && reg.created_by !== 'tester') {
+      if (!isAdmin && user && reg.created_by) {
         if (reg.created_by.toLowerCase() !== user.toLowerCase()) {
           throw new HttpException(
             {
@@ -4019,14 +4022,15 @@ export class TestingAdapterController {
   }
 
   @Get(['api/plugins/testing/test-batches/available-devices', 'api/v1/plugins/testing/test-batches/available-devices'])
-  async getAvailableDevicesForBatch(@Query() query: any) {
+  async getAvailableDevicesForBatch(@Query() query: any, @Req() request?: any) {
     try {
       const ds = this.databaseService.getDataSourceForTable('devices');
       const itemCode = (query.itemCode || query.item_code || '').trim();
       const fwVersion = (query.fwVersion || query.fw_version || query.longFw || query.long_fw || '').trim();
       const limit = Math.min(200, Math.max(1, parseInt(query.limit, 10) || 100));
 
-      if (!ds) {
+      const username = (request?.user?.username || query.user || query.username || '').trim();
+      if (!username || !ds) {
         return { success: true, data: [], items: [], total: 0 };
       }
 
@@ -4034,6 +4038,20 @@ export class TestingAdapterController {
         const clauses: string[] = [];
         const params: any[] = [];
         let pIdx = 1;
+
+        // User filter: user can ONLY see and test devices they created
+        clauses.push(`LOWER(${tableAlias}.created_by) = LOWER($${pIdx++})`);
+        params.push(username);
+
+        // Exclude devices currently in a running test batch
+        clauses.push(`${tableAlias}.serial_number NOT IN (
+          SELECT bi.serial_number FROM system_schema.device_test_batch_items bi
+          JOIN system_schema.device_test_batches b ON bi.batch_id = b.id
+          WHERE b.status = 'RUNNING'
+        )`);
+
+        // Exclude reference devices
+        clauses.push(`COALESCE(${tableAlias}.is_reference, false) = false`);
 
         if (itemCode) {
           clauses.push(`UPPER(${tableAlias}.item_code) = UPPER($${pIdx++})`);
@@ -4975,7 +4993,8 @@ export class TestingAdapterController {
             try {
               // 1. Lookup SO, WA, and creator from device_test_registrations
               const regRows = await this.queryBatchTransaction(ds,
-                `SELECT r.so_id, r.so_number, r.wa_id, r.wa_number, r.created_by, r.item_code
+                `SELECT r.id, r.so_id, r.so_number, r.wa_id, r.wa_number, r.created_by, r.item_code,
+                        r.network_server_id, r.network_server_url, r.is_reference
                  FROM system_schema.device_test_registrations r
                  WHERE LOWER(r.serial_number) = LOWER($1) OR LOWER(REPLACE(COALESCE(r.dev_eui, ''), ':', '')) = LOWER(REPLACE($2, ':', ''))
                  ORDER BY r.created_at DESC LIMIT 1`,
@@ -5007,15 +5026,44 @@ export class TestingAdapterController {
                 ).catch(() => []);
                 soId = fallbackSo[0]?.id || null;
               }
+              if (!soId) {
+                // Ensure default SO exists so foreign key constraint is never violated
+                const defaultSo = await this.queryBatchTransaction(ds, `
+                  INSERT INTO traceability_manager.traceability_so (so_number, customer_name, notes)
+                  VALUES ('SO/TEST/AUTO', 'Hệ Thống Kiểm Thử Tự Động', 'Tự động tạo từ Test Batch Runner')
+                  ON CONFLICT (so_number) DO UPDATE SET updated_at = NOW()
+                  RETURNING id
+                `).catch(() => []);
+                soId = defaultSo?.[0]?.id || null;
+              }
 
               const testRawData = JSON.stringify({
+                batch_id: batch.id,
                 batch_code: batch.batch_code,
+                item_id: item.id,
+                serial_number: item.serial_number,
+                dev_eui: item.dev_eui,
+                verdict: itemVerdict,
+                autocheck_result: {
+                  verdict: itemVerdict,
+                  is_pass: isPass,
+                  tolerance_pass: comp.tolerance_pass,
+                  packets_received: item.packets_received || 0,
+                  avg_cycle: comp.avg_cycle,
+                  avg_rssi: comp.avg_rssi,
+                  avg_snr: comp.avg_snr,
+                  rules_passed: item.rules_passed || 0,
+                  rules_failed: item.rules_failed || 0,
+                },
+                comparison_result: item.comparison_result,
+                auto_check_criteria: batch.auto_check_criteria,
+                simulation_flow: batch.simulation_flow,
+                dut_values: item.dut_values,
+                reference_values: item.reference_values,
+                reference_serial_number: item.reference_serial_number,
+                reference_dev_eui: item.reference_dev_eui,
                 started_at: batch.started_at,
                 finished_at: finished.toISOString(),
-                duration_seconds: elapsedSeconds,
-                packets_received: item.packets_received || 0,
-                verdict: itemVerdict,
-                comparison: comp,
                 so_number: reg.so_number || null,
                 wa_number: reg.wa_number || null,
                 test_person: testerName,
@@ -5077,26 +5125,65 @@ export class TestingAdapterController {
                   });
                 }
               }
+
+              // Auto-delete the device after test batch finishes so it cannot be re-tested without re-adding
+              await this.queryBatchTransaction(ds, `
+                DELETE FROM system_schema.device_test_registrations
+                WHERE (serial_number = $1 OR dev_eui = $2)
+                  AND COALESCE(is_reference, false) = false
+              `, [item.serial_number, item.dev_eui]);
+
+              // Also delete from devices table
+              try {
+                const deviceRepo = this.databaseService.getRepositoryForTable('devices', TestingDeviceEntity);
+                if (item.serial_number) {
+                  await deviceRepo.delete({ serial_number: item.serial_number }).catch(() => null);
+                }
+                if (item.dev_eui) {
+                  await deviceRepo.delete({ network_id: item.dev_eui.toUpperCase() }).catch(() => null);
+                }
+              } catch (e: any) {
+                this.logger.warn(`Could not delete from devices.devices: ${e.message}`);
+              }
+
+              // Best-effort delete from ChirpStack
+              if (reg.dev_eui && (reg.network_server_url || reg.network_server_id)) {
+                try {
+                  let serverUrl = reg.network_server_url;
+                  let apiToken = '';
+                  const serverRepo = this.databaseService.getRepositoryForTable('lorawan_chirpstack', ChirpstackNetworkServerEntity);
+                  let srv = null;
+                  if (reg.network_server_id) {
+                    srv = await serverRepo.findOne({ where: { id: reg.network_server_id } }).catch(() => null);
+                  }
+                  if (!srv) {
+                    srv = await serverRepo.findOne({ where: { isActive: true } }).catch(() => null);
+                  }
+                  if (srv) {
+                    serverUrl = srv.apiUrl || srv.api_url || serverUrl;
+                    apiToken = srv.apiToken || srv.api_token || '';
+                  }
+                  if (serverUrl && apiToken) {
+                    const cleanDevEui = (reg.dev_eui || '').replace(/[^0-9a-fA-F]/g, '').toLowerCase();
+                    const csUrl = `${serverUrl.replace(/\/+$/, '')}/api/devices/${encodeURIComponent(cleanDevEui)}`;
+                    await fetch(csUrl, {
+                      method: 'DELETE',
+                      headers: {
+                        'Accept': 'application/json',
+                        'Grpc-Metadata-Authorization': `Bearer ${apiToken}`,
+                        'Authorization': `Bearer ${apiToken}`,
+                      },
+                      signal: AbortSignal.timeout(5000),
+                    }).catch(() => null);
+                  }
+                } catch (csErr: any) {
+                  this.logger.debug(`ChirpStack auto-delete skip for ${reg.dev_eui}: ${csErr.message}`);
+                }
+              }
+
+              this.logger.log(`[Batch ${batch.batch_code}] Device ${item.serial_number} completed (${itemVerdict}), pushed to traceability and deleted from active test devices.`);
             } catch (traceErr: any) {
               this.logger.debug(`Traceability sync skip: ${traceErr.message}`);
-            }
-
-            // Sync status to system_schema.device_test_registrations
-            try {
-              const regStatus = itemVerdict === 'PASS' ? 'TEST_PASSED' : 'TEST_FAILED';
-              await this.queryBatchTransaction(ds, `
-                UPDATE system_schema.device_test_registrations
-                SET status = $2,
-                    message = $3,
-                    updated_at = NOW()
-                WHERE serial_number = $1
-              `, [
-                item.serial_number,
-                regStatus,
-                `Test Batch ${batch.batch_code} hoàn tất: ${itemVerdict} (${new Date(batch.started_at).toISOString()} -> ${finished.toISOString()})`,
-              ]);
-            } catch (regErr: any) {
-              this.logger.debug(`Registration status sync skip: ${regErr.message}`);
             }
           }
 

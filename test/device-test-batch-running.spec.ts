@@ -178,7 +178,125 @@ async function run() {
   failWrite = true;
   await assert.rejects(() => telemetry.getTestBatchStatus('timeline', owner), /archive write failed/);
 
-  console.log('PASS: owned batches, cancellation, restart conflict, timestamped DUT/reference packet archive, no historical fallback, and write failure propagation');
+  // --- TEST: Available Devices User Scoping ---
+  const allRegistrations = [
+    { id: 'reg-1', serial_number: 'SN-ALICE-1', dev_eui: '1111111111111111', item_code: 'ITEM-A', fw_version: 'v1.0', created_by: 'alice', is_reference: false },
+    { id: 'reg-2', serial_number: 'SN-BOB-1', dev_eui: '2222222222222222', item_code: 'ITEM-A', fw_version: 'v1.0', created_by: 'bob', is_reference: false },
+    { id: 'reg-3', serial_number: 'REF-STD-1', dev_eui: '3333333333333333', item_code: 'ITEM-A', fw_version: 'v1.0', created_by: 'alice', is_reference: true },
+  ];
+  const userScopingDs = {
+    query: async (sql: string, params: any[]) => {
+      if (sql.includes('v_list_device_testing') || sql.includes('device_test_registrations')) {
+        let rows = [...allRegistrations];
+        if (sql.includes('LOWER(v.created_by) = LOWER($1)') || sql.includes('LOWER(r.created_by) = LOWER($1)')) {
+          rows = rows.filter(r => r.created_by.toLowerCase() === params[0].toLowerCase());
+        }
+        if (sql.includes('is_reference, false) = false')) {
+          rows = rows.filter(r => !r.is_reference);
+        }
+        return rows;
+      }
+      return [];
+    },
+  };
+  const scopingController = new TestingAdapterController({ getDataSourceForTable: () => userScopingDs } as any, {} as any);
+
+  // Alice sees only Alice's devices (and not reference device or Bob's device)
+  const aliceDevices = await scopingController.getAvailableDevicesForBatch({}, owner);
+  assert.strictEqual(aliceDevices.success, true);
+  assert.strictEqual(aliceDevices.data.length, 1);
+  assert.strictEqual(aliceDevices.data[0].serialNumber, 'SN-ALICE-1');
+
+  // Carol (user with no devices) gets 0 devices
+  const carolDevices = await scopingController.getAvailableDevicesForBatch({}, { user: { username: 'carol' } });
+  assert.strictEqual(carolDevices.success, true);
+  assert.strictEqual(carolDevices.data.length, 0);
+
+  // Unauthenticated call gets 0 devices (no cross-user leak)
+  const noUserDevices = await scopingController.getAvailableDevicesForBatch({});
+  assert.strictEqual(noUserDevices.success, true);
+  assert.strictEqual(noUserDevices.data.length, 0);
+
+  // --- TEST: Batch Completion Auto-Delete & Traceability Push ---
+  const completionQueries: string[] = [];
+  const testBatchFinishedAt = new Date(Date.now() - 60000); // 60s ago
+  const completionDs = {
+    transaction: async (work: any) => work(completionDs),
+    query: async (sql: string, params: any[] = []) => {
+      completionQueries.push(sql);
+      if (/^(SAVEPOINT|RELEASE SAVEPOINT|ROLLBACK TO SAVEPOINT)/.test(sql)) return [];
+      if (sql.includes('SELECT * FROM system_schema.device_test_batches')) {
+        return [{
+          id: 'batch-finish',
+          batch_code: 'BATCH-FINISH-01',
+          created_by: 'alice',
+          status: 'RUNNING',
+          started_at: testBatchFinishedAt,
+          flow_duration_seconds: 10, // already elapsed
+        }];
+      }
+      if (sql.includes('SELECT * FROM system_schema.device_test_batch_items')) {
+        return [{
+          id: 'item-finish-1',
+          batch_id: 'batch-finish',
+          serial_number: 'SN-FINISH-DUT',
+          dev_eui: 'AABBCCDDEEFF0011',
+          packets_received: 5,
+          comparison_result: { tolerance_pass: true, avg_cycle: 1.0, avg_rssi: -60, avg_snr: 9 },
+        }];
+      }
+      if (sql.includes('SELECT') && sql.includes('device_packets')) {
+        return [{
+          dev_eui: 'AABBCCDDEEFF0011',
+          created_at: new Date(Date.now() - 30000),
+          payload_hex: '01020304',
+          decoded_json: { temperature: 25.5, humidity: 60.0 },
+          rssi: -65,
+          snr: 8.5,
+        }];
+      }
+      if (sql.includes('SELECT r.id, r.so_id') && sql.includes('device_test_registrations')) {
+        return [{
+          id: 'reg-finish-1',
+          so_number: 'SO/2026/001',
+          item_code: 'ITEM-TEST',
+          created_by: 'alice',
+        }];
+      }
+      if (sql.includes('SELECT id FROM traceability_manager.traceability_so')) {
+        return [{ id: 'so-uuid-001' }];
+      }
+      if (sql.includes('INSERT INTO traceability_manager.traceability_device')) return [{ id: 'trace-dev-1' }];
+      if (sql.includes('UPDATE traceability_manager.traceability_device')) return [{ id: 'trace-dev-1' }];
+      if (sql.includes('DELETE FROM system_schema.device_test_registrations')) return [];
+      if (sql.includes('UPDATE system_schema.device_test_batch_items')) return [];
+      if (sql.includes('UPDATE system_schema.device_test_batches')) return [];
+      return [];
+    },
+  };
+  const completionController = new TestingAdapterController({
+    getDataSourceForTable: () => completionDs,
+    getRepositoryForTable: () => ({ delete: async () => {} }),
+  } as any, {} as any);
+
+  const completionStatus = await completionController.getTestBatchStatus('batch-finish', owner);
+  assert.strictEqual(completionStatus.success, true);
+  assert.strictEqual(completionStatus.data.status, 'COMPLETED');
+  assert.strictEqual(completionStatus.data.verdict, 'PASS');
+
+  // Verify traceability device was upserted
+  const hasTraceabilityInsert = completionQueries.some(q =>
+    q.includes('traceability_manager.traceability_device') && (q.includes('INSERT INTO') || q.includes('UPDATE'))
+  );
+  assert(hasTraceabilityInsert, 'Must push completed test results to traceability_manager.traceability_device');
+
+  // Verify device was deleted from device_test_registrations
+  const hasDeviceDelete = completionQueries.some(q =>
+    q.includes('DELETE FROM system_schema.device_test_registrations') && q.includes('is_reference, false) = false')
+  );
+  assert(hasDeviceDelete, 'Must auto-delete tested DUT from system_schema.device_test_registrations upon batch completion');
+
+  console.log('PASS: owned batches, cancellation, restart conflict, timestamped DUT/reference packet archive, no historical fallback, user scoping, and completion auto-delete with traceability push');
 }
 
 run().catch(error => { console.error(error); process.exitCode = 1; });
