@@ -212,6 +212,17 @@ export const SYSTEM_MENU_ITEMS: MenuItemDto[] = [
     order: 24,
   },
   {
+    id: 'testing:test-batch',
+    title: 'Device Test Batch',
+    description: 'Kiểm thử hàng loạt thiết bị LoRaWAN song song và đối chiếu chuẩn theo Sale Order',
+    icon: 'Boxes',
+    route: '/plugins/testing?tab=test-batch',
+    pluginId: 'testing',
+    tab: 'test-batch',
+    category: 'plugin',
+    order: 25,
+  },
+  {
     id: 'testing:device-test-batch',
     title: 'Device Test Batch',
     description: 'Kiểm thử hàng loạt thiết bị LoRaWAN song song và đối chiếu chuẩn theo Sale Order',
@@ -220,7 +231,7 @@ export const SYSTEM_MENU_ITEMS: MenuItemDto[] = [
     pluginId: 'testing',
     tab: 'device-test-batch',
     category: 'plugin',
-    order: 25,
+    order: 26,
   },
   {
     id: 'device-test-batch:main',
@@ -231,7 +242,7 @@ export const SYSTEM_MENU_ITEMS: MenuItemDto[] = [
     pluginId: 'testing',
     tab: 'device-test-batch',
     category: 'plugin',
-    order: 26,
+    order: 27,
   },
 ];
 
@@ -260,6 +271,7 @@ export class MenuService {
       'testing:list-device-simulation',
       'testing:so-test-batch',
       'so-test-batch:main',
+      'testing:test-batch',
       'testing:device-test-batch',
       'device-test-batch:main',
     ],
