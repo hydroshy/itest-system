@@ -381,7 +381,7 @@ const mockDatabaseService: any = {
         }
         return list;
       }
-      if (sql.includes('device_test_batches')) {
+      if (sql.includes('device_test_batches') && !sql.includes('device_test_batch_items')) {
         if (sql.includes('INSERT INTO system_schema.device_test_batches')) {
           const newBatch = {
             id: `batch-${Date.now()}`,
@@ -455,6 +455,9 @@ const mockDatabaseService: any = {
           return mockBatchItems.filter((i) => {
             const batch = mockBatches.find((b) => b.id === i.batch_id);
             return batch && batch.status === 'RUNNING' && batch.id !== params[0] && (params[1] || []).includes(i.serial_number);
+          }).map((i) => {
+            const batch = mockBatches.find((b) => b.id === i.batch_id);
+            return { serial_number: i.serial_number, batch_code: batch?.batch_code || 'MOCK-BATCH' };
           });
         }
         if (sql.startsWith('DELETE FROM system_schema.device_test_batch_items')) {
@@ -476,6 +479,8 @@ const mockRealtimeService: any = {
 };
 
 async function runTests() {
+  mockBatches.length = 0;
+  mockBatchItems.length = 0;
   const controller = new TestingAdapterController(mockDatabaseService, mockRealtimeService);
 
   console.log('1. Testing Traceability SO/WA/Item Code Lookup...');

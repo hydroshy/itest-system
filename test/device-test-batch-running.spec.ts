@@ -99,6 +99,7 @@ async function run() {
       if (sql.includes('SELECT * FROM system_schema.device_test_batch_items')) return [{
         id: 'dut', serial_number: 'serial', dev_eui: 'aa', reference_dev_eui: withReference ? 'bb' : null,
       }];
+      if (sql.includes('so_test_batches')) return [{ so_number: 'SO/2026/001' }];
       if (sql.includes('FROM devices.device_packets')) {
         if (primaryMissing) { aborted = true; throw new Error('relation devices.device_packets does not exist'); }
         return params[0] === 'aa' ? dutPackets : refPackets;
