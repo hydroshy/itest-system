@@ -4584,6 +4584,189 @@ export class TestingAdapterController {
     return { success: true, data: { batchId: id, status: 'STOPPED' } };
   }
 
+  @Post(['api/plugins/testing/test-batches/:id/complete', 'api/v1/plugins/testing/test-batches/:id/complete'])
+  @UseGuards(JwtAuthGuard)
+  async completeTestBatch(@Param('id') id: string, @Req() request: any) {
+    const ds = this.databaseService.getDataSourceForTable('devices');
+    if (!ds) throw new HttpException('Database unavailable', HttpStatus.SERVICE_UNAVAILABLE);
+    return await ds.transaction(async (manager: any) => {
+      const rows = await manager.query(`SELECT * FROM system_schema.device_test_batches WHERE id = $1 FOR UPDATE`, [id]);
+      if (!rows.length) throw new NotFoundException('Không tìm thấy Test Batch');
+      const batch = rows[0];
+      this.assertTestBatchOwner(batch, request);
+
+      const items = await this.queryBatchTransaction(
+        manager,
+        `SELECT * FROM system_schema.device_test_batch_items WHERE batch_id = $1 ORDER BY serial_number ASC`,
+        [id],
+      ).catch(() => []);
+
+      let allPass = true;
+      const finished = new Date();
+      for (const item of items) {
+        const comp = item.comparison_result || {};
+        const hasRef = Boolean(item.reference_serial_number || item.reference_dev_eui);
+        const isPass = (item.packets_received || 0) > 0 && (hasRef ? comp.tolerance_pass === true : comp.tolerance_pass !== false);
+        if (!isPass) allPass = false;
+        const itemVerdict = isPass ? 'PASS' : 'FAIL';
+        item.status = itemVerdict;
+        item.verdict = itemVerdict;
+
+        await this.queryBatchTransaction(manager, `
+          UPDATE system_schema.device_test_batch_items
+          SET status = $2, verdict = $2
+          WHERE id = $1
+        `, [item.id, itemVerdict]).catch(() => {});
+
+        try {
+          const regRows = await this.queryBatchTransaction(manager,
+            `SELECT r.id, r.so_id, r.so_number, r.wa_id, r.wa_number, r.created_by, r.item_code,
+                    r.network_server_id, r.network_server_url, r.is_reference
+             FROM system_schema.device_test_registrations r
+             WHERE LOWER(r.serial_number) = LOWER($1) OR LOWER(REPLACE(COALESCE(r.dev_eui, ''), ':', '')) = LOWER(REPLACE($2, ':', ''))
+             ORDER BY r.created_at DESC LIMIT 1`,
+            [item.serial_number || '', item.dev_eui || ''],
+          ).catch(() => []);
+          const reg = regRows?.[0] || {};
+          const testerName = reg.created_by || batch.created_by || 'tester';
+          const soId = reg.so_id || null;
+          const waId = reg.wa_id || null;
+          const statusStr = itemVerdict === 'PASS' ? 'TESTED_PASS' : 'TESTED_FAIL';
+          const testRawData = JSON.stringify({
+            batchCode: batch.batch_code,
+            itemVerdict,
+            comparisonResult: item.comparison_result,
+            dutValues: item.dut_values,
+            referenceValues: item.reference_values,
+            packetsReceived: item.packets_received,
+            testedAt: finished,
+            testPerson: testerName,
+            soNumber: reg.so_number,
+            waNumber: reg.wa_number,
+          });
+
+          const updateRes = await this.queryBatchTransaction(manager, `
+            UPDATE traceability_manager.traceability_device
+            SET test_result = $2,
+                tested_at = $3,
+                test_raw_data = $4::jsonb,
+                status = $5,
+                test_person = COALESCE($6, test_person),
+                so_id = COALESCE($7, so_id),
+                wa_id = COALESCE($8, wa_id),
+                item_code = COALESCE($9, item_code)
+            WHERE LOWER(serial_number) = LOWER($1) OR LOWER(REPLACE(COALESCE(dev_eui, ''), ':', '')) = LOWER(REPLACE($1, ':', ''))
+          `, [
+            item.serial_number || item.dev_eui,
+            itemVerdict,
+            finished,
+            testRawData,
+            statusStr,
+            testerName,
+            soId,
+            waId,
+            reg.item_code || batch.item_code,
+          ]);
+
+          if (!updateRes || updateRes.length === 0 || (updateRes as any)[1] === 0) {
+            if (soId) {
+              await this.queryBatchTransaction(manager, `
+                INSERT INTO traceability_manager.traceability_device
+                  (so_id, wa_id, serial_number, dev_eui, item_code, test_result, test_person, tested_at, test_raw_data, status)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, $10)
+                ON CONFLICT (serial_number) DO UPDATE
+                SET test_result = EXCLUDED.test_result,
+                    test_person = EXCLUDED.test_person,
+                    tested_at = EXCLUDED.tested_at,
+                    test_raw_data = EXCLUDED.test_raw_data,
+                    status = EXCLUDED.status,
+                    wa_id = COALESCE(EXCLUDED.wa_id, traceability_device.wa_id),
+                    so_id = COALESCE(EXCLUDED.so_id, traceability_device.so_id)
+              `, [
+                soId,
+                waId,
+                item.serial_number || item.dev_eui,
+                item.dev_eui,
+                reg.item_code || batch.item_code,
+                itemVerdict,
+                testerName,
+                finished,
+                testRawData,
+                statusStr,
+              ]).catch(() => {});
+            }
+          }
+
+          if (!reg.is_reference) {
+            await this.queryBatchTransaction(manager, `
+              DELETE FROM system_schema.device_test_registrations
+              WHERE LOWER(serial_number) = LOWER($1) OR LOWER(REPLACE(COALESCE(dev_eui, ''), ':', '')) = LOWER(REPLACE($2, ':', ''))
+            `, [item.serial_number || '', item.dev_eui || '']).catch(() => {});
+
+            await this.queryBatchTransaction(manager, `
+              DELETE FROM system_schema.devices
+              WHERE LOWER(serial_number) = LOWER($1) OR LOWER(REPLACE(COALESCE(network_id, ''), ':', '')) = LOWER(REPLACE($2, ':', ''))
+            `, [item.serial_number || '', item.dev_eui || '']).catch(() => {});
+
+            try {
+              const serverRepo = this.databaseService.getRepositoryForTable('network_servers', ChirpstackNetworkServerEntity);
+              let srv: any = null;
+              let serverUrl = reg.network_server_url || '';
+              let apiToken = '';
+              if (reg.network_server_id) {
+                srv = await serverRepo.findOne({ where: { id: reg.network_server_id } }).catch(() => null);
+              }
+              if (!srv) {
+                srv = await serverRepo.findOne({ where: { isActive: true } }).catch(() => null);
+              }
+              if (srv) {
+                serverUrl = srv.apiUrl || srv.api_url || serverUrl;
+                apiToken = srv.apiToken || srv.api_token || '';
+              }
+              if (serverUrl && apiToken) {
+                const cleanDevEui = (reg.dev_eui || item.dev_eui || '').replace(/[^0-9a-fA-F]/g, '').toLowerCase();
+                const csUrl = `${serverUrl.replace(/\/+$/, '')}/api/devices/${encodeURIComponent(cleanDevEui)}`;
+                await fetch(csUrl, {
+                  method: 'DELETE',
+                  headers: {
+                    'Accept': 'application/json',
+                    'Grpc-Metadata-Authorization': `Bearer ${apiToken}`,
+                    'Authorization': `Bearer ${apiToken}`,
+                  },
+                  signal: AbortSignal.timeout(5000),
+                }).catch(() => null);
+              }
+            } catch (csErr: any) {
+              this.logger.debug(`ChirpStack auto-delete skip for ${reg.dev_eui}: ${csErr.message}`);
+            }
+          }
+        } catch (traceErr: any) {
+          this.logger.debug(`Traceability sync skip: ${traceErr.message}`);
+        }
+      }
+
+      const finalVerdict = allPass ? 'PASS' : 'FAIL';
+      const started = batch.started_at ? new Date(batch.started_at).getTime() : Date.now();
+      const elapsed = Math.max(0, Math.floor((Date.now() - started) / 1000));
+      await manager.query(`
+        UPDATE system_schema.device_test_batches
+        SET status = 'COMPLETED', verdict = $2, finished_at = $3, duration_seconds = $4, updated_at = $3
+        WHERE id = $1
+      `, [id, finalVerdict, finished, elapsed]).catch(() => {});
+
+      return {
+        success: true,
+        data: {
+          batchId: id,
+          status: 'COMPLETED',
+          verdict: finalVerdict,
+          finishedAt: finished,
+          durationSeconds: elapsed,
+        },
+      };
+    });
+  }
+
   @Get(['api/plugins/testing/test-batches/:id', 'api/v1/plugins/testing/test-batches/:id'])
   @UseGuards(JwtAuthGuard)
   async getTestBatchById(@Param('id') id: string, @Req() request: any) {
