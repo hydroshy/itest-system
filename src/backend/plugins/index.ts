@@ -5,3 +5,4 @@ export * from './plugin-manager.controller';
 export * from './plugin-management.module';
 export * from './dis-client';
 export * from './dis-manager.adapter.controller';
+export * from './so-test-batch.adapter.controller';

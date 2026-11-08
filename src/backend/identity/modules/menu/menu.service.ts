@@ -212,6 +212,16 @@ export const SYSTEM_MENU_ITEMS: MenuItemDto[] = [
     category: 'plugin',
     order: 22,
   },
+  {
+    id: 'so-test-batch:main',
+    title: 'SO Test Batch',
+    description: 'Quản lý liên kết giữa Sale Order (SO) và Test Batch',
+    icon: 'Layers',
+    route: '/plugins/so-test-batch',
+    pluginId: 'so-test-batch',
+    category: 'plugin',
+    order: 23,
+  },
 ];
 
 @Injectable()
@@ -238,6 +248,7 @@ export class MenuService {
       'testing:packets',
       'testing:list-flow-simulation',
       'testing:list-device-simulation',
+      'so-test-batch:main',
     ],
   };
 

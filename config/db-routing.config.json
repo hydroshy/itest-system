@@ -35,6 +35,9 @@
     "devices": "core_db",
     "device_packets": "core_db",
     "gateway_test_sessions": "core_db",
-    "decoder_scripts": "core_db"
+    "decoder_scripts": "core_db",
+    "device_test_batches": "core_db",
+    "device_test_batch_items": "core_db",
+    "so_test_batches": "core_db"
   }
 }

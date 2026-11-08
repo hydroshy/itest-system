@@ -18,5 +18,6 @@ export * from './device-packet.entity';
 export * from './gateway-test-session.entity';
 export * from './decoder-script.entity';
 export * from './device-autocheck-profile.entity';
+export * from './so-test-batch.entity';
 
 

@@ -24,6 +24,7 @@ import { DevicePacketEntity } from '../core-models/device-packet.entity';
 import { GatewayTestSessionEntity } from '../core-models/gateway-test-session.entity';
 import { DecoderScriptEntity } from '../core-models/decoder-script.entity';
 import { DeviceAutoCheckProfileEntity } from '../core-models/device-autocheck-profile.entity';
+import { SoTestBatchEntity } from '../core-models/so-test-batch.entity';
 
 export const ALL_DATABASE_ENTITIES = [
   User,
@@ -48,6 +49,7 @@ export const ALL_DATABASE_ENTITIES = [
   GatewayTestSessionEntity,
   DecoderScriptEntity,
   DeviceAutoCheckProfileEntity,
+  SoTestBatchEntity,
 ];
 
 export interface DbConnectionConfig {

@@ -12,6 +12,7 @@ import { DisManagerAdapterController } from './dis-manager.adapter.controller';
 import { TestingAdapterController } from './testing.adapter.controller';
 import { DeviceAdapterController } from './device.adapter.controller';
 import { DecoderAdapterController } from './decoder.adapter.controller';
+import { SoTestBatchAdapterController } from './so-test-batch.adapter.controller';
 import { DisClientService } from './dis-client/dis-client.service';
 
 @Module({
@@ -26,6 +27,7 @@ import { DisClientService } from './dis-client/dis-client.service';
     TestingAdapterController,
     DeviceAdapterController,
     DecoderAdapterController,
+    SoTestBatchAdapterController,
   ],
   providers: [PluginStorageService, PluginManagerService, DisClientService],
   exports: [PluginStorageService, PluginManagerService, DisClientService],
