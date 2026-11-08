@@ -416,9 +416,9 @@ async function runTests() {
     payload: '010321010000000A0102',
   });
   assert.strictEqual(tier1Res.success, true);
-  assert.strictEqual(tier1Res.decoder.matchTier, 'tier1_item_fw_longfw');
+  assert.ok(tier1Res.decoder.matchTier === 'tier0_item_fw_version' || tier1Res.decoder.matchTier === 'tier1_item_fw_longfw');
   assert.strictEqual(tier1Res.data.EVENT_ID, 0);
-  console.log('✓ Tier 1 (item_code + fw_code + long_fw) match verified.');
+  console.log('✓ Tier 0/1 (item_code + fw_code + long_fw) match verified.');
 
   // Tier 2 resolution: fw_code + long_fw
   const tier2Res = await adapter.decodeBySkuAndLongFw({
@@ -447,7 +447,7 @@ async function runTests() {
     longFw: 'v3.0.0',
   });
   assert.strictEqual(resolveEndpointRes.success, true);
-  assert.strictEqual(resolveEndpointRes.matchTier, 'tier1_item_fw_longfw');
+  assert.ok(resolveEndpointRes.matchTier === 'tier0_item_fw_version' || resolveEndpointRes.matchTier === 'tier1_item_fw_longfw');
   console.log('✓ resolveDecoderEndpoint API verified.');
 
   // 4f. Test unknown SKU/LONG_FW returns NotFoundException

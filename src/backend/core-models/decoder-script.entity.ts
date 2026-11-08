@@ -5,11 +5,9 @@ import {
   CreateDateColumn,
   UpdateDateColumn,
   Index,
-  Unique,
 } from 'typeorm';
 
 @Entity({ schema: 'decoder', name: 'decoder_scripts' })
-@Unique('UQ_decoder_scripts_sku_long_fw', ['sku', 'long_fw'])
 export class DecoderScriptEntity {
   @PrimaryGeneratedColumn('uuid')
   id: string;
@@ -18,12 +16,12 @@ export class DecoderScriptEntity {
   name: string;
 
   @Index('idx_decoder_scripts_sku')
-  @Column({ name: 'sku', type: 'varchar', length: 100 })
-  sku: string;
+  @Column({ name: 'sku', type: 'varchar', length: 100, nullable: true })
+  sku?: string | null;
 
   @Index('idx_decoder_scripts_long_fw')
-  @Column({ name: 'long_fw', type: 'varchar', length: 100 })
-  long_fw: string;
+  @Column({ name: 'long_fw', type: 'varchar', length: 100, nullable: true })
+  long_fw?: string | null;
 
   @Index('idx_decoder_scripts_item_code')
   @Column({ name: 'item_code', type: 'varchar', length: 100, nullable: true })
@@ -32,6 +30,10 @@ export class DecoderScriptEntity {
   @Index('idx_decoder_scripts_fw_code')
   @Column({ name: 'fw_code', type: 'varchar', length: 50, nullable: true })
   fw_code?: string | null;
+
+  @Index('idx_decoder_scripts_fw_version')
+  @Column({ name: 'fw_version', type: 'varchar', length: 50, nullable: true })
+  fw_version?: string | null;
 
   @Column({ name: 'script', type: 'text' })
   script: string;

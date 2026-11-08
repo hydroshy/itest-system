@@ -124,17 +124,6 @@ export const SYSTEM_MENU_ITEMS: MenuItemDto[] = [
     order: 15,
   },
   {
-    id: 'testing:create-device-testing',
-    title: 'Create Device Testing',
-    description: 'Tạo và khởi chạy phiên kiểm thử thiết bị LoRaWAN/Sigfox với Flow mô phỏng và Auto Check',
-    icon: 'Plus',
-    route: '/plugins/testing?tab=create-device-testing',
-    pluginId: 'testing',
-    tab: 'create-device-testing',
-    category: 'plugin',
-    order: 16,
-  },
-  {
     id: 'testing:simulation-devices',
     title: 'Simulation Devices',
     description: 'Quản lý danh sách thiết bị kiểm thử được gắn nhãn simulation trong hệ thống',
@@ -241,7 +230,6 @@ export class MenuService {
       'device-traceability:so',
       'device-traceability:devices',
       'testing:gateway-sessions',
-      'testing:create-device-testing',
       'testing:simulation-devices',
       'testing:device-simulation',
       'testing:device-auto-check',
@@ -268,7 +256,7 @@ export class MenuService {
         );
         if (Array.isArray(rows) && rows.length > 0) {
           const normalizedRows: MenuItemDto[] = rows
-            .filter((r: any) => r.id !== 'memmap-payload:upload' && r.id !== 'memmap-manager:upload')
+            .filter((r: any) => r.id !== 'memmap-payload:upload' && r.id !== 'memmap-manager:upload' && r.id !== 'testing:create-device-testing')
             .map((r: any) => {
               if (
                 r.id === 'memmap-payload:manager' ||

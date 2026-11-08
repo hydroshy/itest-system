@@ -24,10 +24,11 @@ import { MemmapProfileEntity } from '../core-models/memmap-profile.entity';
 
 export interface CreateDecoderScriptDto {
   name: string;
-  sku: string;
-  longFw: string;
+  sku?: string;
+  longFw?: string;
   itemCode?: string;
   fwCode?: string;
+  fwVersion?: string;
   script: string;
   protocol?: string;
   description?: string;
@@ -45,6 +46,7 @@ export interface UpdateDecoderScriptDto {
   longFw?: string;
   itemCode?: string;
   fwCode?: string;
+  fwVersion?: string;
   script?: string;
   protocol?: string;
   description?: string;
@@ -63,6 +65,7 @@ export interface TestDecoderPayloadDto {
   longFw?: string;
   itemCode?: string;
   fwCode?: string;
+  fwVersion?: string;
   payload: string | number[];
   fPort?: number;
   inputFormat?: 'hex' | 'base64' | 'bytes';
@@ -74,6 +77,7 @@ export interface DecodeByProductDto {
   longFw?: string;
   itemCode?: string;
   fwCode?: string;
+  fwVersion?: string;
   payload: string | number[];
   fPort?: number;
   inputFormat?: 'hex' | 'base64' | 'bytes';
@@ -103,11 +107,13 @@ export class DecoderAdapterController {
 
   /**
    * GET /api/plugins/decoder/memmaps
-   * Return available memmaps (SKU & LONG_FW) along with whether they have a decoder script configured
+   * Return available memmaps (ITEM_CODE, FW_VERSION, SKU & LONG_FW) along with whether they have a decoder script configured
    */
   @Get(['api/plugins/decoder/memmaps', 'api/v1/plugins/decoder/memmaps', 'api/plugins/decode/memmaps', 'api/v1/plugins/decode/memmaps'])
   async getMemmapsWithDecoderStatus(
     @Query('sku') skuQuery?: string,
+    @Query('itemCode') itemCodeQuery?: string,
+    @Query('fwVersion') fwVersionQuery?: string,
     @Query('configured') configuredQuery?: string,
   ) {
     try {
@@ -115,27 +121,46 @@ export class DecoderAdapterController {
       const decoderRepo = this.getDecoderRepo();
 
       const qb = memmapRepo.createQueryBuilder('m');
-      if (skuQuery) {
-        qb.where('LOWER(m.sku) LIKE LOWER(:sku)', { sku: `%${skuQuery}%` });
+      if (itemCodeQuery) {
+        qb.andWhere('LOWER(m.itemCode) LIKE LOWER(:itemCode)', { itemCode: `%${itemCodeQuery}%` });
       }
-      qb.orderBy('m.sku', 'ASC').addOrderBy('m.longFw', 'ASC');
+      if (fwVersionQuery) {
+        qb.andWhere('LOWER(m.fwVersion) LIKE LOWER(:fwVersion)', { fwVersion: `%${fwVersionQuery}%` });
+      }
+      if (skuQuery) {
+        qb.andWhere('(LOWER(m.sku) LIKE LOWER(:sku) OR LOWER(m.itemCode) LIKE LOWER(:sku))', { sku: `%${skuQuery}%` });
+      }
+      qb.orderBy('m.itemCode', 'ASC').addOrderBy('m.sku', 'ASC');
 
       const memmaps = await qb.getMany();
       const decoders = await decoderRepo.find();
 
-      const decoderMap = new Map<string, DecoderScriptEntity>();
+      const decoderMapByItemFw = new Map<string, DecoderScriptEntity>();
+      const decoderMapBySku = new Map<string, DecoderScriptEntity>();
+
       for (const d of decoders) {
-        const key = `${d.sku.trim().toLowerCase()}:::${d.long_fw.trim().toLowerCase()}`;
-        decoderMap.set(key, d);
+        const item = (d.item_code || '').trim().toLowerCase();
+        const fw = (d.fw_version || d.fw_code || '').trim().toLowerCase();
+        if (item && fw) {
+          decoderMapByItemFw.set(`${item}:::${fw}`, d);
+        }
+        const sku = (d.sku || '').trim().toLowerCase();
+        const longFw = (d.long_fw || '').trim().toLowerCase();
+        if (sku && longFw) {
+          decoderMapBySku.set(`${sku}:::${longFw}`, d);
+        }
       }
 
       let results = memmaps.map((m) => {
-        const key = `${(m.sku || '').trim().toLowerCase()}:::${(m.longFw || '').trim().toLowerCase()}`;
-        const matchedDecoder = decoderMap.get(key);
+        const itemKey = `${(m.itemCode || '').trim().toLowerCase()}:::${(m.fwVersion || '').trim().toLowerCase()}`;
+        const skuKey = `${(m.sku || '').trim().toLowerCase()}:::${(m.longFw || '').trim().toLowerCase()}`;
+        const matchedDecoder = decoderMapByItemFw.get(itemKey) || decoderMapBySku.get(skuKey);
 
         return {
           id: m.id,
           name: m.name,
+          itemCode: m.itemCode || m.sku,
+          fwVersion: m.fwVersion || m.longFw,
           sku: m.sku,
           longFw: m.longFw,
           shortFw: m.shortFw,
@@ -169,7 +194,7 @@ export class DecoderAdapterController {
 
   /**
    * GET /api/plugins/decoder/skus
-   * Returns distinct list of SKUs and available LONG_FWs from memmap and decoders
+   * Returns distinct list of ITEM_CODEs / SKUs and available FW_VERSIONs / LONG_FWs from memmap and decoders
    */
   @Get(['api/plugins/decoder/skus', 'api/v1/plugins/decoder/skus', 'api/plugins/decode/skus', 'api/v1/plugins/decode/skus'])
   async getAvailableSkus() {
@@ -177,39 +202,40 @@ export class DecoderAdapterController {
       const memmapRepo = this.getMemmapRepo();
       const decoderRepo = this.getDecoderRepo();
 
-      const memmaps = await memmapRepo.find({ select: ['id', 'name', 'sku', 'longFw', 'shortFw'] });
-      const decoders = await decoderRepo.find({ select: ['id', 'name', 'sku', 'long_fw', 'is_active'] });
+      const memmaps = await memmapRepo.find({ select: ['id', 'name', 'itemCode', 'fwVersion', 'sku', 'longFw', 'shortFw'] });
+      const decoders = await decoderRepo.find({ select: ['id', 'name', 'item_code', 'fw_version', 'fw_code', 'sku', 'long_fw', 'is_active'] });
 
-      const skuMap = new Map<string, { sku: string; longFws: Set<string>; configuredCount: number; totalCount: number }>();
+      const itemMap = new Map<string, { itemCode: string; sku?: string; fwVersions: Set<string>; longFws: Set<string>; configuredCount: number; totalCount: number }>();
 
       for (const m of memmaps) {
-        if (!m.sku) continue;
-        const skuKey = m.sku.trim();
-        if (!skuMap.has(skuKey)) {
-          skuMap.set(skuKey, { sku: skuKey, longFws: new Set(), configuredCount: 0, totalCount: 0 });
+        const primaryCode = (m.itemCode || m.sku || '').trim();
+        if (!primaryCode) continue;
+        if (!itemMap.has(primaryCode)) {
+          itemMap.set(primaryCode, { itemCode: primaryCode, sku: m.sku || primaryCode, fwVersions: new Set(), longFws: new Set(), configuredCount: 0, totalCount: 0 });
         }
-        const item = skuMap.get(skuKey)!;
+        const item = itemMap.get(primaryCode)!;
         item.totalCount++;
-        if (m.longFw) {
-          item.longFws.add(m.longFw.trim());
-        }
+        if (m.fwVersion) item.fwVersions.add(m.fwVersion.trim());
+        if (m.longFw) item.longFws.add(m.longFw.trim());
       }
 
       for (const d of decoders) {
-        if (!d.sku) continue;
-        const skuKey = d.sku.trim();
-        if (!skuMap.has(skuKey)) {
-          skuMap.set(skuKey, { sku: skuKey, longFws: new Set(), configuredCount: 0, totalCount: 0 });
+        const primaryCode = (d.item_code || d.sku || '').trim();
+        if (!primaryCode) continue;
+        if (!itemMap.has(primaryCode)) {
+          itemMap.set(primaryCode, { itemCode: primaryCode, sku: d.sku || primaryCode, fwVersions: new Set(), longFws: new Set(), configuredCount: 0, totalCount: 0 });
         }
-        const item = skuMap.get(skuKey)!;
-        if (d.long_fw) {
-          item.longFws.add(d.long_fw.trim());
-        }
+        const item = itemMap.get(primaryCode)!;
+        if (d.fw_version) item.fwVersions.add(d.fw_version.trim());
+        if (d.fw_code) item.fwVersions.add(d.fw_code.trim());
+        if (d.long_fw) item.longFws.add(d.long_fw.trim());
         item.configuredCount++;
       }
 
-      const list = Array.from(skuMap.values()).map((v) => ({
-        sku: v.sku,
+      const list = Array.from(itemMap.values()).map((v) => ({
+        itemCode: v.itemCode,
+        sku: v.sku || v.itemCode,
+        fwVersions: Array.from(v.fwVersions),
         longFws: Array.from(v.longFws),
         configuredCount: v.configuredCount,
         totalCount: v.totalCount,
@@ -220,9 +246,9 @@ export class DecoderAdapterController {
         data: list,
       };
     } catch (err: any) {
-      this.logger.error(`Failed to get available SKUs: ${err.message}`, err.stack);
+      this.logger.error(`Failed to get available SKUs/items: ${err.message}`, err.stack);
       throw new HttpException(
-        { success: false, error: 'Failed to retrieve SKUs', message: err.message },
+        { success: false, error: 'Failed to retrieve SKUs/items', message: err.message },
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
@@ -321,26 +347,35 @@ export class DecoderAdapterController {
   @Post(['api/plugins/decoder/scripts', 'api/v1/plugins/decoder/scripts', 'api/plugins/decode/scripts', 'api/v1/plugins/decode/scripts'])
   async createDecoderScript(@Body() dto: CreateDecoderScriptDto) {
     try {
-      if (!dto.name || !dto.sku || !dto.longFw || !dto.script) {
-        throw new BadRequestException('name, sku, longFw, and script are required');
+      const cleanItemCode = (dto.itemCode || dto.sku || '').trim();
+      const cleanFwVersion = (dto.fwVersion || dto.fwCode || dto.longFw || '').trim();
+
+      if (!dto.name || !dto.script || (!cleanItemCode && !dto.sku)) {
+        throw new BadRequestException('name, script, and (itemCode or sku) are required');
       }
 
-      const cleanSku = dto.sku.trim();
-      const cleanLongFw = dto.longFw.trim();
+      const cleanSku = (dto.sku || cleanItemCode).trim();
+      const cleanLongFw = (dto.longFw || cleanFwVersion).trim();
       const repo = this.getDecoderRepo();
 
-      // Check if duplicate SKU + LONG_FW
-      const existing = await repo
-        .createQueryBuilder('d')
-        .where('LOWER(d.sku) = LOWER(:sku) AND LOWER(d.long_fw) = LOWER(:longFw)', {
+      // Check duplicate by item_code + fw_version or sku + long_fw
+      const qb = repo.createQueryBuilder('d');
+      if (cleanItemCode && cleanFwVersion) {
+        qb.where(
+          '(LOWER(COALESCE(d.item_code, d.sku)) = LOWER(:itemCode) AND LOWER(COALESCE(d.fw_version, d.fw_code, d.long_fw)) = LOWER(:fwVersion))',
+          { itemCode: cleanItemCode, fwVersion: cleanFwVersion },
+        );
+      } else {
+        qb.where('LOWER(d.sku) = LOWER(:sku) AND LOWER(d.long_fw) = LOWER(:longFw)', {
           sku: cleanSku,
           longFw: cleanLongFw,
-        })
-        .getOne();
+        });
+      }
 
+      const existing = await qb.getOne();
       if (existing) {
         throw new BadRequestException(
-          `Decoder script for SKU '${cleanSku}' and LONG_FW '${cleanLongFw}' already exists (ID: ${existing.id})`,
+          `Decoder script for ITEM_CODE '${cleanItemCode}' and FW_VERSION '${cleanFwVersion}' already exists (ID: ${existing.id})`,
         );
       }
 
@@ -348,8 +383,9 @@ export class DecoderAdapterController {
         name: dto.name.trim(),
         sku: cleanSku,
         long_fw: cleanLongFw,
-        item_code: (dto.itemCode || '').trim() || null,
-        fw_code: (dto.fwCode || '').trim() || null,
+        item_code: cleanItemCode || null,
+        fw_code: cleanFwVersion || null,
+        fw_version: cleanFwVersion || null,
         script: dto.script,
         protocol: dto.protocol || 'lorawan',
         description: dto.description || null,
@@ -366,15 +402,18 @@ export class DecoderAdapterController {
       if (this.realtimeService) {
         this.realtimeService.publishPluginLifecycle('decoder:created', {
           id: saved.id,
+          name: saved.name,
           sku: saved.sku,
           longFw: saved.long_fw,
+          itemCode: saved.item_code,
+          fwVersion: saved.fw_version,
         });
       }
 
       return {
         success: true,
         data: saved,
-        message: `Decoder script created successfully for SKU '${saved.sku}' and LONG_FW '${saved.long_fw}'`,
+        message: `Decoder script created successfully for ITEM_CODE '${saved.item_code || saved.sku}' and FW_VERSION '${saved.fw_version || saved.long_fw}'`,
       };
     } catch (err: any) {
       if (err instanceof BadRequestException) throw err;
@@ -399,26 +438,24 @@ export class DecoderAdapterController {
         throw new NotFoundException(`Decoder script with ID '${id}' not found`);
       }
 
-      // Check unique conflict if sku/longFw changed
-      const targetSku = dto.sku ? dto.sku.trim() : existing.sku;
-      const targetLongFw = dto.longFw ? dto.longFw.trim() : existing.long_fw;
+      const targetItemCode = dto.itemCode !== undefined ? dto.itemCode.trim() : (existing.item_code || existing.sku);
+      const targetFwVersion = dto.fwVersion !== undefined ? dto.fwVersion.trim() : (existing.fw_version || existing.fw_code || existing.long_fw);
+      const targetSku = dto.sku ? dto.sku.trim() : (existing.sku || targetItemCode);
+      const targetLongFw = dto.longFw ? dto.longFw.trim() : (existing.long_fw || targetFwVersion);
 
-      if (
-        (dto.sku && dto.sku.trim().toLowerCase() !== existing.sku.toLowerCase()) ||
-        (dto.longFw && dto.longFw.trim().toLowerCase() !== existing.long_fw.toLowerCase())
-      ) {
+      // Check conflict if identifiers changed
+      if (targetItemCode && targetFwVersion) {
         const conflict = await repo
           .createQueryBuilder('d')
-          .where('LOWER(d.sku) = LOWER(:sku) AND LOWER(d.long_fw) = LOWER(:longFw) AND d.id != :id', {
-            sku: targetSku,
-            longFw: targetLongFw,
-            id,
-          })
+          .where(
+            'd.id != :id AND LOWER(COALESCE(d.item_code, d.sku)) = LOWER(:itemCode) AND LOWER(COALESCE(d.fw_version, d.fw_code, d.long_fw)) = LOWER(:fwVersion)',
+            { id, itemCode: targetItemCode, fwVersion: targetFwVersion },
+          )
           .getOne();
 
         if (conflict) {
           throw new BadRequestException(
-            `Another decoder script for SKU '${targetSku}' and LONG_FW '${targetLongFw}' already exists (ID: ${conflict.id})`,
+            `Another decoder script for ITEM_CODE '${targetItemCode}' and FW_VERSION '${targetFwVersion}' already exists (ID: ${conflict.id})`,
           );
         }
       }
@@ -426,8 +463,12 @@ export class DecoderAdapterController {
       if (dto.name !== undefined) existing.name = dto.name.trim();
       if (dto.sku !== undefined) existing.sku = targetSku;
       if (dto.longFw !== undefined) existing.long_fw = targetLongFw;
-      if (dto.itemCode !== undefined) existing.item_code = dto.itemCode ? dto.itemCode.trim() : null;
-      if (dto.fwCode !== undefined) existing.fw_code = dto.fwCode ? dto.fwCode.trim() : null;
+      if (dto.itemCode !== undefined) existing.item_code = targetItemCode || null;
+      if (dto.fwCode !== undefined) existing.fw_code = dto.fwCode.trim() || null;
+      if (dto.fwVersion !== undefined) {
+        existing.fw_version = targetFwVersion || null;
+        if (!existing.fw_code) existing.fw_code = targetFwVersion || null;
+      }
       if (dto.script !== undefined) existing.script = dto.script;
       if (dto.protocol !== undefined) existing.protocol = dto.protocol;
       if (dto.description !== undefined) existing.description = dto.description;
@@ -436,15 +477,18 @@ export class DecoderAdapterController {
       if (dto.sampleFport !== undefined) existing.sample_fport = Number(dto.sampleFport);
       if (dto.sampleDecoded !== undefined) existing.sample_decoded = dto.sampleDecoded;
       if (dto.isActive !== undefined) existing.is_active = Boolean(dto.isActive);
-      if (dto.metadata !== undefined) existing.metadata = { ...existing.metadata, ...dto.metadata };
+      if (dto.metadata !== undefined) existing.metadata = dto.metadata;
 
       const updated = await repo.save(existing);
 
       if (this.realtimeService) {
         this.realtimeService.publishPluginLifecycle('decoder:updated', {
           id: updated.id,
+          name: updated.name,
           sku: updated.sku,
           longFw: updated.long_fw,
+          itemCode: updated.item_code,
+          fwVersion: updated.fw_version,
         });
       }
 
@@ -637,25 +681,27 @@ function Decode(fPort, bytes) {
           throw new NotFoundException(`Decoder script ID '${dto.scriptId}' not found`);
         }
         scriptContent = found.script;
-      } else if (!scriptContent && dto.sku && dto.longFw) {
+      } else if (!scriptContent && (dto.itemCode || dto.sku) && (dto.fwVersion || dto.fwCode || dto.longFw)) {
         const repo = this.getDecoderRepo();
+        const code = (dto.itemCode || dto.sku)!.trim();
+        const fw = (dto.fwVersion || dto.fwCode || dto.longFw)!.trim();
         const found = await repo
           .createQueryBuilder('d')
-          .where('LOWER(d.sku) = LOWER(:sku) AND LOWER(d.long_fw) = LOWER(:longFw)', {
-            sku: dto.sku.trim(),
-            longFw: dto.longFw.trim(),
+          .where('((LOWER(d.item_code) = LOWER(:code) OR LOWER(d.sku) = LOWER(:code)) AND (LOWER(COALESCE(d.fw_version, d.fw_code)) = LOWER(:fw) OR LOWER(d.long_fw) = LOWER(:fw)))', {
+            code,
+            fw,
           })
           .getOne();
         if (!found) {
           throw new NotFoundException(
-            `No decoder script found for SKU '${dto.sku}' and LONG_FW '${dto.longFw}'`,
+            `No decoder script found for identifier '${code}' and version '${fw}'`,
           );
         }
         scriptContent = found.script;
       }
 
       if (!scriptContent) {
-        throw new BadRequestException('Either script, scriptId, or (sku + longFw) is required to run test');
+        throw new BadRequestException('Either script, scriptId, or (itemCode + fwVersion) is required to run test');
       }
 
       if (dto.payload === undefined || dto.payload === null) {
@@ -691,6 +737,7 @@ function Decode(fPort, bytes) {
 
   /**
    * 4-tier resolution algorithm for device testing & products:
+   * Tier 0: (item_code, fw_version) direct match
    * Tier 1: (item_code, fw_code, long_fw)
    * Tier 2: (fw_code, long_fw)
    * Tier 3: (item_code, long_fw)
@@ -699,14 +746,29 @@ function Decode(fPort, bytes) {
   async resolveDecoderScript(params: {
     itemCode?: string;
     fwCode?: string;
+    fwVersion?: string;
     sku?: string;
     longFw?: string;
   }): Promise<{ matched: DecoderScriptEntity | null; matchTier: string | null }> {
     const repo = this.getDecoderRepo();
     const itemCode = (params.itemCode || '').trim();
-    const fwCode = (params.fwCode || '').trim();
+    const fwVersion = (params.fwVersion || params.fwCode || '').trim();
+    const fwCode = (params.fwCode || params.fwVersion || '').trim();
     const sku = (params.sku || '').trim();
     const longFw = (params.longFw || '').trim();
+
+    // Tier 0: Direct (item_code, fw_version)
+    if (itemCode && fwVersion) {
+      const match = await repo
+        .createQueryBuilder('d')
+        .where('d.is_active = true')
+        .andWhere('(LOWER(d.item_code) = LOWER(:itemCode) OR LOWER(d.sku) = LOWER(:itemCode)) AND (LOWER(COALESCE(d.fw_version, d.fw_code)) = LOWER(:fwVersion) OR LOWER(d.long_fw) = LOWER(:fwVersion))', {
+          itemCode,
+          fwVersion,
+        })
+        .getOne();
+      if (match) return { matched: match, matchTier: 'tier0_item_fw_version' };
+    }
 
     // Tier 1: (item_code, fw_code, long_fw)
     if (itemCode && fwCode && longFw) {
