@@ -277,7 +277,7 @@ export class MenuService {
               ) {
                 return {
                   ...r,
-                  title: 'Memmap Payload',
+                  title: 'MEMMAP PAYLOAD',
                   icon: 'Files',
                   route: '/plugins/memmap-manager?tab=manager',
                   pluginId: 'memmap-manager',
