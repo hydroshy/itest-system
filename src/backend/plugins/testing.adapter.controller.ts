@@ -394,24 +394,54 @@ export class TestingAdapterController {
 
       const [items, total] = await qb.getManyAndCount();
 
+      // Check which devices are currently running in an active test batch
+      const runningBatchMap: Record<string, string> = {};
+      try {
+        const ds = this.databaseService.getDataSourceForTable('devices');
+        if (ds && items.length > 0) {
+          const serials = items.map((i) => i.serial_number).filter(Boolean);
+          if (serials.length > 0) {
+            const runningRows = await ds.query(
+              `SELECT bi.serial_number, b.batch_code
+               FROM system_schema.device_test_batch_items bi
+               JOIN system_schema.device_test_batches b ON bi.batch_id = b.id
+               WHERE b.status = 'RUNNING' AND bi.serial_number = ANY($1)`,
+              [serials],
+            );
+            for (const r of runningRows) {
+              if (r.serial_number) {
+                runningBatchMap[r.serial_number.toLowerCase()] = r.batch_code;
+              }
+            }
+          }
+        }
+      } catch (err: any) {
+        this.logger.debug(`Could not query running batch items: ${err.message}`);
+      }
+
       return {
-        data: items.map((d) => ({
-          id: d.id,
-          serialNumber: d.serial_number,
-          networkId: d.network_id,
-          deviceName: d.device_name,
-          deviceType: d.device_type,
-          pluginId: d.plugin_id,
-          soId: d.so_id,
-          soNumber: d.so_number,
-          waId: d.wa_id,
-          waNumber: d.wa_number,
-          itemCode: d.item_code,
-          status: d.status,
-          metadata: d.metadata || {},
-          createdAt: d.created_at,
-          updatedAt: d.updated_at,
-        })),
+        data: items.map((d) => {
+          const runningInBatch = d.serial_number ? runningBatchMap[d.serial_number.toLowerCase()] : null;
+          return {
+            id: d.id,
+            serialNumber: d.serial_number,
+            networkId: d.network_id,
+            deviceName: d.device_name,
+            deviceType: d.device_type,
+            pluginId: d.plugin_id,
+            soId: d.so_id,
+            soNumber: d.so_number,
+            waId: d.wa_id,
+            waNumber: d.wa_number,
+            itemCode: d.item_code,
+            status: runningInBatch ? 'RUNNING_BATCH' : d.status,
+            isRunningBatch: !!runningInBatch,
+            runningBatchCode: runningInBatch || null,
+            metadata: d.metadata || {},
+            createdAt: d.created_at,
+            updatedAt: d.updated_at,
+          };
+        }),
         total,
         page: pageNum,
         limit: limitNum,
@@ -4528,9 +4558,11 @@ export class TestingAdapterController {
     const ds = this.databaseService.getDataSourceForTable('devices');
     if (!ds) throw new HttpException('Database unavailable', HttpStatus.SERVICE_UNAVAILABLE);
     const rows = await ds.query(
-      `SELECT id, batch_code, batch_name, status, started_at, flow_duration_seconds
-       FROM system_schema.device_test_batches
-       WHERE status = 'RUNNING' AND LOWER(created_by) = LOWER($1) ORDER BY started_at DESC`,
+      `SELECT b.id, b.batch_code, b.batch_name, b.status, b.started_at, b.flow_duration_seconds,
+              COALESCE(sotb.so_number, b.metadata->>'soNumber') AS so_number
+       FROM system_schema.device_test_batches b
+       LEFT JOIN system_schema.so_test_batches sotb ON b.id = sotb.batch_id
+       WHERE b.status = 'RUNNING' AND LOWER(b.created_by) = LOWER($1) ORDER BY b.started_at DESC`,
       [request.user.username],
     );
     return { success: true, data: rows };
@@ -4706,6 +4738,26 @@ export class TestingAdapterController {
       }
       if (devices.length > (batch.max_devices || 10)) {
         throw new BadRequestException(`Số lượng thiết bị (${devices.length}) vượt quá giới hạn cho phép (${batch.max_devices})`);
+      }
+
+      // Guard: Thiết bị đang trong test batch khác có status RUNNING thì không thể thêm vào test batch khác
+      const devSerials = devices.map((d: any) => d.serialNumber || d.serial_number).filter(Boolean);
+      if (devSerials.length > 0) {
+        const busyRows = await this.queryBatchTransaction(
+          ds,
+          `SELECT bi.serial_number, b.batch_code
+           FROM system_schema.device_test_batch_items bi
+           JOIN system_schema.device_test_batches b ON bi.batch_id = b.id
+           WHERE b.status = 'RUNNING' AND b.id != $1 AND bi.serial_number = ANY($2)`,
+          [id, devSerials],
+        ).catch(() => []);
+
+        if (busyRows && busyRows.length > 0) {
+          const detail = busyRows.map((r: any) => `${r.serial_number} (đang chạy ở batch ${r.batch_code})`).join(', ');
+          throw new BadRequestException(
+            `Thiết bị đang chạy test batch khác: ${detail}. Không thể thêm vào test batch khác trừ khi đã hoàn thành hoặc chưa bắt đầu.`,
+          );
+        }
       }
 
       if (flowBlocks.some(b => b.targetDevice === 'REF') && devices.some(d => !/^[0-9a-fA-F]{16}$/.test(d.referenceDevEui || d.reference_dev_eui || ''))) {
@@ -5247,11 +5299,25 @@ export class TestingAdapterController {
         elapsedSeconds = batch.duration_seconds || flowDuration;
       }
 
+      let resolvedSoNumber: string | null = null;
+      try {
+        const soRow = await this.queryBatchTransaction(
+          ds,
+          `SELECT so_number FROM system_schema.so_test_batches WHERE batch_id = $1 LIMIT 1`,
+          [id],
+        );
+        resolvedSoNumber = soRow?.[0]?.so_number || batch.metadata?.soNumber || null;
+      } catch {
+        resolvedSoNumber = batch.metadata?.soNumber || null;
+      }
+
       return {
         success: true,
         data: {
           batchId: batch.id,
           batchCode: batch.batch_code,
+          batchName: batch.batch_name,
+          soNumber: resolvedSoNumber,
           status: batch.status,
           verdict: batch.verdict,
           flowDurationSeconds: flowDuration,
@@ -5264,6 +5330,8 @@ export class TestingAdapterController {
             id: i.id,
             serialNumber: i.serial_number,
             devEui: i.dev_eui,
+            itemCode: i.item_code,
+            fwVersion: i.fw_version,
             referenceSerialNumber: i.reference_serial_number,
             referenceDeviceName: i.reference_device_name,
             status: i.status,

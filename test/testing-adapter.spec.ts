@@ -451,6 +451,12 @@ const mockDatabaseService: any = {
         if (sql.includes('WHERE batch_id = $1')) {
           return mockBatchItems.filter((i) => i.batch_id === params[0]);
         }
+        if (sql.includes("WHERE b.status = 'RUNNING' AND b.id != $1")) {
+          return mockBatchItems.filter((i) => {
+            const batch = mockBatches.find((b) => b.id === i.batch_id);
+            return batch && batch.status === 'RUNNING' && batch.id !== params[0] && (params[1] || []).includes(i.serial_number);
+          });
+        }
         if (sql.startsWith('DELETE FROM system_schema.device_test_batch_items')) {
           const remaining = mockBatchItems.filter((i) => i.batch_id !== params[0]);
           mockBatchItems.length = 0;
