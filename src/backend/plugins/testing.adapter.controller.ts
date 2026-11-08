@@ -3206,8 +3206,16 @@ export class TestingAdapterController {
     try {
       // Step 1: Validate metadata from Step 1 & Step 2
       const connectivity = (body?.connectivity || 'LoRaWAN').trim();
-      const soNumber = (body?.soNumber || body?.so_number || '').trim();
-      const waNumber = (body?.waNumber || body?.wa_number || '').trim();
+      const rawSoNumber = (body?.soNumber || body?.so_number || '').trim();
+      const rawWaNumber = (body?.waNumber || body?.wa_number || '').trim();
+
+      // Standardize SO and WA numbers: enforce SO/XXXX/XXXXX and WA/XXXX/XXXXX format (X numeric)
+      const soMatch = rawSoNumber.match(/SO\/\d+\/\d+/i);
+      const soNumber = soMatch ? soMatch[0].toUpperCase() : rawSoNumber.toUpperCase();
+
+      const waMatch = rawWaNumber.match(/WA\/\d+\/\d+/i);
+      const waNumber = waMatch ? waMatch[0].toUpperCase() : rawWaNumber.toUpperCase();
+
       let tenantId = (body?.tenantId || body?.tenant_id || '').trim();
       const serverId = (body?.serverId || body?.server_id || '').trim();
       let serverUrl = '';
@@ -3446,19 +3454,37 @@ export class TestingAdapterController {
       try {
         const ds = this.databaseService.getDataSourceForTable('devices');
         if (ds) {
+          let resolvedSoId = (body?.soId || body?.so_id || '').trim() || null;
+          let resolvedWaId = (body?.waId || body?.wa_id || '').trim() || null;
+
+          if (!resolvedSoId && soNumber) {
+            const soRows = await ds.query(
+              `SELECT id FROM traceability_manager.traceability_so WHERE so_number = $1 LIMIT 1`,
+              [soNumber],
+            ).catch(() => []);
+            resolvedSoId = soRows[0]?.id || null;
+          }
+          if (!resolvedWaId && waNumber) {
+            const waRows = await ds.query(
+              `SELECT id FROM traceability_manager.traceability_wa WHERE wa_number = $1 LIMIT 1`,
+              [waNumber],
+            ).catch(() => []);
+            resolvedWaId = waRows[0]?.id || null;
+          }
+
           const regCode = `REG-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
           await ds.query(
             `INSERT INTO system_schema.device_test_registrations (
-              registration_code, connectivity, so_number, wa_number, item_code,
+              registration_code, connectivity, so_id, so_number, wa_id, wa_number, item_code,
               network_server_id, network_server_url, application_id, device_profile_id,
               fw_code, fw_version, hw_version, me_version,
               dev_eui, app_eui, app_key, region_code, class_mode, sensor_type, serial_number,
               status, message, chirpstack_payload, created_by
             ) VALUES (
-              $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24
+              $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26
             )`,
             [
-              regCode, connectivity, soNumber || null, waNumber || null, itemCode || null,
+              regCode, connectivity, resolvedSoId, soNumber || null, resolvedWaId, waNumber || null, itemCode || null,
               serverId || null, serverUrl, applicationId, deviceProfileId,
               fwCode || null, fwVersion || null, hwVersion || null, meVersion || null,
               devEui, appEui || null, appKey || null, regionCode, deviceClass, sensorType || null, serialNumber || null,
