@@ -79,26 +79,14 @@ export const SYSTEM_MENU_ITEMS: MenuItemDto[] = [
     order: 7,
   },
   {
-    id: 'memmap-payload:manager',
-    title: 'Memmap Manager',
-    description: 'Quản lý bản đồ bộ nhớ thiết bị Modbus và bảng giải mã Payload LoRaWAN',
-    icon: 'Files',
-    route: '/plugins/memmap-manager?tab=manager',
+    id: 'memmap-payload:main',
+    title: 'MEMMAP PAYLOAD',
+    description: 'Quản lý bản đồ bộ nhớ (Memmap) và tải lên bảng thanh ghi thiết bị',
+    icon: 'Layers',
+    route: '/plugins/memmap-payload',
     pluginId: 'memmap-manager',
-    tab: 'manager',
     category: 'plugin',
     order: 8,
-  },
-  {
-    id: 'memmap-payload:upload',
-    title: 'Memmap Upload',
-    description: 'Tải lên Memmap Payload và kiểm tra hợp lệ cấu hình thanh ghi thiết bị',
-    icon: 'Upload',
-    route: '/plugins/memmap-manager?tab=upload',
-    pluginId: 'memmap-manager',
-    tab: 'upload',
-    category: 'plugin',
-    order: 9,
   },
   {
     id: 'lorawan-chirpstack:integration',
@@ -213,14 +201,26 @@ export const SYSTEM_MENU_ITEMS: MenuItemDto[] = [
     order: 22,
   },
   {
+    id: 'testing:so-test-batch',
+    title: 'SO Test Batch',
+    description: 'Quản lý liên kết giữa Sale Order (SO) và Test Batch',
+    icon: 'Layers',
+    route: '/plugins/testing?tab=so-test-batch',
+    pluginId: 'testing',
+    tab: 'so-test-batch',
+    category: 'plugin',
+    order: 23,
+  },
+  {
     id: 'so-test-batch:main',
     title: 'SO Test Batch',
     description: 'Quản lý liên kết giữa Sale Order (SO) và Test Batch',
     icon: 'Layers',
-    route: '/plugins/so-test-batch',
-    pluginId: 'so-test-batch',
+    route: '/plugins/testing?tab=so-test-batch',
+    pluginId: 'testing',
+    tab: 'so-test-batch',
     category: 'plugin',
-    order: 23,
+    order: 24,
   },
 ];
 
@@ -248,6 +248,7 @@ export class MenuService {
       'testing:packets',
       'testing:list-flow-simulation',
       'testing:list-device-simulation',
+      'testing:so-test-batch',
       'so-test-batch:main',
     ],
   };
@@ -266,40 +267,25 @@ export class MenuService {
            FROM system_menu_items ORDER BY display_order ASC`
         );
         if (Array.isArray(rows) && rows.length > 0) {
-          const normalizedRows: MenuItemDto[] = rows.map((r: any) => {
-            if (
-              r.id === 'memmap-payload:manager' &&
-              (!r.route || r.route.includes('/memmap-payload') || r.route.includes('tab=memmap'))
-            ) {
-              return {
-                ...r,
-                title: 'Memmap Manager',
-                icon: 'Files',
-                route: '/plugins/memmap-manager?tab=manager',
-                pluginId: 'memmap-manager',
-                tab: 'manager',
-              };
-            }
-            return r;
-          });
-
-          const hasUpload = normalizedRows.some(
-            (r: any) => r.id === 'memmap-payload:upload' || r.id === 'memmap-manager:upload',
-          );
-          if (!hasUpload) {
-            normalizedRows.push({
-              id: 'memmap-payload:upload',
-              title: 'Memmap Upload',
-              description: 'Tải lên Memmap Payload và kiểm tra hợp lệ cấu hình thanh ghi thiết bị',
-              icon: 'Upload',
-              route: '/plugins/memmap-manager?tab=upload',
-              pluginId: 'memmap-manager',
-              tab: 'upload',
-              category: 'plugin',
-              order: 9,
+          const normalizedRows: MenuItemDto[] = rows
+            .filter((r: any) => r.id !== 'memmap-payload:upload' && r.id !== 'memmap-manager:upload')
+            .map((r: any) => {
+              if (
+                r.id === 'memmap-payload:manager' ||
+                r.id === 'memmap-payload:main' ||
+                (!r.route || r.route.includes('/memmap-payload') || r.route.includes('tab=memmap'))
+              ) {
+                return {
+                  ...r,
+                  title: 'Memmap Payload',
+                  icon: 'Files',
+                  route: '/plugins/memmap-manager?tab=manager',
+                  pluginId: 'memmap-manager',
+                  tab: 'manager',
+                };
+              }
+              return r;
             });
-            normalizedRows.sort((a, b) => (a.order || 0) - (b.order || 0));
-          }
           // Keep existing IDs/permissions; expose newly introduced view cards even on older databases.
           for (const item of SYSTEM_MENU_ITEMS.filter(
             (item) => item.pluginId === 'lorawan-chirpstack' || item.pluginId === 'testing',

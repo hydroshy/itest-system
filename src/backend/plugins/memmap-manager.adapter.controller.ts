@@ -8,6 +8,7 @@ import {
   HttpStatus,
   Logger,
   NotFoundException,
+  OnModuleInit,
   Param,
   Post,
   UploadedFile,
@@ -26,12 +27,34 @@ import {
 } from './memmap-manager-core';
 
 @Controller()
-export class MemmapManagerAdapterController {
+export class MemmapManagerAdapterController implements OnModuleInit {
   private readonly logger = new Logger(MemmapManagerAdapterController.name);
   private service: MemmapManagerService;
+  private schemaCompatibilityChecked = false;
 
   constructor(private readonly databaseService: DynamicDatabaseService) {
     this.initService();
+  }
+
+  async onModuleInit() {
+    await this.ensureSchemaCompatibility();
+  }
+
+  private async ensureSchemaCompatibility(): Promise<void> {
+    if (this.schemaCompatibilityChecked) return;
+    try {
+      const ds = this.databaseService.getDataSourceForTable('memmap_profiles');
+      if (ds && ds.isInitialized) {
+        await ds.query(`
+          ALTER TABLE IF EXISTS memmap_manager.memmap_profiles
+          ADD COLUMN IF NOT EXISTS item_code VARCHAR(100),
+          ADD COLUMN IF NOT EXISTS fw_version VARCHAR(50);
+        `);
+        this.schemaCompatibilityChecked = true;
+      }
+    } catch (e: any) {
+      this.logger.debug(`Could not auto-migrate memmap_profiles columns: ${e.message}`);
+    }
   }
 
   private initService(): void {
@@ -61,46 +84,144 @@ export class MemmapManagerAdapterController {
     this.logger.log('Initialized MemmapManagerService from embedded core.');
   }
 
-  @Get(['api/plugins/memmap-manager/status', 'api/v1/plugins/memmap-manager/status'])
+  @Get([
+    'api/plugins/memmap-manager/status',
+    'api/v1/plugins/memmap-manager/status',
+    'api/plugins/memmap-payload/status',
+    'api/v1/plugins/memmap-payload/status',
+    'plugins/memmap-manager/status',
+    'plugins/memmap-payload/status',
+  ])
   getStatus() {
     return this.service.getStatus();
   }
 
-  @Get(['api/plugins/memmap-manager/profiles', 'api/v1/plugins/memmap-manager/profiles'])
+  @Get([
+    'api/plugins/memmap-manager/profiles',
+    'api/v1/plugins/memmap-manager/profiles',
+    'api/plugins/memmap-payload/profiles',
+    'api/v1/plugins/memmap-payload/profiles',
+    'plugins/memmap-manager/profiles',
+    'plugins/memmap-payload/profiles',
+  ])
   async getProfiles() {
-    const profileRepo = this.databaseService.getRepositoryForTable('memmap_profiles', MemmapProfileEntity);
-    const profiles = await profileRepo.find({
-      relations: ['registers'],
-      order: { createdAt: 'DESC' },
-    });
+    try {
+      const ds = this.databaseService.getDataSourceForTable('memmap_profiles');
+      // 1. Try querying the optimized view v_memmap_profiles first
+      try {
+        const rows = await ds.query(`
+          SELECT
+            id,
+            name,
+            description,
+            source_format AS "sourceFormat",
+            item_code AS "itemCode",
+            fw_version AS "fwVersion",
+            sku,
+            long_fw AS "longFw",
+            short_fw AS "shortFw",
+            dec_check AS "decimalCheck",
+            hex_check AS "hexCheck",
+            created_by AS "createdBy",
+            date_create AS "dateCreate",
+            COALESCE(registers_count, 0) AS "registersCount",
+            created_at AS "createdAt",
+            updated_at AS "updatedAt"
+          FROM memmap_manager.v_memmap_profiles
+          ORDER BY created_at DESC
+        `);
+        if (rows && Array.isArray(rows)) {
+          return rows.map((p) => ({
+            ...p,
+            createdAt: p.createdAt ? (p.createdAt instanceof Date ? p.createdAt.toISOString() : String(p.createdAt)) : new Date().toISOString(),
+            updatedAt: p.updatedAt ? (p.updatedAt instanceof Date ? p.updatedAt.toISOString() : String(p.updatedAt)) : undefined,
+          }));
+        }
+      } catch (viewErr: any) {
+        this.logger.debug(`v_memmap_profiles view not used, falling back to repository: ${viewErr.message}`);
+      }
 
-    return profiles.map((p) => ({
-      id: p.id,
-      name: p.name,
-      description: p.description,
-      sourceFormat: p.sourceFormat,
-      itemCode: p.itemCode || undefined,
-      fwVersion: p.fwVersion || undefined,
-      sku: p.sku || undefined,
-      longFw: p.longFw || undefined,
-      shortFw: p.shortFw || undefined,
-      decimalCheck: p.decCheck,
-      hexCheck: p.hexCheck,
-      createdBy: p.createdBy || undefined,
-      dateCreate: p.dateCreate ? p.dateCreate.toISOString() : undefined,
-      registersCount: p.registers ? p.registers.length : 0,
-      createdAt: p.createdAt ? p.createdAt.toISOString() : new Date().toISOString(),
-      updatedAt: p.updatedAt ? p.updatedAt.toISOString() : undefined,
-    }));
+      // 2. Fallback to repository
+      const profileRepo = this.databaseService.getRepositoryForTable('memmap_profiles', MemmapProfileEntity);
+      let profiles: MemmapProfileEntity[];
+      try {
+        profiles = await profileRepo.find({
+          relations: ['registers'],
+          order: { createdAt: 'DESC' },
+        });
+      } catch (findErr: any) {
+        if (findErr?.message?.includes('item_code does not exist')) {
+          this.logger.warn(`Missing item_code column detected in DB, running auto-migration...`);
+          await ds.query(`
+            ALTER TABLE IF EXISTS memmap_manager.memmap_profiles
+            ADD COLUMN IF NOT EXISTS item_code VARCHAR(100),
+            ADD COLUMN IF NOT EXISTS fw_version VARCHAR(50);
+          `);
+          profiles = await profileRepo.find({
+            relations: ['registers'],
+            order: { createdAt: 'DESC' },
+          });
+        } else {
+          throw findErr;
+        }
+      }
+
+      return profiles.map((p) => ({
+        id: p.id,
+        name: p.name,
+        description: p.description,
+        sourceFormat: p.sourceFormat,
+        itemCode: p.itemCode || undefined,
+        fwVersion: p.fwVersion || undefined,
+        sku: p.sku || undefined,
+        longFw: p.longFw || undefined,
+        shortFw: p.shortFw || undefined,
+        decimalCheck: p.decCheck,
+        hexCheck: p.hexCheck,
+        createdBy: p.createdBy || undefined,
+        dateCreate: p.dateCreate ? p.dateCreate.toISOString() : undefined,
+        registersCount: p.registers ? p.registers.length : 0,
+        createdAt: p.createdAt ? p.createdAt.toISOString() : new Date().toISOString(),
+        updatedAt: p.updatedAt ? p.updatedAt.toISOString() : undefined,
+      }));
+    } catch (err: any) {
+      this.logger.error(`Error loading memmap profiles: ${err.message}`, err.stack);
+      return [];
+    }
   }
 
-  @Get(['api/plugins/memmap-manager/profiles/:id', 'api/v1/plugins/memmap-manager/profiles/:id'])
+  @Get([
+    'api/plugins/memmap-manager/profiles/:id',
+    'api/v1/plugins/memmap-manager/profiles/:id',
+    'api/plugins/memmap-payload/profiles/:id',
+    'api/v1/plugins/memmap-payload/profiles/:id',
+    'plugins/memmap-manager/profiles/:id',
+    'plugins/memmap-payload/profiles/:id',
+  ])
   async getProfileById(@Param('id') id: string) {
     const profileRepo = this.databaseService.getRepositoryForTable('memmap_profiles', MemmapProfileEntity);
-    const profile = await profileRepo.findOne({
-      where: { id },
-      relations: ['registers'],
-    });
+    let profile: MemmapProfileEntity | null = null;
+    try {
+      profile = await profileRepo.findOne({
+        where: { id },
+        relations: ['registers'],
+      });
+    } catch (findErr: any) {
+      if (findErr?.message?.includes('item_code does not exist')) {
+        const ds = this.databaseService.getDataSourceForTable('memmap_profiles');
+        await ds.query(`
+          ALTER TABLE IF EXISTS memmap_manager.memmap_profiles
+          ADD COLUMN IF NOT EXISTS item_code VARCHAR(100),
+          ADD COLUMN IF NOT EXISTS fw_version VARCHAR(50);
+        `).catch(() => {});
+        profile = await profileRepo.findOne({
+          where: { id },
+          relations: ['registers'],
+        });
+      } else {
+        throw findErr;
+      }
+    }
 
     if (!profile) {
       throw new NotFoundException(`Profile [${id}] not found`);
@@ -113,6 +234,8 @@ export class MemmapManagerAdapterController {
       name: profile.name,
       description: profile.description,
       sourceFormat: profile.sourceFormat,
+      itemCode: profile.itemCode || undefined,
+      fwVersion: profile.fwVersion || undefined,
       sku: profile.sku || undefined,
       longFw: profile.longFw || undefined,
       shortFw: profile.shortFw || undefined,
@@ -156,7 +279,14 @@ export class MemmapManagerAdapterController {
     };
   }
 
-  @Delete(['api/plugins/memmap-manager/profiles/:id', 'api/v1/plugins/memmap-manager/profiles/:id'])
+  @Delete([
+    'api/plugins/memmap-manager/profiles/:id',
+    'api/v1/plugins/memmap-manager/profiles/:id',
+    'api/plugins/memmap-payload/profiles/:id',
+    'api/v1/plugins/memmap-payload/profiles/:id',
+    'plugins/memmap-manager/profiles/:id',
+    'plugins/memmap-payload/profiles/:id',
+  ])
   async deleteProfile(@Param('id') id: string) {
     const profileRepo = this.databaseService.getRepositoryForTable('memmap_profiles', MemmapProfileEntity);
     const profile = await profileRepo.findOne({ where: { id } });
@@ -172,7 +302,14 @@ export class MemmapManagerAdapterController {
     };
   }
 
-  @Post(['api/plugins/memmap-manager/import/preview', 'api/v1/plugins/memmap-manager/import/preview'])
+  @Post([
+    'api/plugins/memmap-manager/import/preview',
+    'api/v1/plugins/memmap-manager/import/preview',
+    'api/plugins/memmap-payload/import/preview',
+    'api/v1/plugins/memmap-payload/import/preview',
+    'plugins/memmap-manager/import/preview',
+    'plugins/memmap-payload/import/preview',
+  ])
   @UseInterceptors(FileInterceptor('file'))
   async previewImport(
     @UploadedFile() file?: any,
@@ -277,7 +414,14 @@ export class MemmapManagerAdapterController {
     return register[property] ?? register.rawRegister?.[csvColumn];
   }
 
-  @Post(['api/plugins/memmap-manager/import', 'api/v1/plugins/memmap-manager/import'])
+  @Post([
+    'api/plugins/memmap-manager/import',
+    'api/v1/plugins/memmap-manager/import',
+    'api/plugins/memmap-payload/import',
+    'api/v1/plugins/memmap-payload/import',
+    'plugins/memmap-manager/import',
+    'plugins/memmap-payload/import',
+  ])
   @UseInterceptors(FileInterceptor('file'))
   async importProfile(
     @UploadedFile() file?: any,

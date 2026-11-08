@@ -57,6 +57,9 @@ export class SoTestBatchAdapterController {
     'api/v1/plugins/so-test-batch/sos',
     'api/plugins/so-test-batch/sos',
     'plugins/so-test-batch/sos',
+    'api/v1/plugins/testing/so-test-batch/sos',
+    'api/plugins/testing/so-test-batch/sos',
+    'plugins/testing/so-test-batch/sos',
   ])
   async getSos(
     @Query('search') search?: string,
@@ -169,6 +172,9 @@ export class SoTestBatchAdapterController {
     'api/v1/plugins/so-test-batch/available-batches',
     'api/plugins/so-test-batch/available-batches',
     'plugins/so-test-batch/available-batches',
+    'api/v1/plugins/testing/so-test-batch/available-batches',
+    'api/plugins/testing/so-test-batch/available-batches',
+    'plugins/testing/so-test-batch/available-batches',
   ])
   async getAvailableBatches() {
     try {
@@ -233,6 +239,9 @@ export class SoTestBatchAdapterController {
     'api/v1/plugins/so-test-batch/link',
     'api/plugins/so-test-batch/link',
     'plugins/so-test-batch/link',
+    'api/v1/plugins/testing/so-test-batch/link',
+    'api/plugins/testing/so-test-batch/link',
+    'plugins/testing/so-test-batch/link',
   ])
   async linkBatch(@Body() dto: LinkSoBatchDto) {
     if (!dto) {
@@ -341,6 +350,9 @@ export class SoTestBatchAdapterController {
     'api/v1/plugins/so-test-batch/unlink',
     'api/plugins/so-test-batch/unlink',
     'plugins/so-test-batch/unlink',
+    'api/v1/plugins/testing/so-test-batch/unlink',
+    'api/plugins/testing/so-test-batch/unlink',
+    'plugins/testing/so-test-batch/unlink',
   ])
   async unlinkBatch(@Body() dto: UnlinkSoBatchDto) {
     if (!dto) {
