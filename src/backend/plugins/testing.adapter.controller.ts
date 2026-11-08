@@ -4060,6 +4060,7 @@ export class TestingAdapterController {
       const ds = this.databaseService.getDataSourceForTable('devices');
       const itemCode = (query.itemCode || query.item_code || '').trim();
       const fwVersion = (query.fwVersion || query.fw_version || query.longFw || query.long_fw || '').trim();
+      const soNumber = (query.soNumber || query.so_number || '').trim();
       const limit = Math.min(200, Math.max(1, parseInt(query.limit, 10) || 100));
 
       const username = (request?.user?.username || query.user || query.username || '').trim();
@@ -4099,6 +4100,10 @@ export class TestingAdapterController {
           params.push(fwVersion);
           pIdx++;
         }
+        if (soNumber) {
+          clauses.push(`UPPER(${tableAlias}.so_number) = UPPER($${pIdx++})`);
+          params.push(soNumber);
+        }
         return {
           whereSql: clauses.length > 0 ? `WHERE ${clauses.join(' AND ')}` : '',
           params,
@@ -4122,9 +4127,10 @@ export class TestingAdapterController {
             v.fw_code,
             v.dev_eui,
             v.app_eui,
-            COALESCE(v.class, v.class_mode, 'A') AS "class",
-            COALESCE(v.region, v.region_code, 'AS923-1') AS "region",
+            v.class_mode AS "class",
+            v.region_code AS "region",
             v.status,
+            v.so_number,
             v.created_by,
             v.created_at
           FROM system_schema.v_list_device_testing v
@@ -4151,6 +4157,7 @@ export class TestingAdapterController {
               COALESCE(v.class, v.class_mode, 'A') AS "class",
               COALESCE(v.region, v.region_code, 'AS923-1') AS "region",
               v.status,
+              v.so_number,
               v.created_by,
               v.created_at
             FROM system_schema.v_list_device_testing v
@@ -4177,6 +4184,7 @@ export class TestingAdapterController {
                 r.class_mode AS "class",
                 r.region_code AS "region",
                 r.status,
+                r.so_number,
                 r.created_by,
                 r.created_at
               FROM system_schema.device_test_registrations r
@@ -4202,6 +4210,7 @@ export class TestingAdapterController {
                 r.class_mode AS "class",
                 r.region_code AS "region",
                 r.status,
+                r.so_number,
                 r.created_by,
                 r.created_at
               FROM system_schema.device_test_registrations r
