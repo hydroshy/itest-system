@@ -6,6 +6,7 @@ import {
   Get,
   HttpException,
   HttpStatus,
+  InternalServerErrorException,
   Logger,
   NotFoundException,
   OnModuleInit,
@@ -321,18 +322,37 @@ export class MemmapManagerAdapterController implements OnModuleInit {
     'plugins/memmap-payload/profiles/:id',
   ])
   async deleteProfile(@Param('id') id: string) {
-    const profileRepo = this.databaseService.getRepositoryForTable('memmap_profiles', MemmapProfileEntity);
-    const profile = await profileRepo.findOne({ where: { id } });
+    const ds = this.databaseService.getDataSourceForTable('memmap_profiles');
+    try {
+      const checkRows = await ds.query(
+        `SELECT id FROM memmap_manager.memmap_profiles WHERE id = $1 LIMIT 1`,
+        [id],
+      );
+      if (!checkRows || checkRows.length === 0) {
+        throw new NotFoundException(`Profile [${id}] not found`);
+      }
 
-    if (!profile) {
-      throw new NotFoundException(`Profile [${id}] not found`);
+      await ds.query(
+        `DELETE FROM memmap_manager.memmap_registers WHERE profile_id = $1`,
+        [id],
+      ).catch(() => {});
+
+      await ds.query(
+        `DELETE FROM memmap_manager.memmap_profiles WHERE id = $1`,
+        [id],
+      );
+
+      return {
+        success: true,
+        message: `Profile [${id}] deleted successfully`,
+      };
+    } catch (err: any) {
+      if (err instanceof NotFoundException) {
+        throw err;
+      }
+      this.logger.error(`Error deleting profile [${id}]: ${err.message}`, err.stack);
+      throw new InternalServerErrorException(`Failed to delete profile: ${err.message}`);
     }
-
-    await profileRepo.remove(profile);
-    return {
-      success: true,
-      message: `Profile [${id}] deleted successfully`,
-    };
   }
 
   @Post([
