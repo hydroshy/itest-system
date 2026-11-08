@@ -53,6 +53,8 @@ export interface MemmapProfileInput {
   id?: string;
   name: string;
   description?: string;
+  itemCode?: string;
+  fwVersion?: string;
   sku?: string;
   longFw?: string;
   shortFw?: string;
@@ -63,6 +65,8 @@ export interface MemmapProfileInput {
   sourceFormat: MemmapSourceFormat;
   registers: MemmapRegister[];
 }
+
+export const FW_VERSION_REGEX = /^[0-9]F[0-9]{4}$/;
 
 export interface MemmapImportError {
   row?: number;
@@ -118,7 +122,7 @@ export class MemmapManagerService {
     };
   }
 
-  validateProfile(candidate: unknown, sourceFormat: MemmapSourceFormat): MemmapPreviewResult {
+  public validateProfile(candidate: unknown, sourceFormat: MemmapSourceFormat): MemmapPreviewResult {
     const errors: MemmapImportError[] = [];
     const source = this.asRecord(candidate);
     const suppliedRegisters = Array.isArray(source?.registers)
@@ -134,23 +138,26 @@ export class MemmapManagerService {
     const name = this.asString(source.name);
     if (!name) errors.push({ field: 'name', message: 'Profile name is required' });
 
+    const itemCode = this.asString(source.itemCode ?? source.item_code ?? source.ITEM_CODE);
+    const fwVersion = this.asString(source.fwVersion ?? source.fw_version ?? source.FW_VERSION);
+    if (fwVersion && !FW_VERSION_REGEX.test(fwVersion)) {
+      errors.push({ field: 'fwVersion', message: 'FW_VERSION must match format XFXXXX (X is a digit, e.g. 1F0001)' });
+    }
+
     const registers: MemmapRegister[] = [];
     const addresses = new Set<number>();
     suppliedRegisters.forEach((value, index) => {
-      const source = this.asRecord(value);
-      const address = this.asFiniteNumber(source?.address);
-      const duplicateAddress = address !== undefined && addresses.has(address);
-      if (duplicateAddress) {
-        errors.push({
-          row: index + 1,
-          field: 'address',
-          message: `Duplicate address ${address}: Register address must be unique within a profile`,
-        });
-      } else if (address !== undefined) {
-        addresses.add(address);
+      const rec = this.asRecord(value);
+      const rawAddress = this.asOptionalFiniteNumber(rec?.address ?? rec?.['Modbus Register (Decimal)']);
+      if (rawAddress !== undefined) {
+        if (addresses.has(rawAddress)) {
+          errors.push({ row: index + 1, field: 'address', message: 'Duplicate address: register address must be unique within a profile' });
+        } else {
+          addresses.add(rawAddress);
+        }
       }
       const register = this.validateRegister(value, index + 1, errors);
-      if (register && !duplicateAddress) {
+      if (register) {
         registers.push(register);
       }
     });
@@ -164,6 +171,8 @@ export class MemmapManagerService {
         id: this.asString(source.id),
         name,
         description: this.asString(source.description),
+        itemCode,
+        fwVersion,
         sku: this.asString(source.sku),
         longFw: this.asString(source.longFw),
         shortFw: this.asString(source.shortFw),
@@ -197,17 +206,17 @@ export class MemmapManagerService {
     const defaultValue = this.asString(source.defaultValue);
     const rawRegister = this.asStringRecord(source.rawRegister);
     const rowNumber = this.asOptionalFiniteNumber(source.rowNumber);
-    const modbusRegisterDecimal = this.asOptionalFiniteNumber(source.modbusRegisterDecimal) ?? address;
+    const modbusRegisterDecimal = this.asOptionalFiniteNumber(source.modbusRegisterDecimal);
     const modbusRegisterHex = this.asString(source.modbusRegisterHex);
     const functionCodeRead = this.asString(source.functionCodeRead);
     const functionCodeWrite = this.asString(source.functionCodeWrite);
     const registerCount = this.asOptionalFiniteNumber(source.registerCount);
     const range = this.asString(source.range);
-    const endUserDefault = this.asString(source.endUserDefault) ?? defaultValue;
-    const format = this.asString(source.format) ?? dataType;
+    const endUserDefault = this.asString(source.endUserDefault);
+    const format = this.asString(source.format);
     const downlink5 = this.asString(source.downlink5);
     const inRd1Template = this.asString(source.inRd1Template);
-    const comment = this.asString(source.comment) ?? description;
+    const comment = this.asString(source.comment);
     const inEngineeringTemplate = this.asString(source.inEngineeringTemplate);
     const inEndUserTemplate = this.asString(source.inEndUserTemplate);
     const inFullTemplate = this.asString(source.inFullTemplate);
@@ -232,15 +241,11 @@ export class MemmapManagerService {
     }
 
     if (!name) errors.push({ row, field: 'name', message: 'Register name is required' });
-    if (address === undefined) {
-      errors.push({ row, field: 'address', message: 'Register address must be a number' });
-    } else if (!Number.isInteger(address) || address < 0) {
-      errors.push({ row, field: 'address', message: 'Register address must be an integer >= 0' });
+    if (address === undefined || !Number.isInteger(address) || address < 0) {
+      errors.push({ row, field: 'address', message: 'Address must be a non-negative integer' });
     }
-    if (!dataType) {
-      errors.push({ row, field: 'dataType', message: 'Data type is required' });
-    } else if (!MEMMAP_DATA_TYPES.includes(dataType as MemmapDataType)) {
-      errors.push({ row, field: 'dataType', message: `Invalid data type: ${dataType}` });
+    if (!dataType || !MEMMAP_DATA_TYPES.includes(dataType as MemmapDataType)) {
+      errors.push({ row, field: 'dataType', message: `Data type must be one of: ${MEMMAP_DATA_TYPES.join(', ')}` });
     }
     if (accessMode !== 'read' && accessMode !== 'write' && accessMode !== 'readwrite') {
       errors.push({ row, field: 'accessMode', message: 'Access mode must be read, write, or readwrite' });
@@ -311,13 +316,36 @@ export class MemmapManagerService {
       return { name: 'Imported MemMap', sourceFormat: 'csv', registers };
     }
 
-    const allowed = new Set(['profileName', 'name', 'description', 'address', 'dataType', 'format', 'scale', 'offset', 'unit', 'defaultValue', 'accessMode']);
+    const allowed = new Set([
+      'profileName',
+      'name',
+      'description',
+      'itemCode',
+      'item_code',
+      'ITEM_CODE',
+      'fwVersion',
+      'fw_version',
+      'FW_VERSION',
+      'sku',
+      'longFw',
+      'shortFw',
+      'address',
+      'dataType',
+      'format',
+      'scale',
+      'offset',
+      'unit',
+      'defaultValue',
+      'accessMode',
+    ]);
     if (!headers.includes('name') || !headers.includes('address') || !(headers.includes('dataType') || headers.includes('format')) || !headers.every((header) => allowed.has(header))) {
       throw new Error('CSV header must include compact MemMap columns or IEC485 Modbus columns');
     }
     const profileName = mappedRows[0]?.profileName?.trim() || 'Imported MemMap';
     const description = mappedRows[0]?.description?.trim() || undefined;
-    return { name: profileName, description, registers: mappedRows };
+    const itemCode = mappedRows[0]?.itemCode || mappedRows[0]?.item_code || mappedRows[0]?.ITEM_CODE || undefined;
+    const fwVersion = mappedRows[0]?.fwVersion || mappedRows[0]?.fw_version || mappedRows[0]?.FW_VERSION || undefined;
+    return { name: profileName, description, itemCode, fwVersion, registers: mappedRows };
   }
 
   private mapLegacyIec485Register(row: Record<string, string>, previous?: Record<string, string>): Record<string, unknown> {
@@ -358,16 +386,13 @@ export class MemmapManagerService {
       inFullTemplate: this.asString(row['In Full Template']),
       decimalValid,
       hexValid,
-      decimalValidationMessage: decimalValid === false && expectedDecimal !== undefined && decimal !== undefined
-        ? `Expected decimal ${expectedDecimal} from previous decimal ${previousDecimal} + register count ${previousCount}, got ${decimal}`
-        : undefined,
-      hexValidationMessage: hexValid === false && expectedHex !== undefined
-        ? `Expected hex ${expectedHex.toString(16).toUpperCase()} from previous hex ${(previousHex as number).toString(16).toUpperCase()} + register count ${previousCount}`
-        : undefined,
+      ...(decimalValid === false ? { decimalValidationMessage: `Expected decimal ${expectedDecimal} from previous address ${previousDecimal} + register count ${previousCount}` } : {}),
+      ...(hexValid === false ? { hexValidationMessage: `Expected hex ${expectedHex!.toString(16).toUpperCase()} from previous hex ${previous!['Modbus Register (Hex)']} + register count ${previousCount}` } : {}),
       rawRegister: row,
     };
   }
 
+  /** RFC 4180 parser: commas, escaped quotes, CRLF and quoted multi-line cells. */
   private parseCsvRecords(content: string): string[][] {
     const rows: string[][] = [];
     let row: string[] = [];
@@ -409,31 +434,27 @@ export class MemmapManagerService {
       return result;
     }, {});
   }
-  private asFiniteNumber(value: unknown): number | undefined {
-    if (typeof value === 'number' && Number.isFinite(value)) return value;
-    if (typeof value === 'string' && value.trim() !== '' && !Number.isNaN(Number(value))) {
-      const numeric = Number(value);
-      return Number.isFinite(numeric) ? numeric : undefined;
-    }
-    return undefined;
-  }
-  private asOptionalFiniteNumber(value: unknown): number | undefined { return value === undefined || value === null || value === '' ? undefined : this.asFiniteNumber(value); }
-  private asOptionalBoolean(value: unknown): boolean | undefined {
-    if (typeof value === 'boolean') return value;
-    if (typeof value === 'string') {
-      const normalized = value.trim().toLowerCase();
-      if (normalized === 'true' || normalized === 'yes') return true;
-      if (normalized === 'false' || normalized === 'no') return false;
-    }
-    return undefined;
-  }
+  private asFiniteNumber(value: unknown): number | undefined { const number = typeof value === 'number' ? value : typeof value === 'string' && value.trim() ? Number(value) : NaN; return Number.isFinite(number) ? number : undefined; }
+  private asOptionalFiniteNumber(value: unknown): number | undefined { return value === undefined || value === '' ? undefined : this.asFiniteNumber(value); }
+  private asOptionalBoolean(value: unknown): boolean | undefined { return typeof value === 'boolean' ? value : undefined; }
   private parseHex(value: unknown): number | undefined {
-    if (typeof value === 'number' && Number.isFinite(value)) return value;
-    if (typeof value !== 'string') return undefined;
-    const trimmed = value.trim();
-    if (!trimmed) return undefined;
-    if (/^0x[0-9a-f]+$/i.test(trimmed)) return Number.parseInt(trimmed, 16);
-    if (/^[0-9a-f]+$/i.test(trimmed)) return Number.parseInt(trimmed, 16);
-    return undefined;
+    const text = this.asString(value);
+    if (!text || !/^(?:0x)?[0-9a-f]+$/i.test(text)) return undefined;
+    const parsed = Number.parseInt(text.replace(/^0x/i, ''), 16);
+    return Number.isFinite(parsed) ? parsed : undefined;
   }
+}
+
+export default class MemmapManagerPlugin {
+  private context?: any;
+  public readonly service = new MemmapManagerService();
+
+  async init(context: any): Promise<void> {
+    this.context = context;
+    context?.logger?.info?.(`[${context.manifest.name}] Initialized`);
+  }
+
+  async start(): Promise<void> { this.context?.logger?.info?.(`[${this.context?.manifest.name}] Started`); }
+  async stop(): Promise<void> { this.context?.logger?.info?.(`[${this.context?.manifest.name}] Stopped`); }
+  async destroy(): Promise<void> { this.context?.logger?.info?.(`[${this.context?.manifest.name}] Destroyed`); }
 }

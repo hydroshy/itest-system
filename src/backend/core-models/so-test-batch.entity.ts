@@ -23,6 +23,9 @@ export class SoTestBatchEntity {
   @Column({ name: 'batch_code', type: 'varchar', length: 100 })
   batchCode: string;
 
+  @Column({ name: 'item_code', type: 'varchar', length: 100, nullable: true })
+  itemCode?: string;
+
   @Column({ name: 'notes', type: 'text', nullable: true })
   notes?: string;
 

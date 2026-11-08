@@ -12,6 +12,9 @@ import { MemmapRegisterEntity } from './memmap-register.entity';
 @Entity({ schema: 'memmap_manager', name: 'memmap_profiles' })
 @Index('idx_memmap_profiles_name', ['name'])
 @Index('idx_memmap_profiles_created_at', ['createdAt'])
+@Index('idx_memmap_profiles_item_code_fw_version', ['itemCode', 'fwVersion'])
+@Index('idx_memmap_profiles_item_code', ['itemCode'])
+@Index('idx_memmap_profiles_fw_version', ['fwVersion'])
 export class MemmapProfileEntity {
   @PrimaryGeneratedColumn('uuid')
   id: string;
@@ -24,6 +27,12 @@ export class MemmapProfileEntity {
 
   @Column({ name: 'source_format', type: 'varchar', length: 20, default: 'json' })
   sourceFormat: string;
+
+  @Column({ name: 'item_code', type: 'varchar', length: 100, nullable: true })
+  itemCode?: string | null;
+
+  @Column({ name: 'fw_version', type: 'varchar', length: 50, nullable: true })
+  fwVersion?: string | null;
 
   @Column({ type: 'varchar', length: 100, nullable: true })
   sku?: string | null;

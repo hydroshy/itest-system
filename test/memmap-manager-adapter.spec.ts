@@ -187,11 +187,11 @@ async function runTests() {
   assert.strictEqual(previewRes.registers.length, 1);
   assert.strictEqual(previewRes.registers[0].name, 'speed');
 
-  // Import profile
+  // Import profile with ITEM_CODE and FW_VERSION
   const importRes = await controller.importProfile(undefined, {
+    itemCode: 'ITEM-TEST-01',
+    fwVersion: '5F0820',
     sku: 'SKU-001',
-    longFw: '5F0820',
-    shortFw: '5',
     createdBy: 'admin',
     profile: {
       name: 'HVAC Profile',
@@ -208,10 +208,25 @@ async function runTests() {
   assert.strictEqual(importRes.data.registersCount, 2);
   assert.strictEqual(mockProfiles.length, 1);
   assert.strictEqual(mockRegisters.length, 2);
-  assert.strictEqual(mockProfiles[0].sku, 'SKU-001');
-  assert.strictEqual(mockProfiles[0].longFw, '5F0820');
-  assert.strictEqual(mockProfiles[0].shortFw, '5');
+  assert.strictEqual(mockProfiles[0].itemCode, 'ITEM-TEST-01');
+  assert.strictEqual(mockProfiles[0].fwVersion, '5F0820');
   assert.strictEqual(mockProfiles[0].createdBy, 'admin');
+
+  // Test FW_VERSION validation: reject invalid format
+  try {
+    await controller.importProfile(undefined, {
+      itemCode: 'ITEM-TEST-02',
+      fwVersion: 'INVALID_VERSION',
+      profile: {
+        name: 'Bad Profile',
+        registers: [{ address: 1, name: 'reg1', dataType: 'uint16', accessMode: 'read' }],
+      },
+    });
+    assert.fail('Expected BadRequestException for invalid fwVersion format');
+  } catch (err: any) {
+    assert.ok(err instanceof BadRequestException);
+    assert.ok(err.message.includes('XFXXXX'));
+  }
 
   // Validation failure import
   try {
@@ -232,9 +247,8 @@ async function runTests() {
   assert.strictEqual(list.length, 1);
   assert.strictEqual(list[0].name, 'HVAC Profile');
   assert.strictEqual(list[0].registersCount, 2);
-  assert.strictEqual(list[0].sku, 'SKU-001');
-  assert.strictEqual(list[0].longFw, '5F0820');
-  assert.strictEqual(list[0].shortFw, '5');
+  assert.strictEqual(list[0].itemCode, 'ITEM-TEST-01');
+  assert.strictEqual(list[0].fwVersion, '5F0820');
   assert.strictEqual(list[0].createdBy, 'admin');
 
   // Profile by id

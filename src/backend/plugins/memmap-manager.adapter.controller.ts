@@ -79,6 +79,8 @@ export class MemmapManagerAdapterController {
       name: p.name,
       description: p.description,
       sourceFormat: p.sourceFormat,
+      itemCode: p.itemCode || undefined,
+      fwVersion: p.fwVersion || undefined,
       sku: p.sku || undefined,
       longFw: p.longFw || undefined,
       shortFw: p.shortFw || undefined,
@@ -190,6 +192,8 @@ export class MemmapManagerAdapterController {
         if (body?.description) {
           preview.profile.description = body.description;
         }
+        if (body?.itemCode ?? body?.item_code) preview.profile.itemCode = body.itemCode ?? body.item_code;
+        if (body?.fwVersion ?? body?.fw_version) preview.profile.fwVersion = body.fwVersion ?? body.fw_version;
         if (body?.sku) preview.profile.sku = body.sku;
         if (body?.longFw) preview.profile.longFw = body.longFw;
         if (body?.shortFw) preview.profile.shortFw = body.shortFw;
@@ -211,6 +215,8 @@ export class MemmapManagerAdapterController {
         if (preview.profile) {
           if (body.name) preview.profile.name = body.name;
           if (body.description) preview.profile.description = body.description;
+          if (body.itemCode ?? body.item_code ?? body.ITEM_CODE) preview.profile.itemCode = body.itemCode ?? body.item_code ?? body.ITEM_CODE;
+          if (body.fwVersion ?? body.fw_version ?? body.FW_VERSION) preview.profile.fwVersion = body.fwVersion ?? body.fw_version ?? body.FW_VERSION;
           if (body.sku) preview.profile.sku = body.sku;
           if (body.longFw) preview.profile.longFw = body.longFw;
           if (body.shortFw) preview.profile.shortFw = body.shortFw;
@@ -228,14 +234,35 @@ export class MemmapManagerAdapterController {
     throw new BadRequestException('Import preview requires a file or payload body.');
   }
 
+  private validateFwVersion(fwVersion: string | null | undefined): void {
+    if (!fwVersion) return;
+    const trimmed = fwVersion.trim();
+    // Validate format XFXXXX where X is a digit (^[0-9]F[0-9]{4}$)
+    if (!/^[0-9]F[0-9]{4}$/.test(trimmed)) {
+      throw new BadRequestException(
+        `FW_VERSION không đúng định dạng. Yêu cầu định dạng XFXXXX với X là chữ số (ví dụ: 1F0001, 0F0000).`,
+      );
+    }
+  }
+
   private profileMetadata(body?: any, candidate?: any): Partial<MemmapProfileEntity> {
     const b = body || {};
     const bp = body?.profile || {};
     const c = candidate || {};
+
+    const rawFwVersion = this.optionalText(
+      b.fwVersion ?? b.fw_version ?? b.FW_VERSION ?? bp.fwVersion ?? bp.fw_version ?? bp.FW_VERSION ?? c.fwVersion ?? c.fw_version ?? c.FW_VERSION,
+    );
+    this.validateFwVersion(rawFwVersion);
+
     return {
+      itemCode: this.optionalText(
+        b.itemCode ?? b.item_code ?? b.ITEM_CODE ?? bp.itemCode ?? bp.item_code ?? bp.ITEM_CODE ?? c.itemCode ?? c.item_code ?? c.ITEM_CODE,
+      ),
+      fwVersion: rawFwVersion,
       sku: this.optionalText(b.sku ?? b.SKU ?? bp.sku ?? bp.SKU ?? c.sku ?? c.SKU),
-      longFw: this.optionalText(b.longFw ?? b.long_fw ?? b.LONG_FW ?? bp.longFw ?? bp.long_fw ?? bp.LONG_FW ?? c.longFw ?? c.long_fw ?? c.LONG_FW),
-      shortFw: this.optionalText(b.shortFw ?? b.short_fw ?? b.SHORT_FW ?? bp.shortFw ?? bp.short_fw ?? bp.SHORT_FW ?? c.shortFw ?? c.short_fw ?? c.SHORT_FW),
+      longFw: this.optionalText(b.longFw ?? b.long_fw ?? b.LONG_FW ?? bp.longFw ?? bp.long_fw ?? bp.LONG_FW ?? c.longFw ?? c.long_fw ?? c.LONG_FW ?? rawFwVersion),
+      shortFw: this.optionalText(b.shortFw ?? b.short_fw ?? b.SHORT_FW ?? bp.shortFw ?? bp.short_fw ?? bp.SHORT_FW ?? c.shortFw ?? c.short_fw ?? c.SHORT_FW ?? (rawFwVersion ? rawFwVersion.charAt(0) : null)),
       decCheck: this.booleanOrDefault(b.decimalCheck ?? b.decCheck ?? b.dec_check ?? bp.decimalCheck ?? bp.decCheck ?? bp.dec_check ?? c.decimalCheck ?? c.decCheck ?? c.dec_check, true),
       hexCheck: this.booleanOrDefault(b.hexCheck ?? b.hex_check ?? bp.hexCheck ?? bp.hex_check ?? c.hexCheck ?? c.hex_check, true),
       createdBy: this.optionalText(b.createdBy ?? b.created_by ?? bp.createdBy ?? bp.created_by ?? c.createdBy ?? c.created_by),
