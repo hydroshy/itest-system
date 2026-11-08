@@ -4704,6 +4704,11 @@ export class TestingAdapterController {
             `, [item.serial_number || '', item.dev_eui || '']).catch(() => {});
 
             await this.queryBatchTransaction(manager, `
+              DELETE FROM devices.devices
+              WHERE LOWER(serial_number) = LOWER($1) OR LOWER(REPLACE(COALESCE(network_id, ''), ':', '')) = LOWER(REPLACE($2, ':', ''))
+            `, [item.serial_number || '', item.dev_eui || '']).catch(() => {});
+
+            await this.queryBatchTransaction(manager, `
               DELETE FROM system_schema.devices
               WHERE LOWER(serial_number) = LOWER($1) OR LOWER(REPLACE(COALESCE(network_id, ''), ':', '')) = LOWER(REPLACE($2, ':', ''))
             `, [item.serial_number || '', item.dev_eui || '']).catch(() => {});
