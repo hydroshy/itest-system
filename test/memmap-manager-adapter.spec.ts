@@ -126,6 +126,13 @@ async function runTests() {
   };
 
   const mockDataSource: any = {
+    isInitialized: true,
+    query: async (sql: string, params?: any[]) => {
+      if (sql.includes('information_schema.columns')) {
+        return [{ column_name: 'item_code' }];
+      }
+      return [];
+    },
     transaction: async (cb: (manager: any) => Promise<any>) => {
       const manager = {
         getRepository: (target: any) => {

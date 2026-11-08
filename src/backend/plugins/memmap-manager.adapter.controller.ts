@@ -31,6 +31,7 @@ export class MemmapManagerAdapterController implements OnModuleInit {
   private readonly logger = new Logger(MemmapManagerAdapterController.name);
   private service: MemmapManagerService;
   private schemaCompatibilityChecked = false;
+  private hasItemCodeColumn = false;
 
   constructor(private readonly databaseService: DynamicDatabaseService) {
     this.initService();
@@ -41,19 +42,19 @@ export class MemmapManagerAdapterController implements OnModuleInit {
   }
 
   private async ensureSchemaCompatibility(): Promise<void> {
-    if (this.schemaCompatibilityChecked) return;
     try {
       const ds = this.databaseService.getDataSourceForTable('memmap_profiles');
       if (ds && ds.isInitialized) {
-        await ds.query(`
-          ALTER TABLE IF EXISTS memmap_manager.memmap_profiles
-          ADD COLUMN IF NOT EXISTS item_code VARCHAR(100),
-          ADD COLUMN IF NOT EXISTS fw_version VARCHAR(50);
-        `);
+        const check = await ds.query(`
+          SELECT 1 FROM information_schema.columns
+          WHERE table_schema = 'memmap_manager' AND table_name = 'memmap_profiles' AND column_name = 'item_code'
+          LIMIT 1;
+        `).catch(() => []);
+        this.hasItemCodeColumn = check && check.length > 0;
         this.schemaCompatibilityChecked = true;
       }
     } catch (e: any) {
-      this.logger.debug(`Could not auto-migrate memmap_profiles columns: ${e.message}`);
+      this.hasItemCodeColumn = false;
     }
   }
 
@@ -130,7 +131,7 @@ export class MemmapManagerAdapterController implements OnModuleInit {
           FROM memmap_manager.v_memmap_profiles
           ORDER BY created_at DESC
         `);
-        if (rows && Array.isArray(rows)) {
+        if (rows && Array.isArray(rows) && rows.length > 0) {
           return rows.map((p) => ({
             ...p,
             createdAt: p.createdAt ? (p.createdAt instanceof Date ? p.createdAt.toISOString() : String(p.createdAt)) : new Date().toISOString(),
@@ -141,49 +142,58 @@ export class MemmapManagerAdapterController implements OnModuleInit {
         this.logger.debug(`v_memmap_profiles view not used, falling back to repository: ${viewErr.message}`);
       }
 
-      // 2. Fallback to repository
-      const profileRepo = this.databaseService.getRepositoryForTable('memmap_profiles', MemmapProfileEntity);
-      let profiles: MemmapProfileEntity[];
-      try {
-        profiles = await profileRepo.find({
+      // 2. Query memmap_profiles directly or via repository
+      await this.ensureSchemaCompatibility();
+      if (this.hasItemCodeColumn) {
+        const profileRepo = this.databaseService.getRepositoryForTable('memmap_profiles', MemmapProfileEntity);
+        const profiles = await profileRepo.find({
           relations: ['registers'],
           order: { createdAt: 'DESC' },
         });
-      } catch (findErr: any) {
-        if (findErr?.message?.includes('item_code does not exist')) {
-          this.logger.warn(`Missing item_code column detected in DB, running auto-migration...`);
-          await ds.query(`
-            ALTER TABLE IF EXISTS memmap_manager.memmap_profiles
-            ADD COLUMN IF NOT EXISTS item_code VARCHAR(100),
-            ADD COLUMN IF NOT EXISTS fw_version VARCHAR(50);
-          `);
-          profiles = await profileRepo.find({
-            relations: ['registers'],
-            order: { createdAt: 'DESC' },
-          });
-        } else {
-          throw findErr;
-        }
-      }
 
-      return profiles.map((p) => ({
-        id: p.id,
-        name: p.name,
-        description: p.description,
-        sourceFormat: p.sourceFormat,
-        itemCode: p.itemCode || undefined,
-        fwVersion: p.fwVersion || undefined,
-        sku: p.sku || undefined,
-        longFw: p.longFw || undefined,
-        shortFw: p.shortFw || undefined,
-        decimalCheck: p.decCheck,
-        hexCheck: p.hexCheck,
-        createdBy: p.createdBy || undefined,
-        dateCreate: p.dateCreate ? p.dateCreate.toISOString() : undefined,
-        registersCount: p.registers ? p.registers.length : 0,
-        createdAt: p.createdAt ? p.createdAt.toISOString() : new Date().toISOString(),
-        updatedAt: p.updatedAt ? p.updatedAt.toISOString() : undefined,
-      }));
+        return profiles.map((p) => ({
+          id: p.id,
+          name: p.name,
+          description: p.description,
+          sourceFormat: p.sourceFormat,
+          itemCode: p.itemCode || undefined,
+          fwVersion: p.fwVersion || undefined,
+          sku: p.sku || undefined,
+          longFw: p.longFw || undefined,
+          shortFw: p.shortFw || undefined,
+          decimalCheck: p.decCheck,
+          hexCheck: p.hexCheck,
+          createdBy: p.createdBy || undefined,
+          dateCreate: p.dateCreate ? p.dateCreate.toISOString() : undefined,
+          registersCount: p.registers ? p.registers.length : 0,
+          createdAt: p.createdAt ? p.createdAt.toISOString() : new Date().toISOString(),
+          updatedAt: p.updatedAt ? p.updatedAt.toISOString() : undefined,
+        }));
+      } else {
+        // Fallback for pre-migration 005 database
+        const rows = await ds.query(`
+          SELECT
+            p.id,
+            p.name,
+            p.description,
+            p.source_format AS "sourceFormat",
+            p.sku,
+            p.long_fw AS "longFw",
+            p.short_fw AS "shortFw",
+            p.dec_check AS "decimalCheck",
+            p.hex_check AS "hexCheck",
+            p.created_by AS "createdBy",
+            p.date_create AS "dateCreate",
+            p.created_at AS "createdAt",
+            p.updated_at AS "updatedAt",
+            COUNT(r.id)::int AS "registersCount"
+          FROM memmap_manager.memmap_profiles p
+          LEFT JOIN memmap_manager.memmap_registers r ON p.id = r.profile_id
+          GROUP BY p.id
+          ORDER BY p.created_at DESC
+        `).catch(() => []);
+        return rows || [];
+      }
     } catch (err: any) {
       this.logger.error(`Error loading memmap profiles: ${err.message}`, err.stack);
       return [];
@@ -209,15 +219,38 @@ export class MemmapManagerAdapterController implements OnModuleInit {
     } catch (findErr: any) {
       if (findErr?.message?.includes('item_code does not exist')) {
         const ds = this.databaseService.getDataSourceForTable('memmap_profiles');
-        await ds.query(`
-          ALTER TABLE IF EXISTS memmap_manager.memmap_profiles
-          ADD COLUMN IF NOT EXISTS item_code VARCHAR(100),
-          ADD COLUMN IF NOT EXISTS fw_version VARCHAR(50);
-        `).catch(() => {});
-        profile = await profileRepo.findOne({
-          where: { id },
-          relations: ['registers'],
-        });
+        const rows = await ds.query(
+          `SELECT id, name, description, source_format AS "sourceFormat", sku, long_fw AS "longFw", short_fw AS "shortFw", dec_check AS "decCheck", hex_check AS "hexCheck", created_by AS "createdBy", date_create AS "dateCreate", created_at AS "createdAt", updated_at AS "updatedAt" FROM memmap_manager.memmap_profiles WHERE id = $1 LIMIT 1`,
+          [id],
+        ).catch(() => []);
+        if (!rows || rows.length === 0) {
+          throw new NotFoundException(`Profile [${id}] not found`);
+        }
+        const raw = rows[0];
+        const regs = await ds.query(
+          `SELECT * FROM memmap_manager.memmap_registers WHERE profile_id = $1 ORDER BY address ASC`,
+          [id],
+        ).catch(() => []);
+        return {
+          id: raw.id,
+          name: raw.name,
+          description: raw.description,
+          sourceFormat: raw.sourceFormat,
+          sku: raw.sku || undefined,
+          longFw: raw.longFw || undefined,
+          shortFw: raw.shortFw || undefined,
+          registersCount: regs.length,
+          registers: regs.map((r: any) => ({
+            id: r.id,
+            name: r.name,
+            address: r.address,
+            dataType: r.data_type,
+            scale: r.scale !== null ? Number(r.scale) : 1,
+            unit: r.unit || undefined,
+            accessMode: r.access_mode || 'read',
+            description: r.description || undefined,
+          })),
+        };
       } else {
         throw findErr;
       }
