@@ -4612,11 +4612,24 @@ export class TestingAdapterController {
         item.status = itemVerdict;
         item.verdict = itemVerdict;
 
+        const avgCycle = item.comparison_result?.avg_cycle ?? item.avg_cycle ?? null;
+        const avgRssi = item.comparison_result?.avg_rssi ?? item.avg_rssi ?? null;
+        const avgSnr = item.comparison_result?.avg_snr ?? item.avg_snr ?? null;
+
         await this.queryBatchTransaction(manager, `
           UPDATE system_schema.device_test_batch_items
-          SET status = $2, verdict = $2
+          SET status = $2, verdict = $2,
+              avg_cycle = COALESCE($3, avg_cycle),
+              avg_rssi = COALESCE($4, avg_rssi),
+              avg_snr = COALESCE($5, avg_snr)
           WHERE id = $1
-        `, [item.id, itemVerdict]).catch(() => {});
+        `, [item.id, itemVerdict, avgCycle, avgRssi, avgSnr]).catch(async () => {
+          await this.queryBatchTransaction(manager, `
+            UPDATE system_schema.device_test_batch_items
+            SET status = $2, verdict = $2
+            WHERE id = $1
+          `, [item.id, itemVerdict]).catch(() => {});
+        });
 
         try {
           const regRows = await this.queryBatchTransaction(manager,
@@ -4639,6 +4652,9 @@ export class TestingAdapterController {
             dutValues: item.dut_values,
             referenceValues: item.reference_values,
             packetsReceived: item.packets_received,
+            avgCycle: item.avg_cycle ?? item.comparison_result?.avg_cycle ?? null,
+            avgRssi: item.avg_rssi ?? item.comparison_result?.avg_rssi ?? null,
+            avgSnr: item.avg_snr ?? item.comparison_result?.avg_snr ?? null,
             testedAt: finished,
             testPerson: testerName,
             soNumber: reg.so_number,
@@ -5245,12 +5261,22 @@ export class TestingAdapterController {
           item.comparison_result = comparison;
           item.packets_received = packetsCount;
 
-          await this.queryBatchTransaction(ds,
-            `UPDATE system_schema.device_test_batch_items
-             SET dut_values = $2, reference_values = $3, comparison_result = $4, packets_received = $5
-             WHERE id = $1`,
-            [item.id, JSON.stringify(dutValues), JSON.stringify(refValues), JSON.stringify(comparison), packetsCount]
-          );
+          try {
+            await this.queryBatchTransaction(ds,
+              `UPDATE system_schema.device_test_batch_items
+               SET dut_values = $2, reference_values = $3, comparison_result = $4, packets_received = $5,
+                   avg_cycle = $6, avg_rssi = $7, avg_snr = $8
+               WHERE id = $1`,
+              [item.id, JSON.stringify(dutValues), JSON.stringify(refValues), JSON.stringify(comparison), packetsCount, avgCycle, avgRssi, avgSnr]
+            );
+          } catch {
+            await this.queryBatchTransaction(ds,
+              `UPDATE system_schema.device_test_batch_items
+               SET dut_values = $2, reference_values = $3, comparison_result = $4, packets_received = $5
+               WHERE id = $1`,
+              [item.id, JSON.stringify(dutValues), JSON.stringify(refValues), JSON.stringify(comparison), packetsCount]
+            );
+          }
         }
 
         if (remainingSeconds === 0) {
