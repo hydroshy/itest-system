@@ -122,8 +122,8 @@ export class MemmapManagerAdapterController implements OnModuleInit {
             sku,
             long_fw AS "longFw",
             short_fw AS "shortFw",
-            dec_check AS "decimalCheck",
-            hex_check AS "hexCheck",
+            COALESCE(dec_check, true) AS "decimalCheck",
+            COALESCE(hex_check, true) AS "hexCheck",
             created_by AS "createdBy",
             date_create AS "dateCreate",
             COALESCE(registers_count, 0) AS "registersCount",
@@ -131,7 +131,28 @@ export class MemmapManagerAdapterController implements OnModuleInit {
             updated_at AS "updatedAt"
           FROM memmap_manager.v_memmap_profiles
           ORDER BY created_at DESC
-        `);
+        `).catch(async () => {
+          // If v_memmap_profiles does not have dec_check column yet
+          return await ds.query(`
+            SELECT
+              id,
+              name,
+              description,
+              source_format AS "sourceFormat",
+              item_code AS "itemCode",
+              fw_version AS "fwVersion",
+              sku,
+              long_fw AS "longFw",
+              short_fw AS "shortFw",
+              true AS "decimalCheck",
+              true AS "hexCheck",
+              COALESCE(registers_count, 0) AS "registersCount",
+              created_at AS "createdAt",
+              updated_at AS "updatedAt"
+            FROM memmap_manager.v_memmap_profiles
+            ORDER BY created_at DESC
+          `);
+        });
         if (rows && Array.isArray(rows) && rows.length > 0) {
           return rows.map((p) => ({
             ...p,

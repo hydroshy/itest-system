@@ -272,19 +272,21 @@ export class DecoderAdapterController {
   ) {
     try {
       const repo = this.getDecoderRepo();
-      const qb = repo.createQueryBuilder('d');
+      let scripts: DecoderScriptEntity[] = [];
+      try {
+        const qb = repo.createQueryBuilder('d');
 
       if (sku) {
         qb.andWhere('LOWER(d.sku) = LOWER(:sku)', { sku: sku.trim() });
       }
       if (longFw) {
-        qb.andWhere('LOWER(d.long_fw) = LOWER(:longFw)', { longFw: longFw.trim() });
+        qb.andWhere('(LOWER(d.long_fw) = LOWER(:longFw) OR LOWER(COALESCE(d.fw_version, d.fw_code)) = LOWER(:longFw))', { longFw: longFw.trim() });
       }
       if (itemCode) {
-        qb.andWhere('LOWER(d.item_code) = LOWER(:itemCode)', { itemCode: itemCode.trim() });
+        qb.andWhere('(LOWER(d.item_code) = LOWER(:itemCode) OR LOWER(d.sku) = LOWER(:itemCode))', { itemCode: itemCode.trim() });
       }
       if (fwCode) {
-        qb.andWhere('LOWER(d.fw_code) = LOWER(:fwCode)', { fwCode: fwCode.trim() });
+        qb.andWhere('(LOWER(d.fw_code) = LOWER(:fwCode) OR LOWER(d.fw_version) = LOWER(:fwCode) OR LOWER(d.long_fw) = LOWER(:fwCode))', { fwCode: fwCode.trim() });
       }
       if (isActive !== undefined && isActive !== '') {
         const activeBool = isActive === 'true' || isActive === '1';
@@ -292,13 +294,35 @@ export class DecoderAdapterController {
       }
       if (search) {
         qb.andWhere(
-          '(LOWER(d.name) LIKE LOWER(:search) OR LOWER(d.sku) LIKE LOWER(:search) OR LOWER(d.long_fw) LIKE LOWER(:search) OR LOWER(COALESCE(d.item_code, \'\')) LIKE LOWER(:search) OR LOWER(COALESCE(d.fw_code, \'\')) LIKE LOWER(:search) OR LOWER(COALESCE(d.description, \'\')) LIKE LOWER(:search))',
+          '(LOWER(d.name) LIKE LOWER(:search) OR LOWER(d.sku) LIKE LOWER(:search) OR LOWER(d.long_fw) LIKE LOWER(:search) OR LOWER(COALESCE(d.item_code, \'\')) LIKE LOWER(:search) OR LOWER(COALESCE(d.fw_code, \'\')) LIKE LOWER(:search) OR LOWER(COALESCE(d.fw_version, \'\')) LIKE LOWER(:search) OR LOWER(COALESCE(d.description, \'\')) LIKE LOWER(:search))',
           { search: `%${search.trim()}%` },
         );
       }
 
       qb.orderBy('d.updated_at', 'DESC');
-      const scripts = await qb.getMany();
+      scripts = await qb.getMany();
+    } catch (queryErr: any) {
+      if (queryErr?.message?.includes('fw_version does not exist')) {
+        // Fallback query for pre-migration 004 schema
+        const ds = this.databaseService.getDataSourceForTable('decoder_scripts');
+        const rows = await ds.query(`
+          SELECT
+            id, name, sku, long_fw, item_code, fw_code,
+            fw_code AS fw_version,
+            protocol, script, description, input_format,
+            sample_payload, sample_fport, sample_decoded,
+            is_active, metadata, created_at, updated_at, created_by
+          FROM decoder.decoder_scripts
+          ORDER BY updated_at DESC
+        `).catch(() => []);
+        scripts = rows.map((r: any) => ({
+          ...r,
+          fw_version: r.fw_version || r.fw_code || r.long_fw,
+        })) as any;
+      } else {
+        throw queryErr;
+      }
+    }
 
       return {
         success: true,
