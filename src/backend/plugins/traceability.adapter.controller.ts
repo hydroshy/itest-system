@@ -2137,6 +2137,96 @@ export class TraceabilityAdapterController {
     }
   }
 
+  @Get([
+    'api/plugins/device-traceability/devices/:id/metrics-report',
+    'api/v1/plugins/device-traceability/devices/:id/metrics-report',
+  ])
+  async getDeviceMetricsReport(@Param('id') id: string) {
+    try {
+      const deviceRepo = this.databaseService.getRepositoryForTable(
+        'traceability_device',
+        TraceabilityDeviceEntity,
+      );
+
+      let device = await deviceRepo.findOne({
+        where: { id },
+        relations: ['so', 'wa'],
+      });
+
+      if (!device) {
+        // Fallback find by serial_number or dev_eui
+        device = await deviceRepo.findOne({
+          where: [{ serial_number: id }, { dev_eui: id }],
+          relations: ['so', 'wa'],
+        });
+      }
+
+      if (!device) {
+        throw new NotFoundException(`Device with ID/Serial ${id} not found`);
+      }
+
+      const raw = device.test_raw_data || {};
+      const comp = raw.comparisonResult || raw.comparison_result || {};
+      const avgCycle = raw.avgCycle ?? raw.avg_cycle ?? comp.avg_cycle ?? null;
+      const avgRssi = raw.avgRssi ?? raw.avg_rssi ?? comp.avg_rssi ?? null;
+      const avgSnr = raw.avgSnr ?? raw.avg_snr ?? comp.avg_snr ?? null;
+      const packetsReceived = raw.packetsReceived ?? raw.packets_received ?? comp.packets_received ?? 0;
+
+      // Extract dutPackets and referencePackets from testRawData
+      const dutPackets = raw.dutPackets || raw.dut_packets || comp.dut_packets || [];
+      const referencePackets = raw.referencePackets || raw.reference_packets || comp.reference_packets || [];
+
+      return {
+        success: true,
+        data: {
+          id: device.id,
+          serialNumber: device.serial_number,
+          devEui: device.dev_eui,
+          soNumber: device.so?.so_number || raw.soNumber || raw.so_number || '—',
+          waNumber: device.wa?.wa_number || raw.waNumber || raw.wa_number || '—',
+          itemCode: device.item_code || raw.itemCode || raw.item_code || '—',
+          hwVersion: device.hw_version || '—',
+          fwVersion: device.fw_version || '—',
+          testResult: device.test_result || raw.itemVerdict || 'PENDING',
+          testPerson: device.test_person || raw.testPerson || raw.test_person || '—',
+          testedAt: device.tested_at || raw.testedAt || raw.finished_at || null,
+          batchCode: raw.batchCode || raw.batch_code || '—',
+          metrics: {
+            avgCycle,
+            avgRssi,
+            avgSnr,
+            packetsReceived,
+          },
+          referenceDevice: {
+            serialNumber: raw.referenceSerialNumber || raw.reference_serial_number || comp.reference_serial_number || null,
+            devEui: raw.referenceDevEui || raw.reference_dev_eui || comp.reference_dev_eui || null,
+          },
+          tolerance: {
+            dutTemp: comp.dut_temp ?? null,
+            refTemp: comp.ref_temp ?? null,
+            tempDelta: comp.temp_delta ?? null,
+            tempPass: comp.temp_pass ?? null,
+            dutHum: comp.dut_hum ?? null,
+            refHum: comp.ref_hum ?? null,
+            humDelta: comp.hum_delta ?? null,
+            humPass: comp.hum_pass ?? null,
+            tolerancePass: comp.tolerance_pass ?? null,
+          },
+          dutPackets,
+          referencePackets,
+          rawComparison: comp,
+        },
+      };
+    } catch (error) {
+      if (error instanceof HttpException) throw error;
+      this.logger.error(`Metrics report lookup failed: ${error.message}`);
+      throw new HttpException(
+        `Metrics report failed: ${error.message}`,
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
   // ==========================================
   // CROSS-SYSTEM LINKING & BUSINESS GUARD
   // ==========================================
