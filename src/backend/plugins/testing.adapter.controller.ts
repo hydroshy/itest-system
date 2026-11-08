@@ -3371,9 +3371,16 @@ export class TestingAdapterController {
             }
           } else {
             const errBody = await resp1.text().catch(() => '');
-            stages.device = resp1.status === 409 ? 'exists' : 'failed';
+            const isDuplicate =
+              resp1.status === 409 ||
+              errBody.includes('device_pkey') ||
+              errBody.includes('duplicate key') ||
+              errBody.toLowerCase().includes('already exists');
+            stages.device = isDuplicate ? 'exists' : 'failed';
             stages.keys = 'skipped';
-            chirpstackError = resp1.status === 409 ? 'Thiết bị đã tồn tại trên ChirpStack; không ghi đè keys. Kiểm tra thiết bị hiện có trước khi thử lại.' : `Tạo thiết bị trên ChirpStack thất bại [${resp1.status}]: ${errBody}`;
+            chirpstackError = isDuplicate
+              ? 'Thiết bị đã có trên hệ thống.'
+              : `Tạo thiết bị trên ChirpStack thất bại [${resp1.status}]: ${errBody}`;
           }
         } catch (fetchErr: any) {
           if (stages.device === 'success') stages.keys = 'unknown';
