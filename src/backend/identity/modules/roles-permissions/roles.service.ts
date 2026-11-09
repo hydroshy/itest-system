@@ -26,7 +26,25 @@ export class RolesService {
   }
 
   async findAllRoles() {
-    return this.getRoleRepo().find({ relations: ['permissions'], order: { createdAt: 'ASC' } });
+    const roles = await this.getRoleRepo().find({ relations: ['permissions'], order: { createdAt: 'ASC' } });
+    return roles.filter((r) => {
+      if (r.code === 'admin' && roles.some((o) => o.code === 'SUPER_ADMIN')) {
+        return false;
+      }
+      if (r.code === 'sub_admin' && roles.some((o) => o.code === 'SUB_ADMIN')) {
+        return false;
+      }
+      if (r.code === 'operator' && roles.some((o) => o.code === 'OPERATOR')) {
+        return false;
+      }
+      if (r.code === 'user' && roles.some((o) => o.code === 'END_USER')) {
+        return false;
+      }
+      if (r.description?.includes('micro-kernel core') && roles.some((o) => o.code === 'SUPER_ADMIN')) {
+        return false;
+      }
+      return true;
+    });
   }
 
   async findOneRole(idOrCode: string): Promise<Role> {
@@ -35,6 +53,12 @@ export class RolesService {
       where: [{ id: idOrCode }, { code: idOrCode }],
       relations: ['permissions'],
     });
+    if (!role && idOrCode === 'admin') {
+      role = await roleRepo.findOne({ where: { code: 'SUPER_ADMIN' }, relations: ['permissions'] });
+    }
+    if (!role && idOrCode === 'operator') {
+      role = await roleRepo.findOne({ where: { code: 'OPERATOR' }, relations: ['permissions'] });
+    }
     if (!role) {
       throw new NotFoundException(`Role with ID or Code '${idOrCode}' not found`);
     }
