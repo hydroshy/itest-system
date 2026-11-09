@@ -484,6 +484,8 @@ export class TestingAdapterController {
     'api/v1/plugins/testing/devices/simulation',
     'api/plugins/testing/simulation/devices',
     'api/v1/plugins/testing/simulation/devices',
+    'api/plugins/testing/simulation-devices',
+    'api/v1/plugins/testing/simulation-devices',
   ])
   async getSimulationDevices(@Query('label') label?: string) {
     try {
@@ -1928,30 +1930,54 @@ export class TestingAdapterController {
             ORDER BY updated_at DESC
           `);
         } catch {
-          dbRows = await ds.query(`
-            SELECT
-              id,
-              simu_id,
-              COALESCE(name, profile_name, simu_id) AS "name",
-              COALESCE(profile_name, name, simu_id) AS "profile_name",
-              item_code,
-              long_fw,
-              COALESCE(fw_version, long_fw) AS "fw_version",
-              sensor_connectivity,
-              sku,
-              flow_blocks,
-              auto_check_criteria,
-              reference_devices,
-              simulator_device,
-              flow_duration_minutes,
-              timed_actions,
-              created_by,
-              created_at,
-              updated_at
-            FROM system_schema.simulation_profiles
-            WHERE is_flow_template = TRUE OR is_flow_template IS NULL OR status = 'template'
-            ORDER BY updated_at DESC
-          `);
+          try {
+            dbRows = await ds.query(`
+              SELECT
+                id,
+                simu_id,
+                COALESCE(name, profile_name, simu_id) AS "name",
+                COALESCE(profile_name, name, simu_id) AS "profile_name",
+                item_code,
+                long_fw,
+                COALESCE(fw_version, long_fw) AS "fw_version",
+                sensor_connectivity,
+                sku,
+                flow_blocks,
+                auto_check_criteria,
+                reference_devices,
+                simulator_device,
+                flow_duration_minutes,
+                timed_actions,
+                created_by,
+                created_at,
+                updated_at
+              FROM system_schema.simulation_profiles
+              WHERE is_flow_template = TRUE OR is_flow_template IS NULL OR status = 'template'
+              ORDER BY updated_at DESC
+            `);
+          } catch {
+            dbRows = await ds.query(`
+              SELECT
+                id,
+                simu_id,
+                COALESCE(name, profile_name, simu_id) AS "name",
+                COALESCE(profile_name, name, simu_id) AS "profile_name",
+                item_code,
+                long_fw,
+                long_fw AS "fw_version",
+                sensor_connectivity,
+                sku,
+                flow_blocks,
+                flow_duration_minutes,
+                timed_actions,
+                created_by,
+                created_at,
+                updated_at
+              FROM system_schema.simulation_profiles
+              WHERE is_flow_template = TRUE OR is_flow_template IS NULL OR status = 'template'
+              ORDER BY updated_at DESC
+            `);
+          }
         }
 
         if (Array.isArray(dbRows)) {
@@ -2016,31 +2042,57 @@ export class TestingAdapterController {
         this.databaseService.getDataSourceForTable('system_schema.simulation_profiles') ||
         this.databaseService.getDataSourceForTable('devices');
       if (ds) {
-        const rows = await ds.query(
-          `SELECT
-            id,
-            simu_id,
-            COALESCE(name, profile_name, simu_id) AS "name",
-            COALESCE(profile_name, name, simu_id) AS "profile_name",
-            item_code,
-            long_fw,
-            COALESCE(fw_version, long_fw) AS "fw_version",
-            sensor_connectivity,
-            sku,
-            flow_blocks,
-            auto_check_criteria,
-            reference_devices,
-            simulator_device,
-            flow_duration_minutes,
-            timed_actions,
-            created_by,
-            created_at,
-            updated_at
-          FROM system_schema.simulation_profiles
-          WHERE id::text = $1 OR simu_id = $1
-          LIMIT 1`,
-          [trimmedId],
-        );
+        let rows: any[] = [];
+        try {
+          rows = await ds.query(
+            `SELECT
+              id,
+              simu_id,
+              COALESCE(name, profile_name, simu_id) AS "name",
+              COALESCE(profile_name, name, simu_id) AS "profile_name",
+              item_code,
+              long_fw,
+              COALESCE(fw_version, long_fw) AS "fw_version",
+              sensor_connectivity,
+              sku,
+              flow_blocks,
+              auto_check_criteria,
+              reference_devices,
+              simulator_device,
+              flow_duration_minutes,
+              timed_actions,
+              created_by,
+              created_at,
+              updated_at
+            FROM system_schema.simulation_profiles
+            WHERE id::text = $1 OR simu_id = $1
+            LIMIT 1`,
+            [trimmedId],
+          );
+        } catch {
+          rows = await ds.query(
+            `SELECT
+              id,
+              simu_id,
+              COALESCE(name, profile_name, simu_id) AS "name",
+              COALESCE(profile_name, name, simu_id) AS "profile_name",
+              item_code,
+              long_fw,
+              long_fw AS "fw_version",
+              sensor_connectivity,
+              sku,
+              flow_blocks,
+              flow_duration_minutes,
+              timed_actions,
+              created_by,
+              created_at,
+              updated_at
+            FROM system_schema.simulation_profiles
+            WHERE id::text = $1 OR simu_id = $1
+            LIMIT 1`,
+            [trimmedId],
+          );
+        }
         if (rows && rows.length > 0) {
           const r = rows[0];
           const blocks = Array.isArray(r.flow_blocks)
