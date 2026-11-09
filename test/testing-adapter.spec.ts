@@ -395,9 +395,11 @@ const mockDatabaseService: any = {
             flow_duration_seconds: params[7],
             auto_check_criteria: JSON.parse(params[8] || '{}'),
             max_devices: params[9],
+            reference_devices: params[10] ? JSON.parse(params[10] || '[]') : [],
+            simulator_device: params[11] ? JSON.parse(params[11] || 'null') : null,
             status: 'DRAFT',
             verdict: 'PENDING',
-            created_by: params[10],
+            created_by: params[params.length - 1],
             created_at: new Date(),
             updated_at: new Date(),
           };

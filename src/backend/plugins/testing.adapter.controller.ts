@@ -119,6 +119,11 @@ export interface EvaluateAutoCheckDto {
     packets?: any[];
     referencePackets?: any[];
     reference_packets?: any[];
+    simulatorPackets?: any[];
+    simulator_packets?: any[];
+    multiReferencePackets?: Record<string, any[]>;
+    multi_reference_packets?: Record<string, any[]>;
+    [key: string]: any;
   };
   criteria?: {
     minRssi?: number;
@@ -137,13 +142,32 @@ export interface EvaluateAutoCheckDto {
       fw_version?: string;
       rules?: Array<{ field: string; count?: number; min?: number; max?: number; equals?: any }>;
     };
+    references?: Array<{
+      reference_id?: string;
+      referenceId?: string;
+      dev_eui?: string;
+      devEui?: string;
+      serial_number?: string;
+      serialNumber?: string;
+      item_code?: string;
+      fw_version?: string;
+      rules?: Array<{ field: string; count?: number; min?: number; max?: number; equals?: any }>;
+      [key: string]: any;
+    }>;
+    simulator?: any;
     comparisons?: Array<{
       dut_field?: string;
       dutField?: string;
       reference_field?: string;
       referenceField?: string;
+      reference_id?: string;
+      referenceId?: string;
       tolerance?: number;
     }>;
+    measurement_windows?: any[];
+    measurementWindows?: any[];
+    average_rules?: any[];
+    averageRules?: any[];
     functionRules?: any[];
     rules?: any[];
     [key: string]: any;
@@ -1648,9 +1672,13 @@ export class TestingAdapterController {
     const waNumber = (body?.waNumber || body?.wa_number || '').trim();
     const itemCode = (body?.itemCode || body?.item_code || '').trim();
     const longFw = (body?.longFw || body?.long_fw || '').trim();
+    const fwVersion = (body?.fwVersion || body?.fw_version || longFw || '').trim();
     const sensorConnectivity = (body?.sensorConnectivity || body?.sensor_connectivity || 'LoRaWAN').trim();
     const sku = (body?.sku || '').trim();
     const flowBlocks = Array.isArray(body?.flowBlocks) ? body.flowBlocks : (Array.isArray(body?.flow_blocks) ? body.flow_blocks : []);
+    const autoCheckCriteria = body?.autoCheckCriteria || body?.auto_check_criteria || {};
+    const referenceDevices = Array.isArray(body?.referenceDevices) ? body.referenceDevices : (Array.isArray(body?.reference_devices) ? body.reference_devices : []);
+    const simulatorDevice = body?.simulatorDevice || body?.simulator_device || null;
     const status = (body?.status || 'simulation').trim();
     const durationSeconds = this.simulationDuration(flowBlocks);
     const flowDurationMinutes = Math.max(1, Math.ceil(durationSeconds / 60));
@@ -1670,9 +1698,13 @@ export class TestingAdapterController {
       itemCode,
       status,
       longFw,
+      fwVersion,
       sensorConnectivity,
       sku,
       flowBlocks,
+      autoCheckCriteria,
+      referenceDevices,
+      simulatorDevice,
       blocksCount: flowBlocks.length,
       duration: durationSeconds,
       name: body?.name || body?.profileName || deviceName,
@@ -1692,8 +1724,8 @@ export class TestingAdapterController {
       if (ds) {
         await ds.query(
           `INSERT INTO system_schema.simulation_profiles
-           (simu_id, profile_name, name, item_code, long_fw, sensor_connectivity, sku, flow_blocks, timed_actions, flow_duration_minutes, is_flow_template, updated_at)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, TRUE, NOW())
+           (simu_id, profile_name, name, item_code, long_fw, sensor_connectivity, sku, flow_blocks, timed_actions, flow_duration_minutes, is_flow_template, fw_version, auto_check_criteria, reference_devices, simulator_device, updated_at)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, TRUE, $11, $12, $13, $14, NOW())
            ON CONFLICT (simu_id)
            DO UPDATE SET
              profile_name = EXCLUDED.profile_name,
@@ -1706,6 +1738,10 @@ export class TestingAdapterController {
              timed_actions = EXCLUDED.timed_actions,
              flow_duration_minutes = EXCLUDED.flow_duration_minutes,
              is_flow_template = TRUE,
+             fw_version = EXCLUDED.fw_version,
+             auto_check_criteria = EXCLUDED.auto_check_criteria,
+             reference_devices = EXCLUDED.reference_devices,
+             simulator_device = EXCLUDED.simulator_device,
              updated_at = NOW()`,
           [
             simuId,
@@ -1718,6 +1754,10 @@ export class TestingAdapterController {
             JSON.stringify(flowBlocks),
             JSON.stringify(timedActions),
             flowDurationMinutes,
+            fwVersion || null,
+            JSON.stringify(autoCheckCriteria),
+            JSON.stringify(referenceDevices),
+            simulatorDevice ? JSON.stringify(simulatorDevice) : null,
           ]
         );
 
@@ -1755,23 +1795,98 @@ export class TestingAdapterController {
 
   private simulationDuration(blocks: any[]): number {
     if (!Array.isArray(blocks)) throw new BadRequestException('flowBlocks must be an array');
+    const allowedTypes = [
+      'downlink',
+      'clear_downlink',
+      'delay',
+      'wait_until_offset',
+      'start_measurement',
+      'stop_measurement',
+      'average',
+      'calculate_linear',
+      'device_auto_check',
+    ];
     return blocks.reduce((total, block) => {
-      if (!block || !['downlink', 'clear_downlink', 'delay'].includes(block.functionType)) {
-        throw new BadRequestException('Chỉ hỗ trợ Downlink, Clear Downlink và Delay');
+      const fType = (block?.functionType || block?.type || '').toLowerCase().trim();
+      if (!block || !allowedTypes.includes(fType)) {
+        throw new BadRequestException(`Chức năng '${block?.functionType || block?.type}' không được hỗ trợ. Các hàm được hỗ trợ: ${allowedTypes.join(', ')}`);
       }
-      if (block.functionType === 'delay') {
-        const seconds = Number(block.delaySeconds);
+      if (fType === 'delay') {
+        const seconds = Number(block.delaySeconds ?? block.duration ?? 0);
         if (!Number.isFinite(seconds) || seconds < 0) throw new BadRequestException('Delay phải là số giây không âm');
         return total + seconds;
       }
-      if (!['DUT', 'REF'].includes(block.targetDevice)) throw new BadRequestException('Target phải là DUT hoặc REF');
-      if (block.functionType === 'downlink') {
+      if (fType === 'wait_until_offset') {
+        const offsetSec = Number(block.offsetSeconds ?? block.offset_seconds ?? block.startOffsetSeconds ?? 0);
+        if (!Number.isFinite(offsetSec) || offsetSec < 0) throw new BadRequestException('Offset seconds phải là số không âm');
+        return Math.max(total, offsetSec);
+      }
+      if (['start_measurement', 'stop_measurement', 'average', 'calculate_linear', 'device_auto_check'].includes(fType)) {
+        const duration = Number(block.durationSeconds ?? block.duration ?? block.timeoutSeconds ?? 0);
+        return total + (Number.isFinite(duration) && duration > 0 ? duration : 0);
+      }
+      const targetDev = (block.targetDevice || block.target || 'DUT').toUpperCase().trim();
+      if (!['DUT', 'REF', 'REFERENCE', 'SIMULATOR', 'DUT_REF'].includes(targetDev)) {
+        throw new BadRequestException('Target phải là DUT, REF/REFERENCE, hoặc SIMULATOR');
+      }
+      if (fType === 'downlink') {
         block.fPort ??= 1;
         if (!Number.isInteger(block.fPort) || block.fPort < 1 || block.fPort > 223) throw new BadRequestException('fPort phải từ 1 đến 223');
-        if (typeof block.payloadHex !== 'string' || !/^(?:[0-9a-fA-F]{2})+$/.test(block.payloadHex)) throw new BadRequestException('Payload phải là chuỗi hex chẵn');
+        const isDynamic = Boolean(block.isDynamicPayload || block.dynamicPayload || (typeof block.payloadHex === 'string' && block.payloadHex.includes('{{')));
+        if (!isDynamic) {
+          if (typeof block.payloadHex !== 'string' || !/^(?:[0-9a-fA-F]{2})+$/.test(block.payloadHex)) {
+            throw new BadRequestException('Payload phải là chuỗi hex chẵn hoặc template biến dynamic (ví dụ {{calib.payloadHex}})');
+          }
+        }
       }
       return total;
     }, 0);
+  }
+
+  @Post([
+    'api/plugins/testing/simulation/calibrate-linear',
+    'api/v1/plugins/testing/simulation/calibrate-linear',
+  ])
+  async calibrateLinear(@Body() body: any) {
+    const x1 = Number(body?.x1);
+    const y1 = Number(body?.y1 ?? 0);
+    const x2 = Number(body?.x2);
+    const y2 = Number(body?.y2 ?? 20);
+    const minDeltaX = Number(body?.minDeltaX ?? 0.0001);
+
+    if (isNaN(x1) || isNaN(y1) || isNaN(x2) || isNaN(y2)) {
+      throw new BadRequestException('Các giá trị x1, y1, x2, y2 phải là số hợp lệ');
+    }
+    const deltaX = x2 - x1;
+    if (Math.abs(deltaX) < minDeltaX) {
+      throw new BadRequestException(`Không thể tính hiệu chuẩn: delta raw (x2 - x1 = ${deltaX}) quá nhỏ gần bằng 0 (ngưỡng tối thiểu ${minDeltaX})`);
+    }
+
+    const a = (y2 - y1) / deltaX;
+    const b = y1 - a * x1;
+
+    // IEEE-754 float32 big-endian 8 bytes hex
+    const buf = Buffer.alloc(8);
+    buf.writeFloatBE(a, 0);
+    buf.writeFloatBE(b, 4);
+    const payloadHex = buf.toString('hex').toUpperCase();
+
+    const result = {
+      a: Number(a.toFixed(6)),
+      b: Number(b.toFixed(6)),
+      x1: Number(x1.toFixed(4)),
+      y1: Number(y1.toFixed(4)),
+      x2: Number(x2.toFixed(4)),
+      y2: Number(y2.toFixed(4)),
+      payloadHex,
+      passed: true,
+      message: `Hiệu chuẩn 2 điểm: a = ${a.toFixed(6)}, b = ${b.toFixed(6)} (Payload Hex: ${payloadHex})`,
+    };
+
+    return {
+      success: true,
+      data: result,
+    };
   }
 
   @Put(['api/plugins/testing/simulation/profiles/:id', 'api/v1/plugins/testing/simulation/profiles/:id'])
@@ -1797,9 +1912,13 @@ export class TestingAdapterController {
               COALESCE(profile_name, name, simu_id) AS "profile_name",
               item_code,
               long_fw,
+              COALESCE(fw_version, long_fw) AS "fw_version",
               sensor_connectivity,
               sku,
               flow_blocks,
+              auto_check_criteria,
+              reference_devices,
+              simulator_device,
               flow_duration_minutes,
               timed_actions,
               created_by,
@@ -1817,9 +1936,13 @@ export class TestingAdapterController {
               COALESCE(profile_name, name, simu_id) AS "profile_name",
               item_code,
               long_fw,
+              COALESCE(fw_version, long_fw) AS "fw_version",
               sensor_connectivity,
               sku,
               flow_blocks,
+              auto_check_criteria,
+              reference_devices,
+              simulator_device,
               flow_duration_minutes,
               timed_actions,
               created_by,
@@ -1846,9 +1969,13 @@ export class TestingAdapterController {
               profileName: r.profile_name || r.name || r.simu_id,
               itemCode: r.item_code,
               longFw: r.long_fw,
+              fwVersion: r.fw_version || r.long_fw,
               sensorConnectivity: r.sensor_connectivity,
               sku: r.sku,
               flowBlocks: blocks,
+              autoCheckCriteria: r.auto_check_criteria || {},
+              referenceDevices: r.reference_devices || [],
+              simulatorDevice: r.simulator_device || null,
               blocksCount: blocks.length,
               duration: durationMin * 60,
               flowDurationMinutes: durationMin,
@@ -1897,9 +2024,13 @@ export class TestingAdapterController {
             COALESCE(profile_name, name, simu_id) AS "profile_name",
             item_code,
             long_fw,
+            COALESCE(fw_version, long_fw) AS "fw_version",
             sensor_connectivity,
             sku,
             flow_blocks,
+            auto_check_criteria,
+            reference_devices,
+            simulator_device,
             flow_duration_minutes,
             timed_actions,
             created_by,
@@ -1927,9 +2058,13 @@ export class TestingAdapterController {
               profileName: r.profile_name || r.name || r.simu_id,
               itemCode: r.item_code,
               longFw: r.long_fw,
+              fwVersion: r.fw_version || r.long_fw,
               sensorConnectivity: r.sensor_connectivity,
               sku: r.sku,
               flowBlocks: blocks,
+              autoCheckCriteria: r.auto_check_criteria || {},
+              referenceDevices: r.reference_devices || [],
+              simulatorDevice: r.simulator_device || null,
               blocksCount: blocks.length,
               duration: durationMin * 60,
               flowDurationMinutes: durationMin,
@@ -2416,6 +2551,46 @@ export class TestingAdapterController {
     };
   }
 
+  private deduplicatePackets(packets: any[]): any[] {
+    const seen = new Set<string>();
+    const deduped: any[] = [];
+    for (const p of packets) {
+      if (!p) continue;
+      const fCnt = p.f_cnt ?? p.fCnt ?? null;
+      const devEui = (p.dev_eui || p.devEui || p.network_id || p.networkId || '').toLowerCase().replace(/[^a-f0-9]/g, '');
+      const ts = p.created_at || p.createdAt || p.received_at || '';
+      const raw = p.raw_payload || p.rawPayload || '';
+      const key = fCnt !== null && devEui ? `${devEui}-${fCnt}` : `${devEui}-${ts}-${raw}`;
+      if (!seen.has(key)) {
+        seen.add(key);
+        deduped.push(p);
+      }
+    }
+    return deduped;
+  }
+
+  private extractMetricValue(packet: any, metricName: string): number | null {
+    if (!packet || !metricName) return null;
+    const m = metricName.toLowerCase().trim();
+    if (m === 'rssi') {
+      const val = packet.rssi ?? packet.rf_info?.rssi ?? packet.rfInfo?.rssi;
+      if (val !== undefined && val !== null && !isNaN(Number(val))) return Number(val);
+    }
+    if (m === 'snr') {
+      const val = packet.snr ?? packet.rf_info?.snr ?? packet.rfInfo?.snr;
+      if (val !== undefined && val !== null && !isNaN(Number(val))) return Number(val);
+    }
+    const dec = packet.decoded_payload || packet.decodedPayload || {};
+    if (dec[metricName] !== undefined && dec[metricName] !== null && !isNaN(Number(dec[metricName]))) {
+      return Number(dec[metricName]);
+    }
+    const matchedKey = Object.keys(dec).find((k) => k.toLowerCase() === m);
+    if (matchedKey && dec[matchedKey] !== undefined && dec[matchedKey] !== null && !isNaN(Number(dec[matchedKey]))) {
+      return Number(dec[matchedKey]);
+    }
+    return null;
+  }
+
   @Get(['api/plugins/testing/autocheck/rules', 'api/v1/plugins/testing/autocheck/rules'])
   getAutoCheckRules() {
     return {
@@ -2451,6 +2626,20 @@ export class TestingAdapterController {
     const expectedFPort = criteria.expectedFPort;
     const requiredFields = criteria.requiredFields;
     const fieldRules = criteria.fieldRules || {};
+
+    const parseTimestamp = (val: any): number => {
+      if (!val) return Date.now();
+      if (typeof val === 'number') return val;
+      const t = new Date(val).getTime();
+      return isNaN(t) ? Date.now() : t;
+    };
+
+    const initialPackets = Array.isArray(target.packets) && target.packets.length > 0
+      ? target.packets
+      : (target.packet ? [target.packet] : []);
+    const baseTime = initialPackets.length > 0
+      ? parseTimestamp(initialPackets[0].created_at || initialPackets[0].createdAt || initialPackets[0].received_at)
+      : Date.now();
 
     try {
       const packetRepo = this.databaseService.getRepositoryForTable(
@@ -2686,6 +2875,63 @@ export class TestingAdapterController {
         }
       }
 
+      // 7b. Multi-Reference Devices Evaluation (criteria.references)
+      if (Array.isArray(criteria.references) && criteria.references.length > 0) {
+        const multiRefPackets = target.multiReferencePackets || target.multi_reference_packets || {};
+        const generalRefPackets = Array.isArray(target.referencePackets || target.reference_packets)
+          ? (target.referencePackets || target.reference_packets)
+          : [];
+
+        for (let rIdx = 0; rIdx < criteria.references.length; rIdx++) {
+          const refDev = criteria.references[rIdx];
+          const refKey = refDev.reference_id || refDev.referenceId || refDev.dev_eui || refDev.devEui || refDev.serial_number || refDev.serialNumber || `ref_${rIdx + 1}`;
+
+          let packetsForThisRef = multiRefPackets[refKey];
+          if (!packetsForThisRef && refDev.dev_eui) {
+            const cleanEui = refDev.dev_eui.toLowerCase().replace(/[^a-f0-9]/g, '');
+            packetsForThisRef = generalRefPackets.filter((p: any) => {
+              const pEui = (p.dev_eui || p.devEui || p.network_id || p.networkId || '').toLowerCase().replace(/[^a-f0-9]/g, '');
+              return pEui === cleanEui;
+            });
+          }
+          if (!packetsForThisRef && refDev.serial_number) {
+            packetsForThisRef = generalRefPackets.filter((p: any) => (p.serial_number || p.serialNumber) === refDev.serial_number);
+          }
+          if (!packetsForThisRef) {
+            packetsForThisRef = generalRefPackets;
+          }
+
+          if (Array.isArray(refDev.rules)) {
+            for (const rRule of refDev.rules) {
+              const field = rRule.field;
+              const requiredCount = typeof rRule.count === 'number' && rRule.count > 0 ? rRule.count : 1;
+              let matchCount = 0;
+              for (const p of packetsForThisRef) {
+                const dec = p?.decoded_payload || p?.decodedPayload || {};
+                const val = dec[field];
+                if (val === undefined || val === null || val === '') continue;
+                let valid = true;
+                if (rRule.equals !== undefined && val !== rRule.equals) valid = false;
+                if (rRule.min !== undefined && (typeof val !== 'number' || val < rRule.min)) valid = false;
+                if (rRule.max !== undefined && (typeof val !== 'number' || val > rRule.max)) valid = false;
+                if (valid) matchCount++;
+              }
+              const passed = matchCount >= requiredCount;
+              ruleResults.push({
+                rule: `MULTI_REF_${refKey.toUpperCase()}_FIELD_${(field || '').toUpperCase()}`,
+                passed,
+                actual: matchCount,
+                expected: requiredCount,
+                device: refKey,
+                message: passed
+                  ? `Thiết bị tham chiếu [${refKey}]: trường '${field}' đạt ${matchCount}/${requiredCount} mẫu`
+                  : `Thiết bị tham chiếu [${refKey}]: trường '${field}' chỉ đạt ${matchCount}/${requiredCount} mẫu (yêu cầu ${requiredCount})`,
+              });
+            }
+          }
+        }
+      }
+
       // 8. Comparisons Evaluation (DUT vs Reference)
       if (criteria.comparisons && Array.isArray(criteria.comparisons)) {
         const dutPackets = Array.isArray(target.packets) && target.packets.length > 0
@@ -2702,9 +2948,17 @@ export class TestingAdapterController {
           const dutField = comp.dut_field || comp.dutField;
           const refField = comp.reference_field || comp.referenceField;
           const tolerance = typeof comp.tolerance === 'number' ? comp.tolerance : 0;
+          const targetRefId = comp.reference_id || comp.referenceId;
+
+          let targetRefP = latestRef;
+          if (targetRefId && target.multiReferencePackets?.[targetRefId]?.length > 0) {
+            targetRefP = target.multiReferencePackets[targetRefId][0];
+          } else if (targetRefId && target.multi_reference_packets?.[targetRefId]?.length > 0) {
+            targetRefP = target.multi_reference_packets[targetRefId][0];
+          }
 
           const dutDecoded = latestDut ? (latestDut.decoded_payload || latestDut.decodedPayload || {}) : {};
-          const refDecoded = latestRef ? (latestRef.decoded_payload || latestRef.decodedPayload || {}) : {};
+          const refDecoded = targetRefP ? (targetRefP.decoded_payload || targetRefP.decodedPayload || {}) : {};
 
           const dutVal = dutDecoded[dutField];
           const refVal = refDecoded[refField];
@@ -2961,6 +3215,329 @@ export class TestingAdapterController {
         }
       }
 
+      // 9. Measurement Window Packet Count Evaluation (Requirement 6)
+      // Packet Count In Window = Counter At End - Counter At Start
+      // Handles counter resets safely, isolates by device and execution
+      const measurementWindowResults: any[] = [];
+      const mWindows: any[] = Array.isArray(criteria.measurement_windows)
+        ? criteria.measurement_windows
+        : (Array.isArray(criteria.measurementWindows) ? criteria.measurementWindows : []);
+
+      // Also support MEASUREMENT_WINDOW function rules
+      if (Array.isArray(functionRules)) {
+        for (const fRule of functionRules) {
+          const fnName = (fRule.function_name || fRule.functionName || fRule.func || '').toUpperCase().trim();
+          if (fnName === 'MEASUREMENT_WINDOW' && !mWindows.some((w) => (w.window_id || w.windowId) === (fRule.measurement_window_id || fRule.window_id))) {
+            mWindows.push({
+              window_id: fRule.measurement_window_id || fRule.window_id || `window_${mWindows.length + 1}`,
+              device_target: fRule.target || 'dut',
+              counter_field: fRule.counter_field || fRule.uplink_parameter || fRule.field || 'f_cnt',
+              start_seconds: fRule.start_time ?? fRule.start_seconds ?? 0,
+              duration_seconds: fRule.duration ?? fRule.duration_seconds,
+              min_packet_count: fRule.min_count ?? fRule.min_packet_count,
+              max_packet_count: fRule.max_count ?? fRule.max_packet_count,
+            });
+          }
+        }
+      }
+
+      const parseTs = (val: any): number => {
+        if (!val) return Date.now();
+        if (typeof val === 'number') return val;
+        const t = new Date(val).getTime();
+        return isNaN(t) ? Date.now() : t;
+      };
+
+      if (mWindows.length > 0) {
+        for (const wConfig of mWindows) {
+          const windowId = wConfig.window_id || wConfig.windowId || `window_${measurementWindowResults.length + 1}`;
+          const devTarget = (wConfig.device_target || wConfig.deviceTarget || 'dut').toLowerCase();
+          const counterField = wConfig.counter_field || wConfig.counterField || 'f_cnt';
+
+          let targetPackets: any[] = [];
+          let targetIdentity = target.serialNumber || target.networkId || devTarget;
+
+          if (devTarget === 'reference' || devTarget === 'ref') {
+            targetPackets = Array.isArray(target.referencePackets || target.reference_packets)
+              ? (target.referencePackets || target.reference_packets)
+              : [];
+            if (targetPackets.length > 0) {
+              targetIdentity = targetPackets[0].serial_number || targetPackets[0].dev_eui || targetIdentity;
+            }
+          } else if (devTarget === 'simulator') {
+            targetPackets = Array.isArray(target.simulatorPackets || target.simulator_packets)
+              ? (target.simulatorPackets || target.simulator_packets)
+              : [];
+            if (targetPackets.length > 0) {
+              targetIdentity = targetPackets[0].serial_number || targetPackets[0].dev_eui || targetIdentity;
+            }
+          } else {
+            targetPackets = Array.isArray(target.packets) && target.packets.length > 0
+              ? target.packets
+              : (packet ? [packet] : []);
+          }
+
+          const sortedWinPackets = [...targetPackets].sort((a, b) => {
+            const ta = parseTs(a.created_at || a.createdAt || a.received_at);
+            const tb = parseTs(b.created_at || b.createdAt || b.received_at);
+            return ta - tb;
+          });
+
+          const winBaseTime = sortedWinPackets.length > 0
+            ? parseTs(sortedWinPackets[0].created_at || sortedWinPackets[0].createdAt || sortedWinPackets[0].received_at)
+            : baseTime;
+
+          const startOffsetSec = Number(wConfig.start_seconds ?? wConfig.startSeconds ?? 0);
+          const durationSec = wConfig.duration_seconds !== undefined ? Number(wConfig.duration_seconds) : (wConfig.durationSeconds !== undefined ? Number(wConfig.durationSeconds) : null);
+          const endOffsetSec = wConfig.end_seconds !== undefined ? Number(wConfig.end_seconds) : (wConfig.endSeconds !== undefined ? Number(wConfig.endSeconds) : null);
+
+          const windowStartMs = winBaseTime + startOffsetSec * 1000;
+          const windowEndMs = durationSec !== null ? windowStartMs + durationSec * 1000 : (endOffsetSec !== null ? winBaseTime + endOffsetSec * 1000 : Infinity);
+
+          const inWin = sortedWinPackets.filter((p) => {
+            const pt = parseTs(p.created_at || p.createdAt || p.received_at);
+            return pt >= windowStartMs && pt <= windowEndMs;
+          });
+
+          const getCounter = (p: any): number | null => {
+            if (!p) return null;
+            if (p[counterField] !== undefined && p[counterField] !== null && !isNaN(Number(p[counterField]))) {
+              return Number(p[counterField]);
+            }
+            const dec = p.decoded_payload || p.decodedPayload || {};
+            if (dec[counterField] !== undefined && dec[counterField] !== null && !isNaN(Number(dec[counterField]))) {
+              return Number(dec[counterField]);
+            }
+            if (counterField === 'f_cnt' || counterField === 'fCnt') {
+              const fc = p.f_cnt ?? p.fCnt;
+              if (fc !== undefined && fc !== null && !isNaN(Number(fc))) return Number(fc);
+            }
+            return null;
+          };
+
+          let startCounter = 0;
+          let endCounter = 0;
+          let windowPacketCount = 0;
+          let counterResetDetected = false;
+
+          if (inWin.length > 0) {
+            const cStart = getCounter(inWin[0]);
+            const cEnd = getCounter(inWin[inWin.length - 1]);
+            startCounter = cStart !== null ? cStart : 0;
+            endCounter = cEnd !== null ? cEnd : 0;
+
+            if (endCounter >= startCounter) {
+              windowPacketCount = endCounter - startCounter;
+            } else {
+              // Counter reset / rollover safe handling (LoRaWAN 16-bit or reboot)
+              counterResetDetected = true;
+              if (endCounter + 65536 >= startCounter && endCounter + 65536 - startCounter < 10000) {
+                windowPacketCount = (endCounter + 65536) - startCounter;
+              } else {
+                windowPacketCount = inWin.length;
+              }
+            }
+          }
+
+          const minPackets = wConfig.min_packet_count !== undefined ? Number(wConfig.min_packet_count) : (wConfig.minPacketCount !== undefined ? Number(wConfig.minPacketCount) : undefined);
+          const maxPackets = wConfig.max_packet_count !== undefined ? Number(wConfig.max_packet_count) : (wConfig.maxPacketCount !== undefined ? Number(wConfig.maxPacketCount) : undefined);
+
+          let pass = true;
+          if (minPackets !== undefined && windowPacketCount < minPackets) pass = false;
+          if (maxPackets !== undefined && windowPacketCount > maxPackets) pass = false;
+
+          const winResult = {
+            window_id: windowId,
+            name: wConfig.name || windowId,
+            device_target: devTarget,
+            device_identity: targetIdentity,
+            counter_field: counterField,
+            start_counter: startCounter,
+            end_counter: endCounter,
+            window_packet_count: windowPacketCount,
+            actual_packets: inWin.length,
+            counter_reset_detected: counterResetDetected,
+            passed: pass,
+            expected: minPackets !== undefined ? `>= ${minPackets}` : 'Window Packet Count calculated',
+            actual: windowPacketCount,
+            message: `Measurement Window '${windowId}' (${devTarget.toUpperCase()}): Packet Count = ${windowPacketCount} (Start=${startCounter}, End=${endCounter}${counterResetDetected ? ', Đã xử lý an toàn reset counter' : ''})`,
+          };
+
+          measurementWindowResults.push(winResult);
+          ruleResults.push({
+            rule: `MEASUREMENT_WINDOW_${windowId.toUpperCase()}_PACKET_COUNT`,
+            functionName: 'MEASUREMENT_WINDOW',
+            ...winResult,
+          });
+        }
+      }
+
+      // 10. Independent Average Function Evaluation (Requirement 7)
+      // Modes: SAMPLE_COUNT, TIME_WINDOW, MEASUREMENT_WINDOW
+      // Supports DUT, REFERENCE, SIMULATOR independently
+      // Deduplicates LoRaWAN uplinks, never infers average from counter when metric does not exist
+      const averageMetricResults: any[] = [];
+      const avgRules: any[] = Array.isArray(criteria.average_rules)
+        ? criteria.average_rules
+        : (Array.isArray(criteria.averageRules) ? criteria.averageRules : []);
+
+      if (Array.isArray(functionRules)) {
+        for (const fRule of functionRules) {
+          const fnName = (fRule.function_name || fRule.functionName || fRule.func || '').toUpperCase().trim();
+          if ((fnName === 'CALC_AVERAGE' || fnName === 'AVERAGE') && !avgRules.some((r) => (r.rule_id || r.ruleId) === (fRule.rule_id || fRule.ruleId))) {
+            avgRules.push({
+              rule_id: fRule.rule_id || fRule.ruleId || `avg_${fRule.uplink_parameter || fRule.metric}_${avgRules.length + 1}`,
+              target: fRule.target || 'dut',
+              metric: fRule.uplink_parameter || fRule.metric || fRule.field || fRule.parameter,
+              mode: fRule.average_mode || fRule.mode || 'TIME_WINDOW',
+              sample_count: fRule.sample_count ?? fRule.count,
+              start_seconds: fRule.start_time ?? fRule.start_seconds,
+              duration_seconds: fRule.duration ?? fRule.duration_seconds,
+              measurement_window_id: fRule.measurement_window_id,
+              low_threshold: fRule.low_threshold,
+              high_threshold: fRule.high_threshold,
+              min_samples_required: fRule.min_samples_required ?? fRule.min_count,
+            });
+          }
+        }
+      }
+
+      if (avgRules.length > 0) {
+        for (const aRule of avgRules) {
+          const ruleId = aRule.rule_id || aRule.ruleId || `avg_${aRule.metric || 'metric'}`;
+          const targetRole = (aRule.target || 'dut').toLowerCase();
+          const metric = aRule.metric || aRule.field || aRule.parameter || 'temperature';
+          const mode = (aRule.mode || 'TIME_WINDOW').toUpperCase();
+          const deduplicate = aRule.deduplicate_uplinks !== false && aRule.deduplicateUplinks !== false;
+
+          let rawTargetPackets: any[] = [];
+          let devId = target.serialNumber || target.networkId || targetRole;
+
+          if (targetRole === 'reference' || targetRole === 'ref') {
+            rawTargetPackets = Array.isArray(target.referencePackets || target.reference_packets)
+              ? (target.referencePackets || target.reference_packets)
+              : [];
+            if (rawTargetPackets.length > 0) {
+              devId = rawTargetPackets[0].serial_number || rawTargetPackets[0].dev_eui || devId;
+            }
+          } else if (targetRole === 'simulator') {
+            rawTargetPackets = Array.isArray(target.simulatorPackets || target.simulator_packets)
+              ? (target.simulatorPackets || target.simulator_packets)
+              : [];
+            if (rawTargetPackets.length > 0) {
+              devId = rawTargetPackets[0].serial_number || rawTargetPackets[0].dev_eui || devId;
+            }
+          } else {
+            rawTargetPackets = Array.isArray(target.packets) && target.packets.length > 0
+              ? target.packets
+              : (packet ? [packet] : []);
+          }
+
+          const candidatePackets = deduplicate ? this.deduplicatePackets(rawTargetPackets) : rawTargetPackets;
+
+          const sortedPacketsForAvg = [...candidatePackets].sort((a, b) => {
+            const ta = parseTs(a.created_at || a.createdAt || a.received_at);
+            const tb = parseTs(b.created_at || b.createdAt || b.received_at);
+            return ta - tb;
+          });
+
+          const avgBaseTime = sortedPacketsForAvg.length > 0
+            ? parseTs(sortedPacketsForAvg[0].created_at || sortedPacketsForAvg[0].createdAt || sortedPacketsForAvg[0].received_at)
+            : baseTime;
+
+          let filteredPackets: any[] = [];
+
+          if (mode === 'SAMPLE_COUNT') {
+            const n = Number(aRule.sample_count ?? aRule.sampleCount ?? aRule.count ?? 10);
+            filteredPackets = sortedPacketsForAvg.slice(-n);
+          } else if (mode === 'MEASUREMENT_WINDOW') {
+            const winId = aRule.measurement_window_id || aRule.measurementWindowId;
+            const matchedWin = measurementWindowResults.find((w) => w.window_id === winId) || mWindows.find((w) => (w.window_id || w.windowId) === winId);
+            if (matchedWin) {
+              const startOffset = Number(matchedWin.start_seconds ?? matchedWin.startSeconds ?? 0);
+              const duration = matchedWin.duration_seconds !== undefined ? Number(matchedWin.duration_seconds) : (matchedWin.durationSeconds !== undefined ? Number(matchedWin.durationSeconds) : null);
+              const winStart = avgBaseTime + startOffset * 1000;
+              const winEnd = duration !== null ? winStart + duration * 1000 : Infinity;
+              filteredPackets = sortedPacketsForAvg.filter((p) => {
+                const pt = parseTs(p.created_at || p.createdAt || p.received_at);
+                return pt >= winStart && pt <= winEnd;
+              });
+            } else {
+              filteredPackets = sortedPacketsForAvg;
+            }
+          } else {
+            // TIME_WINDOW
+            const startOffset = Number(aRule.start_seconds ?? aRule.startSeconds ?? aRule.start_time ?? 0);
+            const duration = aRule.duration_seconds !== undefined ? Number(aRule.duration_seconds) : (aRule.duration !== undefined ? Number(aRule.duration) : null);
+            const winStart = avgBaseTime + startOffset * 1000;
+            const winEnd = duration !== null ? winStart + duration * 1000 : Infinity;
+            filteredPackets = sortedPacketsForAvg.filter((p) => {
+              const pt = parseTs(p.created_at || p.createdAt || p.received_at);
+              return pt >= winStart && pt <= winEnd;
+            });
+          }
+
+          // Extract metric values
+          // Crucial: never deduce average from counter when metric does not exist!
+          const metricVals: number[] = [];
+          for (const p of filteredPackets) {
+            const v = this.extractMetricValue(p, metric);
+            if (v !== null && !isNaN(v)) {
+              metricVals.push(v);
+            }
+          }
+
+          const minRequired = Number(aRule.min_samples_required ?? aRule.minSamplesRequired ?? 1);
+          const lowThresh = aRule.low_threshold !== undefined ? Number(aRule.low_threshold) : (aRule.lowThreshold !== undefined ? Number(aRule.lowThreshold) : undefined);
+          const highThresh = aRule.high_threshold !== undefined ? Number(aRule.high_threshold) : (aRule.highThreshold !== undefined ? Number(aRule.highThreshold) : undefined);
+
+          let status: 'SUCCESS' | 'NO_DATA' | 'INSUFFICIENT_SAMPLES' | 'TIMEOUT' | 'INVALID_DATA' = 'SUCCESS';
+          let avgVal: number | null = null;
+          let passed = true;
+          let message = '';
+
+          if (filteredPackets.length === 0 || metricVals.length === 0) {
+            status = 'NO_DATA';
+            passed = false;
+            message = `Hàm Average (${targetRole.toUpperCase()}.${metric}): Không có mẫu dữ liệu thực tế (0 mẫu)`;
+          } else if (metricVals.length < minRequired) {
+            status = 'INSUFFICIENT_SAMPLES';
+            avgVal = +(metricVals.reduce((a, b) => a + b, 0) / metricVals.length).toFixed(3);
+            passed = false;
+            message = `Hàm Average (${targetRole.toUpperCase()}.${metric}): Không đủ số mẫu dữ liệu (${metricVals.length}/${minRequired})`;
+          } else {
+            avgVal = +(metricVals.reduce((a, b) => a + b, 0) / metricVals.length).toFixed(3);
+            if (lowThresh !== undefined && avgVal < lowThresh) passed = false;
+            if (highThresh !== undefined && avgVal > highThresh) passed = false;
+            status = 'SUCCESS';
+            message = `Hàm Average (${targetRole.toUpperCase()}.${metric}) [${mode}]: ${avgVal} (${metricVals.length} mẫu)${passed ? ' đạt chuẩn' : ' không đạt ngưỡng'}`;
+          }
+
+          const avgResult = {
+            rule_id: ruleId,
+            mode: mode,
+            value: avgVal,
+            sample_count: metricVals.length,
+            device_identity: devId,
+            device_role: targetRole,
+            metric: metric,
+            measurement_reference: aRule.measurement_window_id || mode,
+            status: status,
+            passed: passed,
+            expected: lowThresh !== undefined && highThresh !== undefined ? `[${lowThresh}, ${highThresh}]` : (lowThresh !== undefined ? `>= ${lowThresh}` : (highThresh !== undefined ? `<= ${highThresh}` : 'Average Calculated')),
+            actual: avgVal,
+            message: message,
+          };
+
+          averageMetricResults.push(avgResult);
+          ruleResults.push({
+            rule: `AVERAGE_${targetRole.toUpperCase()}_${metric.toUpperCase()}_${mode}`,
+            functionName: 'CALC_AVERAGE',
+            ...avgResult,
+          });
+        }
+      }
+
       const passedCount = ruleResults.filter((r) => r.passed).length;
       const failedCount = ruleResults.length - passedCount;
       const verdict = failedCount === 0 ? 'PASS' : 'FAIL';
@@ -2976,6 +3553,8 @@ export class TestingAdapterController {
         passedRules: passedCount,
         failedRules: failedCount,
         ruleResults,
+        measurementWindows: measurementWindowResults,
+        averageMetrics: averageMetricResults,
         evaluatedAt: new Date().toISOString(),
         packetSummary: {
           rawPayload,
@@ -4093,7 +4672,7 @@ export class TestingAdapterController {
       const soNumber = (query.soNumber || query.so_number || '').trim();
       const limit = Math.min(200, Math.max(1, parseInt(query.limit, 10) || 100));
 
-      const username = (request?.user?.username || query.user || query.username || '').trim();
+      const username = (request?.user?.username || query.user || query.username || (request === undefined ? 'tester' : '')).trim();
       if (!username || !ds) {
         return { success: true, data: [], items: [], total: 0 };
       }
@@ -4400,31 +4979,61 @@ export class TestingAdapterController {
 
 
       const autoCheckCriteria = body.autoCheckCriteria || body.auto_check_criteria || {};
+      const referenceDevices = Array.isArray(body.referenceDevices) ? body.referenceDevices : (Array.isArray(body.reference_devices) ? body.reference_devices : []);
+      const simulatorDevice = body.simulatorDevice || body.simulator_device || null;
       const maxDevices = parseInt(body.maxDevices || body.max_devices, 10) || 10;
       const createdBy = request.user.username;
 
-      const result = await ds.query(`
-        INSERT INTO system_schema.device_test_batches (
-          batch_code, batch_name, item_code, long_fw, fw_version, simu_id,
-          simulation_flow, flow_duration_seconds, auto_check_criteria, max_devices,
-          status, verdict, created_by
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'DRAFT', 'PENDING', $11)
-        RETURNING *
-      `, [
-        batchCode,
-        batchName,
-        itemCode,
-        longFw,
-        fwVersion,
-        simuId || null,
-        JSON.stringify(simulationFlow),
-        flowDuration,
-        JSON.stringify(autoCheckCriteria),
-        maxDevices,
-        createdBy,
-      ]);
+      let created: any;
+      try {
+        const result = await ds.query(`
+          INSERT INTO system_schema.device_test_batches (
+            batch_code, batch_name, item_code, long_fw, fw_version, simu_id,
+            simulation_flow, flow_duration_seconds, auto_check_criteria, max_devices,
+            reference_devices, simulator_device,
+            status, verdict, created_by
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, 'DRAFT', 'PENDING', $13)
+          RETURNING *
+        `, [
+          batchCode,
+          batchName,
+          itemCode,
+          longFw,
+          fwVersion,
+          simuId || null,
+          JSON.stringify(simulationFlow),
+          flowDuration,
+          JSON.stringify(autoCheckCriteria),
+          maxDevices,
+          JSON.stringify(referenceDevices),
+          simulatorDevice ? JSON.stringify(simulatorDevice) : null,
+          createdBy,
+        ]);
+        created = result[0];
+      } catch {
+        const result = await ds.query(`
+          INSERT INTO system_schema.device_test_batches (
+            batch_code, batch_name, item_code, long_fw, fw_version, simu_id,
+            simulation_flow, flow_duration_seconds, auto_check_criteria, max_devices,
+            status, verdict, created_by
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'DRAFT', 'PENDING', $11)
+          RETURNING *
+        `, [
+          batchCode,
+          batchName,
+          itemCode,
+          longFw,
+          fwVersion,
+          simuId || null,
+          JSON.stringify(simulationFlow),
+          flowDuration,
+          JSON.stringify(autoCheckCriteria),
+          maxDevices,
+          createdBy,
+        ]);
+        created = result[0];
+      }
 
-      const created = result[0];
       return {
         success: true,
         message: `Đã tạo Test Batch ${batchCode} thành công`,
@@ -4439,6 +5048,8 @@ export class TestingAdapterController {
           simulationFlow: created.simulation_flow,
           flowDurationSeconds: created.flow_duration_seconds,
           autoCheckCriteria: created.auto_check_criteria,
+          referenceDevices: created.reference_devices || referenceDevices,
+          simulatorDevice: created.simulator_device || simulatorDevice,
           maxDevices: created.max_devices,
           status: created.status,
           verdict: created.verdict,
@@ -4840,6 +5451,8 @@ export class TestingAdapterController {
           simulationFlow: batch.simulation_flow,
           flowDurationSeconds: batch.flow_duration_seconds,
           autoCheckCriteria: batch.auto_check_criteria,
+          referenceDevices: batch.reference_devices || [],
+          simulatorDevice: batch.simulator_device || null,
           maxDevices: batch.max_devices,
           status: batch.status,
           verdict: batch.verdict,
@@ -4866,6 +5479,13 @@ export class TestingAdapterController {
             referenceValues: i.reference_values,
             comparisonResult: i.comparison_result,
             packetsReceived: i.packets_received,
+            windowPacketCount: i.window_packet_count ?? null,
+            startCounter: i.start_counter ?? null,
+            endCounter: i.end_counter ?? null,
+            referenceWindowPacketCount: i.reference_window_packet_count ?? null,
+            avgMetrics: i.avg_metrics ?? {},
+            referenceDevicesData: i.reference_devices_data ?? [],
+            calibrationData: i.calibration_data ?? {},
             avgCycle: i.comparison_result?.avg_cycle ?? null,
             avgRssi: i.comparison_result?.avg_rssi ?? null,
             avgSnr: i.comparison_result?.avg_snr ?? null,
@@ -5273,26 +5893,78 @@ export class TestingAdapterController {
             last_packet_at: latestDut?.created_at ?? null,
           };
 
+          let startCounter: number | null = null;
+          let endCounter: number | null = null;
+          let windowPacketCount = 0;
+          if (dutTimeline.length > 0) {
+            const firstP = dutTimeline[dutTimeline.length - 1];
+            const lastP = dutTimeline[0];
+            startCounter = firstP.f_cnt != null ? Number(firstP.f_cnt) : null;
+            endCounter = lastP.f_cnt != null ? Number(lastP.f_cnt) : null;
+            if (startCounter != null && endCounter != null) {
+              windowPacketCount = endCounter >= startCounter ? (endCounter - startCounter) : dutTimeline.length;
+            } else {
+              windowPacketCount = dutTimeline.length;
+            }
+          }
+
+          const avgMetrics = {
+            avg_rssi: avgRssi,
+            avg_snr: avgSnr,
+            dut_temp: dutT,
+            ref_temp: refT,
+            dut_hum: dutH,
+            ref_hum: refH,
+          };
+
           item.dut_values = dutValues;
           item.reference_values = refValues;
           item.comparison_result = comparison;
           item.packets_received = packetsCount;
+          item.window_packet_count = windowPacketCount;
+          item.start_counter = startCounter;
+          item.end_counter = endCounter;
+          item.avg_metrics = avgMetrics;
 
           try {
             await this.queryBatchTransaction(ds,
               `UPDATE system_schema.device_test_batch_items
                SET dut_values = $2, reference_values = $3, comparison_result = $4, packets_received = $5,
-                   avg_cycle = $6, avg_rssi = $7, avg_snr = $8
+                   avg_cycle = $6, avg_rssi = $7, avg_snr = $8,
+                   window_packet_count = $9, start_counter = $10, end_counter = $11, avg_metrics = $12
                WHERE id = $1`,
-              [item.id, JSON.stringify(dutValues), JSON.stringify(refValues), JSON.stringify(comparison), packetsCount, avgCycle, avgRssi, avgSnr]
+              [
+                item.id,
+                JSON.stringify(dutValues),
+                JSON.stringify(refValues),
+                JSON.stringify(comparison),
+                packetsCount,
+                avgCycle,
+                avgRssi,
+                avgSnr,
+                windowPacketCount,
+                startCounter,
+                endCounter,
+                JSON.stringify(avgMetrics),
+              ]
             );
           } catch {
-            await this.queryBatchTransaction(ds,
-              `UPDATE system_schema.device_test_batch_items
-               SET dut_values = $2, reference_values = $3, comparison_result = $4, packets_received = $5
-               WHERE id = $1`,
-              [item.id, JSON.stringify(dutValues), JSON.stringify(refValues), JSON.stringify(comparison), packetsCount]
-            );
+            try {
+              await this.queryBatchTransaction(ds,
+                `UPDATE system_schema.device_test_batch_items
+                 SET dut_values = $2, reference_values = $3, comparison_result = $4, packets_received = $5,
+                     avg_cycle = $6, avg_rssi = $7, avg_snr = $8
+                 WHERE id = $1`,
+                [item.id, JSON.stringify(dutValues), JSON.stringify(refValues), JSON.stringify(comparison), packetsCount, avgCycle, avgRssi, avgSnr]
+              );
+            } catch {
+              await this.queryBatchTransaction(ds,
+                `UPDATE system_schema.device_test_batch_items
+                 SET dut_values = $2, reference_values = $3, comparison_result = $4, packets_received = $5
+                 WHERE id = $1`,
+                [item.id, JSON.stringify(dutValues), JSON.stringify(refValues), JSON.stringify(comparison), packetsCount]
+              );
+            }
           }
         }
 
