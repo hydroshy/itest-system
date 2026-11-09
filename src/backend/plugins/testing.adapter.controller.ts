@@ -2570,6 +2570,19 @@ export class TestingAdapterController {
       } catch {}
     }
 
+    // Ensure standard RF / network telemetry fields are also available for this device: RSSI, SNR, FCNT, FREQ
+    const standardDeviceFields = [
+      { name: 'RSSI', label: 'RSSI', type: 'number', unit: 'dBm' },
+      { name: 'SNR', label: 'SNR', type: 'number', unit: 'dB' },
+      { name: 'FCNT', label: 'FCNT', type: 'number', unit: '' },
+      { name: 'FREQ', label: 'FREQ', type: 'number', unit: 'MHz' },
+    ];
+    for (const sf of standardDeviceFields) {
+      if (!fields.some((f) => f.name.toUpperCase() === sf.name)) {
+        fields.push(sf);
+      }
+    }
+
     return {
       success: true,
       data: {
@@ -3009,11 +3022,24 @@ export class TestingAdapterController {
             targetRefP = target.multi_reference_packets[targetRefId][0];
           }
 
-          const dutDecoded = latestDut ? (latestDut.decoded_payload || latestDut.decodedPayload || {}) : {};
-          const refDecoded = targetRefP ? (targetRefP.decoded_payload || targetRefP.decodedPayload || {}) : {};
+          const resolvePktField = (p: any, field: string): any => {
+            if (!p || !field) return undefined;
+            const dec = p.decoded_payload || p.decodedPayload || {};
+            if (dec[field] !== undefined && dec[field] !== null) return dec[field];
+            const found = Object.keys(dec).find((k) => k.toLowerCase() === field.toLowerCase());
+            if (found && dec[found] !== undefined && dec[found] !== null) return dec[found];
 
-          const dutVal = dutDecoded[dutField];
-          const refVal = refDecoded[refField];
+            const rf = p.rf_info || p.rfInfo || {};
+            const keyUpper = field.toUpperCase().trim();
+            if (keyUpper === 'RSSI') return rf.rssi ?? p.rssi;
+            if (keyUpper === 'SNR') return rf.snr ?? p.snr;
+            if (keyUpper === 'FCNT') return p.f_cnt ?? p.fCnt ?? p.fcnt;
+            if (keyUpper === 'FREQ' || keyUpper === 'FREQUENCY') return rf.frequency ?? rf.freq ?? p.frequency ?? p.freq;
+            return undefined;
+          };
+
+          const dutVal = resolvePktField(latestDut, dutField);
+          const refVal = resolvePktField(targetRefP, refField);
 
           let passed = false;
           let message = '';
@@ -3082,9 +3108,27 @@ export class TestingAdapterController {
           const extractVal = (p: any): number | null => {
             const dec = p?.decoded_payload || p?.decodedPayload || {};
             if (dec[paramKey] !== undefined && dec[paramKey] !== null) return Number(dec[paramKey]);
-            // Case-insensitive lookup
+            // Case-insensitive lookup in decoded_payload
             const foundKey = Object.keys(dec).find((k) => k.toLowerCase() === (paramKey || '').toLowerCase());
             if (foundKey && dec[foundKey] !== undefined && dec[foundKey] !== null) return Number(dec[foundKey]);
+
+            // RF / Network / Counter standard fields lookup on packet
+            const rf = p?.rf_info || p?.rfInfo || {};
+            const keyUpper = (paramKey || '').toUpperCase().trim();
+            if (keyUpper === 'RSSI') {
+              const val = rf.rssi ?? p?.rssi;
+              if (val !== undefined && val !== null) return Number(val);
+            } else if (keyUpper === 'SNR') {
+              const val = rf.snr ?? p?.snr;
+              if (val !== undefined && val !== null) return Number(val);
+            } else if (keyUpper === 'FCNT') {
+              const val = p?.f_cnt ?? p?.fCnt ?? p?.fcnt;
+              if (val !== undefined && val !== null) return Number(val);
+            } else if (keyUpper === 'FREQ' || keyUpper === 'FREQUENCY') {
+              const val = rf.frequency ?? rf.freq ?? p?.frequency ?? p?.freq;
+              if (val !== undefined && val !== null) return Number(val);
+            }
+
             return null;
           };
 
