@@ -4634,6 +4634,7 @@ export class TestingAdapterController {
         try {
           const regRows = await this.queryBatchTransaction(manager,
             `SELECT r.id, r.so_id, r.so_number, r.wa_id, r.wa_number, r.created_by, r.item_code,
+                    r.hw_version, r.fw_version, r.fw_code, r.long_fw,
                     r.network_server_id, r.network_server_url, r.is_reference
              FROM system_schema.device_test_registrations r
              WHERE LOWER(r.serial_number) = LOWER($1) OR LOWER(REPLACE(COALESCE(r.dev_eui, ''), ':', '')) = LOWER(REPLACE($2, ':', ''))
@@ -4644,6 +4645,8 @@ export class TestingAdapterController {
           const testerName = reg.created_by || batch.created_by || 'tester';
           const soId = reg.so_id || null;
           const waId = reg.wa_id || null;
+          const hwVersion = reg.hw_version || item.hw_version || null;
+          const fwVersion = reg.fw_version || reg.long_fw || item.fw_version || batch.fw_version || null;
           const statusStr = itemVerdict === 'PASS' ? 'TESTED_PASS' : 'TESTED_FAIL';
           const testRawData = JSON.stringify({
             batchCode: batch.batch_code,
@@ -4659,6 +4662,8 @@ export class TestingAdapterController {
             avgCycle: item.avg_cycle ?? item.comparison_result?.avg_cycle ?? null,
             avgRssi: item.avg_rssi ?? item.comparison_result?.avg_rssi ?? null,
             avgSnr: item.avg_snr ?? item.comparison_result?.avg_snr ?? null,
+            hwVersion,
+            fwVersion,
             testedAt: finished,
             testPerson: testerName,
             soNumber: reg.so_number,
@@ -4674,7 +4679,9 @@ export class TestingAdapterController {
                 test_person = COALESCE($6, test_person),
                 so_id = COALESCE($7, so_id),
                 wa_id = COALESCE($8, wa_id),
-                item_code = COALESCE($9, item_code)
+                item_code = COALESCE($9, item_code),
+                hw_version = COALESCE($10, hw_version),
+                fw_version = COALESCE($11, fw_version)
             WHERE LOWER(serial_number) = LOWER($1) OR LOWER(REPLACE(COALESCE(dev_eui, ''), ':', '')) = LOWER(REPLACE($1, ':', ''))
           `, [
             item.serial_number || item.dev_eui,
@@ -4686,20 +4693,24 @@ export class TestingAdapterController {
             soId,
             waId,
             reg.item_code || batch.item_code,
+            hwVersion,
+            fwVersion,
           ]);
 
           if (!updateRes || updateRes.length === 0 || (updateRes as any)[1] === 0) {
             if (soId) {
               await this.queryBatchTransaction(manager, `
                 INSERT INTO traceability_manager.traceability_device
-                  (so_id, wa_id, serial_number, dev_eui, item_code, test_result, test_person, tested_at, test_raw_data, status)
-                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, $10)
+                  (so_id, wa_id, serial_number, dev_eui, item_code, hw_version, fw_version, test_result, test_person, tested_at, test_raw_data, status)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11::jsonb, $12)
                 ON CONFLICT (serial_number) DO UPDATE
                 SET test_result = EXCLUDED.test_result,
                     test_person = EXCLUDED.test_person,
                     tested_at = EXCLUDED.tested_at,
                     test_raw_data = EXCLUDED.test_raw_data,
                     status = EXCLUDED.status,
+                    hw_version = COALESCE(EXCLUDED.hw_version, traceability_device.hw_version),
+                    fw_version = COALESCE(EXCLUDED.fw_version, traceability_device.fw_version),
                     wa_id = COALESCE(EXCLUDED.wa_id, traceability_device.wa_id),
                     so_id = COALESCE(EXCLUDED.so_id, traceability_device.so_id)
               `, [
@@ -4708,6 +4719,8 @@ export class TestingAdapterController {
                 item.serial_number || item.dev_eui,
                 item.dev_eui,
                 reg.item_code || batch.item_code,
+                hwVersion,
+                fwVersion,
                 itemVerdict,
                 testerName,
                 finished,
@@ -5306,6 +5319,7 @@ export class TestingAdapterController {
               // 1. Lookup SO, WA, and creator from device_test_registrations
               const regRows = await this.queryBatchTransaction(ds,
                 `SELECT r.id, r.so_id, r.so_number, r.wa_id, r.wa_number, r.created_by, r.item_code,
+                        r.hw_version, r.fw_version, r.fw_code, r.long_fw,
                         r.network_server_id, r.network_server_url, r.is_reference
                  FROM system_schema.device_test_registrations r
                  WHERE LOWER(r.serial_number) = LOWER($1) OR LOWER(REPLACE(COALESCE(r.dev_eui, ''), ':', '')) = LOWER(REPLACE($2, ':', ''))
@@ -5317,6 +5331,8 @@ export class TestingAdapterController {
               let soId = reg.so_id || null;
               let waId = reg.wa_id || null;
               const testerName = batch.created_by || reg.created_by || 'tester';
+              const hwVersion = reg.hw_version || item.hw_version || null;
+              const fwVersion = reg.fw_version || reg.long_fw || item.fw_version || batch.fw_version || null;
 
               if (!soId && reg.so_number) {
                 const soRows = await this.queryBatchTransaction(ds,
@@ -5367,6 +5383,11 @@ export class TestingAdapterController {
                   rules_passed: item.rules_passed || 0,
                   rules_failed: item.rules_failed || 0,
                 },
+                avg_cycle: comp.avg_cycle ?? item.avg_cycle ?? null,
+                avg_rssi: comp.avg_rssi ?? item.avg_rssi ?? null,
+                avg_snr: comp.avg_snr ?? item.avg_snr ?? null,
+                hw_version: hwVersion,
+                fw_version: fwVersion,
                 comparison_result: item.comparison_result,
                 auto_check_criteria: batch.auto_check_criteria,
                 simulation_flow: batch.simulation_flow,
@@ -5392,7 +5413,9 @@ export class TestingAdapterController {
                     test_person = COALESCE($6, test_person),
                     so_id = COALESCE($7, so_id),
                     wa_id = COALESCE($8, wa_id),
-                    item_code = COALESCE($9, item_code)
+                    item_code = COALESCE($9, item_code),
+                    hw_version = COALESCE($10, hw_version),
+                    fw_version = COALESCE($11, fw_version)
                 WHERE LOWER(serial_number) = LOWER($1) OR LOWER(REPLACE(COALESCE(dev_eui, ''), ':', '')) = LOWER(REPLACE($1, ':', ''))
               `, [
                 targetIdentifier,
@@ -5404,6 +5427,8 @@ export class TestingAdapterController {
                 soId,
                 waId,
                 reg.item_code || batch.item_code,
+                hwVersion,
+                fwVersion,
               ]);
 
               // If record doesn't exist yet in traceability_device, auto create with resolved SO, WA, and test_person
@@ -5411,14 +5436,16 @@ export class TestingAdapterController {
                 if (soId) {
                   await this.queryBatchTransaction(ds, `
                     INSERT INTO traceability_manager.traceability_device
-                      (so_id, wa_id, serial_number, dev_eui, item_code, test_result, test_person, tested_at, test_raw_data, status)
-                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, $10)
+                      (so_id, wa_id, serial_number, dev_eui, item_code, hw_version, fw_version, test_result, test_person, tested_at, test_raw_data, status)
+                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11::jsonb, $12)
                     ON CONFLICT (serial_number) DO UPDATE
                     SET test_result = EXCLUDED.test_result,
                         test_person = EXCLUDED.test_person,
                         tested_at = EXCLUDED.tested_at,
                         test_raw_data = EXCLUDED.test_raw_data,
                         status = EXCLUDED.status,
+                        hw_version = COALESCE(EXCLUDED.hw_version, traceability_device.hw_version),
+                        fw_version = COALESCE(EXCLUDED.fw_version, traceability_device.fw_version),
                         wa_id = COALESCE(EXCLUDED.wa_id, traceability_device.wa_id),
                         so_id = COALESCE(EXCLUDED.so_id, traceability_device.so_id)
                   `, [
@@ -5427,6 +5454,8 @@ export class TestingAdapterController {
                     item.serial_number || item.dev_eui,
                     item.dev_eui,
                     reg.item_code || batch.item_code,
+                    hwVersion,
+                    fwVersion,
                     itemVerdict,
                     testerName,
                     finished,
