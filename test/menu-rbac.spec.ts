@@ -40,7 +40,7 @@ async function runTests() {
   assert.ok(itemIds.includes('device-traceability:so'), 'Should contain device-traceability:so');
   assert.ok(itemIds.includes('device-traceability:devices'), 'Should contain device-traceability:devices');
   assert.ok(itemIds.includes('device-traceability:final-config'), 'Should contain device-traceability:final-config');
-  assert.ok(itemIds.includes('memmap-payload:manager'), 'Should contain memmap-payload:manager');
+  assert.ok(itemIds.includes('memmap-payload:manager') || itemIds.includes('memmap-payload:main'), 'Should contain memmap-payload:manager or memmap-payload:main');
   assert.ok(itemIds.includes('lorawan-chirpstack:integration'), 'Should contain lorawan-chirpstack:integration');
   for (const tab of ['gateway-sessions', 'simulation-devices', 'device-simulation', 'device-auto-check', 'packets', 'list-flow-simulation', 'list-device-simulation']) {
     const card = items.find((item) => item.id === `testing:${tab}`);

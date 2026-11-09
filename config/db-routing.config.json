@@ -17,7 +17,9 @@
   "table_routes": {
     "users": "core_db",
     "roles": "core_db",
+    "user_role": "core_db",
     "role_permissions": "core_db",
+    "role_menu_permissions": "core_db",
     "permission": "core_db",
     "core_plugins": "core_db",
     "plugin_audit_logs": "core_db",
