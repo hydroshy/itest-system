@@ -211,6 +211,28 @@ export const SYSTEM_MENU_ITEMS: MenuItemDto[] = [
     category: 'plugin',
     order: 24,
   },
+  {
+    id: 'testing:create-test-batch',
+    title: 'Create Test Batch',
+    description: 'Khởi tạo cấu hình Test Batch với ITEM-CODE, LONG_FW, gán Simulation Flow tự động',
+    icon: 'FolderPlus',
+    route: '/plugins/testing?tab=create-test-batch',
+    pluginId: 'testing',
+    tab: 'create-test-batch',
+    category: 'plugin',
+    order: 25,
+  },
+  {
+    id: 'testing:list-test-batch',
+    title: 'List Test Batch',
+    description: 'Danh sách và lịch sử các Test Batch đã thiết lập trong hệ thống',
+    icon: 'ListFilter',
+    route: '/plugins/testing?tab=list-test-batch',
+    pluginId: 'testing',
+    tab: 'list-test-batch',
+    category: 'plugin',
+    order: 26,
+  },
 ];
 
 @Injectable()
@@ -239,8 +261,8 @@ export class MenuService {
       'testing:so-test-batch',
       'so-test-batch:main',
       'testing:test-batch',
-      'testing:device-test-batch',
-      'device-test-batch:main',
+      'testing:create-test-batch',
+      'testing:list-test-batch',
     ],
   };
 
