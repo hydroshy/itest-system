@@ -201,17 +201,6 @@ export const SYSTEM_MENU_ITEMS: MenuItemDto[] = [
     order: 23,
   },
   {
-    id: 'so-test-batch:main',
-    title: 'SO Test Batch',
-    description: 'Quản lý liên kết giữa Sale Order (SO) và Test Batch',
-    icon: 'Layers',
-    route: '/plugins/testing?tab=so-test-batch',
-    pluginId: 'testing',
-    tab: 'so-test-batch',
-    category: 'plugin',
-    order: 24,
-  },
-  {
     id: 'testing:test-batch',
     title: 'Device Test Batch',
     description: 'Kiểm thử hàng loạt thiết bị LoRaWAN song song và đối chiếu chuẩn theo Sale Order',
@@ -220,29 +209,7 @@ export const SYSTEM_MENU_ITEMS: MenuItemDto[] = [
     pluginId: 'testing',
     tab: 'test-batch',
     category: 'plugin',
-    order: 25,
-  },
-  {
-    id: 'testing:device-test-batch',
-    title: 'Device Test Batch',
-    description: 'Kiểm thử hàng loạt thiết bị LoRaWAN song song và đối chiếu chuẩn theo Sale Order',
-    icon: 'Boxes',
-    route: '/plugins/testing?tab=device-test-batch',
-    pluginId: 'testing',
-    tab: 'device-test-batch',
-    category: 'plugin',
-    order: 26,
-  },
-  {
-    id: 'device-test-batch:main',
-    title: 'Device Test Batch',
-    description: 'Kiểm thử hàng loạt thiết bị LoRaWAN song song và đối chiếu chuẩn theo Sale Order',
-    icon: 'Boxes',
-    route: '/plugins/testing?tab=device-test-batch',
-    pluginId: 'testing',
-    tab: 'device-test-batch',
-    category: 'plugin',
-    order: 27,
+    order: 24,
   },
 ];
 
@@ -317,13 +284,32 @@ export class MenuService {
             if (!normalizedRows.some((row) => row.id === item.id)) normalizedRows.push({ ...item });
           }
           normalizedRows.sort((a, b) => (a.order || 0) - (b.order || 0));
-          return normalizedRows;
+          const seen = new Set<string>();
+          const deduplicated: MenuItemDto[] = [];
+          for (const item of normalizedRows) {
+            const key = (item.route || item.id || '').trim().toLowerCase();
+            if (!seen.has(key)) {
+              seen.add(key);
+              deduplicated.push(item);
+            }
+          }
+          return deduplicated;
         }
       }
     } catch (err: any) {
       this.logger.warn(`Could not fetch system_menu_items from DB: ${err.message}. Using default list.`);
     }
-    return SYSTEM_MENU_ITEMS;
+
+    const seen = new Set<string>();
+    const deduplicated: MenuItemDto[] = [];
+    for (const item of SYSTEM_MENU_ITEMS) {
+      const key = (item.route || item.id || '').trim().toLowerCase();
+      if (!seen.has(key)) {
+        seen.add(key);
+        deduplicated.push(item);
+      }
+    }
+    return deduplicated;
   }
 
   /**
@@ -404,6 +390,11 @@ export class MenuService {
       normalizedRoles.includes('ADMINISTRATOR');
 
     if (isSuperAdmin) {
+      const adminAssignments = roleMatrix['ADMIN'] || roleMatrix['SUPER_ADMIN'];
+      if (Array.isArray(adminAssignments) && adminAssignments.length > 0) {
+        const allowedIds = new Set(adminAssignments);
+        return allItems.filter((item) => allowedIds.has(item.id));
+      }
       return allItems;
     }
 
