@@ -4843,6 +4843,7 @@ export class TestingAdapterController implements OnApplicationBootstrap {
   }
 
   @Get(['api/plugins/testing/test-batches/available-devices', 'api/v1/plugins/testing/test-batches/available-devices'])
+  @UseGuards(JwtAuthGuard)
   async getAvailableDevicesForBatch(@Query() query: any, @Req() request?: any) {
     try {
       const ds = this.databaseService.getDataSourceForTable('devices');
@@ -4852,7 +4853,7 @@ export class TestingAdapterController implements OnApplicationBootstrap {
       const limit = Math.min(200, Math.max(1, parseInt(query.limit, 10) || 100));
 
       const username = (request?.user?.username || query.user || query.username || '').trim();
-      if (!username || !ds) {
+      if (!ds) {
         return { success: true, data: [], items: [], total: 0 };
       }
 
@@ -5010,6 +5011,46 @@ export class TestingAdapterController implements OnApplicationBootstrap {
               LIMIT ${limit}
             `, params);
           }
+        }
+      }
+
+      // 5. Fallback for SO devices from devices.devices (Traceability store)
+      if (soNumber && rows.length === 0) {
+        try {
+          const busySerialsSql = `
+            SELECT bi.serial_number FROM system_schema.device_test_batch_items bi
+            JOIN system_schema.device_test_batches b ON bi.batch_id = b.id
+            WHERE b.status = 'RUNNING'
+          `;
+          const devParams: any[] = [`%${soNumber}%`];
+          let devSql = `
+            SELECT
+              d.id,
+              d.serial_number AS "serial_number",
+              d.serial_number AS "registration_code",
+              d.item_code,
+              COALESCE(d.metadata->>'fwVersion', d.metadata->>'fw_version', 'v1.0') AS "fw_version",
+              COALESCE(d.metadata->>'longFw', d.metadata->>'fwVersion', 'v1.0') AS "long_fw",
+              COALESCE(d.metadata->>'hwVersion', 'v1.0') AS "hw_version",
+              COALESCE(d.dev_eui, d.network_id, '—') AS "dev_eui",
+              d.status,
+              d.so_number,
+              d.created_at
+            FROM devices.devices d
+            WHERE d.so_number ILIKE $1
+              AND d.serial_number NOT IN (${busySerialsSql})
+          `;
+          if (itemCode) {
+            devParams.push(itemCode);
+            devSql += ` AND UPPER(d.item_code) = UPPER($${devParams.length})`;
+          }
+          devSql += ` ORDER BY d.created_at DESC LIMIT ${limit}`;
+          const devRows = await ds.query(devSql, devParams);
+          if (Array.isArray(devRows) && devRows.length > 0) {
+            rows = devRows;
+          }
+        } catch (traceabilityErr: any) {
+          this.logger.debug(`Could not query devices.devices for soNumber: ${traceabilityErr.message}`);
         }
       }
 
