@@ -5426,7 +5426,7 @@ export class TestingAdapterController implements OnApplicationBootstrap {
 
   @Post(['api/plugins/testing/test-batches/:id/complete', 'api/v1/plugins/testing/test-batches/:id/complete'])
   @UseGuards(JwtAuthGuard)
-  async completeTestBatch(@Param('id') id: string, @Req() request: any) {
+  async completeTestBatch(@Param('id') id: string, @Req() request: any, @Body() body?: any) {
     if (!request?.user?.username) throw new UnauthorizedException('Authentication token missing or invalid');
     const ds = this.databaseService.getDataSourceForTable('devices');
     if (!ds) throw new HttpException('Database unavailable', HttpStatus.SERVICE_UNAVAILABLE);
@@ -5447,7 +5447,26 @@ export class TestingAdapterController implements OnApplicationBootstrap {
       for (const item of items) {
         const comp = item.comparison_result || {};
         const hasRef = Boolean(item.reference_serial_number || item.reference_dev_eui);
-        const isPass = (item.packets_received || 0) > 0 && (hasRef ? comp.tolerance_pass === true : comp.tolerance_pass !== false);
+        const autoPass = (item.packets_received || 0) > 0 && (hasRef ? comp.tolerance_pass === true : comp.tolerance_pass !== false);
+
+        let isPass = autoPass;
+        if (body?.classifications) {
+          const directVerdict = body.classifications[item.id] ||
+            (item.serial_number && body.classifications[item.serial_number]) ||
+            (item.dev_eui && body.classifications[item.dev_eui]);
+          if (directVerdict === 'PASS') isPass = true;
+          else if (directVerdict === 'FAIL') isPass = false;
+        } else if (Array.isArray(body?.passDeviceIds) || Array.isArray(body?.failDeviceIds)) {
+          const itemKey = item.id;
+          const sn = item.serial_number;
+          const eui = item.dev_eui;
+          if (body?.passDeviceIds?.some((k: string) => k === itemKey || k === sn || k === eui)) {
+            isPass = true;
+          } else if (body?.failDeviceIds?.some((k: string) => k === itemKey || k === sn || k === eui)) {
+            isPass = false;
+          }
+        }
+
         if (!isPass) allPass = false;
         const itemVerdict = isPass ? 'PASS' : 'FAIL';
         item.status = itemVerdict;
