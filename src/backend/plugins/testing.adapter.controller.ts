@@ -46,6 +46,7 @@ export interface RegisterTestingDeviceDto {
   itemCode?: string;
   metadata?: Record<string, any>;
   status?: string;
+  region?: string;
 }
 
 export interface IngestPacketDto {
@@ -548,6 +549,10 @@ export class TestingAdapterController implements OnApplicationBootstrap {
                 id: d.id,
                 serialNumber: d.serial_number,
                 networkId: d.network_id,
+                devEui: d.metadata?.devEui || d.network_id,
+                appEui: d.metadata?.appEui,
+                appKey: d.metadata?.appKey,
+                region: d.metadata?.region || 'AS923-1',
                 deviceName: d.device_name,
                 deviceType: d.device_type,
                 status: d.status,
@@ -555,6 +560,7 @@ export class TestingAdapterController implements OnApplicationBootstrap {
                 soNumber: d.so_number,
                 waNumber: d.wa_number,
                 itemCode: d.item_code,
+                fwVersion: d.metadata?.fwVersion || d.metadata?.longFw,
                 metadata: d.metadata,
                 createdAt: d.created_at,
                 updatedAt: d.updated_at,
@@ -583,6 +589,10 @@ export class TestingAdapterController implements OnApplicationBootstrap {
           id: d.id,
           serialNumber: d.serial_number,
           networkId: d.network_id,
+          devEui: (d.metadata as any)?.devEui || d.network_id,
+          appEui: (d.metadata as any)?.appEui,
+          appKey: (d.metadata as any)?.appKey,
+          region: (d.metadata as any)?.region || 'AS923-1',
           deviceName: d.device_name,
           deviceType: d.device_type,
           status: d.status,
@@ -590,6 +600,7 @@ export class TestingAdapterController implements OnApplicationBootstrap {
           soNumber: d.so_number,
           waNumber: d.wa_number,
           itemCode: d.item_code,
+          fwVersion: (d.metadata as any)?.fwVersion || (d.metadata as any)?.longFw,
           metadata: d.metadata,
           createdAt: d.created_at,
           updatedAt: d.updated_at,
@@ -765,6 +776,7 @@ export class TestingAdapterController implements OnApplicationBootstrap {
       const cleanAppKey = (((body as any).appKey || '') as string).replace(/[^0-9a-fA-F]/g, '').toLowerCase();
       const rawFw = (((body as any).fwVersion || (body as any).longFw || '') as string).trim();
       const devItemCode = ((body.itemCode || resolvedItemCode || '') as string).trim();
+      const selectedRegion = (((body as any).region || (body.metadata as any)?.region || 'AS923-1') as string).trim();
 
       let chirpstackRegistered = false;
       let registeredAppId = '';
@@ -787,19 +799,35 @@ export class TestingAdapterController implements OnApplicationBootstrap {
                 'Grpc-Metadata-Authorization': `Bearer ${server.apiToken}`,
               };
 
-              let deviceProfileId = server.deviceProfileId || '';
-              if (!deviceProfileId && server.tenantId) {
+              let deviceProfileId = '';
+              if (server.tenantId) {
                 try {
-                  const dpRes = await fetch(`${server.apiUrl.replace(/\/+$/, '')}/api/device-profiles?tenantId=${encodeURIComponent(server.tenantId)}&limit=10`, {
+                  const dpRes = await fetch(`${server.apiUrl.replace(/\/+$/, '')}/api/device-profiles?tenantId=${encodeURIComponent(server.tenantId)}&limit=50`, {
                     headers,
                     signal: AbortSignal.timeout(5000),
                   });
                   if (dpRes.ok) {
                     const dpJson = await dpRes.json();
-                    const list = dpJson?.result || dpJson?.items || [];
-                    if (list.length > 0) deviceProfileId = list[0].id;
+                    const list: any[] = dpJson?.result || dpJson?.items || [];
+                    const normRegion = selectedRegion.toUpperCase().replace(/[-_\s]/g, '');
+                    const matched = list.find((p: any) => {
+                      const pReg = String(p.region || '').toUpperCase().replace(/[-_\s]/g, '');
+                      return pReg === normRegion ||
+                        (normRegion.startsWith('AS923') && pReg.startsWith('AS923')) ||
+                        (normRegion.startsWith('AU915') && pReg.startsWith('AU915')) ||
+                        (normRegion.startsWith('EU868') && pReg.startsWith('EU868')) ||
+                        (normRegion.startsWith('US915') && pReg.startsWith('US915'));
+                    });
+                    if (matched?.id) {
+                      deviceProfileId = matched.id;
+                    } else if (list.length > 0) {
+                      deviceProfileId = list[0].id;
+                    }
                   }
                 } catch {}
+              }
+              if (!deviceProfileId) {
+                deviceProfileId = server.deviceProfileId || '';
               }
 
               const csPayload = {
@@ -882,6 +910,7 @@ export class TestingAdapterController implements OnApplicationBootstrap {
           itemCode: devItemCode || undefined,
           fwVersion: rawFw || undefined,
           longFw: rawFw || undefined,
+          region: selectedRegion,
           isSimulation: isSim,
           chirpstackRegistered,
           applicationId: registeredAppId || undefined,
