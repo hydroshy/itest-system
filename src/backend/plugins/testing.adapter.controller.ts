@@ -759,19 +759,133 @@ export class TestingAdapterController implements OnApplicationBootstrap {
         }
       }
 
+      const isSim = Boolean((body as any).isSimulation || body.deviceType === 'SIMULATION' || body.status === 'simulation');
+      const cleanDevEui = (((body as any).devEui || body.networkId || '') as string).replace(/[^0-9a-fA-F]/g, '').toLowerCase();
+      const cleanAppEui = (((body as any).appEui || (body as any).joinEui || '0000000000000000') as string).replace(/[^0-9a-fA-F]/g, '').toLowerCase();
+      const cleanAppKey = (((body as any).appKey || '') as string).replace(/[^0-9a-fA-F]/g, '').toLowerCase();
+      const rawFw = (((body as any).fwVersion || (body as any).longFw || '') as string).trim();
+      const devItemCode = ((body.itemCode || resolvedItemCode || '') as string).trim();
+
+      let chirpstackRegistered = false;
+      let registeredAppId = '';
+
+      if (isSim && cleanDevEui && cleanDevEui.length === 16) {
+        try {
+          const serverRepo = this.databaseService.getRepositoryForTable('network_servers', ChirpstackNetworkServerEntity);
+          const server = await serverRepo.findOne({ where: { isActive: true } }) || await serverRepo.findOne({ order: { updatedAt: 'DESC' } });
+          
+          if (server?.apiUrl && server?.apiToken) {
+            registeredAppId = (server.simulationApplicationId && server.simulationApplicationId.trim())
+              ? server.simulationApplicationId.trim()
+              : (server.applicationId ? server.applicationId.trim() : '');
+              
+            if (registeredAppId) {
+              const headers: Record<string, string> = {
+                'Content-Type': 'application/json',
+                Accept: 'application/json',
+                Authorization: `Bearer ${server.apiToken}`,
+                'Grpc-Metadata-Authorization': `Bearer ${server.apiToken}`,
+              };
+
+              let deviceProfileId = server.deviceProfileId || '';
+              if (!deviceProfileId && server.tenantId) {
+                try {
+                  const dpRes = await fetch(`${server.apiUrl.replace(/\/+$/, '')}/api/device-profiles?tenantId=${encodeURIComponent(server.tenantId)}&limit=10`, {
+                    headers,
+                    signal: AbortSignal.timeout(5000),
+                  });
+                  if (dpRes.ok) {
+                    const dpJson = await dpRes.json();
+                    const list = dpJson?.result || dpJson?.items || [];
+                    if (list.length > 0) deviceProfileId = list[0].id;
+                  }
+                } catch {}
+              }
+
+              const csPayload = {
+                device: {
+                  applicationId: registeredAppId,
+                  description: 'ITEST SIMULATION DEVICE',
+                  devEui: cleanDevEui,
+                  deviceProfileId: deviceProfileId,
+                  isDisabled: false,
+                  joinEui: cleanAppEui.padStart(16, '0'),
+                  name: body.deviceName?.trim() || body.serialNumber?.trim() || `SIM-${cleanDevEui}`,
+                  skipFcntCheck: true,
+                },
+                variables: {
+                  serialNumber: body.serialNumber?.trim() || '',
+                  itemCode: devItemCode,
+                  fwVersion: rawFw,
+                },
+              };
+
+              const csUrl = `${server.apiUrl.replace(/\/+$/, '')}/api/devices`;
+              const devRes = await fetch(csUrl, {
+                method: 'POST',
+                headers,
+                body: JSON.stringify(csPayload),
+                signal: AbortSignal.timeout(8000),
+              }).catch((e: any) => ({ ok: false, status: 500, statusText: e.message } as any));
+
+              if (!devRes.ok && devRes.status === 409) {
+                await fetch(`${csUrl}/${encodeURIComponent(cleanDevEui)}`, {
+                  method: 'PUT',
+                  headers,
+                  body: JSON.stringify(csPayload),
+                  signal: AbortSignal.timeout(8000),
+                }).catch(() => null);
+              }
+
+              if (cleanAppKey && (cleanAppKey.length === 16 || cleanAppKey.length === 32)) {
+                const keysUrl = `${server.apiUrl.replace(/\/+$/, '')}/api/devices/${encodeURIComponent(cleanDevEui)}/keys`;
+                await fetch(keysUrl, {
+                  method: 'POST',
+                  headers,
+                  body: JSON.stringify({
+                    deviceKeys: {
+                      devEui: cleanDevEui,
+                      nwkKey: cleanAppKey.padStart(32, '0'),
+                      appKey: cleanAppKey.padStart(32, '0'),
+                    },
+                  }),
+                  signal: AbortSignal.timeout(8000),
+                }).catch(() => null);
+              }
+
+              chirpstackRegistered = true;
+              this.logger.log(`✅ [Simulation Device] Đã đăng ký thiết bị simulation ${cleanDevEui} vào ChirpStack Application: ${registeredAppId}`);
+            }
+          }
+        } catch (csErr: any) {
+          this.logger.warn(`⚠️ [Simulation Device] Lỗi đăng ký ChirpStack: ${csErr.message}`);
+        }
+      }
+
       const newDevice = deviceRepo.create({
         serial_number: body.serialNumber.trim(),
         device_name: body.deviceName.trim(),
-        device_type: body.deviceType?.trim() || 'end_device',
-        network_id: body.networkId?.trim() || null,
+        device_type: isSim ? 'SIMULATION' : (body.deviceType?.trim() || 'end_device'),
+        network_id: cleanDevEui ? cleanDevEui.toUpperCase() : (body.networkId?.trim() || null),
         plugin_id: body.pluginId?.trim() || 'testing',
         so_id: resolvedSoId || null,
         so_number: resolvedSoNumber || null,
         wa_id: resolvedWaId || null,
         wa_number: resolvedWaNumber || null,
-        item_code: resolvedItemCode || null,
-        status: body.status?.trim() || 'active',
-        metadata: body.metadata || {},
+        item_code: devItemCode || null,
+        status: isSim ? 'simulation' : (body.status?.trim() || 'active'),
+        metadata: {
+          ...(body.metadata || {}),
+          devEui: cleanDevEui ? cleanDevEui.toUpperCase() : body.networkId,
+          appEui: cleanAppEui ? cleanAppEui.toUpperCase() : undefined,
+          appKey: cleanAppKey ? cleanAppKey.toUpperCase() : undefined,
+          itemCode: devItemCode || undefined,
+          fwVersion: rawFw || undefined,
+          longFw: rawFw || undefined,
+          isSimulation: isSim,
+          chirpstackRegistered,
+          applicationId: registeredAppId || undefined,
+        },
       });
 
       const saved = await deviceRepo.save(newDevice);
