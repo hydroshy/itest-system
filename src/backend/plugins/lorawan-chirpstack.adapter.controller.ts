@@ -109,6 +109,7 @@ export class LorawanChirpstackAdapterController implements OnModuleInit {
     const apiToken = raw.apiToken;
     const tenantId = raw.tenantId ?? raw.tenant_id;
     const applicationId = raw.applicationId ?? raw.application_id;
+    const simulationApplicationId = raw.simulationApplicationId ?? raw.simulation_application_id;
     const deviceProfileId = raw.deviceProfileId ?? raw.device_profile_id;
 
     const requireString = (field: string, value: unknown): string => {
@@ -123,6 +124,9 @@ export class LorawanChirpstackAdapterController implements OnModuleInit {
     if (applicationId !== undefined && typeof applicationId !== 'string') {
       throw new BadRequestException('applicationId must be a string when provided');
     }
+    if (simulationApplicationId !== undefined && typeof simulationApplicationId !== 'string') {
+      throw new BadRequestException('simulationApplicationId must be a string when provided');
+    }
     if (deviceProfileId !== undefined && typeof deviceProfileId !== 'string') {
       throw new BadRequestException('deviceProfileId must be a string when provided');
     }
@@ -134,6 +138,7 @@ export class LorawanChirpstackAdapterController implements OnModuleInit {
       apiToken: requireString('apiToken', apiToken),
       ...(typeof tenantId === 'string' && tenantId.trim() ? { tenantId: tenantId.trim() } : {}),
       ...(typeof applicationId === 'string' && applicationId.trim() ? { applicationId: applicationId.trim() } : {}),
+      ...(typeof simulationApplicationId === 'string' && simulationApplicationId.trim() ? { simulationApplicationId: simulationApplicationId.trim() } : {}),
       ...(typeof deviceProfileId === 'string' && deviceProfileId.trim() ? { deviceProfileId: deviceProfileId.trim() } : {}),
     });
   }
@@ -157,6 +162,7 @@ export class LorawanChirpstackAdapterController implements OnModuleInit {
       ...(raw.apiToken !== undefined ? { apiToken: String(raw.apiToken).trim() } : {}),
       ...(raw.tenantId !== undefined || raw.tenant_id !== undefined ? { tenantId: String(raw.tenantId ?? raw.tenant_id).trim() } : {}),
       ...(raw.applicationId !== undefined || raw.application_id !== undefined ? { applicationId: String(raw.applicationId ?? raw.application_id).trim() } : {}),
+      ...(raw.simulationApplicationId !== undefined || raw.simulation_application_id !== undefined ? { simulationApplicationId: String(raw.simulationApplicationId ?? raw.simulation_application_id).trim() } : {}),
       ...(raw.deviceProfileId !== undefined || raw.device_profile_id !== undefined ? { deviceProfileId: String(raw.deviceProfileId ?? raw.device_profile_id).trim() } : {}),
     };
     if (typeof ctrl?.updateServer === 'function') {
@@ -179,6 +185,7 @@ export class LorawanChirpstackAdapterController implements OnModuleInit {
           ...(payload.apiToken !== undefined ? { apiToken: payload.apiToken } : {}),
           ...(payload.tenantId !== undefined ? { tenantId: payload.tenantId || null } : {}),
           ...(payload.applicationId !== undefined ? { applicationId: payload.applicationId || null } : {}),
+          ...(payload.simulationApplicationId !== undefined ? { simulationApplicationId: payload.simulationApplicationId || null } : {}),
           ...(payload.deviceProfileId !== undefined ? { deviceProfileId: payload.deviceProfileId || null } : {}),
         });
         const updated = await repo.findOne({ where: { id } });
@@ -190,6 +197,7 @@ export class LorawanChirpstackAdapterController implements OnModuleInit {
             apiToken: updated.apiToken,
             tenantId: updated.tenantId || undefined,
             applicationId: updated.applicationId || undefined,
+            simulationApplicationId: updated.simulationApplicationId || undefined,
             deviceProfileId: updated.deviceProfileId || undefined,
             status: updated.isActive ? 'online' : 'offline',
           };

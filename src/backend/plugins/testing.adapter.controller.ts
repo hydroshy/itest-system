@@ -992,7 +992,7 @@ export class TestingAdapterController implements OnApplicationBootstrap {
   async performChirpstackHttpRegistration(
     callbackUrl: string,
     secret: string,
-  ): Promise<{ applicationId: string; callbackUrl: string; updated: boolean }> {
+  ): Promise<{ applicationId: string; callbackUrl: string; updated: boolean; registrations?: any[] }> {
     const parsed = new URL(callbackUrl);
     if (!['http:', 'https:'].includes(parsed.protocol)) {
       throw new BadRequestException('Webhook URL must use HTTP or HTTPS');
@@ -1005,34 +1005,64 @@ export class TestingAdapterController implements OnApplicationBootstrap {
     if (!server?.applicationId || !server.apiToken) {
       throw new BadRequestException('Active server requires default applicationId and apiToken');
     }
-    const url = `${server.apiUrl.replace(/\/$/, '')}/api/applications/${encodeURIComponent(server.applicationId)}/integrations/http`;
+
+    const appIdsToRegister = [server.applicationId];
+    if (server.simulationApplicationId && server.simulationApplicationId.trim() && server.simulationApplicationId.trim() !== server.applicationId) {
+      appIdsToRegister.push(server.simulationApplicationId.trim());
+    }
+
     const headers = {
       'Content-Type': 'application/json',
       Authorization: `Bearer ${server.apiToken}`,
       'Grpc-Metadata-Authorization': `Bearer ${server.apiToken}`,
     };
-    const existing = await fetch(url, { headers, signal: AbortSignal.timeout(10000) });
-    if (!existing.ok && existing.status !== 404) {
-      throw new BadRequestException(`Integration lookup failed: HTTP ${existing.status}`);
+
+    const registrations: any[] = [];
+    let mainUpdated = false;
+
+    for (const appId of appIdsToRegister) {
+      const url = `${server.apiUrl.replace(/\/$/, '')}/api/applications/${encodeURIComponent(appId)}/integrations/http`;
+      try {
+        const existing = await fetch(url, { headers, signal: AbortSignal.timeout(10000) });
+        if (!existing.ok && existing.status !== 404) {
+          this.logger.warn(`Integration lookup failed for app ${appId}: HTTP ${existing.status}`);
+          continue;
+        }
+
+        const isUpdate = existing.ok;
+        const response = await fetch(url, {
+          method: isUpdate ? 'PUT' : 'POST',
+          headers,
+          signal: AbortSignal.timeout(10000),
+          body: JSON.stringify({
+            integration: {
+              applicationId: appId,
+              encoding: 'JSON',
+              eventEndpointUrl: callbackUrl,
+              headers: { 'x-testing-webhook-token': secret },
+            },
+          }),
+        });
+
+        if (response.ok) {
+          if (appId === server.applicationId) mainUpdated = isUpdate;
+          registrations.push({ applicationId: appId, updated: isUpdate, success: true });
+        } else {
+          this.logger.warn(`Integration registration failed for app ${appId}: HTTP ${response.status}`);
+          registrations.push({ applicationId: appId, updated: false, success: false, status: response.status });
+        }
+      } catch (e: any) {
+        this.logger.warn(`Error registering HTTP Integration for app ${appId}: ${e.message}`);
+        registrations.push({ applicationId: appId, updated: false, success: false, error: e.message });
+      }
     }
 
-    const response = await fetch(url, {
-      method: existing.ok ? 'PUT' : 'POST',
-      headers,
-      signal: AbortSignal.timeout(10000),
-      body: JSON.stringify({
-        integration: {
-          applicationId: server.applicationId,
-          encoding: 'JSON',
-          eventEndpointUrl: callbackUrl,
-          headers: { 'x-testing-webhook-token': secret },
-        },
-      }),
-    });
-    if (!response.ok) {
-      throw new BadRequestException(`Integration registration failed: HTTP ${response.status}`);
-    }
-    return { applicationId: server.applicationId, callbackUrl, updated: existing.ok };
+    return {
+      applicationId: server.applicationId,
+      callbackUrl,
+      updated: mainUpdated,
+      registrations,
+    };
   }
 
   @Post(['api/plugins/testing/integrations/chirpstack/register', 'api/v1/plugins/testing/integrations/chirpstack/register'])

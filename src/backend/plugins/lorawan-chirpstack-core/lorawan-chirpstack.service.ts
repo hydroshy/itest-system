@@ -44,6 +44,7 @@ export class LoRaWanChirpStackService {
       apiToken: entity.apiToken,
       tenantId: entity.tenantId || undefined,
       applicationId: entity.applicationId || undefined,
+      simulationApplicationId: entity.simulationApplicationId || undefined,
       deviceProfileId: entity.deviceProfileId || undefined,
       version: 'ChirpStack v4',
       status: entity.isActive ? 'untested' : 'offline',
@@ -98,6 +99,7 @@ export class LoRaWanChirpStackService {
       apiToken: requireString('apiToken', dto?.apiToken),
       tenantId: typeof dto?.tenantId === 'string' ? dto.tenantId.trim() || undefined : undefined,
       applicationId: typeof dto?.applicationId === 'string' ? dto.applicationId.trim() || undefined : undefined,
+      simulationApplicationId: typeof dto?.simulationApplicationId === 'string' ? dto.simulationApplicationId.trim() || undefined : undefined,
       deviceProfileId: typeof dto?.deviceProfileId === 'string' ? dto.deviceProfileId.trim() || undefined : undefined,
       version: 'ChirpStack v4',
       status: 'untested',
@@ -118,6 +120,7 @@ export class LoRaWanChirpStackService {
         apiToken: server.apiToken,
         tenantId: server.tenantId || null,
         applicationId: server.applicationId || null,
+        simulationApplicationId: server.simulationApplicationId || null,
         deviceProfileId: server.deviceProfileId || null,
         isActive: true,
       });
@@ -141,6 +144,7 @@ export class LoRaWanChirpStackService {
     if (dto.apiToken !== undefined) server.apiToken = String(dto.apiToken).trim();
     if (dto.tenantId !== undefined) server.tenantId = String(dto.tenantId).trim() || undefined;
     if (dto.applicationId !== undefined) server.applicationId = String(dto.applicationId).trim() || undefined;
+    if (dto.simulationApplicationId !== undefined) server.simulationApplicationId = String(dto.simulationApplicationId).trim() || undefined;
     if (dto.deviceProfileId !== undefined) server.deviceProfileId = String(dto.deviceProfileId).trim() || undefined;
 
     if (this.networkServerRepository) {
@@ -150,6 +154,7 @@ export class LoRaWanChirpStackService {
         ...(dto.apiToken !== undefined ? { apiToken: server.apiToken } : {}),
         ...(dto.tenantId !== undefined ? { tenantId: server.tenantId || null } : {}),
         ...(dto.applicationId !== undefined ? { applicationId: server.applicationId || null } : {}),
+        ...(dto.simulationApplicationId !== undefined ? { simulationApplicationId: server.simulationApplicationId || null } : {}),
         ...(dto.deviceProfileId !== undefined ? { deviceProfileId: server.deviceProfileId || null } : {}),
       });
     }

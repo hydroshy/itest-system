@@ -31,6 +31,9 @@ export class ChirpstackNetworkServerEntity {
   @Column({ name: 'application_id', type: 'varchar', length: 100, nullable: true })
   applicationId?: string | null;
 
+  @Column({ name: 'simulation_application_id', type: 'varchar', length: 100, nullable: true })
+  simulationApplicationId?: string | null;
+
   @Column({ name: 'device_profile_id', type: 'varchar', length: 100, nullable: true })
   deviceProfileId?: string | null;
 
