@@ -19,6 +19,7 @@ import {
   ConflictException,
   Req,
   UseGuards,
+  OnApplicationBootstrap,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { DynamicDatabaseService } from '../database/dynamic-database.service';
@@ -176,7 +177,7 @@ export interface EvaluateAutoCheckDto {
 }
 
 @Controller()
-export class TestingAdapterController {
+export class TestingAdapterController implements OnApplicationBootstrap {
   private readonly logger = new Logger(TestingAdapterController.name);
   private simulationResults: any[] = [];
   private autoCheckEvaluations: any[] = [];
@@ -185,6 +186,34 @@ export class TestingAdapterController {
     private readonly databaseService: DynamicDatabaseService,
     @Optional() private readonly realtimeService?: RealtimeService,
   ) {}
+
+  async onApplicationBootstrap() {
+    await this.bootstrapChirpstackHttpIntegration();
+  }
+
+  private async bootstrapChirpstackHttpIntegration() {
+    const callbackUrl = (process.env.TESTING_CHIRPSTACK_WEBHOOK_URL || '').trim();
+    const secret = (process.env.TESTING_CHIRPSTACK_WEBHOOK_TOKEN || '').trim();
+    if (!callbackUrl || !secret) {
+      this.logger.log(
+        'ℹ️ [ChirpStack Bootstrap] Bỏ qua đăng ký HTTP Integration tự động (chưa cấu hình TESTING_CHIRPSTACK_WEBHOOK_URL hoặc TESTING_CHIRPSTACK_WEBHOOK_TOKEN).',
+      );
+      return;
+    }
+    try {
+      this.logger.log(
+        `⏳ [ChirpStack Bootstrap] Đang đăng ký HTTP Integration tới ChirpStack với Webhook: ${callbackUrl}...`,
+      );
+      const result = await this.performChirpstackHttpRegistration(callbackUrl, secret);
+      this.logger.log(
+        `✅ [ChirpStack Bootstrap] Đã đăng ký thành công HTTP Integration (Application: ${result.applicationId}, Updated: ${result.updated})`,
+      );
+    } catch (err: any) {
+      this.logger.warn(
+        `⚠️ [ChirpStack Bootstrap] Không thể đăng ký HTTP Integration khi khởi động: ${err.message}`,
+      );
+    }
+  }
 
   // ============================================================================
   // 1. LOOKUP ENDPOINTS (Traceability Integration)
@@ -960,6 +989,52 @@ export class TestingAdapterController {
     }
   }
 
+  async performChirpstackHttpRegistration(
+    callbackUrl: string,
+    secret: string,
+  ): Promise<{ applicationId: string; callbackUrl: string; updated: boolean }> {
+    const parsed = new URL(callbackUrl);
+    if (!['http:', 'https:'].includes(parsed.protocol)) {
+      throw new BadRequestException('Webhook URL must use HTTP or HTTPS');
+    }
+    const repo = this.databaseService.getRepositoryForTable(
+      'lorawan_chirpstack',
+      ChirpstackNetworkServerEntity,
+    );
+    const server = await repo.findOne({ where: { isActive: true } });
+    if (!server?.applicationId || !server.apiToken) {
+      throw new BadRequestException('Active server requires default applicationId and apiToken');
+    }
+    const url = `${server.apiUrl.replace(/\/$/, '')}/api/applications/${encodeURIComponent(server.applicationId)}/integrations/http`;
+    const headers = {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${server.apiToken}`,
+      'Grpc-Metadata-Authorization': `Bearer ${server.apiToken}`,
+    };
+    const existing = await fetch(url, { headers, signal: AbortSignal.timeout(10000) });
+    if (!existing.ok && existing.status !== 404) {
+      throw new BadRequestException(`Integration lookup failed: HTTP ${existing.status}`);
+    }
+
+    const response = await fetch(url, {
+      method: existing.ok ? 'PUT' : 'POST',
+      headers,
+      signal: AbortSignal.timeout(10000),
+      body: JSON.stringify({
+        integration: {
+          applicationId: server.applicationId,
+          encoding: 'JSON',
+          eventEndpointUrl: callbackUrl,
+          headers: { 'x-testing-webhook-token': secret },
+        },
+      }),
+    });
+    if (!response.ok) {
+      throw new BadRequestException(`Integration registration failed: HTTP ${response.status}`);
+    }
+    return { applicationId: server.applicationId, callbackUrl, updated: existing.ok };
+  }
+
   @Post(['api/plugins/testing/integrations/chirpstack/register', 'api/v1/plugins/testing/integrations/chirpstack/register'])
   async registerChirpstackHttpIntegration(@Body() body?: any) {
     const callbackUrl = (body?.webhookUrl || body?.callbackUrl || body?.eventEndpointUrl || process.env.TESTING_CHIRPSTACK_WEBHOOK_URL || '').trim();
@@ -969,22 +1044,8 @@ export class TestingAdapterController {
         'Configure TESTING_CHIRPSTACK_WEBHOOK_URL and TESTING_CHIRPSTACK_WEBHOOK_TOKEN or provide webhookUrl & webhookToken in body',
       );
     }
-    const parsed = new URL(callbackUrl);
-    if (!['http:', 'https:'].includes(parsed.protocol)) throw new BadRequestException('Webhook URL must use HTTP or HTTPS');
-    const repo = this.databaseService.getRepositoryForTable('lorawan_chirpstack', ChirpstackNetworkServerEntity);
-    const server = await repo.findOne({ where: { isActive: true } });
-    if (!server?.applicationId || !server.apiToken) throw new BadRequestException('Active server requires default applicationId and apiToken');
-    const url = `${server.apiUrl.replace(/\/$/, '')}/api/applications/${encodeURIComponent(server.applicationId)}/integrations/http`;
-    const headers = { 'Content-Type': 'application/json', Authorization: `Bearer ${server.apiToken}`, 'Grpc-Metadata-Authorization': `Bearer ${server.apiToken}` };
-    const existing = await fetch(url, { headers, signal: AbortSignal.timeout(10000) });
-    if (!existing.ok && existing.status !== 404) throw new BadRequestException(`Integration lookup failed: HTTP ${existing.status}`);
-
-    const response = await fetch(url, {
-      method: existing.ok ? 'PUT' : 'POST', headers, signal: AbortSignal.timeout(10000),
-      body: JSON.stringify({ integration: { applicationId: server.applicationId, encoding: 'JSON', eventEndpointUrl: callbackUrl, headers: { 'x-testing-webhook-token': secret } } }),
-    });
-    if (!response.ok) throw new BadRequestException(`Integration registration failed: HTTP ${response.status}`);
-    return { success: true, data: { applicationId: server.applicationId, callbackUrl, updated: existing.ok } };
+    const result = await this.performChirpstackHttpRegistration(callbackUrl, secret);
+    return { success: true, data: result };
   }
 
   @Get([
@@ -1002,6 +1063,19 @@ export class TestingAdapterController {
        LIMIT 5`,
     ).catch(() => []);
 
+    let server: any = null;
+    try {
+      const repo = this.databaseService.getRepositoryForTable(
+        'lorawan_chirpstack',
+        ChirpstackNetworkServerEntity,
+      );
+      if (repo && typeof repo.findOne === 'function') {
+        server = await repo.findOne({ where: { isActive: true } });
+      }
+    } catch {
+      server = null;
+    }
+
     return {
       success: true,
       data: {
@@ -1014,6 +1088,15 @@ export class TestingAdapterController {
         ],
         tokenConfigured: Boolean(process.env.TESTING_CHIRPSTACK_WEBHOOK_TOKEN),
         webhookUrlEnv: process.env.TESTING_CHIRPSTACK_WEBHOOK_URL || null,
+        activeServer: server
+          ? {
+              id: server.id,
+              name: server.name,
+              apiUrl: server.apiUrl,
+              applicationId: server.applicationId,
+              tenantId: server.tenantId,
+            }
+          : null,
         recentUplinkCount: recentPackets.length,
         recentPackets: recentPackets.map((p: any) => ({
           id: p.id,
