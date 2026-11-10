@@ -4851,7 +4851,7 @@ export class TestingAdapterController implements OnApplicationBootstrap {
       const soNumber = (query.soNumber || query.so_number || '').trim();
       const limit = Math.min(200, Math.max(1, parseInt(query.limit, 10) || 100));
 
-      const username = (request?.user?.username || query.user || query.username || (request === undefined ? 'tester' : '')).trim();
+      const username = (request?.user?.username || query.user || query.username || '').trim();
       if (!username || !ds) {
         return { success: true, data: [], items: [], total: 0 };
       }
@@ -4861,9 +4861,12 @@ export class TestingAdapterController implements OnApplicationBootstrap {
         const params: any[] = [];
         let pIdx = 1;
 
-        // User filter: user can ONLY see and test devices they created
-        clauses.push(`LOWER(${tableAlias}.created_by) = LOWER($${pIdx++})`);
-        params.push(username);
+        // User filter: filter by created_by only if explicitly requested with onlyMine
+        const onlyMine = query.onlyMine === true || query.onlyMine === 'true' || query.onlyMine === '1';
+        if (onlyMine) {
+          clauses.push(`LOWER(${tableAlias}.created_by) = LOWER($${pIdx++})`);
+          params.push(username);
+        }
 
         // Exclude devices currently in a running test batch
         clauses.push(`${tableAlias}.serial_number NOT IN (
@@ -5258,9 +5261,16 @@ export class TestingAdapterController implements OnApplicationBootstrap {
       const status = (query.status || '').trim();
       const search = (query.search || '').trim();
 
-      const whereClauses: string[] = ['LOWER(b.created_by) = LOWER($1)'];
-      const params: any[] = [request.user.username];
-      let pIdx = 2;
+      const whereClauses: string[] = [];
+      const params: any[] = [];
+      let pIdx = 1;
+
+      // Filter by creator only if explicitly requested
+      const targetUser = (query.user || query.username || query.createdBy || query.created_by || '').trim();
+      if (targetUser && targetUser.toLowerCase() !== 'all') {
+        whereClauses.push(`LOWER(b.created_by) = LOWER($${pIdx++})`);
+        params.push(targetUser);
+      }
 
       if (itemCode) {
         whereClauses.push(`b.item_code = $${pIdx++}`);
@@ -5336,10 +5346,9 @@ export class TestingAdapterController implements OnApplicationBootstrap {
   }
 
   private assertTestBatchOwner(batch: any, request: any) {
-    if (!request?.user?.username) throw new UnauthorizedException();
-    if (batch.created_by?.toLowerCase() !== request.user.username.toLowerCase()) {
-      throw new ForbiddenException('Test Batch không thuộc user hiện tại');
-    }
+    if (!request?.user?.username) throw new UnauthorizedException('Authentication token missing or invalid');
+    // Test batch do admin hoặc người có quyền tạo thì tất cả user có quyền Device Test Batch đều được sử dụng
+    return true;
   }
 
   @Get(['api/plugins/testing/test-batches/running', 'api/v1/plugins/testing/test-batches/running'])
@@ -5352,8 +5361,7 @@ export class TestingAdapterController implements OnApplicationBootstrap {
               COALESCE(sotb.so_number, b.metadata->>'soNumber') AS so_number
        FROM system_schema.device_test_batches b
        LEFT JOIN system_schema.so_test_batches sotb ON b.id = sotb.batch_id
-       WHERE b.status = 'RUNNING' AND LOWER(b.created_by) = LOWER($1) ORDER BY b.started_at DESC`,
-      [request.user.username],
+       WHERE b.status = 'RUNNING' ORDER BY b.started_at DESC`,
     );
     return { success: true, data: rows };
   }
@@ -5361,6 +5369,7 @@ export class TestingAdapterController implements OnApplicationBootstrap {
   @Post(['api/plugins/testing/test-batches/:id/cancel', 'api/v1/plugins/testing/test-batches/:id/cancel'])
   @UseGuards(JwtAuthGuard)
   async cancelTestBatch(@Param('id') id: string, @Req() request: any) {
+    if (!request?.user?.username) throw new UnauthorizedException('Authentication token missing or invalid');
     const ds = this.databaseService.getDataSourceForTable('devices');
     if (!ds) throw new HttpException('Database unavailable', HttpStatus.SERVICE_UNAVAILABLE);
     await ds.transaction(async (manager: any) => {
@@ -5377,6 +5386,7 @@ export class TestingAdapterController implements OnApplicationBootstrap {
   @Post(['api/plugins/testing/test-batches/:id/complete', 'api/v1/plugins/testing/test-batches/:id/complete'])
   @UseGuards(JwtAuthGuard)
   async completeTestBatch(@Param('id') id: string, @Req() request: any) {
+    if (!request?.user?.username) throw new UnauthorizedException('Authentication token missing or invalid');
     const ds = this.databaseService.getDataSourceForTable('devices');
     if (!ds) throw new HttpException('Database unavailable', HttpStatus.SERVICE_UNAVAILABLE);
     return await ds.transaction(async (manager: any) => {

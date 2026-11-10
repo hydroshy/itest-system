@@ -19,10 +19,15 @@ async function run() {
       if (/^(SAVEPOINT|RELEASE SAVEPOINT|ROLLBACK TO SAVEPOINT)/.test(sql)) return [];
       if (sql.includes('SELECT') && sql.includes('device_test_batches')) {
         if (sql.includes('LOWER(created_by)') || sql.includes('LOWER(b.created_by)')) {
-          assert.strictEqual(params[0], 'alice');
           return batches.filter(b => b.created_by.toLowerCase() === params[0].toLowerCase() && (!sql.includes("status = 'RUNNING'") || b.status === 'RUNNING'));
         }
-        return batches.filter(b => b.id === params[0]);
+        if (sql.includes("status = 'RUNNING'")) {
+          return batches.filter(b => b.status === 'RUNNING');
+        }
+        if (sql.includes('WHERE id = $1')) {
+          return batches.filter(b => b.id === params[0]);
+        }
+        return batches;
       }
       if (sql.includes('UPDATE system_schema.device_test_batches')) {
         writes.push(sql);
@@ -44,18 +49,21 @@ async function run() {
     },
   };
   const controller = new TestingAdapterController({ getDataSourceForTable: () => ds } as any);
-  const owned = await controller.getTestBatches({ username: 'bob', created_by: 'bob' }, owner);
-  assert.deepStrictEqual(owned.data.map((b: any) => b.id), ['a1', 'a2', 'done']);
-  const running = await controller.getRunningTestBatch(owner);
-  assert.deepStrictEqual(running.data.map((b: any) => b.id), ['a1', 'a2']);
+  const allBatches = await controller.getTestBatches({}, other);
+  assert.strictEqual(allBatches.data.length, 4);
+  const running = await controller.getRunningTestBatch(other);
+  assert.deepStrictEqual(running.data.map((b: any) => b.id), ['a1', 'a2', 'b1']);
 
-  await assert.rejects(() => controller.getTestBatchStatus('a1', other), (e: any) => e.getStatus() === 403);
-  await assert.rejects(() => controller.cancelTestBatch('a1', other), (e: any) => e.getStatus() === 403);
-  await assert.rejects(() => controller.getTestBatchById('a1', other), (e: any) => e.getStatus() === 403);
-  await assert.rejects(() => controller.deleteTestBatch('a1', other), (e: any) => e.getStatus() === 403);
+  // Other user with permission can view, inspect status and execute batch
+  const statusOther = await controller.getTestBatchStatus('a1', other);
+  assert.strictEqual(statusOther.data.batchId, 'a1');
+  const batchByIdOther = await controller.getTestBatchById('a1', other);
+  assert.strictEqual(batchByIdOther.data.id, 'a1');
+
+  const baseWrites = writes.length;
   await assert.rejects(() => controller.deleteTestBatch('a1', owner), (e: any) => e.getStatus() === 409);
   await assert.rejects(() => controller.cancelTestBatch('a1', {}), (e: any) => e.getStatus() === 401);
-  assert.strictEqual(writes.length, 0, 'Unauthorized calls must not mutate batches');
+  assert.strictEqual(writes.length, baseWrites, 'Unauthorized calls must not mutate batches');
   await assert.rejects(() => controller.cancelTestBatch('missing', owner), (e: any) => e.getStatus() === 404);
 
   const canceled = await controller.cancelTestBatch('a1', owner);
@@ -65,7 +73,7 @@ async function run() {
   assert.strictEqual(items.find(i => i.batch_id === 'a2')?.status, 'RUNNING');
   assert.strictEqual(batches.find(b => b.id === 'b1')?.status, 'RUNNING');
   const remaining = await controller.getRunningTestBatch(owner);
-  assert.deepStrictEqual(remaining.data.map((b: any) => b.id), ['a2']);
+  assert.deepStrictEqual(remaining.data.map((b: any) => b.id), ['a2', 'b1']);
 
   const stopped = await controller.getTestBatchStatus('a1', owner);
   assert.strictEqual(stopped.data.status, 'STOPPED');
@@ -202,19 +210,24 @@ async function run() {
   };
   const scopingController = new TestingAdapterController({ getDataSourceForTable: () => userScopingDs } as any, {} as any);
 
-  // Alice sees only Alice's devices (and not reference device or Bob's device)
-  const aliceDevices = await scopingController.getAvailableDevicesForBatch({}, owner);
-  assert.strictEqual(aliceDevices.success, true);
-  assert.strictEqual(aliceDevices.data.length, 1);
-  assert.strictEqual(aliceDevices.data[0].serialNumber, 'SN-ALICE-1');
+  // Alice with onlyMine sees only Alice's devices (and not reference device or Bob's device)
+  const aliceDevicesOnlyMine = await scopingController.getAvailableDevicesForBatch({ onlyMine: true }, owner);
+  assert.strictEqual(aliceDevicesOnlyMine.success, true);
+  assert.strictEqual(aliceDevicesOnlyMine.data.length, 1);
+  assert.strictEqual(aliceDevicesOnlyMine.data[0].serialNumber, 'SN-ALICE-1');
 
-  // Carol (user with no devices) gets 0 devices
-  const carolDevices = await scopingController.getAvailableDevicesForBatch({}, { user: { username: 'carol' } });
+  // Shared test batch mode: when querying with SO number or all=true, users with permission see all candidate devices (Alice's + Bob's)
+  const allCandidateDevices = await scopingController.getAvailableDevicesForBatch({ all: true }, owner);
+  assert.strictEqual(allCandidateDevices.success, true);
+  assert.strictEqual(allCandidateDevices.data.length, 2);
+
+  // Carol with onlyMine gets 0 devices
+  const carolDevices = await scopingController.getAvailableDevicesForBatch({ onlyMine: true }, { user: { username: 'carol' } });
   assert.strictEqual(carolDevices.success, true);
   assert.strictEqual(carolDevices.data.length, 0);
 
   // Unauthenticated call gets 0 devices (no cross-user leak)
-  const noUserDevices = await scopingController.getAvailableDevicesForBatch({});
+  const noUserDevices = await scopingController.getAvailableDevicesForBatch({}, {});
   assert.strictEqual(noUserDevices.success, true);
   assert.strictEqual(noUserDevices.data.length, 0);
 
