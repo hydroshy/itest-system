@@ -5397,6 +5397,12 @@ export class TestingAdapterController implements OnApplicationBootstrap {
 
 
       const autoCheckCriteria = body.autoCheckCriteria || body.auto_check_criteria || {};
+      if (body.shareReferenceDevice || body.sharedReferenceDevEui) {
+        autoCheckCriteria.shareReferenceDevice = true;
+        autoCheckCriteria.sharedReferenceDeviceId = body.sharedReferenceDeviceId || null;
+        autoCheckCriteria.sharedReferenceDevEui = (body.sharedReferenceDevEui || '').toUpperCase();
+        autoCheckCriteria.sharedReferenceDeviceName = body.sharedReferenceDeviceName || null;
+      }
       const referenceDevices = Array.isArray(body.referenceDevices) ? body.referenceDevices : (Array.isArray(body.reference_devices) ? body.reference_devices : []);
       const simulatorDevice = body.simulatorDevice || body.simulator_device || null;
       const maxDevices = parseInt(body.maxDevices || body.max_devices, 10) || 10;
@@ -5556,6 +5562,8 @@ export class TestingAdapterController implements OnApplicationBootstrap {
           simulationFlow: r.simulation_flow,
           flowDurationSeconds: r.flow_duration_seconds,
           autoCheckCriteria: r.auto_check_criteria,
+          shareReferenceDevice: Boolean(r.auto_check_criteria?.shareReferenceDevice),
+          sharedReferenceDevEui: r.auto_check_criteria?.sharedReferenceDevEui || null,
           maxDevices: r.max_devices,
           status: r.status,
           verdict: r.verdict,
@@ -5895,6 +5903,10 @@ export class TestingAdapterController implements OnApplicationBootstrap {
           simulationFlow: batch.simulation_flow,
           flowDurationSeconds: batch.flow_duration_seconds,
           autoCheckCriteria: batch.auto_check_criteria,
+          shareReferenceDevice: batch.auto_check_criteria?.shareReferenceDevice ?? false,
+          sharedReferenceDeviceId: batch.auto_check_criteria?.sharedReferenceDeviceId ?? null,
+          sharedReferenceDevEui: batch.auto_check_criteria?.sharedReferenceDevEui ?? null,
+          sharedReferenceDeviceName: batch.auto_check_criteria?.sharedReferenceDeviceName ?? null,
           referenceDevices: batch.reference_devices || [],
           simulatorDevice: batch.simulator_device || null,
           maxDevices: batch.max_devices,
