@@ -454,10 +454,10 @@ export class MemmapManagerAdapterController implements OnModuleInit {
   private validateFwVersion(fwVersion: string | null | undefined): void {
     if (!fwVersion) return;
     const trimmed = fwVersion.trim();
-    // Validate format XFXXXX where X is a digit (^[0-9]F[0-9]{4}$)
-    if (!/^[0-9]F[0-9]{4}$/.test(trimmed)) {
+    // Validate format XXFXXXX where X is a digit (^[0-9]+F[0-9]+$)
+    if (!/^[0-9]+F[0-9]+$/i.test(trimmed)) {
       throw new BadRequestException(
-        `FW_VERSION không đúng định dạng. Yêu cầu định dạng XFXXXX với X là chữ số (ví dụ: 1F0001, 0F0000).`,
+        `FW_VERSION không đúng định dạng. Yêu cầu định dạng XXFXXXX với X là chữ số (ví dụ: 4F0505, 12F0505, 32F0505).`,
       );
     }
   }
