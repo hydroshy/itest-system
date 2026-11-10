@@ -981,6 +981,28 @@ export class TestingAdapterController implements OnApplicationBootstrap {
         throw new NotFoundException(`Device with ID ${id} not found`);
       }
 
+      if (device.device_type === 'SIMULATION' || device.status === 'simulation' || (device.metadata as any)?.isSimulation) {
+        try {
+          const devEui = (device.network_id || (device.metadata as any)?.devEui || '').toLowerCase();
+          if (devEui && devEui.length === 16) {
+            const serverRepo = this.databaseService.getRepositoryForTable('network_servers', ChirpstackNetworkServerEntity);
+            const server = await serverRepo.findOne({ where: { isActive: true } }) || await serverRepo.findOne({ order: { updatedAt: 'DESC' } });
+            if (server?.apiUrl && server?.apiToken) {
+              await fetch(`${server.apiUrl.replace(/\/+$/, '')}/api/devices/${devEui}`, {
+                method: 'DELETE',
+                headers: {
+                  Authorization: `Bearer ${server.apiToken}`,
+                  'Grpc-Metadata-Authorization': `Bearer ${server.apiToken}`,
+                },
+                signal: AbortSignal.timeout(5000),
+              });
+            }
+          }
+        } catch (csDelErr: any) {
+          this.logger.warn(`Could not delete simulation device from ChirpStack: ${csDelErr.message}`);
+        }
+      }
+
       await deviceRepo.remove(device);
       return { message: `Device ${id} deleted successfully` };
     } catch (error: any) {
