@@ -53,6 +53,17 @@ async function run() {
     assert.strictEqual(JSON.parse(requests[0].options.body).queueItem.data, 'AQI=');
     assert.strictEqual(requests[1].options.method, 'DELETE');
     assert.ok(requests[1].url.endsWith('/1122334455667788/queue'));
+
+    // Test targeting by device name
+    await (runtime as any).executeSimulationFlow('batch', [
+      { functionType: 'downlink', targetDevice: 'SENSOR_A', payloadHex: 'AABB' },
+      { functionType: 'clear_downlink', targetDevice: 'REF_METER_B' },
+    ], [
+      { name: 'SENSOR_A', devEui: 'A1A2A3A4A5A6A7A8' },
+      { referenceDeviceName: 'REF_METER_B', referenceDevEui: 'B1B2B3B4B5B6B7B8' },
+    ]);
+    assert.ok(requests[2].url.endsWith('/A1A2A3A4A5A6A7A8/queue'));
+    assert.ok(requests[3].url.endsWith('/B1B2B3B4B5B6B7B8/queue'));
   } finally { global.fetch = originalFetch; }
   console.log('Simulation flow CRUD and queue tests passed');
 }

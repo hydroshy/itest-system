@@ -2105,9 +2105,9 @@ export class TestingAdapterController implements OnApplicationBootstrap {
         const duration = Number(block.durationSeconds ?? block.duration ?? block.timeoutSeconds ?? 0);
         return total + (Number.isFinite(duration) && duration > 0 ? duration : 0);
       }
-      const targetDev = (block.targetDevice || block.target || 'DUT').toUpperCase().trim();
-      if (!['DUT', 'REF', 'REFERENCE', 'SIMULATOR', 'DUT_REF'].includes(targetDev)) {
-        throw new BadRequestException('Target phải là DUT, REF/REFERENCE, hoặc SIMULATOR');
+      const targetDev = (block.targetDevice || block.target || block.targetDeviceName || '').toString().trim();
+      if (!targetDev) {
+        throw new BadRequestException('Vui lòng chọn hoặc nhập tên thiết bị mục tiêu (targetDevice)');
       }
       if (fType === 'downlink') {
         block.fPort ??= 1;
@@ -5985,8 +5985,93 @@ export class TestingAdapterController implements OnApplicationBootstrap {
         continue;
       }
       if (!server?.apiUrl || !server.apiToken) throw new Error('Chưa cấu hình ChirpStack đang hoạt động');
-      const targets = new Set<string>(devices.map(d => block.targetDevice === 'REF'
-        ? d.referenceDevEui || d.reference_dev_eui || '' : d.devEui || d.dev_eui || ''));
+      const targetStr = (block.targetDevice || block.target || block.targetDeviceName || '').toString().trim();
+      const targets = new Set<string>();
+
+      // 1. Direct DevEUI (16 hex)
+      if (/^[0-9a-fA-F]{16}$/.test(targetStr)) {
+        targets.add(targetStr.toUpperCase());
+      }
+      // 2. Legacy role 'DUT'
+      else if (targetStr.toUpperCase() === 'DUT') {
+        for (const d of devices) {
+          const eui = (d.devEui || d.dev_eui || '').trim().toUpperCase();
+          if (eui) targets.add(eui);
+        }
+      }
+      // 3. Legacy role 'REF' / 'REFERENCE'
+      else if (['REF', 'REFERENCE'].includes(targetStr.toUpperCase())) {
+        for (const d of devices) {
+          const eui = (d.referenceDevEui || d.reference_dev_eui || '').trim().toUpperCase();
+          if (eui) targets.add(eui);
+        }
+      }
+
+      // 4. Match by Device Name across devices in batch (DUT or REF)
+      if (targets.size === 0 && targetStr) {
+        const targetLower = targetStr.toLowerCase();
+        for (const d of devices) {
+          const dName = (d.name || d.deviceName || d.device_name || d.serialNumber || d.serial_number || '').trim().toLowerCase();
+          const rName = (d.referenceDeviceName || d.reference_device_name || d.referenceSerialNumber || d.reference_serial_number || '').trim().toLowerCase();
+          if (dName && dName === targetLower) {
+            const eui = (d.devEui || d.dev_eui || '').trim().toUpperCase();
+            if (eui) targets.add(eui);
+          }
+          if (rName && rName === targetLower) {
+            const eui = (d.referenceDevEui || d.reference_dev_eui || '').trim().toUpperCase();
+            if (eui) targets.add(eui);
+          }
+        }
+      }
+
+      // 5. Match by Device Name in batch metadata (reference_devices, sharedReferenceDevice, simulator_device)
+      if (targets.size === 0 && targetStr) {
+        const targetLower = targetStr.toLowerCase();
+        const batchRows = await ds.query('SELECT reference_devices, simulator_device, auto_check_criteria FROM system_schema.device_test_batches WHERE id = $1', [id]);
+        const bRow = batchRows[0];
+        if (bRow) {
+          const refDevices = Array.isArray(bRow.reference_devices) ? bRow.reference_devices : [];
+          for (const rd of refDevices) {
+            const rName = (rd.reference_name || rd.referenceName || rd.name || rd.serialNumber || rd.serial_number || '').trim().toLowerCase();
+            if (rName && rName === targetLower) {
+              const eui = (rd.devEui || rd.dev_eui || '').trim().toUpperCase();
+              if (eui) targets.add(eui);
+            }
+          }
+          const sharedName = (bRow.auto_check_criteria?.sharedReferenceDeviceName || '').trim().toLowerCase();
+          if (sharedName && sharedName === targetLower) {
+            const eui = (bRow.auto_check_criteria?.sharedReferenceDevEui || '').trim().toUpperCase();
+            if (eui) targets.add(eui);
+          }
+          const simuName = (bRow.simulator_device?.name || bRow.simulator_device?.deviceName || '').trim().toLowerCase();
+          if (simuName && (simuName === targetLower || targetStr.toUpperCase() === 'SIMU' || targetStr.toUpperCase() === 'SIMULATOR')) {
+            const eui = (bRow.simulator_device?.devEui || bRow.simulator_device?.dev_eui || '').trim().toUpperCase();
+            if (eui) targets.add(eui);
+          }
+        }
+      }
+
+      // 6. Look up in database (system_schema.devices & system_schema.simulation_devices)
+      if (targets.size === 0 && targetStr) {
+        const dbMatches = await ds.query(
+          `SELECT dev_eui FROM system_schema.devices WHERE LOWER(name) = LOWER($1) OR LOWER(serial_number) = LOWER($1)
+           UNION
+           SELECT dev_eui FROM system_schema.simulation_devices WHERE LOWER(name) = LOWER($1) OR LOWER(serial_number) = LOWER($1)`,
+          [targetStr]
+        );
+        for (const row of dbMatches) {
+          if (row.dev_eui) targets.add(row.dev_eui.trim().toUpperCase());
+        }
+      }
+
+      // 7. Fallback: if still empty and targetStr is empty or 'DUT', fallback to all batch devices
+      if (targets.size === 0) {
+        for (const d of devices) {
+          const eui = (d.devEui || d.dev_eui || '').trim().toUpperCase();
+          if (eui) targets.add(eui);
+        }
+      }
+
       for (const devEui of targets) {
         if (!/^[0-9a-fA-F]{16}$/.test(devEui)) throw new Error(`DevEUI ${block.targetDevice} không hợp lệ`);
         const response = await fetch(`${server.apiUrl.replace(/\/$/, '')}/api/devices/${encodeURIComponent(devEui)}/queue`, {
