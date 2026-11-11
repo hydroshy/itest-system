@@ -352,7 +352,7 @@ export class TestingAdapterController implements OnApplicationBootstrap {
       );
       const qb = waRepo
         .createQueryBuilder('wa')
-        .select('DISTINCT wa.item_code', 'itemCode')
+        .select('wa.item_code', 'itemCode')
         .addSelect('wa.wa_number', 'waNumber')
         .addSelect('wa.id', 'waId')
         .addSelect('wa.so_id', 'soId')
@@ -369,12 +369,21 @@ export class TestingAdapterController implements OnApplicationBootstrap {
       }
 
       const rawItems = await qb.getRawMany();
-      return rawItems.map((r) => ({
-        itemCode: r.itemCode,
-        waNumber: r.waNumber,
-        waId: r.waId,
-        soId: r.soId,
-      }));
+      const seen = new Set<string>();
+      const result: any[] = [];
+      for (const r of rawItems) {
+        const ic = (r.itemCode || r.item_code || '').trim();
+        if (ic && !seen.has(ic)) {
+          seen.add(ic);
+          result.push({
+            itemCode: ic,
+            waNumber: r.waNumber || r.wa_number,
+            waId: r.waId || r.wa_id || r.id,
+            soId: r.soId || r.so_id,
+          });
+        }
+      }
+      return result;
     } catch (error: any) {
       this.logger.error(`Failed to lookup Item Codes: ${error.message}`);
       throw new HttpException(
