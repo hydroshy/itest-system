@@ -5053,23 +5053,54 @@ export class TestingAdapterController implements OnApplicationBootstrap {
   // 10. TEST BATCH & CREATE TEST BATCH (Migration 012 & Multi-Device Testing)
   // ============================================================================
 
+  @Get(['api/plugins/testing/lookup/item-fw-catalog', 'api/v1/plugins/testing/lookup/item-fw-catalog'])
+  async getItemFwCatalog() {
+    const meta: any = await this.getTestBatchMetadata();
+    return {
+      success: true,
+      data: {
+        itemCodes: meta.data?.itemCodes || [],
+        fwVersions: meta.data?.fwVersions || [],
+        itemFwMap: meta.data?.itemFwMap || {},
+      },
+    };
+  }
+
   @Get(['api/plugins/testing/test-batches/meta', 'api/v1/plugins/testing/test-batches/meta'])
   async getTestBatchMetadata() {
     try {
       const ds = this.databaseService.getDataSourceForTable('devices');
       let itemCodes: string[] = [];
       let fwVersions: string[] = [];
+      const itemFwMap: Record<string, string[]> = {};
+
+      const addMapping = (code: string, fw: string) => {
+        const c = (code || '').trim().toUpperCase();
+        const f = (fw || '').trim().toUpperCase();
+        if (c) {
+          if (!itemFwMap[c]) itemFwMap[c] = [];
+          if (f && !itemFwMap[c].includes(f)) itemFwMap[c].push(f);
+        }
+      };
 
       if (ds) {
         try {
           const rows = await ds.query(`
             SELECT DISTINCT item_code, fw_version, COALESCE(long_fw, fw_version) AS long_fw
-            FROM system_schema.device_test_registrations
-            WHERE item_code IS NOT NULL AND item_code != ''
+            FROM (
+              SELECT item_code, fw_version, long_fw FROM system_schema.device_test_registrations WHERE item_code IS NOT NULL AND item_code != ''
+              UNION
+              SELECT item_code, fw_version, long_fw FROM system_schema.device_test_batches WHERE item_code IS NOT NULL AND item_code != ''
+              UNION
+              SELECT item_code, fw_version, long_fw FROM system_schema.simulation_profiles WHERE item_code IS NOT NULL AND item_code != ''
+            ) u
             ORDER BY item_code ASC
           `);
-          itemCodes = Array.from(new Set(rows.map((r: any) => r.item_code).filter(Boolean)));
-          fwVersions = Array.from(new Set(rows.map((r: any) => r.long_fw || r.fw_version).filter(Boolean)));
+          if (Array.isArray(rows)) {
+            for (const r of rows) {
+              addMapping(r.item_code, r.long_fw || r.fw_version);
+            }
+          }
         } catch {
           try {
             const rows = await ds.query(`
@@ -5078,19 +5109,29 @@ export class TestingAdapterController implements OnApplicationBootstrap {
               WHERE item_code IS NOT NULL AND item_code != ''
               ORDER BY item_code ASC
             `);
-            itemCodes = Array.from(new Set(rows.map((r: any) => r.item_code).filter(Boolean)));
-            fwVersions = Array.from(new Set(rows.map((r: any) => r.fw_version).filter(Boolean)));
+            if (Array.isArray(rows)) {
+              for (const r of rows) {
+                addMapping(r.item_code, r.fw_version);
+              }
+            }
           } catch (err: any) {
             this.logger.debug(`Could not load item_codes from DB: ${err.message}`);
           }
         }
       }
 
+      itemCodes = Object.keys(itemFwMap);
+      fwVersions = Array.from(new Set(Object.values(itemFwMap).flat().filter(Boolean)));
+
       if (itemCodes.length === 0) {
         itemCodes = ['LR-SENSOR-TEMP-V1', 'LR-SENSOR-GAS-V2', 'LR-WATER-METER-V1', 'LR-ENERGY-METER-V3'];
+        itemFwMap['LR-SENSOR-TEMP-V1'] = ['4F0505', 'v6.0101'];
+        itemFwMap['LR-SENSOR-GAS-V2'] = ['6F0102', 'v6.0102'];
+        itemFwMap['LR-WATER-METER-V1'] = ['12F0101', 'v1.0.0'];
+        itemFwMap['LR-ENERGY-METER-V3'] = ['32F0505', 'v2.1.0'];
       }
       if (fwVersions.length === 0) {
-        fwVersions = ['v6.0101', 'v6.0102', 'v1.0.0', 'v2.1.0'];
+        fwVersions = ['4F0505', '6F0102', '12F0101', '32F0505', 'v6.0101', 'v6.0102', 'v1.0.0', 'v2.1.0'];
       }
 
       // Default simulation flow blocks
@@ -5112,6 +5153,7 @@ export class TestingAdapterController implements OnApplicationBootstrap {
         data: {
           itemCodes,
           fwVersions,
+          itemFwMap,
           defaultFlow,
           defaultCriteria,
         },
