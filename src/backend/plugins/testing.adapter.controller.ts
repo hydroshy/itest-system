@@ -1958,7 +1958,10 @@ export class TestingAdapterController implements OnApplicationBootstrap {
     const flowBlocks = Array.isArray(body?.flowBlocks) ? body.flowBlocks : (Array.isArray(body?.flow_blocks) ? body.flow_blocks : []);
     const autoCheckCriteria = body?.autoCheckCriteria || body?.auto_check_criteria || {};
     const referenceDevices = Array.isArray(body?.referenceDevices) ? body.referenceDevices : (Array.isArray(body?.reference_devices) ? body.reference_devices : []);
-    const simulatorDevice = body?.simulatorDevice || body?.simulator_device || null;
+    let simulatorDevice = body?.simulatorDevice || body?.simulator_device || null;
+    if (!simulatorDevice && referenceDevices.length > 0) {
+      simulatorDevice = referenceDevices[0];
+    }
     const status = (body?.status || 'simulation').trim();
     const durationSeconds = this.simulationDuration(flowBlocks);
     const flowDurationMinutes = Math.max(1, Math.ceil(durationSeconds / 60));
@@ -5489,7 +5492,13 @@ export class TestingAdapterController implements OnApplicationBootstrap {
       }
       const referenceDevices = Array.isArray(body.referenceDevices) ? body.referenceDevices : (Array.isArray(body.reference_devices) ? body.reference_devices : []);
       const simulationDevices = Array.isArray(body.simulationDevices) ? body.simulationDevices : (Array.isArray(body.simulation_devices) ? body.simulation_devices : []);
-      const simulatorDevice = body.simulatorDevice || body.simulator_device || null;
+      let simulatorDevice = body.simulatorDevice || body.simulator_device || null;
+      if (!simulatorDevice && referenceDevices.length > 0) {
+        simulatorDevice = referenceDevices[0];
+      }
+      if (!simulatorDevice && simulationDevices.length > 0) {
+        simulatorDevice = simulationDevices[0];
+      }
       const maxDevices = parseInt(body.maxDevices || body.max_devices, 10) || 10;
       const createdBy = request.user.username;
 
@@ -5815,6 +5824,7 @@ export class TestingAdapterController implements OnApplicationBootstrap {
             avgCycle: item.avg_cycle ?? item.comparison_result?.avg_cycle ?? null,
             avgRssi: item.avg_rssi ?? item.comparison_result?.avg_rssi ?? null,
             avgSnr: item.avg_snr ?? item.comparison_result?.avg_snr ?? null,
+            simulationVars: item.simulation_vars || {},
             hwVersion,
             fwVersion,
             testedAt: finished,
@@ -6204,8 +6214,8 @@ export class TestingAdapterController implements OnApplicationBootstrap {
           if (eui) targets.add(eui);
         }
       }
-      // 3. Legacy role 'REF' / 'REFERENCE'
-      else if (['REF', 'REFERENCE'].includes(targetStr.toUpperCase())) {
+      // 3. Legacy role 'REF' / 'REFERENCE' / 'SIMU' / 'SIMULATOR' (simulator device dùng chung với thiết bị tham chiếu)
+      else if (['REF', 'REFERENCE', 'SIMU', 'SIMULATOR'].includes(targetStr.toUpperCase())) {
         for (const d of devices) {
           const eui = (d.referenceDevEui || d.reference_dev_eui || '').trim().toUpperCase();
           if (eui) targets.add(eui);
@@ -6260,6 +6270,15 @@ export class TestingAdapterController implements OnApplicationBootstrap {
           if (simuName && (simuName === targetLower || targetStr.toUpperCase() === 'SIMU' || targetStr.toUpperCase() === 'SIMULATOR')) {
             const eui = (bRow.simulator_device?.devEui || bRow.simulator_device?.dev_eui || '').trim().toUpperCase();
             if (eui) targets.add(eui);
+          }
+          if (targets.size === 0 && (targetStr.toUpperCase() === 'SIMU' || targetStr.toUpperCase() === 'SIMULATOR')) {
+            if (refDevices.length > 0) {
+              const eui = (refDevices[0].devEui || refDevices[0].dev_eui || '').trim().toUpperCase();
+              if (eui) targets.add(eui);
+            } else if (bRow.auto_check_criteria?.sharedReferenceDevEui) {
+              const eui = (bRow.auto_check_criteria.sharedReferenceDevEui || '').trim().toUpperCase();
+              if (eui) targets.add(eui);
+            }
           }
         }
       }
@@ -6371,8 +6390,8 @@ export class TestingAdapterController implements OnApplicationBootstrap {
         }
       }
 
-      if (flowBlocks.some(b => b.targetDevice === 'REF') && devices.some(d => !/^[0-9a-fA-F]{16}$/.test(d.referenceDevEui || d.reference_dev_eui || ''))) {
-        throw new BadRequestException('Flow có REF: mỗi DUT phải chọn thiết bị tham chiếu với DevEUI hợp lệ');
+      if (flowBlocks.some(b => ['REF', 'REFERENCE', 'SIMU', 'SIMULATOR'].includes((b.targetDevice || '').toUpperCase())) && devices.some(d => !/^[0-9a-fA-F]{16}$/.test(d.referenceDevEui || d.reference_dev_eui || ''))) {
+        throw new BadRequestException('Flow có REF/SIMU: mỗi DUT phải chọn thiết bị tham chiếu với DevEUI hợp lệ');
       }
       await this.queryBatchTransaction(ds, `DELETE FROM system_schema.device_test_batch_items WHERE batch_id = $1`, [id]);
 
