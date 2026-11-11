@@ -278,8 +278,6 @@ export class MenuService {
     END_USER: ['dashboard', 'final-config:tool'],
     OPERATOR: [
       'dashboard',
-      'device:manage',
-      'dis-manager:main',
       'decoder:scripts',
       'final-config:tool',
       'device-traceability:so',
