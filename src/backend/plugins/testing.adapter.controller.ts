@@ -5404,6 +5404,7 @@ export class TestingAdapterController implements OnApplicationBootstrap {
         autoCheckCriteria.sharedReferenceDeviceName = body.sharedReferenceDeviceName || null;
       }
       const referenceDevices = Array.isArray(body.referenceDevices) ? body.referenceDevices : (Array.isArray(body.reference_devices) ? body.reference_devices : []);
+      const simulationDevices = Array.isArray(body.simulationDevices) ? body.simulationDevices : (Array.isArray(body.simulation_devices) ? body.simulation_devices : []);
       const simulatorDevice = body.simulatorDevice || body.simulator_device || null;
       const maxDevices = parseInt(body.maxDevices || body.max_devices, 10) || 10;
       const createdBy = request.user.username;
@@ -5414,7 +5415,33 @@ export class TestingAdapterController implements OnApplicationBootstrap {
           INSERT INTO system_schema.device_test_batches (
             batch_code, batch_name, item_code, long_fw, fw_version, simu_id,
             simulation_flow, flow_duration_seconds, auto_check_criteria, max_devices,
-            reference_devices, simulator_device,
+            reference_devices, simulation_devices, simulator_device,
+            status, verdict, created_by
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, 'DRAFT', 'PENDING', $14)
+          RETURNING *
+        `, [
+          batchCode,
+          batchName,
+          itemCode,
+          longFw,
+          fwVersion,
+          simuId || null,
+          JSON.stringify(simulationFlow),
+          flowDuration,
+          JSON.stringify(autoCheckCriteria),
+          maxDevices,
+          JSON.stringify(referenceDevices),
+          JSON.stringify(simulationDevices),
+          simulatorDevice ? JSON.stringify(simulatorDevice) : null,
+          createdBy,
+        ]);
+        created = result[0];
+      } catch {
+        const result = await ds.query(`
+          INSERT INTO system_schema.device_test_batches (
+            batch_code, batch_name, item_code, long_fw, fw_version, simu_id,
+            simulation_flow, flow_duration_seconds, auto_check_criteria, max_devices,
+            reference_devices, simulation_devices,
             status, verdict, created_by
           ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, 'DRAFT', 'PENDING', $13)
           RETURNING *
@@ -5430,29 +5457,7 @@ export class TestingAdapterController implements OnApplicationBootstrap {
           JSON.stringify(autoCheckCriteria),
           maxDevices,
           JSON.stringify(referenceDevices),
-          simulatorDevice ? JSON.stringify(simulatorDevice) : null,
-          createdBy,
-        ]);
-        created = result[0];
-      } catch {
-        const result = await ds.query(`
-          INSERT INTO system_schema.device_test_batches (
-            batch_code, batch_name, item_code, long_fw, fw_version, simu_id,
-            simulation_flow, flow_duration_seconds, auto_check_criteria, max_devices,
-            status, verdict, created_by
-          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'DRAFT', 'PENDING', $11)
-          RETURNING *
-        `, [
-          batchCode,
-          batchName,
-          itemCode,
-          longFw,
-          fwVersion,
-          simuId || null,
-          JSON.stringify(simulationFlow),
-          flowDuration,
-          JSON.stringify(autoCheckCriteria),
-          maxDevices,
+          JSON.stringify(simulationDevices),
           createdBy,
         ]);
         created = result[0];
@@ -5473,6 +5478,7 @@ export class TestingAdapterController implements OnApplicationBootstrap {
           flowDurationSeconds: created.flow_duration_seconds,
           autoCheckCriteria: created.auto_check_criteria,
           referenceDevices: created.reference_devices || referenceDevices,
+          simulationDevices: created.simulation_devices || simulationDevices,
           simulatorDevice: created.simulator_device || simulatorDevice,
           maxDevices: created.max_devices,
           status: created.status,
@@ -5908,6 +5914,7 @@ export class TestingAdapterController implements OnApplicationBootstrap {
           sharedReferenceDevEui: batch.auto_check_criteria?.sharedReferenceDevEui ?? null,
           sharedReferenceDeviceName: batch.auto_check_criteria?.sharedReferenceDeviceName ?? null,
           referenceDevices: batch.reference_devices || [],
+          simulationDevices: batch.simulation_devices || [],
           simulatorDevice: batch.simulator_device || null,
           maxDevices: batch.max_devices,
           status: batch.status,
@@ -5941,6 +5948,7 @@ export class TestingAdapterController implements OnApplicationBootstrap {
             referenceWindowPacketCount: i.reference_window_packet_count ?? null,
             avgMetrics: i.avg_metrics ?? {},
             referenceDevicesData: i.reference_devices_data ?? [],
+            simulationDevicesData: i.simulation_devices_data ?? [],
             calibrationData: i.calibration_data ?? {},
             avgCycle: i.comparison_result?.avg_cycle ?? null,
             avgRssi: i.comparison_result?.avg_rssi ?? null,
@@ -6027,7 +6035,7 @@ export class TestingAdapterController implements OnApplicationBootstrap {
       // 5. Match by Device Name in batch metadata (reference_devices, sharedReferenceDevice, simulator_device)
       if (targets.size === 0 && targetStr) {
         const targetLower = targetStr.toLowerCase();
-        const batchRows = await ds.query('SELECT reference_devices, simulator_device, auto_check_criteria FROM system_schema.device_test_batches WHERE id = $1', [id]);
+        const batchRows = await ds.query('SELECT reference_devices, simulation_devices, simulator_device, auto_check_criteria FROM system_schema.device_test_batches WHERE id = $1', [id]);
         const bRow = batchRows[0];
         if (bRow) {
           const refDevices = Array.isArray(bRow.reference_devices) ? bRow.reference_devices : [];
@@ -6035,6 +6043,14 @@ export class TestingAdapterController implements OnApplicationBootstrap {
             const rName = (rd.reference_name || rd.referenceName || rd.name || rd.serialNumber || rd.serial_number || '').trim().toLowerCase();
             if (rName && rName === targetLower) {
               const eui = (rd.devEui || rd.dev_eui || '').trim().toUpperCase();
+              if (eui) targets.add(eui);
+            }
+          }
+          const simuDevices = Array.isArray(bRow.simulation_devices) ? bRow.simulation_devices : [];
+          for (const sd of simuDevices) {
+            const sName = (sd.name || sd.deviceName || sd.serialNumber || sd.serial_number || '').trim().toLowerCase();
+            if (sName && (sName === targetLower || targetStr.toUpperCase() === 'SIMU' || targetStr.toUpperCase() === 'SIMULATOR')) {
+              const eui = (sd.devEui || sd.dev_eui || '').trim().toUpperCase();
               if (eui) targets.add(eui);
             }
           }
@@ -6168,10 +6184,10 @@ export class TestingAdapterController implements OnApplicationBootstrap {
             item_code, fw_version, reference_device_id, reference_serial_number,
             reference_dev_eui, reference_device_name, status, verdict,
             dut_values, reference_values, comparison_result, packets_received,
-            rules_passed, rules_failed
+            rules_passed, rules_failed, simulation_devices_data
           ) VALUES (
             $1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
-            'RUNNING', 'PENDING', '{}'::jsonb, '{}'::jsonb, $11::jsonb, 0, 0, 0
+            'RUNNING', 'PENDING', '{}'::jsonb, '{}'::jsonb, $11::jsonb, 0, 0, 0, $12::jsonb
           )
         `, [
           id,
@@ -6185,6 +6201,7 @@ export class TestingAdapterController implements OnApplicationBootstrap {
           refDevEui,
           refName,
           JSON.stringify(comparison),
+          JSON.stringify(d.simulationDevicesData || []),
         ]);
       }
 
