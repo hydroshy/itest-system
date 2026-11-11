@@ -2084,6 +2084,7 @@ export class TestingAdapterController implements OnApplicationBootstrap {
       'stop_measurement',
       'average',
       'calculate_linear',
+      'convert_to_hex',
       'device_auto_check',
     ];
     return blocks.reduce((total, block) => {
@@ -2101,7 +2102,7 @@ export class TestingAdapterController implements OnApplicationBootstrap {
         if (!Number.isFinite(offsetSec) || offsetSec < 0) throw new BadRequestException('Offset seconds phải là số không âm');
         return Math.max(total, offsetSec);
       }
-      if (['start_measurement', 'stop_measurement', 'average', 'calculate_linear', 'device_auto_check'].includes(fType)) {
+      if (['start_measurement', 'stop_measurement', 'average', 'calculate_linear', 'convert_to_hex', 'device_auto_check'].includes(fType)) {
         const duration = Number(block.durationSeconds ?? block.duration ?? block.timeoutSeconds ?? 0);
         return total + (Number.isFinite(duration) && duration > 0 ? duration : 0);
       }
@@ -6062,19 +6063,132 @@ export class TestingAdapterController implements OnApplicationBootstrap {
     }
   }
 
+  private encodeValueToHex(value: any, encoding: string = 'float32_be'): string {
+    const num = typeof value === 'number' ? value : parseFloat(String(value));
+    if (isNaN(num)) return '00000000';
+    const enc = (encoding || 'float32_be').toLowerCase().trim();
+    switch (enc) {
+      case 'float32':
+      case 'float32_be': {
+        const b = Buffer.alloc(4);
+        b.writeFloatBE(num);
+        return b.toString('hex').toLowerCase();
+      }
+      case 'float32_le': {
+        const b = Buffer.alloc(4);
+        b.writeFloatLE(num);
+        return b.toString('hex').toLowerCase();
+      }
+      case 'int16':
+      case 'int16_be': {
+        const b = Buffer.alloc(2);
+        b.writeInt16BE(Math.round(num));
+        return b.toString('hex').toLowerCase();
+      }
+      case 'int16_le': {
+        const b = Buffer.alloc(2);
+        b.writeInt16LE(Math.round(num));
+        return b.toString('hex').toLowerCase();
+      }
+      case 'uint16':
+      case 'uint16_be': {
+        const b = Buffer.alloc(2);
+        b.writeUInt16BE(Math.max(0, Math.round(num)));
+        return b.toString('hex').toLowerCase();
+      }
+      case 'uint16_le': {
+        const b = Buffer.alloc(2);
+        b.writeUInt16LE(Math.max(0, Math.round(num)));
+        return b.toString('hex').toLowerCase();
+      }
+      case 'int32':
+      case 'int32_be': {
+        const b = Buffer.alloc(4);
+        b.writeInt32BE(Math.round(num));
+        return b.toString('hex').toLowerCase();
+      }
+      case 'int32_le': {
+        const b = Buffer.alloc(4);
+        b.writeInt32LE(Math.round(num));
+        return b.toString('hex').toLowerCase();
+      }
+      case 'uint32':
+      case 'uint32_be': {
+        const b = Buffer.alloc(4);
+        b.writeUInt32BE(Math.max(0, Math.round(num)));
+        return b.toString('hex').toLowerCase();
+      }
+      case 'uint32_le': {
+        const b = Buffer.alloc(4);
+        b.writeUInt32LE(Math.max(0, Math.round(num)));
+        return b.toString('hex').toLowerCase();
+      }
+      default: {
+        const b = Buffer.alloc(4);
+        b.writeFloatBE(num);
+        return b.toString('hex').toLowerCase();
+      }
+    }
+  }
+
   private async executeSimulationFlow(id: string, blocks: any[], devices: any[], startedAt?: string) {
     if (!blocks.length) return;
     const ds = this.databaseService.getDataSourceForTable('devices');
     const repo = this.databaseService.getRepositoryForTable('network_servers', ChirpstackNetworkServerEntity);
     const server = blocks.some(b => b.functionType !== 'delay')
       ? await repo.findOne({ where: { isActive: true } }) : null;
+    const variables: Record<string, any> = {};
+
     for (const block of blocks) {
       const rows = await ds.query('SELECT status, started_at FROM system_schema.device_test_batches WHERE id = $1', [id]);
       if (rows[0]?.status !== 'RUNNING' || (startedAt && new Date(rows[0].started_at).toISOString() !== startedAt)) return;
+
       if (block.functionType === 'delay') {
-        await new Promise(resolve => setTimeout(resolve, block.delaySeconds * 1000));
+        await new Promise(resolve => setTimeout(resolve, (block.delaySeconds || 0) * 1000));
         continue;
       }
+      if (block.functionType === 'wait_until_offset') {
+        continue;
+      }
+      if (block.functionType === 'calculate_linear') {
+        const p1 = block.point1 || {};
+        const p2 = block.point2 || {};
+        const getVal = (v: any) => {
+          if (typeof v === 'number') return v;
+          if (typeof v === 'string') {
+            const clean = v.replace(/^\{\{|\}\}$/g, '').trim();
+            return variables[clean] !== undefined ? variables[clean] : (parseFloat(clean) || 0);
+          }
+          return 0;
+        };
+        const x1 = getVal(p1.x);
+        const y1 = Number(p1.y || 0);
+        const x2 = getVal(p2.x);
+        const y2 = Number(p2.y || 0);
+        const deltaX = x2 - x1;
+        const a = Math.abs(deltaX) > 0.000001 ? +((y2 - y1) / deltaX).toFixed(6) : 0;
+        const b = +(y1 - a * x1).toFixed(6);
+        if (block.outputVarA) variables[block.outputVarA] = a;
+        if (block.outputVarB) variables[block.outputVarB] = b;
+        variables['a'] = a;
+        variables['b'] = b;
+        continue;
+      }
+      if (block.functionType === 'convert_to_hex') {
+        const src = (block.sourceVar || block.source_var || '').trim();
+        const out = (block.outputVar || block.output_var || '').trim();
+        const enc = (block.dataType || block.encoding || 'float32_be').trim();
+        if (src && out) {
+          const cleanSrc = src.replace(/^\{\{|\}\}$/g, '').trim();
+          const rawVal = variables[cleanSrc] !== undefined ? variables[cleanSrc] : (variables[src] !== undefined ? variables[src] : parseFloat(cleanSrc));
+          variables[out] = this.encodeValueToHex(rawVal ?? 0, enc);
+        }
+        continue;
+      }
+      if (['start_measurement', 'stop_measurement', 'average', 'device_auto_check'].includes(block.functionType)) {
+        continue;
+      }
+
       if (!server?.apiUrl || !server.apiToken) throw new Error('Chưa cấu hình ChirpStack đang hoạt động');
       const targetStr = (block.targetDevice || block.target || block.targetDeviceName || '').toString().trim();
       const targets = new Set<string>();
@@ -6171,6 +6285,22 @@ export class TestingAdapterController implements OnApplicationBootstrap {
         }
       }
 
+      let resolvedPayloadHex = (block.payloadHex || '').trim().replace(/\s+/g, '');
+      if (block.functionType === 'downlink') {
+        resolvedPayloadHex = resolvedPayloadHex.replace(/\{\{TO_HEX\(([^,\)]+)(?:,([^\)]+))?\)\}\}/gi, (_m: string, varName: string, enc: string) => {
+          const v = varName.trim();
+          const cleanV = v.replace(/^\{\{|\}\}$/g, '').trim();
+          const rawVal = variables[cleanV] !== undefined ? variables[cleanV] : (variables[v] !== undefined ? variables[v] : (parseFloat(cleanV) || 0));
+          return this.encodeValueToHex(rawVal, enc ? enc.trim() : 'float32_be');
+        });
+        resolvedPayloadHex = resolvedPayloadHex.replace(/\{\{([a-zA-Z0-9_]+)\}\}/g, (_m: string, varName: string) => {
+          if (variables[varName] !== undefined) {
+            return String(variables[varName]);
+          }
+          return _m;
+        });
+      }
+
       for (const devEui of targets) {
         if (!/^[0-9a-fA-F]{16}$/.test(devEui)) throw new Error(`DevEUI ${block.targetDevice} không hợp lệ`);
         const response = await fetch(`${server.apiUrl.replace(/\/$/, '')}/api/devices/${encodeURIComponent(devEui)}/queue`, {
@@ -6179,7 +6309,7 @@ export class TestingAdapterController implements OnApplicationBootstrap {
           signal: AbortSignal.timeout(10000),
           ...(block.functionType === 'downlink' ? { body: JSON.stringify({ queueItem: {
             devEui, fPort: block.fPort ?? 1, confirmed: !!block.isConfirmed,
-            data: Buffer.from(block.payloadHex, 'hex').toString('base64'),
+            data: Buffer.from(resolvedPayloadHex, 'hex').toString('base64'),
           } }) } : {}),
         });
         if (!response.ok) throw new Error(`ChirpStack ${block.functionType}: HTTP ${response.status}`);
