@@ -4385,125 +4385,136 @@ export class TestingAdapterController implements OnApplicationBootstrap {
         }
       }
 
-      // Persist / Sync to local database `devices`
+      // Persist / Sync to local database `devices` (Only if ChirpStack Success)
       let localDev: any;
-      try {
-      const deviceRepo = this.databaseService.getRepositoryForTable(
-        'devices',
-        TestingDeviceEntity,
-      );
-      localDev = await deviceRepo.findOne({
-        where: [{ network_id: devEui }, ...(serialNumber ? [{ serial_number: serialNumber }] : [])],
-      });
-
-      if (!localDev) {
-        localDev = deviceRepo.create({
-          serial_number: serialNumber || `SN-${devEui}`,
-          network_id: devEui,
-          device_name: serialNumber || `LoRaWAN Node ${devEui.substring(devEui.length - 4)}`,
-          device_type: 'lorawan_node',
-          plugin_id: 'testing',
-          so_number: soNumber || null,
-          wa_number: waNumber || null,
-          item_code: itemCode || null,
-          status: 'active',
-          metadata: {
-            fw_code: fwCode,
-            fw_version: fwVersion,
-            hw_version: hwVersion,
-            me_version: meVersion,
-            app_eui: appEui,
-            region_code: regionCode,
-            class: deviceClass,
-            sensor_type: sensorType,
-            application_id: applicationId,
-            device_profile_id: deviceProfileId,
-            registered_to_ns: chirpstackSuccess,
-            ns_url: serverUrl,
-            registered_at: new Date().toISOString(),
-          },
-        });
-      } else {
-        if (serialNumber) localDev.serial_number = serialNumber;
-        if (soNumber) localDev.so_number = soNumber;
-        if (waNumber) localDev.wa_number = waNumber;
-        if (itemCode) localDev.item_code = itemCode;
-        localDev.status = 'active';
-        localDev.metadata = {
-          ...(localDev.metadata || {}),
-          fw_code: fwCode,
-          fw_version: fwVersion,
-          hw_version: hwVersion,
-          me_version: meVersion,
-          app_eui: appEui,
-          region_code: regionCode,
-          class: deviceClass,
-          sensor_type: sensorType,
-          application_id: applicationId,
-          device_profile_id: deviceProfileId,
-          registered_to_ns: chirpstackSuccess,
-          ns_url: serverUrl,
-          registered_at: new Date().toISOString(),
-        };
-      }
-      await deviceRepo.save(localDev);
-      stages.local = 'success';
-      } catch (error: any) {
-        stages.local = 'failed';
-        localWarnings.push(`Không lưu được thiết bị vào hệ thống: ${error.message}`);
-      }
-
-      // Persist to system_schema.device_test_registrations (Migration 010)
-      try {
-        const ds = this.databaseService.getDataSourceForTable('devices');
-        if (ds) {
-          let resolvedSoId = (body?.soId || body?.so_id || '').trim() || null;
-          let resolvedWaId = (body?.waId || body?.wa_id || '').trim() || null;
-
-          if (!resolvedSoId && soNumber) {
-            const soRows = await ds.query(
-              `SELECT id FROM traceability_manager.traceability_so WHERE so_number = $1 LIMIT 1`,
-              [soNumber],
-            ).catch(() => []);
-            resolvedSoId = soRows[0]?.id || null;
-          }
-          if (!resolvedWaId && waNumber) {
-            const waRows = await ds.query(
-              `SELECT id FROM traceability_manager.traceability_wa WHERE wa_number = $1 LIMIT 1`,
-              [waNumber],
-            ).catch(() => []);
-            resolvedWaId = waRows[0]?.id || null;
-          }
-
-          const regCode = `REG-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
-          await ds.query(
-            `INSERT INTO system_schema.device_test_registrations (
-              registration_code, connectivity, so_id, so_number, wa_id, wa_number, item_code,
-              network_server_id, network_server_url, application_id, device_profile_id,
-              fw_code, fw_version, hw_version, me_version,
-              dev_eui, app_eui, app_key, region_code, class_mode, sensor_type, serial_number,
-              status, message, chirpstack_payload, created_by
-            ) VALUES (
-              $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26
-            )`,
-            [
-              regCode, connectivity, resolvedSoId, soNumber || null, resolvedWaId, waNumber || null, itemCode || null,
-              serverId || null, serverUrl, applicationId, deviceProfileId,
-              fwCode || null, fwVersion || null, hwVersion || null, meVersion || null,
-              devEui, appEui || null, appKey || null, regionCode, deviceClass, sensorType || null, serialNumber || null,
-              chirpstackSuccess ? 'SUCCESS_ATTACH_BATTERY' : 'FAILED',
-              chirpstackSuccess ? 'Đăng ký Thành công vui lòng gắn pin cảm biến' : (chirpstackError || 'Chirpstack registration failed'),
-              JSON.stringify(chirpstackDevicePayload),
-              createdBy,
-            ],
+      if (chirpstackSuccess) {
+        try {
+          const deviceRepo = this.databaseService.getRepositoryForTable(
+            'devices',
+            TestingDeviceEntity,
           );
-          stages.registration = 'success';
-        } else {
-          throw new Error('Database connection unavailable');
+          localDev = await deviceRepo.findOne({
+            where: [{ network_id: devEui }, ...(serialNumber ? [{ serial_number: serialNumber }] : [])],
+          });
+
+          if (!localDev) {
+            localDev = deviceRepo.create({
+              serial_number: serialNumber || `SN-${devEui}`,
+              network_id: devEui,
+              device_name: serialNumber || `LoRaWAN Node ${devEui.substring(devEui.length - 4)}`,
+              device_type: 'lorawan_node',
+              plugin_id: 'testing',
+              so_number: soNumber || null,
+              wa_number: waNumber || null,
+              item_code: itemCode || null,
+              status: 'active',
+              metadata: {
+                fw_code: fwCode,
+                fw_version: fwVersion,
+                hw_version: hwVersion,
+                me_version: meVersion,
+                app_eui: appEui,
+                region_code: regionCode,
+                class: deviceClass,
+                sensor_type: sensorType,
+                application_id: applicationId,
+                device_profile_id: deviceProfileId,
+                registered_to_ns: chirpstackSuccess,
+                ns_url: serverUrl,
+                registered_at: new Date().toISOString(),
+              },
+            });
+          } else {
+            if (serialNumber) localDev.serial_number = serialNumber;
+            if (soNumber) localDev.so_number = soNumber;
+            if (waNumber) localDev.wa_number = waNumber;
+            if (itemCode) localDev.item_code = itemCode;
+            localDev.status = 'active';
+            localDev.metadata = {
+              ...(localDev.metadata || {}),
+              fw_code: fwCode,
+              fw_version: fwVersion,
+              hw_version: hwVersion,
+              me_version: meVersion,
+              app_eui: appEui,
+              region_code: regionCode,
+              class: deviceClass,
+              sensor_type: sensorType,
+              application_id: applicationId,
+              device_profile_id: deviceProfileId,
+              registered_to_ns: chirpstackSuccess,
+              ns_url: serverUrl,
+              registered_at: new Date().toISOString(),
+            };
+          }
+          await deviceRepo.save(localDev);
+          stages.local = 'success';
+        } catch (error: any) {
+          stages.local = 'failed';
+          localWarnings.push(`Không lưu được thiết bị vào hệ thống: ${error.message}`);
         }
-      } catch (error: any) {
-        stages.registration = 'failed';
-        localWarnings.push(`Không lưu được lịch sử đăng ký: ${error.message}`);
+
+        // Persist to system_schema.device_test_registrations (Migration 010) - Chỉ lưu khi ChirpStack thành công
+        try {
+          const ds = this.databaseService.getDataSourceForTable('devices');
+          if (ds) {
+            let resolvedSoId = (body?.soId || body?.so_id || '').trim() || null;
+            let resolvedWaId = (body?.waId || body?.wa_id || '').trim() || null;
+
+            if (!resolvedSoId && soNumber) {
+              const soRows = await ds.query(
+                `SELECT id FROM traceability_manager.traceability_so WHERE so_number = $1 LIMIT 1`,
+                [soNumber],
+              ).catch(() => []);
+              resolvedSoId = soRows[0]?.id || null;
+            }
+            if (!resolvedWaId && waNumber) {
+              const waRows = await ds.query(
+                `SELECT id FROM traceability_manager.traceability_wa WHERE wa_number = $1 LIMIT 1`,
+                [waNumber],
+              ).catch(() => []);
+              resolvedWaId = waRows[0]?.id || null;
+            }
+
+            // Xóa mọi bản ghi đăng ký cũ của dev_eui này để tránh trùng lặp
+            await ds.query(
+              `DELETE FROM system_schema.device_test_registrations WHERE LOWER(dev_eui) = LOWER($1)`,
+              [devEui]
+            ).catch(() => {});
+
+            const regCode = `REG-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
+            await ds.query(
+              `INSERT INTO system_schema.device_test_registrations (
+                registration_code, connectivity, so_id, so_number, wa_id, wa_number, item_code,
+                network_server_id, network_server_url, application_id, device_profile_id,
+                fw_code, fw_version, hw_version, me_version,
+                dev_eui, app_eui, app_key, region_code, class_mode, sensor_type, serial_number,
+                status, message, chirpstack_payload, created_by
+              ) VALUES (
+                $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26
+              )`,
+              [
+                regCode, connectivity, resolvedSoId, soNumber || null, resolvedWaId, waNumber || null, itemCode || null,
+                serverId || null, serverUrl, applicationId, deviceProfileId,
+                fwCode || null, fwVersion || null, hwVersion || null, meVersion || null,
+                devEui, appEui || null, appKey || null, regionCode, deviceClass, sensorType || null, serialNumber || null,
+                'SUCCESS_ATTACH_BATTERY',
+                'Đăng ký Thành công vui lòng gắn pin cảm biến',
+                JSON.stringify(chirpstackDevicePayload),
+                createdBy,
+              ],
+            );
+            stages.registration = 'success';
+          } else {
+            throw new Error('Database connection unavailable');
+          }
+        } catch (error: any) {
+          stages.registration = 'failed';
+          localWarnings.push(`Không lưu được lịch sử đăng ký: ${error.message}`);
+        }
+      } else {
+        stages.local = 'skipped';
+        stages.registration = 'skipped';
       }
 
       const message = [chirpstackSuccess ? 'Đăng ký thành công trên ChirpStack; vui lòng gắn pin cảm biến' : chirpstackError, ...localWarnings].filter(Boolean).join('. ');

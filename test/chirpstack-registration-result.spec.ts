@@ -21,7 +21,11 @@ async function run() {
       }) as any;
       const result = await controller.registerDeviceFlow3Steps(body);
       assert.strictEqual(result.success, ['success', 'local-failed'].includes(scenario));
-      assert.ok(insert.includes('region_code, class_mode, sensor_type'));
+      if (['success', 'local-failed'].includes(scenario)) {
+        assert.ok(insert.includes('region_code, class_mode, sensor_type'));
+      } else {
+        assert.strictEqual(insert, '');
+      }
       if (scenario === 'local-failed') { assert.strictEqual(result.stages.local, 'failed'); assert.strictEqual(result.warnings.length, 2); }
       if (scenario === 'keys-failed') assert.ok(result.message.includes('Thiết bị đã tạo'));
       if (scenario === 'exists') { assert.strictEqual(keysCalls, 0); assert.strictEqual(result.stages.device, 'exists'); }
