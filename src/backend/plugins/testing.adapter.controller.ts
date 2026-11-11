@@ -4836,6 +4836,89 @@ export class TestingAdapterController implements OnApplicationBootstrap {
     }
   }
 
+  @Get(['api/plugins/testing/devices/status', 'api/v1/plugins/testing/devices/status'])
+  @UseGuards(JwtAuthGuard)
+  async getDevicesStatus(@Query('euis') euis?: string, @Query('serials') serials?: string) {
+    try {
+      const euiList = (euis || '').split(',').map(e => e.trim().toUpperCase()).filter(e => e.length > 0);
+      const serialList = (serials || '').split(',').map(s => s.trim()).filter(s => s.length > 0);
+
+      const ds = this.databaseService.getDataSourceForTable('devices');
+      const result: Record<string, { devEui: string; serialNumber: string; isOnline: boolean; status: string; lastSeenAt: string | null; batteryLevel?: number }> = {};
+
+      let devRows: any[] = [];
+      if (ds && (euiList.length > 0 || serialList.length > 0)) {
+        devRows = await ds.query(
+          `SELECT dev_eui, serial_number, metadata, updated_at
+           FROM system_schema.device_test_registrations
+           WHERE dev_eui = ANY($1) OR serial_number = ANY($2)
+           UNION
+           SELECT dev_eui, serial_number, metadata, updated_at
+           FROM system_schema.devices
+           WHERE dev_eui = ANY($1) OR serial_number = ANY($2)`,
+          [euiList, serialList],
+        ).catch(() => []);
+      }
+
+      const csStatusMap = new Map<string, { status: string; isOnline: boolean; lastSeenAt: string | null; batteryLevel?: number }>();
+      try {
+        const serverRepo = this.databaseService.getRepositoryForTable('lorawan_chirpstack', ChirpstackNetworkServerEntity);
+        const activeServer = serverRepo ? await serverRepo.findOne({ where: { isActive: true } }) : null;
+        if (activeServer && activeServer.apiUrl && activeServer.apiToken) {
+          const authHeaders = {
+            'Accept': 'application/json',
+            'Grpc-Metadata-Authorization': `Bearer ${activeServer.apiToken}`,
+            'Authorization': `Bearer ${activeServer.apiToken}`,
+          };
+          const allEuis = Array.from(new Set([...euiList, ...devRows.map(r => (r.dev_eui || '').trim().toUpperCase()).filter(Boolean)]));
+          await Promise.allSettled(allEuis.slice(0, 30).map(async (eui) => {
+            try {
+              const res = await fetch(`${activeServer.apiUrl.replace(/\/+$/, '')}/api/devices/${encodeURIComponent(eui)}`, {
+                headers: authHeaders,
+                signal: AbortSignal.timeout(3000),
+              });
+              if (res.ok) {
+                const data: any = await res.json();
+                const d = data.device;
+                const lastSeenAt = data.lastSeenAt || d?.lastSeenAt || null;
+                const isOnline = Boolean(lastSeenAt && (Date.now() - new Date(lastSeenAt).getTime() < 15 * 60 * 1000));
+                csStatusMap.set(eui.toUpperCase(), {
+                  status: isOnline ? 'ONLINE' : (lastSeenAt ? 'OFFLINE' : 'NEVER_SEEN'),
+                  isOnline,
+                  lastSeenAt,
+                  batteryLevel: data.deviceStatus?.batteryLevel,
+                });
+              }
+            } catch {}
+          }));
+        }
+      } catch (err: any) {
+        this.logger.debug(`ChirpStack device status fetch error: ${err.message}`);
+      }
+
+      for (const eui of euiList) {
+        const cs = csStatusMap.get(eui);
+        const dRow = devRows.find(r => (r.dev_eui || '').toUpperCase() === eui);
+        const sn = dRow?.serial_number || '';
+        result[eui] = {
+          devEui: eui,
+          serialNumber: sn,
+          isOnline: cs ? cs.isOnline : false,
+          status: cs ? cs.status : 'OFFLINE',
+          lastSeenAt: cs?.lastSeenAt || dRow?.metadata?.last_seen_at || null,
+          batteryLevel: cs?.batteryLevel,
+        };
+      }
+
+      return {
+        success: true,
+        data: result,
+      };
+    } catch (error: any) {
+      return { success: false, message: error.message, data: {} };
+    }
+  }
+
   @Delete([
     'api/plugins/testing/device-registrations/:id',
     'api/v1/plugins/testing/device-registrations/:id',
