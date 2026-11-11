@@ -121,7 +121,7 @@ export const SYSTEM_MENU_ITEMS: MenuItemDto[] = [
   },
   {
     id: 'lorawan-chirpstack:integration',
-    title: 'LoRaWAN ChirpStack Integration',
+    title: 'CHIRPSTACK',
     description: 'Đồng bộ Gateways, Applications và Live Frames từ Network Server ChirpStack',
     icon: 'Connection',
     route: '/plugins/lorawan-chirpstack?tab=overview',
