@@ -626,9 +626,12 @@ export class TestingAdapterController implements OnApplicationBootstrap {
   }
 
   @Get(['api/plugins/testing/devices/:id', 'api/v1/plugins/testing/devices/:id'])
-  async getDeviceById(@Param('id') id: string): Promise<any> {
+  async getDeviceById(@Param('id') id: string, @Query('euis') euis?: string, @Query('serials') serials?: string): Promise<any> {
     if (id === 'simulation') {
       return this.getSimulationDevices();
+    }
+    if (id === 'status') {
+      return this.getDevicesStatus(euis, serials);
     }
     try {
       const deviceRepo = this.databaseService.getRepositoryForTable(
