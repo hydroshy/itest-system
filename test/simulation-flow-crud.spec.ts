@@ -64,6 +64,19 @@ async function run() {
     ]);
     assert.ok(requests[2].url.endsWith('/A1A2A3A4A5A6A7A8/queue'));
     assert.ok(requests[3].url.endsWith('/B1B2B3B4B5B6B7B8/queue'));
+
+    // Test convert_to_hex and dynamic variable substitution in downlink template
+    await (runtime as any).executeSimulationFlow('batch', [
+      { functionType: 'convert_to_hex', sourceVar: '1000', dataType: 'float32_be', outputVar: 'x' },
+      { functionType: 'downlink', targetDevice: 'DUT', payloadHex: '4E04{{x}}0005' },
+    ], [
+      { devEui: '0102030405060708' },
+    ]);
+    const reqIndex = requests.length - 1;
+    assert.strictEqual(requests[reqIndex].options.method, 'POST');
+    const sentItem = JSON.parse(requests[reqIndex].options.body).queueItem;
+    // 1000 in IEEE-754 float32 is 447a0000 -> 4E04447A00000005
+    assert.strictEqual(Buffer.from(sentItem.data, 'base64').toString('hex').toUpperCase(), '4E04447A00000005');
   } finally { global.fetch = originalFetch; }
   console.log('Simulation flow CRUD and queue tests passed');
 }
