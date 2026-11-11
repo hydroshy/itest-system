@@ -1,4 +1,4 @@
-import {
+﻿import {
   BadRequestException,
   Body,
   Controller,
@@ -5194,9 +5194,19 @@ export class TestingAdapterController implements OnApplicationBootstrap {
   async getAvailableDevicesForBatch(@Query() query: any, @Req() request?: any) {
     try {
       const ds = this.databaseService.getDataSourceForTable('devices');
-      const itemCode = (query.itemCode || query.item_code || '').trim();
-      const fwVersion = (query.fwVersion || query.fw_version || query.longFw || query.long_fw || '').trim();
+      let itemCode = (query.itemCode || query.item_code || '').trim();
+      let fwVersion = (query.fwVersion || query.fw_version || query.longFw || query.long_fw || '').trim();
       const soNumber = (query.soNumber || query.so_number || '').trim();
+      const batchId = (query.batchId || query.batch_id || '').trim();
+      if (!itemCode && batchId && ds) {
+        try {
+          const bRows = await ds.query('SELECT item_code, fw_version FROM system_schema.device_test_batches WHERE id = $1 LIMIT 1', [batchId]);
+          if (bRows && bRows.length > 0) {
+            itemCode = (bRows[0].item_code || '').trim();
+            if (!fwVersion) fwVersion = (bRows[0].fw_version || '').trim();
+          }
+        } catch {}
+      }
       const limit = Math.min(200, Math.max(1, parseInt(query.limit, 10) || 100));
 
       const username = (request?.user?.username || query.user || query.username || '').trim();
@@ -5227,7 +5237,7 @@ export class TestingAdapterController implements OnApplicationBootstrap {
         clauses.push(`COALESCE(${tableAlias}.is_reference, false) = false`);
 
         if (itemCode) {
-          clauses.push(`UPPER(${tableAlias}.item_code) = UPPER($${pIdx++})`);
+          clauses.push(`TRIM(UPPER(${tableAlias}.item_code)) = TRIM(UPPER($${pIdx++}))`);
           params.push(itemCode);
         }
         if (fwVersion) {
@@ -5389,7 +5399,7 @@ export class TestingAdapterController implements OnApplicationBootstrap {
           `;
           if (itemCode) {
             devParams.push(itemCode);
-            devSql += ` AND UPPER(d.item_code) = UPPER($${devParams.length})`;
+            devSql += ` AND TRIM(UPPER(d.item_code)) = TRIM(UPPER($${devParams.length}))`;
           }
           devSql += ` ORDER BY d.created_at DESC LIMIT ${limit}`;
           const devRows = await ds.query(devSql, devParams);
@@ -5438,7 +5448,7 @@ export class TestingAdapterController implements OnApplicationBootstrap {
   async getReferenceDevices(@Query() query: any) {
     try {
       const ds = this.databaseService.getDataSourceForTable('devices');
-      const itemCode = (query.itemCode || query.item_code || '').trim();
+      let itemCode = (query.itemCode || query.item_code || '').trim();
 
       if (!ds) {
         return { success: true, data: [], items: [], total: 0 };
@@ -5662,7 +5672,7 @@ export class TestingAdapterController implements OnApplicationBootstrap {
       const ds = this.databaseService.getDataSourceForTable('devices');
       if (!ds) return { success: true, data: [], total: 0 };
 
-      const itemCode = (query.itemCode || query.item_code || '').trim();
+      let itemCode = (query.itemCode || query.item_code || '').trim();
       const fwVersion = (query.fwVersion || query.fw_version || '').trim();
       const status = (query.status || '').trim();
       const search = (query.search || '').trim();
@@ -5920,7 +5930,7 @@ export class TestingAdapterController implements OnApplicationBootstrap {
             testerName,
             soId,
             waId,
-            reg.item_code || batch.item_code,
+            reg.item_code || item.item_code || batch.item_code,
             hwVersion,
             fwVersion,
           ]);
@@ -5946,7 +5956,7 @@ export class TestingAdapterController implements OnApplicationBootstrap {
                 waId,
                 item.serial_number || item.dev_eui,
                 item.dev_eui,
-                reg.item_code || batch.item_code,
+                reg.item_code || item.item_code || batch.item_code,
                 hwVersion,
                 fwVersion,
                 itemVerdict,
@@ -6455,6 +6465,27 @@ export class TestingAdapterController implements OnApplicationBootstrap {
         }
       }
 
+      if (batch.item_code && batch.item_code.trim()) {
+        const expectedItemCode = batch.item_code.trim().toUpperCase();
+        for (const d of devices) {
+          const dutSerial = d.serialNumber || d.serial_number || '';
+          let devItemCode = (d.itemCode || d.item_code || '').trim();
+          if (!devItemCode && dutSerial) {
+            const regCheck = await this.queryBatchTransaction(ds,
+              "SELECT item_code FROM system_schema.device_test_registrations WHERE LOWER(serial_number) = LOWER($1) ORDER BY created_at DESC LIMIT 1",
+              [dutSerial],
+            ).catch(() => []);
+            if (regCheck && regCheck.length > 0 && regCheck[0].item_code) {
+              devItemCode = (regCheck[0].item_code || '').trim();
+            }
+          }
+          if (devItemCode && devItemCode.toUpperCase() !== expectedItemCode) {
+            throw new BadRequestException(
+              `Thiết bị "${dutSerial}" có ITEM_CODE ("${devItemCode}") không khớp với ITEM_CODE của Test Batch ("${batch.item_code}"). Vui lòng chỉ chọn thiết bị cùng mã hàng!`,
+            );
+          }
+        }
+      }
       if (flowBlocks.some(b => ['REF', 'REFERENCE', 'SIMU', 'SIMULATOR'].includes((b.targetDevice || '').toUpperCase())) && devices.some(d => !/^[0-9a-fA-F]{16}$/.test(d.referenceDevEui || d.reference_dev_eui || ''))) {
         throw new BadRequestException('Flow có REF/SIMU: mỗi DUT phải chọn thiết bị tham chiếu với DevEUI hợp lệ');
       }
@@ -6953,7 +6984,7 @@ export class TestingAdapterController implements OnApplicationBootstrap {
                 testerName,
                 soId,
                 waId,
-                reg.item_code || batch.item_code,
+                reg.item_code || item.item_code || batch.item_code,
                 hwVersion,
                 fwVersion,
               ]);
@@ -6980,7 +7011,7 @@ export class TestingAdapterController implements OnApplicationBootstrap {
                     waId,
                     item.serial_number || item.dev_eui,
                     item.dev_eui,
-                    reg.item_code || batch.item_code,
+                    reg.item_code || item.item_code || batch.item_code,
                     hwVersion,
                     fwVersion,
                     itemVerdict,
