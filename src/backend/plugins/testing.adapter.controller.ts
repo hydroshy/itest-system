@@ -5826,7 +5826,7 @@ export class TestingAdapterController implements OnApplicationBootstrap {
         const comp = item.comparison_result || {};
         const hasRef = Boolean(item.reference_serial_number || item.reference_dev_eui);
         const hasComparisonMetrics = (comp.temp_delta != null || comp.hum_delta != null);
-        const autoPass = (item.packets_received || 0) > 0 && (hasComparisonMetrics ? comp.tolerance_pass === true : comp.tolerance_pass !== false);
+        const autoPass = item.verdict !== 'FAIL' && comp.status !== 'FLOW_FAILED' && (item.packets_received || 0) > 0 && (hasComparisonMetrics ? comp.tolerance_pass === true : comp.tolerance_pass !== false);
 
         let isPass = autoPass;
         if (body?.classifications) {
@@ -5846,6 +5846,7 @@ export class TestingAdapterController implements OnApplicationBootstrap {
           }
         }
 
+        if (item.verdict === 'FAIL' || comp.status === 'FLOW_FAILED') isPass = false;
         if (!isPass) allPass = false;
         const itemVerdict = isPass ? 'PASS' : 'FAIL';
         item.status = itemVerdict;
@@ -5887,9 +5888,7 @@ export class TestingAdapterController implements OnApplicationBootstrap {
           const hwVersion = reg.hw_version || item.hw_version || null;
           const fwVersion = reg.fw_version || reg.long_fw || item.fw_version || batch.fw_version || null;
           const statusStr = itemVerdict === 'PASS' ? 'TESTED_PASS' : 'TESTED_FAIL';
-          const simVars = item.simulation_vars && Object.keys(item.simulation_vars).length > 0
-            ? item.simulation_vars
-            : (batch.simulation_vars && Object.keys(batch.simulation_vars).length > 0 ? batch.simulation_vars : {});
+          const simVars = item.simulation_vars || {};
           const testRawData = JSON.stringify({
             batchCode: batch.batch_code,
             testBatchId: batch.id,
@@ -6049,7 +6048,7 @@ export class TestingAdapterController implements OnApplicationBootstrap {
         SET status = 'COMPLETED', verdict = $2, finished_at = $3, duration_seconds = $4, updated_at = $3
         WHERE id = $1
       `, [id, finalVerdict, finished, elapsed]).catch(() => {});
-      if (batch.current_session_id) await manager.query(`UPDATE system_schema.device_test_batch_sessions SET status = 'COMPLETED', verdict = $2, finished_at = $3, result = $4::jsonb WHERE id = $1`, [batch.current_session_id, finalVerdict, finished, JSON.stringify({ items, simulationVars: batch.simulation_vars || {} })]);
+      if (batch.current_session_id) await manager.query(`UPDATE system_schema.device_test_batch_sessions SET status = 'COMPLETED', verdict = $2, finished_at = $3, result = $4::jsonb WHERE id = $1`, [batch.current_session_id, finalVerdict, finished, JSON.stringify({ items, simulationVars: Object.fromEntries(items.map(item => [item.dev_eui, item.simulation_vars || {}])) })]);
 
       return {
         success: true,
@@ -6241,10 +6240,27 @@ export class TestingAdapterController implements OnApplicationBootstrap {
   private async executeSimulationFlow(id: string, blocks: any[], devices: any[], startedAt?: string) {
     if (!blocks.length) return;
     const ds = this.databaseService.getDataSourceForTable('devices');
+    const sharedDownlinks = new Map<string, Promise<void>>();
+    await Promise.all(devices.map(async device => {
+      try {
+        await this.executeSimulationFlowForDevice(id, blocks, device, devices, sharedDownlinks, startedAt);
+      } catch (error: any) {
+        this.logger.error(`[FlowSimulation] DUT ${device.devEui || device.dev_eui || device.serialNumber || device.serial_number}: ${error.message}`);
+        await ds.query(`UPDATE system_schema.device_test_batch_items
+          SET status = 'FAIL', verdict = 'FAIL', comparison_result = COALESCE(comparison_result, '{}'::jsonb) || jsonb_build_object('status', 'FLOW_FAILED', 'flow_error', $3)
+          WHERE batch_id = $1 AND (LOWER(REPLACE(dev_eui, ':', '')) = $2 OR serial_number = $4) AND status = 'RUNNING'`,
+          [id, String(device.devEui || device.dev_eui || '').replace(/[^0-9a-f]/gi, '').toLowerCase(), error.message, device.serialNumber || device.serial_number || '']);
+      }
+    }));
+  }
+
+  private async executeSimulationFlowForDevice(id: string, blocks: any[], device: any, devices: any[], sharedDownlinks: Map<string, Promise<void>>, startedAt?: string) {
+    const ds = this.databaseService.getDataSourceForTable('devices');
     const repo = this.databaseService.getRepositoryForTable('network_servers', ChirpstackNetworkServerEntity);
     const server = blocks.some(b => ['downlink', 'clear_downlink'].includes(b.functionType))
       ? await repo.findOne({ where: { isActive: true } }) : null;
     const variables: Record<string, any> = {};
+    const dutEui = String(device.devEui || device.dev_eui || '').replace(/[^0-9a-f]/gi, '').toUpperCase();
     const measurementWindows: Record<string, {
       windowId: string;
       targetDevice: string;
@@ -6266,18 +6282,13 @@ export class TestingAdapterController implements OnApplicationBootstrap {
       }
       // 2. Legacy role 'DUT'
       if (trimmed.toUpperCase() === 'DUT') {
-        for (const d of devices) {
-          const eui = (d.devEui || d.dev_eui || '').trim().toUpperCase();
-          if (eui) targets.add(eui);
-        }
+        if (dutEui) targets.add(dutEui);
         return targets;
       }
       // 3. Legacy role 'REF' / 'REFERENCE' / 'SIMU' / 'SIMULATOR'
       if (['REF', 'REFERENCE', 'SIMU', 'SIMULATOR'].includes(trimmed.toUpperCase())) {
-        for (const d of devices) {
-          const eui = (d.referenceDevEui || d.reference_dev_eui || '').trim().toUpperCase();
-          if (eui) targets.add(eui);
-        }
+        const eui = (device.referenceDevEui || device.reference_dev_eui || '').trim().toUpperCase();
+        if (eui) targets.add(eui);
       }
 
       // 4. Match by Device Name across devices in batch (DUT or REF)
@@ -6286,9 +6297,8 @@ export class TestingAdapterController implements OnApplicationBootstrap {
         for (const d of devices) {
           const dName = (d.name || d.deviceName || d.device_name || d.serialNumber || d.serial_number || '').trim().toLowerCase();
           const rName = (d.referenceDeviceName || d.reference_device_name || d.referenceSerialNumber || d.reference_serial_number || '').trim().toLowerCase();
-          if (dName && dName === targetLower) {
-            const eui = (d.devEui || d.dev_eui || '').trim().toUpperCase();
-            if (eui) targets.add(eui);
+          if (dName && dName === targetLower && d === device) {
+            if (dutEui) targets.add(dutEui);
           }
           if (rName && rName === targetLower) {
             const eui = (d.referenceDevEui || d.reference_dev_eui || '').trim().toUpperCase();
@@ -6489,8 +6499,8 @@ export class TestingAdapterController implements OnApplicationBootstrap {
         }
 
         await ds.query(
-          `UPDATE system_schema.device_test_batches SET simulation_vars = $3::jsonb WHERE id = $1 AND status = 'RUNNING' AND started_at = $2::timestamptz`,
-          [id, rows[0].started_at, JSON.stringify(variables)]
+          `UPDATE system_schema.device_test_batch_items SET simulation_vars = $3::jsonb WHERE batch_id = $1 AND LOWER(REPLACE(dev_eui, ':', '')) = $2 AND status = 'RUNNING'`,
+          [id, dutEui.toLowerCase(), JSON.stringify(variables)]
         );
         continue;
       }
@@ -6521,7 +6531,7 @@ export class TestingAdapterController implements OnApplicationBootstrap {
         if (outputVarB) variables[outputVarB] = b;
         variables['a'] = a;
         variables['b'] = b;
-        await ds.query(`UPDATE system_schema.device_test_batches SET simulation_vars = $3::jsonb WHERE id = $1 AND status = 'RUNNING' AND started_at = $2::timestamptz`, [id, rows[0].started_at, JSON.stringify(variables)]);
+        await ds.query(`UPDATE system_schema.device_test_batch_items SET simulation_vars = $3::jsonb WHERE batch_id = $1 AND LOWER(REPLACE(dev_eui, ':', '')) = $2 AND status = 'RUNNING'`, [id, dutEui.toLowerCase(), JSON.stringify(variables)]);
         continue;
       }
       if (block.functionType === 'convert_to_hex') {
@@ -6533,45 +6543,58 @@ export class TestingAdapterController implements OnApplicationBootstrap {
           const rawVal = variables[cleanSrc] !== undefined ? variables[cleanSrc] : (cleanSrc && Number.isFinite(Number(cleanSrc)) ? Number(cleanSrc) : undefined);
           if (rawVal === undefined || !Number.isFinite(Number(rawVal))) throw new Error(`Thiếu biến số cho convert_to_hex: ${src}`);
           variables[out] = this.encodeValueToHex(rawVal, enc);
-          await ds.query(`UPDATE system_schema.device_test_batches SET simulation_vars = $3::jsonb WHERE id = $1 AND status = 'RUNNING' AND started_at = $2::timestamptz`, [id, rows[0].started_at, JSON.stringify(variables)]);
+          await ds.query(`UPDATE system_schema.device_test_batch_items SET simulation_vars = $3::jsonb WHERE batch_id = $1 AND LOWER(REPLACE(dev_eui, ':', '')) = $2 AND status = 'RUNNING'`, [id, dutEui.toLowerCase(), JSON.stringify(variables)]);
         }
         continue;
       }
 
       if (!server?.apiUrl || !server.apiToken) throw new Error('Chưa cấu hình ChirpStack đang hoạt động');
       const targetStr = (block.targetDevice || block.target || block.targetDeviceName || '').toString().trim();
-      const targets = await resolveTargets(targetStr);
-      if (targets.size === 0) throw new Error(`Không tìm thấy thiết bị "${targetStr}" cho ${block.functionType}`);
+      const sharedIndex = targetStr.toUpperCase() === 'DUT' ? '' : `${blocks.indexOf(block)}:${(device.referenceDevEui || device.reference_dev_eui || '').toUpperCase()}`;
+      const executeDownlink = async () => {
+        const targets = await resolveTargets(targetStr);
+        if (targets.size === 0) throw new Error(`Không tìm thấy thiết bị "${targetStr}" cho ${block.functionType}`);
 
-      let resolvedPayloadHex = (block.payloadHex || '').trim().replace(/\s+/g, '');
-      if (block.functionType === 'downlink') {
-        resolvedPayloadHex = resolvedPayloadHex.replace(/\{\{TO_HEX\(([^,\)]+)(?:,([^\)]+))?\)\}\}/gi, (_m: string, varName: string, enc: string) => {
-          const v = varName.trim();
-          const cleanV = v.replace(/^\{\{|\}\}$/g, '').trim();
-          const rawVal = variables[cleanV] !== undefined ? variables[cleanV] : (cleanV && Number.isFinite(Number(cleanV)) ? Number(cleanV) : undefined);
-          if (rawVal === undefined || !Number.isFinite(Number(rawVal))) throw new Error(`Thiếu biến số cho TO_HEX: ${v}`);
-          return this.encodeValueToHex(rawVal, enc ? enc.trim() : 'float32_be');
-        });
-        resolvedPayloadHex = resolvedPayloadHex.replace(/\{\{([a-zA-Z0-9_]+)\}\}/g, (_m: string, varName: string) => {
-          if (variables[varName] !== undefined) {
-            return String(variables[varName]);
-          }
-          return _m;
-        });
-      }
+        let resolvedPayloadHex = (block.payloadHex || '').trim().replace(/\s+/g, '');
+        if (block.functionType === 'downlink') {
+          resolvedPayloadHex = resolvedPayloadHex.replace(/\{\{TO_HEX\(([^,\)]+)(?:,([^\)]+))?\)\}\}/gi, (_m: string, varName: string, enc: string) => {
+            const v = varName.trim();
+            const cleanV = v.replace(/^\{\{|\}\}$/g, '').trim();
+            const rawVal = variables[cleanV] !== undefined ? variables[cleanV] : (cleanV && Number.isFinite(Number(cleanV)) ? Number(cleanV) : undefined);
+            if (rawVal === undefined || !Number.isFinite(Number(rawVal))) throw new Error(`Thiếu biến số cho TO_HEX: ${v}`);
+            return this.encodeValueToHex(rawVal, enc ? enc.trim() : 'float32_be');
+          });
+          resolvedPayloadHex = resolvedPayloadHex.replace(/\{\{([a-zA-Z0-9_]+)\}\}/g, (_m: string, varName: string) => {
+            if (variables[varName] !== undefined) {
+              return String(variables[varName]);
+            }
+            return _m;
+          });
+        }
 
-      for (const devEui of targets) {
-        if (!/^[0-9a-fA-F]{16}$/.test(devEui)) throw new Error(`DevEUI ${block.targetDevice} không hợp lệ`);
-        const response = await fetch(`${server.apiUrl.replace(/\/$/, '')}/api/devices/${encodeURIComponent(devEui)}/queue`, {
-          method: block.functionType === 'clear_downlink' ? 'DELETE' : 'POST',
-          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${server.apiToken}` },
-          signal: AbortSignal.timeout(10000),
-          ...(block.functionType === 'downlink' ? { body: JSON.stringify({ queueItem: {
-            devEui, fPort: block.fPort ?? 1, confirmed: !!block.isConfirmed,
-            data: Buffer.from(resolvedPayloadHex, 'hex').toString('base64'),
-          } }) } : {}),
-        });
-        if (!response.ok) throw new Error(`ChirpStack ${block.functionType}: HTTP ${response.status}`);
+        for (const devEui of targets) {
+          if (!/^[0-9a-fA-F]{16}$/.test(devEui)) throw new Error(`DevEUI ${block.targetDevice} không hợp lệ`);
+          const response = await fetch(`${server.apiUrl.replace(/\/$/, '')}/api/devices/${encodeURIComponent(devEui)}/queue`, {
+            method: block.functionType === 'clear_downlink' ? 'DELETE' : 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${server.apiToken}` },
+            signal: AbortSignal.timeout(10000),
+            ...(block.functionType === 'downlink' ? { body: JSON.stringify({ queueItem: {
+              devEui, fPort: block.fPort ?? 1, confirmed: !!block.isConfirmed,
+              data: Buffer.from(resolvedPayloadHex, 'hex').toString('base64'),
+            } }) } : {}),
+          });
+          if (!response.ok) throw new Error(`ChirpStack ${block.functionType}: HTTP ${response.status}`);
+        }
+      };
+      if (sharedIndex) {
+        let shared = sharedDownlinks.get(sharedIndex);
+        if (!shared) {
+          shared = executeDownlink();
+          sharedDownlinks.set(sharedIndex, shared);
+        }
+        await shared;
+      } else {
+        await executeDownlink();
       }
     }
   }
@@ -6725,10 +6748,8 @@ export class TestingAdapterController implements OnApplicationBootstrap {
         },
       };
       });
-      void this.executeSimulationFlow(id, flowBlocks, body.devices, result.data.startedAt).catch(async error => {
-        this.logger.error(`Flow Simulation failed: ${error.message}`);
-        await ds.query(`UPDATE system_schema.device_test_batches SET status = 'STOPPED', verdict = 'FAIL', finished_at = NOW(), updated_at = NOW() WHERE id = $1 AND status = 'RUNNING' AND started_at = $2`, [id, result.data.startedAt]);
-      }).catch(error => this.logger.error(`Could not record flow failure: ${error.message}`));
+      void this.executeSimulationFlow(id, flowBlocks, body.devices, result.data.startedAt).catch(error =>
+        this.logger.error(`Flow Simulation batch error: ${error.message}`));
       return result;
     } catch (error: any) {
       if (error instanceof HttpException) throw error;
@@ -6947,7 +6968,8 @@ export class TestingAdapterController implements OnApplicationBootstrap {
             dut_packets: dutTimeline,
             reference_packets: packetTimeline(refPackets),
             reference_devices: referenceDevices,
-            status: packetsCount > 0 ? 'ACTIVE_RECEIVING' : 'AWAITING_UPLINK',
+            status: item.verdict === 'FAIL' ? 'FLOW_FAILED' : (packetsCount > 0 ? 'ACTIVE_RECEIVING' : 'AWAITING_UPLINK'),
+            ...(item.verdict === 'FAIL' ? { flow_error: item.comparison_result?.flow_error } : {}),
             packets_since_start: packetsCount,
             packets_received: packetsCount,
             avg_cycle: avgCycle,
@@ -7048,7 +7070,7 @@ export class TestingAdapterController implements OnApplicationBootstrap {
           for (const item of items) {
             const comp = item.comparison_result || {};
             const hasRef = Boolean(item.reference_serial_number || item.reference_dev_eui);
-            const isPass = (item.packets_received || 0) > 0 && (hasRef ? comp.tolerance_pass === true : comp.tolerance_pass !== false);
+            const isPass = item.verdict !== 'FAIL' && comp.status !== 'FLOW_FAILED' && (item.packets_received || 0) > 0 && (hasRef ? comp.tolerance_pass === true : comp.tolerance_pass !== false);
             if (!isPass) allPass = false;
             const itemVerdict = isPass ? 'PASS' : 'FAIL';
             item.status = itemVerdict;
@@ -7115,7 +7137,7 @@ export class TestingAdapterController implements OnApplicationBootstrap {
                 batch_id: batch.id,
                 sessionId: batch.current_session_id || null,
                 referenceDevices: comp.reference_devices || [],
-                simulationVars: batch.simulation_vars || {},
+                simulationVars: item.simulation_vars || {},
                 batch_code: batch.batch_code,
                 item_id: item.id,
                 serial_number: item.serial_number,
@@ -7283,7 +7305,7 @@ export class TestingAdapterController implements OnApplicationBootstrap {
             SET status = 'COMPLETED', verdict = $2, finished_at = $3, duration_seconds = $4, updated_at = $3
             WHERE id = $1
           `, [id, finalVerdict, finished, elapsedSeconds]).catch(() => {});
-          if (batch.current_session_id) await this.queryBatchTransaction(ds, `UPDATE system_schema.device_test_batch_sessions SET status = 'COMPLETED', verdict = $2, finished_at = $3, result = $4::jsonb WHERE id = $1`, [batch.current_session_id, finalVerdict, finished, JSON.stringify({ items, simulationVars: batch.simulation_vars || {} })]);
+          if (batch.current_session_id) await this.queryBatchTransaction(ds, `UPDATE system_schema.device_test_batch_sessions SET status = 'COMPLETED', verdict = $2, finished_at = $3, result = $4::jsonb WHERE id = $1`, [batch.current_session_id, finalVerdict, finished, JSON.stringify({ items, simulationVars: Object.fromEntries(items.map(item => [item.dev_eui, item.simulation_vars || {}])) })]);
 
           batch.status = 'COMPLETED';
           batch.verdict = finalVerdict;

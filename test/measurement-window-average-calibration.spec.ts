@@ -323,6 +323,8 @@ async function runTests() {
   // ==========================================================================
   console.log('\n[TEST 6] Testing executeSimulationFlow with live window, average and convert_to_hex...');
   let savedSimVars: Record<string, any> = {};
+  const perDeviceVars: Record<string, Record<string, any>> = {};
+  const failures: string[] = [];
   const mockNow = new Date().toISOString();
   let packetTime = new Date();
   const execMockDs: any = {
@@ -330,15 +332,22 @@ async function runTests() {
       if (sql.includes('SELECT status, started_at FROM system_schema.device_test_batches')) {
         return [{ status: 'RUNNING', started_at: mockNow }];
       }
-      if (sql.includes('UPDATE system_schema.device_test_batches SET simulation_vars')) {
+      if (sql.includes('SET simulation_vars')) {
         savedSimVars = JSON.parse(params[2] || '{}');
+        perDeviceVars[params[1]] = savedSimVars;
+        return [];
+      }
+      if (sql.includes('SET status = \'FAIL\'')) {
+        failures.push(params[1]);
         return [];
       }
       if (sql.includes('device_packets')) {
         const midTime = new Date(Date.now() - 25);
+        if (params[0] === '0004a30b001f0003') return [{ decoded_payload: { humidity: 60 }, created_at: midTime }];
+        const temperature = params[0] === '0004a30b001f0002' ? 35 : 25;
         return [
-          { raw_payload: '01', decoded_payload: { temperature: 24.0, humidity: 60 }, created_at: midTime },
-          { raw_payload: '02', decoded_payload: { temperature: 26.0, humidity: 62 }, created_at: midTime },
+          { raw_payload: '01', decoded_payload: { temperature: temperature - 1, humidity: 60 }, created_at: midTime },
+          { raw_payload: '02', decoded_payload: { temperature: temperature + 1, humidity: 62 }, created_at: midTime },
         ];
       }
       return [];
@@ -368,25 +377,53 @@ async function runTests() {
   savedSimVars = {};
   await (controller as any).executeSimulationFlow('batch-simu-123', [
     { functionType: 'calculate_linear', point1X: 0, point1Y: 0, point2X: 10, point2Y: 20, coeffAVar: 'builder_a', coeffBVar: 'builder_b' },
-  ], [], mockNow);
+  ], [{ devEui: '0004A30B001F0001' }], mockNow);
   assert.strictEqual(savedSimVars['builder_a'], 2);
   assert.strictEqual(savedSimVars['builder_b'], 0);
 
-  // A packet outside a measurement window must not substitute for absent samples.
-  await assert.rejects(
-    (controller as any).executeSimulationFlow('batch-simu-123', [
-      { functionType: 'start_measurement', windowId: 'MISSING', targetDevice: 'DUT', metric: 'temperature' },
-      { functionType: 'stop_measurement', windowId: 'MISSING' },
-      { functionType: 'average', windowId: 'MISSING', metric: 'missing_metric', outputVar: 'missing_x' },
-    ], [{ devEui: '0004A30B001F0001' }], mockNow),
-    /Không có mẫu đo cho average "missing_x"/,
-  );
-  await assert.rejects(
-    (controller as any).executeSimulationFlow('batch-simu-123', [
-      { functionType: 'average', targetDevice: 'UNKNOWN_DEVICE', metric: 'temperature', outputVar: 'wrong_target' },
-    ], [{ devEui: '0004A30B001F0001' }], mockNow),
-    /Không tìm thấy thiết bị đo "UNKNOWN_DEVICE"/,
-  );
+  // Missing metrics fail one DUT without cancelling other DUTs or sharing their variables.
+  await (controller as any).executeSimulationFlow('batch-simu-123', [
+    { functionType: 'average', targetDevice: 'DUT', metric: 'temperature', outputVar: 'x1' },
+    { functionType: 'calculate_linear', point1X: '{{x1}}', point1Y: 0, point2X: 50, point2Y: 100 },
+  ], [{ devEui: '0004A30B001F0001' }, { devEui: '0004A30B001F0002' }], mockNow);
+  assert.strictEqual(perDeviceVars['0004a30b001f0001'].x1, 25);
+  assert.strictEqual(perDeviceVars['0004a30b001f0001'].a, 4);
+  assert.strictEqual(perDeviceVars['0004a30b001f0002'].x1, 35);
+  assert.strictEqual(perDeviceVars['0004a30b001f0002'].a, 6.666667);
+  failures.length = 0;
+  await (controller as any).executeSimulationFlow('batch-simu-123', [
+    { functionType: 'average', targetDevice: 'DUT', metric: 'temperature', outputVar: 'per_dut_x' },
+  ], [{ devEui: '0004A30B001F0003' }, { devEui: '0004A30B001F0002' }], mockNow);
+  assert.deepStrictEqual(failures, ['0004a30b001f0003']);
+  assert.strictEqual(perDeviceVars['0004a30b001f0002'].per_dut_x, 35);
+
+  await (controller as any).executeSimulationFlow('batch-simu-123', [
+    { functionType: 'average', targetDevice: 'DUT', metric: 'missing_metric', outputVar: 'missing_x' },
+  ], [{ devEui: '0004A30B001F0001' }], mockNow);
+  assert.ok(failures.includes('0004a30b001f0001'));
+  await (controller as any).executeSimulationFlow('batch-simu-123', [
+    { functionType: 'average', targetDevice: 'UNKNOWN_DEVICE', metric: 'temperature', outputVar: 'wrong_target' },
+  ], [{ devEui: '0004A30B001F0002' }], mockNow);
+  assert.ok(failures.includes('0004a30b001f0002'));
+
+  const originalFetch = globalThis.fetch;
+  const originalRepo = mockDb.getRepositoryForTable;
+  const queueCalls: Array<{ eui: string; payload: string }> = [];
+  mockDb.getRepositoryForTable = () => ({ findOne: async () => ({ apiUrl: 'https://chirpstack.test', apiToken: 'test-token' }) });
+  (globalThis as any).fetch = async (url: string, options: any) => {
+    queueCalls.push({ eui: url.split('/').at(-2), payload: JSON.parse(options.body).queueItem.data });
+    return { ok: true };
+  };
+  try {
+    await (controller as any).executeSimulationFlow('batch-simu-123', [
+      { functionType: 'downlink', targetDevice: '0004A30B001F0009', payloadHex: 'AA' },
+      { functionType: 'downlink', targetDevice: 'DUT', payloadHex: 'BB' },
+    ], [{ devEui: '0004A30B001F0001' }, { devEui: '0004A30B001F0002' }], mockNow);
+    assert.deepStrictEqual(queueCalls.map(c => c.eui).sort(), ['0004A30B001F0001', '0004A30B001F0002', '0004A30B001F0009']);
+  } finally {
+    (globalThis as any).fetch = originalFetch;
+    mockDb.getRepositoryForTable = originalRepo;
+  }
 
   console.log('\n=========================================================================');
   console.log('ALL MEASUREMENT WINDOW, AVERAGE & CALIBRATION TESTS PASSED 100%!');
