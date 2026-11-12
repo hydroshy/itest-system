@@ -6264,16 +6264,19 @@ export class TestingAdapterController implements OnApplicationBootstrap {
           if (typeof v === 'number') return v;
           if (typeof v === 'string') {
             const clean = v.replace(/^\{\{|\}\}$/g, '').trim();
-            return variables[clean] !== undefined ? variables[clean] : (parseFloat(clean) || 0);
+            if (variables[clean] !== undefined) return Number(variables[clean]);
+            if (clean && Number.isFinite(Number(clean))) return Number(clean);
           }
-          return 0;
+          throw new Error(`Thiếu biến hoặc giá trị số cho calculate_linear: ${String(v)}`);
         };
         const x1 = getVal(p1.x);
-        const y1 = Number(p1.y || 0);
+        const y1 = getVal(p1.y);
         const x2 = getVal(p2.x);
-        const y2 = Number(p2.y || 0);
+        const y2 = getVal(p2.y);
+        if (![x1, y1, x2, y2].every(Number.isFinite)) throw new Error('Giá trị calculate_linear không hợp lệ');
         const deltaX = x2 - x1;
-        const a = Math.abs(deltaX) > 0.000001 ? +((y2 - y1) / deltaX).toFixed(6) : 0;
+        if (Math.abs(deltaX) <= 0.000001) throw new Error('Không thể tính tuyến tính khi hai giá trị X trùng nhau');
+        const a = +((y2 - y1) / deltaX).toFixed(6);
         const b = +(y1 - a * x1).toFixed(6);
         if (block.outputVarA) variables[block.outputVarA] = a;
         if (block.outputVarB) variables[block.outputVarB] = b;
@@ -6288,14 +6291,15 @@ export class TestingAdapterController implements OnApplicationBootstrap {
         const enc = (block.dataType || block.encoding || 'float32_be').trim();
         if (src && out) {
           const cleanSrc = src.replace(/^\{\{|\}\}$/g, '').trim();
-          const rawVal = variables[cleanSrc] !== undefined ? variables[cleanSrc] : (variables[src] !== undefined ? variables[src] : parseFloat(cleanSrc));
-          variables[out] = this.encodeValueToHex(rawVal ?? 0, enc);
+          const rawVal = variables[cleanSrc] !== undefined ? variables[cleanSrc] : (cleanSrc && Number.isFinite(Number(cleanSrc)) ? Number(cleanSrc) : undefined);
+          if (rawVal === undefined || !Number.isFinite(Number(rawVal))) throw new Error(`Thiếu biến số cho convert_to_hex: ${src}`);
+          variables[out] = this.encodeValueToHex(rawVal, enc);
           await ds.query(`UPDATE system_schema.device_test_batches SET simulation_vars = $3::jsonb WHERE id = $1 AND status = 'RUNNING' AND started_at = $2::timestamptz`, [id, rows[0].started_at, JSON.stringify(variables)]);
         }
         continue;
       }
       if (['start_measurement', 'stop_measurement', 'average', 'device_auto_check'].includes(block.functionType)) {
-        continue;
+        throw new Error(`Block ${block.functionType} chưa được hỗ trợ trong engine batch; không tạo dữ liệu giả`);
       }
 
       if (!server?.apiUrl || !server.apiToken) throw new Error('Chưa cấu hình ChirpStack đang hoạt động');
@@ -6408,7 +6412,8 @@ export class TestingAdapterController implements OnApplicationBootstrap {
         resolvedPayloadHex = resolvedPayloadHex.replace(/\{\{TO_HEX\(([^,\)]+)(?:,([^\)]+))?\)\}\}/gi, (_m: string, varName: string, enc: string) => {
           const v = varName.trim();
           const cleanV = v.replace(/^\{\{|\}\}$/g, '').trim();
-          const rawVal = variables[cleanV] !== undefined ? variables[cleanV] : (variables[v] !== undefined ? variables[v] : (parseFloat(cleanV) || 0));
+          const rawVal = variables[cleanV] !== undefined ? variables[cleanV] : (cleanV && Number.isFinite(Number(cleanV)) ? Number(cleanV) : undefined);
+          if (rawVal === undefined || !Number.isFinite(Number(rawVal))) throw new Error(`Thiếu biến số cho TO_HEX: ${v}`);
           return this.encodeValueToHex(rawVal, enc ? enc.trim() : 'float32_be');
         });
         resolvedPayloadHex = resolvedPayloadHex.replace(/\{\{([a-zA-Z0-9_]+)\}\}/g, (_m: string, varName: string) => {
