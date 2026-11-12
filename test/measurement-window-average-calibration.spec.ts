@@ -318,6 +318,52 @@ async function runTests() {
   assert.ok(simuDuration >= 600, 'Total duration must respect wait_until_offset of 600s');
   console.log(`✓ All 9 function block types accepted, total calculated duration = ${simuDuration}s`);
 
+  // ==========================================================================
+  // [TEST 6] executeSimulationFlow with start_measurement, stop_measurement, average & calibration
+  // ==========================================================================
+  console.log('\n[TEST 6] Testing executeSimulationFlow with live window, average and convert_to_hex...');
+  let savedSimVars: Record<string, any> = {};
+  const mockNow = new Date().toISOString();
+  let packetTime = new Date();
+  const execMockDs: any = {
+    query: async (sql: string, params: any[]) => {
+      if (sql.includes('SELECT status, started_at FROM system_schema.device_test_batches')) {
+        return [{ status: 'RUNNING', started_at: mockNow }];
+      }
+      if (sql.includes('UPDATE system_schema.device_test_batches SET simulation_vars')) {
+        savedSimVars = JSON.parse(params[2] || '{}');
+        return [];
+      }
+      if (sql.includes('device_packets')) {
+        const midTime = new Date(Date.now() - 25);
+        return [
+          { raw_payload: '01', decoded_payload: { temperature: 24.0, humidity: 60 }, created_at: midTime },
+          { raw_payload: '02', decoded_payload: { temperature: 26.0, humidity: 62 }, created_at: midTime },
+        ];
+      }
+      return [];
+    },
+  };
+  (mockDb as any).getDataSourceForTable = () => execMockDs;
+
+  const execFlowBlocks = [
+    { functionType: 'start_measurement', windowId: 'WIN_TEMP', targetDevice: 'DUT', metric: 'temperature' },
+    { functionType: 'delay', delaySeconds: 0.05 },
+    { functionType: 'stop_measurement', windowId: 'WIN_TEMP' },
+    { functionType: 'average', averageMode: 'MEASUREMENT_WINDOW', windowId: 'WIN_TEMP', metric: 'temperature', outputVar: 'x1' },
+    { functionType: 'calculate_linear', point1: { x: '{{x1}}', y: 0 }, point2: { x: 50, y: 100 }, outputVarA: 'slope_a', outputVarB: 'intercept_b' },
+    { functionType: 'convert_to_hex', sourceVar: '{{x1}}', outputVar: 'hex_x1', dataType: 'float32_be' },
+    { functionType: 'device_auto_check' },
+  ];
+
+  await (controller as any).executeSimulationFlow('batch-simu-123', execFlowBlocks, [{ devEui: '0004A30B001F0001' }], mockNow);
+
+  assert.strictEqual(savedSimVars['x1'], 25); // (24 + 26) / 2 = 25
+  assert.strictEqual(savedSimVars['slope_a'], 4); // (100 - 0) / (50 - 25) = 4
+  assert.strictEqual(savedSimVars['intercept_b'], -100); // 0 - 4 * 25 = -100
+  assert.strictEqual(savedSimVars['hex_x1'], '41c80000'); // Float32BE for 25 is 41c80000
+  console.log(`✓ executeSimulationFlow executed successfully: x1=${savedSimVars['x1']}, a=${savedSimVars['slope_a']}, b=${savedSimVars['intercept_b']}, hex_x1=${savedSimVars['hex_x1']}`);
+
   console.log('\n=========================================================================');
   console.log('ALL MEASUREMENT WINDOW, AVERAGE & CALIBRATION TESTS PASSED 100%!');
   console.log('=========================================================================\n');

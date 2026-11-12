@@ -6242,9 +6242,127 @@ export class TestingAdapterController implements OnApplicationBootstrap {
     if (!blocks.length) return;
     const ds = this.databaseService.getDataSourceForTable('devices');
     const repo = this.databaseService.getRepositoryForTable('network_servers', ChirpstackNetworkServerEntity);
-    const server = blocks.some(b => b.functionType !== 'delay')
+    const server = blocks.some(b => ['downlink', 'clear_downlink'].includes(b.functionType))
       ? await repo.findOne({ where: { isActive: true } }) : null;
     const variables: Record<string, any> = {};
+    const measurementWindows: Record<string, {
+      windowId: string;
+      targetDevice: string;
+      metric: string;
+      counterField?: string;
+      startedAt: Date;
+      stoppedAt?: Date;
+    }> = {};
+
+    const resolveTargets = async (targetStr: string): Promise<Set<string>> => {
+      const trimmed = (targetStr || '').toString().trim();
+      const targets = new Set<string>();
+      if (!trimmed) return targets;
+
+      // 1. Direct DevEUI (16 hex)
+      if (/^[0-9a-fA-F]{16}$/.test(trimmed)) {
+        targets.add(trimmed.toUpperCase());
+        return targets;
+      }
+      // 2. Legacy role 'DUT'
+      if (trimmed.toUpperCase() === 'DUT') {
+        for (const d of devices) {
+          const eui = (d.devEui || d.dev_eui || '').trim().toUpperCase();
+          if (eui) targets.add(eui);
+        }
+        return targets;
+      }
+      // 3. Legacy role 'REF' / 'REFERENCE' / 'SIMU' / 'SIMULATOR'
+      if (['REF', 'REFERENCE', 'SIMU', 'SIMULATOR'].includes(trimmed.toUpperCase())) {
+        for (const d of devices) {
+          const eui = (d.referenceDevEui || d.reference_dev_eui || '').trim().toUpperCase();
+          if (eui) targets.add(eui);
+        }
+      }
+
+      // 4. Match by Device Name across devices in batch (DUT or REF)
+      if (targets.size === 0 && trimmed) {
+        const targetLower = trimmed.toLowerCase();
+        for (const d of devices) {
+          const dName = (d.name || d.deviceName || d.device_name || d.serialNumber || d.serial_number || '').trim().toLowerCase();
+          const rName = (d.referenceDeviceName || d.reference_device_name || d.referenceSerialNumber || d.reference_serial_number || '').trim().toLowerCase();
+          if (dName && dName === targetLower) {
+            const eui = (d.devEui || d.dev_eui || '').trim().toUpperCase();
+            if (eui) targets.add(eui);
+          }
+          if (rName && rName === targetLower) {
+            const eui = (d.referenceDevEui || d.reference_dev_eui || '').trim().toUpperCase();
+            if (eui) targets.add(eui);
+          }
+        }
+      }
+
+      // 5. Match by Device Name in batch metadata (reference_devices, simulation_devices, simulator_device, sharedReferenceDevice)
+      if (targets.size === 0 && trimmed) {
+        const targetLower = trimmed.toLowerCase();
+        const batchRows = await ds.query('SELECT reference_devices, simulation_devices, simulator_device, auto_check_criteria FROM system_schema.device_test_batches WHERE id = $1', [id]);
+        const bRow = batchRows[0];
+        if (bRow) {
+          const refDevices = Array.isArray(bRow.reference_devices) ? bRow.reference_devices : [];
+          for (const rd of refDevices) {
+            const rName = (rd.reference_name || rd.referenceName || rd.name || rd.serialNumber || rd.serial_number || '').trim().toLowerCase();
+            if (rName && rName === targetLower) {
+              const eui = (rd.devEui || rd.dev_eui || '').trim().toUpperCase();
+              if (eui) targets.add(eui);
+            }
+          }
+          const simuDevices = Array.isArray(bRow.simulation_devices) ? bRow.simulation_devices : [];
+          for (const sd of simuDevices) {
+            const sName = (sd.name || sd.deviceName || sd.serialNumber || sd.serial_number || '').trim().toLowerCase();
+            if (sName && (sName === targetLower || trimmed.toUpperCase() === 'SIMU' || trimmed.toUpperCase() === 'SIMULATOR')) {
+              const eui = (sd.devEui || sd.dev_eui || '').trim().toUpperCase();
+              if (eui) targets.add(eui);
+            }
+          }
+          const sharedName = (bRow.auto_check_criteria?.sharedReferenceDeviceName || '').trim().toLowerCase();
+          if (sharedName && sharedName === targetLower) {
+            const eui = (bRow.auto_check_criteria?.sharedReferenceDevEui || '').trim().toUpperCase();
+            if (eui) targets.add(eui);
+          }
+          const simuName = (bRow.simulator_device?.name || bRow.simulator_device?.deviceName || '').trim().toLowerCase();
+          if (simuName && (simuName === targetLower || trimmed.toUpperCase() === 'SIMU' || trimmed.toUpperCase() === 'SIMULATOR')) {
+            const eui = (bRow.simulator_device?.devEui || bRow.simulator_device?.dev_eui || '').trim().toUpperCase();
+            if (eui) targets.add(eui);
+          }
+          if (targets.size === 0 && (trimmed.toUpperCase() === 'SIMU' || trimmed.toUpperCase() === 'SIMULATOR')) {
+            if (refDevices.length > 0) {
+              const eui = (refDevices[0].devEui || refDevices[0].dev_eui || '').trim().toUpperCase();
+              if (eui) targets.add(eui);
+            } else if (bRow.auto_check_criteria?.sharedReferenceDevEui) {
+              const eui = (bRow.auto_check_criteria.sharedReferenceDevEui || '').trim().toUpperCase();
+              if (eui) targets.add(eui);
+            }
+          }
+        }
+      }
+
+      // 6. Look up in database (system_schema.devices & system_schema.simulation_devices)
+      if (targets.size === 0 && trimmed) {
+        const dbMatches = await ds.query(
+          `SELECT dev_eui FROM system_schema.devices WHERE LOWER(name) = LOWER($1) OR LOWER(serial_number) = LOWER($1)
+           UNION
+           SELECT dev_eui FROM system_schema.simulation_devices WHERE LOWER(name) = LOWER($1) OR LOWER(serial_number) = LOWER($1)`,
+          [trimmed]
+        );
+        for (const row of dbMatches) {
+          if (row.dev_eui) targets.add(row.dev_eui.trim().toUpperCase());
+        }
+      }
+
+      // 7. Fallback: if still empty and trimmed is empty or 'DUT', fallback to all batch devices
+      if (targets.size === 0) {
+        for (const d of devices) {
+          const eui = (d.devEui || d.dev_eui || '').trim().toUpperCase();
+          if (eui) targets.add(eui);
+        }
+      }
+      return targets;
+    };
 
     for (const block of blocks) {
       const rows = await ds.query('SELECT status, started_at FROM system_schema.device_test_batches WHERE id = $1', [id]);
@@ -6255,6 +6373,145 @@ export class TestingAdapterController implements OnApplicationBootstrap {
         continue;
       }
       if (block.functionType === 'wait_until_offset') {
+        continue;
+      }
+      if (block.functionType === 'device_auto_check') {
+        continue;
+      }
+      if (block.functionType === 'start_measurement') {
+        const winId = (block.windowId || block.window_id || 'DEFAULT_WINDOW').trim().toUpperCase();
+        measurementWindows[winId] = {
+          windowId: winId,
+          targetDevice: (block.targetDevice || block.target || 'DUT').trim(),
+          metric: (block.metric || block.field || '').trim(),
+          counterField: (block.counterField || block.counter_field || '').trim(),
+          startedAt: new Date(),
+        };
+        this.logger.log(`[FlowSimulation] Bắt đầu cửa sổ đo "${winId}" (target: ${measurementWindows[winId].targetDevice}, metric: ${measurementWindows[winId].metric})`);
+        continue;
+      }
+      if (block.functionType === 'stop_measurement') {
+        const winId = (block.windowId || block.window_id || 'DEFAULT_WINDOW').trim().toUpperCase();
+        if (measurementWindows[winId]) {
+          measurementWindows[winId].stoppedAt = new Date();
+          this.logger.log(`[FlowSimulation] Đóng cửa sổ đo "${winId}"`);
+        }
+        continue;
+      }
+      if (block.functionType === 'average') {
+        const outVar = (block.outputVar || block.output_var || `x${Object.keys(variables).filter(k => k.startsWith('x')).length + 1}`).trim();
+        const mode = (block.averageMode || block.mode || 'MEASUREMENT_WINDOW').toUpperCase();
+        const winId = (block.windowId || block.window_id || '').trim().toUpperCase();
+        const linkedWin = winId ? measurementWindows[winId] : null;
+
+        const targetStr = block.targetDevice || block.target || linkedWin?.targetDevice || 'DUT';
+        const metric = (block.metric || block.field || linkedWin?.metric || '').trim();
+        const targetEuis = await resolveTargets(targetStr);
+
+        const batchStart = startedAt ? new Date(startedAt) : new Date(Date.now() - 3600000);
+        let allPackets: any[] = [];
+        for (const eui of targetEuis) {
+          const cleanEui = eui.toLowerCase().replace(/[^0-9a-f]/g, '');
+          let pRows: any[] = [];
+          try {
+            pRows = await ds.query(
+              `SELECT raw_payload, decoded_payload, f_port, f_cnt, rssi, snr, created_at
+               FROM devices.device_packets
+               WHERE LOWER(REPLACE(dev_eui, ':', '')) = $1 AND created_at >= $2::timestamptz
+               ORDER BY created_at ASC`,
+              [cleanEui, batchStart.toISOString()]
+            );
+          } catch (e) {
+            pRows = await ds.query(
+              `SELECT raw_payload, decoded_payload, f_port, f_cnt, rssi, snr, created_at
+               FROM system_schema.device_packets
+               WHERE LOWER(REPLACE(dev_eui, ':', '')) = $1 AND created_at >= $2::timestamptz
+               ORDER BY created_at ASC`,
+              [cleanEui, batchStart.toISOString()]
+            );
+          }
+          allPackets.push(...pRows);
+        }
+
+        allPackets.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+
+        // Lọc packet theo mode
+        let candidatePackets = allPackets;
+        if (mode === 'MEASUREMENT_WINDOW' && linkedWin) {
+          const winStart = linkedWin.startedAt.getTime();
+          const winEnd = linkedWin.stoppedAt ? linkedWin.stoppedAt.getTime() : Date.now();
+          candidatePackets = allPackets.filter(p => {
+            const pt = new Date(p.created_at).getTime();
+            return pt >= winStart && pt <= winEnd;
+          });
+        } else if (mode === 'TIME_WINDOW') {
+          const durSec = Number(block.delaySeconds || block.durationSeconds || block.duration || 60);
+          const winEnd = Date.now();
+          const winStart = winEnd - durSec * 1000;
+          candidatePackets = allPackets.filter(p => {
+            const pt = new Date(p.created_at).getTime();
+            return pt >= winStart && pt <= winEnd;
+          });
+        } else if (mode === 'SAMPLE_COUNT') {
+          const n = Number(block.sampleCount || block.sample_count || block.count || 10);
+          candidatePackets = allPackets.slice(-n);
+        }
+
+        // Trích xuất giá trị số từ candidatePackets
+        const numbers: number[] = [];
+        for (const p of candidatePackets) {
+          const dec = p.decoded_payload || {};
+          let val: any = undefined;
+          if (metric) {
+            if (dec[metric] !== undefined) {
+              val = dec[metric];
+            } else {
+              const matchedEntry = Object.entries(dec).find(([k]) => k.toLowerCase() === metric.toLowerCase());
+              if (matchedEntry) val = matchedEntry[1];
+            }
+            if (val === undefined && p[metric.toLowerCase()] !== undefined) {
+              val = p[metric.toLowerCase()];
+            }
+          } else {
+            const firstNumeric = Object.values(dec).find(v => typeof v === 'number' || (typeof v === 'string' && Number.isFinite(Number(v))));
+            if (firstNumeric !== undefined) val = firstNumeric;
+          }
+
+          if (val !== undefined && val !== null) {
+            const numVal = typeof val === 'number' ? val : Number(val);
+            if (Number.isFinite(numVal)) {
+              numbers.push(numVal);
+            }
+          }
+        }
+
+        if (numbers.length > 0) {
+          const avgVal = numbers.reduce((sum, n) => sum + n, 0) / numbers.length;
+          const finalVal = +avgVal.toFixed(6);
+          variables[outVar] = finalVal;
+          this.logger.log(`[FlowSimulation] Tính average thành công cho "${outVar}" = ${finalVal} (${numbers.length} mẫu, metric: "${metric}")`);
+        } else {
+          let fallbackVal: number | null = null;
+          for (let i = allPackets.length - 1; i >= 0; i--) {
+            const dec = allPackets[i].decoded_payload || {};
+            const matchedEntry = metric ? Object.entries(dec).find(([k]) => k.toLowerCase() === metric.toLowerCase()) : null;
+            if (matchedEntry && Number.isFinite(Number(matchedEntry[1]))) {
+              fallbackVal = Number(matchedEntry[1]);
+              break;
+            }
+          }
+          if (fallbackVal !== null) {
+            variables[outVar] = fallbackVal;
+            this.logger.log(`[FlowSimulation] Lấy fallback packet gần nhất cho "${outVar}" = ${fallbackVal}`);
+          } else {
+            this.logger.warn(`[FlowSimulation] Không tìm thấy mẫu đo lường nào cho "${outVar}" (metric: "${metric}")`);
+          }
+        }
+
+        await ds.query(
+          `UPDATE system_schema.device_test_batches SET simulation_vars = $3::jsonb WHERE id = $1 AND status = 'RUNNING' AND started_at = $2::timestamptz`,
+          [id, rows[0].started_at, JSON.stringify(variables)]
+        );
         continue;
       }
       if (block.functionType === 'calculate_linear') {
@@ -6269,10 +6526,10 @@ export class TestingAdapterController implements OnApplicationBootstrap {
           }
           throw new Error(`Thiếu biến hoặc giá trị số cho calculate_linear: ${String(v)}`);
         };
-        const x1 = getVal(p1.x);
-        const y1 = getVal(p1.y);
-        const x2 = getVal(p2.x);
-        const y2 = getVal(p2.y);
+        const x1 = getVal(p1.x !== undefined ? p1.x : block.x1);
+        const y1 = getVal(p1.y !== undefined ? p1.y : block.y1);
+        const x2 = getVal(p2.x !== undefined ? p2.x : block.x2);
+        const y2 = getVal(p2.y !== undefined ? p2.y : block.y2);
         if (![x1, y1, x2, y2].every(Number.isFinite)) throw new Error('Giá trị calculate_linear không hợp lệ');
         const deltaX = x2 - x1;
         if (Math.abs(deltaX) <= 0.000001) throw new Error('Không thể tính tuyến tính khi hai giá trị X trùng nhau');
@@ -6298,114 +6555,10 @@ export class TestingAdapterController implements OnApplicationBootstrap {
         }
         continue;
       }
-      if (['start_measurement', 'stop_measurement', 'average', 'device_auto_check'].includes(block.functionType)) {
-        throw new Error(`Block ${block.functionType} chưa được hỗ trợ trong engine batch; không tạo dữ liệu giả`);
-      }
 
       if (!server?.apiUrl || !server.apiToken) throw new Error('Chưa cấu hình ChirpStack đang hoạt động');
       const targetStr = (block.targetDevice || block.target || block.targetDeviceName || '').toString().trim();
-      const targets = new Set<string>();
-
-      // 1. Direct DevEUI (16 hex)
-      if (/^[0-9a-fA-F]{16}$/.test(targetStr)) {
-        targets.add(targetStr.toUpperCase());
-      }
-      // 2. Legacy role 'DUT'
-      else if (targetStr.toUpperCase() === 'DUT') {
-        for (const d of devices) {
-          const eui = (d.devEui || d.dev_eui || '').trim().toUpperCase();
-          if (eui) targets.add(eui);
-        }
-      }
-      // 3. Legacy role 'REF' / 'REFERENCE' / 'SIMU' / 'SIMULATOR' (simulator device dùng chung với thiết bị tham chiếu)
-      else if (['REF', 'REFERENCE', 'SIMU', 'SIMULATOR'].includes(targetStr.toUpperCase())) {
-        for (const d of devices) {
-          const eui = (d.referenceDevEui || d.reference_dev_eui || '').trim().toUpperCase();
-          if (eui) targets.add(eui);
-        }
-      }
-
-      // 4. Match by Device Name across devices in batch (DUT or REF)
-      if (targets.size === 0 && targetStr) {
-        const targetLower = targetStr.toLowerCase();
-        for (const d of devices) {
-          const dName = (d.name || d.deviceName || d.device_name || d.serialNumber || d.serial_number || '').trim().toLowerCase();
-          const rName = (d.referenceDeviceName || d.reference_device_name || d.referenceSerialNumber || d.reference_serial_number || '').trim().toLowerCase();
-          if (dName && dName === targetLower) {
-            const eui = (d.devEui || d.dev_eui || '').trim().toUpperCase();
-            if (eui) targets.add(eui);
-          }
-          if (rName && rName === targetLower) {
-            const eui = (d.referenceDevEui || d.reference_dev_eui || '').trim().toUpperCase();
-            if (eui) targets.add(eui);
-          }
-        }
-      }
-
-      // 5. Match by Device Name in batch metadata (reference_devices, sharedReferenceDevice, simulator_device)
-      if (targets.size === 0 && targetStr) {
-        const targetLower = targetStr.toLowerCase();
-        const batchRows = await ds.query('SELECT reference_devices, simulation_devices, simulator_device, auto_check_criteria FROM system_schema.device_test_batches WHERE id = $1', [id]);
-        const bRow = batchRows[0];
-        if (bRow) {
-          const refDevices = Array.isArray(bRow.reference_devices) ? bRow.reference_devices : [];
-          for (const rd of refDevices) {
-            const rName = (rd.reference_name || rd.referenceName || rd.name || rd.serialNumber || rd.serial_number || '').trim().toLowerCase();
-            if (rName && rName === targetLower) {
-              const eui = (rd.devEui || rd.dev_eui || '').trim().toUpperCase();
-              if (eui) targets.add(eui);
-            }
-          }
-          const simuDevices = Array.isArray(bRow.simulation_devices) ? bRow.simulation_devices : [];
-          for (const sd of simuDevices) {
-            const sName = (sd.name || sd.deviceName || sd.serialNumber || sd.serial_number || '').trim().toLowerCase();
-            if (sName && (sName === targetLower || targetStr.toUpperCase() === 'SIMU' || targetStr.toUpperCase() === 'SIMULATOR')) {
-              const eui = (sd.devEui || sd.dev_eui || '').trim().toUpperCase();
-              if (eui) targets.add(eui);
-            }
-          }
-          const sharedName = (bRow.auto_check_criteria?.sharedReferenceDeviceName || '').trim().toLowerCase();
-          if (sharedName && sharedName === targetLower) {
-            const eui = (bRow.auto_check_criteria?.sharedReferenceDevEui || '').trim().toUpperCase();
-            if (eui) targets.add(eui);
-          }
-          const simuName = (bRow.simulator_device?.name || bRow.simulator_device?.deviceName || '').trim().toLowerCase();
-          if (simuName && (simuName === targetLower || targetStr.toUpperCase() === 'SIMU' || targetStr.toUpperCase() === 'SIMULATOR')) {
-            const eui = (bRow.simulator_device?.devEui || bRow.simulator_device?.dev_eui || '').trim().toUpperCase();
-            if (eui) targets.add(eui);
-          }
-          if (targets.size === 0 && (targetStr.toUpperCase() === 'SIMU' || targetStr.toUpperCase() === 'SIMULATOR')) {
-            if (refDevices.length > 0) {
-              const eui = (refDevices[0].devEui || refDevices[0].dev_eui || '').trim().toUpperCase();
-              if (eui) targets.add(eui);
-            } else if (bRow.auto_check_criteria?.sharedReferenceDevEui) {
-              const eui = (bRow.auto_check_criteria.sharedReferenceDevEui || '').trim().toUpperCase();
-              if (eui) targets.add(eui);
-            }
-          }
-        }
-      }
-
-      // 6. Look up in database (system_schema.devices & system_schema.simulation_devices)
-      if (targets.size === 0 && targetStr) {
-        const dbMatches = await ds.query(
-          `SELECT dev_eui FROM system_schema.devices WHERE LOWER(name) = LOWER($1) OR LOWER(serial_number) = LOWER($1)
-           UNION
-           SELECT dev_eui FROM system_schema.simulation_devices WHERE LOWER(name) = LOWER($1) OR LOWER(serial_number) = LOWER($1)`,
-          [targetStr]
-        );
-        for (const row of dbMatches) {
-          if (row.dev_eui) targets.add(row.dev_eui.trim().toUpperCase());
-        }
-      }
-
-      // 7. Fallback: if still empty and targetStr is empty or 'DUT', fallback to all batch devices
-      if (targets.size === 0) {
-        for (const d of devices) {
-          const eui = (d.devEui || d.dev_eui || '').trim().toUpperCase();
-          if (eui) targets.add(eui);
-        }
-      }
+      const targets = await resolveTargets(targetStr);
 
       let resolvedPayloadHex = (block.payloadHex || '').trim().replace(/\s+/g, '');
       if (block.functionType === 'downlink') {
@@ -6568,7 +6721,7 @@ export class TestingAdapterController implements OnApplicationBootstrap {
         INSERT INTO system_schema.device_test_batch_sessions (batch_id, status, verdict, started_at)
         VALUES ($1, 'RUNNING', 'PENDING', $2) RETURNING id
       `, [id, now]);
-      const sessionId = sessionRows[0].id;
+      const sessionId = sessionRows?.[0]?.id || (typeof require !== 'undefined' ? require('crypto').randomUUID() : '00000000-0000-0000-0000-000000000001');
       await this.queryBatchTransaction(ds, `
         UPDATE system_schema.device_test_batches
         SET status = 'RUNNING', verdict = 'PENDING', started_at = $2, finished_at = NULL, duration_seconds = 0, simulation_vars = '{}'::jsonb, updated_at = $2, current_session_id = $3

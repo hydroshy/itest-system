@@ -381,6 +381,9 @@ const mockDatabaseService: any = {
         }
         return list;
       }
+      if (sql.includes('device_test_batch_sessions')) {
+        return [{ id: '11111111-2222-3333-4444-555555555555' }];
+      }
       if (sql.includes('device_test_batches') && !sql.includes('device_test_batch_items')) {
         if (sql.includes('INSERT INTO system_schema.device_test_batches')) {
           const newBatch = {
