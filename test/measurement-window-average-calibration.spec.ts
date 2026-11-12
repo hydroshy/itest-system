@@ -372,6 +372,22 @@ async function runTests() {
   assert.strictEqual(savedSimVars['builder_a'], 2);
   assert.strictEqual(savedSimVars['builder_b'], 0);
 
+  // A packet outside a measurement window must not substitute for absent samples.
+  await assert.rejects(
+    (controller as any).executeSimulationFlow('batch-simu-123', [
+      { functionType: 'start_measurement', windowId: 'MISSING', targetDevice: 'DUT', metric: 'temperature' },
+      { functionType: 'stop_measurement', windowId: 'MISSING' },
+      { functionType: 'average', windowId: 'MISSING', metric: 'missing_metric', outputVar: 'missing_x' },
+    ], [{ devEui: '0004A30B001F0001' }], mockNow),
+    /Không có mẫu đo cho average "missing_x"/,
+  );
+  await assert.rejects(
+    (controller as any).executeSimulationFlow('batch-simu-123', [
+      { functionType: 'average', targetDevice: 'UNKNOWN_DEVICE', metric: 'temperature', outputVar: 'wrong_target' },
+    ], [{ devEui: '0004A30B001F0001' }], mockNow),
+    /Không tìm thấy thiết bị đo "UNKNOWN_DEVICE"/,
+  );
+
   console.log('\n=========================================================================');
   console.log('ALL MEASUREMENT WINDOW, AVERAGE & CALIBRATION TESTS PASSED 100%!');
   console.log('=========================================================================\n');

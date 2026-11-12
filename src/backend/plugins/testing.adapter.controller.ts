@@ -6354,13 +6354,6 @@ export class TestingAdapterController implements OnApplicationBootstrap {
         }
       }
 
-      // 7. Fallback: if still empty and trimmed is empty or 'DUT', fallback to all batch devices
-      if (targets.size === 0) {
-        for (const d of devices) {
-          const eui = (d.devEui || d.dev_eui || '').trim().toUpperCase();
-          if (eui) targets.add(eui);
-        }
-      }
       return targets;
     };
 
@@ -6407,6 +6400,7 @@ export class TestingAdapterController implements OnApplicationBootstrap {
         const targetStr = block.targetDevice || block.target || linkedWin?.targetDevice || 'DUT';
         const metric = (block.metric || block.field || linkedWin?.metric || '').trim();
         const targetEuis = await resolveTargets(targetStr);
+        if (targetEuis.size === 0) throw new Error(`Không tìm thấy thiết bị đo "${targetStr}" cho average "${outVar}"`);
 
         const batchStart = startedAt ? new Date(startedAt) : new Date(Date.now() - 3600000);
         let allPackets: any[] = [];
@@ -6491,21 +6485,7 @@ export class TestingAdapterController implements OnApplicationBootstrap {
           variables[outVar] = finalVal;
           this.logger.log(`[FlowSimulation] Tính average thành công cho "${outVar}" = ${finalVal} (${numbers.length} mẫu, metric: "${metric}")`);
         } else {
-          let fallbackVal: number | null = null;
-          for (let i = allPackets.length - 1; i >= 0; i--) {
-            const dec = allPackets[i].decoded_payload || {};
-            const matchedEntry = metric ? Object.entries(dec).find(([k]) => k.toLowerCase() === metric.toLowerCase()) : null;
-            if (matchedEntry && Number.isFinite(Number(matchedEntry[1]))) {
-              fallbackVal = Number(matchedEntry[1]);
-              break;
-            }
-          }
-          if (fallbackVal !== null) {
-            variables[outVar] = fallbackVal;
-            this.logger.log(`[FlowSimulation] Lấy fallback packet gần nhất cho "${outVar}" = ${fallbackVal}`);
-          } else {
-            this.logger.warn(`[FlowSimulation] Không tìm thấy mẫu đo lường nào cho "${outVar}" (metric: "${metric}")`);
-          }
+          throw new Error(`Không có mẫu đo cho average "${outVar}" (metric: "${metric}", target: "${targetStr}", window: "${winId || mode}")`);
         }
 
         await ds.query(
@@ -6561,6 +6541,7 @@ export class TestingAdapterController implements OnApplicationBootstrap {
       if (!server?.apiUrl || !server.apiToken) throw new Error('Chưa cấu hình ChirpStack đang hoạt động');
       const targetStr = (block.targetDevice || block.target || block.targetDeviceName || '').toString().trim();
       const targets = await resolveTargets(targetStr);
+      if (targets.size === 0) throw new Error(`Không tìm thấy thiết bị "${targetStr}" cho ${block.functionType}`);
 
       let resolvedPayloadHex = (block.payloadHex || '').trim().replace(/\s+/g, '');
       if (block.functionType === 'downlink') {
