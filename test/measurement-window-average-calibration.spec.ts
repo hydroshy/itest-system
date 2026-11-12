@@ -420,6 +420,32 @@ async function runTests() {
       { functionType: 'downlink', targetDevice: 'DUT', payloadHex: 'BB' },
     ], [{ devEui: '0004A30B001F0001' }, { devEui: '0004A30B001F0002' }], mockNow);
     assert.deepStrictEqual(queueCalls.map(c => c.eui).sort(), ['0004A30B001F0001', '0004A30B001F0002', '0004A30B001F0009']);
+    queueCalls.length = 0;
+    await (controller as any).executeSimulationFlow('batch-simu-123', [
+      { functionType: 'average', targetDevice: 'DUT', metric: 'temperature', outputVar: 'x' },
+      { functionType: 'downlink', targetDevice: '0004A30B001F0002', payloadHex: '{{x}}' },
+    ], [{ devEui: '0004A30B001F0001' }, { devEui: '0004A30B001F0002' }], mockNow);
+    assert.deepStrictEqual(queueCalls, [{ eui: '0004A30B001F0002', payload: Buffer.from('35', 'hex').toString('base64') }]);
+    queueCalls.length = 0;
+    await (controller as any).executeSimulationFlow('batch-simu-123', [
+      { functionType: 'average', targetDevice: 'DUT', metric: 'temperature', outputVar: 'x1' },
+      { functionType: 'calculate_linear', point1X: '{{x1}}', point1Y: 0, point2X: 50, point2Y: 100 },
+      { functionType: 'convert_to_hex', sourceVar: 'a', outputVar: 'a_hex' },
+      { functionType: 'convert_to_hex', sourceVar: 'b', outputVar: 'b_hex' },
+      { functionType: 'downlink', targetDevice: 'DUT', payloadHex: '4E04{{a_hex}}0005' },
+      { functionType: 'downlink', targetDevice: 'DUT', payloadHex: '5004{{b_hex}}0005' },
+    ], [{ devEui: '0004A30B001F0001' }, { devEui: '0004A30B001F0002' }], mockNow);
+    const expectedQueue = [
+      ['0004A30B001F0001', 4, -100],
+      ['0004A30B001F0002', 6.666667, -233.333345],
+    ];
+    for (const [eui, slope, offset] of expectedQueue) {
+      const aHex = Buffer.alloc(4); aHex.writeFloatBE(Number(slope));
+      const bHex = Buffer.alloc(4); bHex.writeFloatBE(Number(offset));
+      assert.ok(queueCalls.some(c => c.eui === eui && c.payload === Buffer.from(`4E04${aHex.toString('hex')}0005`, 'hex').toString('base64')));
+      assert.ok(queueCalls.some(c => c.eui === eui && c.payload === Buffer.from(`5004${bHex.toString('hex')}0005`, 'hex').toString('base64')));
+    }
+    assert.strictEqual(queueCalls.length, 4);
   } finally {
     (globalThis as any).fetch = originalFetch;
     mockDb.getRepositoryForTable = originalRepo;

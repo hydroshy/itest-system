@@ -6550,7 +6550,11 @@ export class TestingAdapterController implements OnApplicationBootstrap {
 
       if (!server?.apiUrl || !server.apiToken) throw new Error('Chưa cấu hình ChirpStack đang hoạt động');
       const targetStr = (block.targetDevice || block.target || block.targetDeviceName || '').toString().trim();
-      const sharedIndex = targetStr.toUpperCase() === 'DUT' ? '' : `${blocks.indexOf(block)}:${(device.referenceDevEui || device.reference_dev_eui || '').toUpperCase()}`;
+      const targetUpper = targetStr.toUpperCase();
+      const namedDut = devices.find(d => [d.devEui, d.dev_eui, d.name, d.deviceName, d.device_name, d.serialNumber, d.serial_number]
+        .some(value => value && String(value).trim().toUpperCase() === targetUpper));
+      if (namedDut && namedDut !== device) continue;
+      const sharedIndex = targetUpper === 'DUT' || namedDut ? '' : `${blocks.indexOf(block)}:${(device.referenceDevEui || device.reference_dev_eui || '').toUpperCase()}`;
       const executeDownlink = async () => {
         const targets = await resolveTargets(targetStr);
         if (targets.size === 0) throw new Error(`Không tìm thấy thiết bị "${targetStr}" cho ${block.functionType}`);
