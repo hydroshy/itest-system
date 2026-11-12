@@ -6526,17 +6526,19 @@ export class TestingAdapterController implements OnApplicationBootstrap {
           }
           throw new Error(`Thiếu biến hoặc giá trị số cho calculate_linear: ${String(v)}`);
         };
-        const x1 = getVal(p1.x !== undefined ? p1.x : block.x1);
-        const y1 = getVal(p1.y !== undefined ? p1.y : block.y1);
-        const x2 = getVal(p2.x !== undefined ? p2.x : block.x2);
-        const y2 = getVal(p2.y !== undefined ? p2.y : block.y2);
+        const x1 = getVal(p1.x ?? block.x1 ?? block.point1X ?? block.point1_x);
+        const y1 = getVal(p1.y ?? block.y1 ?? block.point1Y ?? block.point1_y);
+        const x2 = getVal(p2.x ?? block.x2 ?? block.point2X ?? block.point2_x);
+        const y2 = getVal(p2.y ?? block.y2 ?? block.point2Y ?? block.point2_y);
         if (![x1, y1, x2, y2].every(Number.isFinite)) throw new Error('Giá trị calculate_linear không hợp lệ');
         const deltaX = x2 - x1;
         if (Math.abs(deltaX) <= 0.000001) throw new Error('Không thể tính tuyến tính khi hai giá trị X trùng nhau');
         const a = +((y2 - y1) / deltaX).toFixed(6);
         const b = +(y1 - a * x1).toFixed(6);
-        if (block.outputVarA) variables[block.outputVarA] = a;
-        if (block.outputVarB) variables[block.outputVarB] = b;
+        const outputVarA = block.outputVarA || block.coeffAVar || block.coeff_a_var;
+        const outputVarB = block.outputVarB || block.coeffBVar || block.coeff_b_var;
+        if (outputVarA) variables[outputVarA] = a;
+        if (outputVarB) variables[outputVarB] = b;
         variables['a'] = a;
         variables['b'] = b;
         await ds.query(`UPDATE system_schema.device_test_batches SET simulation_vars = $3::jsonb WHERE id = $1 AND status = 'RUNNING' AND started_at = $2::timestamptz`, [id, rows[0].started_at, JSON.stringify(variables)]);

@@ -364,6 +364,14 @@ async function runTests() {
   assert.strictEqual(savedSimVars['hex_x1'], '41c80000'); // Float32BE for 25 is 41c80000
   console.log(`✓ executeSimulationFlow executed successfully: x1=${savedSimVars['x1']}, a=${savedSimVars['slope_a']}, b=${savedSimVars['intercept_b']}, hex_x1=${savedSimVars['hex_x1']}`);
 
+  // Flow builder stores flat point fields; zero remains a valid coordinate.
+  savedSimVars = {};
+  await (controller as any).executeSimulationFlow('batch-simu-123', [
+    { functionType: 'calculate_linear', point1X: 0, point1Y: 0, point2X: 10, point2Y: 20, coeffAVar: 'builder_a', coeffBVar: 'builder_b' },
+  ], [], mockNow);
+  assert.strictEqual(savedSimVars['builder_a'], 2);
+  assert.strictEqual(savedSimVars['builder_b'], 0);
+
   console.log('\n=========================================================================');
   console.log('ALL MEASUREMENT WINDOW, AVERAGE & CALIBRATION TESTS PASSED 100%!');
   console.log('=========================================================================\n');
