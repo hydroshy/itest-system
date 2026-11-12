@@ -90,6 +90,9 @@ export class TraceabilityDeviceEntity {
   @Column({ name: 'test_id', type: 'varchar', length: 255, nullable: true })
   test_id: string | null;
 
+  @Column({ name: 'test_batch_id', type: 'uuid', nullable: true })
+  test_batch_id: string | null;
+
   @Column({ name: 'test_station', type: 'varchar', length: 100, nullable: true })
   test_station: string | null;
 

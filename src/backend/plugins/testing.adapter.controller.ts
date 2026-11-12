@@ -1,4 +1,4 @@
-﻿import {
+import {
   BadRequestException,
   Body,
   Controller,
@@ -4223,7 +4223,7 @@ export class TestingAdapterController implements OnApplicationBootstrap {
       // Step 2 Registers (0..259, 386)
       const fwCode = (body?.fwCode || body?.FW_CODE || '').trim();
       const fwVersion = (body?.fwVersion || body?.FW_VERSION || '').trim();
-      const hwVersion = (body?.hwVersion || body?.HW_VERSION || '').trim();
+      const hwVersion = String(body?.hwVersion ?? body?.hw_version ?? body?.HW_VERSION ?? body?.HW_VER ?? '').trim();
       const meVersion = (body?.meVersion || body?.ME_VERSION || '').trim();
       const devEui = (body?.devEui || body?.deviceEUI || body?.networkId || '').trim().replace(/[^0-9a-fA-F]/g, '').toUpperCase();
       const appEui = (body?.appEui || body?.LRW_appEUI || body?.joinEui || '').trim().replace(/[^0-9a-fA-F]/g, '').toUpperCase();
@@ -5388,7 +5388,7 @@ export class TestingAdapterController implements OnApplicationBootstrap {
               d.item_code,
               COALESCE(d.metadata->>'fwVersion', d.metadata->>'fw_version', 'v1.0') AS "fw_version",
               COALESCE(d.metadata->>'longFw', d.metadata->>'fwVersion', 'v1.0') AS "long_fw",
-              COALESCE(d.metadata->>'hwVersion', 'v1.0') AS "hw_version",
+              COALESCE(NULLIF(d.metadata->>'hwVersion', ''), NULLIF(d.metadata->>'hw_version', ''), NULLIF(d.metadata->>'HW_VER', '')) AS "hw_version",
               COALESCE(d.dev_eui, d.network_id, '—') AS "dev_eui",
               d.status,
               d.so_number,
@@ -5797,6 +5797,7 @@ export class TestingAdapterController implements OnApplicationBootstrap {
       if (rows[0].status !== 'RUNNING') throw new ConflictException('Test Batch không đang chạy');
       await manager.query(`UPDATE system_schema.device_test_batches SET status = 'STOPPED', finished_at = NOW(), updated_at = NOW() WHERE id = $1`, [id]);
       await manager.query(`UPDATE system_schema.device_test_batch_items SET status = 'STOPPED', updated_at = NOW() WHERE batch_id = $1 AND status = 'RUNNING'`, [id]);
+      if (rows[0].current_session_id) await manager.query(`UPDATE system_schema.device_test_batch_sessions SET status = 'STOPPED', finished_at = NOW(), result = jsonb_build_object('items', COALESCE((SELECT jsonb_agg(to_jsonb(i)) FROM system_schema.device_test_batch_items i WHERE i.batch_id = $2), '[]'::jsonb)) WHERE id = $1`, [rows[0].current_session_id, id]);
     });
     return { success: true, data: { batchId: id, status: 'STOPPED' } };
   }
@@ -5824,7 +5825,8 @@ export class TestingAdapterController implements OnApplicationBootstrap {
       for (const item of items) {
         const comp = item.comparison_result || {};
         const hasRef = Boolean(item.reference_serial_number || item.reference_dev_eui);
-        const autoPass = (item.packets_received || 0) > 0 && (hasRef ? comp.tolerance_pass === true : comp.tolerance_pass !== false);
+        const hasComparisonMetrics = (comp.temp_delta != null || comp.hum_delta != null);
+        const autoPass = (item.packets_received || 0) > 0 && (hasComparisonMetrics ? comp.tolerance_pass === true : comp.tolerance_pass !== false);
 
         let isPass = autoPass;
         if (body?.classifications) {
@@ -5885,12 +5887,19 @@ export class TestingAdapterController implements OnApplicationBootstrap {
           const hwVersion = reg.hw_version || item.hw_version || null;
           const fwVersion = reg.fw_version || reg.long_fw || item.fw_version || batch.fw_version || null;
           const statusStr = itemVerdict === 'PASS' ? 'TESTED_PASS' : 'TESTED_FAIL';
+          const simVars = item.simulation_vars && Object.keys(item.simulation_vars).length > 0
+            ? item.simulation_vars
+            : (batch.simulation_vars && Object.keys(batch.simulation_vars).length > 0 ? batch.simulation_vars : {});
           const testRawData = JSON.stringify({
             batchCode: batch.batch_code,
+            testBatchId: batch.id,
+            sessionId: batch.current_session_id || null,
+            batchId: batch.id,
             itemVerdict,
             comparisonResult: item.comparison_result,
             dutPackets: item.comparison_result?.dut_packets || [],
             referencePackets: item.comparison_result?.reference_packets || [],
+            referenceDevices: item.comparison_result?.reference_devices || [],
             dutValues: item.dut_values,
             referenceValues: item.reference_values,
             referenceSerialNumber: item.reference_serial_number,
@@ -5899,7 +5908,10 @@ export class TestingAdapterController implements OnApplicationBootstrap {
             avgCycle: item.avg_cycle ?? item.comparison_result?.avg_cycle ?? null,
             avgRssi: item.avg_rssi ?? item.comparison_result?.avg_rssi ?? null,
             avgSnr: item.avg_snr ?? item.comparison_result?.avg_snr ?? null,
-            simulationVars: item.simulation_vars || {},
+            simulationVars: simVars,
+            variables: simVars,
+            flowVariables: simVars,
+            simulationVariables: simVars,
             hwVersion,
             fwVersion,
             testedAt: finished,
@@ -5919,7 +5931,9 @@ export class TestingAdapterController implements OnApplicationBootstrap {
                 wa_id = COALESCE($8, wa_id),
                 item_code = COALESCE($9, item_code),
                 hw_version = COALESCE($10, hw_version),
-                fw_version = COALESCE($11, fw_version)
+                fw_version = COALESCE($11, fw_version),
+                test_batch_id = $12,
+                test_id = COALESCE(test_id, $13)
             WHERE LOWER(serial_number) = LOWER($1) OR LOWER(REPLACE(COALESCE(dev_eui, ''), ':', '')) = LOWER(REPLACE($1, ':', ''))
           `, [
             item.serial_number || item.dev_eui,
@@ -5933,14 +5947,16 @@ export class TestingAdapterController implements OnApplicationBootstrap {
             reg.item_code || item.item_code || batch.item_code,
             hwVersion,
             fwVersion,
+            batch.id,
+            batch.batch_code || batch.id,
           ]);
 
           if (!updateRes || updateRes.length === 0 || (updateRes as any)[1] === 0) {
             if (soId) {
               await this.queryBatchTransaction(manager, `
                 INSERT INTO traceability_manager.traceability_device
-                  (so_id, wa_id, serial_number, dev_eui, item_code, hw_version, fw_version, test_result, test_person, tested_at, test_raw_data, status)
-                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11::jsonb, $12)
+                  (so_id, wa_id, serial_number, dev_eui, item_code, hw_version, fw_version, test_result, test_person, tested_at, test_raw_data, status, test_batch_id, test_id)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11::jsonb, $12, $13, $14)
                 ON CONFLICT (serial_number) DO UPDATE
                 SET test_result = EXCLUDED.test_result,
                     test_person = EXCLUDED.test_person,
@@ -5950,7 +5966,9 @@ export class TestingAdapterController implements OnApplicationBootstrap {
                     hw_version = COALESCE(EXCLUDED.hw_version, traceability_device.hw_version),
                     fw_version = COALESCE(EXCLUDED.fw_version, traceability_device.fw_version),
                     wa_id = COALESCE(EXCLUDED.wa_id, traceability_device.wa_id),
-                    so_id = COALESCE(EXCLUDED.so_id, traceability_device.so_id)
+                    so_id = COALESCE(EXCLUDED.so_id, traceability_device.so_id),
+                    test_batch_id = EXCLUDED.test_batch_id,
+                    test_id = COALESCE(EXCLUDED.test_id, traceability_device.test_id)
               `, [
                 soId,
                 waId,
@@ -5964,6 +5982,8 @@ export class TestingAdapterController implements OnApplicationBootstrap {
                 finished,
                 testRawData,
                 statusStr,
+                batch.id,
+                batch.batch_code || batch.id,
               ]).catch(() => {});
             }
           }
@@ -6029,11 +6049,13 @@ export class TestingAdapterController implements OnApplicationBootstrap {
         SET status = 'COMPLETED', verdict = $2, finished_at = $3, duration_seconds = $4, updated_at = $3
         WHERE id = $1
       `, [id, finalVerdict, finished, elapsed]).catch(() => {});
+      if (batch.current_session_id) await manager.query(`UPDATE system_schema.device_test_batch_sessions SET status = 'COMPLETED', verdict = $2, finished_at = $3, result = $4::jsonb WHERE id = $1`, [batch.current_session_id, finalVerdict, finished, JSON.stringify({ items, simulationVars: batch.simulation_vars || {} })]);
 
       return {
         success: true,
         data: {
           batchId: id,
+          sessionId: batch.current_session_id || null,
           status: 'COMPLETED',
           verdict: finalVerdict,
           finishedAt: finished,
@@ -6257,6 +6279,7 @@ export class TestingAdapterController implements OnApplicationBootstrap {
         if (block.outputVarB) variables[block.outputVarB] = b;
         variables['a'] = a;
         variables['b'] = b;
+        await ds.query(`UPDATE system_schema.device_test_batches SET simulation_vars = $3::jsonb WHERE id = $1 AND status = 'RUNNING' AND started_at = $2::timestamptz`, [id, rows[0].started_at, JSON.stringify(variables)]);
         continue;
       }
       if (block.functionType === 'convert_to_hex') {
@@ -6267,6 +6290,7 @@ export class TestingAdapterController implements OnApplicationBootstrap {
           const cleanSrc = src.replace(/^\{\{|\}\}$/g, '').trim();
           const rawVal = variables[cleanSrc] !== undefined ? variables[cleanSrc] : (variables[src] !== undefined ? variables[src] : parseFloat(cleanSrc));
           variables[out] = this.encodeValueToHex(rawVal ?? 0, enc);
+          await ds.query(`UPDATE system_schema.device_test_batches SET simulation_vars = $3::jsonb WHERE id = $1 AND status = 'RUNNING' AND started_at = $2::timestamptz`, [id, rows[0].started_at, JSON.stringify(variables)]);
         }
         continue;
       }
@@ -6512,10 +6536,10 @@ export class TestingAdapterController implements OnApplicationBootstrap {
             item_code, fw_version, reference_device_id, reference_serial_number,
             reference_dev_eui, reference_device_name, status, verdict,
             dut_values, reference_values, comparison_result, packets_received,
-            rules_passed, rules_failed, simulation_devices_data
+            rules_passed, rules_failed, simulation_devices_data, reference_devices_data
           ) VALUES (
             $1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
-            'RUNNING', 'PENDING', '{}'::jsonb, '{}'::jsonb, $11::jsonb, 0, 0, 0, $12::jsonb
+            'RUNNING', 'PENDING', '{}'::jsonb, '{}'::jsonb, $11::jsonb, 0, 0, 0, $12::jsonb, $13::jsonb
           )
         `, [
           id,
@@ -6529,16 +6553,22 @@ export class TestingAdapterController implements OnApplicationBootstrap {
           refDevEui,
           refName,
           JSON.stringify(comparison),
-          JSON.stringify(d.simulationDevicesData || []),
+          JSON.stringify(d.simulationDevicesData || d.simulation_devices_data || []),
+          JSON.stringify(d.referenceDevicesData || d.reference_devices_data || []),
         ]);
       }
 
       const now = new Date();
+      const sessionRows = await this.queryBatchTransaction(ds, `
+        INSERT INTO system_schema.device_test_batch_sessions (batch_id, status, verdict, started_at)
+        VALUES ($1, 'RUNNING', 'PENDING', $2) RETURNING id
+      `, [id, now]);
+      const sessionId = sessionRows[0].id;
       await this.queryBatchTransaction(ds, `
         UPDATE system_schema.device_test_batches
-        SET status = 'RUNNING', verdict = 'PENDING', started_at = $2, finished_at = NULL, duration_seconds = 0, updated_at = $2
+        SET status = 'RUNNING', verdict = 'PENDING', started_at = $2, finished_at = NULL, duration_seconds = 0, simulation_vars = '{}'::jsonb, updated_at = $2, current_session_id = $3
         WHERE id = $1
-      `, [id, now]);
+      `, [id, now, sessionId]);
 
       return {
         success: true,
@@ -6546,6 +6576,7 @@ export class TestingAdapterController implements OnApplicationBootstrap {
         data: {
           batchId: id,
           batchCode: batch.batch_code,
+          sessionId,
           status: 'RUNNING',
           flowDurationSeconds: batch.flow_duration_seconds,
           startedAt: now.toISOString(),
@@ -6728,6 +6759,21 @@ export class TestingAdapterController implements OnApplicationBootstrap {
               snr: p.snr,
             }));
 
+          const referenceDevices: any[] = [];
+          const referenceMappings = Array.isArray(item.reference_devices_data) ? item.reference_devices_data : [];
+          for (const ref of referenceMappings) {
+            const eui = String(ref.devEui || ref.dev_eui || '').replace(/[^a-fA-F0-9]/g, '').toLowerCase();
+            if (!/^[a-f0-9]{16}$/.test(eui)) continue;
+            const packets = eui === String(refEui || '').replace(/[^a-fA-F0-9]/g, '').toLowerCase() ? refPackets : await this.queryBatchTransaction(ds,
+              `SELECT raw_payload, decoded_payload, f_port, f_cnt, rssi, snr, created_at FROM devices.device_packets WHERE LOWER(REPLACE(dev_eui, ':', '')) = $1 AND created_at >= $2::timestamptz ORDER BY created_at DESC`,
+              [eui, batch.started_at],
+            ).catch(() => this.queryBatchTransaction(ds,
+              `SELECT raw_payload, decoded_payload, f_port, f_cnt, rssi, snr, created_at FROM system_schema.device_packets WHERE LOWER(REPLACE(dev_eui, ':', '')) = $1 AND created_at >= $2::timestamptz ORDER BY created_at DESC`,
+              [eui, batch.started_at],
+            ).catch(() => []));
+            const timeline = packetTimeline(packets);
+            referenceDevices.push({ devEui: ref.devEui || ref.dev_eui, serialNumber: ref.serialNumber || ref.serial_number || '', name: ref.referenceName || ref.reference_name || ref.name || '', values: timeline.length ? timeline[timeline.length - 1].data : {}, packets: timeline });
+          }
           const dutTimeline = packetTimeline(dutPackets);
           let avgCycle: number | null = null;
           if (dutTimeline.length >= 2) {
@@ -6759,6 +6805,7 @@ export class TestingAdapterController implements OnApplicationBootstrap {
           comparison = {
             dut_packets: dutTimeline,
             reference_packets: packetTimeline(refPackets),
+            reference_devices: referenceDevices,
             status: packetsCount > 0 ? 'ACTIVE_RECEIVING' : 'AWAITING_UPLINK',
             packets_since_start: packetsCount,
             packets_received: packetsCount,
@@ -6925,6 +6972,9 @@ export class TestingAdapterController implements OnApplicationBootstrap {
 
               const testRawData = JSON.stringify({
                 batch_id: batch.id,
+                sessionId: batch.current_session_id || null,
+                referenceDevices: comp.reference_devices || [],
+                simulationVars: batch.simulation_vars || {},
                 batch_code: batch.batch_code,
                 item_id: item.id,
                 serial_number: item.serial_number,
@@ -7092,6 +7142,7 @@ export class TestingAdapterController implements OnApplicationBootstrap {
             SET status = 'COMPLETED', verdict = $2, finished_at = $3, duration_seconds = $4, updated_at = $3
             WHERE id = $1
           `, [id, finalVerdict, finished, elapsedSeconds]).catch(() => {});
+          if (batch.current_session_id) await this.queryBatchTransaction(ds, `UPDATE system_schema.device_test_batch_sessions SET status = 'COMPLETED', verdict = $2, finished_at = $3, result = $4::jsonb WHERE id = $1`, [batch.current_session_id, finalVerdict, finished, JSON.stringify({ items, simulationVars: batch.simulation_vars || {} })]);
 
           batch.status = 'COMPLETED';
           batch.verdict = finalVerdict;
@@ -7120,6 +7171,7 @@ export class TestingAdapterController implements OnApplicationBootstrap {
         success: true,
         data: {
           batchId: batch.id,
+          sessionId: batch.current_session_id || null,
           batchCode: batch.batch_code,
           batchName: batch.batch_name,
           soNumber: resolvedSoNumber,
