@@ -6247,7 +6247,7 @@ export class TestingAdapterController implements OnApplicationBootstrap {
       } catch (error: any) {
         this.logger.error(`[FlowSimulation] DUT ${device.devEui || device.dev_eui || device.serialNumber || device.serial_number}: ${error.message}`);
         await ds.query(`UPDATE system_schema.device_test_batch_items
-          SET status = 'FAIL', verdict = 'FAIL', comparison_result = COALESCE(comparison_result, '{}'::jsonb) || jsonb_build_object('status', 'FLOW_FAILED', 'flow_error', $3)
+          SET status = 'FAIL', verdict = 'FAIL', comparison_result = COALESCE(comparison_result, '{}'::jsonb) || jsonb_build_object('status', 'FLOW_FAILED', 'flow_error', $3::text)
           WHERE batch_id = $1 AND (LOWER(REPLACE(dev_eui, ':', '')) = $2 OR serial_number = $4) AND status = 'RUNNING'`,
           [id, String(device.devEui || device.dev_eui || '').replace(/[^0-9a-f]/gi, '').toLowerCase(), error.message, device.serialNumber || device.serial_number || '']);
       }

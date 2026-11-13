@@ -325,6 +325,7 @@ async function runTests() {
   let savedSimVars: Record<string, any> = {};
   const perDeviceVars: Record<string, Record<string, any>> = {};
   const failures: string[] = [];
+  const failureErrors: string[] = [];
   const mockNow = new Date().toISOString();
   let packetTime = new Date();
   const execMockDs: any = {
@@ -338,7 +339,9 @@ async function runTests() {
         return [];
       }
       if (sql.includes('SET status = \'FAIL\'')) {
+        assert.match(sql, /'flow_error', \$3::text\)/);
         failures.push(params[1]);
+        failureErrors.push(params[2]);
         return [];
       }
       if (sql.includes('device_packets')) {
@@ -396,6 +399,14 @@ async function runTests() {
   ], [{ devEui: '0004A30B001F0003' }, { devEui: '0004A30B001F0002' }], mockNow);
   assert.deepStrictEqual(failures, ['0004a30b001f0003']);
   assert.strictEqual(perDeviceVars['0004a30b001f0002'].per_dut_x, 35);
+
+  failures.length = 0;
+  await (controller as any).executeSimulationFlow('batch-simu-123', [
+    { functionType: 'calculate_linear', point1X: 20, point1Y: 0, point2X: 20, point2Y: 100 },
+    { functionType: 'convert_to_hex', sourceVar: 'a', outputVar: 'a_hex' },
+  ], [{ devEui: '0004A30B001F0001' }], mockNow);
+  assert.deepStrictEqual(failures, ['0004a30b001f0001']);
+  assert.match(failureErrors.at(-1), /hai giá trị X trùng nhau/);
 
   await (controller as any).executeSimulationFlow('batch-simu-123', [
     { functionType: 'average', targetDevice: 'DUT', metric: 'missing_metric', outputVar: 'missing_x' },
