@@ -139,6 +139,11 @@ export class LoRaWanChirpStackService {
       throw new BadRequestException(`Không tìm thấy Network Server ID "${id}"`);
     }
 
+    const hadConnectionChange =
+      (dto.apiUrl !== undefined && dto.apiUrl.trim() !== server.apiUrl) ||
+      (dto.apiToken !== undefined && dto.apiToken.trim() !== server.apiToken) ||
+      (dto.tenantId !== undefined && (dto.tenantId.trim() || undefined) !== server.tenantId);
+
     if (dto.name !== undefined) server.name = String(dto.name).trim();
     if (dto.apiUrl !== undefined) server.apiUrl = String(dto.apiUrl).trim();
     if (dto.apiToken !== undefined) server.apiToken = String(dto.apiToken).trim();
@@ -159,6 +164,13 @@ export class LoRaWanChirpStackService {
       });
     }
 
+    if (hadConnectionChange) {
+      const testResult = await this.apiClient.testConnection(server);
+      server.status = testResult.success ? 'online' : 'offline';
+      server.lastCheckedAt = new Date().toISOString();
+      server.errorMessage = testResult.success ? undefined : testResult.message;
+    }
+
     this.servers.set(id, server);
     return server;
   }
@@ -172,18 +184,23 @@ export class LoRaWanChirpStackService {
     return this.servers.delete(id);
   }
 
-  async testServerConnection(id: string): Promise<{ success: boolean; message: string; version?: string }> {
+  async testServerConnection(id: string): Promise<{ success: boolean; ok: boolean; message: string; version?: string }> {
     await this.syncNetworkServers();
     const server = this.servers.get(id);
     if (!server) {
-      return { success: false, message: `Không tìm thấy Network Server ID "${id}"` };
+      return { success: false, ok: false, message: `Không tìm thấy Network Server ID "${id}"` };
     }
 
     const result = await this.apiClient.testConnection(server);
     server.status = result.success ? 'online' : 'offline';
     server.lastCheckedAt = new Date().toISOString();
     server.errorMessage = result.success ? undefined : result.message;
-    return result;
+    return {
+      success: result.success,
+      ok: result.success,
+      version: result.version,
+      message: result.message,
+    };
   }
 
   // ==========================================
