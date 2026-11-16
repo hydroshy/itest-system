@@ -13,6 +13,12 @@ export interface JwtPayload {
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
   constructor(private readonly dbService: DynamicDatabaseService) {
+    const jwtSecret = process.env.JWT_SECRET;
+    if (!jwtSecret || !jwtSecret.trim()) {
+      throw new Error(
+        '❌ [FATAL CONFIG ERROR] Thiếu biến môi trường JWT_SECRET cho JwtStrategy. Không được sử dụng mockdata fallback; hệ thống dừng khởi động khi deploy thiếu cấu hình.',
+      );
+    }
     super({
       jwtFromRequest: ExtractJwt.fromExtractors([
         ExtractJwt.fromAuthHeaderAsBearerToken(),
@@ -25,7 +31,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
         },
       ]),
       ignoreExpiration: false,
-      secretOrKey: process.env.JWT_SECRET || 'super_secret_lorawan_key_2025',
+      secretOrKey: jwtSecret.trim(),
     });
   }
 

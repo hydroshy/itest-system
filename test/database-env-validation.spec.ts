@@ -101,7 +101,23 @@ async function runDatabaseEnvValidationTests() {
       console.log('✔ Verified loadConfigAndInitializeDataSources halts system when env vars are missing.');
     }
 
-    console.log('--- ALL DATABASE ENVIRONMENT VALIDATION TESTS PASSED 100% ---');
+    // Test 5: JwtStrategy fails fast without JWT_SECRET
+    {
+      delete process.env.JWT_SECRET;
+      const { JwtStrategy } = await import('../src/backend/identity/modules/auth/jwt.strategy');
+      let threw = false;
+      try {
+        new JwtStrategy({ getRepositoryForTable: () => null } as any);
+      } catch (err: any) {
+        threw = true;
+        assert.ok(err.message.includes('JWT_SECRET'), 'Should mention missing JWT_SECRET');
+        assert.ok(err.message.includes('mockdata'), 'Should mention mockdata fallback prohibited');
+      }
+      assert.strictEqual(threw, true, 'JwtStrategy must throw when JWT_SECRET is missing');
+      console.log('✔ Verified JwtStrategy halts immediately when JWT_SECRET is missing (no mockdata).');
+    }
+
+    console.log('--- ALL DATABASE & SECURITY ENVIRONMENT VALIDATION TESTS PASSED 100% ---');
   } finally {
     // Restore original env
     process.env = originalEnv;

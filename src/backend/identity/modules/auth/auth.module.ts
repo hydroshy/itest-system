@@ -12,9 +12,19 @@ import { RolesModule } from '../roles-permissions/roles.module';
     DynamicDatabaseModule,
     PassportModule,
     RolesModule,
-    JwtModule.register({
-      secret: process.env.JWT_SECRET || 'super_secret_lorawan_key_2025',
-      signOptions: { expiresIn: '24h' },
+    JwtModule.registerAsync({
+      useFactory: () => {
+        const secret = process.env.JWT_SECRET;
+        if (!secret || !secret.trim()) {
+          throw new Error(
+            '❌ [FATAL CONFIG ERROR] Thiếu biến môi trường JWT_SECRET. Không được sử dụng mockdata fallback; hệ thống dừng khởi động khi deploy thiếu cấu hình.',
+          );
+        }
+        return {
+          secret: secret.trim(),
+          signOptions: { expiresIn: '24h' },
+        };
+      },
     }),
   ],
   providers: [AuthService, JwtStrategy],

@@ -7,7 +7,27 @@ import * as path from 'path';
 import { json, urlencoded } from 'express';
 import { AppModule } from './app.module';
 
+function validateRequiredEnvironment(): void {
+  const requiredVars = [
+    'JWT_SECRET',
+    'DB_HOST',
+    'DB_PORT',
+    'DB_USERNAME',
+    'DB_PASSWORD',
+    'DB_NAME',
+    'DB_SCHEMA',
+  ];
+
+  const missing = requiredVars.filter((v) => !process.env[v] || !process.env[v].trim());
+  if (missing.length > 0) {
+    throw new Error(
+      `[FATAL CONFIG ERROR] Thiếu các biến môi trường bắt buộc: ${missing.join(', ')}. Tuyệt đối không sử dụng mockdata fallback; hệ thống dừng khởi động khi deploy thiếu cấu hình.`,
+    );
+  }
+}
+
 async function bootstrap() {
+  validateRequiredEnvironment();
   const logger = new Logger('Bootstrap');
   const app = await NestFactory.create<NestExpressApplication>(AppModule, {
     bodyParser: false,
