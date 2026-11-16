@@ -94,7 +94,43 @@ export class DynamicDatabaseService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
+  /**
+   * Bắt buộc kiểm tra biến môi trường cơ sở dữ liệu khi khởi động hệ thống.
+   * Tuyệt đối không dùng mockdata/fallback; nếu thiếu biến môi trường khi deploy sẽ báo lỗi và dừng hệ thống.
+   */
+  public validateDatabaseEnv(): void {
+    const requiredEnvVars = [
+      'DB_HOST',
+      'DB_PORT',
+      'DB_USERNAME',
+      'DB_PASSWORD',
+      'DB_NAME',
+      'DB_SCHEMA',
+    ];
+
+    const missing = requiredEnvVars.filter((varName) => {
+      const val = process.env[varName];
+      return val === undefined || val === null || String(val).trim() === '';
+    });
+
+    if (missing.length > 0) {
+      const errorMsg = `❌ [FATAL CONFIG ERROR] Thiếu các biến môi trường bắt buộc cho cơ sở dữ liệu: ${missing.join(', ')}. Hệ thống không sử dụng mockdata fallback và dừng khởi động khi deploy thiếu cấu hình.`;
+      this.logger.error(errorMsg);
+      throw new Error(errorMsg);
+    }
+
+    const portNum = parseInt(process.env.DB_PORT || '', 10);
+    if (isNaN(portNum) || portNum <= 0) {
+      const errorMsg = `❌ [FATAL CONFIG ERROR] Biến môi trường DB_PORT="${process.env.DB_PORT}" không hợp lệ. Phải là số cổng hợp lệ (ví dụ: 5432).`;
+      this.logger.error(errorMsg);
+      throw new Error(errorMsg);
+    }
+  }
+
   public async loadConfigAndInitializeDataSources(): Promise<void> {
+    // 0. Bắt buộc kiểm tra biến môi trường - Không cho phép chạy nếu thiếu biến môi trường, tuyệt đối không dùng mockdata
+    this.validateDatabaseEnv();
+
     // 1. If routing file exists, load it; otherwise initialize default core_db configuration directly
     if (fs.existsSync(this.configPath)) {
       try {
@@ -102,50 +138,69 @@ export class DynamicDatabaseService implements OnModuleInit, OnModuleDestroy {
         const fileContent = fs.readFileSync(this.configPath, 'utf8');
         this.routingConfig = JSON.parse(fileContent) as DbRoutingConfig;
       } catch (e: any) {
-        this.logger.warn(`Could not parse ${this.configPath}: ${e.message}. Using default environment config.`);
+        this.logger.warn(`Could not parse ${this.configPath}: ${e.message}. Using environment config.`);
       }
     }
 
     if (!this.routingConfig) {
       this.routingConfig = {
         default_connection: 'core_db',
-        connections: {
-          core_db: {
-            host: process.env.DB_HOST || '127.0.0.1',
-            port: process.env.DB_PORT ? parseInt(process.env.DB_PORT, 10) : 5432,
-            username: process.env.DB_USERNAME || 'itest_system_user',
-            password: process.env.DB_PASSWORD !== undefined ? process.env.DB_PASSWORD : 'system_secret_2026',
-            database: process.env.DB_NAME || 'itest_platform',
-            schema: process.env.DB_SCHEMA || 'system_schema',
-            ssl: process.env.DB_SSL === 'true',
-            poolSize: process.env.DB_POOL_SIZE ? parseInt(process.env.DB_POOL_SIZE, 10) : 10,
-            synchronize: process.env.DB_SYNCHRONIZE === 'true',
-          },
-        },
+        connections: {},
         table_routes: {},
       };
     }
+
+    if (!this.routingConfig.connections) {
+      this.routingConfig.connections = {};
+    }
+
+    // Luôn đảm bảo default_connection (core_db) lấy trực tiếp từ các biến môi trường đã kiểm tra, không dùng mockdata
+    const defaultConnKey = this.routingConfig.default_connection || 'core_db';
+    const existingConn = this.routingConfig.connections[defaultConnKey] || ({} as DbConnectionConfig);
+    this.routingConfig.connections[defaultConnKey] = {
+      ...existingConn,
+      host: process.env.DB_HOST!.trim(),
+      port: parseInt(process.env.DB_PORT!.trim(), 10),
+      username: process.env.DB_USERNAME!.trim(),
+      password: process.env.DB_PASSWORD,
+      database: process.env.DB_NAME!.trim(),
+      schema: process.env.DB_SCHEMA!.trim(),
+      ssl: process.env.DB_SSL !== undefined ? process.env.DB_SSL === 'true' : Boolean(existingConn.ssl),
+      poolSize: process.env.DB_POOL_SIZE ? parseInt(process.env.DB_POOL_SIZE, 10) : (existingConn.poolSize || 10),
+      synchronize: process.env.DB_SYNCHRONIZE !== undefined ? process.env.DB_SYNCHRONIZE === 'true' : Boolean(existingConn.synchronize),
+    };
 
     for (const [connKey, connDetails] of Object.entries(this.routingConfig.connections)) {
       if (!this.dataSources.has(connKey) || !this.dataSources.get(connKey).isInitialized) {
         try {
           await this.createAndRegisterDataSource(connKey, connDetails);
         } catch (err: any) {
-          this.logger.error(`⚠️ Could not connect pool [${connKey}] on startup: ${err.message}. Server will remain active.`);
+          this.logger.error(`❌ Không thể khởi tạo kết nối database pool [${connKey}] khi khởi động: ${err.message}`);
+          throw err;
         }
       }
     }
   }
 
   private async createAndRegisterDataSource(key: string, config: DbConnectionConfig): Promise<DataSource> {
-    const targetHost = process.env.DB_HOST || config.host || '127.0.0.1';
-    const port = process.env.DB_PORT ? parseInt(process.env.DB_PORT, 10) : (config.port || 5432);
-    const username = process.env.DB_USERNAME || config.username;
-    const password = process.env.DB_PASSWORD !== undefined ? process.env.DB_PASSWORD : config.password;
-    const database = process.env.DB_NAME || config.database;
-    const schema = process.env.DB_SCHEMA || config.schema || 'system_schema';
+    const isCore = key === (this.routingConfig?.default_connection || 'core_db');
+    const targetHost = isCore ? process.env.DB_HOST!.trim() : (process.env.DB_HOST || config.host);
+    const port = isCore
+      ? parseInt(process.env.DB_PORT!.trim(), 10)
+      : (process.env.DB_PORT ? parseInt(process.env.DB_PORT, 10) : config.port);
+    const username = isCore ? process.env.DB_USERNAME!.trim() : (process.env.DB_USERNAME || config.username);
+    const password = isCore ? process.env.DB_PASSWORD : (process.env.DB_PASSWORD !== undefined ? process.env.DB_PASSWORD : config.password);
+    const database = isCore ? process.env.DB_NAME!.trim() : (process.env.DB_NAME || config.database);
+    const schema = isCore ? process.env.DB_SCHEMA!.trim() : (process.env.DB_SCHEMA || config.schema);
     const ssl = process.env.DB_SSL !== undefined ? process.env.DB_SSL === 'true' : (config.ssl ? { rejectUnauthorized: false } : false);
-    const synchronize = process.env.DB_SYNCHRONIZE === 'true' || config.synchronize === true;
+    const synchronize = process.env.DB_SYNCHRONIZE !== undefined ? process.env.DB_SYNCHRONIZE === 'true' : Boolean(config.synchronize);
+    const poolSize = process.env.DB_POOL_SIZE ? parseInt(process.env.DB_POOL_SIZE, 10) : (config.poolSize || 10);
+
+    if (!targetHost || !port || !username || password === undefined || !database || !schema) {
+      throw new Error(
+        `❌ [Database Configuration Error] Kết nối [${key}] thiếu biến môi trường bắt buộc (host, port, username, password, database, schema). Tuyệt đối không sử dụng mockdata.`,
+      );
+    }
 
     const options: DataSourceOptions = {
       type: 'postgres',
@@ -160,7 +215,7 @@ export class DynamicDatabaseService implements OnModuleInit, OnModuleDestroy {
       logging: process.env.NODE_ENV === 'development' || process.env.DB_LOGGING === 'true',
       entities: ALL_DATABASE_ENTITIES,
       extra: {
-        max: process.env.DB_POOL_SIZE ? parseInt(process.env.DB_POOL_SIZE, 10) : (config.poolSize || 10),
+        max: poolSize,
       },
     };
 

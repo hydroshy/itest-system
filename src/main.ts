@@ -55,4 +55,8 @@ async function bootstrap() {
   logger.log(`📚 Swagger API Documentation available at: http://localhost:${port}/api/docs`);
 }
 
-bootstrap();
+bootstrap().catch((err) => {
+  const logger = new Logger('Bootstrap');
+  logger.error(`❌ Hệ thống dừng hoạt động do lỗi khởi động (thiếu biến môi trường hoặc không kết nối được database): ${err?.message || err}`, err?.stack);
+  process.exit(1);
+});

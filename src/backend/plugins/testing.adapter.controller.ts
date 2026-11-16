@@ -4270,7 +4270,37 @@ export class TestingAdapterController implements OnApplicationBootstrap {
       }
       const normalizeRegion = (value: unknown) => String(value || '').toUpperCase().replace(/[-_\s]/g, '');
       const region = normalizeRegion(regionCode);
-      const classCode = deviceClass.toUpperCase().replace(/^CLASS[_\s-]?/, '');
+      const classCode = deviceClass.toUpperCase().replace(/^CLASS[_\s-]?/, '').trim();
+      const isClassB = ['B', '1'].includes(classCode);
+      const isClassC = ['C', '2'].includes(classCode);
+      const targetClass = isClassC ? 'C' : (isClassB ? 'B' : 'A');
+
+      const baseRegionForName = regionCode.trim().toUpperCase().replace(/[-_\s].*$/, '');
+      const fullRegionForName = regionCode.trim().toUpperCase();
+      const nameTargets = Array.from(new Set([
+        `${baseRegionForName}_${targetClass}`,
+        `${fullRegionForName}_${targetClass}`,
+        `${baseRegionForName}-${targetClass}`,
+        `${fullRegionForName}-${targetClass}`,
+      ]));
+
+      const isTenantOk = (profile: any) => !profile.tenantId || !tenantId ||
+        String(profile.tenantId).trim().toLowerCase() === String(tenantId).trim().toLowerCase();
+
+      // Priority 1: Match by profile name containing "{REGION}_{CLASS}" (e.g. EU868_A, EU868_C)
+      const nameMatches = profiles.filter((profile) => {
+        if (typeof profile.id !== 'string' || !profile.id.trim() || !isTenantOk(profile)) return false;
+        const pName = String(profile.name || '').toUpperCase();
+        return nameTargets.some((target) => pName.includes(target));
+      });
+      const bestNameMatch = nameMatches.length === 1 ? nameMatches[0] : nameMatches.find((p) => {
+        const pSupportsB = Boolean(p.supportsClassB === true || p.supportsClassB === 'true');
+        const pSupportsC = Boolean(p.supportsClassC === true || p.supportsClassC === 'true');
+        if (targetClass === 'C') return pSupportsC;
+        if (targetClass === 'B') return pSupportsB;
+        return !pSupportsC && !pSupportsB;
+      });
+
       const matches = profiles.filter((profile) => {
         const profileRegion = normalizeRegion(profile.region);
         const baseReg = region.replace(/[^A-Z0-9]/g, '');
@@ -4280,16 +4310,17 @@ export class TestingAdapterController implements OnApplicationBootstrap {
           (baseReg.startsWith('AS923') && baseProf.startsWith('AS923')) ||
           (baseReg.startsWith('US915') && baseProf.startsWith('US915')) ||
           (baseReg.startsWith('EU868') && baseProf.startsWith('EU868'));
-        const tenantOk = !profile.tenantId || !tenantId ||
-          String(profile.tenantId).trim().toLowerCase() === String(tenantId).trim().toLowerCase();
+        const tenantOk = isTenantOk(profile);
         const pSupportsB = Boolean(profile.supportsClassB === true || profile.supportsClassB === 'true');
         const pSupportsC = Boolean(profile.supportsClassC === true || profile.supportsClassC === 'true');
 
         return typeof profile.id === 'string' && profile.id.trim() && region && isRegionMatch && tenantOk &&
-          (!['B', '1'].includes(classCode) || pSupportsB) &&
-          (!['C', '2'].includes(classCode) || pSupportsC);
+          (!isClassB || pSupportsB) &&
+          (!isClassC || pSupportsC);
       });
-      const selected = deviceProfileId ? matches.find((profile) => profile.id === deviceProfileId) : matches.length === 1 ? matches[0] : undefined;
+      const selected = deviceProfileId
+        ? (profiles.find((profile) => profile.id === deviceProfileId) || matches.find((profile) => profile.id === deviceProfileId))
+        : (bestNameMatch || (matches.length === 1 ? matches[0] : undefined));
       if (!selected) throw new BadRequestException('Không xác định được Device Profile phù hợp tenant/region/class; hãy chọn profile hợp lệ');
       deviceProfileId = selected.id;
 

@@ -2,12 +2,6 @@
   "default_connection": "core_db",
   "connections": {
     "core_db": {
-      "host": "host.docker.internal",
-      "port": 5432,
-      "username": "itest_system_user",
-      "password": "system_secret_2026",
-      "database": "itest_platform",
-      "schema": "system_schema",
       "ssl": false,
       "poolSize": 25,
       "idleTimeoutMillis": 30000,
