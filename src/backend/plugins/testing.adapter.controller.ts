@@ -188,12 +188,20 @@ export class TestingAdapterController implements OnApplicationBootstrap {
     @Optional() private readonly realtimeService?: RealtimeService,
   ) {}
 
+  private normalizeUrl(url: string): string {
+    let clean = (url || '').trim().replace(/\/+$/, '');
+    if (clean && !clean.startsWith('http://') && !clean.startsWith('https://')) {
+      clean = `http://${clean}`;
+    }
+    return clean;
+  }
+
   async onApplicationBootstrap() {
     await this.bootstrapChirpstackHttpIntegration();
   }
 
   private async bootstrapChirpstackHttpIntegration() {
-    const callbackUrl = (process.env.TESTING_CHIRPSTACK_WEBHOOK_URL || '').trim();
+    let callbackUrl = this.normalizeUrl(process.env.TESTING_CHIRPSTACK_WEBHOOK_URL || '');
     const secret = (process.env.TESTING_CHIRPSTACK_WEBHOOK_TOKEN || '').trim();
     if (!callbackUrl || !secret) {
       this.logger.log(
@@ -799,6 +807,7 @@ export class TestingAdapterController implements OnApplicationBootstrap {
           const server = await serverRepo.findOne({ where: { isActive: true } }) || await serverRepo.findOne({ order: { updatedAt: 'DESC' } });
           
           if (server?.apiUrl && server?.apiToken) {
+            const serverApiUrl = this.normalizeUrl(server.apiUrl);
             registeredAppId = (server.simulationApplicationId && server.simulationApplicationId.trim())
               ? server.simulationApplicationId.trim()
               : (server.applicationId ? server.applicationId.trim() : '');
@@ -814,7 +823,7 @@ export class TestingAdapterController implements OnApplicationBootstrap {
               let deviceProfileId = '';
               if (server.tenantId) {
                 try {
-                  const dpRes = await fetch(`${server.apiUrl.replace(/\/+$/, '')}/api/device-profiles?tenantId=${encodeURIComponent(server.tenantId)}&limit=50`, {
+                  const dpRes = await fetch(`${serverApiUrl}/api/device-profiles?tenantId=${encodeURIComponent(server.tenantId)}&limit=50`, {
                     headers,
                     signal: AbortSignal.timeout(5000),
                   });
@@ -860,7 +869,7 @@ export class TestingAdapterController implements OnApplicationBootstrap {
                 },
               };
 
-              const csUrl = `${server.apiUrl.replace(/\/+$/, '')}/api/devices`;
+              const csUrl = `${serverApiUrl}/api/devices`;
               const devRes = await fetch(csUrl, {
                 method: 'POST',
                 headers,
@@ -878,7 +887,7 @@ export class TestingAdapterController implements OnApplicationBootstrap {
               }
 
               if (cleanAppKey && (cleanAppKey.length === 16 || cleanAppKey.length === 32)) {
-                const keysUrl = `${server.apiUrl.replace(/\/+$/, '')}/api/devices/${encodeURIComponent(cleanDevEui)}/keys`;
+                const keysUrl = `${serverApiUrl}/api/devices/${encodeURIComponent(cleanDevEui)}/keys`;
                 await fetch(keysUrl, {
                   method: 'POST',
                   headers,
@@ -1029,7 +1038,8 @@ export class TestingAdapterController implements OnApplicationBootstrap {
             const serverRepo = this.databaseService.getRepositoryForTable('network_servers', ChirpstackNetworkServerEntity);
             const server = await serverRepo.findOne({ where: { isActive: true } }) || await serverRepo.findOne({ order: { updatedAt: 'DESC' } });
             if (server?.apiUrl && server?.apiToken) {
-              await fetch(`${server.apiUrl.replace(/\/+$/, '')}/api/devices/${devEui}`, {
+              const serverApiUrl = this.normalizeUrl(server.apiUrl);
+              await fetch(`${serverApiUrl}/api/devices/${devEui}`, {
                 method: 'DELETE',
                 headers: {
                   Authorization: `Bearer ${server.apiToken}`,
@@ -1170,7 +1180,8 @@ export class TestingAdapterController implements OnApplicationBootstrap {
     callbackUrl: string,
     secret: string,
   ): Promise<{ applicationId: string; callbackUrl: string; updated: boolean; registrations?: any[] }> {
-    const parsed = new URL(callbackUrl);
+    const normalizedCallbackUrl = this.normalizeUrl(callbackUrl);
+    const parsed = new URL(normalizedCallbackUrl);
     if (!['http:', 'https:'].includes(parsed.protocol)) {
       throw new BadRequestException('Webhook URL must use HTTP or HTTPS');
     }
@@ -1181,6 +1192,11 @@ export class TestingAdapterController implements OnApplicationBootstrap {
     const server = await repo.findOne({ where: { isActive: true } });
     if (!server?.applicationId || !server.apiToken) {
       throw new BadRequestException('Active server requires default applicationId and apiToken');
+    }
+
+    const serverApiUrl = this.normalizeUrl(server.apiUrl || '');
+    if (!serverApiUrl) {
+      throw new BadRequestException('Active server requires valid apiUrl');
     }
 
     const appIdsToRegister = [server.applicationId];
@@ -1198,7 +1214,7 @@ export class TestingAdapterController implements OnApplicationBootstrap {
     let mainUpdated = false;
 
     for (const appId of appIdsToRegister) {
-      const url = `${server.apiUrl.replace(/\/$/, '')}/api/applications/${encodeURIComponent(appId)}/integrations/http`;
+      const url = `${serverApiUrl}/api/applications/${encodeURIComponent(appId)}/integrations/http`;
       try {
         const existing = await fetch(url, { headers, signal: AbortSignal.timeout(10000) });
         if (!existing.ok && existing.status !== 404) {
@@ -1215,7 +1231,7 @@ export class TestingAdapterController implements OnApplicationBootstrap {
             integration: {
               applicationId: appId,
               encoding: 'JSON',
-              eventEndpointUrl: callbackUrl,
+              eventEndpointUrl: normalizedCallbackUrl,
               headers: { 'x-testing-webhook-token': secret },
             },
           }),
@@ -1236,7 +1252,7 @@ export class TestingAdapterController implements OnApplicationBootstrap {
 
     return {
       applicationId: server.applicationId,
-      callbackUrl,
+      callbackUrl: normalizedCallbackUrl,
       updated: mainUpdated,
       registrations,
     };
@@ -1244,13 +1260,14 @@ export class TestingAdapterController implements OnApplicationBootstrap {
 
   @Post(['api/plugins/testing/integrations/chirpstack/register', 'api/v1/plugins/testing/integrations/chirpstack/register'])
   async registerChirpstackHttpIntegration(@Body() body?: any) {
-    const callbackUrl = (body?.webhookUrl || body?.callbackUrl || body?.eventEndpointUrl || process.env.TESTING_CHIRPSTACK_WEBHOOK_URL || '').trim();
+    const rawCallbackUrl = (body?.webhookUrl || body?.callbackUrl || body?.eventEndpointUrl || process.env.TESTING_CHIRPSTACK_WEBHOOK_URL || '').trim();
     const secret = (body?.webhookToken || body?.token || process.env.TESTING_CHIRPSTACK_WEBHOOK_TOKEN || '').trim();
-    if (!callbackUrl || !secret) {
+    if (!rawCallbackUrl || !secret) {
       throw new BadRequestException(
         'Configure TESTING_CHIRPSTACK_WEBHOOK_URL and TESTING_CHIRPSTACK_WEBHOOK_TOKEN or provide webhookUrl & webhookToken in body',
       );
     }
+    const callbackUrl = this.normalizeUrl(rawCallbackUrl);
     const result = await this.performChirpstackHttpRegistration(callbackUrl, secret);
     return { success: true, data: result };
   }
@@ -4229,7 +4246,7 @@ export class TestingAdapterController implements OnApplicationBootstrap {
       const appEui = (body?.appEui || body?.LRW_appEUI || body?.joinEui || '').trim().replace(/[^0-9a-fA-F]/g, '').toUpperCase();
       const appKey = (body?.appKey || body?.LRW_appKey || '').trim().replace(/[^0-9a-fA-F]/g, '').toUpperCase();
       const regionCode = (body?.regionCode || body?.region_code || 'AS923-1').trim();
-      const deviceClass = (body?.deviceClass || body?.class || 'CLASS_A').trim();
+      const deviceClass = (body?.deviceClass || body?.class || body?.classMode || body?.class_mode || 'CLASS_A').trim();
       const sensorType = (body?.sensorType || body?.sensor_type || '1').trim();
       const serialNumber = (body?.serialNumber || body?.SERIAL_NUMBER || '').trim();
       const itemCode = (body?.itemCode || body?.ITEM_CODE || '').trim();
@@ -4250,10 +4267,11 @@ export class TestingAdapterController implements OnApplicationBootstrap {
 
       // Only accept real profiles returned for this tenant. Never reuse server defaults.
       const profiles: any[] = [];
+      const cleanServerUrl = this.normalizeUrl(serverUrl);
       try {
         let offset = 0;
         do {
-          const dpUrl = serverUrl.replace(/\/+$/, '') + `/api/device-profiles?limit=100&offset=${offset}&tenantId=${encodeURIComponent(tenantId)}`;
+          const dpUrl = cleanServerUrl + `/api/device-profiles?limit=100&offset=${offset}&tenantId=${encodeURIComponent(tenantId)}`;
           const dpRes = await fetch(dpUrl, {
             headers: { Accept: 'application/json', Authorization: `Bearer ${apiToken}` },
             signal: AbortSignal.timeout(8000),
@@ -4282,6 +4300,12 @@ export class TestingAdapterController implements OnApplicationBootstrap {
         `${fullRegionForName}_${targetClass}`,
         `${baseRegionForName}-${targetClass}`,
         `${fullRegionForName}-${targetClass}`,
+        `${baseRegionForName} ${targetClass}`,
+        `${fullRegionForName} ${targetClass}`,
+        `${baseRegionForName}_CLASS_${targetClass}`,
+        `${baseRegionForName}_CLASS${targetClass}`,
+        `${fullRegionForName}_CLASS_${targetClass}`,
+        `${fullRegionForName}_CLASS${targetClass}`,
       ]));
 
       const isTenantOk = (profile: any) => !profile.tenantId || !tenantId ||
@@ -4293,13 +4317,14 @@ export class TestingAdapterController implements OnApplicationBootstrap {
         const pName = String(profile.name || '').toUpperCase();
         return nameTargets.some((target) => pName.includes(target));
       });
-      const bestNameMatch = nameMatches.length === 1 ? nameMatches[0] : nameMatches.find((p) => {
+      const exactNameMatch = nameMatches.find((p) => nameTargets.includes(String(p.name || '').trim().toUpperCase()));
+      const bestNameMatch = exactNameMatch || (nameMatches.length === 1 ? nameMatches[0] : nameMatches.find((p) => {
         const pSupportsB = Boolean(p.supportsClassB === true || p.supportsClassB === 'true');
         const pSupportsC = Boolean(p.supportsClassC === true || p.supportsClassC === 'true');
         if (targetClass === 'C') return pSupportsC;
         if (targetClass === 'B') return pSupportsB;
         return !pSupportsC && !pSupportsB;
-      });
+      }));
 
       const matches = profiles.filter((profile) => {
         const profileRegion = normalizeRegion(profile.region);
@@ -4795,9 +4820,10 @@ export class TestingAdapterController implements OnApplicationBootstrap {
           activeServer = await serverRepo.findOne({ where: { isActive: true } });
         }
         if (activeServer && activeServer.apiUrl && activeServer.apiToken) {
+          const activeServerUrl = this.normalizeUrl(activeServer.apiUrl);
           const targetApp = applicationId || activeServer.applicationId || '';
           if (targetApp) {
-            const csUrl = `${activeServer.apiUrl.replace(/\/+$/, '')}/api/devices?limit=100&applicationId=${encodeURIComponent(targetApp)}`;
+            const csUrl = `${activeServerUrl}/api/devices?limit=100&applicationId=${encodeURIComponent(targetApp)}`;
             const csRes = await fetch(csUrl, {
               headers: {
                 'Accept': 'application/json',
@@ -4923,6 +4949,7 @@ export class TestingAdapterController implements OnApplicationBootstrap {
         const serverRepo = this.databaseService.getRepositoryForTable('lorawan_chirpstack', ChirpstackNetworkServerEntity);
         const activeServer = serverRepo ? await serverRepo.findOne({ where: { isActive: true } }) : null;
         if (activeServer && activeServer.apiUrl && activeServer.apiToken) {
+          const activeServerUrl = this.normalizeUrl(activeServer.apiUrl);
           const authHeaders = {
             'Accept': 'application/json',
             'Grpc-Metadata-Authorization': `Bearer ${activeServer.apiToken}`,
@@ -4931,7 +4958,7 @@ export class TestingAdapterController implements OnApplicationBootstrap {
           const allEuis = Array.from(new Set([...euiList, ...devRows.map(r => (r.dev_eui || '').trim().toUpperCase()).filter(Boolean)]));
           await Promise.allSettled(allEuis.slice(0, 30).map(async (eui) => {
             try {
-              const res = await fetch(`${activeServer.apiUrl.replace(/\/+$/, '')}/api/devices/${encodeURIComponent(eui)}`, {
+              const res = await fetch(`${activeServerUrl}/api/devices/${encodeURIComponent(eui)}`, {
                 headers: authHeaders,
                 signal: AbortSignal.timeout(3000),
               });
@@ -6612,7 +6639,8 @@ export class TestingAdapterController implements OnApplicationBootstrap {
 
         for (const devEui of targets) {
           if (!/^[0-9a-fA-F]{16}$/.test(devEui)) throw new Error(`DevEUI ${block.targetDevice} không hợp lệ`);
-          const response = await fetch(`${server.apiUrl.replace(/\/$/, '')}/api/devices/${encodeURIComponent(devEui)}/queue`, {
+          const serverApiUrl = this.normalizeUrl(server.apiUrl);
+          const response = await fetch(`${serverApiUrl}/api/devices/${encodeURIComponent(devEui)}/queue`, {
             method: block.functionType === 'clear_downlink' ? 'DELETE' : 'POST',
             headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${server.apiToken}` },
             signal: AbortSignal.timeout(10000),
