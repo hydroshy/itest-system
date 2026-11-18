@@ -107,6 +107,36 @@ async function run() {
     assert.strictEqual(manualResult.data.updated, true);
     assert.strictEqual(putCalled, true, 'Should PUT when integration already exists');
 
+    // 4. Test bootstrap with URL without protocol (e.g. 192.168.1.242:3456/lorawan/chirpstack/uplink and server 192.168.1.110:8090)
+    process.env.TESTING_CHIRPSTACK_WEBHOOK_URL = '192.168.1.242:3456/lorawan/chirpstack/uplink';
+    serverEntity.apiUrl = '192.168.1.110:8090';
+
+    let normalizedEventEndpointUrl = '';
+    let normalizedDestinationUrl = '';
+    global.fetch = (async (url: string, opts: any) => {
+      normalizedDestinationUrl = url;
+      if (opts?.body) {
+        const parsed = JSON.parse(opts.body);
+        normalizedEventEndpointUrl = parsed?.integration?.eventEndpointUrl;
+      }
+      if (!opts?.method || opts?.method === 'GET') {
+        return { ok: false, status: 404, text: async () => 'Not Found' };
+      }
+      return { ok: true, status: 200, json: async () => ({}) };
+    }) as any;
+
+    await bootstrapController.onApplicationBootstrap();
+    assert.strictEqual(
+      normalizedDestinationUrl,
+      'http://192.168.1.110:8090/api/applications/app-uuid-999/integrations/http',
+      'Should auto-prefix http:// to server apiUrl when protocol is missing',
+    );
+    assert.strictEqual(
+      normalizedEventEndpointUrl,
+      'http://192.168.1.242:3456/lorawan/chirpstack/uplink',
+      'Should auto-prefix http:// to webhook callbackUrl when protocol is missing',
+    );
+
     console.log('ChirpStack bootstrap registration unit tests passed!');
   } finally {
     global.fetch = originalFetch;

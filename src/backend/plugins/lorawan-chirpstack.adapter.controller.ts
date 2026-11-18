@@ -131,10 +131,18 @@ export class LorawanChirpstackAdapterController implements OnModuleInit {
       throw new BadRequestException('deviceProfileId must be a string when provided');
     }
 
+    const normalizeUrl = (url: string): string => {
+      let clean = (url || '').trim().replace(/\/+$/, '');
+      if (clean && !clean.startsWith('http://') && !clean.startsWith('https://')) {
+        clean = `http://${clean}`;
+      }
+      return clean;
+    };
+
     const ctrl = this.getController();
     return ctrl.addServer({
       name: requireString('name', name),
-      apiUrl: requireString('apiUrl', apiUrl),
+      apiUrl: normalizeUrl(requireString('apiUrl', apiUrl)),
       apiToken: requireString('apiToken', apiToken),
       ...(typeof tenantId === 'string' && tenantId.trim() ? { tenantId: tenantId.trim() } : {}),
       ...(typeof applicationId === 'string' && applicationId.trim() ? { applicationId: applicationId.trim() } : {}),
@@ -155,10 +163,17 @@ export class LorawanChirpstackAdapterController implements OnModuleInit {
       throw new BadRequestException('Request body must be an object');
     }
     const raw = dto as Record<string, unknown>;
+    const normalizeUrl = (url: string): string => {
+      let clean = (url || '').trim().replace(/\/+$/, '');
+      if (clean && !clean.startsWith('http://') && !clean.startsWith('https://')) {
+        clean = `http://${clean}`;
+      }
+      return clean;
+    };
     const ctrl = this.getController();
     const payload = {
       ...(raw.name !== undefined ? { name: String(raw.name).trim() } : {}),
-      ...(raw.apiUrl !== undefined ? { apiUrl: String(raw.apiUrl).trim() } : {}),
+      ...(raw.apiUrl !== undefined ? { apiUrl: normalizeUrl(String(raw.apiUrl)) } : {}),
       ...(raw.apiToken !== undefined ? { apiToken: String(raw.apiToken).trim() } : {}),
       ...(raw.tenantId !== undefined || raw.tenant_id !== undefined ? { tenantId: String(raw.tenantId ?? raw.tenant_id).trim() } : {}),
       ...(raw.applicationId !== undefined || raw.application_id !== undefined ? { applicationId: String(raw.applicationId ?? raw.application_id).trim() } : {}),
