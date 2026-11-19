@@ -327,11 +327,12 @@ async function runTests() {
   const failures: string[] = [];
   const failureErrors: string[] = [];
   const mockNow = new Date().toISOString();
+  let activeStart = mockNow;
   let packetTime = new Date();
   const execMockDs: any = {
     query: async (sql: string, params: any[]) => {
       if (sql.includes('SELECT status, started_at FROM system_schema.device_test_batches')) {
-        return [{ status: 'RUNNING', started_at: mockNow }];
+        return [{ status: 'RUNNING', started_at: activeStart }];
       }
       if (sql.includes('SET simulation_vars')) {
         savedSimVars = JSON.parse(params[2] || '{}');
@@ -375,6 +376,19 @@ async function runTests() {
   assert.strictEqual(savedSimVars['intercept_b'], -100); // 0 - 4 * 25 = -100
   assert.strictEqual(savedSimVars['hex_x1'], '41c80000'); // Float32BE for 25 is 41c80000
   console.log(`✓ executeSimulationFlow executed successfully: x1=${savedSimVars['x1']}, a=${savedSimVars['slope_a']}, b=${savedSimVars['intercept_b']}, hex_x1=${savedSimVars['hex_x1']}`);
+
+  // A scheduled average must wait until uplinks arrive, not run immediately at batch start.
+  const offsetStart = new Date().toISOString();
+  activeStart = offsetStart;
+  const offsetReached = Date.now() + 100;
+  savedSimVars = {};
+  await (controller as any).executeSimulationFlow('batch-simu-123', [
+    { functionType: 'wait_until_offset', offsetSeconds: 0.1 },
+    { functionType: 'average', targetDevice: 'DUT', metric: 'temperature', outputVar: 'after_wait' },
+  ], [{ devEui: '0004A30B001F0001' }], offsetStart);
+  assert.ok(Date.now() >= offsetReached - 20, 'wait_until_offset must hold the flow until its scheduled time');
+  assert.strictEqual(savedSimVars.after_wait, 25);
+  activeStart = mockNow;
 
   // Flow builder stores flat point fields; zero remains a valid coordinate.
   savedSimVars = {};

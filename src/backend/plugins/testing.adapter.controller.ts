@@ -6407,6 +6407,9 @@ export class TestingAdapterController implements OnApplicationBootstrap {
         continue;
       }
       if (block.functionType === 'wait_until_offset') {
+        const offsetSeconds = Number(block.offsetSeconds ?? block.offset_seconds ?? block.startOffsetSeconds ?? 0);
+        const remainingMs = new Date(startedAt || rows[0].started_at).getTime() + offsetSeconds * 1000 - Date.now();
+        if (remainingMs > 0) await new Promise(resolve => setTimeout(resolve, remainingMs));
         continue;
       }
       if (block.functionType === 'device_auto_check') {
