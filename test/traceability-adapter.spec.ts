@@ -78,6 +78,14 @@ async function runTests() {
             soStore.set(entity.id, { ...entity });
             return entity;
           },
+          remove: async (entity: any) => {
+            if (Array.isArray(entity)) {
+              entity.forEach((e) => soStore.delete(e.id));
+              return entity;
+            }
+            soStore.delete(entity.id);
+            return entity;
+          },
           findOne: async ({ where }: any) => {
             for (const so of soStore.values()) {
               if (where.id && so.id === where.id) return so;
@@ -114,6 +122,14 @@ async function runTests() {
           }),
           save: async (entity: any) => {
             waStore.set(entity.id, { ...entity });
+            return entity;
+          },
+          remove: async (entity: any) => {
+            if (Array.isArray(entity)) {
+              entity.forEach((e) => waStore.delete(e.id));
+              return entity;
+            }
+            waStore.delete(entity.id);
             return entity;
           },
           findOne: async ({ where }: any) => {
@@ -171,7 +187,11 @@ async function runTests() {
             return entity;
           },
           remove: async (entity: any) => {
-            deviceStore.delete(entity.id);
+            if (Array.isArray(entity)) {
+              for (const e of entity) deviceStore.delete(e.id);
+            } else {
+              deviceStore.delete(entity.id);
+            }
             return entity;
           },
           findOne: async ({ where }: any) => {
@@ -200,6 +220,13 @@ async function runTests() {
             if (where?.config_status)
               res = res.filter((d) => d.config_status === where.config_status);
             return res.length;
+          },
+          find: async ({ where }: any = {}) => {
+            let res = Array.from(deviceStore.values());
+            if (where?.so_id) res = res.filter((d) => d.so_id === where.so_id);
+            if (where?.wa_id) res = res.filter((d) => d.wa_id === where.wa_id);
+            if (where?.item_code) res = res.filter((d) => d.item_code === where.item_code);
+            return res;
           },
           createQueryBuilder: () => {
             let snFilter: string | null = null;
@@ -562,6 +589,30 @@ async function runTests() {
   });
   assert.strictEqual(sandboxDetail.success, true);
   assert.strictEqual(sandboxDetail.data.name, 'SO/2026/01857');
+
+  // 15. Test SO / WA / ItemCode Extensions
+  console.log('15. Testing SO / WA / ItemCode Extensions (Update SO, Delete SO, Delete WA, Delete ItemCode, Sync DIS)...');
+  
+  // Test Update SO
+  const updatedSoRes = await controller.updateSo(so1.id, { soNumber: 'SO/2026/01855-UPDATED' });
+  assert.strictEqual(updatedSoRes.success, true);
+  assert.strictEqual(updatedSoRes.so.so_number, 'SO/2026/01855-UPDATED');
+
+  // Test Sync DIS SO
+  const syncSoDisRes = await controller.syncSoFromDis(so1.id, { disOdooId: '101856' });
+  assert.strictEqual(syncSoDisRes.success, true);
+
+  // Test Delete Item Code
+  const delItemRes = await controller.deleteItemCode(so1.id, encodeURIComponent('WSLRW-C-RS485-01'));
+  assert.strictEqual(delItemRes.success, true);
+
+  // Test Delete WA
+  const delWaRes = await controller.deleteWa(wa1.id);
+  assert.strictEqual(delWaRes.success, true);
+
+  // Test Delete SO
+  const delSoRes = await controller.deleteSo(so1.id);
+  assert.strictEqual(delSoRes.success, true);
 
   console.log('--- ALL TRACEABILITY V2 & DIS INTEGRATION VERIFICATION TESTS PASSED SUCCESSFULLY! ---');
 }

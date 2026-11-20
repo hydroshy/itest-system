@@ -2322,6 +2322,92 @@ export class TraceabilityAdapterController {
   }
 
   // ==========================================
+  // SO / WA / ITEM MANAGEMENT EXTENSIONS
+  // ==========================================
+
+  @Put(['api/plugins/device-traceability/so/:id', 'api/v1/plugins/device-traceability/so/:id'])
+  async updateSo(
+    @Param('id') id: string,
+    @Body() body: { soNumber?: string; so_number?: string; notes?: string },
+  ) {
+    const soRepo = this.databaseService.getRepositoryForTable('traceability_so', TraceabilitySoEntity);
+    const so = await soRepo.findOne({ where: { id } });
+    if (!so) throw new NotFoundException('SO not found');
+    const newSoNumber = body.soNumber || body.so_number;
+    if (newSoNumber) so.so_number = newSoNumber.trim();
+    if (body.notes !== undefined) so.notes = body.notes;
+    await soRepo.save(so);
+    return { success: true, message: 'SO updated', so };
+  }
+
+  @Delete(['api/plugins/device-traceability/so/:id', 'api/v1/plugins/device-traceability/so/:id'])
+  async deleteSo(@Param('id') id: string) {
+    const soRepo = this.databaseService.getRepositoryForTable('traceability_so', TraceabilitySoEntity);
+    const waRepo = this.databaseService.getRepositoryForTable('traceability_wa', TraceabilityWaEntity);
+    const deviceRepo = this.databaseService.getRepositoryForTable('traceability_device', TraceabilityDeviceEntity);
+    const so = await soRepo.findOne({ where: { id } });
+    if (!so) throw new NotFoundException('SO not found');
+
+    // Cascade delete devices and WAs explicitly if needed, or let repo handle it
+    const devices = await deviceRepo.find({ where: { so_id: id } });
+    if (devices.length > 0) await deviceRepo.remove(devices);
+    const was = await waRepo.find({ where: { so_id: id } });
+    if (was.length > 0) await waRepo.remove(was);
+
+    await soRepo.remove(so);
+    return { success: true, message: 'SO deleted' };
+  }
+
+  @Delete(['api/plugins/device-traceability/wa/:id', 'api/v1/plugins/device-traceability/wa/:id'])
+  async deleteWa(@Param('id') id: string) {
+    const waRepo = this.databaseService.getRepositoryForTable('traceability_wa', TraceabilityWaEntity);
+    const deviceRepo = this.databaseService.getRepositoryForTable('traceability_device', TraceabilityDeviceEntity);
+    const wa = await waRepo.findOne({ where: { id } });
+    if (!wa) throw new NotFoundException('WA not found');
+
+    const devices = await deviceRepo.find({ where: { wa_id: id } });
+    if (devices.length > 0) {
+      // Unlink or delete devices? Let's unlink or delete based on safety
+      await deviceRepo.remove(devices);
+    }
+
+    await waRepo.remove(wa);
+    return { success: true, message: 'WA deleted' };
+  }
+
+  @Delete(['api/plugins/device-traceability/so/:soId/item-code/:code', 'api/v1/plugins/device-traceability/so/:soId/item-code/:code'])
+  async deleteItemCode(@Param('soId') soId: string, @Param('code') code: string) {
+    const deviceRepo = this.databaseService.getRepositoryForTable('traceability_device', TraceabilityDeviceEntity);
+    const decodedCode = decodeURIComponent(code).trim();
+    const devices = await deviceRepo.find({ where: { so_id: soId, item_code: decodedCode } });
+    if (devices.length === 0) throw new NotFoundException('Devices with this ITEM_CODE not found');
+    await deviceRepo.remove(devices);
+    return { success: true, message: `${devices.length} devices deleted` };
+  }
+
+  @Post(['api/plugins/device-traceability/so/:id/sync-dis', 'api/v1/plugins/device-traceability/so/:id/sync-dis'])
+  async syncSoFromDis(
+    @Param('id') id: string,
+    @Body() body: { disOdooId?: string; dis_odoo_id?: string },
+  ) {
+    const soRepo = this.databaseService.getRepositoryForTable('traceability_so', TraceabilitySoEntity);
+    const so = await soRepo.findOne({ where: { id } });
+    if (!so) throw new NotFoundException('SO not found');
+
+    let targetDisId = body.disOdooId || body.dis_odoo_id;
+    if (!targetDisId && so.notes) {
+      const match = so.notes.match(/DIS SO ID:\s*([^\s|]+)/);
+      if (match) targetDisId = match[1];
+    }
+    if (!targetDisId) {
+      targetDisId = so.so_number;
+    }
+
+    const syncResult = await this.syncDisOrderToTraceability(targetDisId);
+    return { success: true, message: 'SO synced from DIS', data: syncResult };
+  }
+
+  // ==========================================
   // BACKWARD COMPATIBILITY ENDPOINTS (ORDERS)
   // ==========================================
 
