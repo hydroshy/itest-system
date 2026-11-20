@@ -222,7 +222,7 @@ export class PreconfigAdapterController {
         modbusRegisterDec: reg.modbusRegisterDec ?? reg.address,
         modbusRegisterHex: reg.modbusRegisterHex || '',
         registerCount: reg.numRegisters ?? 1,
-        description: reg.description || reg.name,
+        description: reg.name || reg.description || '',
         format: reg.format || reg.dataType,
         comment: reg.comment || '',
         endUserDefault: reg.endUserDefault || reg.defaultValue || '',
