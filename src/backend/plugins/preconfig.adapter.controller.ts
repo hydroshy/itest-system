@@ -284,6 +284,12 @@ export class PreconfigAdapterController {
       );
     }
 
+    // Only persist registers that were selected by the user
+    const selectedRegisters = registers.filter((r) => r.selected === true);
+    if (selectedRegisters.length === 0) {
+      throw new BadRequestException('Vui lòng tích chọn ít nhất 1 thanh ghi để lưu cấu hình preconfig');
+    }
+
     const ds = this.databaseService.getDataSourceForTable('preconfig_profile');
     if (!ds) {
       throw new HttpException(
@@ -308,7 +314,7 @@ export class PreconfigAdapterController {
         sku,
         longFw,
         shortFw,
-        registersCount: registers.length,
+        registersCount: selectedRegisters.length,
         createdBy: createdBy?.trim() || null,
         notes: notes?.trim() || null,
         status: status?.trim() || 'active',
@@ -316,7 +322,7 @@ export class PreconfigAdapterController {
 
       const savedProfile = await profileRepo.save(profile);
 
-      const registerEntities = registers.map((r, idx) =>
+      const registerEntities = selectedRegisters.map((r, idx) =>
         registerRepo.create({
           profileId: savedProfile.id,
           rowNumber: r.rowNumber ?? idx + 1,
@@ -329,7 +335,7 @@ export class PreconfigAdapterController {
           endUserDefault: r.endUserDefault || null,
           inputConfig: r.inputConfig || null,
           configCheck: r.configCheck || 'PASS',
-          selected: r.selected !== false,
+          selected: true,
         }),
       );
 
