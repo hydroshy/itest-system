@@ -381,6 +381,7 @@ export class FinalConfigAdapterController {
       return {
         id: savedProfile.id,
         soNumber: savedProfile.soNumber,
+        waNumber: savedProfile.waNumber,
         itemCode: savedProfile.itemCode,
         connectivity: savedProfile.connectivity,
         sku: savedProfile.sku,

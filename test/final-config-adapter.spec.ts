@@ -236,6 +236,7 @@ async function runTests() {
   });
 
   assert.strictEqual(created.soNumber, 'SO/2026/01850');
+  assert.strictEqual(created.waNumber, 'WA/2026/00001');
   assert.strictEqual(created.connectivity, 'LoRaWAN');
   assert.strictEqual(created.sku, 'WSLRW-001');
   assert.strictEqual(created.longFw, '5F1234');
@@ -260,6 +261,13 @@ async function runTests() {
   await assert.rejects(() => controller.resolveCreate('SO/2026/01850', 'WA/2026/00001', 'ITEM-01'),
     (err: any) => err instanceof BadRequestException && err.message === 'Vui lòng liên hệ ENGINEERING');
   mockStorage.traceability_device.pop();
+  mockStorage.traceability_device.length = 0;
+  const newWa = await controller.resolveCreate('SO/2026/01850', 'WA/2026/00001', 'ITEM-01');
+  assert.strictEqual(newWa.memmapId, 'map-1', 'WA without devices uses its only MEMMAP with FW_VERSION');
+  mockStorage.memmap_profiles.push({ id: 'map-2', itemCode: 'ITEM-01', fwVersion: '5F9999', registers: [] });
+  await assert.rejects(() => controller.resolveCreate('SO/2026/01850', 'WA/2026/00001', 'ITEM-01'),
+    (err: any) => err instanceof BadRequestException && err.message === 'Vui lòng liên hệ ENGINEERING');
+  mockStorage.memmap_profiles.pop();
   assert.strictEqual(created.registersCount, 2);
   console.log('✓ Validation and creation flow passed cleanly');
 
