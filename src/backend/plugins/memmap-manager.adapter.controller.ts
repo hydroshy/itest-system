@@ -453,11 +453,11 @@ export class MemmapManagerAdapterController implements OnModuleInit {
 
   private validateFwVersion(fwVersion: string | null | undefined): void {
     if (!fwVersion) return;
-    const trimmed = fwVersion.trim();
+    const trimmed = fwVersion.trim().toUpperCase();
     // Validate format XXFXXXX where X is a digit (^[0-9]+F[0-9]+$)
-    if (!/^[0-9]+F[0-9]+$/i.test(trimmed)) {
+    if (!/^[0-9]+F[0-9]+$/.test(trimmed)) {
       throw new BadRequestException(
-        `FW_VERSION không đúng định dạng. Yêu cầu định dạng XXFXXXX với X là chữ số (ví dụ: 4F0505, 12F0505, 32F0505).`,
+        `FW_VERSION không đúng định dạng. Yêu cầu định dạng XXFXXXX với X là chữ số, F cố định in hoa (ví dụ: 01F0001, 04F0505, 12F0505, 32F0505).`,
       );
     }
   }
@@ -467,9 +467,10 @@ export class MemmapManagerAdapterController implements OnModuleInit {
     const bp = body?.profile || {};
     const c = candidate || {};
 
-    const rawFwVersion = this.optionalText(
+    const rawFw = this.optionalText(
       b.fwVersion ?? b.fw_version ?? b.FW_VERSION ?? bp.fwVersion ?? bp.fw_version ?? bp.FW_VERSION ?? c.fwVersion ?? c.fw_version ?? c.FW_VERSION,
     );
+    const rawFwVersion = rawFw ? rawFw.trim().toUpperCase() : null;
     this.validateFwVersion(rawFwVersion);
 
     return {
