@@ -30,6 +30,10 @@ import {
   TraceabilityTestResult,
   TraceabilityConfigStatus,
 } from '../core-models/traceability-device.entity';
+import { TraceabilitySoEntity } from '../core-models/traceability-so.entity';
+import { TraceabilityWaEntity } from '../core-models/traceability-wa.entity';
+import { MemmapProfileEntity } from '../core-models/memmap-profile.entity';
+import { MemmapRegisterEntity } from '../core-models/memmap-register.entity';
 
 export interface FinalConfigRegisterDto {
   rowNumber?: number;
@@ -47,11 +51,12 @@ export interface FinalConfigRegisterDto {
 
 export interface CreateFinalConfigProfileDto {
   soNumber: string;
+  waNumber: string;
   itemCode: string;
-  connectivity: string;
-  sku: string;
-  longFw: string;
-  shortFw: string;
+  connectivity?: string;
+  sku?: string;
+  longFw?: string;
+  shortFw?: string;
   createdBy?: string;
   notes?: string;
   status?: string;
@@ -112,6 +117,7 @@ export class FinalConfigAdapterController {
       return profiles.map((p) => ({
         id: p.id,
         soNumber: p.soNumber,
+        waNumber: p.waNumber || undefined,
         itemCode: p.itemCode,
         connectivity: p.connectivity,
         sku: p.sku,
@@ -155,6 +161,7 @@ export class FinalConfigAdapterController {
     return {
       id: profile.id,
       soNumber: profile.soNumber,
+      waNumber: profile.waNumber || undefined,
       itemCode: profile.itemCode,
       connectivity: profile.connectivity,
       sku: profile.sku,
@@ -183,6 +190,85 @@ export class FinalConfigAdapterController {
     };
   }
 
+  @Get(['api/plugins/final-config/options', 'api/v1/plugins/final-config/options'])
+  async getCreateOptions(
+    @Query('soNumber') soNumber?: string,
+    @Query('waNumber') waNumber?: string,
+  ) {
+    const soRepo = this.databaseService.getRepositoryForTable('traceability_so', TraceabilitySoEntity);
+    const waRepo = this.databaseService.getRepositoryForTable('traceability_wa', TraceabilityWaEntity);
+    const deviceRepo = this.databaseService.getRepositoryForTable('traceability_device', TraceabilityDeviceEntity);
+    const sos = await soRepo.find();
+    const selectedSo = sos.find((so) => so.so_number === soNumber?.trim());
+    const was = await waRepo.find();
+    const scopedWas = soNumber?.trim() ? was.filter((wa) => wa.so_id === selectedSo?.id) : was;
+    const selectedWa = scopedWas.find((wa) => wa.wa_number === waNumber?.trim());
+    const devices = await deviceRepo.find();
+    const scopedDevices = devices.filter((device) =>
+      waNumber?.trim() ? device.wa_id === selectedWa?.id : soNumber?.trim() ? device.so_id === selectedSo?.id : true,
+    );
+    return {
+      soNumbers: sos.map((so) => so.so_number),
+      waNumbers: scopedWas.map((wa) => wa.wa_number),
+      itemCodes: [...new Set([
+        ...scopedDevices.map((device) => device.item_code),
+        ...scopedWas.filter((wa) => !waNumber?.trim() || wa.id === selectedWa?.id).map((wa) => wa.item_code),
+      ].filter((code): code is string => !!code))],
+    };
+  }
+
+  @Get(['api/plugins/final-config/resolve', 'api/v1/plugins/final-config/resolve'])
+  async resolveCreate(
+    @Query('soNumber') soNumber: string,
+    @Query('waNumber') waNumber: string,
+    @Query('itemCode') itemCode: string,
+  ) {
+    if (!soNumber?.trim() || !waNumber?.trim() || !itemCode?.trim()) {
+      throw new BadRequestException('soNumber, waNumber and itemCode are required');
+    }
+    const soRepo = this.databaseService.getRepositoryForTable('traceability_so', TraceabilitySoEntity);
+    const waRepo = this.databaseService.getRepositoryForTable('traceability_wa', TraceabilityWaEntity);
+    const deviceRepo = this.databaseService.getRepositoryForTable('traceability_device', TraceabilityDeviceEntity);
+    const memmapRepo = this.databaseService.getRepositoryForTable('memmap_profiles', MemmapProfileEntity);
+    const so = await soRepo.findOne({ where: { so_number: soNumber.trim() } });
+    const wa = await waRepo.findOne({ where: { wa_number: waNumber.trim() } });
+    if (!so || !wa || wa.so_id !== so.id) throw new BadRequestException('SO_NUMBER/WA_NUMBER không hợp lệ');
+    const devices = await deviceRepo.find({ where: { so_id: so.id, item_code: itemCode.trim() } });
+    const scoped = devices.filter((device) => device.wa_id === wa.id);
+    if (!scoped.length && wa.item_code !== itemCode.trim()) {
+      throw new BadRequestException('ITEM_CODE không thuộc SO_NUMBER/WA_NUMBER đã chọn');
+    }
+    let versions = [...new Set(scoped.map((device) => device.fw_version?.trim()).filter((fw): fw is string => !!fw))];
+    let candidate: MemmapProfileEntity | null = null;
+    if (scoped.length > 0 && scoped.every((device) => !!device.fw_version?.trim()) && versions.length === 1) {
+      candidate = await memmapRepo.findOne({ where: { itemCode: itemCode.trim(), fwVersion: versions[0] }, relations: ['registers'] });
+    } else if (!scoped.length) {
+      // WA has no devices yet: check if exactly 1 unique memmap profile exists for this item_code
+      const memmaps = await memmapRepo.find({ where: { itemCode: itemCode.trim() }, relations: ['registers'] });
+      if (memmaps.length === 1 && memmaps[0].fwVersion) {
+        candidate = memmaps[0];
+      }
+    }
+    if (!candidate) throw new BadRequestException('Vui lòng liên hệ ENGINEERING');
+    return {
+      memmapId: candidate.id,
+      fwVersion: candidate.fwVersion,
+      sku: candidate.sku || itemCode.trim(),
+      longFw: candidate.longFw || candidate.fwVersion,
+      connectivity: candidate.sku?.toUpperCase().startsWith('WSSFC-') ? 'Sigfox' : 'LoRaWAN',
+      registers: (candidate.registers || []).map((reg: MemmapRegisterEntity, index: number) => ({
+        rowNumber: reg.no ?? index + 1,
+        modbusRegisterDec: reg.modbusRegisterDec ?? reg.address,
+        modbusRegisterHex: reg.modbusRegisterHex || '',
+        registerCount: reg.numRegisters ?? 1,
+        description: reg.description || reg.name,
+        format: reg.format || reg.dataType,
+        comment: reg.comment || '',
+        endUserDefault: reg.endUserDefault || reg.defaultValue || '',
+      })),
+    };
+  }
+
   @Post(['api/plugins/final-config/profiles', 'api/v1/plugins/final-config/profiles'])
   async createProfile(@Body() body: CreateFinalConfigProfileDto) {
     if (!body) {
@@ -191,11 +277,9 @@ export class FinalConfigAdapterController {
 
     const {
       soNumber,
+      waNumber,
       itemCode,
-      connectivity,
-      sku,
-      longFw,
-      shortFw,
+      connectivity: requestedConnectivity,
       createdBy,
       notes,
       status,
@@ -210,21 +294,21 @@ export class FinalConfigAdapterController {
       throw new BadRequestException('Invalid SO_NUMBER format (expected format: SO/YYYY/XXXXX, e.g. SO/2026/01850)');
     }
 
+    if (!waNumber || typeof waNumber !== 'string') {
+      throw new BadRequestException('waNumber is required');
+    }
     if (!itemCode || typeof itemCode !== 'string') {
       throw new BadRequestException('itemCode is required');
     }
 
-    if (!connectivity || (connectivity !== 'LoRaWAN' && connectivity !== 'Sigfox')) {
+    const resolved = await this.resolveCreate(soNumber, waNumber, itemCode);
+    const { sku, longFw } = resolved;
+    if (requestedConnectivity && requestedConnectivity !== 'LoRaWAN' && requestedConnectivity !== 'Sigfox') {
       throw new BadRequestException('connectivity must be either "LoRaWAN" or "Sigfox"');
     }
-
-    if (!sku || typeof sku !== 'string') {
-      throw new BadRequestException('sku is required');
-    }
-
-    if (!longFw || typeof longFw !== 'string') {
-      throw new BadRequestException('longFw is required');
-    }
+    const connectivity = requestedConnectivity || resolved.connectivity;
+    const shortFw = longFw?.charAt(0) || '';
+    if (!longFw || !sku) throw new BadRequestException('Vui lòng liên hệ ENGINEERING');
 
     if (!Array.isArray(registers) || registers.length === 0) {
       throw new BadRequestException('registers array is required and must not be empty');
@@ -260,6 +344,7 @@ export class FinalConfigAdapterController {
 
       const profile = profileRepo.create({
         soNumber: soNumber.trim(),
+        waNumber: waNumber.trim(),
         itemCode: itemCode.trim(),
         connectivity,
         sku: sku.trim(),

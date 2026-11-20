@@ -68,6 +68,10 @@ async function runTests() {
   // 2. Controller Validation Tests (SO regex, connectivity, FAIL registers)
   console.log('2. Verifying Controller Validation & Logic...');
   const mockStorage: Record<string, any[]> = {
+    traceability_so: [{ id: 'so-1', so_number: 'SO/2026/01850' }],
+    traceability_wa: [{ id: 'wa-1', so_id: 'so-1', wa_number: 'WA/2026/00001', item_code: 'ITEM-01' }],
+    traceability_device: [{ so_id: 'so-1', wa_id: 'wa-1', item_code: 'ITEM-01', fw_version: '5F1234' }],
+    memmap_profiles: [{ id: 'map-1', itemCode: 'ITEM-01', fwVersion: '5F1234', sku: 'WSLRW-001', longFw: '5F1234', registers: [{ address: 303, name: 'Reg 1', numRegisters: 1 }] }],
     finalconfig_profile: [],
     finalconfig_regs: [],
     finalconfig_execution_session: [],
@@ -164,6 +168,7 @@ async function runTests() {
   try {
     await controller.createProfile({
       soNumber: 'INVALID_SO',
+      waNumber: 'WA/2026/00001',
       itemCode: 'ITEM-1',
       connectivity: 'LoRaWAN',
       sku: 'SKU-001',
@@ -181,7 +186,8 @@ async function runTests() {
   try {
     await controller.createProfile({
       soNumber: 'SO/2026/01850',
-      itemCode: 'ITEM-1',
+      waNumber: 'WA/2026/00001',
+      itemCode: 'ITEM-01',
       connectivity: 'WiFi' as any,
       sku: 'SKU-001',
       longFw: 'FW123',
@@ -198,7 +204,8 @@ async function runTests() {
   try {
     await controller.createProfile({
       soNumber: 'SO/2026/01850',
-      itemCode: 'ITEM-1',
+      waNumber: 'WA/2026/00001',
+      itemCode: 'ITEM-01',
       connectivity: 'LoRaWAN',
       sku: 'SKU-001',
       longFw: 'FW123',
@@ -216,6 +223,7 @@ async function runTests() {
   // Success profile creation
   const created = await controller.createProfile({
     soNumber: 'SO/2026/01850',
+    waNumber: 'WA/2026/00001',
     itemCode: 'ITEM-01',
     connectivity: 'LoRaWAN',
     sku: 'SKU-XYZ',
@@ -229,6 +237,29 @@ async function runTests() {
 
   assert.strictEqual(created.soNumber, 'SO/2026/01850');
   assert.strictEqual(created.connectivity, 'LoRaWAN');
+  assert.strictEqual(created.sku, 'WSLRW-001');
+  assert.strictEqual(created.longFw, '5F1234');
+  assert.deepStrictEqual(await controller.getCreateOptions('SO/2026/01850', 'WA/2026/00001'), {
+    soNumbers: ['SO/2026/01850'], waNumbers: ['WA/2026/00001'], itemCodes: ['ITEM-01'],
+  });
+  const resolved = await controller.resolveCreate('SO/2026/01850', 'WA/2026/00001', 'ITEM-01');
+  assert.strictEqual(resolved.memmapId, 'map-1');
+  assert.strictEqual(resolved.fwVersion, '5F1234');
+  mockStorage.memmap_profiles.length = 0;
+  await assert.rejects(() => controller.resolveCreate('SO/2026/01850', 'WA/2026/00001', 'ITEM-01'),
+    (err: any) => err instanceof BadRequestException && err.message === 'Vui lòng liên hệ ENGINEERING');
+  await assert.rejects(() => controller.createProfile({
+    soNumber: 'SO/2026/01850', waNumber: 'WA/2026/00001', itemCode: 'ITEM-01', registers: [
+      { modbusRegisterDec: 303, modbusRegisterHex: '0x012F', registerCount: 1, description: 'Reg 1' },
+    ],
+  }), (err: any) => err instanceof BadRequestException && err.message === 'Vui lòng liên hệ ENGINEERING');
+  mockStorage.memmap_profiles.push({ id: 'map-1', itemCode: 'ITEM-01', fwVersion: '5F1234', sku: 'WSLRW-001', longFw: '5F1234', registers: [] });
+  await assert.rejects(() => controller.resolveCreate('SO/2026/01850', 'WA/OTHER', 'ITEM-01'),
+    (err: any) => err instanceof BadRequestException && err.message.includes('SO_NUMBER/WA_NUMBER'));
+  mockStorage.traceability_device.push({ so_id: 'so-1', wa_id: 'wa-1', item_code: 'ITEM-01', fw_version: '5F9999' });
+  await assert.rejects(() => controller.resolveCreate('SO/2026/01850', 'WA/2026/00001', 'ITEM-01'),
+    (err: any) => err instanceof BadRequestException && err.message === 'Vui lòng liên hệ ENGINEERING');
+  mockStorage.traceability_device.pop();
   assert.strictEqual(created.registersCount, 2);
   console.log('✓ Validation and creation flow passed cleanly');
 

@@ -20,6 +20,10 @@ export class FinalConfigProfileEntity {
   @Column({ name: 'so_number', type: 'varchar', length: 50 })
   soNumber: string;
 
+  @Index('idx_finalconfig_profile_wa')
+  @Column({ name: 'wa_number', type: 'varchar', length: 50, nullable: true })
+  waNumber?: string | null;
+
   @Column({ name: 'item_code', type: 'varchar', length: 100 })
   itemCode: string;
 
