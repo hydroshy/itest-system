@@ -591,24 +591,36 @@ async function runTests() {
   assert.strictEqual(sandboxDetail.data.name, 'SO/2026/01857');
 
   // 15. Test SO / WA / ItemCode Extensions
-  console.log('15. Testing SO / WA / ItemCode Extensions (Update SO, Delete SO, Delete WA, Delete ItemCode, Sync DIS)...');
+  console.log('15. Testing SO / WA / ItemCode Extensions (Update SO, Update WA, Delete SO, Delete WA, Delete ItemCode, Sync DIS)...');
   
   // Test Update SO
   const updatedSoRes = await controller.updateSo(so1.id, { soNumber: 'SO/2026/01855-UPDATED' });
   assert.strictEqual(updatedSoRes.success, true);
   assert.strictEqual(updatedSoRes.so.so_number, 'SO/2026/01855-UPDATED');
 
+  // Test Update WA
+  const updatedWaRes = await controller.updateWa(wa1.id, { waNumber: 'WA/2026/09999', plannedQuantity: 150 });
+  assert.strictEqual(updatedWaRes.success, true);
+  assert.strictEqual(updatedWaRes.wa.wa_number, 'WA/2026/09999');
+  assert.strictEqual(updatedWaRes.wa.planned_quantity, 150);
+
   // Test Sync DIS SO
   const syncSoDisRes = await controller.syncSoFromDis(so1.id, { disOdooId: '101856' });
   assert.strictEqual(syncSoDisRes.success, true);
 
-  // Test Delete Item Code
+  // Test Delete WA
+  const extraWa = await controller.createWorkAuthorization({
+    soId: so1.id,
+    waNumber: 'WA/2026/08888',
+    itemCode: 'WSLRW-C-RS485-EXTRA',
+    plannedQuantity: 10,
+  });
+  const delWaRes = await controller.deleteWa(extraWa.id);
+  assert.strictEqual(delWaRes.success, true);
+
+  // Test Delete Item Code (both WAs and devices)
   const delItemRes = await controller.deleteItemCode(so1.id, encodeURIComponent('WSLRW-C-RS485-01'));
   assert.strictEqual(delItemRes.success, true);
-
-  // Test Delete WA
-  const delWaRes = await controller.deleteWa(wa1.id);
-  assert.strictEqual(delWaRes.success, true);
 
   // Test Delete SO
   const delSoRes = await controller.deleteSo(so1.id);

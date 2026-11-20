@@ -2358,6 +2358,55 @@ export class TraceabilityAdapterController {
     return { success: true, message: 'SO deleted' };
   }
 
+  @Put(['api/plugins/device-traceability/wa/:id', 'api/v1/plugins/device-traceability/wa/:id'])
+  async updateWa(
+    @Param('id') id: string,
+    @Body()
+    body: {
+      waNumber?: string;
+      wa_number?: string;
+      itemCode?: string;
+      item_code?: string;
+      plannedQuantity?: number;
+      planned_quantity?: number;
+      notes?: string;
+    },
+  ) {
+    const waRepo = this.databaseService.getRepositoryForTable('traceability_wa', TraceabilityWaEntity);
+    const wa = await waRepo.findOne({ where: { id } });
+    if (!wa) throw new NotFoundException('WA not found');
+
+    const newWaNumber = body.waNumber || body.wa_number;
+    if (newWaNumber && newWaNumber.trim() !== wa.wa_number) {
+      const waRegex = /^WA\/\d{4}\/\d{5}$/;
+      if (!waRegex.test(newWaNumber.trim())) {
+        throw new BadRequestException('Invalid WA_NUMBER format (expected: WA/YYYY/XXXXX)');
+      }
+      const existing = await waRepo.findOne({ where: { wa_number: newWaNumber.trim() } });
+      if (existing && existing.id !== id) {
+        throw new BadRequestException(`WA_NUMBER "${newWaNumber.trim()}" already exists`);
+      }
+      wa.wa_number = newWaNumber.trim();
+    }
+
+    const newItemCode = body.itemCode || body.item_code;
+    if (newItemCode !== undefined) {
+      wa.item_code = newItemCode.trim();
+    }
+
+    const newQty = body.plannedQuantity ?? body.planned_quantity;
+    if (newQty !== undefined) {
+      wa.planned_quantity = Number(newQty) || 0;
+    }
+
+    if (body.notes !== undefined) {
+      wa.notes = body.notes;
+    }
+
+    await waRepo.save(wa);
+    return { success: true, message: 'WA updated', wa };
+  }
+
   @Delete(['api/plugins/device-traceability/wa/:id', 'api/v1/plugins/device-traceability/wa/:id'])
   async deleteWa(@Param('id') id: string) {
     const waRepo = this.databaseService.getRepositoryForTable('traceability_wa', TraceabilityWaEntity);
@@ -2367,7 +2416,6 @@ export class TraceabilityAdapterController {
 
     const devices = await deviceRepo.find({ where: { wa_id: id } });
     if (devices.length > 0) {
-      // Unlink or delete devices? Let's unlink or delete based on safety
       await deviceRepo.remove(devices);
     }
 
@@ -2377,12 +2425,38 @@ export class TraceabilityAdapterController {
 
   @Delete(['api/plugins/device-traceability/so/:soId/item-code/:code', 'api/v1/plugins/device-traceability/so/:soId/item-code/:code'])
   async deleteItemCode(@Param('soId') soId: string, @Param('code') code: string) {
+    const waRepo = this.databaseService.getRepositoryForTable('traceability_wa', TraceabilityWaEntity);
     const deviceRepo = this.databaseService.getRepositoryForTable('traceability_device', TraceabilityDeviceEntity);
     const decodedCode = decodeURIComponent(code).trim();
-    const devices = await deviceRepo.find({ where: { so_id: soId, item_code: decodedCode } });
-    if (devices.length === 0) throw new NotFoundException('Devices with this ITEM_CODE not found');
-    await deviceRepo.remove(devices);
-    return { success: true, message: `${devices.length} devices deleted` };
+
+    // 1. Find WAs belonging to this SO and item code
+    const was = await waRepo.find({ where: { so_id: soId, item_code: decodedCode } });
+    const waIds = was.map((w) => w.id);
+
+    // 2. Find Devices directly having item_code or linked to one of these WAs
+    const allSoDevices = await deviceRepo.find({ where: { so_id: soId } });
+    const matchingDevices = allSoDevices.filter(
+      (d) => (d.item_code && d.item_code.trim() === decodedCode) || (d.wa_id && waIds.includes(d.wa_id)),
+    );
+
+    if (was.length === 0 && matchingDevices.length === 0) {
+      throw new NotFoundException(`No WA or devices found for ITEM_CODE "${decodedCode}" under SO "${soId}"`);
+    }
+
+    if (matchingDevices.length > 0) {
+      await deviceRepo.remove(matchingDevices);
+    }
+
+    if (was.length > 0) {
+      await waRepo.remove(was);
+    }
+
+    return {
+      success: true,
+      message: `Deleted ${was.length} WAs and ${matchingDevices.length} devices for ITEM_CODE "${decodedCode}"`,
+      deletedWas: was.length,
+      deletedDevices: matchingDevices.length,
+    };
   }
 
   @Post(['api/plugins/device-traceability/so/:id/sync-dis', 'api/v1/plugins/device-traceability/so/:id/sync-dis'])
