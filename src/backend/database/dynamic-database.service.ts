@@ -15,6 +15,8 @@ import { FinalConfigProfileEntity } from '../core-models/finalconfig-profile.ent
 import { FinalConfigRegisterEntity } from '../core-models/finalconfig-register.entity';
 import { FinalConfigExecutionSessionEntity } from '../core-models/finalconfig-execution-session.entity';
 import { FinalConfigExecutionLogEntity } from '../core-models/finalconfig-execution-log.entity';
+import { PreconfigProfileEntity } from '../core-models/preconfig-profile.entity';
+import { PreconfigRegisterEntity } from '../core-models/preconfig-register.entity';
 import { TraceabilitySoEntity } from '../core-models/traceability-so.entity';
 import { TraceabilityWaEntity } from '../core-models/traceability-wa.entity';
 import { TraceabilityOrderEntity } from '../core-models/traceability-order.entity';
@@ -40,6 +42,8 @@ export const ALL_DATABASE_ENTITIES = [
   FinalConfigRegisterEntity,
   FinalConfigExecutionSessionEntity,
   FinalConfigExecutionLogEntity,
+  PreconfigProfileEntity,
+  PreconfigRegisterEntity,
   TraceabilitySoEntity,
   TraceabilityWaEntity,
   TraceabilityOrderEntity,

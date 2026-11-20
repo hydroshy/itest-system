@@ -34,6 +34,8 @@
     "decoder_scripts": "core_db",
     "device_test_batches": "core_db",
     "device_test_batch_items": "core_db",
-    "so_test_batches": "core_db"
+    "so_test_batches": "core_db",
+    "preconfig_profile": "core_db",
+    "preconfig_regs": "core_db"
   }
 }

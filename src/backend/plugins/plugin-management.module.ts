@@ -7,6 +7,7 @@ import { PluginManagerController } from './plugin-manager.controller';
 import { LorawanChirpstackAdapterController } from './lorawan-chirpstack.adapter.controller';
 import { MemmapManagerAdapterController } from './memmap-manager.adapter.controller';
 import { FinalConfigAdapterController } from './final-config.adapter.controller';
+import { PreconfigAdapterController } from './preconfig.adapter.controller';
 import { TraceabilityAdapterController } from './traceability.adapter.controller';
 import { DisManagerAdapterController } from './dis-manager.adapter.controller';
 import { TestingAdapterController } from './testing.adapter.controller';
@@ -22,6 +23,7 @@ import { DisClientService } from './dis-client/dis-client.service';
     LorawanChirpstackAdapterController,
     MemmapManagerAdapterController,
     FinalConfigAdapterController,
+    PreconfigAdapterController,
     TraceabilityAdapterController,
     DisManagerAdapterController,
     TestingAdapterController,
