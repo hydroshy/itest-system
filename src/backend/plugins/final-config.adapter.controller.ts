@@ -66,6 +66,7 @@ export interface CreateFinalConfigProfileDto {
 export interface CreateExecutionSessionDto {
   deviceId?: string;
   serialNumber?: string;
+  operator?: string;
   metadata?: Record<string, any>;
 }
 
@@ -463,6 +464,7 @@ export class FinalConfigAdapterController {
       profileId,
       deviceId: body?.deviceId || null,
       serialNumber: body?.serialNumber || null,
+      operator: body?.operator || (body as any)?.config_person || (body as any)?.configuredBy || null,
       status: FinalConfigSessionStatus.IN_PROGRESS,
       currentStep: 0,
       totalSteps: selectedCount,
@@ -840,6 +842,7 @@ export class FinalConfigAdapterController {
             profileId,
             deviceId: device.id,
             serialNumber: device.serial_number,
+            operator: operatorName,
             status: isPass
               ? FinalConfigSessionStatus.COMPLETED
               : FinalConfigSessionStatus.FAILED,
@@ -864,15 +867,22 @@ export class FinalConfigAdapterController {
         this.logger.warn(`Could not create FinalConfigExecutionSession: ${sessErr.message}`);
       }
 
+      // Populate dedicated fields on device
+      if (appKeyValue) {
+        device.app_key = appKeyValue;
+      }
+      device.config_person = operatorName;
+      device.configured_at = new Date();
+
       const rawData: Record<string, any> = {
         ...(device.test_raw_data || {}),
-        app_key: appKeyValue || (device.test_raw_data as any)?.app_key || null,
+        app_key: appKeyValue || device.app_key || (device.test_raw_data as any)?.app_key || null,
         final_config_audit: {
           saved_at: new Date().toISOString(),
           status: isPass ? 'PASS' : 'FAIL',
           operator: operatorName,
           configured_by: operatorName,
-          app_key: appKeyValue || null,
+          app_key: appKeyValue || device.app_key || null,
           registers: body.registers || body.audit_registers || [],
           sku: body.sku || device.sku,
           item_code: body.item_code || device.item_code,
@@ -896,8 +906,10 @@ export class FinalConfigAdapterController {
           serial_number: device.serial_number,
           config_status: device.config_status,
           final_config_session_id: device.final_config_session_id,
-          app_key: appKeyValue || null,
+          app_key: device.app_key,
           operator: operatorName,
+          config_person: operatorName,
+          configured_at: device.configured_at,
         },
       };
     } catch (error: any) {
@@ -948,6 +960,7 @@ export class FinalConfigAdapterController {
         app_key: appKey,
       };
 
+      device.app_key = appKey;
       device.test_raw_data = rawData;
       await deviceRepo.save(device);
 

@@ -56,6 +56,9 @@ export class FinalConfigExecutionSessionEntity {
   @Column({ name: 'completed_at', type: 'timestamptz', nullable: true })
   completedAt: Date | null;
 
+  @Column({ name: 'operator', type: 'varchar', length: 100, nullable: true })
+  operator: string | null;
+
   @Column({ name: 'error_message', type: 'text', nullable: true })
   errorMessage: string | null;
 

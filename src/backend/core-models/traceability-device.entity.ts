@@ -110,6 +110,16 @@ export class TraceabilityDeviceEntity {
   @Column({ name: 'final_config_session_id', type: 'uuid', nullable: true })
   final_config_session_id: string | null;
 
+  @Index('idx_traceability_device_app_key')
+  @Column({ name: 'app_key', type: 'varchar', length: 64, nullable: true })
+  app_key: string | null;
+
+  @Column({ name: 'config_person', type: 'varchar', length: 100, nullable: true })
+  config_person: string | null;
+
+  @Column({ name: 'configured_at', type: 'timestamptz', nullable: true })
+  configured_at: Date | null;
+
   @Column({
     name: 'config_status',
     type: 'varchar',

@@ -547,6 +547,27 @@ export class TraceabilityAdapterController {
 
       const mapDeviceNode = (dev: TraceabilityDeviceEntity) => {
         const devWa = dev.wa_id ? waMap.get(dev.wa_id) : undefined;
+        const rawData = (dev.test_raw_data as Record<string, any>) || {};
+        const audit = (rawData.final_config_audit as Record<string, any>) || {};
+        const resolvedAppKey =
+          dev.app_key ||
+          rawData.app_key ||
+          audit.app_key ||
+          (rawData.lorawan && rawData.lorawan.app_key) ||
+          null;
+        const resolvedConfiguredBy =
+          dev.config_person ||
+          audit.configured_by ||
+          audit.operator ||
+          rawData.configured_by ||
+          rawData.config_person ||
+          null;
+        const resolvedConfiguredAt =
+          dev.configured_at ||
+          audit.saved_at ||
+          audit.configured_at ||
+          null;
+
         return {
           id: dev.id,
           soId: dev.so_id,
@@ -557,6 +578,14 @@ export class TraceabilityAdapterController {
           code: dev.serial_number,
           serialNumber: dev.serial_number,
           devEui: dev.dev_eui,
+          appKey: resolvedAppKey,
+          app_key: resolvedAppKey,
+          configPerson: resolvedConfiguredBy,
+          config_person: resolvedConfiguredBy,
+          configuredBy: resolvedConfiguredBy,
+          configured_by: resolvedConfiguredBy,
+          configuredAt: resolvedConfiguredAt,
+          configured_at: resolvedConfiguredAt,
           itemCode: dev.item_code,
           sku: dev.sku,
           hwVersion: dev.hw_version,
@@ -1240,15 +1269,22 @@ export class TraceabilityAdapterController {
           const rawData = (d.test_raw_data as Record<string, any>) || {};
           const audit = (rawData.final_config_audit as Record<string, any>) || {};
           const resolvedAppKey =
+            d.app_key ||
             rawData.app_key ||
             audit.app_key ||
             (rawData.lorawan && rawData.lorawan.app_key) ||
             null;
           const resolvedConfiguredBy =
+            d.config_person ||
             audit.configured_by ||
             audit.operator ||
             rawData.configured_by ||
             rawData.config_person ||
+            null;
+          const resolvedConfiguredAt =
+            d.configured_at ||
+            audit.saved_at ||
+            audit.configured_at ||
             null;
 
           return {
@@ -1277,8 +1313,12 @@ export class TraceabilityAdapterController {
             configStatus: d.config_status,
             appKey: resolvedAppKey,
             app_key: resolvedAppKey,
+            configPerson: resolvedConfiguredBy,
+            config_person: resolvedConfiguredBy,
             configuredBy: resolvedConfiguredBy,
             configured_by: resolvedConfiguredBy,
+            configuredAt: resolvedConfiguredAt,
+            configured_at: resolvedConfiguredAt,
             status: d.status,
             createdAt: d.created_at,
             updatedAt: d.updated_at,
@@ -1914,17 +1954,27 @@ export class TraceabilityAdapterController {
           const rawData = (d.test_raw_data as Record<string, any>) || {};
           const audit = (rawData.final_config_audit as Record<string, any>) || {};
           const resolvedAppKey =
+            d.app_key ||
             rawData.app_key ||
             audit.app_key ||
             session?.metadata?.app_key ||
             (rawData.lorawan && rawData.lorawan.app_key) ||
             null;
           const resolvedOperator =
-            session?.metadata?.operator ||
+            d.config_person ||
             session?.operator ||
+            session?.metadata?.operator ||
             audit.configured_by ||
             audit.operator ||
             rawData.configured_by ||
+            rawData.config_person ||
+            null;
+          const resolvedConfiguredAt =
+            d.configured_at ||
+            session?.completedAt ||
+            session?.createdAt ||
+            audit.saved_at ||
+            audit.configured_at ||
             null;
 
           return {
@@ -1947,7 +1997,12 @@ export class TraceabilityAdapterController {
             app_key: resolvedAppKey,
             sessionProfile: session?.profileName,
             operator: resolvedOperator,
+            configPerson: resolvedOperator,
+            config_person: resolvedOperator,
             configuredBy: resolvedOperator,
+            configured_by: resolvedOperator,
+            configuredAt: resolvedConfiguredAt,
+            configured_at: resolvedConfiguredAt,
             registersVerified: session?.totalVerifiedRegisters || (audit.registers ? audit.registers.length : undefined),
             sessionSummary: session?.summary,
             status: d.status,
@@ -2012,6 +2067,27 @@ export class TraceabilityAdapterController {
         throw new NotFoundException('Device not found matching the criteria');
       }
 
+      const rawData = (device.test_raw_data as Record<string, any>) || {};
+      const audit = (rawData.final_config_audit as Record<string, any>) || {};
+      const resolvedAppKey =
+        device.app_key ||
+        rawData.app_key ||
+        audit.app_key ||
+        (rawData.lorawan && rawData.lorawan.app_key) ||
+        null;
+      const resolvedConfiguredBy =
+        device.config_person ||
+        audit.configured_by ||
+        audit.operator ||
+        rawData.configured_by ||
+        rawData.config_person ||
+        null;
+      const resolvedConfiguredAt =
+        device.configured_at ||
+        audit.saved_at ||
+        audit.configured_at ||
+        null;
+
       return {
         id: device.id,
         soId: device.so_id,
@@ -2033,6 +2109,14 @@ export class TraceabilityAdapterController {
         testRawData: device.test_raw_data,
         finalConfigSessionId: device.final_config_session_id,
         configStatus: device.config_status,
+        appKey: resolvedAppKey,
+        app_key: resolvedAppKey,
+        configPerson: resolvedConfiguredBy,
+        config_person: resolvedConfiguredBy,
+        configuredBy: resolvedConfiguredBy,
+        configured_by: resolvedConfiguredBy,
+        configuredAt: resolvedConfiguredAt,
+        configured_at: resolvedConfiguredAt,
         status: device.status,
         createdAt: device.created_at,
         updatedAt: device.updated_at,
@@ -2129,15 +2213,22 @@ export class TraceabilityAdapterController {
           const rawData = (device.test_raw_data as Record<string, any>) || {};
           const audit = (rawData.final_config_audit as Record<string, any>) || {};
           const resolvedAppKey =
+            device.app_key ||
             rawData.app_key ||
             audit.app_key ||
             (rawData.lorawan && rawData.lorawan.app_key) ||
             null;
           const resolvedOperator =
+            device.config_person ||
             audit.configured_by ||
             audit.operator ||
             rawData.configured_by ||
             rawData.config_person ||
+            null;
+          const resolvedConfiguredAt =
+            device.configured_at ||
+            audit.saved_at ||
+            audit.configured_at ||
             null;
 
           return {
@@ -2163,7 +2254,12 @@ export class TraceabilityAdapterController {
               appKey: resolvedAppKey,
               app_key: resolvedAppKey,
               operator: resolvedOperator,
+              configPerson: resolvedOperator,
+              config_person: resolvedOperator,
               configuredBy: resolvedOperator,
+              configured_by: resolvedOperator,
+              configuredAt: resolvedConfiguredAt,
+              configured_at: resolvedConfiguredAt,
               status: device.status,
               createdAt: device.created_at,
               updatedAt: device.updated_at,
@@ -2254,6 +2350,9 @@ export class TraceabilityAdapterController {
           testPerson: device.test_person || raw.testPerson || raw.test_person || '—',
           testedAt: device.tested_at || raw.testedAt || raw.finished_at || null,
           batchCode: raw.batchCode || raw.batch_code || '—',
+          appKey: device.app_key || raw.app_key || (raw.final_config_audit && raw.final_config_audit.app_key) || null,
+          configPerson: device.config_person || (raw.final_config_audit && raw.final_config_audit.operator) || null,
+          configuredAt: device.configured_at || (raw.final_config_audit && raw.final_config_audit.saved_at) || null,
           metrics: {
             avgCycle,
             avgRssi,
