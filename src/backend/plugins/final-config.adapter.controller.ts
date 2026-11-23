@@ -12,6 +12,7 @@ import {
   Patch,
   Post,
   Query,
+  Req,
 } from '@nestjs/common';
 import { DynamicDatabaseService } from '../database/dynamic-database.service';
 import { FinalConfigProfileEntity } from '../core-models/finalconfig-profile.entity';
@@ -773,10 +774,28 @@ export class FinalConfigAdapterController {
     'api/c-modules/final-config-manager/devices',
     'api/v1/c-modules/final-config-manager/devices',
   ])
-  async saveFinalConfigResult(@Body() body: any) {
+  async saveFinalConfigResult(@Body() body: any, @Req() req: any) {
     const sn = (body.serial_number || body.serialNumber || '').trim();
     if (!sn) {
       throw new BadRequestException('serial_number is required');
+    }
+
+    // Extract operator from authenticated user or Bearer JWT token if available
+    let authUsername = '';
+    if (req?.user?.username) {
+      authUsername = req.user.username;
+    } else {
+      const authHeader = req?.headers?.authorization || req?.headers?.Authorization;
+      if (authHeader && typeof authHeader === 'string' && authHeader.startsWith('Bearer ')) {
+        const token = authHeader.substring(7).trim();
+        try {
+          const parts = token.split('.');
+          if (parts.length === 3) {
+            const payload = JSON.parse(Buffer.from(parts[1], 'base64').toString('utf8'));
+            if (payload.username) authUsername = payload.username;
+          }
+        } catch {}
+      }
     }
 
     try {
@@ -803,6 +822,10 @@ export class FinalConfigAdapterController {
         : TraceabilityConfigStatus.CONFIGURED_FAIL;
 
       const operatorName = (
+        authUsername ||
+        (body.operator && body.operator !== 'admin' ? body.operator : '') ||
+        (body.configured_by && body.configured_by !== 'admin' ? body.configured_by : '') ||
+        (body.configuredBy && body.configuredBy !== 'admin' ? body.configuredBy : '') ||
         body.operator ||
         body.configured_by ||
         body.configuredBy ||
