@@ -616,8 +616,11 @@ export class FinalConfigAdapterController {
     'api/v1/plugins/final-config/lookup-device-info',
     'api/device-tested/verify',
     'api/v1/device-tested/verify',
+    'api/device-tested/by-sn/:sn',
+    'api/v1/device-tested/by-sn/:sn',
   ])
   async lookupDeviceInfo(
+    @Param('sn') snParam?: string,
     @Query('sn') snQuery?: string,
     @Query('serial_number') serialNumberQuery?: string,
     @Query('devEui') devEuiQuery?: string,
@@ -627,7 +630,7 @@ export class FinalConfigAdapterController {
     @Query('item_code') itemCodeAltQuery?: string,
     @Query('so') soQuery?: string,
   ) {
-    const sn = (snQuery || serialNumberQuery || '').trim();
+    const sn = (snParam || snQuery || serialNumberQuery || '').trim();
     const devEui = (devEuiQuery || devEuiAltQuery || deviceKeyQuery || '').trim();
 
     if (!sn && !devEui) {
@@ -664,6 +667,23 @@ export class FinalConfigAdapterController {
 
       const isPass = device.test_result === TraceabilityTestResult.PASS;
 
+      const recordData = {
+        id: device.id,
+        serial_number: device.serial_number,
+        dev_eui: device.dev_eui,
+        so: device.so?.so_number || '',
+        so_number: device.so?.so_number || '',
+        so_id: device.so_id,
+        item_code: device.item_code,
+        sku: device.sku,
+        hw_version: device.hw_version,
+        fw_version: device.fw_version,
+        test_result: device.test_result,
+        test_station: device.test_station,
+        tested_at: device.tested_at,
+        app_key: (device.test_raw_data as any)?.app_key || null,
+      };
+
       return {
         verified: isPass,
         tested: true,
@@ -672,21 +692,8 @@ export class FinalConfigAdapterController {
         message: isPass
           ? 'Device test verified successfully'
           : `Device test status is ${device.test_result || 'UNKNOWN'}, required PASS`,
-        record: {
-          id: device.id,
-          serial_number: device.serial_number,
-          dev_eui: device.dev_eui,
-          so: device.so?.so_number || '',
-          so_id: device.so_id,
-          item_code: device.item_code,
-          sku: device.sku,
-          hw_version: device.hw_version,
-          fw_version: device.fw_version,
-          test_result: device.test_result,
-          test_station: device.test_station,
-          tested_at: device.tested_at,
-          app_key: (device.test_raw_data as any)?.app_key || null,
-        },
+        record: recordData,
+        data: recordData,
       };
     } catch (error: any) {
       this.logger.error(`lookupDeviceInfo error: ${error.message}`);
@@ -886,6 +893,97 @@ export class FinalConfigAdapterController {
         error instanceof HttpException
           ? error.getStatus()
           : HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  // ==========================================
+  // PRESET RESOLVER BY SO & ITEM CODE
+  // ==========================================
+
+  @Get([
+    'api/plugins/final-config/presets/by-so-item',
+    'api/v1/plugins/final-config/presets/by-so-item',
+    'api/c-modules/final-config-manager/presets/by-so-item',
+    'api/v1/c-modules/final-config-manager/presets/by-so-item',
+  ])
+  async getPresetBySoItem(
+    @Query('so') soQuery?: string,
+    @Query('so_number') soNumberQuery?: string,
+    @Query('item_code') itemCodeQuery?: string,
+    @Query('itemCode') itemCodeAltQuery?: string,
+  ) {
+    const so = (soQuery || soNumberQuery || '').trim();
+    const itemCode = (itemCodeQuery || itemCodeAltQuery || '').trim();
+
+    if (!so || !itemCode) {
+      throw new BadRequestException('Both "so" and "item_code" query params are required');
+    }
+
+    try {
+      const profileRepo = this.databaseService.getRepositoryForTable(
+        'finalconfig_profile',
+        FinalConfigProfileEntity,
+      );
+
+      // Find profile matching SO and Item Code
+      const profile = await profileRepo
+        .createQueryBuilder('profile')
+        .leftJoinAndSelect('profile.registers', 'regs')
+        .where('profile.soNumber = :so', { so })
+        .andWhere('profile.itemCode = :itemCode', { itemCode })
+        .orderBy('profile.createdAt', 'DESC')
+        .getOne();
+
+      if (!profile) {
+        return {
+          success: false,
+          message: `No configuration preset found for SO [${so}] and Item Code [${itemCode}]`,
+          data: null,
+        };
+      }
+
+      const sortedRegs = (profile.registers || []).sort(
+        (a, b) => (a.modbusRegisterDec ?? 0) - (b.modbusRegisterDec ?? 0),
+      );
+
+      const mappedRegisters = sortedRegs.map((r, idx) => ({
+        order_no: r.rowNumber ?? idx + 1,
+        address: r.modbusRegisterDec,
+        modbus_reg_hex: r.modbusRegisterHex || ('0x' + (r.modbusRegisterDec || 0).toString(16).padStart(4, '0').toUpperCase()),
+        parameter_name: r.description || `Register ${r.modbusRegisterDec}`,
+        format: r.format || 'uint',
+        endianness: 'Big-Endian',
+        reg_num: r.registerCount ?? 1,
+        numreg: r.registerCount ?? 1,
+        fn_write: 'FC 16',
+        default_value: r.endUserDefault || '',
+        value_on_memmap: r.endUserDefault || '',
+        value_to_write: r.inputConfig || r.endUserDefault || '',
+        config_check: r.configCheck || 'PASS',
+        selected: r.selected !== false,
+      }));
+
+      return {
+        success: true,
+        data: {
+          id: profile.id,
+          profile_id: profile.id,
+          so_number: profile.soNumber,
+          wa_number: profile.waNumber || '',
+          item_code: profile.itemCode,
+          sku: profile.sku,
+          long_fw: profile.longFw,
+          short_fw: profile.shortFw,
+          connectivity: profile.connectivity,
+          registers: mappedRegisters,
+        },
+      };
+    } catch (err: any) {
+      this.logger.error(`getPresetBySoItem error: ${err.message}`);
+      throw new HttpException(
+        `Failed to retrieve preset by SO and item code: ${err.message}`,
+        HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
   }
