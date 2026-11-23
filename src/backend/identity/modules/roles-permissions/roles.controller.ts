@@ -133,4 +133,14 @@ export class RolesController {
     const menuIds = body.menuKeys || body.menuItemIds || body.menuIds || [];
     return this.rolesService.assignMenusToRole(id, menuIds);
   }
+
+  // ==========================================
+  // UNIFIED RBAC OVERVIEW
+  // ==========================================
+  @Get(':id/rbac-overview')
+  @Roles(UserType.ADMIN, UserType.SUB_ADMIN)
+  @ApiOperation({ summary: 'Get unified role RBAC overview (users, permissions, menus)' })
+  async getRoleRbacOverview(@Param('id') id: string) {
+    return this.rolesService.getRoleRbacOverview(id);
+  }
 }

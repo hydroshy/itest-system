@@ -375,4 +375,30 @@ export class RolesService {
       totalAssigned: normalizedMenuIds.length,
     };
   }
+
+  // ==========================================
+  // UNIFIED RBAC OVERVIEW
+  // ==========================================
+  async getRoleRbacOverview(roleId: string) {
+    const role = await this.findOneRole(roleId);
+    const menus = await this.findMenusByRole(roleId);
+    const users = await this.findUsersByRole(roleId);
+
+    return {
+      roleId: role.id,
+      roleCode: role.code,
+      roleName: role.name,
+      description: role.description,
+      permissions: role.permissions || [],
+      permissionIds: (role.permissions || []).map((p) => p.id),
+      permissionNames: (role.permissions || []).map((p) => p.name),
+      menuIds: menus.menuIds || [],
+      menuItemIds: menus.menuItemIds || [],
+      assignedUsers: users?.users || [],
+      assignedUserIds: users?.userIds || [],
+      totalPermissions: (role.permissions || []).length,
+      totalMenus: (menus.menuIds || []).length,
+      totalUsers: (users?.userIds || []).length,
+    };
+  }
 }
