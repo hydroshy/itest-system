@@ -1031,22 +1031,28 @@ export class FinalConfigAdapterController {
         (a, b) => (a.modbusRegisterDec ?? 0) - (b.modbusRegisterDec ?? 0),
       );
 
-      const mappedRegisters = sortedRegs.map((r, idx) => ({
-        order_no: r.rowNumber ?? idx + 1,
-        address: r.modbusRegisterDec,
-        modbus_reg_hex: r.modbusRegisterHex || ('0x' + (r.modbusRegisterDec || 0).toString(16).padStart(4, '0').toUpperCase()),
-        parameter_name: r.description || `Register ${r.modbusRegisterDec}`,
-        format: r.format || 'uint',
-        endianness: 'Big-Endian',
-        reg_num: r.registerCount ?? 1,
-        numreg: r.registerCount ?? 1,
-        fn_write: 'FC 16',
-        default_value: r.endUserDefault || '',
-        value_on_memmap: r.endUserDefault || '',
-        value_to_write: r.inputConfig || r.endUserDefault || '',
-        config_check: r.configCheck || 'PASS',
-        selected: r.selected !== false,
-      }));
+      const mappedRegisters = sortedRegs.map((r, idx) => {
+        const hasInputConfig = r.inputConfig !== undefined && r.inputConfig !== null && String(r.inputConfig).trim() !== '';
+        return {
+          order_no: r.rowNumber ?? idx + 1,
+          address: r.modbusRegisterDec,
+          modbus_reg_hex: r.modbusRegisterHex || ('0x' + (r.modbusRegisterDec || 0).toString(16).padStart(4, '0').toUpperCase()),
+          parameter_name: r.description || `Register ${r.modbusRegisterDec}`,
+          format: r.format || 'uint',
+          endianness: 'Big-Endian',
+          reg_num: r.registerCount ?? 1,
+          numreg: r.registerCount ?? 1,
+          fn_write: 'FC 16',
+          default_value: r.endUserDefault || '',
+          value_on_memmap: r.endUserDefault || '',
+          input_config: r.inputConfig || '',
+          inputConfig: r.inputConfig || '',
+          value_to_write: hasInputConfig ? String(r.inputConfig).trim() : '',
+          is_writable: hasInputConfig,
+          config_check: r.configCheck || 'PASS',
+          selected: r.selected !== false,
+        };
+      });
 
       return {
         success: true,
