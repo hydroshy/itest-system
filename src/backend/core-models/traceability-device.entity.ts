@@ -114,6 +114,10 @@ export class TraceabilityDeviceEntity {
   @Column({ name: 'app_key', type: 'varchar', length: 64, nullable: true })
   app_key: string | null;
 
+  @Index('idx_traceability_device_app_eui')
+  @Column({ name: 'app_eui', type: 'varchar', length: 64, nullable: true })
+  app_eui: string | null;
+
   @Column({ name: 'config_person', type: 'varchar', length: 100, nullable: true })
   config_person: string | null;
 

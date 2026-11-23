@@ -555,6 +555,12 @@ export class TraceabilityAdapterController {
           audit.app_key ||
           (rawData.lorawan && rawData.lorawan.app_key) ||
           null;
+        const resolvedAppEui =
+          dev.app_eui ||
+          rawData.app_eui ||
+          rawData.appeui ||
+          (rawData.lorawan && (rawData.lorawan.app_eui || rawData.lorawan.appeui)) ||
+          '0000000000000000';
         const resolvedConfiguredBy =
           dev.config_person ||
           audit.configured_by ||
@@ -578,6 +584,8 @@ export class TraceabilityAdapterController {
           code: dev.serial_number,
           serialNumber: dev.serial_number,
           devEui: dev.dev_eui,
+          appEui: resolvedAppEui,
+          app_eui: resolvedAppEui,
           appKey: resolvedAppKey,
           app_key: resolvedAppKey,
           configPerson: resolvedConfiguredBy,
@@ -1274,6 +1282,12 @@ export class TraceabilityAdapterController {
             audit.app_key ||
             (rawData.lorawan && rawData.lorawan.app_key) ||
             null;
+          const resolvedAppEui =
+            d.app_eui ||
+            rawData.app_eui ||
+            rawData.appeui ||
+            (rawData.lorawan && (rawData.lorawan.app_eui || rawData.lorawan.appeui)) ||
+            '0000000000000000';
           const resolvedConfiguredBy =
             d.config_person ||
             audit.configured_by ||
@@ -1295,6 +1309,8 @@ export class TraceabilityAdapterController {
             waNumber: d.wa?.wa_number,
             serialNumber: d.serial_number,
             devEui: d.dev_eui,
+            appEui: resolvedAppEui,
+            app_eui: resolvedAppEui,
             itemCode: d.item_code,
             sku: d.sku,
             hwVersion: d.hw_version,
@@ -1960,6 +1976,12 @@ export class TraceabilityAdapterController {
             session?.metadata?.app_key ||
             (rawData.lorawan && rawData.lorawan.app_key) ||
             null;
+          const resolvedAppEui =
+            d.app_eui ||
+            rawData.app_eui ||
+            rawData.appeui ||
+            (rawData.lorawan && (rawData.lorawan.app_eui || rawData.lorawan.appeui)) ||
+            '0000000000000000';
           const resolvedOperator =
             d.config_person ||
             session?.operator ||
@@ -1985,6 +2007,8 @@ export class TraceabilityAdapterController {
             waNumber: d.wa?.wa_number,
             serialNumber: d.serial_number,
             devEui: d.dev_eui,
+            appEui: resolvedAppEui,
+            app_eui: resolvedAppEui,
             itemCode: d.item_code,
             sku: d.sku,
             hwVersion: d.hw_version,
@@ -2077,6 +2101,12 @@ export class TraceabilityAdapterController {
         audit.app_key ||
         (rawData.lorawan && rawData.lorawan.app_key) ||
         null;
+      const resolvedAppEui =
+        device.app_eui ||
+        rawData.app_eui ||
+        rawData.appeui ||
+        (rawData.lorawan && (rawData.lorawan.app_eui || rawData.lorawan.appeui)) ||
+        '0000000000000000';
       const resolvedConfiguredBy =
         device.config_person ||
         audit.configured_by ||
@@ -2098,6 +2128,8 @@ export class TraceabilityAdapterController {
         waNumber: device.wa?.wa_number,
         serialNumber: device.serial_number,
         devEui: device.dev_eui,
+        appEui: resolvedAppEui,
+        app_eui: resolvedAppEui,
         itemCode: device.item_code,
         sku: device.sku,
         hwVersion: device.hw_version,
@@ -2220,6 +2252,12 @@ export class TraceabilityAdapterController {
             audit.app_key ||
             (rawData.lorawan && rawData.lorawan.app_key) ||
             null;
+          const resolvedAppEui =
+            device.app_eui ||
+            rawData.app_eui ||
+            rawData.appeui ||
+            (rawData.lorawan && (rawData.lorawan.app_eui || rawData.lorawan.appeui)) ||
+            '0000000000000000';
           const resolvedOperator =
             device.config_person ||
             audit.configured_by ||
@@ -2240,6 +2278,8 @@ export class TraceabilityAdapterController {
               waId: device.wa_id,
               serialNumber: device.serial_number,
               devEui: device.dev_eui,
+              appEui: resolvedAppEui,
+              app_eui: resolvedAppEui,
               itemCode: device.item_code,
               sku: device.sku,
               hwVersion: device.hw_version,
@@ -2353,6 +2393,7 @@ export class TraceabilityAdapterController {
           testedAt: device.tested_at || raw.testedAt || raw.finished_at || null,
           batchCode: raw.batchCode || raw.batch_code || '—',
           appKey: device.app_key || raw.app_key || (raw.final_config_audit && raw.final_config_audit.app_key) || null,
+          appEui: device.app_eui || raw.app_eui || raw.appeui || (raw.lorawan && (raw.lorawan.app_eui || raw.lorawan.appeui)) || '0000000000000000',
           configPerson: device.config_person || (raw.final_config_audit && raw.final_config_audit.operator) || null,
           configuredAt: device.configured_at || (raw.final_config_audit && raw.final_config_audit.saved_at) || null,
           metrics: {
