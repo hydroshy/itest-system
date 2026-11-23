@@ -800,21 +800,89 @@ export class FinalConfigAdapterController {
         ? TraceabilityConfigStatus.CONFIGURED_PASS
         : TraceabilityConfigStatus.CONFIGURED_FAIL;
 
+      const operatorName = (
+        body.operator ||
+        body.configured_by ||
+        body.configuredBy ||
+        body.config_person ||
+        body.configPerson ||
+        'admin'
+      ).trim();
+
+      const appKeyValue = (body.app_key || body.appKey || '').trim().toUpperCase();
+
+      // Create or link a finalconfig_execution_session
+      let finalConfigSessionId = device.final_config_session_id;
+      try {
+        const sessionRepo = this.databaseService.getRepositoryForTable(
+          'finalconfig_execution_session',
+          FinalConfigExecutionSessionEntity,
+        );
+        const profileRepo = this.databaseService.getRepositoryForTable(
+          'finalconfig_profile',
+          FinalConfigProfileEntity,
+        );
+
+        let profileId = body.preset_id || body.profile_id || body.profileId;
+        if (!profileId) {
+          const matchedProfile = await profileRepo.findOne({
+            where: {
+              soNumber: device.so?.so_number || body.so,
+              itemCode: device.item_code || body.item_code,
+            },
+            order: { createdAt: 'DESC' },
+          });
+          profileId = matchedProfile?.id;
+        }
+
+        if (profileId) {
+          const session = sessionRepo.create({
+            profileId,
+            deviceId: device.id,
+            serialNumber: device.serial_number,
+            status: isPass
+              ? FinalConfigSessionStatus.COMPLETED
+              : FinalConfigSessionStatus.FAILED,
+            totalSteps: Array.isArray(body.registers) ? body.registers.length : 0,
+            passedSteps: isPass ? (Array.isArray(body.registers) ? body.registers.length : 0) : 0,
+            failedSteps: isPass ? 0 : 1,
+            completedAt: new Date(),
+            metadata: {
+              operator: operatorName,
+              configured_by: operatorName,
+              app_key: appKeyValue || null,
+              so: device.so?.so_number || body.so,
+              item_code: device.item_code || body.item_code,
+              client_environment: body.metadata?.client_environment || {},
+            },
+          });
+          const savedSession = await sessionRepo.save(session);
+          finalConfigSessionId = savedSession.id;
+          device.final_config_session_id = savedSession.id;
+        }
+      } catch (sessErr: any) {
+        this.logger.warn(`Could not create FinalConfigExecutionSession: ${sessErr.message}`);
+      }
+
       const rawData: Record<string, any> = {
         ...(device.test_raw_data || {}),
+        app_key: appKeyValue || (device.test_raw_data as any)?.app_key || null,
         final_config_audit: {
           saved_at: new Date().toISOString(),
           status: isPass ? 'PASS' : 'FAIL',
-          app_key: body.app_key || body.appKey || null,
+          operator: operatorName,
+          configured_by: operatorName,
+          app_key: appKeyValue || null,
           registers: body.registers || body.audit_registers || [],
           sku: body.sku || device.sku,
           item_code: body.item_code || device.item_code,
+          session_id: finalConfigSessionId || null,
           metadata: body.metadata || {},
         },
       };
 
-      if (body.app_key || body.appKey) {
-        rawData.app_key = (body.app_key || body.appKey).toUpperCase();
+      if (appKeyValue) {
+        rawData.app_key = appKeyValue;
       }
 
       device.test_raw_data = rawData;
@@ -827,6 +895,9 @@ export class FinalConfigAdapterController {
           id: device.id,
           serial_number: device.serial_number,
           config_status: device.config_status,
+          final_config_session_id: device.final_config_session_id,
+          app_key: appKeyValue || null,
+          operator: operatorName,
         },
       };
     } catch (error: any) {

@@ -1236,34 +1236,54 @@ export class TraceabilityAdapterController {
       const [devices, total] = await qb.getManyAndCount();
 
       return {
-        data: devices.map((d) => ({
-          id: d.id,
-          soId: d.so_id,
-          soNumber: d.so?.so_number,
-          waId: d.wa_id,
-          waNumber: d.wa?.wa_number,
-          serialNumber: d.serial_number,
-          devEui: d.dev_eui,
-          itemCode: d.item_code,
-          sku: d.sku,
-          hwVersion: d.hw_version,
-          fwVersion: d.fw_version,
-          testResult: d.test_result,
-          result: d.test_result,
-          testId: d.test_id,
-          testBatchId: d.test_batch_id,
-          testStation: d.test_station,
-          testPerson: d.test_person,
-          testedBy: d.test_person,
-          testedAt: d.tested_at,
-          timeTest: d.tested_at,
-          testRawData: d.test_raw_data,
-          finalConfigSessionId: d.final_config_session_id,
-          configStatus: d.config_status,
-          status: d.status,
-          createdAt: d.created_at,
-          updatedAt: d.updated_at,
-        })),
+        data: devices.map((d) => {
+          const rawData = (d.test_raw_data as Record<string, any>) || {};
+          const audit = (rawData.final_config_audit as Record<string, any>) || {};
+          const resolvedAppKey =
+            rawData.app_key ||
+            audit.app_key ||
+            (rawData.lorawan && rawData.lorawan.app_key) ||
+            null;
+          const resolvedConfiguredBy =
+            audit.configured_by ||
+            audit.operator ||
+            rawData.configured_by ||
+            rawData.config_person ||
+            null;
+
+          return {
+            id: d.id,
+            soId: d.so_id,
+            soNumber: d.so?.so_number,
+            waId: d.wa_id,
+            waNumber: d.wa?.wa_number,
+            serialNumber: d.serial_number,
+            devEui: d.dev_eui,
+            itemCode: d.item_code,
+            sku: d.sku,
+            hwVersion: d.hw_version,
+            fwVersion: d.fw_version,
+            testResult: d.test_result,
+            result: d.test_result,
+            testId: d.test_id,
+            testBatchId: d.test_batch_id,
+            testStation: d.test_station,
+            testPerson: d.test_person,
+            testedBy: d.test_person,
+            testedAt: d.tested_at,
+            timeTest: d.tested_at,
+            testRawData: d.test_raw_data,
+            finalConfigSessionId: d.final_config_session_id,
+            configStatus: d.config_status,
+            appKey: resolvedAppKey,
+            app_key: resolvedAppKey,
+            configuredBy: resolvedConfiguredBy,
+            configured_by: resolvedConfiguredBy,
+            status: d.status,
+            createdAt: d.created_at,
+            updatedAt: d.updated_at,
+          };
+        }),
         meta: {
           total,
           page: pageNum,
@@ -1891,6 +1911,22 @@ export class TraceabilityAdapterController {
             ? sessionsMap.get(d.final_config_session_id)
             : null;
 
+          const rawData = (d.test_raw_data as Record<string, any>) || {};
+          const audit = (rawData.final_config_audit as Record<string, any>) || {};
+          const resolvedAppKey =
+            rawData.app_key ||
+            audit.app_key ||
+            session?.metadata?.app_key ||
+            (rawData.lorawan && rawData.lorawan.app_key) ||
+            null;
+          const resolvedOperator =
+            session?.metadata?.operator ||
+            session?.operator ||
+            audit.configured_by ||
+            audit.operator ||
+            rawData.configured_by ||
+            null;
+
           return {
             id: d.id,
             soId: d.so_id,
@@ -1907,9 +1943,12 @@ export class TraceabilityAdapterController {
             configStatus: d.config_status,
             finalConfigStatus: d.config_status,
             finalConfigSessionId: d.final_config_session_id,
+            appKey: resolvedAppKey,
+            app_key: resolvedAppKey,
             sessionProfile: session?.profileName,
-            operator: session?.operator,
-            registersVerified: session?.totalVerifiedRegisters,
+            operator: resolvedOperator,
+            configuredBy: resolvedOperator,
+            registersVerified: session?.totalVerifiedRegisters || (audit.registers ? audit.registers.length : undefined),
             sessionSummary: session?.summary,
             status: d.status,
             createdAt: d.created_at,
@@ -2087,30 +2126,48 @@ export class TraceabilityAdapterController {
         }
       }
 
-      return {
-        device: {
-          id: device.id,
-          soId: device.so_id,
-          waId: device.wa_id,
-          serialNumber: device.serial_number,
-          devEui: device.dev_eui,
-          itemCode: device.item_code,
-          sku: device.sku,
-          hwVersion: device.hw_version,
-          fwVersion: device.fw_version,
-          testResult: device.test_result,
-          testId: device.test_id,
-        testBatchId: device.test_batch_id,
-          testStation: device.test_station,
-          testPerson: device.test_person,
-          testedAt: device.tested_at,
-          testRawData: device.test_raw_data,
-          finalConfigSessionId: device.final_config_session_id,
-          configStatus: device.config_status,
-          status: device.status,
-          createdAt: device.created_at,
-          updatedAt: device.updated_at,
-        },
+          const rawData = (device.test_raw_data as Record<string, any>) || {};
+          const audit = (rawData.final_config_audit as Record<string, any>) || {};
+          const resolvedAppKey =
+            rawData.app_key ||
+            audit.app_key ||
+            (rawData.lorawan && rawData.lorawan.app_key) ||
+            null;
+          const resolvedOperator =
+            audit.configured_by ||
+            audit.operator ||
+            rawData.configured_by ||
+            rawData.config_person ||
+            null;
+
+          return {
+            device: {
+              id: device.id,
+              soId: device.so_id,
+              waId: device.wa_id,
+              serialNumber: device.serial_number,
+              devEui: device.dev_eui,
+              itemCode: device.item_code,
+              sku: device.sku,
+              hwVersion: device.hw_version,
+              fwVersion: device.fw_version,
+              testResult: device.test_result,
+              testId: device.test_id,
+              testBatchId: device.test_batch_id,
+              testStation: device.test_station,
+              testPerson: device.test_person,
+              testedAt: device.tested_at,
+              testRawData: device.test_raw_data,
+              finalConfigSessionId: device.final_config_session_id,
+              configStatus: device.config_status,
+              appKey: resolvedAppKey,
+              app_key: resolvedAppKey,
+              operator: resolvedOperator,
+              configuredBy: resolvedOperator,
+              status: device.status,
+              createdAt: device.created_at,
+              updatedAt: device.updated_at,
+            },
         so: device.so
           ? {
               id: device.so.id,
