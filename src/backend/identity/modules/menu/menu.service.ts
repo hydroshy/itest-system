@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { DynamicDatabaseService } from '../../../database/dynamic-database.service';
 import { MenuItemDto } from './dto/menu.dto';
 
@@ -288,7 +288,7 @@ export const SYSTEM_MENU_ITEMS: MenuItemDto[] = [
 ];
 
 @Injectable()
-export class MenuService {
+export class MenuService implements OnModuleInit {
   private readonly logger = new Logger(MenuService.name);
 
   // In-memory fallback role assignments map
@@ -320,6 +320,85 @@ export class MenuService {
   };
 
   constructor(private readonly dbService: DynamicDatabaseService) {}
+
+  async onModuleInit() {
+    await this.syncMenuItemsToDatabase();
+  }
+
+  /**
+   * Đảm bảo mọi menu item trong SYSTEM_MENU_ITEMS đều có mặt trong bảng system_schema.menu_items
+   */
+  async syncMenuItemsToDatabase(itemsToSync: MenuItemDto[] = SYSTEM_MENU_ITEMS): Promise<void> {
+    try {
+      const ds = this.dbService.getDataSourceForTable('system_menu_items');
+      if (!ds || !ds.isInitialized) return;
+
+      for (const item of itemsToSync) {
+        if (!item.id) continue;
+        await ds.query(
+          `INSERT INTO system_schema.menu_items 
+             ("id", "title", "description", "route", "icon", "category", "pluginId", "tab", "order", "display_order", "isActive", "is_active")
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $9, true, true)
+           ON CONFLICT ("id") DO UPDATE SET
+             "title" = EXCLUDED."title",
+             "description" = EXCLUDED."description",
+             "route" = EXCLUDED."route",
+             "icon" = EXCLUDED."icon",
+             "category" = EXCLUDED."category",
+             "pluginId" = EXCLUDED."pluginId",
+             "tab" = EXCLUDED."tab",
+             "order" = EXCLUDED."order",
+             "display_order" = EXCLUDED."display_order"`,
+          [
+            item.id,
+            item.title || item.id,
+            item.description || '',
+            item.route || '/dashboard',
+            item.icon || 'Menu',
+            item.category || 'plugin',
+            item.pluginId || null,
+            item.tab || null,
+            item.order || 99,
+          ],
+        );
+      }
+      this.logger.log(`Synced ${itemsToSync.length} system_menu_items to database successfully.`);
+    } catch (err: any) {
+      this.logger.warn(`Could not sync menu_items to database: ${err.message}`);
+    }
+  }
+
+  /**
+   * Bảo đảm một ID menu cụ thể tồn tại trong database trước khi gán quyền
+   */
+  async ensureMenuItemExists(menuItemId: string): Promise<void> {
+    const cleanId = (menuItemId || '').trim();
+    if (!cleanId) return;
+
+    try {
+      const ds = this.dbService.getDataSourceForTable('system_menu_items');
+      if (!ds || !ds.isInitialized) return;
+
+      const found = SYSTEM_MENU_ITEMS.find((m) => m.id === cleanId);
+      const title = found?.title || cleanId;
+      const description = found?.description || `Auto-provisioned menu item for ${cleanId}`;
+      const route = found?.route || `/plugins/${cleanId.split(':')[0] || 'system'}`;
+      const icon = found?.icon || 'Menu';
+      const category = found?.category || 'plugin';
+      const pluginId = found?.pluginId || cleanId.split(':')[0] || null;
+      const tab = found?.tab || cleanId.split(':')[1] || null;
+
+      await ds.query(
+        `INSERT INTO system_schema.menu_items 
+           ("id", "title", "description", "route", "icon", "category", "pluginId", "tab", "order", "display_order", "isActive", "is_active")
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 99, 99, true, true)
+         ON CONFLICT ("id") DO NOTHING`,
+        [cleanId, title, description, route, icon, category, pluginId, tab],
+      );
+    } catch (err: any) {
+      this.logger.warn(`ensureMenuItemExists warning for [${cleanId}]: ${err.message}`);
+    }
+  }
 
   /**
    * Lấy toàn bộ danh mục menu/card items
@@ -435,10 +514,17 @@ export class MenuService {
     try {
       const ds = this.dbService.getDataSourceForTable('role_menu_permissions');
       if (ds && ds.isInitialized) {
+        // Đảm bảo các menu item tồn tại trong system_schema.menu_items trước khi insert FK
+        for (const itemId of menuItemIds) {
+          await this.ensureMenuItemExists(itemId);
+        }
+
         await ds.query(`DELETE FROM role_menu_permissions WHERE UPPER(role_code) = $1`, [normalizedRole]);
         for (const itemId of menuItemIds) {
           await ds.query(
-            `INSERT INTO role_menu_permissions (role_code, menu_item_id) VALUES ($1, $2)`,
+            `INSERT INTO role_menu_permissions (role_code, menu_item_id)
+             SELECT $1, id FROM system_schema.menu_items WHERE id = $2
+             ON CONFLICT DO NOTHING`,
             [normalizedRole, itemId]
           );
         }

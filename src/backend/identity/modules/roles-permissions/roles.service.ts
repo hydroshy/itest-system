@@ -340,6 +340,12 @@ export class RolesService {
     const ds = this.dbService.getDataSourceForTable('role_menu_permissions');
     if (ds && ds.isInitialized) {
       try {
+        if (this.menuService) {
+          for (const mId of normalizedMenuIds) {
+            await this.menuService.ensureMenuItemExists(mId);
+          }
+        }
+
         await ds.query(
           `DELETE FROM system_schema.role_menu_permissions
            WHERE "roleId" = $1 OR "roleCode" = $2 OR role_id = $1`,
@@ -349,7 +355,7 @@ export class RolesService {
         for (const mId of normalizedMenuIds) {
           await ds.query(
             `INSERT INTO system_schema.role_menu_permissions ("roleId", "roleCode", "menuItemId", "role_id", "menu_item_id")
-             VALUES ($1, $2, $3, $1, $3)
+             SELECT $1, $2, id, $1, id FROM system_schema.menu_items WHERE id = $3
              ON CONFLICT DO NOTHING`,
             [role.id, role.code, mId],
           );

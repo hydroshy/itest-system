@@ -51,10 +51,22 @@ export class AuthController {
 
   @Get('session')
   @Get('profile')
+  @Get('me')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Get current user session and permissions' })
   async getProfile(@CurrentUser() user: User) {
+    const permissions = new Set<string>();
+    if (user.roles) {
+      for (const role of user.roles) {
+        if (role.permissions) {
+          for (const perm of role.permissions) {
+            permissions.add(perm.name);
+          }
+        }
+      }
+    }
+
     return {
       id: user.id,
       username: user.username,
@@ -63,6 +75,8 @@ export class AuthController {
       userType: user.userType,
       isActive: user.isActive,
       roles: user.roles,
+      permissions: Array.from(permissions),
+      permissionList: Array.from(permissions),
     };
   }
 
