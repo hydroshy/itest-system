@@ -880,11 +880,58 @@ export class FinalConfigAdapterController {
               so: device.so?.so_number || body.so,
               item_code: device.item_code || body.item_code,
               client_environment: body.metadata?.client_environment || {},
+              registers: body.registers || body.audit_registers || [],
             },
           });
           const savedSession = await sessionRepo.save(session);
           finalConfigSessionId = savedSession.id;
           device.final_config_session_id = savedSession.id;
+
+          const rawRegs = body.registers || body.audit_registers || [];
+          if (Array.isArray(rawRegs) && rawRegs.length > 0) {
+            try {
+              const logRepo = this.databaseService.getRepositoryForTable(
+                'finalconfig_execution_log',
+                FinalConfigExecutionLogEntity,
+              );
+              const logs = rawRegs.map((r: any) => {
+                const regStatus = String(r.status || '').toUpperCase();
+                return logRepo.create({
+                  sessionId: savedSession.id,
+                  modbusRegisterDec: Number(r.address ?? r.reg_num ?? 0),
+                  modbusRegisterHex:
+                    r.modbus_reg_hex ||
+                    (r.address != null
+                      ? `0x${Number(r.address).toString(16).padStart(4, '0').toUpperCase()}`
+                      : null),
+                  action: r.value_to_write
+                    ? FinalConfigExecutionAction.WRITE
+                    : FinalConfigExecutionAction.READ,
+                  expectedValue:
+                    r.value_to_write != null && r.value_to_write !== ''
+                      ? String(r.value_to_write)
+                      : r.default_value != null && r.default_value !== ''
+                        ? String(r.default_value)
+                        : null,
+                  writtenValue:
+                    r.value_to_write != null && r.value_to_write !== ''
+                      ? String(r.value_to_write)
+                      : null,
+                  readValue: r.value_read_back != null ? String(r.value_read_back) : null,
+                  rawHex: r.raw_hex || null,
+                  status:
+                    regStatus === 'FAIL'
+                      ? FinalConfigExecutionStatus.FAIL
+                      : FinalConfigExecutionStatus.PASS,
+                  errorMessage: regStatus === 'FAIL' ? 'Readback mismatch or read error' : null,
+                  durationMs: 0,
+                });
+              });
+              await logRepo.save(logs);
+            } catch (logErr: any) {
+              this.logger.warn(`Could not save FinalConfigExecutionLogs: ${logErr.message}`);
+            }
+          }
         }
       } catch (sessErr: any) {
         this.logger.warn(`Could not create FinalConfigExecutionSession: ${sessErr.message}`);

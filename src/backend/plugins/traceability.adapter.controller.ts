@@ -2008,6 +2008,8 @@ export class TraceabilityAdapterController {
             status: d.status,
             createdAt: d.created_at,
             updatedAt: d.updated_at,
+            auditData: audit,
+            testRawData: d.test_raw_data,
           };
         }),
         meta: {
