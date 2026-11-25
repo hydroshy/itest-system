@@ -182,6 +182,7 @@ export class TestingAdapterController implements OnApplicationBootstrap {
   private readonly logger = new Logger(TestingAdapterController.name);
   private simulationResults: any[] = [];
   private autoCheckEvaluations: any[] = [];
+  private gatewayBatches = new Map<string, any>();
 
   constructor(
     private readonly databaseService: DynamicDatabaseService,
@@ -468,7 +469,7 @@ export class TestingAdapterController implements OnApplicationBootstrap {
       // Check which devices are currently running in an active test batch
       const runningBatchMap: Record<string, string> = {};
       try {
-        const ds = this.databaseService.getDataSourceForTable('devices');
+        const ds = typeof this.databaseService?.getDataSourceForTable === 'function' ? this.databaseService.getDataSourceForTable('devices') : null;
         if (ds && items.length > 0) {
           const serials = items.map((i) => i.serial_number).filter(Boolean);
           if (serials.length > 0) {
@@ -536,7 +537,7 @@ export class TestingAdapterController implements OnApplicationBootstrap {
   ])
   async getSimulationDevices(@Query('label') label?: string) {
     try {
-      const ds = this.databaseService.getDataSourceForTable('devices');
+      const ds = typeof this.databaseService?.getDataSourceForTable === 'function' ? this.databaseService.getDataSourceForTable('devices') : null;
       if (ds) {
         try {
           const rows = await ds.query(`
@@ -1279,7 +1280,7 @@ export class TestingAdapterController implements OnApplicationBootstrap {
     'api/v1/plugins/testing/integrations/chirpstack/status',
   ])
   async getChirpstackIntegrationStatus() {
-    const ds = this.databaseService.getDataSourceForTable('devices');
+    const ds = typeof this.databaseService?.getDataSourceForTable === 'function' ? this.databaseService.getDataSourceForTable('devices') : null;
     const recentPackets = await ds.query(
       `SELECT id, dev_eui, packet_type, f_port, f_cnt, raw_payload, decoded_payload, rf_info, created_at
        FROM devices.device_packets
@@ -1374,7 +1375,7 @@ export class TestingAdapterController implements OnApplicationBootstrap {
     const deviceRepo = this.databaseService.getRepositoryForTable('devices', TestingDeviceEntity);
     const device = await deviceRepo.createQueryBuilder('d')
       .where('LOWER(d.network_id) = LOWER(:devEui)', { devEui }).getOne();
-    const ds = this.databaseService.getDataSourceForTable('devices');
+    const ds = typeof this.databaseService?.getDataSourceForTable === 'function' ? this.databaseService.getDataSourceForTable('devices') : null;
     const registrations = await ds.query(`SELECT r.item_code, r.fw_code, r.fw_version, COALESCE(to_jsonb(r)->>'long_fw', r.fw_version) AS long_fw FROM system_schema.device_test_registrations r WHERE LOWER(r.dev_eui) = LOWER($1) ORDER BY r.created_at DESC LIMIT 1`, [devEui]);
     const registration = registrations[0] || {};
     let decodedPayload: Record<string, any> = {};
@@ -1419,7 +1420,7 @@ export class TestingAdapterController implements OnApplicationBootstrap {
       const isSfError = saveErr?.message?.includes('sf') || saveErr?.code === '42703';
       const isOverflow = saveErr?.message?.includes('overflow') || saveErr?.code === '22003';
       if (isSfError || isOverflow) {
-        const ds = this.databaseService.getDataSourceForTable('devices');
+        const ds = typeof this.databaseService?.getDataSourceForTable === 'function' ? this.databaseService.getDataSourceForTable('devices') : null;
         const inserted = await ds.query(
           `INSERT INTO devices.device_packets (device_id, dev_eui, packet_type, f_port, f_cnt, raw_payload, decoded_payload, rf_info, rssi, snr, frequency)
            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
@@ -1434,7 +1435,7 @@ export class TestingAdapterController implements OnApplicationBootstrap {
 
     // Sync to system_schema.device_packets so views and queries stay in sync
     try {
-      const ds = this.databaseService.getDataSourceForTable('devices');
+      const ds = typeof this.databaseService?.getDataSourceForTable === 'function' ? this.databaseService.getDataSourceForTable('devices') : null;
       if (ds) {
         await ds.query(
           `INSERT INTO system_schema.device_packets (
@@ -1471,7 +1472,112 @@ export class TestingAdapterController implements OnApplicationBootstrap {
       packetType: 'uplink', fPort: packet.f_port, fCnt: packet.f_cnt,
       rawPayload, decodedPayload, rfInfo, ...rfInfo,
     });
+
+    if (body.rxInfo) {
+      await this.recordGatewayUplinkStats(body.rxInfo);
+    }
+
     return { success: true, data: { id: packet.id, decodeError } };
+  }
+
+  private async recordGatewayUplinkStats(rxInfoInput: any) {
+    if (!rxInfoInput) return;
+    const rxInfoList = (Array.isArray(rxInfoInput) ? rxInfoInput : [rxInfoInput]).filter(Boolean);
+    if (rxInfoList.length === 0) return;
+
+    const numberOrNull = (value: any) =>
+      value !== undefined && value !== null && Number.isFinite(Number(value)) ? Number(value) : null;
+
+    try {
+      const sessionRepo = this.databaseService.getRepositoryForTable(
+        'gateway_test_sessions',
+        GatewayTestSessionEntity,
+      );
+
+      for (const rx of rxInfoList) {
+        const rawGwId = (rx?.gatewayId || rx?.gatewayID || rx?.gateway_id || '').trim();
+        if (!rawGwId) continue;
+        const cleanGwId = rawGwId.replace(/[:-]/g, '').toLowerCase();
+        const rssi = numberOrNull(rx.rssi);
+        const snr = numberOrNull(rx.snr ?? rx.loRaSNR);
+        const nowIso = new Date().toISOString();
+
+        // 1. Update in-memory gateway batches
+        for (const [batchId, batch] of this.gatewayBatches.entries()) {
+          if (batch.status === 'RUNNING' && Array.isArray(batch.gateways)) {
+            let updated = false;
+            for (const gw of batch.gateways) {
+              const gwEui = String(gw.gatewayId || gw.eui || '').replace(/[:-]/g, '').toLowerCase();
+              const gwSn = String(gw.serialNumber || '').toLowerCase();
+              if (gwEui === cleanGwId || gwSn === cleanGwId) {
+                gw.uplinkCount = (Number(gw.uplinkCount) || 0) + 1;
+                gw.rxPackets = gw.uplinkCount;
+                gw.lastRssi = rssi;
+                gw.lastSnr = snr;
+                gw.lastUplinkAt = nowIso;
+                updated = true;
+              }
+            }
+            if (updated) {
+              batch.updated_at = new Date();
+              batch.summary = batch.summary || {};
+              batch.summary.totalUplinkPackets = batch.gateways.reduce((acc: number, g: any) => acc + (Number(g.uplinkCount) || 0), 0);
+              batch.summary.lastUplinkAt = nowIso;
+            }
+          }
+        }
+
+        // 2. Update active gateway test sessions
+        if (sessionRepo && typeof sessionRepo.find === 'function') {
+          const sessions = await sessionRepo.find({
+            where: [
+              { gateway_id: rawGwId },
+              { gateway_id: cleanGwId },
+              { eui: rawGwId },
+              { eui: cleanGwId },
+            ],
+          }).catch(() => []);
+
+          for (const s of sessions) {
+            if (s.status === 'RUNNING' || s.status === 'IN_PROGRESS' || s.status === 'REGISTERED') {
+              if (s.status === 'REGISTERED') s.status = 'RUNNING';
+              s.summary = s.summary || {};
+              const prevCount = Number(s.summary.total_packets || s.summary.rxPackets || s.summary.uplink_count || 0);
+              s.summary.total_packets = prevCount + 1;
+              s.summary.uplink_count = prevCount + 1;
+              s.summary.rxPackets = prevCount + 1;
+              s.summary.last_rssi = rssi;
+              s.summary.last_snr = snr;
+              s.summary.last_uplink_at = nowIso;
+              s.summary.last_seen_at = nowIso;
+
+              const targetDuration = Number(s.summary.target_duration_seconds || 43200);
+              if (s.started_at) {
+                const elapsed = Math.floor((Date.now() - new Date(s.started_at).getTime()) / 1000);
+                s.summary.elapsed_seconds = elapsed;
+                s.summary.progress_percent = Math.min(100, Math.round((elapsed / targetDuration) * 100));
+              }
+
+              await sessionRepo.save(s).catch(() => {});
+
+              try {
+                this.realtimeService?.publishPluginLifecycle('gateway:packet:received', {
+                  sessionId: s.id,
+                  gatewayId: s.gateway_id,
+                  serialNumber: s.serial_number,
+                  totalPackets: s.summary.total_packets,
+                  rssi,
+                  snr,
+                  timestamp: nowIso,
+                });
+              } catch {}
+            }
+          }
+        }
+      }
+    } catch (err: any) {
+      this.logger.warn(`Could not update gateway session from uplink: ${err.message}`);
+    }
   }
 
   @Post(['api/plugins/testing/packets', 'api/v1/plugins/testing/packets'])
@@ -1577,8 +1683,21 @@ export class TestingAdapterController implements OnApplicationBootstrap {
 
       const [items, total] = await qb.getManyAndCount();
 
+      const formatted = items.map((s: any) => {
+        const sum = s.summary || {};
+        const totalPackets = Number(sum.total_packets || sum.uplink_count || sum.rxPackets || 0);
+        return {
+          ...s,
+          total_packets: totalPackets,
+          uplink_packets: totalPackets,
+          last_packet_at: sum.last_uplink_at || sum.last_seen_at || null,
+          last_rssi: sum.last_rssi ?? null,
+          last_snr: sum.last_snr ?? null,
+        };
+      });
+
       return {
-        data: items,
+        data: formatted,
         total,
         page: pageNum,
         limit: limitNum,
@@ -1846,6 +1965,542 @@ export class TestingAdapterController implements OnApplicationBootstrap {
         HttpStatus.BAD_GATEWAY,
       );
     }
+  }
+
+  // ============================================================================
+  // 6.1. GATEWAY TEST BATCHES (12-Hour Soak Testing & Live Uplink Counting)
+  // ============================================================================
+
+  @Get([
+    'api/plugins/testing/gateway-test-batches',
+    'api/v1/plugins/testing/gateway-test-batches',
+  ])
+  async getGatewayTestBatches(
+    @Query('status') status?: string,
+    @Query('search') search?: string,
+    @Query('soNumber') soNumber?: string,
+    @Query('itemCode') itemCode?: string,
+    @Query('page') page: string = '1',
+    @Query('limit') limit: string = '50',
+  ) {
+    const ds = typeof this.databaseService?.getDataSourceForTable === 'function' ? this.databaseService.getDataSourceForTable('devices') : null;
+    let items: any[] = [];
+    let total = 0;
+    const pageNum = Math.max(1, parseInt(page, 10) || 1);
+    const limitNum = Math.min(200, Math.max(1, parseInt(limit, 10) || 50));
+
+    if (ds && typeof ds.query === 'function') {
+      try {
+        const whereClauses: string[] = [];
+        const params: any[] = [];
+        let pIdx = 1;
+
+        if (status) {
+          whereClauses.push(`b.status = $${pIdx++}`);
+          params.push(status.trim());
+        }
+        if (soNumber) {
+          whereClauses.push(`b.so_number ILIKE $${pIdx++}`);
+          params.push(`%${soNumber.trim()}%`);
+        }
+        if (itemCode) {
+          whereClauses.push(`b.item_code = $${pIdx++}`);
+          params.push(itemCode.trim());
+        }
+        if (search) {
+          whereClauses.push(`(b.batch_code ILIKE $${pIdx} OR b.batch_name ILIKE $${pIdx} OR b.so_number ILIKE $${pIdx})`);
+          params.push(`%${search.trim()}%`);
+          pIdx++;
+        }
+
+        const whereSql = whereClauses.length > 0 ? `WHERE ${whereClauses.join(' AND ')}` : '';
+        const countRes = await ds.query(`SELECT COUNT(*)::int as count FROM devices.gateway_test_batches b ${whereSql}`, params).catch(() => []);
+        total = countRes?.[0]?.count || 0;
+
+        params.push(limitNum);
+        params.push((pageNum - 1) * limitNum);
+        items = await ds.query(
+          `SELECT * FROM devices.gateway_test_batches b ${whereSql} ORDER BY b.created_at DESC LIMIT $${pIdx++} OFFSET $${pIdx++}`,
+          params,
+        ).catch(() => []);
+      } catch {
+        items = Array.from(this.gatewayBatches.values());
+        total = items.length;
+      }
+    }
+
+    if (items.length === 0) {
+      items = Array.from(this.gatewayBatches.values());
+      if (status) items = items.filter((b) => b.status === status);
+      if (search) items = items.filter((b) => (b.batch_code || '').includes(search) || (b.batch_name || '').includes(search));
+      total = items.length;
+    }
+
+    const formatted = items.map((b) => {
+      const isRunning = b.status === 'RUNNING';
+      const duration = Number(b.duration_seconds || b.flow_duration_seconds || 43200);
+      let elapsed = 0;
+      let remaining = duration;
+      if (isRunning && b.started_at) {
+        elapsed = Math.floor((Date.now() - new Date(b.started_at).getTime()) / 1000);
+        remaining = Math.max(0, duration - elapsed);
+      }
+      const gws = Array.isArray(b.gateways) ? b.gateways : [];
+      const totalUplinks = gws.reduce((acc: number, g: any) => acc + (Number(g.uplinkCount || g.rxPackets) || 0), 0);
+
+      return {
+        id: b.id,
+        batchCode: b.batch_code,
+        batchName: b.batch_name,
+        soNumber: b.so_number,
+        waNumber: b.wa_number,
+        itemCode: b.item_code,
+        status: b.status,
+        verdict: b.verdict || 'PENDING',
+        flowDurationSeconds: duration,
+        durationSeconds: duration,
+        elapsedSeconds: elapsed,
+        remainingSeconds: remaining,
+        progressPercent: isRunning ? Math.min(100, Math.round((elapsed / duration) * 100)) : 0,
+        gatewaysCount: gws.length,
+        totalUplinkPackets: totalUplinks,
+        startedAt: b.started_at,
+        finishedAt: b.finished_at,
+        createdAt: b.created_at,
+        summary: b.summary || {},
+      };
+    });
+
+    return {
+      success: true,
+      data: formatted,
+      total,
+      page: pageNum,
+      limit: limitNum,
+    };
+  }
+
+  @Post([
+    'api/plugins/testing/gateway-test-batches',
+    'api/v1/plugins/testing/gateway-test-batches',
+  ])
+  async createGatewayTestBatch(@Body() body: any) {
+    const batchName = (body.batchName || body.batch_name || '').trim();
+    if (!batchName) {
+      throw new BadRequestException('batchName is required');
+    }
+
+    const id = (typeof require !== 'undefined' ? require('crypto').randomUUID() : '00000000-0000-0000-0000-000000000001');
+    const batchCode = (body.batchCode || body.batch_code || `GWB-${Date.now().toString(36).toUpperCase()}`).trim();
+    const duration = Number(body.flowDurationSeconds || body.durationSeconds || body.duration_seconds || 43200); // 12h = 43200s
+
+    const rawGateways = Array.isArray(body.gateways) ? body.gateways : [];
+    const sanitizedGateways = rawGateways.map((g: any, idx: number) => {
+      const rawGwId = String(g.gatewayId || g.gateway_id || g.eui || '').trim();
+      const cleanGwId = rawGwId.replace(/[:-]/g, '').toLowerCase();
+      const sn = String(g.serialNumber || g.serial_number || cleanGwId).trim();
+      return {
+        id: (typeof require !== 'undefined' ? require('crypto').randomUUID() : `item-${idx + 1}`),
+        gatewayId: cleanGwId,
+        serialNumber: sn,
+        gatewayName: g.gatewayName || g.gateway_name || `GW-${sn}`,
+        gatewayIp: g.gatewayIp || g.gateway_ip || '',
+        soNumber: g.soNumber || g.so_number || body.soNumber || null,
+        waNumber: g.waNumber || g.wa_number || body.waNumber || null,
+        itemCode: g.itemCode || g.item_code || body.itemCode || null,
+        status: 'PENDING',
+        verdict: 'PENDING',
+        uplinkCount: 0,
+        rxPackets: 0,
+        lastRssi: null,
+        lastSnr: null,
+        lastUplinkAt: null,
+      };
+    });
+
+    const newBatch = {
+      id,
+      batch_code: batchCode,
+      batch_name: batchName,
+      so_number: body.soNumber || body.so_number || null,
+      wa_number: body.waNumber || body.wa_number || null,
+      item_code: body.itemCode || body.item_code || null,
+      flow_duration_seconds: duration,
+      duration_seconds: duration,
+      status: 'CREATED',
+      verdict: 'PENDING',
+      started_at: null,
+      finished_at: null,
+      gateways: sanitizedGateways,
+      summary: {
+        totalGateways: sanitizedGateways.length,
+        totalUplinkPackets: 0,
+        targetDurationHours: 12,
+      },
+      created_by: body.createdBy || body.created_by || 'tester',
+      created_at: new Date(),
+      updated_at: new Date(),
+      metadata: body.metadata || {},
+    };
+
+    this.gatewayBatches.set(id, newBatch);
+
+    const ds = typeof this.databaseService?.getDataSourceForTable === 'function' ? this.databaseService.getDataSourceForTable('devices') : null;
+    if (ds && typeof ds.query === 'function') {
+      try {
+        await ds.query(
+          `INSERT INTO devices.gateway_test_batches (
+            id, batch_code, batch_name, so_number, wa_number, item_code,
+            flow_duration_seconds, duration_seconds, status, verdict,
+            gateways, summary, created_by, created_at, updated_at, metadata
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)`,
+          [
+            newBatch.id, newBatch.batch_code, newBatch.batch_name, newBatch.so_number,
+            newBatch.wa_number, newBatch.item_code, newBatch.flow_duration_seconds,
+            newBatch.duration_seconds, newBatch.status, newBatch.verdict,
+            JSON.stringify(newBatch.gateways), JSON.stringify(newBatch.summary),
+            newBatch.created_by, newBatch.created_at, newBatch.updated_at,
+            JSON.stringify(newBatch.metadata),
+          ],
+        ).catch(() => {});
+      } catch {}
+    }
+
+    return {
+      success: true,
+      message: 'Gateway test batch created successfully',
+      data: newBatch,
+    };
+  }
+
+  @Get([
+    'api/plugins/testing/gateway-test-batches/running',
+    'api/v1/plugins/testing/gateway-test-batches/running',
+  ])
+  async getRunningGatewayTestBatches() {
+    const ds = typeof this.databaseService?.getDataSourceForTable === 'function' ? this.databaseService.getDataSourceForTable('devices') : null;
+    let rows: any[] = [];
+    if (ds && typeof ds.query === 'function') {
+      rows = await ds.query(`SELECT * FROM devices.gateway_test_batches WHERE status = 'RUNNING' ORDER BY started_at DESC`).catch(() => []);
+    }
+    if (rows.length === 0) {
+      rows = Array.from(this.gatewayBatches.values()).filter((b) => b.status === 'RUNNING');
+    }
+
+    const running = rows.map((b) => {
+      const duration = Number(b.duration_seconds || b.flow_duration_seconds || 43200);
+      const elapsed = b.started_at ? Math.floor((Date.now() - new Date(b.started_at).getTime()) / 1000) : 0;
+      const remaining = Math.max(0, duration - elapsed);
+      const gws = Array.isArray(b.gateways) ? b.gateways : [];
+      return {
+        id: b.id,
+        batchCode: b.batch_code,
+        batchName: b.batch_name,
+        soNumber: b.so_number,
+        waNumber: b.wa_number,
+        itemCode: b.item_code,
+        status: b.status,
+        durationSeconds: duration,
+        elapsedSeconds: elapsed,
+        remainingSeconds: remaining,
+        progressPercent: Math.min(100, Math.round((elapsed / duration) * 100)),
+        gatewaysCount: gws.length,
+        totalUplinkPackets: gws.reduce((acc: number, g: any) => acc + (Number(g.uplinkCount || g.rxPackets) || 0), 0),
+        startedAt: b.started_at,
+      };
+    });
+
+    return { success: true, data: running };
+  }
+
+  @Get([
+    'api/plugins/testing/gateway-test-batches/available-gateways',
+    'api/v1/plugins/testing/gateway-test-batches/available-gateways',
+  ])
+  async getAvailableGatewaysForBatch() {
+    try {
+      const sessionRepo = this.databaseService.getRepositoryForTable(
+        'gateway_test_sessions',
+        GatewayTestSessionEntity,
+      );
+      const sessions = (sessionRepo && typeof sessionRepo.find === 'function')
+        ? await sessionRepo.find({ order: { created_at: 'DESC' }, take: 200 }).catch(() => [])
+        : [];
+
+      const seen = new Set<string>();
+      const gateways: any[] = [];
+      for (const s of sessions) {
+        const gwId = (s.gateway_id || s.eui || '').trim();
+        if (!gwId || seen.has(gwId.toLowerCase())) continue;
+        seen.add(gwId.toLowerCase());
+        gateways.push({
+          gatewayId: gwId.toLowerCase(),
+          serialNumber: s.serial_number || gwId,
+          gatewayName: s.gateway_name || `GW-${s.serial_number || gwId}`,
+          gatewayIp: s.gateway_ip || '',
+          soNumber: s.so_number || null,
+          waNumber: s.wa_number || null,
+          itemCode: s.item_code || null,
+          hardwareVersion: s.hardware_version || null,
+          firmwareVersion: s.firmware_version || null,
+          lastSeenAt: s.summary?.last_seen_at || s.created_at,
+          status: s.status,
+        });
+      }
+
+      return { success: true, data: gateways, total: gateways.length };
+    } catch {
+      return { success: true, data: [], total: 0 };
+    }
+  }
+
+  @Get([
+    'api/plugins/testing/gateway-test-batches/:id',
+    'api/v1/plugins/testing/gateway-test-batches/:id',
+  ])
+  async getGatewayTestBatchById(@Param('id') id: string) {
+    let batch = this.gatewayBatches.get(id);
+
+    if (!batch) {
+      const ds = typeof this.databaseService?.getDataSourceForTable === 'function' ? this.databaseService.getDataSourceForTable('devices') : null;
+      if (ds && typeof ds.query === 'function') {
+        const rows = await ds.query(`SELECT * FROM devices.gateway_test_batches WHERE id = $1`, [id]).catch(() => []);
+        if (rows.length > 0) batch = rows[0];
+      }
+    }
+
+    if (!batch) {
+      throw new NotFoundException(`Gateway test batch with ID ${id} not found`);
+    }
+
+    const duration = Number(batch.duration_seconds || batch.flow_duration_seconds || 43200);
+    const elapsed = batch.started_at ? Math.floor((Date.now() - new Date(batch.started_at).getTime()) / 1000) : 0;
+    const remaining = Math.max(0, duration - elapsed);
+
+    return {
+      success: true,
+      data: {
+        ...batch,
+        durationSeconds: duration,
+        elapsedSeconds: elapsed,
+        remainingSeconds: remaining,
+        progressPercent: batch.status === 'RUNNING' ? Math.min(100, Math.round((elapsed / duration) * 100)) : 0,
+      },
+    };
+  }
+
+  @Get([
+    'api/plugins/testing/gateway-test-batches/:id/status',
+    'api/v1/plugins/testing/gateway-test-batches/:id/status',
+  ])
+  async getGatewayTestBatchStatus(@Param('id') id: string) {
+    const res = await this.getGatewayTestBatchById(id);
+    const batch = res.data;
+    const isRunning = batch.status === 'RUNNING';
+    const isCompleted = batch.status === 'COMPLETED';
+    const isStopped = batch.status === 'STOPPED' || batch.status === 'CANCELLED';
+    const gws = Array.isArray(batch.gateways) ? batch.gateways : [];
+    const totalUplinks = gws.reduce((acc: number, g: any) => acc + (Number(g.uplinkCount || g.rxPackets) || 0), 0);
+
+    return {
+      success: true,
+      data: {
+        batchId: batch.id,
+        batchCode: batch.batch_code || batch.batchCode,
+        batchName: batch.batch_name || batch.batchName,
+        status: batch.status,
+        verdict: batch.verdict || 'PENDING',
+        isTesting: isRunning,
+        isCompleted,
+        isStopped,
+        flowDurationSeconds: batch.durationSeconds || 43200,
+        elapsedSeconds: batch.elapsedSeconds,
+        remainingSeconds: batch.remainingSeconds,
+        progressPercent: batch.progressPercent,
+        isExpired: isRunning && batch.remainingSeconds <= 0,
+        totalGateways: gws.length,
+        totalUplinkPackets: totalUplinks,
+        gateways: gws,
+        startedAt: batch.started_at,
+        finishedAt: batch.finished_at,
+      },
+    };
+  }
+
+  @Post([
+    'api/plugins/testing/gateway-test-batches/:id/start',
+    'api/v1/plugins/testing/gateway-test-batches/:id/start',
+  ])
+  async startGatewayTestBatch(@Param('id') id: string) {
+    const res = await this.getGatewayTestBatchById(id);
+    const batch = res.data;
+
+    const now = new Date();
+    batch.status = 'RUNNING';
+    batch.verdict = 'PENDING';
+    batch.started_at = now;
+    batch.finished_at = null;
+    batch.updated_at = now;
+
+    const gws = Array.isArray(batch.gateways) ? batch.gateways : [];
+    gws.forEach((g: any) => {
+      g.status = 'RUNNING';
+      g.verdict = 'PENDING';
+      g.uplinkCount = 0;
+      g.rxPackets = 0;
+      g.lastRssi = null;
+      g.lastSnr = null;
+      g.lastUplinkAt = null;
+    });
+    batch.gateways = gws;
+
+    this.gatewayBatches.set(id, batch);
+
+    const ds = typeof this.databaseService?.getDataSourceForTable === 'function' ? this.databaseService.getDataSourceForTable('devices') : null;
+    if (ds && typeof ds.query === 'function') {
+      await ds.query(
+        `UPDATE devices.gateway_test_batches
+         SET status = 'RUNNING', verdict = 'PENDING', started_at = $1, finished_at = NULL,
+             gateways = $2, updated_at = NOW()
+         WHERE id = $3`,
+        [now, JSON.stringify(gws), id],
+      ).catch(() => {});
+    }
+
+    try {
+      this.realtimeService?.publishPluginLifecycle('testing:gateway_batch:started', {
+        batchId: id,
+        startedAt: now.toISOString(),
+        durationSeconds: batch.durationSeconds || 43200,
+      });
+    } catch {}
+
+    return {
+      success: true,
+      message: 'Gateway test batch started (12-hour soak test active)',
+      data: batch,
+    };
+  }
+
+  @Post([
+    'api/plugins/testing/gateway-test-batches/:id/cancel',
+    'api/v1/plugins/testing/gateway-test-batches/:id/cancel',
+  ])
+  async cancelGatewayTestBatch(@Param('id') id: string) {
+    const res = await this.getGatewayTestBatchById(id);
+    const batch = res.data;
+
+    const now = new Date();
+    batch.status = 'STOPPED';
+    batch.finished_at = now;
+    batch.updated_at = now;
+
+    const gws = Array.isArray(batch.gateways) ? batch.gateways : [];
+    gws.forEach((g: any) => {
+      if (g.status === 'RUNNING') g.status = 'STOPPED';
+    });
+    batch.gateways = gws;
+
+    this.gatewayBatches.set(id, batch);
+
+    const ds = typeof this.databaseService?.getDataSourceForTable === 'function' ? this.databaseService.getDataSourceForTable('devices') : null;
+    if (ds && typeof ds.query === 'function') {
+      await ds.query(
+        `UPDATE devices.gateway_test_batches
+         SET status = 'STOPPED', finished_at = $1, gateways = $2, updated_at = NOW()
+         WHERE id = $3`,
+        [now, JSON.stringify(gws), id],
+      ).catch(() => {});
+    }
+
+    try {
+      this.realtimeService?.publishPluginLifecycle('testing:gateway_batch:cancelled', {
+        batchId: id,
+        finishedAt: now.toISOString(),
+      });
+    } catch {}
+
+    return {
+      success: true,
+      message: 'Gateway test batch cancelled',
+      data: batch,
+    };
+  }
+
+  @Post([
+    'api/plugins/testing/gateway-test-batches/:id/complete',
+    'api/v1/plugins/testing/gateway-test-batches/:id/complete',
+  ])
+  async completeGatewayTestBatch(@Param('id') id: string, @Body() body?: any) {
+    const res = await this.getGatewayTestBatchById(id);
+    const batch = res.data;
+
+    const now = new Date();
+    const minPackets = Number(body?.minUplinks || body?.minPackets || 1);
+
+    const gws = Array.isArray(batch.gateways) ? batch.gateways : [];
+    let allPass = true;
+    gws.forEach((g: any) => {
+      const count = Number(g.uplinkCount || g.rxPackets || 0);
+      const isPass = count >= minPackets;
+      g.verdict = isPass ? 'PASS' : 'FAIL';
+      g.status = 'COMPLETED';
+      if (!isPass) allPass = false;
+    });
+
+    batch.status = 'COMPLETED';
+    batch.verdict = (gws.length > 0 && allPass) ? 'PASS' : (gws.length === 0 ? 'PASS' : 'FAIL');
+    batch.finished_at = now;
+    batch.updated_at = now;
+    batch.gateways = gws;
+    batch.summary = {
+      ...(batch.summary || {}),
+      totalGateways: gws.length,
+      passedGateways: gws.filter((g: any) => g.verdict === 'PASS').length,
+      failedGateways: gws.filter((g: any) => g.verdict === 'FAIL').length,
+      batchVerdict: batch.verdict,
+      completedAt: now.toISOString(),
+    };
+
+    this.gatewayBatches.set(id, batch);
+
+    const ds = typeof this.databaseService?.getDataSourceForTable === 'function' ? this.databaseService.getDataSourceForTable('devices') : null;
+    if (ds && typeof ds.query === 'function') {
+      await ds.query(
+        `UPDATE devices.gateway_test_batches
+         SET status = 'COMPLETED', verdict = $1, finished_at = $2,
+             gateways = $3, summary = $4, updated_at = NOW()
+         WHERE id = $5`,
+        [batch.verdict, now, JSON.stringify(gws), JSON.stringify(batch.summary), id],
+      ).catch(() => {});
+    }
+
+    try {
+      this.realtimeService?.publishPluginLifecycle('testing:gateway_batch:completed', {
+        batchId: id,
+        verdict: batch.verdict,
+        summary: batch.summary,
+      });
+    } catch {}
+
+    return {
+      success: true,
+      message: `Gateway test batch completed with verdict: ${batch.verdict}`,
+      data: batch,
+    };
+  }
+
+  @Delete([
+    'api/plugins/testing/gateway-test-batches/:id',
+    'api/v1/plugins/testing/gateway-test-batches/:id',
+  ])
+  async deleteGatewayTestBatch(@Param('id') id: string) {
+    this.gatewayBatches.delete(id);
+    const ds = typeof this.databaseService?.getDataSourceForTable === 'function' ? this.databaseService.getDataSourceForTable('devices') : null;
+    if (ds && typeof ds.query === 'function') {
+      await ds.query(`DELETE FROM devices.gateway_test_batches WHERE id = $1`, [id]).catch(() => {});
+    }
+    return { success: true, message: 'Gateway test batch deleted successfully' };
   }
 
   // ============================================================================
@@ -2724,7 +3379,7 @@ export class TestingAdapterController implements OnApplicationBootstrap {
       // Fallback: Try discovering fields from live device packets or registrations for this itemCode
       let packetFields: Array<{ name: string; label: string; type: string; unit?: string }> = [];
       try {
-        const ds = this.databaseService.getDataSourceForTable('devices');
+        const ds = typeof this.databaseService?.getDataSourceForTable === 'function' ? this.databaseService.getDataSourceForTable('devices') : null;
         if (ds) {
           const liveRows = await ds.query(
             `SELECT decoded_payload FROM system_schema.v_device_payload_live
@@ -2889,7 +3544,7 @@ export class TestingAdapterController implements OnApplicationBootstrap {
     // Fallback: If decoder script yielded no fields, check live telemetry packets
     if (fields.length === 0) {
       try {
-        const ds = this.databaseService.getDataSourceForTable('devices');
+        const ds = typeof this.databaseService?.getDataSourceForTable === 'function' ? this.databaseService.getDataSourceForTable('devices') : null;
         if (ds) {
           const liveRows = await ds.query(
             `SELECT decoded_payload FROM system_schema.v_device_payload_live
@@ -4548,7 +5203,7 @@ export class TestingAdapterController implements OnApplicationBootstrap {
 
         // Persist to system_schema.device_test_registrations (Migration 010) - Chỉ lưu khi ChirpStack thành công
         try {
-          const ds = this.databaseService.getDataSourceForTable('devices');
+          const ds = typeof this.databaseService?.getDataSourceForTable === 'function' ? this.databaseService.getDataSourceForTable('devices') : null;
           if (ds) {
             let resolvedSoId = (body?.soId || body?.so_id || '').trim() || null;
             let resolvedWaId = (body?.waId || body?.wa_id || '').trim() || null;
@@ -4675,7 +5330,7 @@ export class TestingAdapterController implements OnApplicationBootstrap {
   @Get(['api/plugins/testing/device-registrations', 'api/v1/plugins/testing/device-registrations'])
   async getTestingDeviceRegistrations(@Query() query: any, @Req() request?: any) {
     try {
-      const ds = this.databaseService.getDataSourceForTable('devices');
+      const ds = typeof this.databaseService?.getDataSourceForTable === 'function' ? this.databaseService.getDataSourceForTable('devices') : null;
       if (!ds) {
         return {
           success: true,
@@ -4960,7 +5615,7 @@ export class TestingAdapterController implements OnApplicationBootstrap {
       const euiList = (euis || '').split(',').map(e => e.trim().toUpperCase()).filter(e => e.length > 0);
       const serialList = (serials || '').split(',').map(s => s.trim()).filter(s => s.length > 0);
 
-      const ds = this.databaseService.getDataSourceForTable('devices');
+      const ds = typeof this.databaseService?.getDataSourceForTable === 'function' ? this.databaseService.getDataSourceForTable('devices') : null;
       const result: Record<string, { devEui: string; serialNumber: string; isOnline: boolean; status: string; lastSeenAt: string | null; batteryLevel?: number }> = {};
 
       let devRows: any[] = [];
@@ -5046,7 +5701,7 @@ export class TestingAdapterController implements OnApplicationBootstrap {
     @Query() query: any,
   ) {
     try {
-      const ds = this.databaseService.getDataSourceForTable('devices');
+      const ds = typeof this.databaseService?.getDataSourceForTable === 'function' ? this.databaseService.getDataSourceForTable('devices') : null;
       if (!ds) {
         throw new NotFoundException('Không thể kết nối đến cơ sở dữ liệu');
       }
@@ -5183,7 +5838,7 @@ export class TestingAdapterController implements OnApplicationBootstrap {
   @Get(['api/plugins/testing/test-batches/meta', 'api/v1/plugins/testing/test-batches/meta'])
   async getTestBatchMetadata() {
     try {
-      const ds = this.databaseService.getDataSourceForTable('devices');
+      const ds = typeof this.databaseService?.getDataSourceForTable === 'function' ? this.databaseService.getDataSourceForTable('devices') : null;
       let itemCodes: string[] = [];
       let fwVersions: string[] = [];
       const itemFwMap: Record<string, string[]> = {};
@@ -5284,7 +5939,7 @@ export class TestingAdapterController implements OnApplicationBootstrap {
   @UseGuards(JwtAuthGuard)
   async getAvailableDevicesForBatch(@Query() query: any, @Req() request?: any) {
     try {
-      const ds = this.databaseService.getDataSourceForTable('devices');
+      const ds = typeof this.databaseService?.getDataSourceForTable === 'function' ? this.databaseService.getDataSourceForTable('devices') : null;
       let itemCode = (query.itemCode || query.item_code || '').trim();
       let fwVersion = (query.fwVersion || query.fw_version || query.longFw || query.long_fw || '').trim();
       const soNumber = (query.soNumber || query.so_number || '').trim();
@@ -5538,7 +6193,7 @@ export class TestingAdapterController implements OnApplicationBootstrap {
   @Get(['api/plugins/testing/test-batches/reference-devices', 'api/v1/plugins/testing/test-batches/reference-devices'])
   async getReferenceDevices(@Query() query: any) {
     try {
-      const ds = this.databaseService.getDataSourceForTable('devices');
+      const ds = typeof this.databaseService?.getDataSourceForTable === 'function' ? this.databaseService.getDataSourceForTable('devices') : null;
       let itemCode = (query.itemCode || query.item_code || '').trim();
 
       if (!ds) {
@@ -5626,7 +6281,7 @@ export class TestingAdapterController implements OnApplicationBootstrap {
   @UseGuards(JwtAuthGuard)
   async createTestBatch(@Body() body: any, @Req() request: any) {
     try {
-      const ds = this.databaseService.getDataSourceForTable('devices');
+      const ds = typeof this.databaseService?.getDataSourceForTable === 'function' ? this.databaseService.getDataSourceForTable('devices') : null;
       if (!ds) throw new Error('Database connection unavailable');
 
       const itemCode = (body.itemCode || body.item_code || '').trim();
@@ -5760,7 +6415,7 @@ export class TestingAdapterController implements OnApplicationBootstrap {
   @UseGuards(JwtAuthGuard)
   async getTestBatches(@Query() query: any, @Req() request: any) {
     try {
-      const ds = this.databaseService.getDataSourceForTable('devices');
+      const ds = typeof this.databaseService?.getDataSourceForTable === 'function' ? this.databaseService.getDataSourceForTable('devices') : null;
       if (!ds) return { success: true, data: [], total: 0 };
 
       let itemCode = (query.itemCode || query.item_code || '').trim();
@@ -5863,7 +6518,7 @@ export class TestingAdapterController implements OnApplicationBootstrap {
   @Get(['api/plugins/testing/test-batches/running', 'api/v1/plugins/testing/test-batches/running'])
   @UseGuards(JwtAuthGuard)
   async getRunningTestBatch(@Req() request: any) {
-    const ds = this.databaseService.getDataSourceForTable('devices');
+    const ds = typeof this.databaseService?.getDataSourceForTable === 'function' ? this.databaseService.getDataSourceForTable('devices') : null;
     if (!ds) throw new HttpException('Database unavailable', HttpStatus.SERVICE_UNAVAILABLE);
     const rows = await ds.query(
       `SELECT b.id, b.batch_code, b.batch_name, b.status, b.started_at, b.flow_duration_seconds,
@@ -5879,7 +6534,7 @@ export class TestingAdapterController implements OnApplicationBootstrap {
   @UseGuards(JwtAuthGuard)
   async cancelTestBatch(@Param('id') id: string, @Req() request: any) {
     if (!request?.user?.username) throw new UnauthorizedException('Authentication token missing or invalid');
-    const ds = this.databaseService.getDataSourceForTable('devices');
+    const ds = typeof this.databaseService?.getDataSourceForTable === 'function' ? this.databaseService.getDataSourceForTable('devices') : null;
     if (!ds) throw new HttpException('Database unavailable', HttpStatus.SERVICE_UNAVAILABLE);
     await ds.transaction(async (manager: any) => {
       const rows = await manager.query(`SELECT * FROM system_schema.device_test_batches WHERE id = $1 FOR UPDATE`, [id]);
@@ -5897,7 +6552,7 @@ export class TestingAdapterController implements OnApplicationBootstrap {
   @UseGuards(JwtAuthGuard)
   async completeTestBatch(@Param('id') id: string, @Req() request: any, @Body() body?: any) {
     if (!request?.user?.username) throw new UnauthorizedException('Authentication token missing or invalid');
-    const ds = this.databaseService.getDataSourceForTable('devices');
+    const ds = typeof this.databaseService?.getDataSourceForTable === 'function' ? this.databaseService.getDataSourceForTable('devices') : null;
     if (!ds) throw new HttpException('Database unavailable', HttpStatus.SERVICE_UNAVAILABLE);
     return await ds.transaction(async (manager: any) => {
       const rows = await manager.query(`SELECT * FROM system_schema.device_test_batches WHERE id = $1 FOR UPDATE`, [id]);
@@ -6159,7 +6814,7 @@ export class TestingAdapterController implements OnApplicationBootstrap {
   @UseGuards(JwtAuthGuard)
   async getTestBatchById(@Param('id') id: string, @Req() request: any) {
     try {
-      const ds = this.databaseService.getDataSourceForTable('devices');
+      const ds = typeof this.databaseService?.getDataSourceForTable === 'function' ? this.databaseService.getDataSourceForTable('devices') : null;
       if (!ds) throw new NotFoundException('Database unavailable');
 
       const batches = await ds.query(
@@ -6330,7 +6985,7 @@ export class TestingAdapterController implements OnApplicationBootstrap {
 
   private async executeSimulationFlow(id: string, blocks: any[], devices: any[], startedAt?: string) {
     if (!blocks.length) return;
-    const ds = this.databaseService.getDataSourceForTable('devices');
+    const ds = typeof this.databaseService?.getDataSourceForTable === 'function' ? this.databaseService.getDataSourceForTable('devices') : null;
     const sharedDownlinks = new Map<string, Promise<void>>();
     await Promise.all(devices.map(async device => {
       try {
@@ -6346,7 +7001,7 @@ export class TestingAdapterController implements OnApplicationBootstrap {
   }
 
   private async executeSimulationFlowForDevice(id: string, blocks: any[], device: any, devices: any[], sharedDownlinks: Map<string, Promise<void>>, startedAt?: string) {
-    const ds = this.databaseService.getDataSourceForTable('devices');
+    const ds = typeof this.databaseService?.getDataSourceForTable === 'function' ? this.databaseService.getDataSourceForTable('devices') : null;
     const repo = this.databaseService.getRepositoryForTable('network_servers', ChirpstackNetworkServerEntity);
     const server = blocks.some(b => ['downlink', 'clear_downlink'].includes(b.functionType))
       ? await repo.findOne({ where: { isActive: true } }) : null;
@@ -6705,7 +7360,7 @@ export class TestingAdapterController implements OnApplicationBootstrap {
       throw new BadRequestException('Vui lòng chọn Test Batch trước khi bắt đầu kiểm thử');
     }
     try {
-      const ds = this.databaseService.getDataSourceForTable('devices');
+      const ds = typeof this.databaseService?.getDataSourceForTable === 'function' ? this.databaseService.getDataSourceForTable('devices') : null;
       if (!ds) throw new Error('Database unavailable');
 
       let flowBlocks: any[] = [];
@@ -7478,7 +8133,7 @@ export class TestingAdapterController implements OnApplicationBootstrap {
   @UseGuards(JwtAuthGuard)
   async deleteTestBatch(@Param('id') id: string, @Req() request: any) {
     try {
-      const ds = this.databaseService.getDataSourceForTable('devices');
+      const ds = typeof this.databaseService?.getDataSourceForTable === 'function' ? this.databaseService.getDataSourceForTable('devices') : null;
       if (!ds) throw new NotFoundException('Database unavailable');
 
       await ds.transaction(async (manager: any) => {

@@ -73,6 +73,53 @@ async function runGatewayTests() {
     console.log('✓ changeGatewayProxyConfig validation passed.');
   }
 
+  // 4. Test Gateway Test Batch Lifecycle (12-hour soak test)
+  console.log('4. Testing Gateway Test Batch creation and 12-hour configuration...');
+  const batchRes = await controller.createGatewayTestBatch({
+    batchCode: 'GWB-TEST-001',
+    batchName: 'Lô đo kiểm Gateway 12 giờ',
+    soNumber: 'SO-2026-TEST',
+    gateways: [
+      { gatewayId: '0016C001F1E2D3C4', serialNumber: 'GW-0016C001F1E2D3C4', gatewayName: 'Gateway A' },
+      { gatewayId: '0016C001F1E2D3C5', serialNumber: 'GW-0016C001F1E2D3C5', gatewayName: 'Gateway B' },
+    ],
+  });
+  if (batchRes.data.batch_code !== 'GWB-TEST-001') throw new Error('Batch code mismatch');
+  if (batchRes.data.duration_seconds !== 43200) throw new Error('Batch duration must be 43200s (12 hours)');
+  if (batchRes.data.gateways.length !== 2) throw new Error('Gateways count mismatch');
+  console.log('✓ createGatewayTestBatch passed.');
+
+  // 5. Test Start Gateway Batch & Live Countdown Status
+  console.log('5. Testing startGatewayTestBatch and countdown timer status...');
+  const startRes = await controller.startGatewayTestBatch(batchRes.data.id);
+  if (startRes.data.status !== 'RUNNING') throw new Error('Batch status should be RUNNING');
+
+  const runningRes = await controller.getRunningGatewayTestBatches();
+  if (!runningRes.data.some((b: any) => b.id === batchRes.data.id)) throw new Error('Batch should be in running list');
+
+  const statusRes = await controller.getGatewayTestBatchStatus(batchRes.data.id);
+  if (!statusRes.data.isTesting) throw new Error('isTesting should be true');
+  if (statusRes.data.flowDurationSeconds !== 43200) throw new Error('flowDurationSeconds must be 43200');
+  console.log('✓ startGatewayTestBatch and status passed.');
+
+  // 6. Test Uplink Packet Counting for Gateway from Webhook
+  console.log('6. Testing gateway uplink packet counting via recordGatewayUplinkStats...');
+  await (controller as any).recordGatewayUplinkStats([
+    { gatewayId: '0016C001F1E2D3C4', rssi: -42, snr: 13.5 },
+  ]);
+
+  const afterUplinkStatus = await controller.getGatewayTestBatchStatus(batchRes.data.id);
+  const targetGw = afterUplinkStatus.data.gateways.find((g: any) => g.gatewayId === '0016c001f1e2d3c4');
+  if (!targetGw || targetGw.uplinkCount !== 1) throw new Error('Gateway uplinkCount should be 1');
+  if (targetGw.lastRssi !== -42) throw new Error('Gateway lastRssi should be -42');
+  console.log('✓ gateway uplink packet counting passed.');
+
+  // 7. Test Complete Gateway Test Batch
+  console.log('7. Testing completeGatewayTestBatch...');
+  const completeRes = await controller.completeGatewayTestBatch(batchRes.data.id, { minUplinks: 1 });
+  if (completeRes.data.status !== 'COMPLETED') throw new Error('Batch status should be COMPLETED');
+  console.log('✓ completeGatewayTestBatch passed.');
+
   console.log('\n=============================================================');
   console.log('🎉 ALL GATEWAY CONTROLLER & PROXY VERIFICATION TESTS PASSED! 🎉');
   console.log('=============================================================\n');
