@@ -1792,12 +1792,7 @@ export class TestingAdapterController implements OnApplicationBootstrap {
     const rawGwConfig = body?.gatewayConfig || {};
     const forwarderPayload = {
       gatewayConfig: {
-        serial_number: String(rawGwConfig.serial_number ?? body.serialNumber ?? body.serial_number ?? ''),
-        item_code: String(rawGwConfig.item_code ?? body.itemCode ?? body.item_code ?? ''),
-        sku: String(rawGwConfig.sku ?? body.sku ?? ''),
-        gateway_notes: String(rawGwConfig.gateway_notes ?? body.gatewayNotes ?? body.gateway_notes ?? ''),
-        lte_module_imei: String(rawGwConfig.lte_module_imei ?? body.lteModuleImei ?? body.lte_module_imei ?? ''),
-        lte_module_serial_number: String(rawGwConfig.lte_module_serial_number ?? body.lteModuleSerialNumber ?? body.lte_module_serial_number ?? ''),
+        serial_number: String(rawGwConfig.serial_number ?? body.serialNumber ?? body.serial_number ?? '').trim(),
         ethernet_metric: String(rawGwConfig.ethernet_metric ?? (body.internetTestType === 'ETHERNET' ? '100' : '102')),
         lte_metric: String(rawGwConfig.lte_metric ?? (body.internetTestType === 'ETHERNET' ? '102' : '100')),
         wifi_metric: String(rawGwConfig.wifi_metric ?? '101'),
