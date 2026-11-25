@@ -1105,7 +1105,12 @@ export class TraceabilityAdapterController {
         .orderBy('wa.created_at', 'DESC');
 
       if (targetSoId) {
-        qb.andWhere('wa.so_id = :soId', { soId: targetSoId });
+        const isSoNumber = targetSoId.toUpperCase().startsWith('SO/') || targetSoId.includes('/');
+        if (isSoNumber) {
+          qb.andWhere('so.so_number ILIKE :targetSoNumber', { targetSoNumber: `%${targetSoId.trim()}%` });
+        } else {
+          qb.andWhere('wa.so_id = :soId', { soId: targetSoId });
+        }
       }
       if (soNumber) {
         qb.andWhere('so.so_number ILIKE :soNumber', { soNumber: `%${soNumber.trim()}%` });
@@ -1170,7 +1175,12 @@ export class TraceabilityAdapterController {
       const effectiveSoId = paramSoId || body.soId;
       let targetSo: TraceabilitySoEntity | null = null;
       if (effectiveSoId) {
-        targetSo = await soRepo.findOne({ where: { id: effectiveSoId } });
+        const isSoNumber = effectiveSoId.toUpperCase().startsWith('SO/') || effectiveSoId.includes('/');
+        if (isSoNumber) {
+          targetSo = await soRepo.findOne({ where: { so_number: effectiveSoId.trim() } });
+        } else {
+          targetSo = await soRepo.findOne({ where: { id: effectiveSoId } });
+        }
       } else if (body.soNumber) {
         targetSo = await soRepo.findOne({ where: { so_number: body.soNumber.trim() } });
       }
