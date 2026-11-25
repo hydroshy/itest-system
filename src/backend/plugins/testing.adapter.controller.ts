@@ -1741,7 +1741,7 @@ export class TestingAdapterController implements OnApplicationBootstrap {
         const response = await fetch(targetUrl, {
           method: 'GET',
           headers: { Accept: 'application/json' },
-          signal: AbortSignal.timeout(4000),
+          signal: AbortSignal.timeout(15000),
         });
 
         if (response.ok) {
