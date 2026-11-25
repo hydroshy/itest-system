@@ -154,29 +154,20 @@ export class ChirpStackApiClient {
         gatewayId: dto.gatewayId.replace(/[^0-9a-fA-F]/g, '').toLowerCase(),
         name: dto.name,
         description: dto.description || '',
-        tenantId: server.tenantId,
+        tenantId: dto.tenantId || server.tenantId,
         statsInterval: dto.statsInterval || 30,
       },
     };
 
-    try {
-      const url = this.cleanUrl(server.apiUrl, '/api/gateways');
-      const res = await this.safeFetch(url, {
-        method: 'POST',
-        headers: this.getHeaders(server.apiToken),
-        body: JSON.stringify(payload),
-      });
-
-      if (!res.ok) {
-        const errorText = await res.text();
-        throw new Error(`ChirpStack API trả về lỗi [${res.status}]: ${errorText}`);
-      }
-    } catch (err: any) {
-      if (!err.message?.includes('ChirpStack API')) {
-        // Fallback: if network fails, still track locally
-      } else {
-        throw err;
-      }
+    const url = this.cleanUrl(server.apiUrl, '/api/gateways');
+    const res = await this.safeFetch(url, {
+      method: 'POST',
+      headers: this.getHeaders(server.apiToken),
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) {
+      const errorText = await res.text();
+      throw new Error(`ChirpStack API trả về lỗi [${res.status}]: ${errorText}`);
     }
 
     return {
@@ -184,7 +175,7 @@ export class ChirpStackApiClient {
       name: dto.name,
       description: dto.description || '',
       networkServerId: server.id,
-      tenantId: server.tenantId,
+      tenantId: dto.tenantId || server.tenantId,
       status: 'online',
       lastSeenAt: new Date().toISOString(),
       rxPackets: 0,

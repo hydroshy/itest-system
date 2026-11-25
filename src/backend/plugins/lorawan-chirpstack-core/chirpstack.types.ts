@@ -137,6 +137,7 @@ export interface UpdateNetworkServerDto {
 
 export interface CreateGatewayDto {
   networkServerId: string;
+  tenantId?: string;
   gatewayId: string;
   name: string;
   description?: string;

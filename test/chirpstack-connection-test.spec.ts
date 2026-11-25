@@ -61,6 +61,23 @@ async function run() {
     assert.strictEqual(added.status, 'offline');
     assert.ok(failResult.message.includes('401'));
 
+    // Gateway registration must use selected tenant and never record a failed remote request.
+    global.fetch = (async (url: string, opts: any) => {
+      if (String(url).includes('/api/tenants')) return { ok: true, status: 200, json: async () => ({ result: [] }) };
+      const payload = JSON.parse(opts.body);
+      assert.strictEqual(payload.gateway.tenantId, '775836fd-1e66-4b9b-a30d-25cc02a18c3c');
+      return { ok: true, status: 200 };
+    }) as any;
+    const gateway = await service.createGateway({ networkServerId: added.id, gatewayId: '0011223344556677', name: 'GW-test', tenantId: '775836fd-1e66-4b9b-a30d-25cc02a18c3c' });
+    assert.strictEqual(gateway.tenantId, '775836fd-1e66-4b9b-a30d-25cc02a18c3c');
+    await assert.rejects(() => service.createGateway({ networkServerId: added.id, gatewayId: undefined as any, name: 'GW-test' }));
+    global.fetch = (async (url: string) => {
+      if (String(url).includes('/api/tenants')) return { ok: true, status: 200, json: async () => ({ result: [] }) };
+      return { ok: false, status: 403, text: async () => 'Gateway tenant denied' };
+    }) as any;
+    await assert.rejects(() => service.createGateway({ networkServerId: added.id, gatewayId: '0011223344556678', name: 'GW-denied', tenantId: '775836fd-1e66-4b9b-a30d-25cc02a18c3c' }), /403/);
+    assert.ok(!(service as any).localGateways.has('0011223344556678'));
+
     console.log('ChirpStack connection test unit tests passed successfully!');
   } finally {
     global.fetch = originalFetch;

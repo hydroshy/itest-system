@@ -224,31 +224,19 @@ export class LoRaWanChirpStackService {
   }
 
   async createGateway(dto: CreateGatewayDto): Promise<ChirpStackGateway> {
-    const server = this.servers.get(dto.networkServerId) || this.servers.values().next().value;
+    if (typeof dto?.gatewayId !== 'string' || !/^[0-9a-fA-F]{16}$/.test(dto.gatewayId.replace(/[:-]/g, ''))) {
+      throw new BadRequestException('gatewayId must be a 16-character hexadecimal EUI');
+    }
+    await this.syncNetworkServers();
+    const server = this.servers.get(dto.networkServerId);
     if (!server) {
-      throw new Error('Chưa cấu hình Network Server nào.');
+      throw new BadRequestException('Network Server ID không tồn tại.');
     }
 
-    const cleanId = dto.gatewayId.replace(/[^0-9a-fA-F]/g, '').toLowerCase();
-    let created: ChirpStackGateway;
-
-    try {
-      created = await this.apiClient.createGateway(server, { ...dto, gatewayId: cleanId });
-    } catch {
-      // Fallback local registration
-      created = {
-        gatewayId: cleanId,
-        name: dto.name,
-        description: dto.description || '',
-        networkServerId: server.id,
-        tenantId: server.tenantId || '',
-        status: 'online',
-        lastSeenAt: new Date().toISOString(),
-        rxPackets: 0,
-        txPackets: 0,
-        statsInterval: dto.statsInterval || 30,
-      };
-    }
+    const tenantId = dto.tenantId?.trim() || server.tenantId;
+    if (!tenantId) throw new BadRequestException('tenantId is required for Gateway registration');
+    const cleanId = dto.gatewayId.replace(/[:-]/g, '').toLowerCase();
+    const created = await this.apiClient.createGateway(server, { ...dto, gatewayId: cleanId, tenantId });
 
     this.localGateways.set(created.gatewayId, created);
     if (server.gatewayCount !== undefined) server.gatewayCount++;
