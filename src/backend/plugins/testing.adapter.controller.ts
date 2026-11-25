@@ -1716,43 +1716,62 @@ export class TestingAdapterController implements OnApplicationBootstrap {
   // ============================================================================
 
   @Get(['api/plugins/testing/gateway-proxy/config', 'api/v1/plugins/testing/gateway-proxy/config'])
-  async getGatewayProxyConfig(@Query('ip') ip?: string) {
+  async getGatewayProxyConfig(@Query('ip') ip?: string, @Query('endpoint') endpoint?: string) {
     const gatewayIp = ip?.trim();
     if (!gatewayIp) {
       throw new BadRequestException('Query parameter "ip" is required');
     }
 
-    const targetUrl = `http://${gatewayIp}:4050/api/gateway-config/getGatewayConfigInfo`;
-    this.logger.log(`Proxying gateway config GET request to ${targetUrl}`);
+    const candidateEndpoints = endpoint
+      ? [endpoint.trim()]
+      : [
+          '/api/gateway-config/getGatewayConfigInfo',
+          '/api/gateway-config/getConfigGateway',
+          '/api/gateway-config',
+          '/getGatewayConfigInfo',
+          '/getConfigGateway',
+        ];
 
-    try {
-      const response = await fetch(targetUrl, {
-        method: 'GET',
-        headers: { Accept: 'application/json' },
-        signal: AbortSignal.timeout(6000),
-      });
+    let lastError: any = null;
+    for (const ep of candidateEndpoints) {
+      const targetUrl = `http://${gatewayIp}:4050${ep.startsWith('/') ? ep : `/${ep}`}`;
+      this.logger.log(`Proxying gateway config GET request to ${targetUrl}`);
 
-      if (!response.ok) {
-        throw new HttpException(
-          `Gateway at ${gatewayIp}:4050 returned status ${response.status}`,
-          response.status,
-        );
+      try {
+        const response = await fetch(targetUrl, {
+          method: 'GET',
+          headers: { Accept: 'application/json' },
+          signal: AbortSignal.timeout(4000),
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          const payload = data?.data || data?.config || data;
+          if (payload && (payload.eui || payload.serial_number || payload.gateway_id)) {
+            return {
+              success: true,
+              gatewayIp,
+              endpoint: ep,
+              data: payload,
+            };
+          }
+        } else {
+          lastError = new HttpException(
+            `Gateway at ${gatewayIp}:4050 (${ep}) returned status ${response.status}`,
+            response.status,
+          );
+        }
+      } catch (error: any) {
+        lastError = error;
       }
-
-      const data = await response.json();
-      return {
-        success: true,
-        gatewayIp,
-        data: data?.data || data?.config || data,
-      };
-    } catch (error: any) {
-      this.logger.warn(`Gateway proxy config failed for ${gatewayIp}: ${error.message}`);
-      if (error instanceof HttpException) throw error;
-      throw new HttpException(
-        `Failed to reach Gateway at ${gatewayIp}:4050: ${error.message}`,
-        HttpStatus.BAD_GATEWAY,
-      );
     }
+
+    this.logger.warn(`Gateway proxy config failed for ${gatewayIp}: ${lastError?.message || 'No valid response'}`);
+    if (lastError instanceof HttpException) throw lastError;
+    throw new HttpException(
+      `Failed to reach Gateway at ${gatewayIp}:4050 across standard endpoints: ${lastError?.message || 'Connection failed'}`,
+      HttpStatus.BAD_GATEWAY,
+    );
   }
 
   @Post(['api/plugins/testing/gateway-proxy/change-config', 'api/v1/plugins/testing/gateway-proxy/change-config'])

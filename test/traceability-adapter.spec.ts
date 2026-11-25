@@ -139,6 +139,12 @@ async function runTests() {
                 return { ...wa, so };
               }
               if (where.wa_number && wa.wa_number === where.wa_number) {
+                if (where.item_code !== undefined && wa.item_code !== where.item_code) {
+                  continue;
+                }
+                if (where.so_id && wa.so_id !== where.so_id) {
+                  continue;
+                }
                 const so = soStore.get(wa.so_id);
                 return { ...wa, so };
               }
@@ -552,10 +558,15 @@ async function runTests() {
   const syncRes = await controller.syncDisOrderToTraceability('101856');
   assert.strictEqual(syncRes.so.soNumber, 'SO/2026/01856');
   assert.strictEqual(syncRes.so.partnerEmail, 'procurement@eco-iot.vn');
-  assert.strictEqual(syncRes.workAuthorizations.length, 1);
-  assert.strictEqual(syncRes.workAuthorizations[0].waNumber, 'WA/2026/01856');
-  assert.strictEqual(syncRes.workAuthorizations[0].plannedQuantity, 70); // 50 + 20
-  assert.strictEqual(syncRes.workAuthorizations[0].itemCode, 'WSLRW-C-RS485-01');
+  assert.strictEqual(syncRes.workAuthorizations.length, 2);
+  const syncWa1 = syncRes.workAuthorizations.find((w: any) => w.itemCode === 'WSLRW-C-RS485-01');
+  assert.ok(syncWa1, 'Must have WA entry for WSLRW-C-RS485-01');
+  assert.strictEqual(syncWa1.waNumber, 'WA/2026/01856');
+  assert.strictEqual(syncWa1.plannedQuantity, 50);
+  const syncWa2 = syncRes.workAuthorizations.find((w: any) => w.itemCode === 'WS433-CL-01');
+  assert.ok(syncWa2, 'Must have WA entry for WS433-CL-01');
+  assert.strictEqual(syncWa2.waNumber, 'WA/2026/01856');
+  assert.strictEqual(syncWa2.plannedQuantity, 20);
 
   // Verify synced SO exists in DB with partner_email
   const testSoRepo = (mockDbService as any).getRepositoryForTable('traceability_so', TraceabilitySoEntity);

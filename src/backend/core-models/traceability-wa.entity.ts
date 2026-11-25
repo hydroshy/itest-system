@@ -8,11 +8,15 @@ import {
   ManyToOne,
   OneToMany,
   JoinColumn,
+  Unique,
 } from 'typeorm';
 import { TraceabilitySoEntity } from './traceability-so.entity';
 import { TraceabilityDeviceEntity } from './traceability-device.entity';
 
 @Entity({ schema: 'traceability_manager', name: 'traceability_wa' })
+@Index('idx_traceability_wa_so_id', ['so_id'])
+@Index('idx_traceability_wa_number', ['wa_number'])
+@Unique('uq_traceability_wa_so_wa_item', ['so_id', 'wa_number', 'item_code'])
 export class TraceabilityWaEntity {
   @PrimaryGeneratedColumn('uuid')
   id: string;
@@ -27,8 +31,8 @@ export class TraceabilityWaEntity {
   @JoinColumn({ name: 'so_id' })
   so?: TraceabilitySoEntity;
 
-  @Index('idx_traceability_wa_number', { unique: true })
-  @Column({ name: 'wa_number', type: 'varchar', length: 50, unique: true })
+  @Index('idx_traceability_wa_number')
+  @Column({ name: 'wa_number', type: 'varchar', length: 50 })
   wa_number: string;
 
   @Column({ name: 'item_code', type: 'varchar', length: 100, nullable: true })
