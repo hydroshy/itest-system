@@ -1789,13 +1789,27 @@ export class TestingAdapterController implements OnApplicationBootstrap {
     const targetUrl = `http://${gatewayIp}:4050/api/gateway-config/changeGatewayConfig`;
     this.logger.log(`Proxying gateway config POST request to ${targetUrl}`);
 
+    const rawGwConfig = body?.gatewayConfig || {};
     const forwarderPayload = {
-      server_address: body.serverAddress || body.server_address || '127.0.0.1',
-      serv_port_up: body.servPortUp || body.serv_port_up || 1700,
-      serv_port_down: body.servPortDown || body.serv_port_down || 1700,
-      region: body.regionTest || body.region || body.frequencyPlan || 'AS923',
-      metrics: body.metrics || (body.internetTestType === 'ETHERNET' ? { eth: 100, lte: 102 } : { eth: 102, lte: 100 }),
-      ...body,
+      gatewayConfig: {
+        serial_number: String(rawGwConfig.serial_number ?? body.serialNumber ?? body.serial_number ?? ''),
+        item_code: String(rawGwConfig.item_code ?? body.itemCode ?? body.item_code ?? ''),
+        sku: String(rawGwConfig.sku ?? body.sku ?? ''),
+        gateway_notes: String(rawGwConfig.gateway_notes ?? body.gatewayNotes ?? body.gateway_notes ?? ''),
+        lte_module_imei: String(rawGwConfig.lte_module_imei ?? body.lteModuleImei ?? body.lte_module_imei ?? ''),
+        lte_module_serial_number: String(rawGwConfig.lte_module_serial_number ?? body.lteModuleSerialNumber ?? body.lte_module_serial_number ?? ''),
+        ethernet_metric: String(rawGwConfig.ethernet_metric ?? (body.internetTestType === 'ETHERNET' ? '100' : '102')),
+        lte_metric: String(rawGwConfig.lte_metric ?? (body.internetTestType === 'ETHERNET' ? '102' : '100')),
+        wifi_metric: String(rawGwConfig.wifi_metric ?? '101'),
+        is_reboot: String(rawGwConfig.is_reboot ?? 'false'),
+        lorawan_frequency_plan: String(rawGwConfig.lorawan_frequency_plan ?? body.regionTest ?? body.region ?? body.lorawanFrequencyPlan ?? 'eu868').toLowerCase(),
+        network_server_host: String(rawGwConfig.network_server_host ?? body.networkServerHost ?? body.serverAddress ?? body.server_address ?? 'localhost'),
+        ns_uplink_port: String(rawGwConfig.ns_uplink_port ?? body.servPortUp ?? body.serv_port_up ?? '1700'),
+        ns_downlink_port: String(rawGwConfig.ns_downlink_port ?? body.servPortDown ?? body.serv_port_down ?? '1700'),
+        antenna_gain: String(rawGwConfig.antenna_gain ?? '0'),
+        gps_tty_device_path: String(rawGwConfig.gps_tty_device_path ?? '/dev/ttyAMA5'),
+        timezone: String(rawGwConfig.timezone ?? 'UTC'),
+      },
     };
 
     try {
