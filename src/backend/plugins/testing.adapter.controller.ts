@@ -1746,7 +1746,12 @@ export class TestingAdapterController implements OnApplicationBootstrap {
 
         if (response.ok) {
           const data = await response.json();
-          const payload = data?.data || data?.config || data;
+          const payload =
+            data?.['gateway-config-info'] ||
+            data?.['gateway_config_info'] ||
+            data?.data ||
+            data?.config ||
+            data;
           if (payload && (payload.eui || payload.serial_number || payload.gateway_id)) {
             return {
               success: true,
