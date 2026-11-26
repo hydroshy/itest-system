@@ -204,17 +204,18 @@ export class FinalConfigAdapterController {
     const selectedSo = sos.find((so) => so.so_number === soNumber?.trim());
     const was = await waRepo.find();
     const scopedWas = soNumber?.trim() ? was.filter((wa) => wa.so_id === selectedSo?.id) : was;
-    const selectedWa = scopedWas.find((wa) => wa.wa_number === waNumber?.trim());
+    const matchedWas = waNumber?.trim() ? scopedWas.filter((wa) => wa.wa_number === waNumber?.trim()) : scopedWas;
+    const matchedWaIds = new Set(matchedWas.map((wa) => wa.id));
     const devices = await deviceRepo.find();
     const scopedDevices = devices.filter((device) =>
-      waNumber?.trim() ? device.wa_id === selectedWa?.id : soNumber?.trim() ? device.so_id === selectedSo?.id : true,
+      waNumber?.trim() ? (device.wa_id && matchedWaIds.has(device.wa_id)) : soNumber?.trim() ? device.so_id === selectedSo?.id : true,
     );
     return {
-      soNumbers: sos.map((so) => so.so_number),
-      waNumbers: scopedWas.map((wa) => wa.wa_number),
+      soNumbers: [...new Set(sos.map((so) => so.so_number))],
+      waNumbers: [...new Set(scopedWas.map((wa) => wa.wa_number))],
       itemCodes: [...new Set([
         ...scopedDevices.map((device) => device.item_code),
-        ...scopedWas.filter((wa) => !waNumber?.trim() || wa.id === selectedWa?.id).map((wa) => wa.item_code),
+        ...matchedWas.map((wa) => wa.item_code),
       ].filter((code): code is string => !!code))],
     };
   }
@@ -233,11 +234,14 @@ export class FinalConfigAdapterController {
     const deviceRepo = this.databaseService.getRepositoryForTable('traceability_device', TraceabilityDeviceEntity);
     const memmapRepo = this.databaseService.getRepositoryForTable('memmap_profiles', MemmapProfileEntity);
     const so = await soRepo.findOne({ where: { so_number: soNumber.trim() } });
-    const wa = await waRepo.findOne({ where: { wa_number: waNumber.trim() } });
-    if (!so || !wa || wa.so_id !== so.id) throw new BadRequestException('SO_NUMBER/WA_NUMBER không hợp lệ');
+    const matchingWas = await waRepo.find({ where: { wa_number: waNumber.trim() } });
+    const scopedMatchingWas = matchingWas.filter((wa) => so && wa.so_id === so.id);
+    if (!so || !scopedMatchingWas.length) throw new BadRequestException('SO_NUMBER/WA_NUMBER không hợp lệ');
+    const matchedWaIds = new Set(scopedMatchingWas.map((wa) => wa.id));
     const devices = await deviceRepo.find({ where: { so_id: so.id, item_code: itemCode.trim() } });
-    const scoped = devices.filter((device) => device.wa_id === wa.id);
-    if (!scoped.length && wa.item_code !== itemCode.trim()) {
+    const scoped = devices.filter((device) => device.wa_id && matchedWaIds.has(device.wa_id));
+    const waHasItemCode = scopedMatchingWas.some((wa) => wa.item_code === itemCode.trim());
+    if (!scoped.length && !waHasItemCode) {
       throw new BadRequestException('ITEM_CODE không thuộc SO_NUMBER/WA_NUMBER đã chọn');
     }
     let versions = [...new Set(scoped.map((device) => device.fw_version?.trim()).filter((fw): fw is string => !!fw))];

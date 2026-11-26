@@ -41,7 +41,10 @@ async function runTests() {
   console.log('2. Verifying Controller API & Validation...');
   const mockStorage: Record<string, any[]> = {
     traceability_so: [{ id: 'so-1', so_number: 'SO/2026/01850' }],
-    traceability_wa: [{ id: 'wa-1', so_id: 'so-1', wa_number: 'WA/2026/00001', item_code: 'ITEM-01' }],
+    traceability_wa: [
+      { id: 'wa-1', so_id: 'so-1', wa_number: 'WA/2026/00001', item_code: 'ITEM-01' },
+      { id: 'wa-2', so_id: 'so-1', wa_number: 'WA/2026/00001', item_code: 'ITEM-02' },
+    ],
     traceability_device: [{ so_id: 'so-1', wa_id: 'wa-1', item_code: 'ITEM-01', fw_version: '5F1234' }],
     memmap_profiles: [{ id: 'map-1', itemCode: 'ITEM-01', fwVersion: '5F1234', sku: 'WSLRW-001', longFw: '5F1234', registers: [{ no: 1, address: 303, name: 'Reg 1', numRegisters: 1 }] }],
     preconfig_profile: [],
@@ -154,8 +157,8 @@ async function runTests() {
   const options = await controller.getCreateOptions('SO/2026/01850', 'WA/2026/00001');
   assert.deepStrictEqual(options.soNumbers, ['SO/2026/01850']);
   assert.deepStrictEqual(options.waNumbers, ['WA/2026/00001']);
-  assert.deepStrictEqual(options.itemCodes, ['ITEM-01']);
-  console.log('✓ Options endpoint verified');
+  assert.deepStrictEqual(options.itemCodes, ['ITEM-01', 'ITEM-02']);
+  console.log('✓ Options endpoint verified (all items for WA returned without duplicate WA numbers)');
 
   // Resolve check
   const resolved = await controller.resolveCreate('SO/2026/01850', 'WA/2026/00001', 'ITEM-01');
