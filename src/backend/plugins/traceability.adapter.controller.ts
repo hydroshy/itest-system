@@ -660,209 +660,221 @@ export class TraceabilityAdapterController {
       };
 
       // Construct Tabulator dataTree structure (_children)
-      // Level 1: SO (Sales Order)
-      // Level 2: ITEM_CODE (Sản phẩm / dòng hàng thuộc SO)
-      // Level 3: SERIAL_NUMBER / DEVICE (Thiết bị test thuộc ITEM_CODE, gắn với WA)
+      // Standard 4-level hierarchy: SO -> WA -> ITEM_CODE -> DEVICE
       const tree = saleOrders.map((so) => {
         const soWas = waBySo.get(so.id) || [];
         const soDevs = devicesBySo.get(so.id) || [];
 
-        // Collect all distinct item_codes from WAs (from DIS sync/creation) and devices
-        const itemCodeMap = new Map<
-          string,
-          {
-            itemCode: string;
-            description?: string;
-            plannedQuantity: number;
-            was: TraceabilityWaEntity[];
-            devices: TraceabilityDeviceEntity[];
-          }
-        >();
+        // Build Level 2 (WA) nodes -> Level 3 (ITEM_CODE) -> Level 4 (DEVICE)
+        const waNodes: any[] = [];
+        const assignedDevIds = new Set<string>();
 
-        // 1. Seed item codes from WAs
+        // Group WAs by wa_number so each unique wa_number within the SO forms a single Level 2 WA node
+        const waGroupMap = new Map<string, { waNumber: string; was: TraceabilityWaEntity[] }>();
         for (const w of soWas) {
-          const codeKey = (w.item_code || 'UNASSIGNED').trim();
-          if (!itemCodeMap.has(codeKey)) {
-            itemCodeMap.set(codeKey, {
-              itemCode: codeKey,
-              description: w.notes || undefined,
-              plannedQuantity: 0,
-              was: [],
-              devices: [],
-            });
+          const wNum = (w.wa_number || 'CHƯA GÁN WA').trim();
+          if (!waGroupMap.has(wNum)) {
+            waGroupMap.set(wNum, { waNumber: wNum, was: [] });
           }
-          const entry = itemCodeMap.get(codeKey)!;
-          entry.plannedQuantity += w.planned_quantity || 0;
-          entry.was.push(w);
-          if (!entry.description && w.notes) {
-            entry.description = w.notes;
-          }
+          waGroupMap.get(wNum)!.was.push(w);
         }
 
-        // 2. Associate devices to Item Code
-        for (const dev of soDevs) {
-          let codeKey: string | null = null;
-          if (dev.item_code && dev.item_code.trim()) {
-            codeKey = dev.item_code.trim();
-          } else if (dev.wa_id && waMap.has(dev.wa_id)) {
-            const w = waMap.get(dev.wa_id)!;
-            if (w.item_code && w.item_code.trim()) {
-              codeKey = w.item_code.trim();
+        for (const [wNum, grp] of waGroupMap.entries()) {
+          const primaryWa = grp.was[0];
+          const waIdSet = new Set(grp.was.map((w) => w.id));
+
+          // Devices belonging to this WA group
+          const waDevs = soDevs.filter((d) => d.wa_id && waIdSet.has(d.wa_id));
+          waDevs.forEach((d) => assignedDevIds.add(d.id));
+
+          // Group items within this WA
+          const itemMap = new Map<
+            string,
+            {
+              itemCode: string;
+              description?: string;
+              plannedQuantity: number;
+              was: TraceabilityWaEntity[];
+              devices: TraceabilityDeviceEntity[];
             }
-          } else if (dev.sku && dev.sku.trim()) {
-            codeKey = dev.sku.trim();
+          >();
+
+          for (const w of grp.was) {
+            const itemCode = (w.item_code || 'UNASSIGNED').trim();
+            if (!itemMap.has(itemCode)) {
+              itemMap.set(itemCode, {
+                itemCode,
+                description: w.notes || undefined,
+                plannedQuantity: 0,
+                was: [],
+                devices: [],
+              });
+            }
+            const itemEntry = itemMap.get(itemCode)!;
+            itemEntry.plannedQuantity += w.planned_quantity || 0;
+            itemEntry.was.push(w);
+            if (!itemEntry.description && w.notes) itemEntry.description = w.notes;
           }
 
-          if (!codeKey) {
-            // If only 1 item code in SO, default to it
-            if (itemCodeMap.size === 1) {
-              codeKey = Array.from(itemCodeMap.keys())[0];
-            } else {
-              codeKey = 'UNASSIGNED';
+          for (const dev of waDevs) {
+            let itemCode = (dev.item_code || dev.sku || '').trim();
+            if (!itemCode && dev.wa_id && waMap.has(dev.wa_id)) {
+              itemCode = (waMap.get(dev.wa_id)!.item_code || '').trim();
             }
+            if (!itemCode) {
+              itemCode = itemMap.size === 1 ? Array.from(itemMap.keys())[0] : 'UNASSIGNED';
+            }
+            if (!itemMap.has(itemCode)) {
+              itemMap.set(itemCode, {
+                itemCode,
+                plannedQuantity: 0,
+                was: [],
+                devices: [],
+              });
+            }
+            itemMap.get(itemCode)!.devices.push(dev);
           }
 
-          if (!itemCodeMap.has(codeKey)) {
-            itemCodeMap.set(codeKey, {
-              itemCode: codeKey,
-              plannedQuantity: 0,
-              was: [],
-              devices: [],
+          // Build Level 3 (ITEM_CODE) nodes for this WA
+          const itemCodeNodes: any[] = [];
+          for (const [itemCode, itemEntry] of itemMap.entries()) {
+            const itemDevs = itemEntry.devices;
+            const passCount = itemDevs.filter((d) => d.test_result === TraceabilityTestResult.PASS).length;
+            const failCount = itemDevs.filter((d) => d.test_result === TraceabilityTestResult.FAIL).length;
+            const cfgPassCount = itemDevs.filter((d) => d.config_status === TraceabilityConfigStatus.CONFIGURED_PASS).length;
+            const subWa = itemEntry.was[0] || primaryWa;
+
+            itemCodeNodes.push({
+              id: `item-${so.id}-${subWa?.id || primaryWa.id}-${itemCode}`,
+              soId: so.id,
+              soNumber: so.so_number,
+              type: 'ITEM_CODE',
+              code: itemCode,
+              itemCode,
+              orderingCode: itemCode,
+              description: itemEntry.description || itemCode,
+              sku: itemCode,
+              waId: subWa?.id || primaryWa.id,
+              waNumber: wNum,
+              waCount: 1,
+              plannedQuantity: itemEntry.plannedQuantity || itemDevs.length,
+              quantity: itemEntry.plannedQuantity || itemDevs.length,
+              totalDevices: itemDevs.length,
+              testedCount: itemDevs.length,
+              passCount,
+              failCount,
+              configPassCount: cfgPassCount,
+              status: itemDevs.length >= (itemEntry.plannedQuantity || 1) && passCount === itemDevs.length ? 'COMPLETED' : 'IN_PROGRESS',
+              notes: itemEntry.description || null,
+              createdAt: subWa?.created_at || primaryWa.created_at,
+              _children: itemDevs.map(mapDeviceNode),
             });
           }
-          itemCodeMap.get(codeKey)!.devices.push(dev);
-        }
 
-        // Build Level 2 (ITEM_CODE) nodes
-        const itemCodeNodes: any[] = [];
-        for (const [codeKey, entry] of itemCodeMap.entries()) {
-          const itemDevs = entry.devices;
-          const passCount = itemDevs.filter(
-            (d) => d.test_result === TraceabilityTestResult.PASS,
-          ).length;
-          const failCount = itemDevs.filter(
-            (d) => d.test_result === TraceabilityTestResult.FAIL,
-          ).length;
-          const cfgPassCount = itemDevs.filter(
-            (d) => d.config_status === TraceabilityConfigStatus.CONFIGURED_PASS,
-          ).length;
+          const waPassCount = waDevs.filter((d) => d.test_result === TraceabilityTestResult.PASS).length;
+          const waFailCount = waDevs.filter((d) => d.test_result === TraceabilityTestResult.FAIL).length;
+          const waCfgPassCount = waDevs.filter((d) => d.config_status === TraceabilityConfigStatus.CONFIGURED_PASS).length;
+          const totalPlannedQty = grp.was.reduce((acc, w) => acc + (w.planned_quantity || 0), 0);
+          const distinctItemCodes = Array.from(new Set(grp.was.map((w) => w.item_code).filter(Boolean)));
 
-          const defaultWa = entry.was.length > 0 ? entry.was[0] : null;
-          const waNumberStr = entry.was.map((w) => w.wa_number).join(', ');
-
-          itemCodeNodes.push({
-            id: `item-${so.id}-${codeKey}`,
+          waNodes.push({
+            id: primaryWa.id,
             soId: so.id,
             soNumber: so.so_number,
-            type: 'ITEM_CODE',
-            code: entry.itemCode,
-            itemCode: entry.itemCode,
-            orderingCode: entry.itemCode,
-            description: entry.description || entry.itemCode,
-            sku: entry.itemCode,
-            waId: defaultWa?.id || null,
-            waNumber: waNumberStr || null,
-            waCount: entry.was.length,
-            was: entry.was.map((w) => ({
-              id: w.id,
-              waNumber: w.wa_number,
-              itemCode: w.item_code,
-              plannedQuantity: w.planned_quantity,
-            })),
-            plannedQuantity: entry.plannedQuantity || itemDevs.length,
-            quantity: entry.plannedQuantity || itemDevs.length,
-            totalDevices: itemDevs.length,
-            testedCount: itemDevs.length,
-            passCount,
-            failCount,
-            configPassCount: cfgPassCount,
-            status:
-              itemDevs.length >= (entry.plannedQuantity || 1) && passCount === itemDevs.length
-                ? 'COMPLETED'
-                : 'IN_PROGRESS',
-            notes: entry.description || null,
-            createdAt: entry.was[0]?.created_at || so.created_at,
-            _children: itemDevs.map(mapDeviceNode),
+            type: 'WA',
+            code: wNum,
+            waNumber: wNum,
+            itemCode: distinctItemCodes.join(', ') || primaryWa.item_code || '',
+            orderingCode: distinctItemCodes.join(', ') || primaryWa.item_code || '',
+            description: primaryWa.notes || distinctItemCodes.join(', ') || wNum,
+            sku: distinctItemCodes.join(', ') || primaryWa.item_code || '',
+            waId: primaryWa.id,
+            plannedQuantity: totalPlannedQty || waDevs.length,
+            quantity: totalPlannedQty || waDevs.length,
+            totalDevices: waDevs.length,
+            testedCount: waDevs.length,
+            passCount: waPassCount,
+            failCount: waFailCount,
+            configPassCount: waCfgPassCount,
+            status: waDevs.length > 0 && waPassCount === waDevs.length ? 'COMPLETED' : 'IN_PROGRESS',
+            createdAt: primaryWa.created_at,
+            notes: primaryWa.notes,
+            _children: itemCodeNodes,
           });
         }
 
-        // Build Level 2 nodes based on hierarchy mode
-        let childNodes: any[] = [];
-        if (hierarchy === 'wa') {
-          // Hierarchy mode: SO -> WA -> DEVICE
-          const waNodes: any[] = [];
-          const assignedDevIds = new Set<string>();
+        // Unassigned devices under SO
+        const unassignedDevs = soDevs.filter((d) => !assignedDevIds.has(d.id));
+        if (unassignedDevs.length > 0) {
+          const passCount = unassignedDevs.filter((d) => d.test_result === TraceabilityTestResult.PASS).length;
+          const failCount = unassignedDevs.filter((d) => d.test_result === TraceabilityTestResult.FAIL).length;
+          const cfgPassCount = unassignedDevs.filter((d) => d.config_status === TraceabilityConfigStatus.CONFIGURED_PASS).length;
 
-          for (const wa of soWas) {
-            const waDevs = soDevs.filter((d) => d.wa_id === wa.id);
-            waDevs.forEach((d) => assignedDevIds.add(d.id));
-
-            const passCount = waDevs.filter((d) => d.test_result === TraceabilityTestResult.PASS).length;
-            const failCount = waDevs.filter((d) => d.test_result === TraceabilityTestResult.FAIL).length;
-            const cfgPassCount = waDevs.filter((d) => d.config_status === TraceabilityConfigStatus.CONFIGURED_PASS).length;
-
-            waNodes.push({
-              id: wa.id,
-              soId: so.id,
-              soNumber: so.so_number,
-              type: 'WA',
-              code: wa.wa_number,
-              waNumber: wa.wa_number,
-              itemCode: wa.item_code || '',
-              orderingCode: wa.item_code || '',
-              description: wa.notes || wa.item_code || wa.wa_number,
-              sku: wa.item_code || '',
-              waId: wa.id,
-              plannedQuantity: wa.planned_quantity || waDevs.length,
-              quantity: wa.planned_quantity || waDevs.length,
-              totalDevices: waDevs.length,
-              testedCount: waDevs.length,
-              passCount,
-              failCount,
-              configPassCount: cfgPassCount,
-              status: waDevs.length > 0 && passCount === waDevs.length ? 'COMPLETED' : 'IN_PROGRESS',
-              createdAt: wa.created_at,
-              _children: waDevs.map(mapDeviceNode),
-            });
+          // Group unassigned devices by item_code
+          const unassignedItemMap = new Map<string, TraceabilityDeviceEntity[]>();
+          for (const dev of unassignedDevs) {
+            const itemCode = (dev.item_code || dev.sku || 'UNASSIGNED').trim();
+            if (!unassignedItemMap.has(itemCode)) unassignedItemMap.set(itemCode, []);
+            unassignedItemMap.get(itemCode)!.push(dev);
           }
 
-          // Any unassigned devices under this SO
-          const unassignedDevs = soDevs.filter((d) => !assignedDevIds.has(d.id));
-          if (unassignedDevs.length > 0) {
-            const passCount = unassignedDevs.filter((d) => d.test_result === TraceabilityTestResult.PASS).length;
-            const failCount = unassignedDevs.filter((d) => d.test_result === TraceabilityTestResult.FAIL).length;
-            const cfgPassCount = unassignedDevs.filter((d) => d.config_status === TraceabilityConfigStatus.CONFIGURED_PASS).length;
-
-            waNodes.push({
-              id: `wa-unassigned-${so.id}`,
+          const unassignedItemNodes: any[] = [];
+          for (const [itemCode, devs] of unassignedItemMap.entries()) {
+            const pCount = devs.filter((d) => d.test_result === TraceabilityTestResult.PASS).length;
+            const fCount = devs.filter((d) => d.test_result === TraceabilityTestResult.FAIL).length;
+            const cfgCount = devs.filter((d) => d.config_status === TraceabilityConfigStatus.CONFIGURED_PASS).length;
+            unassignedItemNodes.push({
+              id: `item-unassigned-${so.id}-${itemCode}`,
               soId: so.id,
               soNumber: so.so_number,
-              type: 'WA',
-              code: 'CHƯA GÁN WA',
-              waNumber: 'CHƯA GÁN WA',
-              itemCode: 'UNASSIGNED',
-              orderingCode: 'UNASSIGNED',
-              description: 'Thiết bị chưa gán vào Work Authorization',
-              sku: 'UNASSIGNED',
+              type: 'ITEM_CODE',
+              code: itemCode,
+              itemCode,
+              orderingCode: itemCode,
+              description: itemCode,
+              sku: itemCode,
               waId: null,
-              plannedQuantity: unassignedDevs.length,
-              quantity: unassignedDevs.length,
-              totalDevices: unassignedDevs.length,
-              testedCount: unassignedDevs.length,
-              passCount,
-              failCount,
-              configPassCount: cfgPassCount,
+              waNumber: 'CHƯA GÁN WA',
+              waCount: 0,
+              plannedQuantity: devs.length,
+              quantity: devs.length,
+              totalDevices: devs.length,
+              testedCount: devs.length,
+              passCount: pCount,
+              failCount: fCount,
+              configPassCount: cfgCount,
               status: 'IN_PROGRESS',
-              createdAt: unassignedDevs[0]?.created_at || so.created_at,
-              _children: unassignedDevs.map(mapDeviceNode),
+              createdAt: devs[0]?.created_at || so.created_at,
+              _children: devs.map(mapDeviceNode),
             });
           }
 
-          childNodes = waNodes;
-        } else {
-          // Hierarchy mode: SO -> ITEMCODE -> TESTED DEVICE (default)
-          childNodes = itemCodeNodes;
+          waNodes.push({
+            id: `wa-unassigned-${so.id}`,
+            soId: so.id,
+            soNumber: so.so_number,
+            type: 'WA',
+            code: 'CHƯA GÁN WA',
+            waNumber: 'CHƯA GÁN WA',
+            itemCode: 'UNASSIGNED',
+            orderingCode: 'UNASSIGNED',
+            description: 'Thiết bị chưa gán vào Work Authorization',
+            sku: 'UNASSIGNED',
+            waId: null,
+            plannedQuantity: unassignedDevs.length,
+            quantity: unassignedDevs.length,
+            totalDevices: unassignedDevs.length,
+            testedCount: unassignedDevs.length,
+            passCount,
+            failCount,
+            configPassCount: cfgPassCount,
+            status: 'IN_PROGRESS',
+            createdAt: unassignedDevs[0]?.created_at || so.created_at,
+            _children: unassignedItemNodes,
+          });
         }
+
+        const childNodes = waNodes;
 
         const soTotalDevices = soDevs.length;
         const soPassCount = soDevs.filter(
@@ -885,7 +897,7 @@ export class TraceabilityAdapterController {
           partner_email: so.partner_email || null,
           customer_email: so.partner_email || null,
           name: so.customer_name ? `${so.so_number} - ${so.customer_name}` : so.so_number,
-          itemCount: itemCodeNodes.length,
+          itemCount: waNodes.reduce((acc, w) => acc + (w._children?.length || 0), 0),
           waCount: soWas.length,
           workAuthorizations: soWas.map((w) => ({
             id: w.id,
