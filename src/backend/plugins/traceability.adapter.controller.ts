@@ -887,6 +887,32 @@ export class TraceabilityAdapterController {
           (d) => d.config_status === TraceabilityConfigStatus.CONFIGURED_PASS,
         ).length;
 
+        const distinctWaMap = new Map<string, any>();
+        for (const w of soWas) {
+          const key = (w.wa_number || '').trim();
+          if (!key) continue;
+          if (!distinctWaMap.has(key)) {
+            distinctWaMap.set(key, {
+              id: w.id,
+              waNumber: w.wa_number,
+              itemCode: w.item_code || '',
+              itemCodes: w.item_code ? [w.item_code] : [],
+              plannedQuantity: w.planned_quantity || 0,
+              notes: w.notes,
+              createdAt: w.created_at,
+            });
+          } else {
+            const existing = distinctWaMap.get(key)!;
+            if (w.item_code && !existing.itemCodes.includes(w.item_code)) {
+              existing.itemCodes.push(w.item_code);
+              existing.itemCode = existing.itemCodes.join(', ');
+            }
+            existing.plannedQuantity += (w.planned_quantity || 0);
+          }
+        }
+        const distinctWas = Array.from(distinctWaMap.values());
+        const distinctWaCount = distinctWaMap.size;
+
         return {
           id: so.id,
           type: 'SO',
@@ -898,20 +924,9 @@ export class TraceabilityAdapterController {
           customer_email: so.partner_email || null,
           name: so.customer_name ? `${so.so_number} - ${so.customer_name}` : so.so_number,
           itemCount: waNodes.reduce((acc, w) => acc + (w._children?.length || 0), 0),
-          waCount: soWas.length,
-          workAuthorizations: soWas.map((w) => ({
-            id: w.id,
-            waNumber: w.wa_number,
-            itemCode: w.item_code,
-            plannedQuantity: w.planned_quantity,
-            notes: w.notes,
-          })),
-          was: soWas.map((w) => ({
-            id: w.id,
-            waNumber: w.wa_number,
-            itemCode: w.item_code,
-            plannedQuantity: w.planned_quantity,
-          })),
+          waCount: distinctWaCount,
+          workAuthorizations: distinctWas,
+          was: distinctWas,
           totalDevices: soTotalDevices,
           passCount: soPassCount,
           failCount: soFailCount,
@@ -984,6 +999,31 @@ export class TraceabilityAdapterController {
             where: { so_id: so.id, config_status: TraceabilityConfigStatus.CONFIGURED_PASS },
           });
 
+          const distinctWaMap = new Map<string, any>();
+          for (const w of was) {
+            const key = (w.wa_number || '').trim();
+            if (!key) continue;
+            if (!distinctWaMap.has(key)) {
+              distinctWaMap.set(key, {
+                id: w.id,
+                waNumber: w.wa_number,
+                itemCode: w.item_code || '',
+                itemCodes: w.item_code ? [w.item_code] : [],
+                plannedQuantity: w.planned_quantity || 0,
+                notes: w.notes,
+                createdAt: w.created_at,
+              });
+            } else {
+              const existing = distinctWaMap.get(key)!;
+              if (w.item_code && !existing.itemCodes.includes(w.item_code)) {
+                existing.itemCodes.push(w.item_code);
+                existing.itemCode = existing.itemCodes.join(', ');
+              }
+              existing.plannedQuantity += (w.planned_quantity || 0);
+            }
+          }
+          const distinctWas = Array.from(distinctWaMap.values());
+
           return {
             id: so.id,
             soNumber: so.so_number,
@@ -992,15 +1032,8 @@ export class TraceabilityAdapterController {
             partner_email: so.partner_email || null,
             customer_email: so.partner_email || null,
             notes: so.notes,
-            waCount: was.length,
-            workAuthorizations: was.map((w) => ({
-              id: w.id,
-              waNumber: w.wa_number,
-              itemCode: w.item_code,
-              plannedQuantity: w.planned_quantity,
-              notes: w.notes,
-              createdAt: w.created_at,
-            })),
+            waCount: distinctWaMap.size,
+            workAuthorizations: distinctWas,
             stats: {
               totalDevices,
               testPassCount,
@@ -1059,6 +1092,31 @@ export class TraceabilityAdapterController {
         where: { so_id: so.id, config_status: TraceabilityConfigStatus.CONFIGURED_PASS },
       });
 
+      const distinctWaMap = new Map<string, any>();
+      for (const w of was) {
+        const key = (w.wa_number || '').trim();
+        if (!key) continue;
+        if (!distinctWaMap.has(key)) {
+          distinctWaMap.set(key, {
+            id: w.id,
+            waNumber: w.wa_number,
+            itemCode: w.item_code || '',
+            itemCodes: w.item_code ? [w.item_code] : [],
+            plannedQuantity: w.planned_quantity || 0,
+            notes: w.notes,
+            createdAt: w.created_at,
+          });
+        } else {
+          const existing = distinctWaMap.get(key)!;
+          if (w.item_code && !existing.itemCodes.includes(w.item_code)) {
+            existing.itemCodes.push(w.item_code);
+            existing.itemCode = existing.itemCodes.join(', ');
+          }
+          existing.plannedQuantity += (w.planned_quantity || 0);
+        }
+      }
+      const distinctWas = Array.from(distinctWaMap.values());
+
       return {
         id: so.id,
         soNumber: so.so_number,
@@ -1067,15 +1125,8 @@ export class TraceabilityAdapterController {
         partner_email: so.partner_email || null,
         customer_email: so.partner_email || null,
         notes: so.notes,
-        waCount: was.length,
-        workAuthorizations: was.map((w) => ({
-          id: w.id,
-          waNumber: w.wa_number,
-          itemCode: w.item_code,
-          plannedQuantity: w.planned_quantity,
-          notes: w.notes,
-          createdAt: w.created_at,
-        })),
+        waCount: distinctWaMap.size,
+        workAuthorizations: distinctWas,
         stats: {
           totalDevices,
           testPassCount,
