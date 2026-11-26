@@ -1,4 +1,5 @@
 import { TestingAdapterController } from '../src/backend/plugins/testing.adapter.controller';
+import * as assert from 'node:assert/strict';
 
 async function runGatewayTests() {
   console.log('--- Starting Gateway Proxy & Session Orchestration Tests ---');
@@ -6,8 +7,12 @@ async function runGatewayTests() {
   const createdRecords: any[] = [];
   const mockSessionRepo = {
     create: (data: any) => ({ ...data, id: 'test-session-uuid-123' }),
+    find: async () => createdRecords,
+    remove: async (items: any[]) => {
+      for (const item of items) createdRecords.splice(createdRecords.indexOf(item), 1);
+    },
     save: async (entity: any) => {
-      createdRecords.push(entity);
+      if (!createdRecords.includes(entity)) createdRecords.push(entity);
       return entity;
     },
     createQueryBuilder: () => ({
@@ -18,6 +23,7 @@ async function runGatewayTests() {
   };
 
   const mockDbService: any = {
+    getDataSourceForTable: () => null,
     getRepositoryForTable: (table: string, entityClass: any) => {
       return mockSessionRepo;
     },
@@ -80,7 +86,7 @@ async function runGatewayTests() {
     batchName: 'Lô đo kiểm Gateway 12 giờ',
     soNumber: 'SO-2026-TEST',
     gateways: [
-      { gatewayId: '0016C001F1E2D3C4', serialNumber: 'GW-0016C001F1E2D3C4', gatewayName: 'Gateway A' },
+      { gatewayId: '0016C001F1E2D3C4', serialNumber: 'GW-0016C001F1E2D3C4', gatewayName: 'Gateway A', regionTest: 'EU868' },
       { gatewayId: '0016C001F1E2D3C5', serialNumber: 'GW-0016C001F1E2D3C5', gatewayName: 'Gateway B' },
     ],
   });
@@ -106,7 +112,13 @@ async function runGatewayTests() {
   console.log('6. Testing gateway uplink packet counting via recordGatewayUplinkStats...');
   await (controller as any).recordGatewayUplinkStats([
     { gatewayId: '0016C001F1E2D3C4', rssi: -42, snr: 13.5 },
-  ]);
+  ], '3531383163306c18');
+  await (controller as any).recordGatewayUplinkStats([
+    { gatewayId: '0016C001F1E2D3C4', rssi: -42 },
+  ], 'DEADBEEF');
+  await (controller as any).recordGatewayUplinkStats([
+    { gatewayId: 'UNRELATED', rssi: -42 },
+  ], '3531383163306c18');
 
   const afterUplinkStatus = await controller.getGatewayTestBatchStatus(batchRes.data.id);
   const targetGw = afterUplinkStatus.data.gateways.find((g: any) => g.gatewayId === '0016c001f1e2d3c4');
@@ -115,10 +127,35 @@ async function runGatewayTests() {
   console.log('✓ gateway uplink packet counting passed.');
 
   // 7. Test Complete Gateway Test Batch
+  createdRecords.push({ id: 'other-so-session', gateway_id: '0016C001F1E2D3C4', status: 'RUNNING', so_number: 'OTHER-SO' });
   console.log('7. Testing completeGatewayTestBatch...');
   const completeRes = await controller.completeGatewayTestBatch(batchRes.data.id, { minUplinks: 1 });
   if (completeRes.data.status !== 'COMPLETED') throw new Error('Batch status should be COMPLETED');
+  assert.deepEqual(createdRecords.map(s => s.id), ['other-so-session'], 'remove only active sessions for matching SO');
   console.log('✓ completeGatewayTestBatch passed.');
+
+  // DB-backed batches must count after a process restart, not only in the controller's memory.
+  const dbBatch: any = { ...batchRes.data, id: 'stored-batch', status: 'RUNNING',
+    gateways: [{ gatewayId: '0016c001f1e2d3c4', regionTest: 'EU868', uplinkCount: 0 }], summary: {} };
+  const queries: string[] = [];
+  const dbController = new TestingAdapterController({
+    getRepositoryForTable: () => ({ find: async () => [], save: async (s: any) => s }),
+    getDataSourceForTable: () => ({ query: async (sql: string, params?: any[]) => {
+      queries.push(sql);
+      if (sql.startsWith('SELECT * FROM devices.gateway_test_batches WHERE status')) return [dbBatch];
+      if (sql.startsWith('UPDATE devices.gateway_test_batches SET gateways')) {
+        dbBatch.gateways = JSON.parse(params![0]);
+        dbBatch.summary = JSON.parse(params![1]);
+      }
+      return [];
+    } }),
+  } as any);
+  await (dbController as any).recordGatewayUplinkStats([{ gatewayId: '0016C001F1E2D3C4' }], '3531383163306C18');
+  assert.equal(dbBatch.gateways[0].uplinkCount, 1);
+  assert.equal(dbBatch.summary.totalUplinkPackets, 1);
+  assert.ok(queries.some(q => q.startsWith('UPDATE devices.gateway_test_batches SET gateways')));
+  await (dbController as any).recordGatewayUplinkStats([{ gatewayId: '0016C001F1E2D3C4' }], 'DEADBEEF');
+  assert.equal(dbBatch.gateways[0].uplinkCount, 1, 'unrelated payload must not count');
 
   console.log('\n=============================================================');
   console.log('🎉 ALL GATEWAY CONTROLLER & PROXY VERIFICATION TESTS PASSED! 🎉');

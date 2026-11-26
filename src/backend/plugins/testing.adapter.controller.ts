@@ -1474,75 +1474,74 @@ export class TestingAdapterController implements OnApplicationBootstrap {
     });
 
     if (body.rxInfo) {
-      await this.recordGatewayUplinkStats(body.rxInfo);
+      await this.recordGatewayUplinkStats(body.rxInfo, rawPayload);
     }
 
     return { success: true, data: { id: packet.id, decodeError } };
   }
 
-  private async recordGatewayUplinkStats(rxInfoInput: any) {
-    if (!rxInfoInput) return;
+  private async recordGatewayUplinkStats(rxInfoInput: any, rawPayload: string) {
+    // Each region has its own device payload. Do not count unrelated LoRaWAN traffic.
+    const payloadByRegion: Record<string, string> = { EU868: '3531383163306C18' };
     const rxInfoList = (Array.isArray(rxInfoInput) ? rxInfoInput : [rxInfoInput]).filter(Boolean);
-    if (rxInfoList.length === 0) return;
-
+    if (!rxInfoList.length || !rawPayload) return;
+    const matchesPayload = (region: string | null | undefined, configuredPayload?: string) => {
+      const expected = configuredPayload || payloadByRegion[String(region || '').toUpperCase()];
+      return !expected || expected.toUpperCase() === rawPayload.toUpperCase();
+    };
+    const normalizeId = (id: any) => String(id || '').replace(/[:-]/g, '').toLowerCase();
     const numberOrNull = (value: any) =>
       value !== undefined && value !== null && Number.isFinite(Number(value)) ? Number(value) : null;
 
     try {
-      const sessionRepo = this.databaseService.getRepositoryForTable(
-        'gateway_test_sessions',
-        GatewayTestSessionEntity,
-      );
+      const sessionRepo = this.databaseService.getRepositoryForTable('gateway_test_sessions', GatewayTestSessionEntity);
+      const ds = this.databaseService.getDataSourceForTable?.('devices');
+      const batches = ds?.query
+        ? await ds.query(`SELECT * FROM devices.gateway_test_batches WHERE status = 'RUNNING'`)
+        : Array.from(this.gatewayBatches.values()).filter(b => b.status === 'RUNNING');
 
       for (const rx of rxInfoList) {
-        const rawGwId = (rx?.gatewayId || rx?.gatewayID || rx?.gateway_id || '').trim();
-        if (!rawGwId) continue;
-        const cleanGwId = rawGwId.replace(/[:-]/g, '').toLowerCase();
+        const cleanGwId = normalizeId(rx?.gatewayId || rx?.gatewayID || rx?.gateway_id);
+        if (!cleanGwId) continue;
         const rssi = numberOrNull(rx.rssi);
         const snr = numberOrNull(rx.snr ?? rx.loRaSNR);
         const nowIso = new Date().toISOString();
 
-        // 1. Update in-memory gateway batches
-        for (const [batchId, batch] of this.gatewayBatches.entries()) {
-          if (batch.status === 'RUNNING' && Array.isArray(batch.gateways)) {
-            let updated = false;
-            for (const gw of batch.gateways) {
-              const gwEui = String(gw.gatewayId || gw.eui || '').replace(/[:-]/g, '').toLowerCase();
-              const gwSn = String(gw.serialNumber || '').toLowerCase();
-              if (gwEui === cleanGwId || gwSn === cleanGwId) {
-                gw.uplinkCount = (Number(gw.uplinkCount) || 0) + 1;
-                gw.rxPackets = gw.uplinkCount;
-                gw.lastRssi = rssi;
-                gw.lastSnr = snr;
-                gw.lastUplinkAt = nowIso;
-                updated = true;
-              }
-            }
-            if (updated) {
-              batch.updated_at = new Date();
-              batch.summary = batch.summary || {};
-              batch.summary.totalUplinkPackets = batch.gateways.reduce((acc: number, g: any) => acc + (Number(g.uplinkCount) || 0), 0);
-              batch.summary.lastUplinkAt = nowIso;
-            }
+        for (const batch of batches) {
+          const gateways = Array.isArray(batch.gateways) ? batch.gateways : [];
+          let updated = false;
+          for (const gw of gateways) {
+            if (normalizeId(gw.gatewayId || gw.gateway_id || gw.eui || gw.serialNumber) !== cleanGwId ||
+                !matchesPayload(gw.regionTest || gw.region_test || batch.region_test || batch.metadata?.regionTest,
+                  gw.payloadHex || gw.payload_hex || batch.metadata?.payloadHex)) continue;
+            gw.uplinkCount = (Number(gw.uplinkCount) || 0) + 1;
+            gw.rxPackets = gw.uplinkCount;
+            gw.lastRssi = rssi;
+            gw.lastSnr = snr;
+            gw.lastUplinkAt = nowIso;
+            updated = true;
           }
+          if (!updated) continue;
+          batch.updated_at = new Date();
+          batch.summary = batch.summary || {};
+          batch.summary.totalUplinkPackets = gateways.reduce((acc: number, g: any) => acc + (Number(g.uplinkCount) || 0), 0);
+          batch.summary.lastUplinkAt = nowIso;
+          if (ds?.query) {
+            await ds.query(`UPDATE devices.gateway_test_batches SET gateways = $1, summary = $2, updated_at = NOW() WHERE id = $3 AND status = 'RUNNING'`,
+              [JSON.stringify(gateways), JSON.stringify(batch.summary), batch.id]);
+          }
+          this.gatewayBatches.set(batch.id, batch);
         }
 
-        // 2. Update active gateway test sessions
         if (sessionRepo && typeof sessionRepo.find === 'function') {
-          const sessions = await sessionRepo.find({
-            where: [
-              { gateway_id: rawGwId },
-              { gateway_id: cleanGwId },
-              { eui: rawGwId },
-              { eui: cleanGwId },
-            ],
-          }).catch(() => []);
-
+          const sessions = await sessionRepo.find();
           for (const s of sessions) {
+            if (normalizeId(s.gateway_id) !== cleanGwId && normalizeId(s.eui) !== cleanGwId) continue;
+            if (!matchesPayload(s.region_test || s.lorawan_frequency_plan, s.config_snapshot?.payloadHex)) continue;
             if (s.status === 'RUNNING' || s.status === 'IN_PROGRESS' || s.status === 'REGISTERED') {
               if (s.status === 'REGISTERED') s.status = 'RUNNING';
               s.summary = s.summary || {};
-              const prevCount = Number(s.summary.total_packets || s.summary.rxPackets || s.summary.uplink_count || 0);
+              const prevCount = Number(s.summary.total_packets ?? s.summary.rxPackets ?? s.summary.uplink_count ?? 0);
               s.summary.total_packets = prevCount + 1;
               s.summary.uplink_count = prevCount + 1;
               s.summary.rxPackets = prevCount + 1;
@@ -1550,27 +1549,17 @@ export class TestingAdapterController implements OnApplicationBootstrap {
               s.summary.last_snr = snr;
               s.summary.last_uplink_at = nowIso;
               s.summary.last_seen_at = nowIso;
-
               const targetDuration = Number(s.summary.target_duration_seconds || 43200);
               if (s.started_at) {
                 const elapsed = Math.floor((Date.now() - new Date(s.started_at).getTime()) / 1000);
                 s.summary.elapsed_seconds = elapsed;
                 s.summary.progress_percent = Math.min(100, Math.round((elapsed / targetDuration) * 100));
               }
-
-              await sessionRepo.save(s).catch(() => {});
-
-              try {
-                this.realtimeService?.publishPluginLifecycle('gateway:packet:received', {
-                  sessionId: s.id,
-                  gatewayId: s.gateway_id,
-                  serialNumber: s.serial_number,
-                  totalPackets: s.summary.total_packets,
-                  rssi,
-                  snr,
-                  timestamp: nowIso,
-                });
-              } catch {}
+              await sessionRepo.save(s);
+              this.realtimeService?.publishPluginLifecycle('gateway:packet:received', {
+                sessionId: s.id, gatewayId: s.gateway_id, serialNumber: s.serial_number,
+                totalPackets: s.summary.total_packets, rssi, snr, timestamp: nowIso,
+              });
             }
           }
         }
@@ -2105,6 +2094,8 @@ export class TestingAdapterController implements OnApplicationBootstrap {
         serialNumber: sn,
         gatewayName: g.gatewayName || g.gateway_name || `GW-${sn}`,
         gatewayIp: g.gatewayIp || g.gateway_ip || '',
+        regionTest: g.regionTest || g.region_test || body.regionTest || body.region_test || null,
+        payloadHex: g.payloadHex || g.payload_hex || null,
         soNumber: g.soNumber || g.so_number || body.soNumber || null,
         waNumber: g.waNumber || g.wa_number || body.waNumber || null,
         itemCode: g.itemCode || g.item_code || body.itemCode || null,
@@ -2462,8 +2453,6 @@ export class TestingAdapterController implements OnApplicationBootstrap {
       completedAt: now.toISOString(),
     };
 
-    this.gatewayBatches.set(id, batch);
-
     const ds = typeof this.databaseService?.getDataSourceForTable === 'function' ? this.databaseService.getDataSourceForTable('devices') : null;
     if (ds && typeof ds.query === 'function') {
       await ds.query(
@@ -2472,7 +2461,21 @@ export class TestingAdapterController implements OnApplicationBootstrap {
              gateways = $3, summary = $4, updated_at = NOW()
          WHERE id = $5`,
         [batch.verdict, now, JSON.stringify(gws), JSON.stringify(batch.summary), id],
-      ).catch(() => {});
+      );
+    }
+    this.gatewayBatches.set(id, batch);
+
+    // The batch retains results; remove only its active device test sessions, not history for other SOs.
+    const sessionRepo = this.databaseService.getRepositoryForTable('gateway_test_sessions', GatewayTestSessionEntity);
+    if (sessionRepo?.find && sessionRepo?.remove) {
+      const normalizeId = (value: any) => String(value || '').replace(/[:-]/g, '').toLowerCase();
+      const gatewayIds = new Set(gws.flatMap((g: any) => [normalizeId(g.gatewayId || g.gateway_id || g.eui), normalizeId(g.serialNumber)].filter(Boolean)));
+      const sessions = await sessionRepo.find();
+      const matching = sessions.filter((s: any) =>
+        ['RUNNING', 'IN_PROGRESS', 'REGISTERED'].includes(s.status) &&
+        (gatewayIds.has(normalizeId(s.gateway_id)) || gatewayIds.has(normalizeId(s.eui))) &&
+        (!batch.so_number || s.so_number === batch.so_number));
+      if (matching.length) await sessionRepo.remove(matching);
     }
 
     try {
