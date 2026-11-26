@@ -323,19 +323,40 @@ export class TestingAdapterController implements OnApplicationBootstrap {
 
       const [items, total] = await qb.getManyAndCount();
 
+      // De-duplicate WAs by wa_number so each WA appears exactly once in the dropdown,
+      // while preserving its item_code (or joining multiple item_codes if any)
+      const seenWaNumbers = new Map<string, any>();
+      for (const w of items) {
+        const cleanWa = (w.wa_number || '').trim();
+        if (!cleanWa) continue;
+        if (!seenWaNumbers.has(cleanWa)) {
+          seenWaNumbers.set(cleanWa, {
+            id: w.id,
+            soId: w.so_id,
+            soNumber: w.so?.so_number,
+            waNumber: w.wa_number,
+            itemCode: w.item_code || '',
+            itemCodes: w.item_code ? [w.item_code] : [],
+            plannedQuantity: w.planned_quantity || 0,
+            notes: w.notes,
+            createdAt: w.created_at,
+            updatedAt: w.updated_at,
+          });
+        } else {
+          const existing = seenWaNumbers.get(cleanWa);
+          if (w.item_code && !existing.itemCodes.includes(w.item_code)) {
+            existing.itemCodes.push(w.item_code);
+            if (!existing.itemCode) existing.itemCode = w.item_code;
+          }
+          existing.plannedQuantity += (w.planned_quantity || 0);
+        }
+      }
+
+      const deduplicated = Array.from(seenWaNumbers.values());
+
       return {
-        data: items.map((w) => ({
-          id: w.id,
-          soId: w.so_id,
-          soNumber: w.so?.so_number,
-          waNumber: w.wa_number,
-          itemCode: w.item_code,
-          plannedQuantity: w.planned_quantity,
-          notes: w.notes,
-          createdAt: w.created_at,
-          updatedAt: w.updated_at,
-        })),
-        total,
+        data: deduplicated,
+        total: deduplicated.length,
         page: pageNum,
         limit: limitNum,
       };
