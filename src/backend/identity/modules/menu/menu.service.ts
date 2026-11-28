@@ -90,7 +90,7 @@ export const SYSTEM_MENU_ITEMS: MenuItemDto[] = [
   },
   {
     id: 'memmap-payload:main',
-    title: 'MEMMAP PAYLOAD',
+    title: 'Memmap Payload',
     description: 'Quản lý bản đồ bộ nhớ (Memmap) và tải lên bảng thanh ghi thiết bị',
     icon: 'Layers',
     route: '/plugins/memmap-payload',
@@ -110,7 +110,7 @@ export const SYSTEM_MENU_ITEMS: MenuItemDto[] = [
   },
   {
     id: 'decoder:scripts',
-    title: 'DECODER',
+    title: 'Decoder',
     description: 'Quản lý kịch bản giải mã Uplink payload thiết bị IoT, liên kết Item Code và FW Code',
     icon: 'Document',
     route: '/plugins/decoder?tab=list',
@@ -121,7 +121,7 @@ export const SYSTEM_MENU_ITEMS: MenuItemDto[] = [
   },
   {
     id: 'lorawan-chirpstack:integration',
-    title: 'CHIRPSTACK',
+    title: 'ChirpStack',
     description: 'Đồng bộ Gateways, Applications và Live Frames từ Network Server ChirpStack',
     icon: 'Connection',
     route: '/plugins/lorawan-chirpstack?tab=overview',
@@ -166,64 +166,64 @@ export const SYSTEM_MENU_ITEMS: MenuItemDto[] = [
   },
   {
     id: 'testing:device-payload',
-    title: 'DEVICE PAYLOAD',
+    title: 'Device Payload',
     description: 'Giám sát trực tiếp dữ liệu thô và payload đã giải mã từ trạm testing',
-    icon: 'DataLine',
+    icon: 'Monitor',
     route: '/plugins/testing?tab=device-payload',
     pluginId: 'testing',
     tab: 'device-payload',
     category: 'plugin',
-    order: 16,
+    order: 14,
   },
   {
     id: 'testing:create-device-testing',
-    title: 'CREATE DEVICE TESTING',
-    description: 'Tạo mới phiên kiểm thử thiết bị (DUT), gắn kịch bản Flow và kích hoạt Auto Check',
+    title: 'Create Device Testing',
+    description: 'Quy trình khởi tạo thông tin thiết bị, gán cấu hình và sẵn sàng cho bài test',
     icon: 'CirclePlus',
     route: '/plugins/testing?tab=create-device-testing',
     pluginId: 'testing',
     tab: 'create-device-testing',
     category: 'plugin',
-    order: 17,
+    order: 15,
   },
   {
     id: 'testing:list-device-testing',
-    title: 'LIST DEVICE TESTING',
-    description: 'Danh sách các thiết bị kiểm thử được tạo ra bởi Testing Suite',
+    title: 'List Device Testing',
+    description: 'Tra cứu, lọc và theo dõi trạng thái các thiết bị trong đợt kiểm tra',
     icon: 'List',
     route: '/plugins/testing?tab=list-device-testing',
     pluginId: 'testing',
     tab: 'list-device-testing',
     category: 'plugin',
-    order: 18,
+    order: 16,
   },
   {
     id: 'testing:create-preconfig',
-    title: 'CREATE PRECONFIG',
+    title: 'Create Preconfig',
     description: 'Tạo cấu hình trước (Preconfig) cho thiết bị từ MEMMAP theo SO, WA, Item Code',
-    icon: 'CirclePlus',
+    icon: 'DocumentAdd',
     route: '/plugins/testing?tab=create-preconfig',
     pluginId: 'testing',
     tab: 'create-preconfig',
     category: 'plugin',
-    order: 19,
+    order: 17,
   },
   {
     id: 'testing:list-preconfig',
-    title: 'LIST PRECONFIG',
-    description: 'Danh sách và tra cứu các profile Preconfig thiết bị đã tạo',
-    icon: 'List',
+    title: 'List Preconfig',
+    description: 'Danh sách hồ sơ Preconfig đã tạo, trạng thái hoàn thành và cấu hình thiết bị',
+    icon: 'FolderOpened',
     route: '/plugins/testing?tab=list-preconfig',
     pluginId: 'testing',
     tab: 'list-preconfig',
     category: 'plugin',
-    order: 20,
+    order: 18,
   },
   {
     id: 'testing:list-test-batch',
-    title: 'LIST TEST BATCH',
-    description: 'Danh sách và lịch sử các Test Batch đã thiết lập trong hệ thống',
-    icon: 'ListFilter',
+    title: 'List Test Batch',
+    description: 'Quản lý danh sách các lô kiểm thử (Batch) sản phẩm công nghiệp',
+    icon: 'Collection',
     route: '/plugins/testing?tab=list-test-batch',
     pluginId: 'testing',
     tab: 'list-test-batch',
@@ -232,9 +232,9 @@ export const SYSTEM_MENU_ITEMS: MenuItemDto[] = [
   },
   {
     id: 'testing:list-flow-simulation',
-    title: 'LIST FLOW SIMULATION',
-    description: 'Quản lý danh sách kịch bản mô phỏng kiểm thử (Simulation Flow Templates)',
-    icon: 'Cpu',
+    title: 'List Flow Simulation',
+    description: 'Danh mục luồng mô phỏng chu trình truyền thông và cảm biến',
+    icon: 'Operation',
     route: '/plugins/testing?tab=list-flow-simulation',
     pluginId: 'testing',
     tab: 'list-flow-simulation',
@@ -243,9 +243,9 @@ export const SYSTEM_MENU_ITEMS: MenuItemDto[] = [
   },
   {
     id: 'testing:list-device-simulation',
-    title: 'LIST DEVICE SIMULATION',
-    description: 'Quản lý danh sách thiết bị simulation độc lập',
-    icon: 'Radio',
+    title: 'List Device Simulation',
+    description: 'Xem các thiết bị ảo phục vụ kiểm thử và mô phỏng tải gói tin',
+    icon: 'Cpu',
     route: '/plugins/testing?tab=list-device-simulation',
     pluginId: 'testing',
     tab: 'list-device-simulation',
@@ -254,9 +254,9 @@ export const SYSTEM_MENU_ITEMS: MenuItemDto[] = [
   },
   {
     id: 'testing:so-test-batch',
-    title: 'SO TEST BATCH',
-    description: 'Quản lý liên kết giữa Sale Order (SO) và Test Batch',
-    icon: 'Layers',
+    title: 'So Test Batch',
+    description: 'Liên kết đợt kiểm thử lô sản phẩm trực tiếp với Sales Order (SO)',
+    icon: 'Tickets',
     route: '/plugins/testing?tab=so-test-batch',
     pluginId: 'testing',
     tab: 'so-test-batch',
@@ -265,9 +265,9 @@ export const SYSTEM_MENU_ITEMS: MenuItemDto[] = [
   },
   {
     id: 'testing:create-test-batch',
-    title: 'CREATE TEST BATCH',
-    description: 'Khởi tạo cấu hình Test Batch với ITEM-CODE, LONG_FW, gán Simulation Flow tự động',
-    icon: 'FolderPlus',
+    title: 'Create Test Batch',
+    description: 'Tạo đợt kiểm tra mới, thiết lập số lượng mẫu và tiêu chí đánh giá',
+    icon: 'FolderAdd',
     route: '/plugins/testing?tab=create-test-batch',
     pluginId: 'testing',
     tab: 'create-test-batch',
@@ -276,7 +276,7 @@ export const SYSTEM_MENU_ITEMS: MenuItemDto[] = [
   },
   {
     id: 'testing:device-simulation',
-    title: 'CREATE SIMULATION FLOW',
+    title: 'Create Simulation Flow',
     description: 'Tạo kịch bản mô phỏng kiểm thử kết hợp Auto Check: Downlink, Delay, Cửa sổ đo',
     icon: 'Cpu',
     route: '/plugins/testing?tab=device-simulation',
@@ -554,20 +554,25 @@ export class MenuService implements OnModuleInit {
       const adminAssignments = roleMatrix['ADMIN'] || roleMatrix['SUPER_ADMIN'];
       if (Array.isArray(adminAssignments) && adminAssignments.length > 0) {
         const allowedIds = new Set(adminAssignments);
-        return allItems.filter((item) => allowedIds.has(item.id));
+        const filtered = allItems.filter((item) => allowedIds.has(item.id));
+        if (filtered.length > 0) return filtered;
       }
       return allItems;
     }
 
-    // Nếu không có role nào được truyền hoặc token không xác định role
+    // Nếu không có role nào được truyền hoặc token không xác định role -> Trả về danh sách mặc định/toàn bộ
     if (normalizedRoles.length === 0) {
-      return [];
+      return allItems;
     }
 
     const allowedIds = new Set<string>();
     for (const r of normalizedRoles) {
       const list = roleMatrix[r] || [];
       list.forEach((id) => allowedIds.add(id));
+    }
+
+    if (allowedIds.size === 0) {
+      return allItems;
     }
 
     if (allowedIds.has('memmap-payload:manager') || allowedIds.has('memmap-manager:list')) {

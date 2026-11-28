@@ -164,38 +164,113 @@ export class DisMockAdapter {
       ],
     },
     {
-      id: 101858,
+      id: 3244,
       name: 'SO/2026/01858',
       number: 'SO/2026/01858',
-      url: 'https://dis-so.daviteq.com/mail/view?model=sale.order&res_id=101858',
-      date_order: '2026-10-20T14:00:00Z',
-      order_date: '2026-10-20T14:00:00Z',
-      partner_name: 'CONG TY CO PHAN CAP NUOC SAWACO',
-      partner_id: 5542,
-      partner_email: 'tech@sawaco.com.vn',
-      technical_contact: null,
-      technical_contact_status: 'unassigned',
-      state: 'done',
+      url: 'https://erp.daviteq.com/web#id=3244&model=sale.order&view_type=form',
+      date_order: '2026-10-29T01:46:30Z',
+      order_date: '2026-10-29T01:46:30Z',
+      partner_name: 'CÔNG TY CỔ PHẦN NHỰA BÌNH MINH',
+      partner_id: 7519,
+      partner_email: 'ntdat@binhminhplastic.com.vn',
+      technical_contact: {
+        id: 11102,
+        name: 'NGUYỄN KHÁNH NGUYÊN',
+        email: null,
+      },
+      technical_contact_status: 'EMAIL_MISSING',
+      state: 'sale',
       amount_total: 45000000,
       currency: 'VND',
-      commitment_date: '2026-10-22T17:00:00Z',
-      note: 'Đơn hàng bổ sung bảo dưỡng',
-      client_order_ref: 'SWC-MAINT-2026',
+      commitment_date: null,
+      note: 'Đơn hàng sản xuất C-RS485 Bình Minh',
+      client_order_ref: 'BM-2026-RS485',
       lines: [
         {
-          id: 506,
-          sequence: 1,
-          line_type: 'product',
-          product_id: 1092,
-          product_name: 'Cảm biến áp suất đường ống RS485 / LoRaWAN',
-          default_code: 'WS433-CL-01',
+          id: 32373,
+          sequence: 10,
+          line_type: 'item',
+          product_id: 22134,
+          product_name: 'LORAWAN COMPACT RS485 MASTER NODE, EXTERNAL POWER, 2M CABLE, IP67',
+          default_code: 'WSLRW-C-RS485-01',
           product_uom_qty: 15,
-          qty_delivered: 15,
-          price_unit: 1625000,
-          name: '[WS433-CL-01] Cảm biến áp suất đường ống',
+          qty_delivered: 0,
+          qty_invoiced: 0,
+          name: '',
+          ordering_code: 'WSLRW-C-RS485-01',
+          description: '[WSLRW-C-RS485-01] LORAWAN COMPACT RS485 MASTER N',
         },
       ],
-      wa: [],
+      wa: [
+        {
+          id: 388,
+          wa_code: 'WA/2026/00139',
+          url: 'https://erp.daviteq.com/web#id=388&model=daviteq.warranty&view_type=form',
+          state: {
+            code: 'ready',
+            label: 'Ready',
+          },
+          sales_orders: [
+            {
+              id: 3244,
+              number: 'SO/2026/01858',
+              url: 'https://erp.daviteq.com/web#id=3244&model=sale.order&view_type=form',
+            },
+          ],
+          lines: [
+            {
+              id: 1146,
+              item_code: 'WSLRW-C-RS485-01',
+              product_name: 'LORAWAN COMPACT RS485 MASTER NODE, EXTERNAL POWER, 2M CABLE, IP67',
+              product_uom_qty: 15,
+              quantity: 15,
+              uom: {
+                id: 1,
+                name: 'pc',
+              },
+              wa_code: 'WA/2026/00139',
+              state: {
+                code: 'ready',
+                label: 'Ready',
+              },
+              warranty_status: {
+                code: 'ready',
+                label: 'Ready',
+              },
+              state_info: {
+                code: 'done',
+                label: 'Warranty',
+              },
+              lots: [
+                {
+                  id: 8431,
+                  serial_number: 'LRCR26000092',
+                  quantity: 1,
+                  product_id: 22134,
+                  write_date: '2026-11-09T07:08:59Z',
+                  lot_name: 'LRCR26000092',
+                },
+                {
+                  id: 8432,
+                  serial_number: 'LRCR26000096',
+                  quantity: 1,
+                  product_id: 22134,
+                  write_date: '2026-11-09T07:08:59Z',
+                  lot_name: 'LRCR26000096',
+                },
+              ],
+              description: '[WSLRW-C-RS485-01] LORAWAN COMPACT RS485 MASTER N',
+              sequence: 11,
+              line_type: 'item',
+              write_date: '2026-11-19T04:56:35Z',
+              variant_id: 22134,
+              template_id: 24001,
+              ordering_code: 'WSLRW-C-RS485-01',
+            },
+          ],
+          write_date: '2026-10-29T01:48:59Z',
+        },
+      ],
     },
   ];
 
@@ -236,6 +311,8 @@ export class DisMockAdapter {
       filtered = filtered.filter(
         (order) =>
           order.name.toLowerCase().includes(qLower) ||
+          (order.number && order.number.toLowerCase().includes(qLower)) ||
+          String(order.id) === qLower ||
           order.partner_name.toLowerCase().includes(qLower) ||
           (order.client_order_ref && order.client_order_ref.toLowerCase().includes(qLower)),
       );
@@ -279,8 +356,12 @@ export class DisMockAdapter {
 
   static getOrderDetail(id: number | string): DisSoDetailResponse | null {
     const numId = Number(id);
+    const idLower = String(id).toLowerCase().trim();
     const found = this.mockOrders.find(
-      (order) => order.id === numId || order.name.toLowerCase() === String(id).toLowerCase(),
+      (order) =>
+        order.id === numId ||
+        order.name.toLowerCase() === idLower ||
+        (order.number && order.number.toLowerCase() === idLower),
     );
     return found ? JSON.parse(JSON.stringify(found)) : null;
   }

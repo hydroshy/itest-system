@@ -321,78 +321,9 @@ export class DisManagerAdapterController {
         }
       }
     } else {
-      // Fallback: derive WA from SO productLines
-      // Format: WA/xxxx/xxxxx (e.g. WA/2026/01856)
-      const soNumMatches = cleanSoNumber.match(/(\d{4})\/(\d+)/);
-      const yearStr = soNumMatches ? soNumMatches[1] : new Date().getFullYear().toString();
-      const seqStr = soNumMatches ? soNumMatches[2] : String(orderDetail.id || 1);
-      const waNumberCandidate = `WA/${yearStr}/${seqStr}`;
-
-      // Group product lines by item_code
-      const productGroups = new Map<string, { itemCode: string; plannedQty: number; descriptions: string[] }>();
-      for (const line of productLines) {
-        const code = resolveItemCode(line);
-        if (!code) continue;
-        const qty = Number(line.product_uom_qty || line.quantity || line.qty || 0);
-        const desc = line.name || line.product_name || `Line #${line.id || ''}`;
-        if (!productGroups.has(code)) {
-          productGroups.set(code, { itemCode: code, plannedQty: 0, descriptions: [] });
-        }
-        const grp = productGroups.get(code)!;
-        grp.plannedQty += qty;
-        if (desc && !grp.descriptions.includes(desc)) grp.descriptions.push(desc);
-      }
-
-      if (productGroups.size === 0) {
-        productGroups.set('UNASSIGNED', {
-          itemCode: '',
-          plannedQty: 0,
-          descriptions: [`Derived from SO ${cleanSoNumber}`],
-        });
-      }
-
-      for (const [code, grp] of productGroups.entries()) {
-        const itemCode = grp.itemCode || null;
-        let wa = existingWas.find(
-          (w) => w.so_id === so.id && w.wa_number === waNumberCandidate && ((!itemCode && !w.item_code) || (itemCode && w.item_code === itemCode)),
-        );
-
-        const notes = grp.descriptions.join(', ') || `Derived from SO ${cleanSoNumber}`;
-
-        if (!wa) {
-          wa = waRepo.create({
-            so_id: so.id,
-            wa_number: waNumberCandidate,
-            item_code: itemCode,
-            planned_quantity: grp.plannedQty,
-            notes,
-          });
-          wa = await waRepo.save(wa);
-          createdWas.push(wa);
-        } else {
-          let needsUpdate = false;
-          if (wa.wa_number !== waNumberCandidate) {
-            wa.wa_number = waNumberCandidate;
-            needsUpdate = true;
-          }
-          if (grp.plannedQty > 0 && wa.planned_quantity !== grp.plannedQty) {
-            wa.planned_quantity = grp.plannedQty;
-            needsUpdate = true;
-          }
-          if (itemCode && wa.item_code !== itemCode) {
-            wa.item_code = itemCode;
-            needsUpdate = true;
-          }
-          if (notes && wa.notes !== notes) {
-            wa.notes = notes;
-            needsUpdate = true;
-          }
-          if (needsUpdate) {
-            await waRepo.save(wa);
-          }
-          createdWas.push(wa);
-        }
-      }
+      // Đơn hàng này trên DIS Odoo thực sự chưa có bản ghi bảo hành / Work Authorization (wa: [])
+      // Tuyệt đối không sinh mã giả WA/YYYY/xxxxx để tránh sai lệch dữ liệu sản xuất
+      this.logger.log(`Sales Order ${cleanSoNumber} has no WA in DIS Odoo (wa: []). Skipping synthetic WA creation.`);
     }
 
     return {

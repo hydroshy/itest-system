@@ -210,7 +210,23 @@ export class DisClientService {
       const data = await response.json().catch(() => null);
 
       if (response.ok && data) {
-        return this.normalizeOrderDetail(data);
+        const normalized = this.normalizeOrderDetail(data);
+        // Search-Enriched Fallback: Nếu detail chưa có WA hoặc WA rỗng, tìm kiếm qua searchOrders để lấy WA thật
+        if (!normalized.wa || normalized.wa.length === 0) {
+          try {
+            const searchFallback = await this.searchOrders({ q: normalized.name || normalized.number || idStr, limit: 5 });
+            const matchingItem = (searchFallback.items || []).find(
+              (it: any) => it.id === normalized.id || it.name === normalized.name || it.number === normalized.number
+            );
+            if (matchingItem && Array.isArray(matchingItem.wa) && matchingItem.wa.length > 0) {
+              this.logger.log(`[DIS SYNC] Enriched detail with ${matchingItem.wa.length} WA(s) from search endpoint for order ${normalized.name}`);
+              normalized.wa = matchingItem.wa;
+            }
+          } catch (e: any) {
+            this.logger.warn(`Failed to enrich WA from search: ${e.message}`);
+          }
+        }
+        return normalized;
       }
 
       this.logger.warn(`Direct GET /api/v1/sales-orders/${idStr} returned ${response.status}`);
@@ -265,9 +281,18 @@ export class DisClientService {
             it.number === idStr ||
             String(it.id) === idStr,
         );
-        if (found && found.id && /^\d+$/.test(String(found.id))) {
-          // If search item found, call getOrderDetail with the numeric ID to fetch full details including partner_email
-          return this.getOrderDetail(found.id);
+        if (found) {
+          // If search result has full details and WA array, return normalized directly
+          if (Array.isArray(found.wa) && found.wa.length > 0) {
+            return this.normalizeOrderDetail(found);
+          }
+          if (found.id && /^\d+$/.test(String(found.id))) {
+            const detail = await this.getOrderDetail(found.id);
+            if ((!detail.wa || detail.wa.length === 0) && Array.isArray(found.wa) && found.wa.length > 0) {
+              detail.wa = found.wa;
+            }
+            return detail;
+          }
         }
       } catch (err: any) {
         this.logger.warn(`Fallback search for ${idStr} failed: ${err.message}`);
