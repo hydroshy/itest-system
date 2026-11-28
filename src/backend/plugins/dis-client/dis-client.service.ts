@@ -15,8 +15,8 @@ export class DisClientService {
   private readonly logger = new Logger(DisClientService.name);
 
   // Rate Limiting & Concurrency controls
-  private readonly RATE_LIMIT_PER_MINUTE = 30;
-  private readonly MAX_CONCURRENT = 1; // Strict 1 concurrent request as defensive safety
+  private readonly RATE_LIMIT_PER_MINUTE = 60;
+  private readonly MAX_CONCURRENT = 5; // Allow parallel requests to prevent bottlenecks and deadlock
   private activeRequests = 0;
   private requestTimestamps: number[] = [];
 
@@ -122,13 +122,13 @@ export class DisClientService {
           Authorization: this.authHeader,
           Accept: 'application/json',
         },
-        signal: AbortSignal.timeout(35000),
+        signal: AbortSignal.timeout(10000),
       });
 
-      // Fallback to legacy /api/v1/sales-orders/search if 404
+      // Fallback to legacy /api/v1/so/search or /api/v1/sales-orders/search if 404
       if (response.status === 404) {
-        this.logger.warn(`GET /api/v1/sales-orders returned 404, falling back to /api/v1/sales-orders/search`);
-        const fallbackUrl = new URL('/api/v1/sales-orders/search', this.baseUrl);
+        this.logger.warn(`GET /api/v1/sales-orders returned 404, falling back to /api/v1/so/search`);
+        const fallbackUrl = new URL('/api/v1/so/search', this.baseUrl);
         if (query.year) fallbackUrl.searchParams.set('year', String(query.year));
         if (query.month) fallbackUrl.searchParams.set('month', String(query.month));
         if (query.date_from) fallbackUrl.searchParams.set('date_from', String(query.date_from));
@@ -144,8 +144,30 @@ export class DisClientService {
             Authorization: this.authHeader,
             Accept: 'application/json',
           },
-          signal: AbortSignal.timeout(35000),
+          signal: AbortSignal.timeout(10000),
         });
+
+        // Secondary fallback to /api/v1/sales-orders/search if /api/v1/so/search is 404
+        if (response.status === 404) {
+          const secondaryUrl = new URL('/api/v1/sales-orders/search', this.baseUrl);
+          if (query.year) secondaryUrl.searchParams.set('year', String(query.year));
+          if (query.month) secondaryUrl.searchParams.set('month', String(query.month));
+          if (query.date_from) secondaryUrl.searchParams.set('date_from', String(query.date_from));
+          if (query.date_to) secondaryUrl.searchParams.set('date_to', String(query.date_to));
+          if (query.states) secondaryUrl.searchParams.set('states', String(query.states));
+          if (query.q) secondaryUrl.searchParams.set('q', String(query.q));
+          if (query.limit) secondaryUrl.searchParams.set('limit', String(query.limit));
+          if (query.cursor) secondaryUrl.searchParams.set('cursor', String(query.cursor));
+
+          response = await fetch(secondaryUrl.toString(), {
+            method: 'GET',
+            headers: {
+              Authorization: this.authHeader,
+              Accept: 'application/json',
+            },
+            signal: AbortSignal.timeout(10000),
+          });
+        }
       }
 
       const data = await response.json().catch(() => null);
@@ -204,7 +226,7 @@ export class DisClientService {
           Authorization: this.authHeader,
           Accept: 'application/json',
         },
-        signal: AbortSignal.timeout(35000),
+        signal: AbortSignal.timeout(10000),
       });
 
       const data = await response.json().catch(() => null);
@@ -250,7 +272,7 @@ export class DisClientService {
             Authorization: this.authHeader,
             Accept: 'application/json',
           },
-          signal: AbortSignal.timeout(35000),
+          signal: AbortSignal.timeout(10000),
         });
         if (exactRes.ok) {
           const exactData = await exactRes.json().catch(() => null);
@@ -595,7 +617,7 @@ export class DisClientService {
           Authorization: this.authHeader,
           Accept: 'application/json',
         },
-        signal: AbortSignal.timeout(35000),
+        signal: AbortSignal.timeout(10000),
       });
 
       const responseData = await response.json().catch(() => null);
